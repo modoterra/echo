@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/echo_source",
+  "crates/echo_diagnostics",
+  "crates/echo_lexer",
+  "crates/echo_ast",
+  "crates/echo_parser",
+  "crates/echo_codegen",
+  "crates/xo",
+]

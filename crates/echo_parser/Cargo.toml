@@ -1,0 +1,11 @@
+[package]
+name = "echo_parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+echo_source = { path = "../echo_source" }
+echo_diagnostics = { path = "../echo_diagnostics" }
+echo_lexer = { path = "../echo_lexer" }
+echo_ast = { path = "../echo_ast" }
+chumsky = "1.0.0-alpha.8"

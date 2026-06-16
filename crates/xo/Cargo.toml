@@ -1,0 +1,12 @@
+[package]
+name = "xo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+echo_source = { path = "../echo_source" }
+echo_diagnostics = { path = "../echo_diagnostics" }
+echo_lexer = { path = "../echo_lexer" }
+echo_parser = { path = "../echo_parser" }
+echo_codegen = { path = "../echo_codegen" }
