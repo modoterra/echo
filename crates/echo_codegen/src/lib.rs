@@ -1,4 +1,4 @@
-use echo_ast::{BinaryOp, Expr, Program, Stmt};
+use echo_ast::{BinaryOp, Expr, FunctionDeclStmt, Program, Stmt};
 use echo_diagnostics::Diagnostic;
 use echo_runtime::RuntimeFn;
 use echo_source::Span;
@@ -53,6 +53,8 @@ struct IrModule {
     globals: String,
     aliases: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
+    functions: HashMap<String, FunctionDeclStmt>,
+    call_stack: Vec<String>,
     next_string_id: usize,
     next_call_id: usize,
 }
@@ -63,6 +65,8 @@ impl IrModule {
             globals: String::new(),
             aliases: HashMap::new(),
             locals: HashMap::new(),
+            functions: HashMap::new(),
+            call_stack: Vec::new(),
             next_string_id: 0,
             next_call_id: 0,
         }
@@ -73,54 +77,15 @@ impl IrModule {
         let mut diagnostics = Vec::new();
 
         for statement in &program.statements {
-            match statement {
-                Stmt::Echo(statement) => {
-                    for expr in &statement.exprs {
-                        match self.render_expr(&mut body, expr) {
-                            Ok(value) => self.write_value(&mut body, value),
-                            Err(diagnostic) => diagnostics.push(diagnostic),
-                        }
-                    }
-                }
-                Stmt::FunctionCall(statement) => match runtime_function_for_call(&statement.name) {
-                    Some(function) => {
-                        if let Err(diagnostic) =
-                            self.runtime_call(&mut body, function, &statement.args)
-                        {
-                            diagnostics.push(diagnostic);
-                        }
-                    }
-                    None => diagnostics.push(Diagnostic::new(
-                        format!("unsupported function `{}` in LLVM codegen", statement.name),
-                        statement.span,
-                    )),
-                },
-                Stmt::FunctionDecl(_) => {}
-                Stmt::Assign(statement) => match self.render_expr(&mut body, &statement.value) {
-                    Ok(value) => {
-                        // PHP assignments copy values by default; references are handled separately.
-                        // Source: https://www.php.net/manual/en/language.operators.assignment.php
-                        let name = self.resolve_alias(&statement.name);
-                        self.locals.insert(name, value);
-                    }
-                    Err(diagnostic) => diagnostics.push(diagnostic),
-                },
-                Stmt::AssignRef(statement) => {
-                    let target = self.resolve_alias(&statement.target);
-                    if self.locals.contains_key(&target) {
-                        // PHP references make two variable names aliases for the same value cell.
-                        // Source: https://www.php.net/manual/en/language.references.php
-                        self.aliases.insert(statement.name.clone(), target);
-                    } else {
-                        diagnostics.push(Diagnostic::new(
-                            format!(
-                                "unsupported reference to undefined variable `${}` in LLVM codegen",
-                                statement.target
-                            ),
-                            statement.span,
-                        ));
-                    }
-                }
+            if let Stmt::FunctionDecl(statement) = statement {
+                self.functions
+                    .insert(statement.name.clone(), statement.clone());
+            }
+        }
+
+        for statement in &program.statements {
+            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+                diagnostics.push(diagnostic);
             }
         }
 
@@ -129,6 +94,91 @@ impl IrModule {
         } else {
             Err(diagnostics)
         }
+    }
+
+    fn render_stmt(&mut self, body: &mut String, statement: &Stmt) -> Result<(), Diagnostic> {
+        match statement {
+            Stmt::Echo(statement) => {
+                for expr in &statement.exprs {
+                    let value = self.render_expr(body, expr)?;
+                    self.write_value(body, value);
+                }
+            }
+            Stmt::FunctionCall(statement) => match runtime_function_for_call(&statement.name) {
+                Some(function) => self.runtime_call(body, function, &statement.args)?,
+                None => self.userland_call(body, statement)?,
+            },
+            Stmt::FunctionDecl(_) => {}
+            Stmt::Assign(statement) => {
+                let value = self.render_expr(body, &statement.value)?;
+                // PHP assignments copy values by default; references are handled separately.
+                // Source: https://www.php.net/manual/en/language.operators.assignment.php
+                let name = self.resolve_alias(&statement.name);
+                self.locals.insert(name, value);
+            }
+            Stmt::AssignRef(statement) => {
+                let target = self.resolve_alias(&statement.target);
+                if self.locals.contains_key(&target) {
+                    // PHP references make two variable names aliases for the same value cell.
+                    // Source: https://www.php.net/manual/en/language.references.php
+                    self.aliases.insert(statement.name.clone(), target);
+                } else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported reference to undefined variable `${}` in LLVM codegen",
+                            statement.target
+                        ),
+                        statement.span,
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn userland_call(
+        &mut self,
+        body: &mut String,
+        statement: &echo_ast::FunctionCallStmt,
+    ) -> Result<(), Diagnostic> {
+        let Some(function) = self.functions.get(&statement.name).cloned() else {
+            return Err(Diagnostic::new(
+                format!("unsupported function `{}` in LLVM codegen", statement.name),
+                statement.span,
+            ));
+        };
+
+        if !statement.args.is_empty() || !function.params.is_empty() {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported arguments for userland function `{}` in LLVM codegen",
+                    statement.name
+                ),
+                statement.span,
+            ));
+        }
+
+        if self.call_stack.iter().any(|name| name == &statement.name) {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported recursive userland function `{}` in LLVM codegen",
+                    statement.name
+                ),
+                statement.span,
+            ));
+        }
+
+        self.call_stack.push(statement.name.clone());
+        for statement in &function.body {
+            if let Err(diagnostic) = self.render_stmt(body, statement) {
+                self.call_stack.pop();
+                return Err(diagnostic);
+            }
+        }
+        self.call_stack.pop();
+
+        Ok(())
     }
 
     fn write_call(&mut self, body: &mut String, value: &str) {
