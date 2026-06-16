@@ -2,7 +2,8 @@ use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
     AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr,
-    FunctionCallStmt, NullLiteral, NumberLiteral, Program, Stmt, StringLiteral, VariableExpr,
+    FunctionCallStmt, FunctionDeclStmt, NullLiteral, NumberLiteral, Program, Stmt, StringLiteral,
+    VariableExpr,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -183,84 +184,116 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         )
     });
 
-    let echo_exprs = expr
-        .clone()
-        .padded()
-        .separated_by(just(',').padded())
-        .at_least(1)
-        .collect::<Vec<_>>();
+    let statement = recursive(|statement| {
+        let echo_exprs = expr
+            .clone()
+            .padded()
+            .separated_by(just(',').padded())
+            .at_least(1)
+            .collect::<Vec<_>>();
 
-    let echo_stmt = just("echo")
-        .padded()
-        .ignore_then(echo_exprs)
-        .then_ignore(just(';').padded())
-        .map_with(|exprs, extra| {
-            let span: SimpleSpan = extra.span();
+        let echo_stmt = just("echo")
+            .padded()
+            .ignore_then(echo_exprs)
+            .then_ignore(just(';').padded())
+            .map_with(|exprs, extra| {
+                let span: SimpleSpan = extra.span();
 
-            Stmt::Echo(EchoStmt {
-                exprs,
-                span: Span::new(span.start, span.end),
-            })
-        });
+                Stmt::Echo(EchoStmt {
+                    exprs,
+                    span: Span::new(span.start, span.end),
+                })
+            });
 
-    let function_call_stmt = text::ident()
-        .padded()
-        .then_ignore(just('(').padded())
-        .then(
-            expr.clone()
-                .padded()
-                .separated_by(just(',').padded())
-                .allow_trailing()
-                .collect::<Vec<_>>(),
-        )
-        .then_ignore(just(')').padded())
-        .then_ignore(just(';').padded())
-        .map_with(|(name, args): (&str, Vec<Expr>), extra| {
-            let span: SimpleSpan = extra.span();
+        let function_call_stmt = text::ident()
+            .padded()
+            .then_ignore(just('(').padded())
+            .then(
+                expr.clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then_ignore(just(';').padded())
+            .map_with(|(name, args): (&str, Vec<Expr>), extra| {
+                let span: SimpleSpan = extra.span();
 
-            Stmt::FunctionCall(FunctionCallStmt {
-                name: name.to_string(),
-                args,
-                span: Span::new(span.start, span.end),
-            })
-        });
+                Stmt::FunctionCall(FunctionCallStmt {
+                    name: name.to_string(),
+                    args,
+                    span: Span::new(span.start, span.end),
+                })
+            });
 
-    let assign_stmt = just('$')
-        .ignore_then(text::ident().padded())
-        .then_ignore(just('=').padded())
-        .then(expr.clone())
-        .then_ignore(just(';').padded())
-        .map_with(|(name, value): (&str, Expr), extra| {
-            let span: SimpleSpan = extra.span();
+        let params = just('$')
+            .ignore_then(text::ident())
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .collect::<Vec<_>>();
 
-            Stmt::Assign(AssignStmt {
-                name: name.to_string(),
-                value,
-                span: Span::new(span.start, span.end),
-            })
-        });
+        let function_decl_stmt = just("function")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(params)
+            .then_ignore(just(')').padded())
+            .then_ignore(just('{').padded())
+            .then(statement.clone().repeated().collect::<Vec<_>>())
+            .then_ignore(just('}').padded())
+            .map_with(
+                |((name, params), body): ((&str, Vec<&str>), Vec<Stmt>), extra| {
+                    let span: SimpleSpan = extra.span();
 
-    let assign_ref_stmt = just('$')
-        .ignore_then(text::ident().padded())
-        .then_ignore(just('=').padded())
-        .then_ignore(just('&').padded())
-        .then_ignore(just('$'))
-        .then(text::ident().padded())
-        .then_ignore(just(';').padded())
-        .map_with(|(name, target): (&str, &str), extra| {
-            let span: SimpleSpan = extra.span();
+                    Stmt::FunctionDecl(FunctionDeclStmt {
+                        name: name.to_string(),
+                        params: params.into_iter().map(str::to_string).collect(),
+                        body,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
 
-            Stmt::AssignRef(AssignRefStmt {
-                name: name.to_string(),
-                target: target.to_string(),
-                span: Span::new(span.start, span.end),
-            })
-        });
+        let assign_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then_ignore(just(';').padded())
+            .map_with(|(name, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
 
-    let statement = echo_stmt
-        .or(function_call_stmt)
-        .or(assign_ref_stmt)
-        .or(assign_stmt);
+                Stmt::Assign(AssignStmt {
+                    name: name.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let assign_ref_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(just('&').padded())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .then_ignore(just(';').padded())
+            .map_with(|(name, target): (&str, &str), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::AssignRef(AssignRefStmt {
+                    name: name.to_string(),
+                    target: target.to_string(),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        function_decl_stmt
+            .or(echo_stmt)
+            .or(function_call_stmt)
+            .or(assign_ref_stmt)
+            .or(assign_stmt)
+    });
 
     open_php
         .then(statement.repeated().at_least(1).collect::<Vec<_>>())

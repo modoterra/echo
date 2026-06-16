@@ -93,6 +93,7 @@ impl IrModule {
                         statement.span,
                     )),
                 },
+                Stmt::FunctionDecl(_) => {}
                 Stmt::Assign(statement) => match self.render_expr(&mut body, &statement.value) {
                     Ok(value) => {
                         // PHP assignments copy values by default; references are handled separately.

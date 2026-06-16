@@ -20,6 +20,8 @@ pub enum TokenKind {
     Comma,
     OpenParen,
     CloseParen,
+    OpenBrace,
+    CloseBrace,
     Plus,
     Minus,
     Star,
@@ -62,6 +64,12 @@ enum RawToken {
 
     #[token(")")]
     CloseParen,
+
+    #[token("{")]
+    OpenBrace,
+
+    #[token("}")]
+    CloseBrace,
 
     #[token("+")]
     Plus,
@@ -139,6 +147,8 @@ impl RawToken {
             RawToken::Comma => TokenKind::Comma,
             RawToken::OpenParen => TokenKind::OpenParen,
             RawToken::CloseParen => TokenKind::CloseParen,
+            RawToken::OpenBrace => TokenKind::OpenBrace,
+            RawToken::CloseBrace => TokenKind::CloseBrace,
             RawToken::Plus => TokenKind::Plus,
             RawToken::Minus => TokenKind::Minus,
             RawToken::Star => TokenKind::Star,
