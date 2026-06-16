@@ -27,10 +27,12 @@
 
 ## Parity Loop
 - Work in extremely thin PHP slices: one fixture should introduce one new language/runtime behavior.
+- Before implementing, ground the intended behavior in the PHP manual on `php.net`; prefer a direct manual quote or URL over assumptions.
 - Before implementing, run the fixture with system `php` when behavior is not obvious; make `stdout.txt` match PHP, not assumptions.
 - TDD order: add fixture -> confirm `cargo test -p xo --test php_fixtures` fails -> implement the smallest parser/AST/codegen/runtime change -> make the fixture pass.
 - Each slice must keep the whole path working: `xo ast`, `xo ir`, `xo run`, and `xo build`, with run and built binary stdout matching PHP.
 - After green, run `cargo test --workspace` and `cargo fmt --all -- --check`; run the ignored PHP benchmark when the slice affects executable behavior or benchmark reports.
+- Before committing, re-check the implemented behavior against the relevant `php.net` manual page and update nearby docs/spec notes with the source URL; include a concise source comment in code only when it clarifies non-obvious PHP compatibility behavior.
 - After verifying a completed slice, create a small meaningful conventional commit with an explanatory body; do not push unless the user explicitly asks.
 - Keep unsupported PHP behavior explicit with diagnostics rather than silently approximating semantics.
 

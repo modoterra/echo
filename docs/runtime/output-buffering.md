@@ -1,6 +1,13 @@
 # Output Buffering Runtime Spec
 
-Source: PHP manual Output Control pages, especially `book.outcontrol.php`, `outcontrol.user-level-output-buffers.php`, `outcontrol.nesting-output-buffers.php`, `outcontrol.operations-on-buffers.php`, and the individual `ob_*` function pages.
+Sources: PHP manual Output Control pages, especially:
+
+- https://www.php.net/manual/en/function.echo.php
+- https://www.php.net/manual/en/language.operators.string.php
+- https://www.php.net/manual/en/outcontrol.user-level-output-buffers.php
+- https://www.php.net/manual/en/outcontrol.nesting-output-buffers.php
+- https://www.php.net/manual/en/outcontrol.operations-on-buffers.php
+- Individual `ob_*` function pages such as `function.ob-flush.php`, `function.ob-end-flush.php`, `function.ob-clean.php`, and `function.ob-end-clean.php`.
 
 ## Scope
 
@@ -20,7 +27,13 @@ This spec covers the no-handler subset first. Output handler callbacks, compress
 - Nested buffers isolate output: output written into an inner buffer is not visible to its parent until the inner buffer is flushed or ended with flush.
 - Flushing a nested buffer sends its bytes to the parent buffer, not directly to stdout.
 - Flushing the outermost buffer sends its bytes to stdout.
-- At PHP script shutdown, unclosed buffers are flushed and turned off in reverse start order. Echo does not implement this yet.
+- At PHP script shutdown, unclosed buffers are flushed and turned off in reverse start order.
+
+PHP manual source notes:
+
+- User-level buffers can be started, manipulated, and terminated from PHP code.
+- Flushing sends and discards the contents of the active buffer.
+- Every output buffer not closed by script end or `exit()` is flushed and turned off by PHP shutdown in reverse start order.
 
 ## User Buffers vs System Buffers
 
@@ -161,10 +174,10 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Nested `ob_flush()` flushes active inner buffer to parent and keeps inner buffer active.
 - `ob_flush()` without a later `ob_end_flush()` writes outermost buffer contents to stdout.
 - `ob_clean()` clears the active buffer without removing it.
+- Shutdown auto-flushes unclosed buffers in reverse nesting order.
 
 ## Next Thin Slices
 
-- Shutdown auto-flush for unclosed buffers.
 - `ob_get_level()` for zero, one, and nested buffers after integer return values are available.
 - `ob_get_contents()` after variables and runtime strings are available.
 - `ob_get_clean()` after variables and runtime strings are available.

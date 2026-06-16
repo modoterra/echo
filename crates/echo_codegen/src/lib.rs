@@ -26,12 +26,14 @@ pub fn compile_to_ir(program: &Program) -> Result<String, Vec<Diagnostic>> {
 
 define i32 @main() {{
 entry:
-{}  ret i32 0
+{}  call void @{}()
+  ret i32 0
 }}
 "#,
         module.globals,
         runtime_declarations(),
         body,
+        RuntimeFn::Shutdown.symbol(),
     ))
 }
 
@@ -108,6 +110,7 @@ impl IrModule {
                 ));
             }
             RuntimeFn::EchoWrite => unreachable!("echo_write needs string arguments"),
+            RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
         }
     }
 

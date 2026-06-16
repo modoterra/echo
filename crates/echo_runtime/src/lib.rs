@@ -9,6 +9,7 @@ pub enum RuntimeFn {
     ObFlush,
     ObEndFlush,
     ObEndClean,
+    Shutdown,
 }
 
 impl RuntimeFn {
@@ -19,6 +20,7 @@ impl RuntimeFn {
         Self::ObFlush,
         Self::ObEndFlush,
         Self::ObEndClean,
+        Self::Shutdown,
     ];
 
     pub const fn symbol(self) -> &'static str {
@@ -29,6 +31,7 @@ impl RuntimeFn {
             Self::ObFlush => "echo_ob_flush",
             Self::ObEndFlush => "echo_ob_end_flush",
             Self::ObEndClean => "echo_ob_end_clean",
+            Self::Shutdown => "echo_shutdown",
         }
     }
 
@@ -40,6 +43,7 @@ impl RuntimeFn {
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
+            Self::Shutdown => "declare void @echo_shutdown()",
         }
     }
 }
@@ -66,6 +70,8 @@ impl OutputRuntime {
     }
 
     pub fn ob_clean(&mut self) -> bool {
+        // PHP `ob_clean()` discards active buffer contents without turning the buffer off.
+        // Source: https://www.php.net/manual/en/function.ob-clean.php
         let Some(buffer) = self.stack.last_mut() else {
             return false;
         };
@@ -79,6 +85,8 @@ impl OutputRuntime {
             return false;
         };
 
+        // PHP flushes only the active buffer; nested buffers flush to their parent.
+        // Sources: function.ob-flush.php and outcontrol.nesting-output-buffers.php
         let top = self.stack.len() - 1;
         let bytes = std::mem::take(&mut self.stack[top]);
 
@@ -94,6 +102,8 @@ impl OutputRuntime {
     }
 
     pub fn ob_end_flush(&mut self, stdout: &mut Vec<u8>) -> bool {
+        // PHP `ob_end_flush()` flushes contents and turns off the active buffer.
+        // Source: https://www.php.net/manual/en/function.ob-end-flush.php
         let Some(buffer) = self.stack.pop() else {
             return false;
         };
@@ -103,7 +113,15 @@ impl OutputRuntime {
     }
 
     pub fn ob_end_clean(&mut self) -> bool {
+        // PHP `ob_end_clean()` discards contents and turns off the active buffer.
+        // Source: https://www.php.net/manual/en/function.ob-end-clean.php
         self.stack.pop().is_some()
+    }
+
+    pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
+        // PHP shutdown flushes and turns off still-open buffers in reverse start order.
+        // Source: https://www.php.net/manual/en/outcontrol.user-level-output-buffers.php
+        while self.ob_end_flush(stdout) {}
     }
 
     pub fn level(&self) -> usize {
@@ -162,6 +180,15 @@ pub extern "C" fn echo_ob_end_flush() -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_end_clean() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_end_clean())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_shutdown() {
+    OUTPUT.with(|runtime| {
+        let mut stdout = Vec::new();
+        runtime.borrow_mut().shutdown(&mut stdout);
+        write_stdout(&stdout);
+    });
 }
 
 fn write_stdout(bytes: &[u8]) {
@@ -295,6 +322,22 @@ mod tests {
         assert!(runtime.ob_end_flush(&mut stdout));
 
         assert_eq!(stdout, b"ABCD");
+    }
+
+    #[test]
+    fn shutdown_flushes_open_buffers_inside_out() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"A", &mut stdout);
+        runtime.ob_start();
+        runtime.write(b"B", &mut stdout);
+
+        runtime.shutdown(&mut stdout);
+
+        assert_eq!(stdout, b"AB");
+        assert_eq!(runtime.level(), 0);
     }
 
     #[test]
