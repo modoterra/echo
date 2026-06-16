@@ -11,6 +11,7 @@ pub enum RuntimeFn {
     ObFlush,
     ObEndFlush,
     ObEndClean,
+    ObGetClean,
     ObGetContents,
     ObGetLength,
     ObGetLevel,
@@ -27,6 +28,7 @@ impl RuntimeFn {
         Self::ObFlush,
         Self::ObEndFlush,
         Self::ObEndClean,
+        Self::ObGetClean,
         Self::ObGetContents,
         Self::ObGetLength,
         Self::ObGetLevel,
@@ -43,6 +45,7 @@ impl RuntimeFn {
             Self::ObFlush => "echo_ob_flush",
             Self::ObEndFlush => "echo_ob_end_flush",
             Self::ObEndClean => "echo_ob_end_clean",
+            Self::ObGetClean => "echo_ob_get_clean",
             Self::ObGetContents => "echo_ob_get_contents",
             Self::ObGetLength => "echo_ob_get_length",
             Self::ObGetLevel => "echo_ob_get_level",
@@ -60,6 +63,7 @@ impl RuntimeFn {
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
+            Self::ObGetClean => "declare ptr @echo_ob_get_clean()",
             Self::ObGetContents => "declare ptr @echo_ob_get_contents()",
             Self::ObGetLength => "declare i64 @echo_ob_get_length()",
             Self::ObGetLevel => "declare i64 @echo_ob_get_level()",
@@ -140,7 +144,14 @@ impl OutputRuntime {
     pub fn ob_end_clean(&mut self) -> bool {
         // PHP `ob_end_clean()` discards contents and turns off the active buffer.
         // Source: https://www.php.net/manual/en/function.ob-end-clean.php
-        self.stack.pop().is_some()
+        self.take_active_buffer().is_some()
+    }
+
+    pub fn ob_get_clean(&mut self) -> Option<EchoString> {
+        // PHP `ob_get_clean()` returns the active buffer contents and turns that buffer off.
+        // Source: https://www.php.net/manual/en/function.ob-get-clean.php
+        self.take_active_buffer()
+            .map(|buffer| EchoString { bytes: buffer })
     }
 
     pub fn ob_get_contents(&self) -> Option<EchoString> {
@@ -165,6 +176,10 @@ impl OutputRuntime {
 
     pub fn level(&self) -> usize {
         self.stack.len()
+    }
+
+    fn take_active_buffer(&mut self) -> Option<Vec<u8>> {
+        self.stack.pop()
     }
 }
 
@@ -243,6 +258,14 @@ pub extern "C" fn echo_ob_end_flush() -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_end_clean() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_end_clean())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_get_clean() -> *mut EchoString {
+    OUTPUT.with(|runtime| match runtime.borrow_mut().ob_get_clean() {
+        Some(value) => Box::into_raw(Box::new(value)),
+        None => std::ptr::null_mut(),
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -441,6 +464,21 @@ mod tests {
 
         assert_eq!(value.bytes, b"A");
         assert!(stdout.is_empty());
+    }
+
+    #[test]
+    fn get_clean_returns_buffer_and_turns_it_off() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"buffered", &mut stdout);
+        let value = runtime.ob_get_clean().expect("active buffer");
+        runtime.write(b"after", &mut stdout);
+
+        assert_eq!(value.bytes, b"buffered");
+        assert_eq!(runtime.level(), 0);
+        assert_eq!(stdout, b"after");
     }
 
     #[test]
