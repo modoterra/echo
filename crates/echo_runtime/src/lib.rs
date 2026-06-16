@@ -7,6 +7,7 @@ pub enum RuntimeFn {
     EchoWriteI64,
     EchoWriteI64OrFalse,
     EchoWriteString,
+    EchoValueString,
     ObStart,
     ObStartValue,
     ObClean,
@@ -27,6 +28,7 @@ impl RuntimeFn {
         Self::EchoWriteI64,
         Self::EchoWriteI64OrFalse,
         Self::EchoWriteString,
+        Self::EchoValueString,
         Self::ObStart,
         Self::ObStartValue,
         Self::ObClean,
@@ -47,6 +49,7 @@ impl RuntimeFn {
             Self::EchoWriteI64 => "echo_write_i64",
             Self::EchoWriteI64OrFalse => "echo_write_i64_or_false",
             Self::EchoWriteString => "echo_write_string",
+            Self::EchoValueString => "echo_value_string",
             Self::ObStart => "echo_ob_start",
             Self::ObStartValue => "echo_ob_start_value",
             Self::ObClean => "echo_ob_clean",
@@ -68,8 +71,9 @@ impl RuntimeFn {
             Self::EchoWriteI64 => "declare void @echo_write_i64(i64)",
             Self::EchoWriteI64OrFalse => "declare void @echo_write_i64_or_false(i64)",
             Self::EchoWriteString => "declare void @echo_write_string(ptr)",
+            Self::EchoValueString => "declare %EchoValue @echo_value_string(ptr, i64)",
             Self::ObStart => "declare void @echo_ob_start()",
-            Self::ObStartValue => "declare i1 @echo_ob_start_value({ i32, i64 })",
+            Self::ObStartValue => "declare i1 @echo_ob_start_value(%EchoValue)",
             Self::ObClean => "declare i1 @echo_ob_clean()",
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
@@ -130,11 +134,12 @@ pub struct EchoString {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EchoValue {
-    kind: u32,
-    payload: u64,
+    pub kind: i32,
+    pub payload: u64,
 }
 
-const ECHO_VALUE_NULL: u32 = 0;
+const ECHO_VALUE_NULL: i32 = 0;
+const ECHO_VALUE_STRING: i32 = 3;
 
 impl EchoValue {
     pub const fn null() -> Self {
@@ -146,6 +151,17 @@ impl EchoValue {
 
     pub const fn is_null(self) -> bool {
         self.kind == ECHO_VALUE_NULL
+    }
+
+    pub fn string(value: *mut EchoString) -> Self {
+        Self {
+            kind: ECHO_VALUE_STRING,
+            payload: value as u64,
+        }
+    }
+
+    pub const fn is_string(self) -> bool {
+        self.kind == ECHO_VALUE_STRING
     }
 }
 
@@ -274,6 +290,14 @@ pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>,
         return Ok(None);
     }
 
+    if value.is_string() {
+        let string = unsafe { (value.payload as *const EchoString).as_ref() }
+            .ok_or(EchoError::InvalidCallable)?;
+        let name = std::str::from_utf8(&string.bytes).map_err(|_| EchoError::InvalidCallable)?;
+
+        return Ok(Some(EchoCallable::Function(EchoSymbol::new(name))));
+    }
+
     Err(EchoError::InvalidCallable)
 }
 
@@ -332,6 +356,19 @@ pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
         runtime.borrow_mut().write(bytes, &mut stdout);
         write_stdout(&stdout);
     });
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoValue {
+    if ptr.is_null() && len != 0 {
+        return EchoValue {
+            kind: -1,
+            payload: 0,
+        };
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) }.to_vec();
+    EchoValue::string(Box::into_raw(Box::new(EchoString { bytes })))
 }
 
 #[unsafe(no_mangle)]
@@ -688,6 +725,39 @@ mod tests {
             Err(EchoError::InvalidCallable)
         );
         assert!(!echo_is_callable(value));
+    }
+
+    #[test]
+    fn string_value_normalizes_to_function_callable() {
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: b"filter".to_vec(),
+        }));
+        let value = EchoValue::string(string);
+
+        assert_eq!(
+            echo_normalize_callable(value),
+            Ok(Some(EchoCallable::Function(EchoSymbol::new("filter"))))
+        );
+        assert!(echo_is_callable(value));
+
+        unsafe {
+            drop(Box::from_raw(string));
+        }
+    }
+
+    #[test]
+    fn non_utf8_string_value_is_not_callable() {
+        let string = Box::into_raw(Box::new(EchoString { bytes: vec![0xff] }));
+        let value = EchoValue::string(string);
+
+        assert_eq!(
+            echo_normalize_callable(value),
+            Err(EchoError::InvalidCallable)
+        );
+
+        unsafe {
+            drop(Box::from_raw(string));
+        }
     }
 
     #[test]

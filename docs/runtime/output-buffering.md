@@ -25,6 +25,8 @@ This spec covers the no-handler subset first. Output handler callbacks, compress
 - `echo_write(bytes)` appends to the active top buffer when one exists.
 - If no output buffer is active, `echo_write(bytes)` writes to stdout.
 - `ob_start()` pushes a new empty buffer onto the stack.
+- Generated LLVM passes callbacks to the runtime as `%EchoValue = type { i32, i64 }`; the runtime normalizes values into `EchoCallable` and stores `Option<EchoCallable>` on output buffer frames.
+- LLVM must not encode PHP callable semantics or pass durable output-handler callbacks as raw function pointers.
 - Most `ob_*` operations affect only the active buffer: the last buffer started.
 - Nested buffers isolate output: output written into an inner buffer is not visible to its parent until the inner buffer is flushed or ended with flush.
 - Flushing a nested buffer sends its bytes to the parent buffer, not directly to stdout.
@@ -66,7 +68,8 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_start(null)` explicitly starts a buffer without an output callback.
 - Returns `true` in PHP on success.
 - Echo supports statement-form `ob_start();` and `ob_start(null);`; generated code may call either the legacy no-argument runtime entry or the value-based runtime entry with `EchoValue::Null`.
-- Deferred: non-null callbacks, `chunk_size`, flags, failure modes.
+- Echo lowers string callback names through `echo_value_string(ptr, len)` and `echo_ob_start_value(%EchoValue)` so runtime callable normalization stays centralized.
+- Deferred: callback invocation, `chunk_size`, flags, failure modes, warnings/notices for invalid callbacks.
 
 ### `flush()`
 
@@ -126,6 +129,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns `false` if no output buffer is active.
 - Copying can increase memory usage because PHP returns a new string.
 - Echo supports string returns as opaque runtime string handles; echoing the no-active-buffer `false` value emits an empty string like PHP.
+- Current IR returns raw `ptr` handles for string-producing buffer APIs. This is a bootstrap shape; the long-term ABI should return `EchoValue` or a binary-safe string value carrying ownership and length.
 
 ### `ob_get_clean()`
 

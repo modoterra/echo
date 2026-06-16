@@ -31,6 +31,8 @@ pub fn compile_to_ir(program: &Program) -> Result<String, Vec<Diagnostic>> {
     Ok(format!(
         r#"target triple = "x86_64-pc-linux-gnu"
 
+%EchoValue = type {{ i32, i64 }}
+
 {}
 {}
 
@@ -170,7 +172,24 @@ impl IrModule {
                     self.next_call_id += 1;
 
                     body.push_str(&format!(
-                        "  %runtime_call_{call_id} = call i1 @{}({{ i32, i64 }} zeroinitializer)\n",
+                        "  %runtime_call_{call_id} = call i1 @{}(%EchoValue {{ i32 0, i64 0 }})\n",
+                        RuntimeFn::ObStartValue.symbol()
+                    ));
+                }
+                [Expr::String(expr)] => {
+                    let global = self.string_global(&expr.value);
+                    let value_id = self.next_call_id;
+                    self.next_call_id += 1;
+                    let start_id = self.next_call_id;
+                    self.next_call_id += 1;
+
+                    body.push_str(&format!(
+                        "  %runtime_call_{value_id} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
+                        RuntimeFn::EchoValueString.symbol(),
+                        expr.value.len()
+                    ));
+                    body.push_str(&format!(
+                        "  %runtime_call_{start_id} = call i1 @{}(%EchoValue %runtime_call_{value_id})\n",
                         RuntimeFn::ObStartValue.symbol()
                     ));
                 }
@@ -214,6 +233,7 @@ impl IrModule {
                 unreachable!("echo_write_i64_or_false needs an i64 argument")
             }
             RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
+            RuntimeFn::EchoValueString => unreachable!("echo_value_string needs string arguments"),
             RuntimeFn::ObStartValue => unreachable!("ob_start_value needs an EchoValue argument"),
             RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
             RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
@@ -388,4 +408,54 @@ fn llvm_string_literal(value: &str) -> String {
     }
 
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use echo_ast::{FunctionCallStmt, NullLiteral, StringLiteral};
+
+    fn program(statements: Vec<Stmt>) -> Program {
+        Program {
+            open_tag: None,
+            statements,
+            span: Span::new(0, 0),
+        }
+    }
+
+    #[test]
+    fn ob_start_null_uses_named_echo_value_abi() {
+        let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
+            name: "ob_start".to_string(),
+            args: vec![Expr::Null(NullLiteral {
+                span: Span::new(0, 4),
+            })],
+            span: Span::new(0, 15),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("%EchoValue = type { i32, i64 }"));
+        assert!(ir.contains("declare i1 @echo_ob_start_value(%EchoValue)"));
+        assert!(
+            ir.contains("call i1 @echo_ob_start_value(%EchoValue { i32 0, i64 0 })"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn ob_start_string_constructs_echo_value_callback() {
+        let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
+            name: "ob_start".to_string(),
+            args: vec![Expr::String(StringLiteral {
+                value: "filter".to_string(),
+                span: Span::new(9, 17),
+            })],
+            span: Span::new(0, 19),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_value_string(ptr, i64)"));
+        assert!(ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_0, i64 6)"));
+        assert!(ir.contains("call i1 @echo_ob_start_value(%EchoValue %runtime_call_0)"));
+    }
 }
