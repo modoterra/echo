@@ -160,12 +160,19 @@ impl IrModule {
                     function.symbol()
                 ));
             }
+            RuntimeFn::ObGetClean | RuntimeFn::ObGetFlush => {
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call ptr @{}()\n",
+                    function.symbol()
+                ));
+            }
             RuntimeFn::EchoWrite => unreachable!("echo_write needs string arguments"),
             RuntimeFn::EchoWriteI64 => unreachable!("echo_write_i64 needs an i64 argument"),
             RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
-            RuntimeFn::ObGetClean => unreachable!("ob_get_clean is emitted as an expression"),
             RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
-            RuntimeFn::ObGetFlush => unreachable!("ob_get_flush is emitted as an expression"),
             RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
             RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
             RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
@@ -313,6 +320,8 @@ fn runtime_function_for_call(name: &str) -> Option<RuntimeFn> {
         "ob_flush" => Some(RuntimeFn::ObFlush),
         "ob_end_flush" => Some(RuntimeFn::ObEndFlush),
         "ob_end_clean" => Some(RuntimeFn::ObEndClean),
+        "ob_get_clean" => Some(RuntimeFn::ObGetClean),
+        "ob_get_flush" => Some(RuntimeFn::ObGetFlush),
         _ => None,
     }
 }
