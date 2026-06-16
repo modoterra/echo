@@ -28,17 +28,7 @@ fn benchmark_php_fixtures_against_php() {
         let stdin = fs::read(&stdin_path)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()));
 
-        let echo_binary = artifact_dir.join("benchmark-program");
-        let mut build = Command::new(env!("CARGO_BIN_EXE_xo"));
-        build
-            .arg("build")
-            .arg(&program_path)
-            .arg("-o")
-            .arg(&echo_binary);
-        assert_success(
-            &build.output().expect("failed to build Echo binary"),
-            "xo build",
-        );
+        let echo_binary = build_echo_binary(&program_path, &artifact_dir);
 
         let php_first = output_with_stdin(Command::new("php").arg(&program_path), &stdin);
         assert_success(&php_first, "php");
@@ -62,7 +52,7 @@ fn benchmark_php_fixtures_against_php() {
             .file_name()
             .and_then(|name| name.to_str())
             .expect("fixture path should have UTF-8 file name");
-        let report = format_report(fixture_name, php_duration, echo_duration);
+        let report = format_report(fixture_name, php_duration, echo_duration, &echo_binary);
 
         print!("{report}");
         fs::write(artifact_dir.join("benchmark.txt"), report)
@@ -80,7 +70,28 @@ fn time_iterations(mut f: impl FnMut()) -> Duration {
     start.elapsed()
 }
 
-fn format_report(fixture_name: &str, php_duration: Duration, echo_duration: Duration) -> String {
+fn build_echo_binary(program_path: &Path, artifact_dir: &Path) -> PathBuf {
+    let echo_binary = artifact_dir.join("benchmark-program");
+    let mut build = Command::new(env!("CARGO_BIN_EXE_xo"));
+    build
+        .arg("build")
+        .arg(program_path)
+        .arg("-o")
+        .arg(&echo_binary);
+    assert_success(
+        &build.output().expect("failed to build Echo binary"),
+        "xo build",
+    );
+
+    echo_binary
+}
+
+fn format_report(
+    fixture_name: &str,
+    php_duration: Duration,
+    echo_duration: Duration,
+    echo_binary: &Path,
+) -> String {
     let php_avg = php_duration.as_secs_f64() * 1_000_000.0 / ITERATIONS as f64;
     let echo_avg = echo_duration.as_secs_f64() * 1_000_000.0 / ITERATIONS as f64;
     let speedup = php_avg / echo_avg;
@@ -91,7 +102,8 @@ fn format_report(fixture_name: &str, php_duration: Duration, echo_duration: Dura
     };
 
     format!(
-        "{fixture_name}\n{summary}\niterations: {ITERATIONS}\nphp_avg_us: {:.3}\necho_avg_us: {:.3}\necho_speedup_vs_php: {:.3}x\nphp_total_ms: {:.3}\necho_total_ms: {:.3}\n\n",
+        "{fixture_name}\n{summary}\niterations: {ITERATIONS}\necho_binary: {}\necho_build_timing: excluded; binary built once and reused\nphp_avg_us: {:.3}\necho_avg_us: {:.3}\necho_speedup_vs_php: {:.3}x\nphp_total_ms: {:.3}\necho_total_ms: {:.3}\n\n",
+        echo_binary.display(),
         php_avg,
         echo_avg,
         speedup,

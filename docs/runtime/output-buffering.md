@@ -8,6 +8,7 @@ Sources: PHP manual Output Control pages, especially:
 - https://www.php.net/manual/en/outcontrol.nesting-output-buffers.php
 - https://www.php.net/manual/en/outcontrol.operations-on-buffers.php
 - Individual `ob_*` function pages such as `function.ob-flush.php`, `function.ob-end-flush.php`, `function.ob-clean.php`, and `function.ob-end-clean.php`.
+- https://www.php.net/manual/en/function.ob-get-level.php
 
 ## Scope
 
@@ -148,7 +149,8 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 
 - Returns the nesting level of active output buffering.
 - The first active buffer level is `1`.
-- Echo has not implemented this yet.
+- Returns `0` when output buffering is not active.
+- Echo supports statement-form `echo ob_get_level();` and does not expose the return value to variables yet.
 
 ## Deferred PHP Features
 
@@ -175,10 +177,10 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_flush()` without a later `ob_end_flush()` writes outermost buffer contents to stdout.
 - `ob_clean()` clears the active buffer without removing it.
 - Shutdown auto-flushes unclosed buffers in reverse nesting order.
+- `ob_get_level()` reports zero, one, and nested active buffer levels.
 
 ## Next Thin Slices
 
-- `ob_get_level()` for zero, one, and nested buffers after integer return values are available.
 - `ob_get_contents()` after variables and runtime strings are available.
 - `ob_get_clean()` after variables and runtime strings are available.
 - Failure return values for `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` with no active buffer after bool return values are observable.

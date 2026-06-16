@@ -30,6 +30,7 @@ pub enum Expr {
     String(StringLiteral),
     Number(NumberLiteral),
     Variable(VariableExpr),
+    FunctionCall(FunctionCallExpr),
     Binary(Box<BinaryExpr>),
 }
 
@@ -39,6 +40,7 @@ impl Expr {
             Self::String(expr) => expr.span,
             Self::Number(expr) => expr.span,
             Self::Variable(expr) => expr.span,
+            Self::FunctionCall(expr) => expr.span,
             Self::Binary(expr) => expr.span,
         }
     }
@@ -58,6 +60,12 @@ pub struct NumberLiteral {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableExpr {
+    pub name: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionCallExpr {
     pub name: String,
     pub span: Span,
 }

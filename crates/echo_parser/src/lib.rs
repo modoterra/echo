@@ -1,8 +1,8 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallStmt, NumberLiteral, Program, Stmt,
-    StringLiteral,
+    BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr, FunctionCallStmt, NumberLiteral,
+    Program, Stmt, StringLiteral,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -56,7 +56,20 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         })
     });
 
-    let atom = string.or(number);
+    let function_call_expr = text::ident()
+        .padded()
+        .then_ignore(just('(').padded())
+        .then_ignore(just(')').padded())
+        .map_with(|name: &str, extra| {
+            let span: SimpleSpan = extra.span();
+
+            Expr::FunctionCall(FunctionCallExpr {
+                name: name.to_string(),
+                span: Span::new(span.start, span.end),
+            })
+        });
+
+    let atom = function_call_expr.or(string).or(number);
 
     let expr = atom.clone().foldl(
         just('.').padded().ignore_then(atom).repeated(),

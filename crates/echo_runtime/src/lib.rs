@@ -4,33 +4,39 @@ use std::io::{self, Write};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeFn {
     EchoWrite,
+    EchoWriteI64,
     ObStart,
     ObClean,
     ObFlush,
     ObEndFlush,
     ObEndClean,
+    ObGetLevel,
     Shutdown,
 }
 
 impl RuntimeFn {
     pub const ALL: &'static [Self] = &[
         Self::EchoWrite,
+        Self::EchoWriteI64,
         Self::ObStart,
         Self::ObClean,
         Self::ObFlush,
         Self::ObEndFlush,
         Self::ObEndClean,
+        Self::ObGetLevel,
         Self::Shutdown,
     ];
 
     pub const fn symbol(self) -> &'static str {
         match self {
             Self::EchoWrite => "echo_write",
+            Self::EchoWriteI64 => "echo_write_i64",
             Self::ObStart => "echo_ob_start",
             Self::ObClean => "echo_ob_clean",
             Self::ObFlush => "echo_ob_flush",
             Self::ObEndFlush => "echo_ob_end_flush",
             Self::ObEndClean => "echo_ob_end_clean",
+            Self::ObGetLevel => "echo_ob_get_level",
             Self::Shutdown => "echo_shutdown",
         }
     }
@@ -38,11 +44,13 @@ impl RuntimeFn {
     pub const fn llvm_decl(self) -> &'static str {
         match self {
             Self::EchoWrite => "declare void @echo_write(ptr, i64)",
+            Self::EchoWriteI64 => "declare void @echo_write_i64(i64)",
             Self::ObStart => "declare void @echo_ob_start()",
             Self::ObClean => "declare i1 @echo_ob_clean()",
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
+            Self::ObGetLevel => "declare i64 @echo_ob_get_level()",
             Self::Shutdown => "declare void @echo_shutdown()",
         }
     }
@@ -148,6 +156,16 @@ pub unsafe extern "C" fn echo_write(ptr: *const u8, len: usize) {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_write_i64(value: i64) {
+    let bytes = value.to_string();
+    OUTPUT.with(|runtime| {
+        let mut stdout = Vec::new();
+        runtime.borrow_mut().write(bytes.as_bytes(), &mut stdout);
+        write_stdout(&stdout);
+    });
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_start() {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
 }
@@ -180,6 +198,13 @@ pub extern "C" fn echo_ob_end_flush() -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_end_clean() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_end_clean())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_get_level() -> i64 {
+    // PHP `ob_get_level()` returns zero when inactive; the first active buffer is level 1.
+    // Source: https://www.php.net/manual/en/function.ob-get-level.php
+    OUTPUT.with(|runtime| runtime.borrow().level() as i64)
 }
 
 #[unsafe(no_mangle)]

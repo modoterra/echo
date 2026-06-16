@@ -3,6 +3,11 @@ use echo_diagnostics::Diagnostic;
 use echo_runtime::RuntimeFn;
 use inkwell::context::Context;
 
+enum RuntimeValue {
+    StaticString(String),
+    I64(String),
+}
+
 pub fn backend_name() -> &'static str {
     "llvm"
 }
@@ -60,8 +65,8 @@ impl IrModule {
             match statement {
                 Stmt::Echo(statement) => {
                     for expr in &statement.exprs {
-                        match render_expr(expr) {
-                            Ok(value) => self.write_call(&mut body, &value),
+                        match self.render_expr(&mut body, expr) {
+                            Ok(value) => self.write_value(&mut body, value),
                             Err(diagnostic) => diagnostics.push(diagnostic),
                         }
                     }
@@ -92,6 +97,16 @@ impl IrModule {
         ));
     }
 
+    fn write_value(&mut self, body: &mut String, value: RuntimeValue) {
+        match value {
+            RuntimeValue::StaticString(value) => self.write_call(body, &value),
+            RuntimeValue::I64(name) => body.push_str(&format!(
+                "  call void @{}(i64 {name})\n",
+                RuntimeFn::EchoWriteI64.symbol()
+            )),
+        }
+    }
+
     fn runtime_call(&mut self, body: &mut String, function: RuntimeFn) {
         match function {
             RuntimeFn::ObStart => {
@@ -110,7 +125,50 @@ impl IrModule {
                 ));
             }
             RuntimeFn::EchoWrite => unreachable!("echo_write needs string arguments"),
+            RuntimeFn::EchoWriteI64 => unreachable!("echo_write_i64 needs an i64 argument"),
+            RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
             RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
+        }
+    }
+
+    fn render_expr(&mut self, body: &mut String, expr: &Expr) -> Result<RuntimeValue, Diagnostic> {
+        match expr {
+            Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
+            Expr::Number(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
+            Expr::FunctionCall(expr) if expr.name == "ob_get_level" => {
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call i64 @{}()\n",
+                    RuntimeFn::ObGetLevel.symbol()
+                ));
+
+                Ok(RuntimeValue::I64(name))
+            }
+            Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
+                let RuntimeValue::StaticString(mut output) = self.render_expr(body, &expr.left)?
+                else {
+                    return Err(Diagnostic::new(
+                        "unsupported dynamic concat expression in LLVM codegen",
+                        expr.left.span(),
+                    ));
+                };
+                let RuntimeValue::StaticString(right) = self.render_expr(body, &expr.right)? else {
+                    return Err(Diagnostic::new(
+                        "unsupported dynamic concat expression in LLVM codegen",
+                        expr.right.span(),
+                    ));
+                };
+
+                output.push_str(&right);
+                Ok(RuntimeValue::StaticString(output))
+            }
+            _ => Err(Diagnostic::new(
+                "unsupported expression in LLVM codegen",
+                expr.span(),
+            )),
         }
     }
 
@@ -144,22 +202,6 @@ fn runtime_function_for_call(name: &str) -> Option<RuntimeFn> {
         "ob_end_flush" => Some(RuntimeFn::ObEndFlush),
         "ob_end_clean" => Some(RuntimeFn::ObEndClean),
         _ => None,
-    }
-}
-
-fn render_expr(expr: &Expr) -> Result<String, Diagnostic> {
-    match expr {
-        Expr::String(expr) => Ok(expr.value.clone()),
-        Expr::Number(expr) => Ok(expr.value.clone()),
-        Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
-            let mut output = render_expr(&expr.left)?;
-            output.push_str(&render_expr(&expr.right)?);
-            Ok(output)
-        }
-        _ => Err(Diagnostic::new(
-            "unsupported expression in LLVM codegen",
-            expr.span(),
-        )),
     }
 }
 
