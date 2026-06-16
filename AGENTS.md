@@ -8,6 +8,7 @@
 ## Product Direction
 - Echo is a Rust implementation of a PHP superset: existing PHP programs should remain valid while Echo adds modern runtime and language features.
 - When changing syntax, parsing, diagnostics, or runtime behavior, preserve PHP compatibility unless the task explicitly says otherwise.
+- Output buffering semantics are tracked in `docs/runtime/output-buffering.md`; consult it before changing `echo_runtime` or `ob_*` codegen.
 
 ## Commands
 - Check all crates: `cargo check --workspace`.

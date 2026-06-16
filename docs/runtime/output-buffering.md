@@ -1,0 +1,171 @@
+# Output Buffering Runtime Spec
+
+Source: PHP manual Output Control pages, especially `book.outcontrol.php`, `outcontrol.user-level-output-buffers.php`, `outcontrol.nesting-output-buffers.php`, `outcontrol.operations-on-buffers.php`, and the individual `ob_*` function pages.
+
+## Scope
+
+Echo implements PHP user-level output buffers as a runtime-managed stack. Generated LLVM must route output through `echo_runtime` functions, not directly to `printf`, `puts`, or raw stdout writes.
+
+This spec covers the no-handler subset first. Output handler callbacks, compression handlers, URL rewriting, HTTP/server buffer integration, configurable buffer flags, and chunk-size auto-flush are deferred.
+
+## Runtime Model
+
+- The runtime owns a stack of output buffers.
+- In PHP CLI, `output_buffering` is always off by default, so a script starts with no user-level output buffer unless code calls `ob_start()`.
+- In non-CLI PHP, php.ini can start an initial output buffer via `output_buffering` or `output_handler`; Echo does not model that yet.
+- `echo_write(bytes)` appends to the active top buffer when one exists.
+- If no output buffer is active, `echo_write(bytes)` writes to stdout.
+- `ob_start()` pushes a new empty buffer onto the stack.
+- Most `ob_*` operations affect only the active buffer: the last buffer started.
+- Nested buffers isolate output: output written into an inner buffer is not visible to its parent until the inner buffer is flushed or ended with flush.
+- Flushing a nested buffer sends its bytes to the parent buffer, not directly to stdout.
+- Flushing the outermost buffer sends its bytes to stdout.
+- At PHP script shutdown, unclosed buffers are flushed and turned off in reverse start order. Echo does not implement this yet.
+
+## User Buffers vs System Buffers
+
+PHP has two different buffering layers that must not be confused:
+
+- User-level output buffers are controlled by most `ob_*` functions, such as `ob_start()`, `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()`.
+- System/SAPI buffers are controlled by `flush()` and `ob_implicit_flush()`/`implicit_flush`.
+
+`flush()` only asks PHP and the backend/SAPI to flush system write buffers. It does not flush user-level output buffers. If a user buffer is active, `flush()` alone cannot make buffered `echo` output visible. The PHP pattern for forcing buffered output outward is `ob_flush(); flush();`: first move bytes out of the active user buffer, then ask lower layers to flush.
+
+In CLI, system flushing is output-only. In web SAPIs, flushing may send headers first and then output. Echo currently targets CLI-style binaries and has no HTTP/header layer.
+
+## Implicit Flush
+
+- `implicit_flush` defaults to `false` in php.ini, but defaults to `true` under PHP CLI SAPI.
+- `ob_implicit_flush(true)` turns on implicit system flushing; `ob_implicit_flush(false)` turns it off.
+- Implicit flushing is equivalent to calling `flush()` after every non-empty output block.
+- It does not call `ob_flush()` and does not flush user-level output buffers.
+- Empty strings and headers are not considered output and do not trigger implicit flushing.
+- Control characters such as `"\n"`, `"\r"`, and `"\0"` still count as output and can trigger implicit flushing.
+- Echo currently flushes Rust stdout immediately when bytes reach the system-output layer. That is closer to CLI implicit flushing being on, but Echo does not yet expose `flush()` or `ob_implicit_flush()` as PHP functions.
+
+## Function Semantics
+
+### `ob_start()`
+
+- Pushes an empty output buffer.
+- Returns `true` in PHP on success.
+- Echo currently supports statement-form `ob_start();` and does not expose the return value.
+- Deferred: callback, `chunk_size`, flags, failure modes.
+
+### `flush()`
+
+- Flushes PHP/system/SAPI output buffers only.
+- Does not affect active user-level output buffers.
+- Returns no value.
+- Echo has not implemented this as a PHP-callable function yet. Current runtime writes to stdout and flushes Rust stdout immediately once bytes reach the system-output layer.
+
+### `ob_implicit_flush()`
+
+- Enables or disables implicit system flush after each non-empty output block.
+- Does not affect user-level output buffers and does not implicitly call `ob_flush()`.
+- Returns no value.
+- Echo has not implemented this yet.
+
+### `ob_flush()`
+
+- Requires an active flushable output buffer.
+- Flushes/sends the active buffer contents and discards those contents.
+- Does not turn off the active buffer.
+- For nested buffers, flushed bytes go to the parent buffer.
+- For the outermost buffer, flushed bytes go to stdout.
+- Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
+- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+
+### `ob_end_flush()`
+
+- Requires an active removable output buffer.
+- Flushes/sends the active buffer contents.
+- Discards the active buffer contents.
+- Turns off/removes the active buffer.
+- For nested buffers, flushed bytes go to the parent buffer.
+- For the outermost buffer, flushed bytes go to stdout.
+- Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
+- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+
+### `ob_clean()`
+
+- Requires an active cleanable output buffer.
+- Discards active buffer contents.
+- Does not turn off the active buffer.
+- Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
+- Echo has not implemented this yet.
+
+### `ob_end_clean()`
+
+- Requires an active removable output buffer.
+- Discards active buffer contents.
+- Turns off/removes the active buffer.
+- Does not flush contents to parent/stdout.
+- Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
+- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+
+### `ob_get_contents()`
+
+- Returns a copy of the active buffer contents without clearing or removing it.
+- Returns `false` if no output buffer is active.
+- Copying can increase memory usage because PHP returns a new string.
+- Echo has not implemented this yet; it needs runtime strings, return values, variables, and function-call expressions.
+
+### `ob_get_clean()`
+
+- Returns the active buffer contents.
+- Discards active buffer contents.
+- Turns off/removes the active buffer.
+- Returns `false` if no output buffer is active. PHP notes no `E_NOTICE` for the no-active-buffer case.
+- Echo has not implemented this yet; it needs runtime strings, return values, variables, and function-call expressions.
+
+### `ob_get_flush()`
+
+- Returns the active buffer contents.
+- Flushes/sends the output handler result.
+- Turns off/removes the active buffer.
+- Echo has not implemented this yet.
+
+### `ob_get_length()`
+
+- Returns the active buffer content length in bytes.
+- Echo has not implemented this yet.
+
+### `ob_get_level()`
+
+- Returns the nesting level of active output buffering.
+- The first active buffer level is `1`.
+- Echo has not implemented this yet.
+
+## Deferred PHP Features
+
+- Output handlers/callbacks and handler return values.
+- Handler phase flags and status flags.
+- `ob_start()` flags controlling cleanable/flushable/removable operations.
+- `chunk_size` auto-flush.
+- `ob_get_status()` and `ob_list_handlers()`.
+- `ob_implicit_flush()` PHP function and configurable system flush mode.
+- `flush()` PHP function.
+- `output_add_rewrite_var()` and `output_reset_rewrite_vars()`.
+- zlib output compression and other extension-provided output buffers.
+- Shutdown/error/exception handler interactions.
+
+## Current Echo Coverage
+
+- Direct echo output without buffers.
+- Single buffer `ob_start()` + `ob_end_flush()`.
+- Single buffer `ob_flush()` keeps buffer active and clears flushed contents.
+- Single buffer `ob_end_clean()` discards buffered contents and removes buffer.
+- Nested `ob_end_flush()` flushes to parent buffer.
+- Nested `ob_end_clean()` discards only active inner buffer.
+- Nested `ob_flush()` flushes active inner buffer to parent and keeps inner buffer active.
+- `ob_flush()` without a later `ob_end_flush()` writes outermost buffer contents to stdout.
+
+## Next Thin Slices
+
+- `ob_clean()` clears active buffer without removing it.
+- Shutdown auto-flush for unclosed buffers.
+- `ob_get_level()` for zero, one, and nested buffers after integer return values are available.
+- `ob_get_contents()` after variables and runtime strings are available.
+- `ob_get_clean()` after variables and runtime strings are available.
+- Failure return values for `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` with no active buffer after bool return values are observable.
