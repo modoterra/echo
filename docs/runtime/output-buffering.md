@@ -124,7 +124,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns a copy of the active buffer contents without clearing or removing it.
 - Returns `false` if no output buffer is active.
 - Copying can increase memory usage because PHP returns a new string.
-- Echo supports active-buffer string returns as opaque runtime string handles; the no-active-buffer `false` value is not observable yet.
+- Echo supports string returns as opaque runtime string handles; echoing the no-active-buffer `false` value emits an empty string like PHP.
 
 ### `ob_get_clean()`
 
@@ -132,7 +132,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Discards active buffer contents.
 - Turns off/removes the active buffer.
 - Returns `false` if no output buffer is active. PHP notes no `E_NOTICE` for the no-active-buffer case.
-- Echo supports active-buffer string returns as opaque runtime string handles; the no-active-buffer `false` value is not observable yet.
+- Echo supports string returns as opaque runtime string handles; echoing the no-active-buffer `false` value emits an empty string like PHP.
 
 ### `ob_get_flush()`
 
@@ -140,7 +140,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Flushes/sends the output handler result.
 - Turns off/removes the active buffer.
 - Returns `false` if no output buffer is active and PHP emits `E_NOTICE` on failure.
-- Echo supports active-buffer string returns and flushing; the no-active-buffer `false` value and diagnostic are not observable yet.
+- Echo supports string returns and flushing; echoing the no-active-buffer `false` value emits an empty string like PHP, while the `E_NOTICE` diagnostic is deferred.
 
 ### `ob_get_length()`
 
@@ -183,6 +183,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Shutdown auto-flushes unclosed buffers in reverse nesting order.
 - `ob_get_level()` reports zero, one, and nested active buffer levels.
 - `ob_get_contents()` returns an owned copy of the active buffer contents without clearing it.
+- `ob_get_contents()`, `ob_get_clean()`, and `ob_get_flush()` without an active buffer return PHP `false`; in echo context this emits an empty string.
 - `ob_get_length()` reports active buffer length in bytes without clearing or flushing it.
 - `ob_get_length()` without an active buffer returns PHP `false`; in echo context this emits an empty string.
 - `ob_get_clean()` returns active buffer contents as an owned string and removes the active buffer without flushing it.
