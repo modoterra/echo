@@ -164,6 +164,7 @@ impl IrModule {
             RuntimeFn::EchoWriteI64 => unreachable!("echo_write_i64 needs an i64 argument"),
             RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
             RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
+            RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
             RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
             RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
         }
@@ -194,6 +195,18 @@ impl IrModule {
                 body.push_str(&format!(
                     "  {name} = call i64 @{}()\n",
                     RuntimeFn::ObGetLevel.symbol()
+                ));
+
+                Ok(RuntimeValue::I64(name))
+            }
+            Expr::FunctionCall(expr) if expr.name == "ob_get_length" => {
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call i64 @{}()\n",
+                    RuntimeFn::ObGetLength.symbol()
                 ));
 
                 Ok(RuntimeValue::I64(name))

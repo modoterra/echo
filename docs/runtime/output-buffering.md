@@ -144,7 +144,8 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 ### `ob_get_length()`
 
 - Returns the active buffer content length in bytes.
-- Echo has not implemented this yet.
+- Returns `false` if no output buffer is active.
+- Echo supports active-buffer integer returns; the no-active-buffer `false` value is not observable yet.
 
 ### `ob_get_level()`
 
@@ -181,8 +182,9 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Shutdown auto-flushes unclosed buffers in reverse nesting order.
 - `ob_get_level()` reports zero, one, and nested active buffer levels.
 - `ob_get_contents()` returns an owned copy of the active buffer contents without clearing it.
+- `ob_get_length()` reports active buffer length in bytes without clearing or flushing it.
 
 ## Next Thin Slices
 
-- `ob_get_clean()` after variables and runtime strings are available.
+- `ob_get_clean()`.
 - Failure return values for `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` with no active buffer after bool return values are observable.

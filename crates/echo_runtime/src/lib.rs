@@ -12,6 +12,7 @@ pub enum RuntimeFn {
     ObEndFlush,
     ObEndClean,
     ObGetContents,
+    ObGetLength,
     ObGetLevel,
     Shutdown,
 }
@@ -27,6 +28,7 @@ impl RuntimeFn {
         Self::ObEndFlush,
         Self::ObEndClean,
         Self::ObGetContents,
+        Self::ObGetLength,
         Self::ObGetLevel,
         Self::Shutdown,
     ];
@@ -42,6 +44,7 @@ impl RuntimeFn {
             Self::ObEndFlush => "echo_ob_end_flush",
             Self::ObEndClean => "echo_ob_end_clean",
             Self::ObGetContents => "echo_ob_get_contents",
+            Self::ObGetLength => "echo_ob_get_length",
             Self::ObGetLevel => "echo_ob_get_level",
             Self::Shutdown => "echo_shutdown",
         }
@@ -58,6 +61,7 @@ impl RuntimeFn {
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
             Self::ObGetContents => "declare ptr @echo_ob_get_contents()",
+            Self::ObGetLength => "declare i64 @echo_ob_get_length()",
             Self::ObGetLevel => "declare i64 @echo_ob_get_level()",
             Self::Shutdown => "declare void @echo_shutdown()",
         }
@@ -145,6 +149,12 @@ impl OutputRuntime {
         self.stack.last().map(|buffer| EchoString {
             bytes: buffer.clone(),
         })
+    }
+
+    pub fn ob_get_length(&self) -> Option<usize> {
+        // PHP `ob_get_length()` returns the active buffer length in bytes.
+        // Source: https://www.php.net/manual/en/function.ob-get-length.php
+        self.stack.last().map(Vec::len)
     }
 
     pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
@@ -248,6 +258,16 @@ pub extern "C" fn echo_ob_get_level() -> i64 {
     // PHP `ob_get_level()` returns zero when inactive; the first active buffer is level 1.
     // Source: https://www.php.net/manual/en/function.ob-get-level.php
     OUTPUT.with(|runtime| runtime.borrow().level() as i64)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_get_length() -> i64 {
+    OUTPUT.with(|runtime| {
+        runtime
+            .borrow()
+            .ob_get_length()
+            .map_or(-1, |len| len as i64)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -420,6 +440,20 @@ mod tests {
         assert!(runtime.ob_end_clean());
 
         assert_eq!(value.bytes, b"A");
+        assert!(stdout.is_empty());
+    }
+
+    #[test]
+    fn get_length_returns_active_buffer_byte_length() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        assert_eq!(runtime.ob_get_length(), None);
+
+        runtime.ob_start();
+        runtime.write(b"abc", &mut stdout);
+
+        assert_eq!(runtime.ob_get_length(), Some(3));
         assert!(stdout.is_empty());
     }
 
