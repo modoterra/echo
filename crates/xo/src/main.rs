@@ -70,25 +70,34 @@ fn main() {
             print!("{ir}");
         }
         Command::Run { file } => {
-            let ir = compile_ir(&file);
-            let ir_path = write_temp_ir(&file, &ir);
-            run_command(ProcessCommand::new("lli").arg(&ir_path));
-            let _ = fs::remove_file(ir_path);
+            let binary_path = temp_path(&file, "program");
+            build_binary(&file, &binary_path);
+            run_command(&mut ProcessCommand::new(&binary_path));
+            let _ = fs::remove_file(binary_path);
         }
         Command::Build { file, output } => {
-            let ir = compile_ir(&file);
-            let ir_path = write_temp_ir(&file, &ir);
-            run_command(
-                ProcessCommand::new("clang")
-                    .arg("-x")
-                    .arg("ir")
-                    .arg(&ir_path)
-                    .arg("-o")
-                    .arg(&output),
-            );
-            let _ = fs::remove_file(ir_path);
+            build_binary(&file, &output);
         }
     }
+}
+
+fn build_binary(file: &PathBuf, output: &PathBuf) {
+    ensure_runtime_library();
+
+    let ir = compile_ir(file);
+    let ir_path = write_temp_ir(file, &ir);
+    run_command(
+        ProcessCommand::new("clang")
+            .arg("-x")
+            .arg("ir")
+            .arg(&ir_path)
+            .arg("-x")
+            .arg("none")
+            .arg(runtime_library_path())
+            .arg("-o")
+            .arg(output),
+    );
+    let _ = fs::remove_file(ir_path);
 }
 
 fn compile_ir(file: &PathBuf) -> String {
@@ -112,11 +121,7 @@ fn compile_ir(file: &PathBuf) -> String {
 }
 
 fn write_temp_ir(file: &PathBuf, ir: &str) -> PathBuf {
-    let stem = file
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or("program");
-    let path = std::env::temp_dir().join(format!("echo-{stem}-{}.ll", std::process::id()));
+    let path = temp_path(file, "ll");
 
     fs::write(&path, ir).unwrap_or_else(|err| {
         eprintln!("error: failed to write {}: {err}", path.display());
@@ -124,6 +129,32 @@ fn write_temp_ir(file: &PathBuf, ir: &str) -> PathBuf {
     });
 
     path
+}
+
+fn temp_path(file: &PathBuf, extension: &str) -> PathBuf {
+    let stem = file
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("program");
+
+    std::env::temp_dir().join(format!("echo-{stem}-{}.{}", std::process::id(), extension))
+}
+
+fn runtime_library_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("xo should be two levels below the workspace root")
+        .join("target/debug/libecho_runtime.a")
+}
+
+fn ensure_runtime_library() {
+    run_command(
+        ProcessCommand::new("cargo")
+            .arg("build")
+            .arg("-p")
+            .arg("echo_runtime"),
+    );
 }
 
 fn run_command(command: &mut ProcessCommand) {

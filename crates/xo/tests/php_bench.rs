@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 const ITERATIONS: usize = 100;
 
 #[test]
-#[ignore = "benchmark is opt-in and requires php, clang, and lli on PATH"]
+#[ignore = "benchmark is opt-in and requires php and clang on PATH"]
 fn benchmark_php_fixtures_against_php() {
     assert_tool_exists("php");
 

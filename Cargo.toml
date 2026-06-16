@@ -7,5 +7,6 @@ members = [
   "crates/echo_ast",
   "crates/echo_parser",
   "crates/echo_codegen",
+  "crates/echo_runtime",
   "crates/xo",
 ]

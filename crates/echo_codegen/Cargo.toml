@@ -6,5 +6,6 @@ edition = "2024"
 [dependencies]
 echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
+echo_runtime = { path = "../echo_runtime" }
 echo_source = { path = "../echo_source" }
 inkwell = { version = "0.9", features = ["llvm22-1"] }

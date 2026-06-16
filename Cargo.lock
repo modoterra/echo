@@ -193,6 +193,7 @@ version = "0.1.0"
 dependencies = [
  "echo_ast",
  "echo_diagnostics",
+ "echo_runtime",
  "echo_source",
  "inkwell",
 ]
@@ -224,6 +225,10 @@ dependencies = [
  "echo_lexer",
  "echo_source",
 ]
+
+[[package]]
+name = "echo_runtime"
+version = "0.1.0"
 
 [[package]]
 name = "echo_source"
@@ -587,6 +592,7 @@ dependencies = [
  "echo_diagnostics",
  "echo_lexer",
  "echo_parser",
+ "echo_runtime",
  "echo_source",
 ]
 
