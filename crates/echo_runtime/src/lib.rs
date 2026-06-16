@@ -62,12 +62,21 @@ impl OutputRuntime {
     }
 
     pub fn ob_flush(&mut self, stdout: &mut Vec<u8>) -> bool {
-        let Some(buffer) = self.stack.last_mut() else {
+        if self.stack.is_empty() {
             return false;
         };
 
-        let bytes = std::mem::take(buffer);
-        self.write(&bytes, stdout);
+        let top = self.stack.len() - 1;
+        let bytes = std::mem::take(&mut self.stack[top]);
+
+        match top
+            .checked_sub(1)
+            .and_then(|parent| self.stack.get_mut(parent))
+        {
+            Some(parent) => parent.extend_from_slice(&bytes),
+            None => stdout.extend_from_slice(&bytes),
+        }
+
         true
     }
 
@@ -146,6 +155,7 @@ fn write_stdout(bytes: &[u8]) {
     stdout
         .write_all(bytes)
         .expect("failed to write Echo runtime output");
+    stdout.flush().expect("failed to flush Echo runtime output");
 }
 
 #[cfg(test)]
@@ -189,6 +199,19 @@ mod tests {
         assert!(runtime.ob_end_flush(&mut stdout));
 
         assert_eq!(stdout, b"xy");
+    }
+
+    #[test]
+    fn flush_writes_to_stdout_without_ending_buffer() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"x", &mut stdout);
+        assert!(runtime.ob_flush(&mut stdout));
+
+        assert_eq!(stdout, b"x");
+        assert_eq!(runtime.level(), 1);
     }
 
     #[test]
