@@ -1,8 +1,8 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr, FunctionCallStmt, NumberLiteral,
-    Program, Stmt, StringLiteral,
+    AssignStmt, BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr, FunctionCallStmt,
+    NumberLiteral, Program, Stmt, StringLiteral, VariableExpr,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -56,6 +56,17 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         })
     });
 
+    let variable = just('$')
+        .ignore_then(text::ident())
+        .map_with(|name: &str, extra| {
+            let span: SimpleSpan = extra.span();
+
+            Expr::Variable(VariableExpr {
+                name: name.to_string(),
+                span: Span::new(span.start, span.end),
+            })
+        });
+
     let function_call_expr = text::ident()
         .padded()
         .then_ignore(just('(').padded())
@@ -69,7 +80,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             })
         });
 
-    let atom = function_call_expr.or(string).or(number);
+    let atom = function_call_expr.or(variable).or(string).or(number);
 
     let expr = atom.clone().foldl(
         just('.').padded().ignore_then(atom).repeated(),
@@ -118,7 +129,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             })
         });
 
-    let statement = echo_stmt.or(function_call_stmt);
+    let assign_stmt = just('$')
+        .ignore_then(text::ident().padded())
+        .then_ignore(just('=').padded())
+        .then(expr.clone())
+        .then_ignore(just(';').padded())
+        .map_with(|(name, value): (&str, Expr), extra| {
+            let span: SimpleSpan = extra.span();
+
+            Stmt::Assign(AssignStmt {
+                name: name.to_string(),
+                value,
+                span: Span::new(span.start, span.end),
+            })
+        });
+
+    let statement = echo_stmt.or(function_call_stmt).or(assign_stmt);
 
     open_php
         .then(statement.repeated().at_least(1).collect::<Vec<_>>())

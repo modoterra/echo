@@ -11,6 +11,7 @@ pub struct Program {
 pub enum Stmt {
     Echo(EchoStmt),
     FunctionCall(FunctionCallStmt),
+    Assign(AssignStmt),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +23,13 @@ pub struct EchoStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionCallStmt {
     pub name: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssignStmt {
+    pub name: String,
+    pub value: Expr,
     pub span: Span,
 }
 

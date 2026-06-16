@@ -2,7 +2,9 @@ use echo_ast::{BinaryOp, Expr, Program, Stmt};
 use echo_diagnostics::Diagnostic;
 use echo_runtime::RuntimeFn;
 use inkwell::context::Context;
+use std::collections::HashMap;
 
+#[derive(Clone)]
 enum RuntimeValue {
     StaticString(String),
     I64(String),
@@ -44,6 +46,7 @@ entry:
 
 struct IrModule {
     globals: String,
+    locals: HashMap<String, RuntimeValue>,
     next_string_id: usize,
     next_call_id: usize,
 }
@@ -52,6 +55,7 @@ impl IrModule {
     fn new() -> Self {
         Self {
             globals: String::new(),
+            locals: HashMap::new(),
             next_string_id: 0,
             next_call_id: 0,
         }
@@ -77,6 +81,14 @@ impl IrModule {
                         format!("unsupported function `{}` in LLVM codegen", statement.name),
                         statement.span,
                     )),
+                },
+                Stmt::Assign(statement) => match self.render_expr(&mut body, &statement.value) {
+                    Ok(value) => {
+                        // PHP assignments copy values by default; references are handled separately.
+                        // Source: https://www.php.net/manual/en/language.operators.assignment.php
+                        self.locals.insert(statement.name.clone(), value);
+                    }
+                    Err(diagnostic) => diagnostics.push(diagnostic),
                 },
             }
         }
@@ -135,6 +147,15 @@ impl IrModule {
         match expr {
             Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
             Expr::Number(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
+            Expr::Variable(expr) => self.locals.get(&expr.name).cloned().ok_or_else(|| {
+                Diagnostic::new(
+                    format!(
+                        "unsupported undefined variable `${}` in LLVM codegen",
+                        expr.name
+                    ),
+                    expr.span,
+                )
+            }),
             Expr::FunctionCall(expr) if expr.name == "ob_get_level" => {
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
