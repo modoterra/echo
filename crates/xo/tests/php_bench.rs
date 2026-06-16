@@ -2,9 +2,11 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::thread;
 use std::time::{Duration, Instant};
 
 const ITERATIONS: usize = 100;
+const LINUX_CLK_TCK: f64 = 100.0;
 
 #[test]
 #[ignore = "benchmark is opt-in and requires php and clang on PATH"]
@@ -13,6 +15,8 @@ fn benchmark_php_fixtures_against_php() {
 
     let fixtures = fixture_dirs();
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
+    let suite_start = Instant::now();
+    let mut rows = Vec::new();
 
     for fixture in fixtures {
         let program_path = fixture.join("program.php");
@@ -30,11 +34,13 @@ fn benchmark_php_fixtures_against_php() {
 
         let echo_binary = build_echo_binary(&program_path, &artifact_dir);
 
-        let php_first = output_with_stdin(Command::new("php").arg(&program_path), &stdin);
+        let (php_first, php_resources) =
+            output_with_stdin_and_resources(Command::new("php").arg(&program_path), &stdin);
         assert_success(&php_first, "php");
         assert_eq!(php_first.stdout, expected_stdout, "php output mismatch");
 
-        let echo_first = output_with_stdin(&mut Command::new(&echo_binary), &stdin);
+        let (echo_first, echo_resources) =
+            output_with_stdin_and_resources(&mut Command::new(&echo_binary), &stdin);
         assert_success(&echo_first, "Echo binary");
         assert_eq!(echo_first.stdout, expected_stdout, "Echo output mismatch");
 
@@ -52,12 +58,105 @@ fn benchmark_php_fixtures_against_php() {
             .file_name()
             .and_then(|name| name.to_str())
             .expect("fixture path should have UTF-8 file name");
-        let report = format_report(fixture_name, php_duration, echo_duration, &echo_binary);
+        let row = BenchmarkRow::new(
+            fixture_name,
+            php_duration,
+            echo_duration,
+            php_resources,
+            echo_resources,
+            echo_binary.clone(),
+        );
+        let report = row.format_report();
 
         print!("{report}");
         fs::write(artifact_dir.join("benchmark.txt"), report)
             .unwrap_or_else(|err| panic!("failed to write benchmark report: {err}"));
+        rows.push(row);
     }
+
+    write_suite_artifacts(&rows, suite_start.elapsed());
+}
+
+#[derive(Debug)]
+struct BenchmarkRow {
+    fixture: String,
+    iterations: usize,
+    echo_binary: PathBuf,
+    php_total: Duration,
+    echo_total: Duration,
+    php_resources: Option<ResourceMetrics>,
+    echo_resources: Option<ResourceMetrics>,
+}
+
+impl BenchmarkRow {
+    fn new(
+        fixture: &str,
+        php_total: Duration,
+        echo_total: Duration,
+        php_resources: Option<ResourceMetrics>,
+        echo_resources: Option<ResourceMetrics>,
+        echo_binary: PathBuf,
+    ) -> Self {
+        Self {
+            fixture: fixture.to_string(),
+            iterations: ITERATIONS,
+            echo_binary,
+            php_total,
+            echo_total,
+            php_resources,
+            echo_resources,
+        }
+    }
+
+    fn php_avg_us(&self) -> f64 {
+        self.php_total.as_secs_f64() * 1_000_000.0 / self.iterations as f64
+    }
+
+    fn echo_avg_us(&self) -> f64 {
+        self.echo_total.as_secs_f64() * 1_000_000.0 / self.iterations as f64
+    }
+
+    fn speedup(&self) -> f64 {
+        self.php_avg_us() / self.echo_avg_us()
+    }
+
+    fn format_report(&self) -> String {
+        let summary = if self.speedup() >= 1.0 {
+            format!("Echo is {:.2}x faster than PHP", self.speedup())
+        } else {
+            format!("Echo is {:.2}x slower than PHP", 1.0 / self.speedup())
+        };
+
+        format!(
+            "{}\n{summary}\niterations: {}\necho_binary: {}\necho_build_timing: excluded; binary built once and reused\nphp_avg_us: {:.3}\necho_avg_us: {:.3}\necho_speedup_vs_php: {:.3}x\nphp_total_ms: {:.3}\necho_total_ms: {:.3}\nphp_max_rss_kb: {}\necho_max_rss_kb: {}\nphp_user_cpu_s: {}\necho_user_cpu_s: {}\nphp_system_cpu_s: {}\necho_system_cpu_s: {}\n\n",
+            self.fixture,
+            self.iterations,
+            self.echo_binary.display(),
+            self.php_avg_us(),
+            self.echo_avg_us(),
+            self.speedup(),
+            self.php_total.as_secs_f64() * 1_000.0,
+            self.echo_total.as_secs_f64() * 1_000.0,
+            optional_u64(self.php_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            optional_u64(self.echo_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            optional_f64(self.php_resources.as_ref().and_then(|m| m.user_cpu_s)),
+            optional_f64(self.echo_resources.as_ref().and_then(|m| m.user_cpu_s)),
+            optional_f64(self.php_resources.as_ref().and_then(|m| m.system_cpu_s)),
+            optional_f64(self.echo_resources.as_ref().and_then(|m| m.system_cpu_s)),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct ResourceMetrics {
+    user_cpu_s: Option<f64>,
+    system_cpu_s: Option<f64>,
+    elapsed_wall_s: Option<f64>,
+    max_rss_kb: Option<u64>,
+    minor_page_faults: Option<u64>,
+    major_page_faults: Option<u64>,
+    voluntary_context_switches: Option<u64>,
+    involuntary_context_switches: Option<u64>,
 }
 
 fn time_iterations(mut f: impl FnMut()) -> Duration {
@@ -86,32 +185,6 @@ fn build_echo_binary(program_path: &Path, artifact_dir: &Path) -> PathBuf {
     echo_binary
 }
 
-fn format_report(
-    fixture_name: &str,
-    php_duration: Duration,
-    echo_duration: Duration,
-    echo_binary: &Path,
-) -> String {
-    let php_avg = php_duration.as_secs_f64() * 1_000_000.0 / ITERATIONS as f64;
-    let echo_avg = echo_duration.as_secs_f64() * 1_000_000.0 / ITERATIONS as f64;
-    let speedup = php_avg / echo_avg;
-    let summary = if speedup >= 1.0 {
-        format!("Echo is {:.2}x faster than PHP", speedup)
-    } else {
-        format!("Echo is {:.2}x slower than PHP", 1.0 / speedup)
-    };
-
-    format!(
-        "{fixture_name}\n{summary}\niterations: {ITERATIONS}\necho_binary: {}\necho_build_timing: excluded; binary built once and reused\nphp_avg_us: {:.3}\necho_avg_us: {:.3}\necho_speedup_vs_php: {:.3}x\nphp_total_ms: {:.3}\necho_total_ms: {:.3}\n\n",
-        echo_binary.display(),
-        php_avg,
-        echo_avg,
-        speedup,
-        php_duration.as_secs_f64() * 1_000.0,
-        echo_duration.as_secs_f64() * 1_000.0,
-    )
-}
-
 fn output_with_stdin(command: &mut Command, stdin: &[u8]) -> std::process::Output {
     let mut child = command
         .stdin(Stdio::piped())
@@ -130,6 +203,269 @@ fn output_with_stdin(command: &mut Command, stdin: &[u8]) -> std::process::Outpu
     child
         .wait_with_output()
         .expect("failed to wait for command")
+}
+
+fn output_with_stdin_and_resources(
+    command: &mut Command,
+    stdin: &[u8],
+) -> (std::process::Output, Option<ResourceMetrics>) {
+    let mut child = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
+
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(stdin)
+        .expect("failed to write fixture stdin");
+
+    let pid = child.id();
+    let mut metrics = ResourceMetrics::default();
+    let start = Instant::now();
+
+    loop {
+        merge_proc_metrics(&mut metrics, pid);
+        match child.try_wait().expect("failed to poll command") {
+            Some(_) => break,
+            None => thread::sleep(Duration::from_millis(1)),
+        }
+    }
+
+    merge_proc_metrics(&mut metrics, pid);
+    metrics.elapsed_wall_s = Some(start.elapsed().as_secs_f64());
+    let output = child
+        .wait_with_output()
+        .expect("failed to wait for command");
+
+    (output, Some(metrics))
+}
+
+fn merge_proc_metrics(metrics: &mut ResourceMetrics, pid: u32) {
+    if let Ok(status) = fs::read_to_string(format!("/proc/{pid}/status")) {
+        for line in status.lines() {
+            if let Some(value) = line.strip_prefix("VmHWM:") {
+                metrics.max_rss_kb = max_option(metrics.max_rss_kb, parse_status_kb(value));
+            } else if let Some(value) = line.strip_prefix("VmRSS:") {
+                metrics.max_rss_kb = max_option(metrics.max_rss_kb, parse_status_kb(value));
+            } else if let Some(value) = line.strip_prefix("voluntary_ctxt_switches:") {
+                metrics.voluntary_context_switches = parse_status_u64(value);
+            } else if let Some(value) = line.strip_prefix("nonvoluntary_ctxt_switches:") {
+                metrics.involuntary_context_switches = parse_status_u64(value);
+            }
+        }
+    }
+
+    if let Ok(stat) = fs::read_to_string(format!("/proc/{pid}/stat")) {
+        if let Some(after_comm) = stat.rsplit_once(") ").map(|(_, after)| after) {
+            let fields = after_comm.split_whitespace().collect::<Vec<_>>();
+            metrics.minor_page_faults = fields.get(7).and_then(|value| value.parse().ok());
+            metrics.major_page_faults = fields.get(9).and_then(|value| value.parse().ok());
+            metrics.user_cpu_s = fields
+                .get(11)
+                .and_then(|value| value.parse::<f64>().ok())
+                .map(|ticks| ticks / LINUX_CLK_TCK);
+            metrics.system_cpu_s = fields
+                .get(12)
+                .and_then(|value| value.parse::<f64>().ok())
+                .map(|ticks| ticks / LINUX_CLK_TCK);
+        }
+    }
+}
+
+fn parse_status_kb(value: &str) -> Option<u64> {
+    value.split_whitespace().next()?.parse().ok()
+}
+
+fn parse_status_u64(value: &str) -> Option<u64> {
+    value.trim().parse().ok()
+}
+
+fn max_option(left: Option<u64>, right: Option<u64>) -> Option<u64> {
+    match (left, right) {
+        (Some(left), Some(right)) => Some(left.max(right)),
+        (Some(left), None) => Some(left),
+        (None, Some(right)) => Some(right),
+        (None, None) => None,
+    }
+}
+
+fn write_suite_artifacts(rows: &[BenchmarkRow], suite_duration: Duration) {
+    let root = workspace_root().join("test-results/php");
+    fs::create_dir_all(root.join("graphs"))
+        .unwrap_or_else(|err| panic!("failed to create benchmark graph directory: {err}"));
+
+    fs::write(root.join("benchmark-suite.csv"), suite_csv(rows))
+        .expect("failed to write benchmark suite csv");
+    fs::write(
+        root.join("benchmark-suite.json"),
+        suite_json(rows, suite_duration),
+    )
+    .expect("failed to write benchmark suite json");
+    fs::write(
+        root.join("benchmark-summary.md"),
+        suite_markdown(rows, suite_duration),
+    )
+    .expect("failed to write benchmark suite markdown");
+    fs::write(root.join("benchmark.html"), benchmark_html())
+        .expect("failed to write benchmark html viewer");
+}
+
+fn suite_csv(rows: &[BenchmarkRow]) -> String {
+    let mut csv = String::from(
+        "fixture,iterations,php_avg_us,echo_avg_us,speedup,php_total_ms,echo_total_ms,php_user_cpu_s,echo_user_cpu_s,php_system_cpu_s,echo_system_cpu_s,php_elapsed_wall_s,echo_elapsed_wall_s,php_max_rss_kb,echo_max_rss_kb,php_minor_page_faults,echo_minor_page_faults,php_major_page_faults,echo_major_page_faults,php_voluntary_context_switches,echo_voluntary_context_switches,php_involuntary_context_switches,echo_involuntary_context_switches\n",
+    );
+
+    for row in rows {
+        csv.push_str(&format!(
+            "{},{},{:.3},{:.3},{:.6},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            row.fixture,
+            row.iterations,
+            row.php_avg_us(),
+            row.echo_avg_us(),
+            row.speedup(),
+            row.php_total.as_secs_f64() * 1_000.0,
+            row.echo_total.as_secs_f64() * 1_000.0,
+            optional_f64(row.php_resources.as_ref().and_then(|m| m.user_cpu_s)),
+            optional_f64(row.echo_resources.as_ref().and_then(|m| m.user_cpu_s)),
+            optional_f64(row.php_resources.as_ref().and_then(|m| m.system_cpu_s)),
+            optional_f64(row.echo_resources.as_ref().and_then(|m| m.system_cpu_s)),
+            optional_f64(row.php_resources.as_ref().and_then(|m| m.elapsed_wall_s)),
+            optional_f64(row.echo_resources.as_ref().and_then(|m| m.elapsed_wall_s)),
+            optional_u64(row.php_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            optional_u64(row.echo_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            optional_u64(row.php_resources.as_ref().and_then(|m| m.minor_page_faults)),
+            optional_u64(
+                row.echo_resources
+                    .as_ref()
+                    .and_then(|m| m.minor_page_faults)
+            ),
+            optional_u64(row.php_resources.as_ref().and_then(|m| m.major_page_faults)),
+            optional_u64(
+                row.echo_resources
+                    .as_ref()
+                    .and_then(|m| m.major_page_faults)
+            ),
+            optional_u64(
+                row.php_resources
+                    .as_ref()
+                    .and_then(|m| m.voluntary_context_switches)
+            ),
+            optional_u64(
+                row.echo_resources
+                    .as_ref()
+                    .and_then(|m| m.voluntary_context_switches)
+            ),
+            optional_u64(
+                row.php_resources
+                    .as_ref()
+                    .and_then(|m| m.involuntary_context_switches)
+            ),
+            optional_u64(
+                row.echo_resources
+                    .as_ref()
+                    .and_then(|m| m.involuntary_context_switches)
+            ),
+        ));
+    }
+
+    csv
+}
+
+fn suite_json(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
+    let mut json = format!(
+        "{{\n  \"iterations\": {ITERATIONS},\n  \"suite_total_ms\": {:.3},\n  \"rows\": [\n",
+        suite_duration.as_secs_f64() * 1_000.0
+    );
+
+    for (index, row) in rows.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!(
+            "    {{\"fixture\":\"{}\",\"php_avg_us\":{:.3},\"echo_avg_us\":{:.3},\"speedup\":{:.6},\"php_total_ms\":{:.3},\"echo_total_ms\":{:.3},\"php_max_rss_kb\":{},\"echo_max_rss_kb\":{},\"php_user_cpu_s\":{},\"echo_user_cpu_s\":{},\"php_system_cpu_s\":{},\"echo_system_cpu_s\":{}}}",
+            json_escape(&row.fixture),
+            row.php_avg_us(),
+            row.echo_avg_us(),
+            row.speedup(),
+            row.php_total.as_secs_f64() * 1_000.0,
+            row.echo_total.as_secs_f64() * 1_000.0,
+            json_optional_u64(row.php_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            json_optional_u64(row.echo_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            json_optional_f64(row.php_resources.as_ref().and_then(|m| m.user_cpu_s)),
+            json_optional_f64(row.echo_resources.as_ref().and_then(|m| m.user_cpu_s)),
+            json_optional_f64(row.php_resources.as_ref().and_then(|m| m.system_cpu_s)),
+            json_optional_f64(row.echo_resources.as_ref().and_then(|m| m.system_cpu_s)),
+        ));
+    }
+
+    json.push_str("\n  ]\n}\n");
+    json
+}
+
+fn suite_markdown(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
+    let php_total_ms = rows
+        .iter()
+        .map(|row| row.php_total.as_secs_f64() * 1_000.0)
+        .sum::<f64>();
+    let echo_total_ms = rows
+        .iter()
+        .map(|row| row.echo_total.as_secs_f64() * 1_000.0)
+        .sum::<f64>();
+
+    let mut markdown = format!(
+        "# PHP Benchmark Summary\n\n- fixtures: {}\n- iterations per fixture: {ITERATIONS}\n- suite wall time ms: {:.3}\n- php measured total ms: {:.3}\n- echo measured total ms: {:.3}\n- aggregate speedup: {:.3}x\n\n| Fixture | PHP avg us | Echo avg us | Speedup | PHP RSS KB | Echo RSS KB |\n| --- | ---: | ---: | ---: | ---: | ---: |\n",
+        rows.len(),
+        suite_duration.as_secs_f64() * 1_000.0,
+        php_total_ms,
+        echo_total_ms,
+        php_total_ms / echo_total_ms,
+    );
+
+    for row in rows {
+        markdown.push_str(&format!(
+            "| {} | {:.3} | {:.3} | {:.3}x | {} | {} |\n",
+            row.fixture,
+            row.php_avg_us(),
+            row.echo_avg_us(),
+            row.speedup(),
+            optional_u64(row.php_resources.as_ref().and_then(|m| m.max_rss_kb)),
+            optional_u64(row.echo_resources.as_ref().and_then(|m| m.max_rss_kb)),
+        ));
+    }
+
+    markdown
+}
+
+fn benchmark_html() -> &'static str {
+    include_str!("../../../docs/benchmarks/benchmark.html")
+}
+
+fn optional_f64(value: Option<f64>) -> String {
+    value.map(|value| format!("{value:.3}")).unwrap_or_default()
+}
+
+fn optional_u64(value: Option<u64>) -> String {
+    value.map(|value| value.to_string()).unwrap_or_default()
+}
+
+fn json_optional_f64(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.3}"))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_optional_u64(value: Option<u64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 fn assert_success(output: &std::process::Output, label: &str) {

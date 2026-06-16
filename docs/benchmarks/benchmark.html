@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Echo PHP Benchmark Results</title>
+    <style>
+      body {
+        color: #172033;
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+      }
+      h1 {
+        margin-bottom: 0.25rem;
+      }
+      .chart {
+        margin-top: 2rem;
+      }
+      .note {
+        color: #5b667a;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5.30.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0"></script>
+  </head>
+  <body>
+    <h1>Echo PHP Benchmark Results</h1>
+    <p class="note">
+      Open from <code>test-results/php/benchmark.html</code>. Data loads from
+      <code>benchmark-suite.json</code>. CDN scripts are pinned for local convenience.
+    </p>
+
+    <div id="speedup" class="chart"></div>
+    <div id="time" class="chart"></div>
+    <div id="memory" class="chart"></div>
+    <div id="cpu" class="chart"></div>
+
+    <script>
+      async function loadRows() {
+        const response = await fetch("benchmark-suite.json");
+        const suite = await response.json();
+        return suite.rows;
+      }
+
+      function baseSpec(rows, title) {
+        return {
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          title,
+          width: 960,
+          height: 360,
+          data: { values: rows },
+        };
+      }
+
+      function foldSpec(rows, title, fields, yTitle) {
+        return {
+          ...baseSpec(rows, title),
+          transform: [{ fold: fields, as: ["tool", "value"] }],
+          mark: "bar",
+          encoding: {
+            x: { field: "fixture", type: "nominal", sort: null, axis: { labelAngle: -45 } },
+            y: { field: "value", type: "quantitative", title: yTitle },
+            color: { field: "tool", type: "nominal" },
+            tooltip: [
+              { field: "fixture", type: "nominal" },
+              { field: "tool", type: "nominal" },
+              { field: "value", type: "quantitative" },
+            ],
+          },
+        };
+      }
+
+      async function main() {
+        const rows = await loadRows();
+
+        await vegaEmbed("#speedup", {
+          ...baseSpec(rows, "Echo Speedup vs PHP"),
+          mark: "bar",
+          encoding: {
+            x: { field: "fixture", type: "nominal", sort: null, axis: { labelAngle: -45 } },
+            y: { field: "speedup", type: "quantitative", title: "speedup (x)" },
+            tooltip: [
+              { field: "fixture", type: "nominal" },
+              { field: "speedup", type: "quantitative" },
+            ],
+          },
+        });
+
+        await vegaEmbed(
+          "#time",
+          foldSpec(rows, "Average Wall Time", ["php_avg_us", "echo_avg_us"], "microseconds")
+        );
+
+        await vegaEmbed(
+          "#memory",
+          foldSpec(rows, "Maximum RSS", ["php_max_rss_kb", "echo_max_rss_kb"], "KB")
+        );
+
+        await vegaEmbed(
+          "#cpu",
+          foldSpec(rows, "User CPU Time From /usr/bin/time -v", ["php_user_cpu_s", "echo_user_cpu_s"], "seconds")
+        );
+      }
+
+      main().catch((error) => {
+        document.body.insertAdjacentHTML(
+          "beforeend",
+          `<pre>Failed to load benchmark data: ${error}</pre>`
+        );
+      });
+    </script>
+  </body>
+</html>
