@@ -8,6 +8,7 @@ use std::collections::HashMap;
 enum RuntimeValue {
     StaticString(String),
     I64(String),
+    I64OrFalse(String),
     RuntimeString(String),
 }
 
@@ -136,6 +137,10 @@ impl IrModule {
                 "  call void @{}(i64 {name})\n",
                 RuntimeFn::EchoWriteI64.symbol()
             )),
+            RuntimeValue::I64OrFalse(name) => body.push_str(&format!(
+                "  call void @{}(i64 {name})\n",
+                RuntimeFn::EchoWriteI64OrFalse.symbol()
+            )),
             RuntimeValue::RuntimeString(name) => body.push_str(&format!(
                 "  call void @{}(ptr {name})\n",
                 RuntimeFn::EchoWriteString.symbol()
@@ -171,6 +176,9 @@ impl IrModule {
             }
             RuntimeFn::EchoWrite => unreachable!("echo_write needs string arguments"),
             RuntimeFn::EchoWriteI64 => unreachable!("echo_write_i64 needs an i64 argument"),
+            RuntimeFn::EchoWriteI64OrFalse => {
+                unreachable!("echo_write_i64_or_false needs an i64 argument")
+            }
             RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
             RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
             RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
@@ -218,7 +226,7 @@ impl IrModule {
                     RuntimeFn::ObGetLength.symbol()
                 ));
 
-                Ok(RuntimeValue::I64(name))
+                Ok(RuntimeValue::I64OrFalse(name))
             }
             Expr::FunctionCall(expr) if expr.name == "ob_get_contents" => {
                 let call_id = self.next_call_id;

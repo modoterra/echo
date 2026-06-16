@@ -146,7 +146,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 
 - Returns the active buffer content length in bytes.
 - Returns `false` if no output buffer is active.
-- Echo supports active-buffer integer returns; the no-active-buffer `false` value is not observable yet.
+- Echo represents this as an `int|false` runtime value for supported codegen paths; echoing the no-active-buffer `false` value emits an empty string like PHP.
 
 ### `ob_get_level()`
 
@@ -184,6 +184,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_get_level()` reports zero, one, and nested active buffer levels.
 - `ob_get_contents()` returns an owned copy of the active buffer contents without clearing it.
 - `ob_get_length()` reports active buffer length in bytes without clearing or flushing it.
+- `ob_get_length()` without an active buffer returns PHP `false`; in echo context this emits an empty string.
 - `ob_get_clean()` returns active buffer contents as an owned string and removes the active buffer without flushing it.
 - `ob_get_flush()` returns active buffer contents as an owned string, flushes those contents, and removes the active buffer.
 

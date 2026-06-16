@@ -5,6 +5,7 @@ use std::io::{self, Write};
 pub enum RuntimeFn {
     EchoWrite,
     EchoWriteI64,
+    EchoWriteI64OrFalse,
     EchoWriteString,
     ObStart,
     ObClean,
@@ -23,6 +24,7 @@ impl RuntimeFn {
     pub const ALL: &'static [Self] = &[
         Self::EchoWrite,
         Self::EchoWriteI64,
+        Self::EchoWriteI64OrFalse,
         Self::EchoWriteString,
         Self::ObStart,
         Self::ObClean,
@@ -41,6 +43,7 @@ impl RuntimeFn {
         match self {
             Self::EchoWrite => "echo_write",
             Self::EchoWriteI64 => "echo_write_i64",
+            Self::EchoWriteI64OrFalse => "echo_write_i64_or_false",
             Self::EchoWriteString => "echo_write_string",
             Self::ObStart => "echo_ob_start",
             Self::ObClean => "echo_ob_clean",
@@ -60,6 +63,7 @@ impl RuntimeFn {
         match self {
             Self::EchoWrite => "declare void @echo_write(ptr, i64)",
             Self::EchoWriteI64 => "declare void @echo_write_i64(i64)",
+            Self::EchoWriteI64OrFalse => "declare void @echo_write_i64_or_false(i64)",
             Self::EchoWriteString => "declare void @echo_write_string(ptr)",
             Self::ObStart => "declare void @echo_ob_start()",
             Self::ObClean => "declare i1 @echo_ob_clean()",
@@ -221,6 +225,15 @@ pub extern "C" fn echo_write_i64(value: i64) {
         runtime.borrow_mut().write(bytes.as_bytes(), &mut stdout);
         write_stdout(&stdout);
     });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_write_i64_or_false(value: i64) {
+    // PHP echoes `false` as an empty string. Echo uses -1 as the current sentinel
+    // for int|false runtime calls where supported integer results cannot be negative.
+    if value >= 0 {
+        echo_write_i64(value);
+    }
 }
 
 #[unsafe(no_mangle)]
