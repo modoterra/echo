@@ -36,6 +36,8 @@ pub fn compile_to_ir(program: &Program) -> Result<String, Vec<Diagnostic>> {
 {}
 {}
 
+{}
+
 define i32 @main() {{
 entry:
 {}  call void @{}()
@@ -44,6 +46,7 @@ entry:
 "#,
         module.globals,
         runtime_declarations(),
+        module.functions_ir,
         body,
         RuntimeFn::Shutdown.symbol(),
     ))
@@ -51,10 +54,10 @@ entry:
 
 struct IrModule {
     globals: String,
+    functions_ir: String,
     aliases: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
     functions: HashMap<String, FunctionDeclStmt>,
-    call_stack: Vec<String>,
     next_string_id: usize,
     next_call_id: usize,
 }
@@ -63,10 +66,10 @@ impl IrModule {
     fn new() -> Self {
         Self {
             globals: String::new(),
+            functions_ir: String::new(),
             aliases: HashMap::new(),
             locals: HashMap::new(),
             functions: HashMap::new(),
-            call_stack: Vec::new(),
             next_string_id: 0,
             next_call_id: 0,
         }
@@ -83,6 +86,12 @@ impl IrModule {
             }
         }
 
+        for function in self.functions.clone().into_values() {
+            if let Err(diagnostic) = self.render_userland_function(&function) {
+                diagnostics.push(diagnostic);
+            }
+        }
+
         for statement in &program.statements {
             if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
                 diagnostics.push(diagnostic);
@@ -94,6 +103,41 @@ impl IrModule {
         } else {
             Err(diagnostics)
         }
+    }
+
+    fn render_userland_function(&mut self, function: &FunctionDeclStmt) -> Result<(), Diagnostic> {
+        if !function.params.is_empty() {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported parameters for userland function `{}` in LLVM codegen",
+                    function.name
+                ),
+                function.span,
+            ));
+        }
+
+        let saved_aliases = std::mem::take(&mut self.aliases);
+        let saved_locals = std::mem::take(&mut self.locals);
+        let mut body = String::new();
+
+        for statement in &function.body {
+            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+                self.aliases = saved_aliases;
+                self.locals = saved_locals;
+                return Err(diagnostic);
+            }
+        }
+
+        self.aliases = saved_aliases;
+        self.locals = saved_locals;
+
+        self.functions_ir.push_str(&format!(
+            "define void @{}() {{\nentry:\n{}  ret void\n}}\n",
+            userland_function_symbol(&function.name),
+            body
+        ));
+
+        Ok(())
     }
 
     fn render_stmt(&mut self, body: &mut String, statement: &Stmt) -> Result<(), Diagnostic> {
@@ -159,24 +203,10 @@ impl IrModule {
             ));
         }
 
-        if self.call_stack.iter().any(|name| name == &statement.name) {
-            return Err(Diagnostic::new(
-                format!(
-                    "unsupported recursive userland function `{}` in LLVM codegen",
-                    statement.name
-                ),
-                statement.span,
-            ));
-        }
-
-        self.call_stack.push(statement.name.clone());
-        for statement in &function.body {
-            if let Err(diagnostic) = self.render_stmt(body, statement) {
-                self.call_stack.pop();
-                return Err(diagnostic);
-            }
-        }
-        self.call_stack.pop();
+        body.push_str(&format!(
+            "  call void @{}()\n",
+            userland_function_symbol(&statement.name)
+        ));
 
         Ok(())
     }
@@ -445,6 +475,10 @@ fn runtime_function_for_call(name: &str) -> Option<RuntimeFn> {
     }
 }
 
+fn userland_function_symbol(name: &str) -> String {
+    format!("echo_user_{name}")
+}
+
 fn llvm_string_literal(value: &str) -> String {
     let mut output = String::new();
 
@@ -463,7 +497,7 @@ fn llvm_string_literal(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use echo_ast::{FunctionCallStmt, NullLiteral, StringLiteral};
+    use echo_ast::{EchoStmt, FunctionCallStmt, FunctionDeclStmt, NullLiteral, StringLiteral};
 
     fn program(statements: Vec<Stmt>) -> Program {
         Program {
@@ -507,5 +541,36 @@ mod tests {
         assert!(ir.contains("declare %EchoValue @echo_value_string(ptr, i64)"));
         assert!(ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_0, i64 6)"));
         assert!(ir.contains("call i1 @echo_ob_start_value(%EchoValue %runtime_call_0)"));
+    }
+
+    #[test]
+    fn userland_call_emits_function_definition_and_call() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::FunctionDecl(FunctionDeclStmt {
+                name: "say_after".to_string(),
+                params: vec![],
+                body: vec![Stmt::Echo(EchoStmt {
+                    exprs: vec![Expr::String(StringLiteral {
+                        value: "after\n".to_string(),
+                        span: Span::new(0, 8),
+                    })],
+                    span: Span::new(0, 15),
+                })],
+                span: Span::new(0, 40),
+            }),
+            Stmt::FunctionCall(FunctionCallStmt {
+                name: "say_after".to_string(),
+                args: vec![],
+                span: Span::new(41, 53),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(ir.contains("define void @echo_user_say_after()"), "{ir}");
+        assert!(
+            ir.contains("call void @echo_write(ptr @echo_str_0, i64 6)"),
+            "{ir}"
+        );
+        assert!(ir.contains("call void @echo_user_say_after()"), "{ir}");
     }
 }
