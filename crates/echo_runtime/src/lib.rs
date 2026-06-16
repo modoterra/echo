@@ -96,8 +96,31 @@ struct OutputBuffer {
     callback: Option<EchoCallable>,
 }
 
-#[derive(Debug)]
-pub enum EchoCallable {}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EchoSymbol {
+    name: String,
+}
+
+impl EchoSymbol {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self { name: name.into() }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EchoCallable {
+    Function(EchoSymbol),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EchoError {
+    InvalidCallable,
+    UndefinedFunction(EchoSymbol),
+}
 
 #[derive(Debug)]
 pub struct EchoString {
@@ -139,7 +162,14 @@ impl OutputRuntime {
     }
 
     pub fn ob_start(&mut self) {
-        self.stack.push(OutputBuffer::default());
+        self.ob_start_with_callback(None);
+    }
+
+    pub fn ob_start_with_callback(&mut self, callback: Option<EchoCallable>) {
+        self.stack.push(OutputBuffer {
+            bytes: Vec::new(),
+            callback,
+        });
     }
 
     pub fn ob_clean(&mut self) -> bool {
@@ -235,6 +265,24 @@ impl OutputRuntime {
     }
 }
 
+pub fn echo_is_callable(value: EchoValue) -> bool {
+    echo_normalize_callable(value).is_ok_and(|callback| callback.is_some())
+}
+
+pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>, EchoError> {
+    if value.is_null() {
+        return Ok(None);
+    }
+
+    Err(EchoError::InvalidCallable)
+}
+
+pub fn echo_call(callable: &EchoCallable, _args: &[EchoValue]) -> Result<EchoValue, EchoError> {
+    match callable {
+        EchoCallable::Function(symbol) => Err(EchoError::UndefinedFunction(symbol.clone())),
+    }
+}
+
 thread_local! {
     static OUTPUT: RefCell<OutputRuntime> = RefCell::new(OutputRuntime::new());
 }
@@ -293,11 +341,11 @@ pub extern "C" fn echo_ob_start() {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_start_value(callback: EchoValue) -> bool {
-    if !callback.is_null() {
+    let Ok(callback) = echo_normalize_callable(callback) else {
         return false;
-    }
+    };
 
-    OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+    OUTPUT.with(|runtime| runtime.borrow_mut().ob_start_with_callback(callback));
     true
 }
 
@@ -620,6 +668,47 @@ mod tests {
 
         assert_eq!(value.bytes, b"inner");
         assert_eq!(stdout, b"outer:|after:inner");
+    }
+
+    #[test]
+    fn null_normalizes_to_no_callable() {
+        assert_eq!(echo_normalize_callable(EchoValue::null()), Ok(None));
+        assert!(!echo_is_callable(EchoValue::null()));
+    }
+
+    #[test]
+    fn invalid_value_does_not_normalize_to_callable() {
+        let value = EchoValue {
+            kind: 999,
+            payload: 0,
+        };
+
+        assert_eq!(
+            echo_normalize_callable(value),
+            Err(EchoError::InvalidCallable)
+        );
+        assert!(!echo_is_callable(value));
+    }
+
+    #[test]
+    fn function_callable_call_fails_until_registry_exists() {
+        let callable = EchoCallable::Function(EchoSymbol::new("filter"));
+
+        assert_eq!(
+            echo_call(&callable, &[]),
+            Err(EchoError::UndefinedFunction(EchoSymbol::new("filter")))
+        );
+    }
+
+    #[test]
+    fn ob_start_with_callback_stores_callback_frame() {
+        let mut runtime = OutputRuntime::new();
+        let callback = EchoCallable::Function(EchoSymbol::new("filter"));
+
+        runtime.ob_start_with_callback(Some(callback.clone()));
+
+        assert_eq!(runtime.level(), 1);
+        assert_eq!(runtime.stack[0].callback, Some(callback));
     }
 
     #[test]
