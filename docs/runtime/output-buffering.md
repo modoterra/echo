@@ -188,6 +188,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_get_length()` without an active buffer returns PHP `false`; in echo context this emits an empty string.
 - `ob_get_clean()` returns active buffer contents as an owned string and removes the active buffer without flushing it.
 - `ob_get_flush()` returns active buffer contents as an owned string, flushes those contents, and removes the active buffer.
+- Nested `ob_get_clean()` returns and removes only the active inner buffer without writing its bytes to the parent; nested `ob_get_flush()` returns the same bytes while also writing them to the parent.
 
 ## Next Thin Slices
 
