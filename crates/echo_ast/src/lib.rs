@@ -24,6 +24,7 @@ pub struct EchoStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionCallStmt {
     pub name: String,
+    pub args: Vec<Expr>,
     pub span: Span,
 }
 
@@ -43,6 +44,7 @@ pub struct AssignRefStmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Null(NullLiteral),
     String(StringLiteral),
     Number(NumberLiteral),
     Variable(VariableExpr),
@@ -53,6 +55,7 @@ pub enum Expr {
 impl Expr {
     pub fn span(&self) -> Span {
         match self {
+            Self::Null(expr) => expr.span,
             Self::String(expr) => expr.span,
             Self::Number(expr) => expr.span,
             Self::Variable(expr) => expr.span,
@@ -60,6 +63,11 @@ impl Expr {
             Self::Binary(expr) => expr.span,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NullLiteral {
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +91,7 @@ pub struct VariableExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionCallExpr {
     pub name: String,
+    pub args: Vec<Expr>,
     pub span: Span,
 }
 

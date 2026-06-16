@@ -1,6 +1,7 @@
 use echo_ast::{BinaryOp, Expr, Program, Stmt};
 use echo_diagnostics::Diagnostic;
 use echo_runtime::RuntimeFn;
+use echo_source::Span;
 use inkwell::context::Context;
 use std::collections::HashMap;
 
@@ -80,7 +81,13 @@ impl IrModule {
                     }
                 }
                 Stmt::FunctionCall(statement) => match runtime_function_for_call(&statement.name) {
-                    Some(function) => self.runtime_call(&mut body, function),
+                    Some(function) => {
+                        if let Err(diagnostic) =
+                            self.runtime_call(&mut body, function, &statement.args)
+                        {
+                            diagnostics.push(diagnostic);
+                        }
+                    }
                     None => diagnostics.push(Diagnostic::new(
                         format!("unsupported function `{}` in LLVM codegen", statement.name),
                         statement.span,
@@ -148,11 +155,37 @@ impl IrModule {
         }
     }
 
-    fn runtime_call(&mut self, body: &mut String, function: RuntimeFn) {
+    fn runtime_call(
+        &mut self,
+        body: &mut String,
+        function: RuntimeFn,
+        args: &[Expr],
+    ) -> Result<(), Diagnostic> {
         match function {
-            RuntimeFn::ObStart => {
-                body.push_str(&format!("  call void @{}()\n", function.symbol()));
-            }
+            RuntimeFn::ObStart => match args {
+                [] => body.push_str(&format!("  call void @{}()\n", function.symbol())),
+                [Expr::Null(_)] => {
+                    let call_id = self.next_call_id;
+                    self.next_call_id += 1;
+
+                    body.push_str(&format!(
+                        "  %runtime_call_{call_id} = call i1 @{}({{ i32, i64 }} zeroinitializer)\n",
+                        RuntimeFn::ObStartValue.symbol()
+                    ));
+                }
+                [expr] => {
+                    return Err(Diagnostic::new(
+                        "unsupported ob_start callback argument in LLVM codegen",
+                        expr.span(),
+                    ));
+                }
+                _ => {
+                    return Err(Diagnostic::new(
+                        "unsupported ob_start argument count in LLVM codegen",
+                        args.first().map_or_else(|| Span::new(0, 0), Expr::span),
+                    ));
+                }
+            },
             RuntimeFn::ObClean
             | RuntimeFn::ObFlush
             | RuntimeFn::ObEndFlush
@@ -180,15 +213,22 @@ impl IrModule {
                 unreachable!("echo_write_i64_or_false needs an i64 argument")
             }
             RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
+            RuntimeFn::ObStartValue => unreachable!("ob_start_value needs an EchoValue argument"),
             RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
             RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
             RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
             RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
         }
+
+        Ok(())
     }
 
     fn render_expr(&mut self, body: &mut String, expr: &Expr) -> Result<RuntimeValue, Diagnostic> {
         match expr {
+            Expr::Null(expr) => Err(Diagnostic::new(
+                "unsupported null expression in LLVM codegen",
+                expr.span,
+            )),
             Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
             Expr::Number(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
             Expr::Variable(expr) => self

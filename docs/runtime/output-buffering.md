@@ -63,9 +63,10 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 ### `ob_start()`
 
 - Pushes an empty output buffer.
+- `ob_start(null)` explicitly starts a buffer without an output callback.
 - Returns `true` in PHP on success.
-- Echo currently supports statement-form `ob_start();` and does not expose the return value.
-- Deferred: callback, `chunk_size`, flags, failure modes.
+- Echo supports statement-form `ob_start();` and `ob_start(null);`; generated code may call either the legacy no-argument runtime entry or the value-based runtime entry with `EchoValue::Null`.
+- Deferred: non-null callbacks, `chunk_size`, flags, failure modes.
 
 ### `flush()`
 
@@ -172,6 +173,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 
 - Direct echo output without buffers.
 - Single buffer `ob_start()` + `ob_end_flush()`.
+- Explicit no-callback `ob_start(null)` + `ob_end_flush()`.
 - Single buffer `ob_flush()` keeps buffer active and clears flushed contents.
 - Single buffer `ob_end_clean()` discards buffered contents and removes buffer.
 - Nested `ob_end_flush()` flushes to parent buffer.

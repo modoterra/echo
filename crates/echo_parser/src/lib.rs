@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
     AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr,
-    FunctionCallStmt, NumberLiteral, Program, Stmt, StringLiteral, VariableExpr,
+    FunctionCallStmt, NullLiteral, NumberLiteral, Program, Stmt, StringLiteral, VariableExpr,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -95,70 +95,96 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         .padded()
         .or_not();
 
-    let string = none_of('"')
-        .repeated()
-        .collect::<String>()
-        .delimited_by(just('"'), just('"'))
-        .map(unescape_string)
-        .map_with(|value, extra| {
+    let expr = recursive(|expr| {
+        let null = text::keyword("null")
+            .or(text::keyword("NULL"))
+            .map_with(|_, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Null(NullLiteral {
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let string = none_of('"')
+            .repeated()
+            .collect::<String>()
+            .delimited_by(just('"'), just('"'))
+            .map(unescape_string)
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::String(StringLiteral {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let number = text::digits(10).to_slice().map_with(|value: &str, extra| {
             let span: SimpleSpan = extra.span();
 
-            Expr::String(StringLiteral {
-                value,
+            Expr::Number(NumberLiteral {
+                value: value.to_string(),
                 span: Span::new(span.start, span.end),
             })
         });
 
-    let number = text::digits(10).to_slice().map_with(|value: &str, extra| {
-        let span: SimpleSpan = extra.span();
+        let variable = just('$')
+            .ignore_then(text::ident())
+            .map_with(|name: &str, extra| {
+                let span: SimpleSpan = extra.span();
 
-        Expr::Number(NumberLiteral {
-            value: value.to_string(),
-            span: Span::new(span.start, span.end),
-        })
+                Expr::Variable(VariableExpr {
+                    name: name.to_string(),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let args = expr
+            .clone()
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .collect::<Vec<_>>();
+
+        let function_call_expr = text::ident()
+            .padded()
+            .then_ignore(just('(').padded())
+            .then(args.clone())
+            .then_ignore(just(')').padded())
+            .map_with(|(name, args): (&str, Vec<Expr>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::FunctionCall(FunctionCallExpr {
+                    name: name.to_string(),
+                    args,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let atom = function_call_expr
+            .or(variable)
+            .or(null)
+            .or(string)
+            .or(number);
+
+        atom.clone().foldl(
+            just('.').padded().ignore_then(atom).repeated(),
+            |left, right| {
+                let span = Span::new(left.span().start, right.span().end);
+
+                Expr::Binary(Box::new(BinaryExpr {
+                    left,
+                    op: BinaryOp::Concat,
+                    right,
+                    span,
+                }))
+            },
+        )
     });
 
-    let variable = just('$')
-        .ignore_then(text::ident())
-        .map_with(|name: &str, extra| {
-            let span: SimpleSpan = extra.span();
-
-            Expr::Variable(VariableExpr {
-                name: name.to_string(),
-                span: Span::new(span.start, span.end),
-            })
-        });
-
-    let function_call_expr = text::ident()
-        .padded()
-        .then_ignore(just('(').padded())
-        .then_ignore(just(')').padded())
-        .map_with(|name: &str, extra| {
-            let span: SimpleSpan = extra.span();
-
-            Expr::FunctionCall(FunctionCallExpr {
-                name: name.to_string(),
-                span: Span::new(span.start, span.end),
-            })
-        });
-
-    let atom = function_call_expr.or(variable).or(string).or(number);
-
-    let expr = atom.clone().foldl(
-        just('.').padded().ignore_then(atom).repeated(),
-        |left, right| {
-            let span = Span::new(left.span().start, right.span().end);
-
-            Expr::Binary(Box::new(BinaryExpr {
-                left,
-                op: BinaryOp::Concat,
-                right,
-                span,
-            }))
-        },
-    );
-
     let echo_exprs = expr
+        .clone()
         .padded()
         .separated_by(just(',').padded())
         .at_least(1)
@@ -180,13 +206,21 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
     let function_call_stmt = text::ident()
         .padded()
         .then_ignore(just('(').padded())
+        .then(
+            expr.clone()
+                .padded()
+                .separated_by(just(',').padded())
+                .allow_trailing()
+                .collect::<Vec<_>>(),
+        )
         .then_ignore(just(')').padded())
         .then_ignore(just(';').padded())
-        .map_with(|name: &str, extra| {
+        .map_with(|(name, args): (&str, Vec<Expr>), extra| {
             let span: SimpleSpan = extra.span();
 
             Stmt::FunctionCall(FunctionCallStmt {
                 name: name.to_string(),
+                args,
                 span: Span::new(span.start, span.end),
             })
         });

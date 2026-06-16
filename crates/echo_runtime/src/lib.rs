@@ -8,6 +8,7 @@ pub enum RuntimeFn {
     EchoWriteI64OrFalse,
     EchoWriteString,
     ObStart,
+    ObStartValue,
     ObClean,
     ObFlush,
     ObEndFlush,
@@ -27,6 +28,7 @@ impl RuntimeFn {
         Self::EchoWriteI64OrFalse,
         Self::EchoWriteString,
         Self::ObStart,
+        Self::ObStartValue,
         Self::ObClean,
         Self::ObFlush,
         Self::ObEndFlush,
@@ -46,6 +48,7 @@ impl RuntimeFn {
             Self::EchoWriteI64OrFalse => "echo_write_i64_or_false",
             Self::EchoWriteString => "echo_write_string",
             Self::ObStart => "echo_ob_start",
+            Self::ObStartValue => "echo_ob_start_value",
             Self::ObClean => "echo_ob_clean",
             Self::ObFlush => "echo_ob_flush",
             Self::ObEndFlush => "echo_ob_end_flush",
@@ -66,6 +69,7 @@ impl RuntimeFn {
             Self::EchoWriteI64OrFalse => "declare void @echo_write_i64_or_false(i64)",
             Self::EchoWriteString => "declare void @echo_write_string(ptr)",
             Self::ObStart => "declare void @echo_ob_start()",
+            Self::ObStartValue => "declare i1 @echo_ob_start_value({ i32, i64 })",
             Self::ObClean => "declare i1 @echo_ob_clean()",
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
@@ -98,6 +102,28 @@ pub enum EchoCallable {}
 #[derive(Debug)]
 pub struct EchoString {
     bytes: Vec<u8>,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EchoValue {
+    kind: u32,
+    payload: u64,
+}
+
+const ECHO_VALUE_NULL: u32 = 0;
+
+impl EchoValue {
+    pub const fn null() -> Self {
+        Self {
+            kind: ECHO_VALUE_NULL,
+            payload: 0,
+        }
+    }
+
+    pub const fn is_null(self) -> bool {
+        self.kind == ECHO_VALUE_NULL
+    }
 }
 
 impl OutputRuntime {
@@ -263,6 +289,16 @@ pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_start() {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_start_value(callback: EchoValue) -> bool {
+    if !callback.is_null() {
+        return false;
+    }
+
+    OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+    true
 }
 
 #[unsafe(no_mangle)]
