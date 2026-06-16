@@ -82,8 +82,18 @@ impl RuntimeFn {
 
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
-    stack: Vec<Vec<u8>>,
+    stack: Vec<OutputBuffer>,
 }
+
+#[derive(Debug, Default)]
+struct OutputBuffer {
+    bytes: Vec<u8>,
+    #[allow(dead_code)]
+    callback: Option<EchoCallable>,
+}
+
+#[derive(Debug)]
+pub enum EchoCallable {}
 
 #[derive(Debug)]
 pub struct EchoString {
@@ -97,13 +107,13 @@ impl OutputRuntime {
 
     pub fn write(&mut self, bytes: &[u8], stdout: &mut Vec<u8>) {
         match self.stack.last_mut() {
-            Some(buffer) => buffer.extend_from_slice(bytes),
+            Some(buffer) => buffer.bytes.extend_from_slice(bytes),
             None => stdout.extend_from_slice(bytes),
         }
     }
 
     pub fn ob_start(&mut self) {
-        self.stack.push(Vec::new());
+        self.stack.push(OutputBuffer::default());
     }
 
     pub fn ob_clean(&mut self) -> bool {
@@ -113,7 +123,7 @@ impl OutputRuntime {
             return false;
         };
 
-        buffer.clear();
+        buffer.bytes.clear();
         true
     }
 
@@ -125,13 +135,13 @@ impl OutputRuntime {
         // PHP flushes only the active buffer; nested buffers flush to their parent.
         // Sources: function.ob-flush.php and outcontrol.nesting-output-buffers.php
         let top = self.stack.len() - 1;
-        let bytes = std::mem::take(&mut self.stack[top]);
+        let bytes = std::mem::take(&mut self.stack[top].bytes);
 
         match top
             .checked_sub(1)
             .and_then(|parent| self.stack.get_mut(parent))
         {
-            Some(parent) => parent.extend_from_slice(&bytes),
+            Some(parent) => parent.bytes.extend_from_slice(&bytes),
             None => stdout.extend_from_slice(&bytes),
         }
 
@@ -145,7 +155,7 @@ impl OutputRuntime {
             return false;
         };
 
-        self.write(&buffer, stdout);
+        self.write(&buffer.bytes, stdout);
         true
     }
 
@@ -174,14 +184,14 @@ impl OutputRuntime {
         // PHP `ob_get_contents()` returns a new string with the active buffer contents.
         // Source: https://www.php.net/manual/en/function.ob-get-contents.php
         self.stack.last().map(|buffer| EchoString {
-            bytes: buffer.clone(),
+            bytes: buffer.bytes.clone(),
         })
     }
 
     pub fn ob_get_length(&self) -> Option<usize> {
         // PHP `ob_get_length()` returns the active buffer length in bytes.
         // Source: https://www.php.net/manual/en/function.ob-get-length.php
-        self.stack.last().map(Vec::len)
+        self.stack.last().map(|buffer| buffer.bytes.len())
     }
 
     pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
@@ -195,7 +205,7 @@ impl OutputRuntime {
     }
 
     fn take_active_buffer(&mut self) -> Option<Vec<u8>> {
-        self.stack.pop()
+        self.stack.pop().map(|buffer| buffer.bytes)
     }
 }
 
