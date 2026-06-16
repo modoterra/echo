@@ -15,7 +15,7 @@
 - Run all tests/doc-tests: `cargo test --workspace`.
 - Check formatting: `cargo fmt --all -- --check`.
 - Focus one crate: `cargo test -p echo_parser` or `cargo check -p xo`.
-- Benchmark PHP fixtures against system PHP: `cargo test -p xo --test php_bench -- --ignored --nocapture`.
+- Benchmark PHP fixtures against system PHP: `cargo test -p xo --test php_bench -- --ignored --nocapture`; shorten local runs with `ECHO_BENCH_ITERATIONS=5 cargo test -p xo --test php_bench -- --ignored --nocapture`.
 - Run CLI examples: `cargo run -p xo -- ast examples/hello.php`, `cargo run -p xo -- ir examples/hello.php`, `cargo run -p xo -- run examples/hello.php`, and `cargo run -p xo -- build examples/hello.php -o /tmp/hello`.
 
 ## PHP Compatibility Fixtures

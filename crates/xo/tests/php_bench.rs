@@ -1,3 +1,4 @@
+use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -5,7 +6,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const ITERATIONS: usize = 100;
+const DEFAULT_ITERATIONS: usize = 100;
 const LINUX_CLK_TCK: f64 = 100.0;
 
 #[test]
@@ -13,6 +14,7 @@ const LINUX_CLK_TCK: f64 = 100.0;
 fn benchmark_php_fixtures_against_php() {
     assert_tool_exists("php");
 
+    let iterations = benchmark_iterations();
     let fixtures = fixture_dirs();
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
     let suite_start = Instant::now();
@@ -44,12 +46,12 @@ fn benchmark_php_fixtures_against_php() {
         assert_success(&echo_first, "Echo binary");
         assert_eq!(echo_first.stdout, expected_stdout, "Echo output mismatch");
 
-        let php_duration = time_iterations(|| {
+        let php_duration = time_iterations(iterations, || {
             let output = output_with_stdin(Command::new("php").arg(&program_path), &stdin);
             assert_success(&output, "php");
         });
 
-        let echo_duration = time_iterations(|| {
+        let echo_duration = time_iterations(iterations, || {
             let output = output_with_stdin(&mut Command::new(&echo_binary), &stdin);
             assert_success(&output, "Echo binary");
         });
@@ -65,6 +67,7 @@ fn benchmark_php_fixtures_against_php() {
             php_resources,
             echo_resources,
             echo_binary.clone(),
+            iterations,
         );
         let report = row.format_report();
 
@@ -96,10 +99,11 @@ impl BenchmarkRow {
         php_resources: Option<ResourceMetrics>,
         echo_resources: Option<ResourceMetrics>,
         echo_binary: PathBuf,
+        iterations: usize,
     ) -> Self {
         Self {
             fixture: fixture.to_string(),
-            iterations: ITERATIONS,
+            iterations,
             echo_binary,
             php_total,
             echo_total,
@@ -159,10 +163,26 @@ struct ResourceMetrics {
     involuntary_context_switches: Option<u64>,
 }
 
-fn time_iterations(mut f: impl FnMut()) -> Duration {
+fn benchmark_iterations() -> usize {
+    let iterations = match env::var("ECHO_BENCH_ITERATIONS") {
+        Ok(value) => value.parse().unwrap_or_else(|err| {
+            panic!("ECHO_BENCH_ITERATIONS must be a positive integer, got {value:?}: {err}")
+        }),
+        Err(env::VarError::NotPresent) => DEFAULT_ITERATIONS,
+        Err(err) => panic!("failed to read ECHO_BENCH_ITERATIONS: {err}"),
+    };
+
+    assert!(
+        iterations > 0,
+        "ECHO_BENCH_ITERATIONS must be greater than zero"
+    );
+    iterations
+}
+
+fn time_iterations(iterations: usize, mut f: impl FnMut()) -> Duration {
     let start = Instant::now();
 
-    for _ in 0..ITERATIONS {
+    for _ in 0..iterations {
         f();
     }
 
@@ -374,8 +394,9 @@ fn suite_csv(rows: &[BenchmarkRow]) -> String {
 }
 
 fn suite_json(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
+    let iterations = suite_iterations(rows);
     let mut json = format!(
-        "{{\n  \"iterations\": {ITERATIONS},\n  \"suite_total_ms\": {:.3},\n  \"rows\": [\n",
+        "{{\n  \"iterations\": {iterations},\n  \"suite_total_ms\": {:.3},\n  \"rows\": [\n",
         suite_duration.as_secs_f64() * 1_000.0
     );
 
@@ -405,6 +426,7 @@ fn suite_json(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
 }
 
 fn suite_markdown(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
+    let iterations = suite_iterations(rows);
     let php_total_ms = rows
         .iter()
         .map(|row| row.php_total.as_secs_f64() * 1_000.0)
@@ -415,7 +437,7 @@ fn suite_markdown(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
         .sum::<f64>();
 
     let mut markdown = format!(
-        "# PHP Benchmark Summary\n\n- fixtures: {}\n- iterations per fixture: {ITERATIONS}\n- suite wall time ms: {:.3}\n- php measured total ms: {:.3}\n- echo measured total ms: {:.3}\n- aggregate speedup: {:.3}x\n\n| Fixture | PHP avg us | Echo avg us | Speedup | PHP RSS KB | Echo RSS KB |\n| --- | ---: | ---: | ---: | ---: | ---: |\n",
+        "# PHP Benchmark Summary\n\n- fixtures: {}\n- iterations per fixture: {iterations}\n- suite wall time ms: {:.3}\n- php measured total ms: {:.3}\n- echo measured total ms: {:.3}\n- aggregate speedup: {:.3}x\n\n| Fixture | PHP avg us | Echo avg us | Speedup | PHP RSS KB | Echo RSS KB |\n| --- | ---: | ---: | ---: | ---: | ---: |\n",
         rows.len(),
         suite_duration.as_secs_f64() * 1_000.0,
         php_total_ms,
@@ -436,6 +458,12 @@ fn suite_markdown(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
     }
 
     markdown
+}
+
+fn suite_iterations(rows: &[BenchmarkRow]) -> usize {
+    rows.first()
+        .map(|row| row.iterations)
+        .unwrap_or(DEFAULT_ITERATIONS)
 }
 
 fn benchmark_html(suite_json: &str) -> String {
