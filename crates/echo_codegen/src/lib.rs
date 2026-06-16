@@ -47,6 +47,7 @@ entry:
 
 struct IrModule {
     globals: String,
+    aliases: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
     next_string_id: usize,
     next_call_id: usize,
@@ -56,6 +57,7 @@ impl IrModule {
     fn new() -> Self {
         Self {
             globals: String::new(),
+            aliases: HashMap::new(),
             locals: HashMap::new(),
             next_string_id: 0,
             next_call_id: 0,
@@ -87,10 +89,27 @@ impl IrModule {
                     Ok(value) => {
                         // PHP assignments copy values by default; references are handled separately.
                         // Source: https://www.php.net/manual/en/language.operators.assignment.php
-                        self.locals.insert(statement.name.clone(), value);
+                        let name = self.resolve_alias(&statement.name);
+                        self.locals.insert(name, value);
                     }
                     Err(diagnostic) => diagnostics.push(diagnostic),
                 },
+                Stmt::AssignRef(statement) => {
+                    let target = self.resolve_alias(&statement.target);
+                    if self.locals.contains_key(&target) {
+                        // PHP references make two variable names aliases for the same value cell.
+                        // Source: https://www.php.net/manual/en/language.references.php
+                        self.aliases.insert(statement.name.clone(), target);
+                    } else {
+                        diagnostics.push(Diagnostic::new(
+                            format!(
+                                "unsupported reference to undefined variable `${}` in LLVM codegen",
+                                statement.target
+                            ),
+                            statement.span,
+                        ));
+                    }
+                }
             }
         }
 
@@ -154,15 +173,19 @@ impl IrModule {
         match expr {
             Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
             Expr::Number(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
-            Expr::Variable(expr) => self.locals.get(&expr.name).cloned().ok_or_else(|| {
-                Diagnostic::new(
-                    format!(
-                        "unsupported undefined variable `${}` in LLVM codegen",
-                        expr.name
-                    ),
-                    expr.span,
-                )
-            }),
+            Expr::Variable(expr) => self
+                .locals
+                .get(&self.resolve_alias(&expr.name))
+                .cloned()
+                .ok_or_else(|| {
+                    Diagnostic::new(
+                        format!(
+                            "unsupported undefined variable `${}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    )
+                }),
             Expr::FunctionCall(expr) if expr.name == "ob_get_level" => {
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
@@ -210,6 +233,16 @@ impl IrModule {
                 expr.span(),
             )),
         }
+    }
+
+    fn resolve_alias(&self, name: &str) -> String {
+        let mut current = name;
+
+        while let Some(next) = self.aliases.get(current) {
+            current = next;
+        }
+
+        current.to_string()
     }
 
     fn string_global(&mut self, value: &str) -> String {

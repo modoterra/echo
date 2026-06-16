@@ -25,6 +25,7 @@ pub enum TokenKind {
     Star,
     Slash,
     Dot,
+    Ampersand,
     Equals,
     Eof,
 }
@@ -76,6 +77,9 @@ enum RawToken {
 
     #[token(".")]
     Dot,
+
+    #[token("&")]
+    Ampersand,
 
     #[token("=")]
     Equals,
@@ -135,6 +139,7 @@ impl RawToken {
             RawToken::Star => TokenKind::Star,
             RawToken::Slash => TokenKind::Slash,
             RawToken::Dot => TokenKind::Dot,
+            RawToken::Ampersand => TokenKind::Ampersand,
             RawToken::Equals => TokenKind::Equals,
             RawToken::Whitespace => unreachable!("logos skipped whitespace"),
         }

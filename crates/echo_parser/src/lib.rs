@@ -1,8 +1,8 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AssignStmt, BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr, FunctionCallStmt,
-    NumberLiteral, Program, Stmt, StringLiteral, VariableExpr,
+    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr,
+    FunctionCallStmt, NumberLiteral, Program, Stmt, StringLiteral, VariableExpr,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -144,7 +144,27 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             })
         });
 
-    let statement = echo_stmt.or(function_call_stmt).or(assign_stmt);
+    let assign_ref_stmt = just('$')
+        .ignore_then(text::ident().padded())
+        .then_ignore(just('=').padded())
+        .then_ignore(just('&').padded())
+        .then_ignore(just('$'))
+        .then(text::ident().padded())
+        .then_ignore(just(';').padded())
+        .map_with(|(name, target): (&str, &str), extra| {
+            let span: SimpleSpan = extra.span();
+
+            Stmt::AssignRef(AssignRefStmt {
+                name: name.to_string(),
+                target: target.to_string(),
+                span: Span::new(span.start, span.end),
+            })
+        });
+
+    let statement = echo_stmt
+        .or(function_call_stmt)
+        .or(assign_ref_stmt)
+        .or(assign_stmt);
 
     open_php
         .then(statement.repeated().at_least(1).collect::<Vec<_>>())
