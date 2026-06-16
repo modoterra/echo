@@ -95,7 +95,10 @@ impl IrModule {
             RuntimeFn::ObStart => {
                 body.push_str(&format!("  call void @{}()\n", function.symbol()));
             }
-            RuntimeFn::ObFlush | RuntimeFn::ObEndFlush | RuntimeFn::ObEndClean => {
+            RuntimeFn::ObClean
+            | RuntimeFn::ObFlush
+            | RuntimeFn::ObEndFlush
+            | RuntimeFn::ObEndClean => {
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
 
@@ -133,6 +136,7 @@ fn runtime_declarations() -> String {
 fn runtime_function_for_call(name: &str) -> Option<RuntimeFn> {
     match name {
         "ob_start" => Some(RuntimeFn::ObStart),
+        "ob_clean" => Some(RuntimeFn::ObClean),
         "ob_flush" => Some(RuntimeFn::ObFlush),
         "ob_end_flush" => Some(RuntimeFn::ObEndFlush),
         "ob_end_clean" => Some(RuntimeFn::ObEndClean),

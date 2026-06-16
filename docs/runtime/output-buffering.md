@@ -93,7 +93,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Discards active buffer contents.
 - Does not turn off the active buffer.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
-- Echo has not implemented this yet.
+- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
 
 ### `ob_end_clean()`
 
@@ -160,10 +160,10 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Nested `ob_end_clean()` discards only active inner buffer.
 - Nested `ob_flush()` flushes active inner buffer to parent and keeps inner buffer active.
 - `ob_flush()` without a later `ob_end_flush()` writes outermost buffer contents to stdout.
+- `ob_clean()` clears the active buffer without removing it.
 
 ## Next Thin Slices
 
-- `ob_clean()` clears active buffer without removing it.
 - Shutdown auto-flush for unclosed buffers.
 - `ob_get_level()` for zero, one, and nested buffers after integer return values are available.
 - `ob_get_contents()` after variables and runtime strings are available.

@@ -5,6 +5,7 @@ use std::io::{self, Write};
 pub enum RuntimeFn {
     EchoWrite,
     ObStart,
+    ObClean,
     ObFlush,
     ObEndFlush,
     ObEndClean,
@@ -14,6 +15,7 @@ impl RuntimeFn {
     pub const ALL: &'static [Self] = &[
         Self::EchoWrite,
         Self::ObStart,
+        Self::ObClean,
         Self::ObFlush,
         Self::ObEndFlush,
         Self::ObEndClean,
@@ -23,6 +25,7 @@ impl RuntimeFn {
         match self {
             Self::EchoWrite => "echo_write",
             Self::ObStart => "echo_ob_start",
+            Self::ObClean => "echo_ob_clean",
             Self::ObFlush => "echo_ob_flush",
             Self::ObEndFlush => "echo_ob_end_flush",
             Self::ObEndClean => "echo_ob_end_clean",
@@ -33,6 +36,7 @@ impl RuntimeFn {
         match self {
             Self::EchoWrite => "declare void @echo_write(ptr, i64)",
             Self::ObStart => "declare void @echo_ob_start()",
+            Self::ObClean => "declare i1 @echo_ob_clean()",
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
@@ -59,6 +63,15 @@ impl OutputRuntime {
 
     pub fn ob_start(&mut self) {
         self.stack.push(Vec::new());
+    }
+
+    pub fn ob_clean(&mut self) -> bool {
+        let Some(buffer) = self.stack.last_mut() else {
+            return false;
+        };
+
+        buffer.clear();
+        true
     }
 
     pub fn ob_flush(&mut self, stdout: &mut Vec<u8>) -> bool {
@@ -119,6 +132,11 @@ pub unsafe extern "C" fn echo_write(ptr: *const u8, len: usize) {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_start() {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_clean() -> bool {
+    OUTPUT.with(|runtime| runtime.borrow_mut().ob_clean())
 }
 
 #[unsafe(no_mangle)]
@@ -212,6 +230,20 @@ mod tests {
 
         assert_eq!(stdout, b"x");
         assert_eq!(runtime.level(), 1);
+    }
+
+    #[test]
+    fn clean_discards_buffer_but_keeps_it_active() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"discarded", &mut stdout);
+        assert!(runtime.ob_clean());
+        runtime.write(b"kept", &mut stdout);
+        assert!(runtime.ob_end_flush(&mut stdout));
+
+        assert_eq!(stdout, b"kept");
     }
 
     #[test]
