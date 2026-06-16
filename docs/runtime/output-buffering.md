@@ -176,6 +176,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Nested `ob_end_clean()` discards only active inner buffer.
 - Nested `ob_flush()` flushes active inner buffer to parent and keeps inner buffer active.
 - `ob_flush()` without a later `ob_end_flush()` writes outermost buffer contents to stdout.
+- `ob_flush()`, `ob_end_flush()`, `ob_end_clean()`, and `ob_clean()` with no active buffer preserve level `0`; PHP also emits `E_NOTICE` and returns `false`, but Echo diagnostics and observable bool returns are deferred.
 - `ob_clean()` clears the active buffer without removing it.
 - Shutdown auto-flushes unclosed buffers in reverse nesting order.
 - `ob_get_level()` reports zero, one, and nested active buffer levels.
