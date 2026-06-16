@@ -19,7 +19,9 @@ pub fn compile_to_ir(program: &Program) -> Result<String, Vec<Diagnostic>> {
     let body = module.render_program(program)?;
 
     Ok(format!(
-        r#"{}
+        r#"target triple = "x86_64-pc-linux-gnu"
+
+{}
 {}
 
 define i32 @main() {{

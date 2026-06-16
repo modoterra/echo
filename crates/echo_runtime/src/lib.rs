@@ -66,8 +66,8 @@ impl OutputRuntime {
             return false;
         };
 
-        stdout.extend_from_slice(buffer);
-        buffer.clear();
+        let bytes = std::mem::take(buffer);
+        self.write(&bytes, stdout);
         true
     }
 
@@ -220,6 +220,26 @@ mod tests {
         assert!(runtime.ob_end_flush(&mut stdout));
 
         assert_eq!(stdout, b"ABC");
+    }
+
+    #[test]
+    fn nested_flush_writes_to_parent_buffer_and_keeps_inner_active() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"A", &mut stdout);
+        runtime.ob_start();
+        runtime.write(b"B", &mut stdout);
+        assert!(runtime.ob_flush(&mut stdout));
+        runtime.write(b"C", &mut stdout);
+        assert!(runtime.ob_end_flush(&mut stdout));
+        runtime.write(b"D", &mut stdout);
+        assert!(stdout.is_empty());
+
+        assert!(runtime.ob_end_flush(&mut stdout));
+
+        assert_eq!(stdout, b"ABCD");
     }
 
     #[test]
