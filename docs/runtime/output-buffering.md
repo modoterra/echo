@@ -9,6 +9,7 @@ Sources: PHP manual Output Control pages, especially:
 - https://www.php.net/manual/en/outcontrol.operations-on-buffers.php
 - Individual `ob_*` function pages such as `function.ob-flush.php`, `function.ob-end-flush.php`, `function.ob-clean.php`, and `function.ob-end-clean.php`.
 - https://www.php.net/manual/en/function.ob-get-level.php
+- https://www.php.net/manual/en/function.ob-get-contents.php
 
 ## Scope
 
@@ -123,7 +124,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns a copy of the active buffer contents without clearing or removing it.
 - Returns `false` if no output buffer is active.
 - Copying can increase memory usage because PHP returns a new string.
-- Echo has not implemented this yet; it needs runtime strings, return values, variables, and function-call expressions.
+- Echo supports active-buffer string returns as opaque runtime string handles; the no-active-buffer `false` value is not observable yet.
 
 ### `ob_get_clean()`
 
@@ -178,9 +179,9 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_clean()` clears the active buffer without removing it.
 - Shutdown auto-flushes unclosed buffers in reverse nesting order.
 - `ob_get_level()` reports zero, one, and nested active buffer levels.
+- `ob_get_contents()` returns an owned copy of the active buffer contents without clearing it.
 
 ## Next Thin Slices
 
-- `ob_get_contents()` after variables and runtime strings are available.
 - `ob_get_clean()` after variables and runtime strings are available.
 - Failure return values for `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` with no active buffer after bool return values are observable.

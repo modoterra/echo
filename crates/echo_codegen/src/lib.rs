@@ -8,6 +8,7 @@ use std::collections::HashMap;
 enum RuntimeValue {
     StaticString(String),
     I64(String),
+    RuntimeString(String),
 }
 
 pub fn backend_name() -> &'static str {
@@ -116,6 +117,10 @@ impl IrModule {
                 "  call void @{}(i64 {name})\n",
                 RuntimeFn::EchoWriteI64.symbol()
             )),
+            RuntimeValue::RuntimeString(name) => body.push_str(&format!(
+                "  call void @{}(ptr {name})\n",
+                RuntimeFn::EchoWriteString.symbol()
+            )),
         }
     }
 
@@ -138,6 +143,8 @@ impl IrModule {
             }
             RuntimeFn::EchoWrite => unreachable!("echo_write needs string arguments"),
             RuntimeFn::EchoWriteI64 => unreachable!("echo_write_i64 needs an i64 argument"),
+            RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
+            RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
             RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
             RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
         }
@@ -167,6 +174,18 @@ impl IrModule {
                 ));
 
                 Ok(RuntimeValue::I64(name))
+            }
+            Expr::FunctionCall(expr) if expr.name == "ob_get_contents" => {
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call ptr @{}()\n",
+                    RuntimeFn::ObGetContents.symbol()
+                ));
+
+                Ok(RuntimeValue::RuntimeString(name))
             }
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
                 let RuntimeValue::StaticString(mut output) = self.render_expr(body, &expr.left)?

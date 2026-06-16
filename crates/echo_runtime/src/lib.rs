@@ -5,11 +5,13 @@ use std::io::{self, Write};
 pub enum RuntimeFn {
     EchoWrite,
     EchoWriteI64,
+    EchoWriteString,
     ObStart,
     ObClean,
     ObFlush,
     ObEndFlush,
     ObEndClean,
+    ObGetContents,
     ObGetLevel,
     Shutdown,
 }
@@ -18,11 +20,13 @@ impl RuntimeFn {
     pub const ALL: &'static [Self] = &[
         Self::EchoWrite,
         Self::EchoWriteI64,
+        Self::EchoWriteString,
         Self::ObStart,
         Self::ObClean,
         Self::ObFlush,
         Self::ObEndFlush,
         Self::ObEndClean,
+        Self::ObGetContents,
         Self::ObGetLevel,
         Self::Shutdown,
     ];
@@ -31,11 +35,13 @@ impl RuntimeFn {
         match self {
             Self::EchoWrite => "echo_write",
             Self::EchoWriteI64 => "echo_write_i64",
+            Self::EchoWriteString => "echo_write_string",
             Self::ObStart => "echo_ob_start",
             Self::ObClean => "echo_ob_clean",
             Self::ObFlush => "echo_ob_flush",
             Self::ObEndFlush => "echo_ob_end_flush",
             Self::ObEndClean => "echo_ob_end_clean",
+            Self::ObGetContents => "echo_ob_get_contents",
             Self::ObGetLevel => "echo_ob_get_level",
             Self::Shutdown => "echo_shutdown",
         }
@@ -45,11 +51,13 @@ impl RuntimeFn {
         match self {
             Self::EchoWrite => "declare void @echo_write(ptr, i64)",
             Self::EchoWriteI64 => "declare void @echo_write_i64(i64)",
+            Self::EchoWriteString => "declare void @echo_write_string(ptr)",
             Self::ObStart => "declare void @echo_ob_start()",
             Self::ObClean => "declare i1 @echo_ob_clean()",
             Self::ObFlush => "declare i1 @echo_ob_flush()",
             Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
+            Self::ObGetContents => "declare ptr @echo_ob_get_contents()",
             Self::ObGetLevel => "declare i64 @echo_ob_get_level()",
             Self::Shutdown => "declare void @echo_shutdown()",
         }
@@ -59,6 +67,11 @@ impl RuntimeFn {
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
     stack: Vec<Vec<u8>>,
+}
+
+#[derive(Debug)]
+pub struct EchoString {
+    bytes: Vec<u8>,
 }
 
 impl OutputRuntime {
@@ -126,6 +139,14 @@ impl OutputRuntime {
         self.stack.pop().is_some()
     }
 
+    pub fn ob_get_contents(&self) -> Option<EchoString> {
+        // PHP `ob_get_contents()` returns a new string with the active buffer contents.
+        // Source: https://www.php.net/manual/en/function.ob-get-contents.php
+        self.stack.last().map(|buffer| EchoString {
+            bytes: buffer.clone(),
+        })
+    }
+
     pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
         // PHP shutdown flushes and turns off still-open buffers in reverse start order.
         // Source: https://www.php.net/manual/en/outcontrol.user-level-output-buffers.php
@@ -166,6 +187,20 @@ pub extern "C" fn echo_write_i64(value: i64) {
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
+    if value.is_null() {
+        return;
+    }
+
+    let bytes = unsafe { &(*value).bytes };
+    OUTPUT.with(|runtime| {
+        let mut stdout = Vec::new();
+        runtime.borrow_mut().write(bytes, &mut stdout);
+        write_stdout(&stdout);
+    });
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_start() {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
 }
@@ -198,6 +233,14 @@ pub extern "C" fn echo_ob_end_flush() -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_ob_end_clean() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_end_clean())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_get_contents() -> *mut EchoString {
+    OUTPUT.with(|runtime| match runtime.borrow().ob_get_contents() {
+        Some(value) => Box::into_raw(Box::new(value)),
+        None => std::ptr::null_mut(),
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -363,6 +406,21 @@ mod tests {
 
         assert_eq!(stdout, b"AB");
         assert_eq!(runtime.level(), 0);
+    }
+
+    #[test]
+    fn get_contents_returns_copy_without_cleaning_buffer() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"A", &mut stdout);
+        let value = runtime.ob_get_contents().expect("active buffer");
+        runtime.write(b"B", &mut stdout);
+        assert!(runtime.ob_end_clean());
+
+        assert_eq!(value.bytes, b"A");
+        assert!(stdout.is_empty());
     }
 
     #[test]
