@@ -19,6 +19,22 @@
       .note {
         color: #5b667a;
       }
+      .stats {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        margin-top: 1.5rem;
+      }
+      .stat {
+        background: #f6f8fb;
+        border: 1px solid #dfe5ef;
+        border-radius: 0.75rem;
+        padding: 1rem;
+      }
+      .stat strong {
+        display: block;
+        font-size: 1.5rem;
+      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/vega@5.30.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0"></script>
@@ -32,6 +48,8 @@
       for local convenience.
     </p>
 
+    <div id="stats" class="stats"></div>
+    <div id="summary" class="chart"></div>
     <div id="speedup" class="chart"></div>
     <div id="time" class="chart"></div>
     <div id="memory" class="chart"></div>
@@ -39,9 +57,21 @@
 
     <script type="application/json" id="benchmark-data">__BENCHMARK_DATA_JSON__</script>
     <script>
-      async function loadRows() {
+      async function loadSuite() {
         const suite = JSON.parse(document.getElementById("benchmark-data").textContent);
-        return suite.rows;
+        return suite;
+      }
+
+      function renderStats(suite) {
+        const phpTotal = suite.rows.reduce((sum, row) => sum + row.php_total_ms, 0);
+        const echoTotal = suite.rows.reduce((sum, row) => sum + row.echo_total_ms, 0);
+        const speedup = phpTotal / echoTotal;
+        document.getElementById("stats").innerHTML = `
+          <div class="stat"><span>Fixtures</span><strong>${suite.rows.length}</strong></div>
+          <div class="stat"><span>Iterations Each</span><strong>${suite.iterations}</strong></div>
+          <div class="stat"><span>Suite Wall Time</span><strong>${suite.suite_total_ms.toFixed(0)} ms</strong></div>
+          <div class="stat"><span>Aggregate Speedup</span><strong>${speedup.toFixed(2)}x</strong></div>
+        `;
       }
 
       function baseSpec(rows, title) {
@@ -73,7 +103,34 @@
       }
 
       async function main() {
-        const rows = await loadRows();
+        const suite = await loadSuite();
+        const rows = suite.rows;
+        const phpTotal = rows.reduce((sum, row) => sum + row.php_total_ms, 0);
+        const echoTotal = rows.reduce((sum, row) => sum + row.echo_total_ms, 0);
+
+        renderStats(suite);
+
+        await vegaEmbed("#summary", {
+          ...baseSpec(
+            [
+              { tool: "PHP", total_ms: phpTotal },
+              { tool: "Echo", total_ms: echoTotal },
+            ],
+            "Suite Total Runtime"
+          ),
+          width: 480,
+          height: 260,
+          mark: "bar",
+          encoding: {
+            x: { field: "tool", type: "nominal", sort: null },
+            y: { field: "total_ms", type: "quantitative", title: "total ms" },
+            color: { field: "tool", type: "nominal" },
+            tooltip: [
+              { field: "tool", type: "nominal" },
+              { field: "total_ms", type: "quantitative" },
+            ],
+          },
+        });
 
         await vegaEmbed("#speedup", {
           ...baseSpec(rows, "Echo Speedup vs PHP"),
