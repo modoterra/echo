@@ -12,7 +12,9 @@ pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
     // The Chumsky parser below still parses the source text directly.
     echo_lexer::lex(source)?;
 
-    parser().parse(source).into_result().map_err(|errors| {
+    let source = strip_comments_preserving_spans(source);
+
+    parser().parse(&source).into_result().map_err(|errors| {
         errors
             .into_iter()
             .map(|error| {
@@ -21,6 +23,66 @@ pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
             })
             .collect()
     })
+}
+
+fn strip_comments_preserving_spans(source: &str) -> String {
+    let mut output = source.as_bytes().to_vec();
+    let mut index = 0;
+    let bytes = source.as_bytes();
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'"' => {
+                index += 1;
+                while index < bytes.len() {
+                    match bytes[index] {
+                        b'\\' => index = (index + 2).min(bytes.len()),
+                        b'"' => {
+                            index += 1;
+                            break;
+                        }
+                        _ => index += 1,
+                    }
+                }
+            }
+            b'/' if bytes.get(index + 1) == Some(&b'/') => {
+                while index < bytes.len() && bytes[index] != b'\n' && bytes[index] != b'\r' {
+                    output[index] = b' ';
+                    index += 1;
+                }
+            }
+            b'#' => {
+                while index < bytes.len() && bytes[index] != b'\n' && bytes[index] != b'\r' {
+                    output[index] = b' ';
+                    index += 1;
+                }
+            }
+            b'/' if bytes.get(index + 1) == Some(&b'*') => {
+                // PHP C-style comments end at the first `*/`; they do not nest.
+                // Source: https://www.php.net/manual/en/language.basic-syntax.comments.php
+                output[index] = b' ';
+                output[index + 1] = b' ';
+                index += 2;
+
+                while index < bytes.len() {
+                    if bytes[index] == b'*' && bytes.get(index + 1) == Some(&b'/') {
+                        output[index] = b' ';
+                        output[index + 1] = b' ';
+                        index += 2;
+                        break;
+                    }
+
+                    if bytes[index] != b'\n' && bytes[index] != b'\r' {
+                        output[index] = b' ';
+                    }
+                    index += 1;
+                }
+            }
+            _ => index += 1,
+        }
+    }
+
+    String::from_utf8(output).expect("comment stripping preserves UTF-8")
 }
 
 fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src, char>>> {

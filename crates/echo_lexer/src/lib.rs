@@ -75,6 +75,11 @@ enum RawToken {
     #[token("/")]
     Slash,
 
+    #[regex(r"//[^\r\n]*", logos::skip)]
+    #[regex(r"#[^\r\n]*", logos::skip)]
+    #[regex(r"/\*([^*]|\*[^/])*\*/", logos::skip)]
+    Comment,
+
     #[token(".")]
     Dot,
 
@@ -138,6 +143,7 @@ impl RawToken {
             RawToken::Minus => TokenKind::Minus,
             RawToken::Star => TokenKind::Star,
             RawToken::Slash => TokenKind::Slash,
+            RawToken::Comment => unreachable!("logos skipped comments"),
             RawToken::Dot => TokenKind::Dot,
             RawToken::Ampersand => TokenKind::Ampersand,
             RawToken::Equals => TokenKind::Equals,
