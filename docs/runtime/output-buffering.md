@@ -139,7 +139,8 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns the active buffer contents.
 - Flushes/sends the output handler result.
 - Turns off/removes the active buffer.
-- Echo has not implemented this yet.
+- Returns `false` if no output buffer is active and PHP emits `E_NOTICE` on failure.
+- Echo supports active-buffer string returns and flushing; the no-active-buffer `false` value and diagnostic are not observable yet.
 
 ### `ob_get_length()`
 
@@ -184,8 +185,9 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_get_contents()` returns an owned copy of the active buffer contents without clearing it.
 - `ob_get_length()` reports active buffer length in bytes without clearing or flushing it.
 - `ob_get_clean()` returns active buffer contents as an owned string and removes the active buffer without flushing it.
+- `ob_get_flush()` returns active buffer contents as an owned string, flushes those contents, and removes the active buffer.
 
 ## Next Thin Slices
 
-- `ob_get_flush()`.
+- Output handler callback support for `ob_start()`.
 - Failure return values for `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` with no active buffer after bool return values are observable.

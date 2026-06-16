@@ -165,6 +165,7 @@ impl IrModule {
             RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
             RuntimeFn::ObGetClean => unreachable!("ob_get_clean is emitted as an expression"),
             RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
+            RuntimeFn::ObGetFlush => unreachable!("ob_get_flush is emitted as an expression"),
             RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
             RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
             RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
@@ -232,6 +233,18 @@ impl IrModule {
                 body.push_str(&format!(
                     "  {name} = call ptr @{}()\n",
                     RuntimeFn::ObGetClean.symbol()
+                ));
+
+                Ok(RuntimeValue::RuntimeString(name))
+            }
+            Expr::FunctionCall(expr) if expr.name == "ob_get_flush" => {
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call ptr @{}()\n",
+                    RuntimeFn::ObGetFlush.symbol()
                 ));
 
                 Ok(RuntimeValue::RuntimeString(name))

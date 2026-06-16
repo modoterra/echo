@@ -13,6 +13,7 @@ pub enum RuntimeFn {
     ObEndClean,
     ObGetClean,
     ObGetContents,
+    ObGetFlush,
     ObGetLength,
     ObGetLevel,
     Shutdown,
@@ -30,6 +31,7 @@ impl RuntimeFn {
         Self::ObEndClean,
         Self::ObGetClean,
         Self::ObGetContents,
+        Self::ObGetFlush,
         Self::ObGetLength,
         Self::ObGetLevel,
         Self::Shutdown,
@@ -47,6 +49,7 @@ impl RuntimeFn {
             Self::ObEndClean => "echo_ob_end_clean",
             Self::ObGetClean => "echo_ob_get_clean",
             Self::ObGetContents => "echo_ob_get_contents",
+            Self::ObGetFlush => "echo_ob_get_flush",
             Self::ObGetLength => "echo_ob_get_length",
             Self::ObGetLevel => "echo_ob_get_level",
             Self::Shutdown => "echo_shutdown",
@@ -65,6 +68,7 @@ impl RuntimeFn {
             Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
             Self::ObGetClean => "declare ptr @echo_ob_get_clean()",
             Self::ObGetContents => "declare ptr @echo_ob_get_contents()",
+            Self::ObGetFlush => "declare ptr @echo_ob_get_flush()",
             Self::ObGetLength => "declare i64 @echo_ob_get_length()",
             Self::ObGetLevel => "declare i64 @echo_ob_get_level()",
             Self::Shutdown => "declare void @echo_shutdown()",
@@ -152,6 +156,14 @@ impl OutputRuntime {
         // Source: https://www.php.net/manual/en/function.ob-get-clean.php
         self.take_active_buffer()
             .map(|buffer| EchoString { bytes: buffer })
+    }
+
+    pub fn ob_get_flush(&mut self, stdout: &mut Vec<u8>) -> Option<EchoString> {
+        // PHP `ob_get_flush()` returns the active buffer contents, flushes them, and turns it off.
+        // Source: https://www.php.net/manual/en/function.ob-get-flush.php
+        let buffer = self.take_active_buffer()?;
+        self.write(&buffer, stdout);
+        Some(EchoString { bytes: buffer })
     }
 
     pub fn ob_get_contents(&self) -> Option<EchoString> {
@@ -273,6 +285,19 @@ pub extern "C" fn echo_ob_get_contents() -> *mut EchoString {
     OUTPUT.with(|runtime| match runtime.borrow().ob_get_contents() {
         Some(value) => Box::into_raw(Box::new(value)),
         None => std::ptr::null_mut(),
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_ob_get_flush() -> *mut EchoString {
+    OUTPUT.with(|runtime| {
+        let mut stdout = Vec::new();
+        let value = runtime.borrow_mut().ob_get_flush(&mut stdout);
+        write_stdout(&stdout);
+        match value {
+            Some(value) => Box::into_raw(Box::new(value)),
+            None => std::ptr::null_mut(),
+        }
     })
 }
 
@@ -479,6 +504,21 @@ mod tests {
         assert_eq!(value.bytes, b"buffered");
         assert_eq!(runtime.level(), 0);
         assert_eq!(stdout, b"after");
+    }
+
+    #[test]
+    fn get_flush_returns_and_flushes_buffer_then_turns_it_off() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"buffered", &mut stdout);
+        let value = runtime.ob_get_flush(&mut stdout).expect("active buffer");
+        runtime.write(b"after", &mut stdout);
+
+        assert_eq!(value.bytes, b"buffered");
+        assert_eq!(runtime.level(), 0);
+        assert_eq!(stdout, b"bufferedafter");
     }
 
     #[test]
