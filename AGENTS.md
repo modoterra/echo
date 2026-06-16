@@ -24,11 +24,20 @@
 - The `xo` fixture test overwrites latest artifacts in `test-results/php/<fixture>/`: `ast.txt`, `ir.ll`, `run.stdout`, `run.stderr`, `program`, `binary.stdout`, and `binary.stderr`.
 - The ignored `crates/xo/tests/php_bench.rs` benchmark requires `php` on `PATH`, builds each fixture, compares PHP/Echo stdout, prints timing, and writes `benchmark.txt` under the same artifact directory.
 
+## Parity Loop
+- Work in extremely thin PHP slices: one fixture should introduce one new language/runtime behavior.
+- Before implementing, run the fixture with system `php` when behavior is not obvious; make `stdout.txt` match PHP, not assumptions.
+- TDD order: add fixture -> confirm `cargo test -p xo --test php_fixtures` fails -> implement the smallest parser/AST/codegen/runtime change -> make the fixture pass.
+- Each slice must keep the whole path working: `xo ast`, `xo ir`, `xo run`, and `xo build`, with run and built binary stdout matching PHP.
+- After green, run `cargo test --workspace` and `cargo fmt --all -- --check`; run the ignored PHP benchmark when the slice affects executable behavior or benchmark reports.
+- After verifying a completed slice, create a small meaningful conventional commit with an explanatory body; do not push unless the user explicitly asks.
+- Keep unsupported PHP behavior explicit with diagnostics rather than silently approximating semantics.
+
 ## Current Gotchas
 - Parser currently parses source text directly with Chumsky after first calling `echo_lexer::lex(source)?` only to surface lexer errors.
-- `xo run` shells out to `lli`; `xo build` shells out to `clang -x ir`, so full end-to-end tests need those tools on `PATH`. PHP benchmarks also need `php` on `PATH`.
+- `xo run` and `xo build` share the same binary build path: generated LLVM IR is linked with `target/debug/libecho_runtime.a` via `clang -x ir`. Full end-to-end tests need `clang` on `PATH`; PHP benchmarks also need `php` on `PATH`.
 
 ## Source Notes
 - `echo_source::SourceFile::new` classifies `.echo` and `.xo` as `EchoFile`; every other extension is `PhpFile`.
 - `examples/hello.echo` has no PHP open tag; `examples/hello.php` includes `<?php`. The parser accepts both forms.
-- AST currently models numbers, variables, and binary expressions, but the parser path only accepts `echo` statements containing comma-separated string literals.
+- Parser currently accepts `echo` statements, no-argument function-call statements, string/number literals, and `.` concat expressions for the supported fixture subset.
