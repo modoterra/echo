@@ -27,8 +27,9 @@
   <body>
     <h1>Echo PHP Benchmark Results</h1>
     <p class="note">
-      Open from <code>test-results/php/benchmark.html</code>. Data loads from
-      <code>benchmark-suite.json</code>. CDN scripts are pinned for local convenience.
+      Open from <code>test-results/php/benchmark.html</code>. Benchmark data is embedded
+      directly in this file so it works from <code>file://</code>. CDN scripts are pinned
+      for local convenience.
     </p>
 
     <div id="speedup" class="chart"></div>
@@ -36,10 +37,10 @@
     <div id="memory" class="chart"></div>
     <div id="cpu" class="chart"></div>
 
+    <script type="application/json" id="benchmark-data">__BENCHMARK_DATA_JSON__</script>
     <script>
       async function loadRows() {
-        const response = await fetch("benchmark-suite.json");
-        const suite = await response.json();
+        const suite = JSON.parse(document.getElementById("benchmark-data").textContent);
         return suite.rows;
       }
 
@@ -99,7 +100,7 @@
 
         await vegaEmbed(
           "#cpu",
-          foldSpec(rows, "User CPU Time From /usr/bin/time -v", ["php_user_cpu_s", "echo_user_cpu_s"], "seconds")
+          foldSpec(rows, "User CPU Time", ["php_user_cpu_s", "echo_user_cpu_s"], "seconds")
         );
       }
 

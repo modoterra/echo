@@ -297,20 +297,18 @@ fn write_suite_artifacts(rows: &[BenchmarkRow], suite_duration: Duration) {
     let root = workspace_root().join("test-results/php");
     fs::create_dir_all(root.join("graphs"))
         .unwrap_or_else(|err| panic!("failed to create benchmark graph directory: {err}"));
+    let suite_json = suite_json(rows, suite_duration);
 
     fs::write(root.join("benchmark-suite.csv"), suite_csv(rows))
         .expect("failed to write benchmark suite csv");
-    fs::write(
-        root.join("benchmark-suite.json"),
-        suite_json(rows, suite_duration),
-    )
-    .expect("failed to write benchmark suite json");
+    fs::write(root.join("benchmark-suite.json"), &suite_json)
+        .expect("failed to write benchmark suite json");
     fs::write(
         root.join("benchmark-summary.md"),
         suite_markdown(rows, suite_duration),
     )
     .expect("failed to write benchmark suite markdown");
-    fs::write(root.join("benchmark.html"), benchmark_html())
+    fs::write(root.join("benchmark.html"), benchmark_html(&suite_json))
         .expect("failed to write benchmark html viewer");
 }
 
@@ -440,8 +438,16 @@ fn suite_markdown(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
     markdown
 }
 
-fn benchmark_html() -> &'static str {
+fn benchmark_html(suite_json: &str) -> String {
     include_str!("../../../docs/benchmarks/benchmark.html")
+        .replace("__BENCHMARK_DATA_JSON__", &html_escape(suite_json))
+}
+
+fn html_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn optional_f64(value: Option<f64>) -> String {
