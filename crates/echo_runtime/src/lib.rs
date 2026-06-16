@@ -522,6 +522,27 @@ mod tests {
     }
 
     #[test]
+    fn nested_get_flush_writes_to_parent_buffer() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        runtime.ob_start();
+        runtime.write(b"outer:", &mut stdout);
+        runtime.ob_start();
+        runtime.write(b"inner", &mut stdout);
+
+        let value = runtime.ob_get_flush(&mut stdout).expect("active buffer");
+        runtime.write(b"|after:", &mut stdout);
+        runtime.write(&value.bytes, &mut stdout);
+        assert!(stdout.is_empty());
+
+        assert!(runtime.ob_end_flush(&mut stdout));
+
+        assert_eq!(value.bytes, b"inner");
+        assert_eq!(stdout, b"outer:inner|after:inner");
+    }
+
+    #[test]
     fn get_length_returns_active_buffer_byte_length() {
         let mut runtime = OutputRuntime::new();
         let mut stdout = Vec::new();
