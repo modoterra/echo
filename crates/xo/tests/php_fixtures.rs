@@ -45,7 +45,10 @@ fn php_fixtures_work_end_to_end() {
             program_path.display()
         );
 
-        let binary_path = artifact_dir.join("program");
+        let binary_dir = run_artifact_dir_for(&fixture);
+        fs::create_dir_all(&binary_dir)
+            .unwrap_or_else(|err| panic!("failed to create {}: {err}", binary_dir.display()));
+        let binary_path = binary_dir.join("program");
         let mut build = Command::new(env!("CARGO_BIN_EXE_xo"));
         build
             .arg("build")
@@ -134,6 +137,18 @@ fn artifact_dir_for(fixture: &Path) -> PathBuf {
         .expect("fixture path should have UTF-8 file name");
 
     workspace_root().join("test-results/php").join(name)
+}
+
+fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
+    let name = fixture
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("fixture path should have UTF-8 file name");
+
+    workspace_root()
+        .join("test-results/php/.runs")
+        .join(std::process::id().to_string())
+        .join(name)
 }
 
 fn reset_dir(path: &Path) {

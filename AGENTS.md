@@ -22,7 +22,8 @@
 - Add compatibility cases under `tests/php/<number>_<name>/` with `program.php`, `stdin.txt`, and `stdout.txt`.
 - `crates/echo_parser/tests/php_fixtures.rs` checks every fixture is well-formed and parseable.
 - `crates/xo/tests/php_fixtures.rs` exercises `ast`, `ir`, `run`, and `build`; `run` and the built binary must match `stdout.txt` with `stdin.txt` piped in.
-- The `xo` fixture test overwrites latest artifacts in `test-results/php/<fixture>/`: `ast.txt`, `ir.ll`, `run.stdout`, `run.stderr`, `program`, `binary.stdout`, and `binary.stderr`.
+- The `xo` fixture test overwrites latest stable artifacts in `test-results/php/<fixture>/`: `ast.txt`, `ir.ll`, `run.stdout`, `run.stderr`, `binary.stdout`, and `binary.stderr`.
+- Built executables use per-process paths under `test-results/php/.runs/<pid>/<fixture>/` to avoid concurrent test runs touching the same binary; stable stdout/stderr/IR artifacts still live under `test-results/php/<fixture>/`.
 - The ignored `crates/xo/tests/php_bench.rs` benchmark requires `php` on `PATH`, builds each fixture, compares PHP/Echo stdout, prints timing, and writes `benchmark.txt` under the same artifact directory.
 
 ## Parity Loop

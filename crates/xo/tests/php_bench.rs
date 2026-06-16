@@ -34,7 +34,7 @@ fn benchmark_php_fixtures_against_php() {
         let stdin = fs::read(&stdin_path)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()));
 
-        let echo_binary = build_echo_binary(&program_path, &artifact_dir);
+        let echo_binary = build_echo_binary(&program_path, &run_artifact_dir_for(&fixture));
 
         let (php_first, php_resources) =
             output_with_stdin_and_resources(Command::new("php").arg(&program_path), &stdin);
@@ -190,6 +190,8 @@ fn time_iterations(iterations: usize, mut f: impl FnMut()) -> Duration {
 }
 
 fn build_echo_binary(program_path: &Path, artifact_dir: &Path) -> PathBuf {
+    fs::create_dir_all(artifact_dir)
+        .unwrap_or_else(|err| panic!("failed to create {}: {err}", artifact_dir.display()));
     let echo_binary = artifact_dir.join("benchmark-program");
     let mut build = Command::new(env!("CARGO_BIN_EXE_xo"));
     build
@@ -539,6 +541,18 @@ fn artifact_dir_for(fixture: &Path) -> PathBuf {
         .expect("fixture path should have UTF-8 file name");
 
     workspace_root().join("test-results/php").join(name)
+}
+
+fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
+    let name = fixture
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("fixture path should have UTF-8 file name");
+
+    workspace_root()
+        .join("test-results/php/.runs")
+        .join(std::process::id().to_string())
+        .join(name)
 }
 
 fn workspace_root() -> PathBuf {
