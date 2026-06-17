@@ -829,6 +829,37 @@ fn trim_bytes(bytes: &[u8], left: bool, right: bool) -> Vec<u8> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_contains(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    match (haystack.string_bytes(), needle.string_bytes()) {
+        (Some(haystack), Some(needle)) => EchoValue::bool(contains_bytes(&haystack, &needle)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_starts_with(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    match (haystack.string_bytes(), needle.string_bytes()) {
+        (Some(haystack), Some(needle)) => EchoValue::bool(haystack.starts_with(&needle)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_ends_with(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    match (haystack.string_bytes(), needle.string_bytes()) {
+        (Some(haystack), Some(needle)) => EchoValue::bool(haystack.ends_with(&needle)),
+        _ => EchoValue::error(),
+    }
+}
+
+fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    needle.is_empty()
+        || haystack
+            .windows(needle.len())
+            .any(|window| window == needle)
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1493,6 +1524,64 @@ mod tests {
             drop(Box::from_raw(ltrim));
             drop(Box::from_raw(rtrim));
             drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn string_predicate_builtins_are_binary_safe_and_case_sensitive() {
+        let haystack = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo PHP".as_bytes().to_vec(),
+        }));
+        let matching = Box::into_raw(Box::new(EchoString {
+            bytes: "PHP".as_bytes().to_vec(),
+        }));
+        let mismatched_case = Box::into_raw(Box::new(EchoString {
+            bytes: "php".as_bytes().to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+        let first_utf8_byte = Box::into_raw(Box::new(EchoString { bytes: vec![0xc3] }));
+
+        assert_eq!(
+            echo_php_str_contains(EchoValue::string(haystack), EchoValue::string(matching)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_str_contains(
+                EchoValue::string(haystack),
+                EchoValue::string(mismatched_case)
+            ),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_str_contains(EchoValue::string(haystack), EchoValue::string(empty)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_str_starts_with(EchoValue::string(haystack), EchoValue::string(empty)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_str_ends_with(EchoValue::string(haystack), EchoValue::string(matching)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_str_contains(
+                EchoValue::string(non_ascii),
+                EchoValue::string(first_utf8_byte)
+            ),
+            EchoValue::bool(true)
+        );
+
+        unsafe {
+            drop(Box::from_raw(haystack));
+            drop(Box::from_raw(matching));
+            drop(Box::from_raw(mismatched_case));
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(first_utf8_byte));
         }
     }
 

@@ -168,6 +168,9 @@ declare %EchoValue @echo_php_bin2hex(%EchoValue)
 declare %EchoValue @echo_php_trim(%EchoValue)
 declare %EchoValue @echo_php_ltrim(%EchoValue)
 declare %EchoValue @echo_php_rtrim(%EchoValue)
+declare %EchoValue @echo_php_str_contains(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_str_starts_with(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_str_ends_with(%EchoValue, %EchoValue)
 ```
 
 Core output behavior remains under `echo_*`:

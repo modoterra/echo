@@ -529,6 +529,9 @@ impl IrModule {
             BuiltinCodegen::ValueUnaryExpression => {
                 unreachable!("expression builtin used as statement call")
             }
+            BuiltinCodegen::ValueBinaryExpression => {
+                unreachable!("expression builtin used as statement call")
+            }
         }
 
         Ok(())
@@ -807,6 +810,30 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({arg})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueBinaryExpression => {
+                let [left, right] = expr.args.as_slice() else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                };
+
+                let left = self.render_expr_as_echo_value(body, left)?;
+                let right = self.render_expr_as_echo_value(body, right)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({left}, {right})\n",
                     builtin.symbol
                 ));
 
@@ -1230,6 +1257,51 @@ mod tests {
             );
             assert!(
                 ir.contains("call void @echo_write_value(%EchoValue %runtime_call_1)"),
+                "{ir}"
+            );
+        }
+    }
+
+    #[test]
+    fn string_predicate_builtins_lower_to_php_builtin_with_two_echo_value_arguments() {
+        for (php_name, symbol) in [
+            ("str_contains", "echo_php_str_contains"),
+            ("str_starts_with", "echo_php_str_starts_with"),
+            ("str_ends_with", "echo_php_str_ends_with"),
+        ] {
+            let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: php_name.to_string(),
+                    args: vec![
+                        Expr::String(StringLiteral {
+                            value: "Echo PHP".to_string(),
+                            span: Span::new(13, 23),
+                        }),
+                        Expr::String(StringLiteral {
+                            value: "PHP".to_string(),
+                            span: Span::new(25, 30),
+                        }),
+                    ],
+                    span: Span::new(0, 31),
+                })],
+                span: Span::new(0, 32),
+            })]))
+            .expect("IR");
+
+            assert!(
+                ir.contains(&format!(
+                    "declare %EchoValue @{symbol}(%EchoValue, %EchoValue)"
+                )),
+                "{ir}"
+            );
+            assert!(
+                ir.contains(&format!(
+                    "call %EchoValue @{symbol}(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1)"
+                )),
+                "{ir}"
+            );
+            assert!(
+                ir.contains("call void @echo_write_value(%EchoValue %runtime_call_2)"),
                 "{ir}"
             );
         }

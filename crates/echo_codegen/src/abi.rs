@@ -191,6 +191,7 @@ pub enum BuiltinCodegen {
     BoolStatement,
     ValueExpression,
     ValueUnaryExpression,
+    ValueBinaryExpression,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -396,6 +397,30 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "str_contains",
+        symbol: "echo_php_str_contains",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "str_starts_with",
+        symbol: "echo_php_str_starts_with",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "str_ends_with",
+        symbol: "echo_php_str_ends_with",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
     },
 ];
 
