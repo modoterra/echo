@@ -188,6 +188,7 @@ Examples:
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
 - `echo_php_str_repeat(...)` is PHP builtin ABI because `str_repeat()` is a PHP compatibility function.
+- `echo_php_substr(...)` is PHP builtin ABI because `substr()` is a PHP compatibility function.
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.
 - A future image-processing package could use `echo_ext_*` if it is not part of the standard library.

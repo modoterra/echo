@@ -1273,6 +1273,7 @@ mod tests {
             ("str_starts_with", "echo_php_str_starts_with"),
             ("str_ends_with", "echo_php_str_ends_with"),
             ("str_repeat", "echo_php_str_repeat"),
+            ("substr", "echo_php_substr"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

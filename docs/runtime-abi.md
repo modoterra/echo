@@ -176,6 +176,7 @@ declare %EchoValue @echo_php_str_contains(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_str_starts_with(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_str_ends_with(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_str_repeat(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_substr(%EchoValue, %EchoValue)
 ```
 
 Core output behavior remains under `echo_*`:

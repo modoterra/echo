@@ -462,6 +462,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
+    PhpBuiltin {
+        php_name: "substr",
+        symbol: "echo_php_substr",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
 ];
 
 pub fn php_builtin(name: &str) -> Option<PhpBuiltin> {
