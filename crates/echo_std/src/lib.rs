@@ -8,6 +8,8 @@
 //! The first HTTP server should be expressed through this standard library, not
 //! as an `xo serve` command.
 
+pub mod net;
+
 pub fn library_name() -> &'static str {
     "echo_std"
 }

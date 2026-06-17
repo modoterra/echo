@@ -1,3 +1,4 @@
+pub mod net;
 pub mod poll;
 pub mod sched;
 pub mod task;
