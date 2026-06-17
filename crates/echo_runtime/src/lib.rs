@@ -994,6 +994,30 @@ pub extern "C" fn echo_php_substr(value: EchoValue, offset: EchoValue) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strpos(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    find_bytes(&haystack, &needle)
+        .map(|position| EchoValue::int(position as i64))
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1714,6 +1738,82 @@ mod tests {
             drop(Box::from_raw(numeric_offset));
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(negative));
+        }
+    }
+
+    #[test]
+    fn strpos_preserves_php_byte_behavior() {
+        let found_at_zero = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let found_later = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "12345".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+        let needle_start = Box::into_raw(Box::new(EchoString {
+            bytes: "ab".as_bytes().to_vec(),
+        }));
+        let needle_later = Box::into_raw(Box::new(EchoString {
+            bytes: "cd".as_bytes().to_vec(),
+        }));
+        let needle_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "xy".as_bytes().to_vec(),
+        }));
+        let needle_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "c".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strpos(
+                EchoValue::string(found_at_zero),
+                EchoValue::string(needle_start)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strpos(
+                EchoValue::string(found_later),
+                EchoValue::string(needle_later)
+            ),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strpos(
+                EchoValue::string(missing),
+                EchoValue::string(needle_missing)
+            ),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_strpos(EchoValue::string(numeric_needle), EchoValue::int(34)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strpos(
+                EchoValue::string(non_ascii),
+                EchoValue::string(needle_non_ascii)
+            ),
+            EchoValue::int(2)
+        );
+
+        unsafe {
+            drop(Box::from_raw(found_at_zero));
+            drop(Box::from_raw(found_later));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(numeric_needle));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(needle_start));
+            drop(Box::from_raw(needle_later));
+            drop(Box::from_raw(needle_missing));
+            drop(Box::from_raw(needle_non_ascii));
         }
     }
 
