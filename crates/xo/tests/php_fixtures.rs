@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 
 #[test]
 fn php_fixtures_work_end_to_end() {
-    let fixtures = fixture_dirs();
+    let fixtures = fixture_dirs("tests/php");
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
 
     for fixture in fixtures {
@@ -70,6 +70,92 @@ fn php_fixtures_work_end_to_end() {
     }
 }
 
+#[test]
+fn echo_fixtures_are_exercised() {
+    let fixtures = fixture_dirs("tests/echo");
+    assert!(!fixtures.is_empty(), "expected at least one Echo fixture");
+
+    for fixture in fixtures {
+        let program_path = fixture.join("program.echo");
+        let stdin_path = fixture.join("stdin.txt");
+        let stdout_path = fixture.join("stdout.txt");
+        let artifact_dir = echo_artifact_dir_for(&fixture);
+
+        assert!(program_path.is_file(), "missing {}", program_path.display());
+
+        let stdin = if stdin_path.is_file() {
+            fs::read(&stdin_path)
+                .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()))
+        } else {
+            Vec::new()
+        };
+        let expected_stdout = stdout_path.is_file().then(|| {
+            fs::read(&stdout_path)
+                .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdout_path.display()))
+        });
+
+        reset_dir(&artifact_dir);
+
+        let ast_output = command_output(command("ast", &program_path));
+        write_artifact(&artifact_dir.join("ast.txt"), &ast_output.stdout);
+        write_artifact(&artifact_dir.join("ast.stderr"), &ast_output.stderr);
+        write_status_artifact(&artifact_dir, "ast", &ast_output);
+        assert_output_success(&ast_output, "xo ast");
+
+        let ir_output = command_output(command("ir", &program_path));
+        write_artifact(&artifact_dir.join("ir.ll"), &ir_output.stdout);
+        write_artifact(&artifact_dir.join("ir.stderr"), &ir_output.stderr);
+        write_status_artifact(&artifact_dir, "ir", &ir_output);
+
+        let mut run = command("run", &program_path);
+        let run_output = output_with_stdin(&mut run, &stdin);
+        write_artifact(&artifact_dir.join("run.stdout"), &run_output.stdout);
+        write_artifact(&artifact_dir.join("run.stderr"), &run_output.stderr);
+        write_status_artifact(&artifact_dir, "run", &run_output);
+
+        let binary_dir = echo_run_artifact_dir_for(&fixture);
+        fs::create_dir_all(&binary_dir)
+            .unwrap_or_else(|err| panic!("failed to create {}: {err}", binary_dir.display()));
+        let binary_path = binary_dir.join("program");
+        let mut build = Command::new(env!("CARGO_BIN_EXE_xo"));
+        build
+            .arg("build")
+            .arg(&program_path)
+            .arg("-o")
+            .arg(&binary_path);
+        let build_output = command_output(build);
+        write_command_artifacts(&artifact_dir, "build", &build_output);
+
+        if let Some(expected_stdout) = expected_stdout {
+            assert_output_success(&ir_output, "xo ir");
+            assert_output_success(&run_output, "xo run");
+            assert_eq!(
+                run_output.stdout,
+                expected_stdout,
+                "{}",
+                program_path.display()
+            );
+            assert_output_success(&build_output, "xo build");
+
+            let binary_output = output_with_stdin(&mut Command::new(&binary_path), &stdin);
+            assert_output_success(&binary_output, &format!("{}", binary_path.display()));
+            write_artifact(&artifact_dir.join("binary.stdout"), &binary_output.stdout);
+            write_artifact(&artifact_dir.join("binary.stderr"), &binary_output.stderr);
+            write_status_artifact(&artifact_dir, "binary", &binary_output);
+            assert_eq!(
+                binary_output.stdout,
+                expected_stdout,
+                "{}",
+                binary_path.display()
+            );
+        } else {
+            write_artifact(&artifact_dir.join("binary.stdout"), b"");
+            write_artifact(&artifact_dir.join("binary.stderr"), b"");
+            write_artifact(&artifact_dir.join("binary.status"), b"not run");
+        }
+    }
+}
+
 fn command(subcommand: &str, program_path: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_xo"));
     command.arg(subcommand).arg(program_path);
@@ -118,8 +204,8 @@ fn assert_output_success(output: &std::process::Output, label: &str) {
     );
 }
 
-fn fixture_dirs() -> Vec<PathBuf> {
-    let root = workspace_root().join("tests/php");
+fn fixture_dirs(relative: &str) -> Vec<PathBuf> {
+    let root = workspace_root().join(relative);
     let mut dirs = fs::read_dir(&root)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
         .map(|entry| entry.expect("failed to read fixture entry").path())
@@ -139,6 +225,15 @@ fn artifact_dir_for(fixture: &Path) -> PathBuf {
     workspace_root().join("test-results/php").join(name)
 }
 
+fn echo_artifact_dir_for(fixture: &Path) -> PathBuf {
+    let name = fixture
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("fixture path should have UTF-8 file name");
+
+    workspace_root().join("test-results/echo").join(name)
+}
+
 fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
     let name = fixture
         .file_name()
@@ -147,6 +242,18 @@ fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
 
     workspace_root()
         .join("test-results/php/.runs")
+        .join(std::process::id().to_string())
+        .join(name)
+}
+
+fn echo_run_artifact_dir_for(fixture: &Path) -> PathBuf {
+    let name = fixture
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("fixture path should have UTF-8 file name");
+
+    workspace_root()
+        .join("test-results/echo/.runs")
         .join(std::process::id().to_string())
         .join(name)
 }
@@ -164,6 +271,19 @@ fn reset_dir(path: &Path) {
 fn write_artifact(path: &Path, bytes: &[u8]) {
     fs::write(path, bytes)
         .unwrap_or_else(|err| panic!("failed to write {}: {err}", path.display()));
+}
+
+fn write_command_artifacts(artifact_dir: &Path, name: &str, output: &std::process::Output) {
+    write_artifact(&artifact_dir.join(format!("{name}.stdout")), &output.stdout);
+    write_artifact(&artifact_dir.join(format!("{name}.stderr")), &output.stderr);
+    write_status_artifact(artifact_dir, name, output);
+}
+
+fn write_status_artifact(artifact_dir: &Path, name: &str, output: &std::process::Output) {
+    write_artifact(
+        &artifact_dir.join(format!("{name}.status")),
+        output.status.to_string().as_bytes(),
+    );
 }
 
 fn workspace_root() -> PathBuf {
