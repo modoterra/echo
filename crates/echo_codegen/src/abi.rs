@@ -486,6 +486,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
+    PhpBuiltin {
+        php_name: "strcasecmp",
+        symbol: "echo_php_strcasecmp",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
 ];
 
 pub fn php_builtin(name: &str) -> Option<PhpBuiltin> {

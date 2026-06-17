@@ -191,6 +191,7 @@ Examples:
 - `echo_php_substr(...)` is PHP builtin ABI because `substr()` is a PHP compatibility function.
 - `echo_php_strpos(...)` is PHP builtin ABI because `strpos()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
+- `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.
 - A future image-processing package could use `echo_ext_*` if it is not part of the standard library.

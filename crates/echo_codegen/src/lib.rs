@@ -1276,6 +1276,7 @@ mod tests {
             ("substr", "echo_php_substr"),
             ("strpos", "echo_php_strpos"),
             ("strcmp", "echo_php_strcmp"),
+            ("strcasecmp", "echo_php_strcasecmp"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

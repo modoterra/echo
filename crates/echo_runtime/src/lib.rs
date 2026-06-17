@@ -1035,6 +1035,35 @@ pub extern "C" fn echo_php_strcmp(left: EchoValue, right: EchoValue) -> EchoValu
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strcasecmp(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(left) = left.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(case_insensitive_ascii_compare(&left, &right))
+}
+
+fn case_insensitive_ascii_compare(left: &[u8], right: &[u8]) -> i64 {
+    for (left, right) in left.iter().zip(right) {
+        let left = left.to_ascii_lowercase();
+        let right = right.to_ascii_lowercase();
+
+        if left != right {
+            return left as i64 - right as i64;
+        }
+    }
+
+    match left.len().cmp(&right.len()) {
+        CmpOrdering::Less => -1,
+        CmpOrdering::Equal => 0,
+        CmpOrdering::Greater => 1,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1904,6 +1933,94 @@ mod tests {
             drop(Box::from_raw(prefix_left));
             drop(Box::from_raw(prefix_right));
             drop(Box::from_raw(numeric_left));
+        }
+    }
+
+    #[test]
+    fn strcasecmp_preserves_php_ascii_case_insensitive_behavior() {
+        let equal_left = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo".as_bytes().to_vec(),
+        }));
+        let equal_right = Box::into_raw(Box::new(EchoString {
+            bytes: "echo".as_bytes().to_vec(),
+        }));
+        let less_left = Box::into_raw(Box::new(EchoString {
+            bytes: "a".as_bytes().to_vec(),
+        }));
+        let less_right = Box::into_raw(Box::new(EchoString {
+            bytes: "B".as_bytes().to_vec(),
+        }));
+        let greater_left = Box::into_raw(Box::new(EchoString {
+            bytes: "B".as_bytes().to_vec(),
+        }));
+        let greater_right = Box::into_raw(Box::new(EchoString {
+            bytes: "a".as_bytes().to_vec(),
+        }));
+        let prefix_left = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+        let prefix_right = Box::into_raw(Box::new(EchoString {
+            bytes: "AB".as_bytes().to_vec(),
+        }));
+        let numeric_left = Box::into_raw(Box::new(EchoString {
+            bytes: "123".as_bytes().to_vec(),
+        }));
+        let non_ascii_left = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+        let non_ascii_right = Box::into_raw(Box::new(EchoString {
+            bytes: "ä".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strcasecmp(
+                EchoValue::string(equal_left),
+                EchoValue::string(equal_right)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strcasecmp(EchoValue::string(less_left), EchoValue::string(less_right)),
+            EchoValue::int(-1)
+        );
+        assert_eq!(
+            echo_php_strcasecmp(
+                EchoValue::string(greater_left),
+                EchoValue::string(greater_right)
+            ),
+            EchoValue::int(1)
+        );
+        assert_eq!(
+            echo_php_strcasecmp(
+                EchoValue::string(prefix_left),
+                EchoValue::string(prefix_right)
+            ),
+            EchoValue::int(1)
+        );
+        assert_eq!(
+            echo_php_strcasecmp(EchoValue::string(numeric_left), EchoValue::int(123)),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strcasecmp(
+                EchoValue::string(non_ascii_left),
+                EchoValue::string(non_ascii_right)
+            ),
+            EchoValue::int(-32)
+        );
+
+        unsafe {
+            drop(Box::from_raw(equal_left));
+            drop(Box::from_raw(equal_right));
+            drop(Box::from_raw(less_left));
+            drop(Box::from_raw(less_right));
+            drop(Box::from_raw(greater_left));
+            drop(Box::from_raw(greater_right));
+            drop(Box::from_raw(prefix_left));
+            drop(Box::from_raw(prefix_right));
+            drop(Box::from_raw(numeric_left));
+            drop(Box::from_raw(non_ascii_left));
+            drop(Box::from_raw(non_ascii_right));
         }
     }
 
