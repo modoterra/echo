@@ -192,6 +192,7 @@ Examples:
 - `echo_php_strpos(...)` is PHP builtin ABI because `strpos()` is a PHP compatibility function.
 - `echo_php_stripos(...)` is PHP builtin ABI because `stripos()` is a PHP compatibility function.
 - `echo_php_strrpos(...)` is PHP builtin ABI because `strrpos()` is a PHP compatibility function.
+- `echo_php_strripos(...)` is PHP builtin ABI because `strripos()` is a PHP compatibility function.
 - `echo_php_strstr(...)` is PHP builtin ABI because `strstr()` is a PHP compatibility function.
 - `echo_php_stristr(...)` is PHP builtin ABI because `stristr()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.

@@ -1036,6 +1036,20 @@ pub extern "C" fn echo_php_strrpos(haystack: EchoValue, needle: EchoValue) -> Ec
         .unwrap_or_else(|| EchoValue::bool(false))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strripos(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    find_last_bytes_ascii_case_insensitive(&haystack, &needle)
+        .map(|position| EchoValue::int(position as i64))
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -1054,6 +1068,16 @@ fn find_last_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .rposition(|window| window == needle)
+}
+
+fn find_last_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(haystack.len());
+    }
+
+    haystack
+        .windows(needle.len())
+        .rposition(|window| bytes_eq_ascii_case_insensitive(window, needle))
 }
 
 #[unsafe(no_mangle)]
@@ -2114,6 +2138,95 @@ mod tests {
                 EchoValue::string(needle_non_ascii)
             ),
             EchoValue::int(5)
+        );
+
+        unsafe {
+            drop(Box::from_raw(repeated_start));
+            drop(Box::from_raw(repeated_end));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(empty_needle));
+            drop(Box::from_raw(numeric_needle));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(needle_start));
+            drop(Box::from_raw(needle_end));
+            drop(Box::from_raw(needle_missing));
+            drop(Box::from_raw(needle_empty));
+            drop(Box::from_raw(needle_non_ascii));
+        }
+    }
+
+    #[test]
+    fn strripos_preserves_php_ascii_case_insensitive_byte_behavior() {
+        let repeated_start = Box::into_raw(Box::new(EchoString {
+            bytes: "abABcd".as_bytes().to_vec(),
+        }));
+        let repeated_end = Box::into_raw(Box::new(EchoString {
+            bytes: "abcABC".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let empty_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "1234545".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+        let needle_start = Box::into_raw(Box::new(EchoString {
+            bytes: "aB".as_bytes().to_vec(),
+        }));
+        let needle_end = Box::into_raw(Box::new(EchoString {
+            bytes: "BC".as_bytes().to_vec(),
+        }));
+        let needle_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "XY".as_bytes().to_vec(),
+        }));
+        let needle_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let needle_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "ä".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strripos(
+                EchoValue::string(repeated_start),
+                EchoValue::string(needle_start)
+            ),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strripos(
+                EchoValue::string(repeated_end),
+                EchoValue::string(needle_end)
+            ),
+            EchoValue::int(4)
+        );
+        assert_eq!(
+            echo_php_strripos(
+                EchoValue::string(missing),
+                EchoValue::string(needle_missing)
+            ),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_strripos(
+                EchoValue::string(empty_needle),
+                EchoValue::string(needle_empty)
+            ),
+            EchoValue::int(6)
+        );
+        assert_eq!(
+            echo_php_strripos(EchoValue::string(numeric_needle), EchoValue::int(45)),
+            EchoValue::int(5)
+        );
+        assert_eq!(
+            echo_php_strripos(
+                EchoValue::string(non_ascii),
+                EchoValue::string(needle_non_ascii)
+            ),
+            EchoValue::bool(false)
         );
 
         unsafe {

@@ -1,0 +1,6 @@
+2
+4
+missing:
+6
+5
+nonascii:
