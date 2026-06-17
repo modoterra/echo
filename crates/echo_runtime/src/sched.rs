@@ -1,6 +1,9 @@
 use crate::poll::MioPoller;
+use crate::task::{EchoTask, TaskExecuteError, TaskResultError};
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::io;
+use std::ptr::NonNull;
 
 thread_local! {
     static THREAD_EVENT_LOOP: RefCell<LazyEventLoop> = RefCell::new(LazyEventLoop::new());
@@ -8,12 +11,14 @@ thread_local! {
 
 pub struct EventLoop {
     poller: MioPoller,
+    runnable: VecDeque<NonNull<EchoTask>>,
 }
 
 impl EventLoop {
     pub fn new() -> io::Result<Self> {
         Ok(Self {
             poller: MioPoller::new()?,
+            runnable: VecDeque::new(),
         })
     }
 
@@ -23,6 +28,47 @@ impl EventLoop {
 
     pub fn poller_mut(&mut self) -> &mut MioPoller {
         &mut self.poller
+    }
+
+    pub fn schedule_task(&mut self, task: &mut EchoTask) -> Result<(), TaskExecuteError> {
+        task.start().map_err(|_| TaskExecuteError::InvalidState)?;
+        self.runnable.push_back(NonNull::from(task));
+        Ok(())
+    }
+
+    pub fn join_task(&mut self, task: &mut EchoTask) -> Result<crate::EchoValue, TaskResultError> {
+        loop {
+            match task.result() {
+                Ok(value) => return Ok(value),
+                Err(TaskResultError::Failed) => return Err(TaskResultError::Failed),
+                Err(TaskResultError::NotFinished) => {}
+            }
+
+            let Some(runnable) = self.runnable.pop_front() else {
+                return Err(TaskResultError::NotFinished);
+            };
+
+            self.run_task(runnable)
+                .map_err(|_| TaskResultError::Failed)?;
+        }
+    }
+
+    pub fn has_runnable_tasks(&self) -> bool {
+        !self.runnable.is_empty()
+    }
+
+    fn run_task(&mut self, mut task: NonNull<EchoTask>) -> Result<(), TaskExecuteError> {
+        let task = unsafe { task.as_mut() };
+        task.run().map_err(|_| TaskExecuteError::InvalidState)?;
+
+        let Some(callback) = task.callback() else {
+            task.fail(crate::EchoError::InvalidCallable);
+            return Err(TaskExecuteError::MissingCallback);
+        };
+
+        let value = unsafe { callback() };
+        task.finish(value);
+        Ok(())
     }
 }
 
@@ -62,6 +108,8 @@ pub fn with_thread_event_loop<T>(f: impl FnOnce(&mut EventLoop) -> io::Result<T>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::EchoValue;
+    use crate::task::TaskId;
 
     #[test]
     fn event_loop_is_allocated_on_demand() {
@@ -82,5 +130,25 @@ mod tests {
             .expect("second event loop");
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn event_loop_schedules_and_joins_task() {
+        unsafe extern "C" fn callback() -> EchoValue {
+            EchoValue::int(42)
+        }
+
+        let mut event_loop = EventLoop::new().expect("event loop");
+        let mut task = EchoTask::deferred(TaskId(1), Some(callback));
+
+        event_loop.schedule_task(&mut task).expect("schedule task");
+
+        assert!(event_loop.has_runnable_tasks());
+        assert_eq!(task.result(), Err(TaskResultError::NotFinished));
+
+        let result = event_loop.join_task(&mut task).expect("join task");
+
+        assert_eq!(result, EchoValue::int(42));
+        assert!(!event_loop.has_runnable_tasks());
     }
 }

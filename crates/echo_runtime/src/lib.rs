@@ -162,14 +162,6 @@ impl EchoValue {
         self.kind == ECHO_VALUE_TASK
     }
 
-    fn as_task_ref(self) -> Option<&'static task::EchoTask> {
-        if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
-            return None;
-        }
-
-        unsafe { (self.payload as *const task::EchoTask).as_ref() }
-    }
-
     fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
         if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
             return None;
@@ -417,19 +409,34 @@ pub extern "C" fn echo_task_run(task_value: EchoValue) -> EchoValue {
         return EchoValue::error();
     };
 
-    match task.run_to_completion() {
-        Ok(_) => task_value,
+    match sched::with_thread_event_loop(|event_loop| {
+        event_loop
+            .schedule_task(task)
+            .map_err(|_| io::Error::other("failed to schedule Echo task"))
+    }) {
+        Ok(()) => task_value,
         Err(_) => EchoValue::error(),
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_task_join(task: EchoValue) -> EchoValue {
-    let Some(task) = task.as_task_ref() else {
+pub extern "C" fn echo_task_join(task_value: EchoValue) -> EchoValue {
+    let Some(task) = task_value.as_task_mut() else {
         return EchoValue::error();
     };
 
-    task.result().unwrap_or_else(|_| EchoValue::error())
+    match task.result() {
+        Ok(value) => return value,
+        Err(task::TaskResultError::Failed) => return EchoValue::error(),
+        Err(task::TaskResultError::NotFinished) => {}
+    }
+
+    sched::with_thread_event_loop(|event_loop| {
+        event_loop
+            .join_task(task)
+            .map_err(|_| io::Error::other("failed to join Echo task"))
+    })
+    .unwrap_or_else(|_| EchoValue::error())
 }
 
 #[unsafe(no_mangle)]
@@ -606,15 +613,23 @@ mod tests {
     }
 
     #[test]
-    fn task_run_executes_callback_and_join_returns_result() {
+    fn task_run_schedules_callback_and_join_executes_it() {
+        static CALLBACK_RUNS: AtomicUsize = AtomicUsize::new(0);
+
         unsafe extern "C" fn callback() -> EchoValue {
+            CALLBACK_RUNS.fetch_add(1, Ordering::Relaxed);
             EchoValue::int(42)
         }
 
+        CALLBACK_RUNS.store(0, Ordering::Relaxed);
         let task = echo_task_defer(Some(callback));
         let task = echo_task_run(task);
+
+        assert_eq!(CALLBACK_RUNS.load(Ordering::Relaxed), 0);
+
         let result = echo_task_join(task);
 
+        assert_eq!(CALLBACK_RUNS.load(Ordering::Relaxed), 1);
         assert_eq!(result, EchoValue::int(42));
     }
 
