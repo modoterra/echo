@@ -1,6 +1,11 @@
+mod abi;
+
+use abi::{
+    BuiltinCodegen, BuiltinLowering, CoreRuntimeSymbol, PHP_BUILTINS, PHP_RUNTIME_HELPERS,
+    PhpBuiltin, php_builtin,
+};
 use echo_ast::{BinaryOp, Expr, FunctionDeclStmt, Program, Stmt};
 use echo_diagnostics::Diagnostic;
-use echo_runtime::RuntimeFn;
 use echo_source::Span;
 use inkwell::context::Context;
 use std::collections::HashMap;
@@ -8,9 +13,7 @@ use std::collections::HashMap;
 #[derive(Clone)]
 enum RuntimeValue {
     StaticString(String),
-    I64(String),
-    I64OrFalse(String),
-    RuntimeString(String),
+    EchoValue(String),
 }
 
 pub fn backend_name() -> &'static str {
@@ -48,7 +51,7 @@ entry:
         runtime_declarations(),
         module.functions_ir,
         body,
-        RuntimeFn::Shutdown.symbol(),
+        CoreRuntimeSymbol::Shutdown.symbol(),
     ))
 }
 
@@ -58,6 +61,7 @@ struct IrModule {
     aliases: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
     functions: HashMap<String, FunctionDeclStmt>,
+    returned: bool,
     next_string_id: usize,
     next_call_id: usize,
 }
@@ -70,6 +74,7 @@ impl IrModule {
             aliases: HashMap::new(),
             locals: HashMap::new(),
             functions: HashMap::new(),
+            returned: false,
             next_string_id: 0,
             next_call_id: 0,
         }
@@ -106,35 +111,51 @@ impl IrModule {
     }
 
     fn render_userland_function(&mut self, function: &FunctionDeclStmt) -> Result<(), Diagnostic> {
-        if !function.params.is_empty() {
-            return Err(Diagnostic::new(
-                format!(
-                    "unsupported parameters for userland function `{}` in LLVM codegen",
-                    function.name
-                ),
-                function.span,
-            ));
-        }
-
         let saved_aliases = std::mem::take(&mut self.aliases);
         let saved_locals = std::mem::take(&mut self.locals);
+        let saved_returned = self.returned;
+        self.returned = false;
+
+        for param in &function.params {
+            self.locals.insert(
+                param.clone(),
+                RuntimeValue::EchoValue(format!("%arg_{param}")),
+            );
+        }
+
         let mut body = String::new();
 
         for statement in &function.body {
             if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
                 self.aliases = saved_aliases;
                 self.locals = saved_locals;
+                self.returned = saved_returned;
                 return Err(diagnostic);
             }
         }
 
+        let returned = self.returned;
+
         self.aliases = saved_aliases;
         self.locals = saved_locals;
+        self.returned = saved_returned;
+
+        let params = function
+            .params
+            .iter()
+            .map(|param| format!("%EchoValue %arg_{param}"))
+            .collect::<Vec<_>>()
+            .join(", ");
 
         self.functions_ir.push_str(&format!(
-            "define void @{}() {{\nentry:\n{}  ret void\n}}\n",
+            "define %EchoValue @{}({params}) {{\nentry:\n{}{}\n}}\n",
             userland_function_symbol(&function.name),
-            body
+            body,
+            if returned {
+                "".to_string()
+            } else {
+                "  ret %EchoValue { i32 0, i64 0 }".to_string()
+            }
         ));
 
         Ok(())
@@ -148,11 +169,21 @@ impl IrModule {
                     self.write_value(body, value);
                 }
             }
-            Stmt::FunctionCall(statement) => match runtime_function_for_call(&statement.name) {
-                Some(function) => self.runtime_call(body, function, &statement.args)?,
+            Stmt::FunctionCall(statement) => match php_builtin(&statement.name) {
+                Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
+                    self.php_builtin_call(body, builtin, &statement.args)?
+                }
                 None => self.userland_call(body, statement)?,
+                Some(_) => self.userland_call(body, statement)?,
             },
+            Stmt::DynamicFunctionCall(statement) => self.dynamic_function_call(body, statement)?,
             Stmt::FunctionDecl(_) => {}
+            Stmt::Namespace(_) | Stmt::Use(_) => {}
+            Stmt::Return(statement) => {
+                let value = self.render_expr_as_echo_value(body, &statement.value)?;
+                body.push_str(&format!("  ret {value}\n"));
+                self.returned = true;
+            }
             Stmt::Assign(statement) => {
                 let value = self.render_expr(body, &statement.value)?;
                 // PHP assignments copy values by default; references are handled separately.
@@ -193,19 +224,108 @@ impl IrModule {
             ));
         };
 
-        if !statement.args.is_empty() || !function.params.is_empty() {
+        if statement.args.len() != function.params.len() {
             return Err(Diagnostic::new(
                 format!(
-                    "unsupported arguments for userland function `{}` in LLVM codegen",
+                    "unsupported argument count for userland function `{}` in LLVM codegen",
                     statement.name
                 ),
                 statement.span,
             ));
         }
 
+        let mut args = Vec::new();
+        for arg in &statement.args {
+            args.push(self.render_expr_as_echo_value(body, arg)?);
+        }
+
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+
         body.push_str(&format!(
-            "  call void @{}()\n",
-            userland_function_symbol(&statement.name)
+            "  %runtime_call_{call_id} = call %EchoValue @{}({})\n",
+            userland_function_symbol(&statement.name),
+            args.join(", ")
+        ));
+
+        Ok(())
+    }
+
+    fn render_expr_as_echo_value(
+        &mut self,
+        body: &mut String,
+        expr: &Expr,
+    ) -> Result<String, Diagnostic> {
+        let value = self.render_expr(body, expr)?;
+        Ok(self.runtime_value_as_echo_value(body, value))
+    }
+
+    fn runtime_value_as_echo_value(&mut self, body: &mut String, value: RuntimeValue) -> String {
+        match value {
+            RuntimeValue::EchoValue(name) => format!("%EchoValue {name}"),
+            RuntimeValue::StaticString(value) => {
+                let global = self.string_global(&value);
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
+                    CoreRuntimeSymbol::ValueString.symbol(),
+                    value.len()
+                ));
+
+                format!("%EchoValue {name}")
+            }
+        }
+    }
+
+    fn dynamic_function_call(
+        &mut self,
+        body: &mut String,
+        statement: &echo_ast::DynamicFunctionCallStmt,
+    ) -> Result<(), Diagnostic> {
+        if !statement.args.is_empty() {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported arguments for dynamic function call `${}` in LLVM codegen",
+                    statement.name
+                ),
+                statement.span,
+            ));
+        }
+
+        let RuntimeValue::StaticString(name) = self
+            .locals
+            .get(&self.resolve_alias(&statement.name))
+            .cloned()
+            .ok_or_else(|| {
+                Diagnostic::new(
+                    format!(
+                        "unsupported undefined dynamic function `${}` in LLVM codegen",
+                        statement.name
+                    ),
+                    statement.span,
+                )
+            })?
+        else {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported non-string dynamic function `${}` in LLVM codegen",
+                    statement.name
+                ),
+                statement.span,
+            ));
+        };
+
+        let global = self.string_global(&name);
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+
+        body.push_str(&format!(
+            "  %runtime_call_{call_id} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
+            CoreRuntimeSymbol::CallFunction.symbol(),
+            name.len()
         ));
 
         Ok(())
@@ -215,7 +335,7 @@ impl IrModule {
         let global = self.string_global(value);
         body.push_str(&format!(
             "  call void @{}(ptr @{global}, i64 {})\n",
-            RuntimeFn::EchoWrite.symbol(),
+            CoreRuntimeSymbol::Write.symbol(),
             value.len()
         ));
     }
@@ -223,40 +343,46 @@ impl IrModule {
     fn write_value(&mut self, body: &mut String, value: RuntimeValue) {
         match value {
             RuntimeValue::StaticString(value) => self.write_call(body, &value),
-            RuntimeValue::I64(name) => body.push_str(&format!(
-                "  call void @{}(i64 {name})\n",
-                RuntimeFn::EchoWriteI64.symbol()
-            )),
-            RuntimeValue::I64OrFalse(name) => body.push_str(&format!(
-                "  call void @{}(i64 {name})\n",
-                RuntimeFn::EchoWriteI64OrFalse.symbol()
-            )),
-            RuntimeValue::RuntimeString(name) => body.push_str(&format!(
-                "  call void @{}(ptr {name})\n",
-                RuntimeFn::EchoWriteString.symbol()
+            RuntimeValue::EchoValue(name) => body.push_str(&format!(
+                "  call void @{}(%EchoValue {name})\n",
+                CoreRuntimeSymbol::WriteValue.symbol()
             )),
         }
     }
 
-    fn runtime_call(
+    fn php_builtin_call(
         &mut self,
         body: &mut String,
-        function: RuntimeFn,
+        builtin: PhpBuiltin,
         args: &[Expr],
     ) -> Result<(), Diagnostic> {
-        match function {
-            RuntimeFn::ObStart => match args {
-                [] => body.push_str(&format!("  call void @{}()\n", function.symbol())),
+        match builtin.codegen {
+            BuiltinCodegen::ObStart => match args {
+                [] => {
+                    let call_id = self.next_call_id;
+                    self.next_call_id += 1;
+
+                    body.push_str(&format!(
+                        "  %runtime_call_{call_id} = call i1 @{}()\n",
+                        builtin.symbol
+                    ));
+                }
                 [Expr::Null(_)] => {
+                    let helper = builtin
+                        .helper_symbol
+                        .expect("ob_start value helper must be declared");
                     let call_id = self.next_call_id;
                     self.next_call_id += 1;
 
                     body.push_str(&format!(
                         "  %runtime_call_{call_id} = call i1 @{}(%EchoValue {{ i32 0, i64 0 }})\n",
-                        RuntimeFn::ObStartValue.symbol()
+                        helper
                     ));
                 }
                 [Expr::String(expr)] => {
+                    let helper = builtin
+                        .helper_symbol
+                        .expect("ob_start value helper must be declared");
                     let global = self.string_global(&expr.value);
                     let value_id = self.next_call_id;
                     self.next_call_id += 1;
@@ -265,12 +391,12 @@ impl IrModule {
 
                     body.push_str(&format!(
                         "  %runtime_call_{value_id} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
-                        RuntimeFn::EchoValueString.symbol(),
+                        CoreRuntimeSymbol::ValueString.symbol(),
                         expr.value.len()
                     ));
                     body.push_str(&format!(
                         "  %runtime_call_{start_id} = call i1 @{}(%EchoValue %runtime_call_{value_id})\n",
-                        RuntimeFn::ObStartValue.symbol()
+                        helper
                     ));
                 }
                 [expr] => {
@@ -286,39 +412,27 @@ impl IrModule {
                     ));
                 }
             },
-            RuntimeFn::ObClean
-            | RuntimeFn::ObFlush
-            | RuntimeFn::ObEndFlush
-            | RuntimeFn::ObEndClean => {
+            BuiltinCodegen::BoolStatement => {
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
 
                 body.push_str(&format!(
                     "  %runtime_call_{call_id} = call i1 @{}()\n",
-                    function.symbol()
+                    builtin.symbol
                 ));
             }
-            RuntimeFn::ObGetClean | RuntimeFn::ObGetFlush => {
+            BuiltinCodegen::ValueExpression => {
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
 
                 body.push_str(&format!(
-                    "  %runtime_call_{call_id} = call ptr @{}()\n",
-                    function.symbol()
+                    "  %runtime_call_{call_id} = call %EchoValue @{}()\n",
+                    builtin.symbol
                 ));
             }
-            RuntimeFn::EchoWrite => unreachable!("echo_write needs string arguments"),
-            RuntimeFn::EchoWriteI64 => unreachable!("echo_write_i64 needs an i64 argument"),
-            RuntimeFn::EchoWriteI64OrFalse => {
-                unreachable!("echo_write_i64_or_false needs an i64 argument")
+            BuiltinCodegen::ValueUnaryExpression => {
+                unreachable!("expression builtin used as statement call")
             }
-            RuntimeFn::EchoWriteString => unreachable!("echo_write_string needs a string argument"),
-            RuntimeFn::EchoValueString => unreachable!("echo_value_string needs string arguments"),
-            RuntimeFn::ObStartValue => unreachable!("ob_start_value needs an EchoValue argument"),
-            RuntimeFn::ObGetContents => unreachable!("ob_get_contents is emitted as an expression"),
-            RuntimeFn::ObGetLength => unreachable!("ob_get_length is emitted as an expression"),
-            RuntimeFn::ObGetLevel => unreachable!("ob_get_level is emitted as an expression"),
-            RuntimeFn::Shutdown => unreachable!("shutdown is emitted at program exit"),
         }
 
         Ok(())
@@ -345,89 +459,167 @@ impl IrModule {
                         expr.span,
                     )
                 }),
-            Expr::FunctionCall(expr) if expr.name == "ob_get_level" => {
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call i64 @{}()\n",
-                    RuntimeFn::ObGetLevel.symbol()
-                ));
-
-                Ok(RuntimeValue::I64(name))
-            }
-            Expr::FunctionCall(expr) if expr.name == "ob_get_length" => {
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call i64 @{}()\n",
-                    RuntimeFn::ObGetLength.symbol()
-                ));
-
-                Ok(RuntimeValue::I64OrFalse(name))
-            }
-            Expr::FunctionCall(expr) if expr.name == "ob_get_contents" => {
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call ptr @{}()\n",
-                    RuntimeFn::ObGetContents.symbol()
-                ));
-
-                Ok(RuntimeValue::RuntimeString(name))
-            }
-            Expr::FunctionCall(expr) if expr.name == "ob_get_clean" => {
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call ptr @{}()\n",
-                    RuntimeFn::ObGetClean.symbol()
-                ));
-
-                Ok(RuntimeValue::RuntimeString(name))
-            }
-            Expr::FunctionCall(expr) if expr.name == "ob_get_flush" => {
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call ptr @{}()\n",
-                    RuntimeFn::ObGetFlush.symbol()
-                ));
-
-                Ok(RuntimeValue::RuntimeString(name))
-            }
+            Expr::FunctionCall(expr) => self.render_function_call_expr(body, expr),
+            Expr::Defer(expr) => Err(Diagnostic::new(
+                "unsupported `defer` expression in LLVM codegen",
+                expr.span,
+            )),
+            Expr::Run(expr) => Err(Diagnostic::new(
+                "unsupported `run` expression in LLVM codegen",
+                expr.span(),
+            )),
+            Expr::Fork(expr) => Err(Diagnostic::new(
+                "unsupported `fork` expression in LLVM codegen",
+                expr.span(),
+            )),
+            Expr::Spawn(expr) => Err(Diagnostic::new(
+                "unsupported `spawn` expression in LLVM codegen",
+                expr.span,
+            )),
+            Expr::Join(expr) => Err(Diagnostic::new(
+                "unsupported `join` expression in LLVM codegen",
+                expr.span,
+            )),
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
-                let RuntimeValue::StaticString(mut output) = self.render_expr(body, &expr.left)?
-                else {
-                    return Err(Diagnostic::new(
-                        "unsupported dynamic concat expression in LLVM codegen",
-                        expr.left.span(),
-                    ));
-                };
-                let RuntimeValue::StaticString(right) = self.render_expr(body, &expr.right)? else {
-                    return Err(Diagnostic::new(
-                        "unsupported dynamic concat expression in LLVM codegen",
-                        expr.right.span(),
-                    ));
-                };
-
-                output.push_str(&right);
-                Ok(RuntimeValue::StaticString(output))
+                self.render_concat_expr(body, &expr.left, &expr.right)
             }
             _ => Err(Diagnostic::new(
                 "unsupported expression in LLVM codegen",
                 expr.span(),
             )),
         }
+    }
+
+    fn render_concat_expr(
+        &mut self,
+        body: &mut String,
+        left: &Expr,
+        right: &Expr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let left = self.render_expr(body, left)?;
+        let right = self.render_expr(body, right)?;
+
+        match (left, right) {
+            (RuntimeValue::StaticString(mut left), RuntimeValue::StaticString(right)) => {
+                left.push_str(&right);
+                Ok(RuntimeValue::StaticString(left))
+            }
+            (left, right) => {
+                let left = self.runtime_value_as_echo_value(body, left);
+                let right = self.runtime_value_as_echo_value(body, right);
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({left}, {right})\n",
+                    CoreRuntimeSymbol::ValueConcat.symbol()
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+        }
+    }
+
+    fn render_function_call_expr(
+        &mut self,
+        body: &mut String,
+        expr: &echo_ast::FunctionCallExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let Some(builtin) = php_builtin(&expr.name) else {
+            return self.render_userland_function_call_expr(body, expr);
+        };
+
+        match builtin.codegen {
+            BuiltinCodegen::ValueExpression => {
+                if !expr.args.is_empty() {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported arguments for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                }
+
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}()\n",
+                    builtin.symbol
+                ));
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueUnaryExpression => {
+                let [arg] = expr.args.as_slice() else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                };
+
+                let arg = self.render_expr_as_echo_value(body, arg)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({arg})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            _ => Err(Diagnostic::new(
+                "unsupported expression in LLVM codegen",
+                expr.span,
+            )),
+        }
+    }
+
+    fn render_userland_function_call_expr(
+        &mut self,
+        body: &mut String,
+        expr: &echo_ast::FunctionCallExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let Some(function) = self.functions.get(&expr.name).cloned() else {
+            return Err(Diagnostic::new(
+                "unsupported expression in LLVM codegen",
+                expr.span,
+            ));
+        };
+
+        if expr.args.len() != function.params.len() {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported argument count for userland function `{}` in LLVM codegen",
+                    expr.name
+                ),
+                expr.span,
+            ));
+        }
+
+        let mut args = Vec::new();
+        for arg in &expr.args {
+            args.push(self.render_expr_as_echo_value(body, arg)?);
+        }
+
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let name = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {name} = call %EchoValue @{}({})\n",
+            userland_function_symbol(&expr.name),
+            args.join(", ")
+        ));
+
+        Ok(RuntimeValue::EchoValue(name))
     }
 
     fn resolve_alias(&self, name: &str) -> String {
@@ -455,24 +647,17 @@ impl IrModule {
 }
 
 fn runtime_declarations() -> String {
-    RuntimeFn::ALL
+    CoreRuntimeSymbol::ALL
         .iter()
         .map(|function| function.llvm_decl())
+        .chain(
+            PHP_RUNTIME_HELPERS
+                .iter()
+                .map(|(symbol, signature)| signature.llvm_decl(symbol)),
+        )
+        .chain(PHP_BUILTINS.iter().map(|builtin| builtin.llvm_decl()))
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn runtime_function_for_call(name: &str) -> Option<RuntimeFn> {
-    match name {
-        "ob_start" => Some(RuntimeFn::ObStart),
-        "ob_clean" => Some(RuntimeFn::ObClean),
-        "ob_flush" => Some(RuntimeFn::ObFlush),
-        "ob_end_flush" => Some(RuntimeFn::ObEndFlush),
-        "ob_end_clean" => Some(RuntimeFn::ObEndClean),
-        "ob_get_clean" => Some(RuntimeFn::ObGetClean),
-        "ob_get_flush" => Some(RuntimeFn::ObGetFlush),
-        _ => None,
-    }
 }
 
 fn userland_function_symbol(name: &str) -> String {
@@ -497,7 +682,10 @@ fn llvm_string_literal(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use echo_ast::{EchoStmt, FunctionCallStmt, FunctionDeclStmt, NullLiteral, StringLiteral};
+    use echo_ast::{
+        EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, NullLiteral, ReturnStmt,
+        StringLiteral,
+    };
 
     fn program(statements: Vec<Stmt>) -> Program {
         Program {
@@ -519,9 +707,9 @@ mod tests {
         .expect("IR");
 
         assert!(ir.contains("%EchoValue = type { i32, i64 }"));
-        assert!(ir.contains("declare i1 @echo_ob_start_value(%EchoValue)"));
+        assert!(ir.contains("declare i1 @echo_php_ob_start_value(%EchoValue)"));
         assert!(
-            ir.contains("call i1 @echo_ob_start_value(%EchoValue { i32 0, i64 0 })"),
+            ir.contains("call i1 @echo_php_ob_start_value(%EchoValue { i32 0, i64 0 })"),
             "{ir}"
         );
     }
@@ -539,8 +727,9 @@ mod tests {
         .expect("IR");
 
         assert!(ir.contains("declare %EchoValue @echo_value_string(ptr, i64)"));
+        assert!(ir.contains("declare void @echo_write_value(%EchoValue)"));
         assert!(ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_0, i64 6)"));
-        assert!(ir.contains("call i1 @echo_ob_start_value(%EchoValue %runtime_call_0)"));
+        assert!(ir.contains("call i1 @echo_php_ob_start_value(%EchoValue %runtime_call_0)"));
     }
 
     #[test]
@@ -566,11 +755,177 @@ mod tests {
         ]))
         .expect("IR");
 
-        assert!(ir.contains("define void @echo_user_say_after()"), "{ir}");
+        assert!(
+            ir.contains("define %EchoValue @echo_user_say_after()"),
+            "{ir}"
+        );
         assert!(
             ir.contains("call void @echo_write(ptr @echo_str_0, i64 6)"),
             "{ir}"
         );
-        assert!(ir.contains("call void @echo_user_say_after()"), "{ir}");
+        assert!(
+            ir.contains("call %EchoValue @echo_user_say_after()"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn userland_call_passes_string_argument_as_echo_value() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::FunctionDecl(FunctionDeclStmt {
+                name: "say".to_string(),
+                params: vec!["message".to_string()],
+                body: vec![Stmt::Echo(EchoStmt {
+                    exprs: vec![Expr::Variable(echo_ast::VariableExpr {
+                        name: "message".to_string(),
+                        span: Span::new(0, 8),
+                    })],
+                    span: Span::new(0, 15),
+                })],
+                span: Span::new(0, 40),
+            }),
+            Stmt::FunctionCall(FunctionCallStmt {
+                name: "say".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "hello\n".to_string(),
+                    span: Span::new(45, 53),
+                })],
+                span: Span::new(41, 55),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("define %EchoValue @echo_user_say(%EchoValue %arg_message)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call void @echo_write_value(%EchoValue %arg_message)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_0, i64 6)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_user_say(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn userland_return_value_can_be_echoed() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::FunctionDecl(FunctionDeclStmt {
+                name: "greeting".to_string(),
+                params: vec![],
+                body: vec![Stmt::Return(ReturnStmt {
+                    value: Expr::String(StringLiteral {
+                        value: "hello\n".to_string(),
+                        span: Span::new(0, 8),
+                    }),
+                    span: Span::new(0, 16),
+                })],
+                span: Span::new(0, 40),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "greeting".to_string(),
+                    args: vec![],
+                    span: Span::new(45, 55),
+                })],
+                span: Span::new(41, 56),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("define %EchoValue @echo_user_greeting()"),
+            "{ir}"
+        );
+        assert!(ir.contains("ret %EchoValue %runtime_call_0"), "{ir}");
+        assert!(ir.contains("call %EchoValue @echo_user_greeting()"), "{ir}");
+        assert!(
+            ir.contains("call void @echo_write_value(%EchoValue %runtime_call_1)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn dynamic_concat_uses_echo_value_concat() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::FunctionDecl(FunctionDeclStmt {
+                name: "greet".to_string(),
+                params: vec!["name".to_string()],
+                body: vec![Stmt::Echo(EchoStmt {
+                    exprs: vec![Expr::Binary(Box::new(echo_ast::BinaryExpr {
+                        left: Expr::Binary(Box::new(echo_ast::BinaryExpr {
+                            left: Expr::String(StringLiteral {
+                                value: "Hello, ".to_string(),
+                                span: Span::new(0, 9),
+                            }),
+                            op: BinaryOp::Concat,
+                            right: Expr::Variable(echo_ast::VariableExpr {
+                                name: "name".to_string(),
+                                span: Span::new(12, 17),
+                            }),
+                            span: Span::new(0, 17),
+                        })),
+                        op: BinaryOp::Concat,
+                        right: Expr::String(StringLiteral {
+                            value: "!\n".to_string(),
+                            span: Span::new(20, 24),
+                        }),
+                        span: Span::new(0, 24),
+                    }))],
+                    span: Span::new(0, 30),
+                })],
+                span: Span::new(0, 40),
+            }),
+            Stmt::FunctionCall(FunctionCallStmt {
+                name: "greet".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "Echo".to_string(),
+                    span: Span::new(45, 51),
+                })],
+                span: Span::new(41, 53),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_value_concat(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(ir.contains("call %EchoValue @echo_value_concat"), "{ir}");
+    }
+
+    #[test]
+    fn strlen_lowers_to_php_builtin_with_echo_value_argument() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "strlen".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "hello".to_string(),
+                    span: Span::new(7, 14),
+                })],
+                span: Span::new(0, 15),
+            })],
+            span: Span::new(0, 16),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_strlen(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_strlen(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call void @echo_write_value(%EchoValue %runtime_call_1)"),
+            "{ir}"
+        );
     }
 }

@@ -1,29 +1,98 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, EchoStmt, Expr, FunctionCallExpr,
-    FunctionCallStmt, FunctionDeclStmt, NullLiteral, NumberLiteral, Program, Stmt, StringLiteral,
-    VariableExpr,
+    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, DeferExpr, DynamicFunctionCallStmt, EchoStmt,
+    Expr, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, JoinExpr, NamespaceStmt,
+    NullLiteral, NumberLiteral, Program, QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt,
+    StringLiteral, UseStmt, VariableExpr,
 };
 use echo_diagnostics::Diagnostic;
-use echo_source::Span;
+use echo_source::{SourceMode, Span};
 
 pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
+    parse_with_mode(source, SourceMode::Echo)
+}
+
+pub fn parse_with_mode(source: &str, mode: SourceMode) -> Result<Program, Vec<Diagnostic>> {
     // For now, run the Logos lexer first so lexer errors are caught.
     // The Chumsky parser below still parses the source text directly.
     echo_lexer::lex(source)?;
 
     let source = strip_comments_preserving_spans(source);
 
-    parser().parse(&source).into_result().map_err(|errors| {
+    let program = parser().parse(&source).into_result().map_err(|errors| {
         errors
             .into_iter()
             .map(|error| {
                 let span = error.span();
                 Diagnostic::new(error.to_string(), Span::new(span.start, span.end))
             })
-            .collect()
-    })
+            .collect::<Vec<_>>()
+    })?;
+
+    validate_mode(&program, mode)?;
+
+    Ok(program)
+}
+
+fn validate_mode(program: &Program, mode: SourceMode) -> Result<(), Vec<Diagnostic>> {
+    let mut diagnostics = Vec::new();
+    if mode == SourceMode::Strict {
+        for statement in &program.statements {
+            validate_statement_mode(statement, &mut diagnostics);
+        }
+    }
+
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(diagnostics)
+    }
+}
+
+fn validate_statement_mode(statement: &Stmt, diagnostics: &mut Vec<Diagnostic>) {
+    match statement {
+        Stmt::Echo(statement) => {
+            for expr in &statement.exprs {
+                validate_expr_mode(expr, diagnostics);
+            }
+        }
+        Stmt::FunctionCall(statement) => {
+            for expr in &statement.args {
+                validate_expr_mode(expr, diagnostics);
+            }
+        }
+        Stmt::DynamicFunctionCall(statement) => {
+            for expr in &statement.args {
+                validate_expr_mode(expr, diagnostics);
+            }
+        }
+        Stmt::FunctionDecl(statement) => {
+            for statement in &statement.body {
+                validate_statement_mode(statement, diagnostics);
+            }
+        }
+        Stmt::Assign(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::AssignRef(_) => {}
+        Stmt::Return(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::Namespace(_) | Stmt::Use(_) => {}
+    }
+}
+
+fn validate_expr_mode(expr: &Expr, diagnostics: &mut Vec<Diagnostic>) {
+    match expr {
+        Expr::Defer(_) | Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {}
+        Expr::FunctionCall(expr) => {
+            for expr in &expr.args {
+                validate_expr_mode(expr, diagnostics);
+            }
+        }
+        Expr::Binary(expr) => {
+            validate_expr_mode(&expr.left, diagnostics);
+            validate_expr_mode(&expr.right, diagnostics);
+        }
+        Expr::Null(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
+    }
 }
 
 fn strip_comments_preserving_spans(source: &str) -> String {
@@ -163,7 +232,59 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let atom = function_call_expr
+        let run_expr = text::keyword("run")
+            .padded()
+            .ignore_then(expr.clone())
+            .map_with(|task, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Run(RunExpr::Task {
+                    expr: Box::new(task),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let spawn_expr = text::keyword("spawn")
+            .padded()
+            .ignore_then(expr.clone())
+            .map_with(|command, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Spawn(SpawnExpr {
+                    command: Box::new(command),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let fork_expr = text::keyword("fork")
+            .padded()
+            .ignore_then(expr.clone())
+            .map_with(|task, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Fork(ForkExpr::Task {
+                    expr: Box::new(task),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let join_expr = text::keyword("join")
+            .padded()
+            .ignore_then(expr.clone())
+            .map_with(|handle, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Join(JoinExpr {
+                    handle: Box::new(handle),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let atom = run_expr
+            .or(fork_expr)
+            .or(spawn_expr)
+            .or(join_expr)
+            .or(function_call_expr)
             .or(variable)
             .or(null)
             .or(string)
@@ -185,6 +306,45 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
     });
 
     let statement = recursive(|statement| {
+        let qualified_name = text::ident()
+            .separated_by(just('\\'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
+
+        let namespace_stmt = text::keyword("namespace")
+            .padded()
+            .ignore_then(qualified_name.clone())
+            .then_ignore(just(';').padded())
+            .map_with(|name, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Namespace(NamespaceStmt {
+                    name,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let use_stmt = text::keyword("use")
+            .padded()
+            .ignore_then(qualified_name.clone())
+            .then(
+                text::keyword("as")
+                    .padded()
+                    .ignore_then(text::ident().padded())
+                    .or_not(),
+            )
+            .then_ignore(just(';').padded())
+            .map_with(|(name, alias): (QualifiedName, Option<&str>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Use(UseStmt {
+                    name,
+                    alias: alias.map(str::to_string),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let echo_exprs = expr
             .clone()
             .padded()
@@ -205,6 +365,19 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let return_stmt = just("return")
+            .padded()
+            .ignore_then(expr.clone().padded())
+            .then_ignore(just(';').padded())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Return(ReturnStmt {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let function_call_stmt = text::ident()
             .padded()
             .then_ignore(just('(').padded())
@@ -221,6 +394,28 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 let span: SimpleSpan = extra.span();
 
                 Stmt::FunctionCall(FunctionCallStmt {
+                    name: name.to_string(),
+                    args,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let dynamic_function_call_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(
+                expr.clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then_ignore(just(';').padded())
+            .map_with(|(name, args): (&str, Vec<Expr>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::DynamicFunctionCall(DynamicFunctionCallStmt {
                     name: name.to_string(),
                     args,
                     span: Span::new(span.start, span.end),
@@ -271,6 +466,69 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let block = statement
+            .clone()
+            .repeated()
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded());
+
+        let assign_defer_block_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("defer").padded())
+            .then(block.clone())
+            .then_ignore(just(';').padded())
+            .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Assign(AssignStmt {
+                    name: name.to_string(),
+                    value: Expr::Defer(DeferExpr {
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let assign_run_block_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("run").padded())
+            .then(block.clone())
+            .then_ignore(just(';').padded())
+            .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Assign(AssignStmt {
+                    name: name.to_string(),
+                    value: Expr::Run(RunExpr::Block {
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let assign_fork_block_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("fork").padded())
+            .then(block)
+            .then_ignore(just(';').padded())
+            .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Assign(AssignStmt {
+                    name: name.to_string(),
+                    value: Expr::Fork(ForkExpr::Block {
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let assign_ref_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
@@ -289,8 +547,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             });
 
         function_decl_stmt
+            .or(namespace_stmt)
+            .or(use_stmt)
             .or(echo_stmt)
+            .or(return_stmt)
+            .or(dynamic_function_call_stmt)
             .or(function_call_stmt)
+            .or(assign_defer_block_stmt)
+            .or(assign_run_block_stmt)
+            .or(assign_fork_block_stmt)
             .or(assign_ref_stmt)
             .or(assign_stmt)
     });
@@ -331,4 +596,82 @@ fn unescape_string(input: String) -> String {
     }
 
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_concurrency_keyword_expressions() {
+        let program = parse_with_mode(
+            r#"<?php
+$task = run $deferred;
+$worker = fork $job;
+$process = spawn "worker";
+$value = join $task;
+"#,
+            SourceMode::Echo,
+        )
+        .expect("program parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Run(_))
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(_))
+        ));
+        assert!(matches!(
+            &program.statements[2],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Spawn(_))
+        ));
+        assert!(matches!(
+            &program.statements[3],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Join(_))
+        ));
+    }
+
+    #[test]
+    fn parses_concurrency_block_assignments() {
+        let program = parse_with_mode(
+            r#"<?php
+$deferred = defer { return "later"; };
+$task = run { return "soon"; };
+$worker = fork { return "parallel"; };
+"#,
+            SourceMode::Echo,
+        )
+        .expect("program parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Defer(_))
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Run(RunExpr::Block { .. }))
+        ));
+        assert!(matches!(
+            &program.statements[2],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(ForkExpr::Block { .. }))
+        ));
+    }
+
+    #[test]
+    fn echo_mode_accepts_concurrency_keywords_in_php_files() {
+        let program = parse_with_mode(
+            r#"<?php
+$task = run $deferred;
+"#,
+            SourceMode::Echo,
+        )
+        .expect("Echo superset mode accepts concurrency syntax");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Run(_))
+        ));
+    }
 }

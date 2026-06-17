@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceMode {
-    PhpFile,
-    EchoFile,
+    Echo,
+    Strict,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,8 +28,8 @@ pub struct SourceFile {
 impl SourceFile {
     pub fn new(path: PathBuf, text: String) -> Self {
         let mode = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("echo") | Some("xo") => SourceMode::EchoFile,
-            _ => SourceMode::PhpFile,
+            Some("echo") | Some("xo") => SourceMode::Strict,
+            _ => SourceMode::Echo,
         };
 
         Self { path, text, mode }

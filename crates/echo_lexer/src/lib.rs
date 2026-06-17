@@ -29,6 +29,7 @@ pub enum TokenKind {
     Dot,
     Ampersand,
     Equals,
+    Backslash,
     Eof,
 }
 
@@ -97,6 +98,9 @@ enum RawToken {
     #[token("=")]
     Equals,
 
+    #[token("\\")]
+    Backslash,
+
     #[regex(r"[ \t\r\n\f]+", logos::skip)]
     Whitespace,
 }
@@ -157,6 +161,7 @@ impl RawToken {
             RawToken::Dot => TokenKind::Dot,
             RawToken::Ampersand => TokenKind::Ampersand,
             RawToken::Equals => TokenKind::Equals,
+            RawToken::Backslash => TokenKind::Backslash,
             RawToken::Whitespace => unreachable!("logos skipped whitespace"),
         }
     }

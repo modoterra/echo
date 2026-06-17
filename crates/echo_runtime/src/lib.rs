@@ -1,92 +1,9 @@
+pub mod poll;
+pub mod sched;
+pub mod task;
+
 use std::cell::RefCell;
 use std::io::{self, Write};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuntimeFn {
-    EchoWrite,
-    EchoWriteI64,
-    EchoWriteI64OrFalse,
-    EchoWriteString,
-    EchoValueString,
-    ObStart,
-    ObStartValue,
-    ObClean,
-    ObFlush,
-    ObEndFlush,
-    ObEndClean,
-    ObGetClean,
-    ObGetContents,
-    ObGetFlush,
-    ObGetLength,
-    ObGetLevel,
-    Shutdown,
-}
-
-impl RuntimeFn {
-    pub const ALL: &'static [Self] = &[
-        Self::EchoWrite,
-        Self::EchoWriteI64,
-        Self::EchoWriteI64OrFalse,
-        Self::EchoWriteString,
-        Self::EchoValueString,
-        Self::ObStart,
-        Self::ObStartValue,
-        Self::ObClean,
-        Self::ObFlush,
-        Self::ObEndFlush,
-        Self::ObEndClean,
-        Self::ObGetClean,
-        Self::ObGetContents,
-        Self::ObGetFlush,
-        Self::ObGetLength,
-        Self::ObGetLevel,
-        Self::Shutdown,
-    ];
-
-    pub const fn symbol(self) -> &'static str {
-        match self {
-            Self::EchoWrite => "echo_write",
-            Self::EchoWriteI64 => "echo_write_i64",
-            Self::EchoWriteI64OrFalse => "echo_write_i64_or_false",
-            Self::EchoWriteString => "echo_write_string",
-            Self::EchoValueString => "echo_value_string",
-            Self::ObStart => "echo_ob_start",
-            Self::ObStartValue => "echo_ob_start_value",
-            Self::ObClean => "echo_ob_clean",
-            Self::ObFlush => "echo_ob_flush",
-            Self::ObEndFlush => "echo_ob_end_flush",
-            Self::ObEndClean => "echo_ob_end_clean",
-            Self::ObGetClean => "echo_ob_get_clean",
-            Self::ObGetContents => "echo_ob_get_contents",
-            Self::ObGetFlush => "echo_ob_get_flush",
-            Self::ObGetLength => "echo_ob_get_length",
-            Self::ObGetLevel => "echo_ob_get_level",
-            Self::Shutdown => "echo_shutdown",
-        }
-    }
-
-    pub const fn llvm_decl(self) -> &'static str {
-        match self {
-            Self::EchoWrite => "declare void @echo_write(ptr, i64)",
-            Self::EchoWriteI64 => "declare void @echo_write_i64(i64)",
-            Self::EchoWriteI64OrFalse => "declare void @echo_write_i64_or_false(i64)",
-            Self::EchoWriteString => "declare void @echo_write_string(ptr)",
-            Self::EchoValueString => "declare %EchoValue @echo_value_string(ptr, i64)",
-            Self::ObStart => "declare void @echo_ob_start()",
-            Self::ObStartValue => "declare i1 @echo_ob_start_value(%EchoValue)",
-            Self::ObClean => "declare i1 @echo_ob_clean()",
-            Self::ObFlush => "declare i1 @echo_ob_flush()",
-            Self::ObEndFlush => "declare i1 @echo_ob_end_flush()",
-            Self::ObEndClean => "declare i1 @echo_ob_end_clean()",
-            Self::ObGetClean => "declare ptr @echo_ob_get_clean()",
-            Self::ObGetContents => "declare ptr @echo_ob_get_contents()",
-            Self::ObGetFlush => "declare ptr @echo_ob_get_flush()",
-            Self::ObGetLength => "declare i64 @echo_ob_get_length()",
-            Self::ObGetLevel => "declare i64 @echo_ob_get_level()",
-            Self::Shutdown => "declare void @echo_shutdown()",
-        }
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
@@ -131,6 +48,12 @@ pub struct EchoString {
     bytes: Vec<u8>,
 }
 
+impl EchoString {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EchoValue {
@@ -139,7 +62,11 @@ pub struct EchoValue {
 }
 
 const ECHO_VALUE_NULL: i32 = 0;
+const ECHO_VALUE_ERROR: i32 = -1;
+const ECHO_VALUE_BOOL: i32 = 1;
+const ECHO_VALUE_INT: i32 = 2;
 const ECHO_VALUE_STRING: i32 = 3;
+const ECHO_VALUE_ARRAY: i32 = 4;
 
 impl EchoValue {
     pub const fn null() -> Self {
@@ -149,8 +76,37 @@ impl EchoValue {
         }
     }
 
+    pub const fn error() -> Self {
+        Self {
+            kind: ECHO_VALUE_ERROR,
+            payload: 0,
+        }
+    }
+
+    pub const fn bool(value: bool) -> Self {
+        Self {
+            kind: ECHO_VALUE_BOOL,
+            payload: value as u64,
+        }
+    }
+
+    pub const fn int(value: i64) -> Self {
+        Self {
+            kind: ECHO_VALUE_INT,
+            payload: value as u64,
+        }
+    }
+
     pub const fn is_null(self) -> bool {
         self.kind == ECHO_VALUE_NULL
+    }
+
+    pub const fn is_false(self) -> bool {
+        self.kind == ECHO_VALUE_BOOL && self.payload == 0
+    }
+
+    pub const fn is_int(self) -> bool {
+        self.kind == ECHO_VALUE_INT
     }
 
     pub fn string(value: *mut EchoString) -> Self {
@@ -160,8 +116,33 @@ impl EchoValue {
         }
     }
 
+    fn string_bytes(self) -> Option<Vec<u8>> {
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
+            ECHO_VALUE_BOOL => {
+                if self.payload == 0 {
+                    Some(Vec::new())
+                } else {
+                    Some(b"1".to_vec())
+                }
+            }
+            ECHO_VALUE_INT => Some((self.payload as i64).to_string().into_bytes()),
+            ECHO_VALUE_STRING => unsafe {
+                (self.payload as *const EchoString)
+                    .as_ref()
+                    .map(|value| value.bytes.clone())
+            },
+            ECHO_VALUE_ARRAY => Some(b"Array".to_vec()),
+            _ => None,
+        }
+    }
+
     pub const fn is_string(self) -> bool {
         self.kind == ECHO_VALUE_STRING
+    }
+
+    pub const fn is_array(self) -> bool {
+        self.kind == ECHO_VALUE_ARRAY
     }
 }
 
@@ -303,6 +284,10 @@ pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>,
 
 pub fn echo_call(callable: &EchoCallable, _args: &[EchoValue]) -> Result<EchoValue, EchoError> {
     match callable {
+        EchoCallable::Function(symbol) if symbol.as_str() == "ob_start" => {
+            OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+            Ok(EchoValue::null())
+        }
         EchoCallable::Function(symbol) => Err(EchoError::UndefinedFunction(symbol.clone())),
     }
 }
@@ -359,25 +344,75 @@ pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
+    match value.kind {
+        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => {}
+        ECHO_VALUE_BOOL => {
+            if value.payload != 0 {
+                unsafe { echo_write(c"1".as_ptr().cast(), 1) };
+            }
+        }
+        ECHO_VALUE_INT => echo_write_i64(value.payload as i64),
+        ECHO_VALUE_STRING => unsafe { echo_write_string(value.payload as *const EchoString) },
+        ECHO_VALUE_ARRAY => unsafe { echo_write(c"Array".as_ptr().cast(), 5) },
+        _ => {}
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
-        return EchoValue {
-            kind: -1,
-            payload: 0,
-        };
+        return EchoValue::error();
     }
 
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) }.to_vec();
-    EchoValue::string(Box::into_raw(Box::new(EchoString { bytes })))
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_start() {
+pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(mut bytes) = left.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    bytes.extend_from_slice(&right);
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::int(bytes.len() as i64),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
+    if ptr.is_null() && len != 0 {
+        return EchoValue::error();
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+    let Ok(name) = std::str::from_utf8(bytes) else {
+        return EchoValue::error();
+    };
+
+    let callable = EchoCallable::Function(EchoSymbol::new(name));
+    echo_call(&callable, &[]).unwrap_or_else(|_| EchoValue::error())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ob_start() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+    true
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_start_value(callback: EchoValue) -> bool {
+pub extern "C" fn echo_php_ob_start_value(callback: EchoValue) -> bool {
     let Ok(callback) = echo_normalize_callable(callback) else {
         return false;
     };
@@ -387,12 +422,12 @@ pub extern "C" fn echo_ob_start_value(callback: EchoValue) -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_clean() -> bool {
+pub extern "C" fn echo_php_ob_clean() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_clean())
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_flush() -> bool {
+pub extern "C" fn echo_php_ob_flush() -> bool {
     OUTPUT.with(|runtime| {
         let mut stdout = Vec::new();
         let ok = runtime.borrow_mut().ob_flush(&mut stdout);
@@ -402,7 +437,7 @@ pub extern "C" fn echo_ob_flush() -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_end_flush() -> bool {
+pub extern "C" fn echo_php_ob_end_flush() -> bool {
     OUTPUT.with(|runtime| {
         let mut stdout = Vec::new();
         let ok = runtime.borrow_mut().ob_end_flush(&mut stdout);
@@ -412,53 +447,51 @@ pub extern "C" fn echo_ob_end_flush() -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_end_clean() -> bool {
+pub extern "C" fn echo_php_ob_end_clean() -> bool {
     OUTPUT.with(|runtime| runtime.borrow_mut().ob_end_clean())
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_get_clean() -> *mut EchoString {
+pub extern "C" fn echo_php_ob_get_clean() -> EchoValue {
     OUTPUT.with(|runtime| match runtime.borrow_mut().ob_get_clean() {
-        Some(value) => Box::into_raw(Box::new(value)),
-        None => std::ptr::null_mut(),
+        Some(value) => EchoValue::string(Box::into_raw(Box::new(value))),
+        None => EchoValue::bool(false),
     })
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_get_contents() -> *mut EchoString {
+pub extern "C" fn echo_php_ob_get_contents() -> EchoValue {
     OUTPUT.with(|runtime| match runtime.borrow().ob_get_contents() {
-        Some(value) => Box::into_raw(Box::new(value)),
-        None => std::ptr::null_mut(),
+        Some(value) => EchoValue::string(Box::into_raw(Box::new(value))),
+        None => EchoValue::bool(false),
     })
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_get_flush() -> *mut EchoString {
+pub extern "C" fn echo_php_ob_get_flush() -> EchoValue {
     OUTPUT.with(|runtime| {
         let mut stdout = Vec::new();
         let value = runtime.borrow_mut().ob_get_flush(&mut stdout);
         write_stdout(&stdout);
         match value {
-            Some(value) => Box::into_raw(Box::new(value)),
-            None => std::ptr::null_mut(),
+            Some(value) => EchoValue::string(Box::into_raw(Box::new(value))),
+            None => EchoValue::bool(false),
         }
     })
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_get_level() -> i64 {
+pub extern "C" fn echo_php_ob_get_level() -> EchoValue {
     // PHP `ob_get_level()` returns zero when inactive; the first active buffer is level 1.
     // Source: https://www.php.net/manual/en/function.ob-get-level.php
-    OUTPUT.with(|runtime| runtime.borrow().level() as i64)
+    OUTPUT.with(|runtime| EchoValue::int(runtime.borrow().level() as i64))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_ob_get_length() -> i64 {
-    OUTPUT.with(|runtime| {
-        runtime
-            .borrow()
-            .ob_get_length()
-            .map_or(-1, |len| len as i64)
+pub extern "C" fn echo_php_ob_get_length() -> EchoValue {
+    OUTPUT.with(|runtime| match runtime.borrow().ob_get_length() {
+        Some(len) => EchoValue::int(len as i64),
+        None => EchoValue::bool(false),
     })
 }
 
@@ -793,12 +826,5 @@ mod tests {
 
         assert_eq!(runtime.ob_get_length(), Some(3));
         assert!(stdout.is_empty());
-    }
-
-    #[test]
-    fn runtime_function_declarations_contain_symbols() {
-        for function in RuntimeFn::ALL {
-            assert!(function.llvm_decl().contains(function.symbol()));
-        }
     }
 }

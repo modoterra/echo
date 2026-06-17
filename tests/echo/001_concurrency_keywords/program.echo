@@ -1,0 +1,15 @@
+$deferred = defer {
+    return "later";
+};
+
+$task = run {
+    return "soon";
+};
+
+$worker = fork {
+    return "parallel";
+};
+
+$started = run $deferred;
+$process = spawn "worker --queue=emails";
+$value = join $task;

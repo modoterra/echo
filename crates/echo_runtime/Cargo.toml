@@ -7,3 +7,4 @@ edition = "2024"
 crate-type = ["rlib", "staticlib"]
 
 [dependencies]
+mio = { version = "1", features = ["os-poll", "net"] }

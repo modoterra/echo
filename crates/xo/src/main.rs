@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 
 use clap::{Parser, Subcommand};
+use echo_source::{SourceFile, SourceMode};
 
 #[derive(Debug, Parser)]
 #[command(name = "xo")]
@@ -18,19 +19,50 @@ enum Command {
         file: PathBuf,
     },
     Ast {
+        #[command(flatten)]
+        mode: ModeOverride,
         file: PathBuf,
     },
     Ir {
+        #[command(flatten)]
+        mode: ModeOverride,
         file: PathBuf,
     },
     Run {
+        #[command(flatten)]
+        mode: ModeOverride,
         file: PathBuf,
     },
     Build {
+        #[command(flatten)]
+        mode: ModeOverride,
         file: PathBuf,
         #[arg(short, long)]
         output: PathBuf,
     },
+}
+
+#[derive(Debug, Clone, Copy, clap::Args)]
+struct ModeOverride {
+    /// Force strict mode, rejecting unsafe PHP compatibility patterns.
+    #[arg(long, conflicts_with = "unsafe_mode")]
+    strict: bool,
+
+    /// Force Echo unsafe/superset mode, allowing PHP compatibility patterns.
+    #[arg(long = "unsafe", conflicts_with = "strict")]
+    unsafe_mode: bool,
+}
+
+impl ModeOverride {
+    fn apply(self, default: SourceMode) -> SourceMode {
+        if self.strict {
+            SourceMode::Strict
+        } else if self.unsafe_mode {
+            SourceMode::Echo
+        } else {
+            default
+        }
+    }
 }
 
 fn main() {
@@ -52,10 +84,10 @@ fn main() {
                 }
             }
         }
-        Command::Ast { file } => {
-            let source = read_source(&file);
+        Command::Ast { mode, file } => {
+            let source = read_source_file(&file, mode);
 
-            match echo_parser::parse(&source) {
+            match echo_parser::parse_with_mode(&source.text, source.mode) {
                 Ok(program) => {
                     println!("{program:#?}");
                 }
@@ -65,26 +97,26 @@ fn main() {
                 }
             }
         }
-        Command::Ir { file } => {
-            let ir = compile_ir(&file);
+        Command::Ir { mode, file } => {
+            let ir = compile_ir(&file, mode);
             print!("{ir}");
         }
-        Command::Run { file } => {
+        Command::Run { mode, file } => {
             let binary_path = temp_path(&file, "program");
-            build_binary(&file, &binary_path);
+            build_binary(&file, mode, &binary_path);
             run_command(&mut ProcessCommand::new(&binary_path));
             let _ = fs::remove_file(binary_path);
         }
-        Command::Build { file, output } => {
-            build_binary(&file, &output);
+        Command::Build { mode, file, output } => {
+            build_binary(&file, mode, &output);
         }
     }
 }
 
-fn build_binary(file: &PathBuf, output: &PathBuf) {
+fn build_binary(file: &PathBuf, mode: ModeOverride, output: &PathBuf) {
     ensure_runtime_library();
 
-    let ir = compile_ir(file);
+    let ir = compile_ir(file, mode);
     let ir_path = write_temp_ir(file, &ir);
     run_command(
         ProcessCommand::new("clang")
@@ -100,10 +132,10 @@ fn build_binary(file: &PathBuf, output: &PathBuf) {
     let _ = fs::remove_file(ir_path);
 }
 
-fn compile_ir(file: &PathBuf) -> String {
-    let source = read_source(file);
+fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
+    let source = read_source_file(file, mode);
 
-    let program = match echo_parser::parse(&source) {
+    let program = match echo_parser::parse_with_mode(&source.text, source.mode) {
         Ok(program) => program,
         Err(diagnostics) => {
             print_diagnostics(diagnostics);
@@ -174,6 +206,12 @@ fn read_source(file: &PathBuf) -> String {
         eprintln!("error: failed to read {}: {err}", file.display());
         std::process::exit(1);
     })
+}
+
+fn read_source_file(file: &PathBuf, mode: ModeOverride) -> SourceFile {
+    let mut source = SourceFile::new(file.clone(), read_source(file));
+    source.mode = mode.apply(source.mode);
+    source
 }
 
 fn print_diagnostics(diagnostics: Vec<echo_diagnostics::Diagnostic>) {
