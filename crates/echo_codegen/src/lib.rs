@@ -1276,6 +1276,7 @@ mod tests {
             ("substr", "echo_php_substr"),
             ("strpos", "echo_php_strpos"),
             ("strstr", "echo_php_strstr"),
+            ("stristr", "echo_php_stristr"),
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
         ] {

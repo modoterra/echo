@@ -487,6 +487,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "stristr",
+        symbol: "echo_php_stristr",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "strcmp",
         symbol: "echo_php_strcmp",
         helper_symbol: None,

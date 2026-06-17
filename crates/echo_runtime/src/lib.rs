@@ -1036,6 +1036,41 @@ pub extern "C" fn echo_php_strstr(haystack: EchoValue, needle: EchoValue) -> Ech
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stristr(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(position) = find_bytes_ascii_case_insensitive(&haystack, &needle) else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        haystack[position..].to_vec(),
+    ))))
+}
+
+fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+
+    haystack
+        .windows(needle.len())
+        .position(|window| bytes_eq_ascii_case_insensitive(window, needle))
+}
+
+fn bytes_eq_ascii_case_insensitive(left: &[u8], right: &[u8]) -> bool {
+    left.len() == right.len()
+        && left
+            .iter()
+            .zip(right)
+            .all(|(left, right)| left.eq_ignore_ascii_case(right))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strcmp(left: EchoValue, right: EchoValue) -> EchoValue {
     let Some(left) = left.string_bytes() else {
         return EchoValue::error();
@@ -1959,6 +1994,92 @@ mod tests {
             drop(Box::from_raw(empty_needle));
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(needle_at));
+            drop(Box::from_raw(needle_missing));
+            drop(Box::from_raw(needle_start));
+            drop(Box::from_raw(needle_empty));
+            drop(Box::from_raw(needle_non_ascii));
+        }
+    }
+
+    #[test]
+    fn stristr_preserves_php_ascii_case_insensitive_byte_behavior() {
+        let email = Box::into_raw(Box::new(EchoString {
+            bytes: "USER@EXAMPLE.com".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let at_start = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "12345".as_bytes().to_vec(),
+        }));
+        let empty_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+        let needle_email = Box::into_raw(Box::new(EchoString {
+            bytes: "e".as_bytes().to_vec(),
+        }));
+        let needle_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "XY".as_bytes().to_vec(),
+        }));
+        let needle_start = Box::into_raw(Box::new(EchoString {
+            bytes: "AB".as_bytes().to_vec(),
+        }));
+        let needle_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let needle_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "ä".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_stristr(EchoValue::string(email), EchoValue::string(needle_email))
+                .string_bytes(),
+            Some("ER@EXAMPLE.com".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_stristr(
+                EchoValue::string(missing),
+                EchoValue::string(needle_missing)
+            ),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_stristr(EchoValue::string(at_start), EchoValue::string(needle_start))
+                .string_bytes(),
+            Some("abcdef".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_stristr(EchoValue::string(numeric), EchoValue::int(34)).string_bytes(),
+            Some("345".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_stristr(
+                EchoValue::string(empty_needle),
+                EchoValue::string(needle_empty)
+            )
+            .string_bytes(),
+            Some("abcdef".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_stristr(
+                EchoValue::string(non_ascii),
+                EchoValue::string(needle_non_ascii)
+            ),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(email));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(at_start));
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(empty_needle));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(needle_email));
             drop(Box::from_raw(needle_missing));
             drop(Box::from_raw(needle_start));
             drop(Box::from_raw(needle_empty));
