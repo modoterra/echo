@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 46 | 561 |
-| Loaded local PHP internals, including extensions | 1516 | 46 | 1470 |
+| Baseline (`Core` + `standard`) | 607 | 47 | 560 |
+| Loaded local PHP internals, including extensions | 1516 | 47 | 1469 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (43/545)
+### standard (44/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -170,7 +170,7 @@ explicitly promote one.
 | `basename` | missing |  |
 | `bin2hex` | implemented |  |
 | `bindec` | missing |  |
-| `boolval` | missing |  |
+| `boolval` | implemented |  |
 | `call_user_func` | missing |  |
 | `call_user_func_array` | missing |  |
 | `ceil` | missing |  |

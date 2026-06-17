@@ -1,0 +1,6 @@
+empty:
+zero-string:
+false-string:1
+text:1
+zero-number:
+one-number:1

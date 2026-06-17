@@ -191,6 +191,22 @@ impl EchoValue {
         }
     }
 
+    fn bool_value(self) -> Option<bool> {
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(false),
+            ECHO_VALUE_BOOL => Some(self.payload != 0),
+            ECHO_VALUE_INT => Some(self.payload as i64 != 0),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
+                Some(!bytes.is_empty() && bytes != b"0")
+            },
+            ECHO_VALUE_ARRAY => Some(true),
+            ECHO_VALUE_TASK | ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => Some(true),
+            ECHO_VALUE_PENDING => Some(false),
+            _ => None,
+        }
+    }
+
     pub const fn is_string(self) -> bool {
         self.kind == ECHO_VALUE_STRING
     }
@@ -669,6 +685,14 @@ pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
 pub extern "C" fn echo_php_strval(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_boolval(value: EchoValue) -> EchoValue {
+    match value.bool_value() {
+        Some(value) => EchoValue::bool(value),
         None => EchoValue::error(),
     }
 }
@@ -1830,6 +1854,47 @@ mod tests {
 
         unsafe {
             drop(Box::from_raw(string));
+        }
+    }
+
+    #[test]
+    fn boolval_preserves_php_scalar_truthiness() {
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let zero = Box::into_raw(Box::new(EchoString {
+            bytes: "0".as_bytes().to_vec(),
+        }));
+        let false_text = Box::into_raw(Box::new(EchoString {
+            bytes: "false".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(echo_php_boolval(EchoValue::null()), EchoValue::bool(false));
+        assert_eq!(
+            echo_php_boolval(EchoValue::bool(false)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_boolval(EchoValue::bool(true)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(echo_php_boolval(EchoValue::int(0)), EchoValue::bool(false));
+        assert_eq!(echo_php_boolval(EchoValue::int(42)), EchoValue::bool(true));
+        assert_eq!(
+            echo_php_boolval(EchoValue::string(empty)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_boolval(EchoValue::string(zero)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_boolval(EchoValue::string(false_text)),
+            EchoValue::bool(true)
+        );
+
+        unsafe {
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(zero));
+            drop(Box::from_raw(false_text));
         }
     }
 
