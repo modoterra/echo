@@ -188,7 +188,7 @@ Examples:
 - `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are PHP builtin ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
 - `echo_php_ord(...)` and `echo_php_str_rot13(...)` are PHP builtin ABI because `ord()` and `str_rot13()` are PHP compatibility functions.
 - `echo_php_chr(...)`, `echo_php_bin2hex(...)`, and `echo_php_hex2bin(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, and `hex2bin()` are PHP compatibility functions.
-- `echo_php_base64_encode(...)` is PHP builtin ABI because `base64_encode()` is a PHP compatibility function.
+- `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.

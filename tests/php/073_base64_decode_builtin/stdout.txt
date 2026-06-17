@@ -1,0 +1,9 @@
+[]
+f
+fo
+foo
+hello world
+nonascii:Ächo
+number:123
+ignored:foo
+invalid:[]

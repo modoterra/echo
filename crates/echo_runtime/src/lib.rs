@@ -889,6 +889,71 @@ fn encode_base64(bytes: &[u8]) -> Vec<u8> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            decode_base64_non_strict(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+fn decode_base64_non_strict(bytes: &[u8]) -> Vec<u8> {
+    let mut values = Vec::new();
+    for byte in bytes.iter().copied() {
+        match base64_value(byte) {
+            Some(value) => values.push(value),
+            None if byte == b'=' => values.push(64),
+            None => {}
+        }
+    }
+
+    let mut decoded = Vec::with_capacity(values.len() / 4 * 3);
+    for chunk in values.chunks(4) {
+        if chunk.len() < 2 {
+            break;
+        }
+
+        let first = chunk[0];
+        let second = chunk[1];
+        if first >= 64 || second >= 64 {
+            break;
+        }
+
+        decoded.push((first << 2) | (second >> 4));
+
+        let Some(&third) = chunk.get(2) else {
+            break;
+        };
+        if third >= 64 {
+            break;
+        }
+        decoded.push(((second & 0b0000_1111) << 4) | (third >> 2));
+
+        let Some(&fourth) = chunk.get(3) else {
+            break;
+        };
+        if fourth >= 64 {
+            break;
+        }
+        decoded.push(((third & 0b0000_0011) << 6) | fourth);
+    }
+
+    decoded
+}
+
+fn base64_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'A'..=b'Z' => Some(byte - b'A'),
+        b'a'..=b'z' => Some(byte - b'a' + 26),
+        b'0'..=b'9' => Some(byte - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
     match value.string_bytes().and_then(|bytes| decode_hex(&bytes)) {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
@@ -2274,6 +2339,76 @@ mod tests {
             drop(Box::from_raw(three_bytes));
             drop(Box::from_raw(text));
             drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn base64_decode_preserves_php_default_non_strict_byte_behavior() {
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let one_byte = Box::into_raw(Box::new(EchoString {
+            bytes: "Zg==".as_bytes().to_vec(),
+        }));
+        let two_bytes = Box::into_raw(Box::new(EchoString {
+            bytes: "Zm8=".as_bytes().to_vec(),
+        }));
+        let three_bytes = Box::into_raw(Box::new(EchoString {
+            bytes: "Zm9v".as_bytes().to_vec(),
+        }));
+        let text = Box::into_raw(Box::new(EchoString {
+            bytes: "aGVsbG8gd29ybGQ=".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "w4RjaG8=".as_bytes().to_vec(),
+        }));
+        let ignored = Box::into_raw(Box::new(EchoString {
+            bytes: "Zm 9v".as_bytes().to_vec(),
+        }));
+        let invalid = Box::into_raw(Box::new(EchoString {
+            bytes: "!!!!".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(empty)).string_bytes(),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(one_byte)).string_bytes(),
+            Some("f".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(two_bytes)).string_bytes(),
+            Some("fo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(three_bytes)).string_bytes(),
+            Some("foo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(text)).string_bytes(),
+            Some("hello world".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(non_ascii)).string_bytes(),
+            Some("Ächo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(ignored)).string_bytes(),
+            Some("foo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_decode(EchoValue::string(invalid)).string_bytes(),
+            Some(Vec::new())
+        );
+
+        unsafe {
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(one_byte));
+            drop(Box::from_raw(two_bytes));
+            drop(Box::from_raw(three_bytes));
+            drop(Box::from_raw(text));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(ignored));
+            drop(Box::from_raw(invalid));
         }
     }
 

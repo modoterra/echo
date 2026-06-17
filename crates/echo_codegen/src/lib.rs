@@ -1233,6 +1233,7 @@ mod tests {
             ("chr", "echo_php_chr"),
             ("bin2hex", "echo_php_bin2hex"),
             ("base64_encode", "echo_php_base64_encode"),
+            ("base64_decode", "echo_php_base64_decode"),
             ("hex2bin", "echo_php_hex2bin"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
