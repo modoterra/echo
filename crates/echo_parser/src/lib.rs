@@ -18,7 +18,7 @@ pub fn parse_with_mode(source: &str, mode: SourceMode) -> Result<Program, Vec<Di
     // The Chumsky parser below still parses the source text directly.
     echo_lexer::lex(source)?;
 
-    let source = strip_comments_preserving_spans(source);
+    let source = virtualize_statement_terminators(&strip_comments_preserving_spans(source));
 
     let program = parser().parse(&source).into_result().map_err(|errors| {
         errors
@@ -153,6 +153,159 @@ fn strip_comments_preserving_spans(source: &str) -> String {
     }
 
     String::from_utf8(output).expect("comment stripping preserves UTF-8")
+}
+
+fn virtualize_statement_terminators(source: &str) -> String {
+    let mut output = source.as_bytes().to_vec();
+    let mut line_start = 0;
+    let mut index = 0;
+    let bytes = source.as_bytes();
+    let mut paren_depth = 0usize;
+    let mut bracket_depth = 0usize;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'"' => {
+                index += 1;
+                while index < bytes.len() {
+                    match bytes[index] {
+                        b'\\' => index = (index + 2).min(bytes.len()),
+                        b'"' => {
+                            index += 1;
+                            break;
+                        }
+                        _ => index += 1,
+                    }
+                }
+            }
+            b'}' => {
+                virtualize_before_close_brace(&mut output, bytes, index);
+                index += 1;
+            }
+            b'(' => {
+                paren_depth += 1;
+                index += 1;
+            }
+            b')' => {
+                paren_depth = paren_depth.saturating_sub(1);
+                index += 1;
+            }
+            b'[' => {
+                bracket_depth += 1;
+                index += 1;
+            }
+            b']' => {
+                bracket_depth = bracket_depth.saturating_sub(1);
+                index += 1;
+            }
+            b'\n' => {
+                let next = next_significant_byte(bytes, index + 1);
+                if paren_depth == 0
+                    && bracket_depth == 0
+                    && should_end_statement(&source[line_start..index], next)
+                {
+                    output[index] = b';';
+                }
+                line_start = index + 1;
+                index += 1;
+            }
+            b'\r' => {
+                if bytes.get(index + 1) == Some(&b'\n') {
+                    output[index] = b' ';
+                    let next = next_significant_byte(bytes, index + 2);
+                    if paren_depth == 0
+                        && bracket_depth == 0
+                        && should_end_statement(&source[line_start..index], next)
+                    {
+                        output[index + 1] = b';';
+                    }
+                    index += 2;
+                } else {
+                    let next = next_significant_byte(bytes, index + 1);
+                    if paren_depth == 0
+                        && bracket_depth == 0
+                        && should_end_statement(&source[line_start..index], next)
+                    {
+                        output[index] = b';';
+                    }
+                    index += 1;
+                }
+                line_start = index;
+            }
+            _ => index += 1,
+        }
+    }
+
+    String::from_utf8(output).expect("virtual semicolons preserve UTF-8")
+}
+
+fn should_end_statement(line: &str, next: Option<u8>) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("<?php") {
+        return false;
+    }
+
+    if matches!(
+        next,
+        Some(b'.' | b'+' | b'-' | b'*' | b'/' | b',' | b'{' | b')' | b']')
+    ) {
+        return false;
+    }
+
+    if trimmed.starts_with("function ") {
+        return false;
+    }
+
+    if matches!(
+        trimmed.as_bytes().last(),
+        Some(b'=' | b'.' | b'+' | b'-' | b'*' | b'/' | b',' | b'(' | b'[' | b'{')
+    ) {
+        return false;
+    }
+
+    matches!(
+        trimmed.as_bytes().last(),
+        Some(b')' | b']' | b'}' | b'"')
+            | Some(b'0'..=b'9')
+            | Some(b'a'..=b'z')
+            | Some(b'A'..=b'Z')
+            | Some(b'_')
+    )
+}
+
+fn next_significant_byte(source: &[u8], start: usize) -> Option<u8> {
+    source[start..]
+        .iter()
+        .copied()
+        .find(|byte| !byte.is_ascii_whitespace())
+}
+
+fn virtualize_before_close_brace(output: &mut [u8], source: &[u8], close_brace: usize) {
+    let Some(previous) = previous_significant_byte(source, close_brace) else {
+        return;
+    };
+
+    if !matches!(previous, b')' | b']' | b'}' | b'"' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_')
+    {
+        return;
+    }
+
+    for index in (0..close_brace).rev() {
+        if !source[index].is_ascii_whitespace() {
+            return;
+        }
+
+        output[index] = b';';
+        return;
+    }
+}
+
+fn previous_significant_byte(source: &[u8], end: usize) -> Option<u8> {
+    source[..end]
+        .iter()
+        .rev()
+        .copied()
+        .find(|byte| !byte.is_ascii_whitespace())
 }
 
 fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src, char>>> {
@@ -306,6 +459,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
     });
 
     let statement = recursive(|statement| {
+        let terminator = just(';').padded().ignored().or(end().ignored());
+
         let qualified_name = text::ident()
             .separated_by(just('\\'))
             .at_least(1)
@@ -315,7 +470,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let namespace_stmt = text::keyword("namespace")
             .padded()
             .ignore_then(qualified_name.clone())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|name, extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -334,7 +489,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .ignore_then(text::ident().padded())
                     .or_not(),
             )
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, alias): (QualifiedName, Option<&str>), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -355,7 +510,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let echo_stmt = just("echo")
             .padded()
             .ignore_then(echo_exprs)
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|exprs, extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -368,7 +523,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let return_stmt = just("return")
             .padded()
             .ignore_then(expr.clone().padded())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|value, extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -389,7 +544,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .collect::<Vec<_>>(),
             )
             .then_ignore(just(')').padded())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, args): (&str, Vec<Expr>), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -411,7 +566,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .collect::<Vec<_>>(),
             )
             .then_ignore(just(')').padded())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, args): (&str, Vec<Expr>), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -438,6 +593,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('{').padded())
             .then(statement.clone().repeated().collect::<Vec<_>>())
             .then_ignore(just('}').padded())
+            .then_ignore(terminator.clone().or_not())
             .map_with(
                 |((name, params), body): ((&str, Vec<&str>), Vec<Stmt>), extra| {
                     let span: SimpleSpan = extra.span();
@@ -455,7 +611,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
             .then(expr.clone())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, value): (&str, Expr), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -477,7 +633,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("defer").padded())
             .then(block.clone())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -496,7 +652,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("run").padded())
             .then(block.clone())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -515,7 +671,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("fork").padded())
             .then(block)
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -535,7 +691,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('&').padded())
             .then_ignore(just('$'))
             .then(text::ident().padded())
-            .then_ignore(just(';').padded())
+            .then_ignore(terminator.clone())
             .map_with(|(name, target): (&str, &str), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -551,13 +707,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(use_stmt)
             .or(echo_stmt)
             .or(return_stmt)
-            .or(dynamic_function_call_stmt)
-            .or(function_call_stmt)
             .or(assign_defer_block_stmt)
             .or(assign_run_block_stmt)
             .or(assign_fork_block_stmt)
             .or(assign_ref_stmt)
             .or(assign_stmt)
+            .or(dynamic_function_call_stmt)
+            .or(function_call_stmt)
     });
 
     open_php
@@ -657,6 +813,115 @@ $worker = fork { return "parallel"; };
             &program.statements[2],
             Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(ForkExpr::Block { .. }))
         ));
+    }
+
+    #[test]
+    fn parses_optional_statement_semicolons() {
+        let program = parse_with_mode(
+            r#"<?php
+namespace App\Http
+use Psr\Log\LoggerInterface
+echo "hello"
+$name = "Echo"
+$alias = "Alias"
+strlen($name)
+$fn()
+function greet($name) { return $name }
+"#,
+            SourceMode::Echo,
+        )
+        .expect("program parses without semicolons");
+
+        assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
+        assert!(matches!(&program.statements[1], Stmt::Use(_)));
+        assert!(matches!(&program.statements[2], Stmt::Echo(_)));
+        assert!(matches!(&program.statements[3], Stmt::Assign(_)));
+        assert!(matches!(&program.statements[4], Stmt::Assign(_)));
+        assert!(matches!(&program.statements[5], Stmt::FunctionCall(_)));
+        assert!(matches!(
+            &program.statements[6],
+            Stmt::DynamicFunctionCall(_)
+        ));
+        assert!(matches!(&program.statements[7], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
+    fn parses_optional_semicolons_after_concurrency_blocks() {
+        let program = parse_with_mode(
+            r#"<?php
+$deferred = defer { return "later" }
+$task = run { return "soon" }
+$worker = fork { return "parallel" }
+"#,
+            SourceMode::Echo,
+        )
+        .expect("concurrency block assignments parse without semicolons");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Defer(_))
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Run(RunExpr::Block { .. }))
+        ));
+        assert!(matches!(
+            &program.statements[2],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(ForkExpr::Block { .. }))
+        ));
+    }
+
+    #[test]
+    fn preserves_multiline_concat_expressions() {
+        let program = parse_with_mode(
+            r#"<?php
+$body = "Hello "
+    . $name
+    . "\n"
+echo $body
+"#,
+            SourceMode::Echo,
+        )
+        .expect("multiline concat parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Assign(statement) if matches!(statement.value, Expr::Binary(_))
+        ));
+        assert!(matches!(&program.statements[1], Stmt::Echo(_)));
+    }
+
+    #[test]
+    fn preserves_multiline_assignment_rhs() {
+        let program = parse_with_mode(
+            r#"<?php
+$body =
+    "Hello " . $name
+echo $body
+"#,
+            SourceMode::Echo,
+        )
+        .expect("multiline assignment parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Assign(_)));
+        assert!(matches!(&program.statements[1], Stmt::Echo(_)));
+    }
+
+    #[test]
+    fn preserves_multiline_function_calls() {
+        let program = parse_with_mode(
+            r#"<?php
+strlen(
+    "Echo"
+)
+echo "done"
+"#,
+            SourceMode::Echo,
+        )
+        .expect("multiline function call parses");
+
+        assert!(matches!(&program.statements[0], Stmt::FunctionCall(_)));
+        assert!(matches!(&program.statements[1], Stmt::Echo(_)));
     }
 
     #[test]

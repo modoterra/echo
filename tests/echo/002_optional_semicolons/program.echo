@@ -1,0 +1,19 @@
+namespace App\Http
+
+use Psr\Log\LoggerInterface
+
+$name = "Echo"
+$body =
+    "Hello "
+    . $name
+    . "\n"
+
+strlen(
+    $body
+)
+
+$task = run {
+    return "done"
+}
+
+echo $body
