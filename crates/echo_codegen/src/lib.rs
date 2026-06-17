@@ -1228,6 +1228,7 @@ mod tests {
             ("str_rot13", "echo_php_str_rot13"),
             ("chr", "echo_php_chr"),
             ("bin2hex", "echo_php_bin2hex"),
+            ("hex2bin", "echo_php_hex2bin"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
             ("rtrim", "echo_php_rtrim"),
@@ -1271,6 +1272,7 @@ mod tests {
             ("str_contains", "echo_php_str_contains"),
             ("str_starts_with", "echo_php_str_starts_with"),
             ("str_ends_with", "echo_php_str_ends_with"),
+            ("str_repeat", "echo_php_str_repeat"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

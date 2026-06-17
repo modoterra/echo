@@ -375,6 +375,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "hex2bin",
+        symbol: "echo_php_hex2bin",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "trim",
         symbol: "echo_php_trim",
         helper_symbol: None,
@@ -441,6 +449,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "str_ends_with",
         symbol: "echo_php_str_ends_with",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "str_repeat",
+        symbol: "echo_php_str_repeat",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,

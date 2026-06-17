@@ -780,6 +780,38 @@ pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
+    match value.string_bytes().and_then(|bytes| decode_hex(&bytes)) {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
+        None => EchoValue::bool(false),
+    }
+}
+
+fn decode_hex(bytes: &[u8]) -> Option<Vec<u8>> {
+    if bytes.len() % 2 != 0 {
+        return None;
+    }
+
+    let mut decoded = Vec::with_capacity(bytes.len() / 2);
+    for pair in bytes.chunks_exact(2) {
+        let high = hex_nibble(pair[0])?;
+        let low = hex_nibble(pair[1])?;
+        decoded.push((high << 4) | low);
+    }
+
+    Some(decoded)
+}
+
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_trim(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
@@ -925,6 +957,23 @@ fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         || haystack
             .windows(needle.len())
             .any(|window| window == needle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_repeat(value: EchoValue, times: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(times) = times.int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(times) = usize::try_from(times) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        bytes.repeat(times),
+    ))))
 }
 
 #[unsafe(no_mangle)]
@@ -1552,6 +1601,54 @@ mod tests {
             drop(Box::from_raw(numeric));
             drop(Box::from_raw(text));
             drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn hex2bin_and_str_repeat_preserve_php_byte_behavior() {
+        let hex = Box::into_raw(Box::new(EchoString {
+            bytes: "c384".as_bytes().to_vec(),
+        }));
+        let upper_hex = Box::into_raw(Box::new(EchoString {
+            bytes: "4563686F".as_bytes().to_vec(),
+        }));
+        let invalid_hex = Box::into_raw(Box::new(EchoString {
+            bytes: "f".as_bytes().to_vec(),
+        }));
+        let repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "xo".as_bytes().to_vec(),
+        }));
+        let empty_repeat = Box::into_raw(Box::new(EchoString {
+            bytes: "x".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_hex2bin(EchoValue::string(hex)).string_bytes(),
+            Some("Ä".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_hex2bin(EchoValue::string(upper_hex)).string_bytes(),
+            Some("Echo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_hex2bin(EchoValue::string(invalid_hex)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_str_repeat(EchoValue::string(repeated), EchoValue::int(3)).string_bytes(),
+            Some("xoxoxo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_str_repeat(EchoValue::string(empty_repeat), EchoValue::int(0)).string_bytes(),
+            Some(Vec::new())
+        );
+
+        unsafe {
+            drop(Box::from_raw(hex));
+            drop(Box::from_raw(upper_hex));
+            drop(Box::from_raw(invalid_hex));
+            drop(Box::from_raw(repeated));
+            drop(Box::from_raw(empty_repeat));
         }
     }
 
