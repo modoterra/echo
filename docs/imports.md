@@ -8,7 +8,7 @@ Echo keeps PHP imports and Echo-owned imports separate.
 use Psr\Log\LoggerInterface
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest
 
-from std use Net\TcpServer
+from std use net\TcpServer
 from "./routes.echo" use route
 from "./config.json" use config satisfies Config
 ```
@@ -25,8 +25,8 @@ Plain `use ...` remains PHP namespace import syntax. Composer/autoloaded PHP cla
 use Foo\Bar
   PHP namespace import; compatible with Composer/autoloading.
 
-from std use Net\TcpServer
-  Echo standard library import; resolves to std.Net.TcpServer and does not reserve a PHP namespace.
+from std use net\TcpServer
+  Echo standard library import; resolves to std.net.TcpServer and does not reserve a PHP namespace.
 
 from "./file.echo" use name
   Local Echo module import.
@@ -77,21 +77,21 @@ For example, if `database.port` is a string instead of an int, report that path 
 Standard library imports use `from std use ...`.
 
 ```php
-from std use Net\TcpServer
-from std use Http\Response
+from std use net\TcpServer
+from std use http\Response
 ```
 
 This imports from Echo's standard library module graph:
 
 ```text
-Net\TcpServer  -> std.Net.TcpServer
-Http\Response  -> std.Http.Response
+net\TcpServer  -> std.net.TcpServer
+http\Response  -> std.http.Response
 ```
 
 The imported local names are `TcpServer` and `Response` unless an alias is provided.
 
 ```php
-from std use Http\Response as HttpResponse
+from std use http\Response as HttpResponse
 ```
 
 `from std use ...` must not consult PHP namespace resolution or Composer autoloading. It resolves only against the compiler-known stdlib surface.
@@ -101,16 +101,16 @@ The stdlib surface can be implemented by a mix of Echo source and trusted intrin
 Stdlib source declares its module with the matching `namespace std ...` form:
 
 ```php
-namespace std Net
+namespace std net
 
 class TcpServer {
     intrinsic static function listen(string $address): TcpServer
 }
 ```
 
-`namespace std Net` means `std.Net`. It is not the same as `namespace std\Net`.
+`namespace std net` means `std.net`. It is not the same as `namespace std\Net`.
 
-- `namespace std Net`: trusted Echo stdlib module declaration.
+- `namespace std net`: trusted Echo stdlib module declaration.
 - `namespace std\Net`: ordinary PHP namespace declaration named `std\Net`.
 
 Only trusted stdlib files may use `namespace std ...`. User files that need a PHP namespace named `std\Net` can still use normal PHP namespace syntax.
@@ -147,7 +147,7 @@ The example above remains a PHP/userland namespace import, not an Echo standard 
 Use this for the Echo standard library instead:
 
 ```php
-from std use Net\TcpServer
+from std use net\TcpServer
 ```
 
 ## Parser And Resolver Shape

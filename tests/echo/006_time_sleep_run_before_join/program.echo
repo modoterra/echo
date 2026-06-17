@@ -1,0 +1,10 @@
+from std use time
+
+$task = run {
+    time.sleep(50)
+    echo "task\n"
+}
+
+time.sleep(100)
+echo "main\n"
+echo join $task

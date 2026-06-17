@@ -46,6 +46,8 @@ pub struct DynamicFunctionCallStmt {
 pub struct FunctionDeclStmt {
     pub name: String,
     pub params: Vec<String>,
+    pub return_type: Option<String>,
+    pub is_intrinsic: bool,
     pub body: Vec<Stmt>,
     pub span: Span,
 }

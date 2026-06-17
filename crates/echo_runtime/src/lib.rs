@@ -6,6 +6,7 @@ pub mod task;
 use std::cell::RefCell;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
@@ -437,6 +438,15 @@ pub extern "C" fn echo_task_join(task_value: EchoValue) -> EchoValue {
             .map_err(|_| io::Error::other("failed to join Echo task"))
     })
     .unwrap_or_else(|_| EchoValue::error())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_time_sleep(millis: i64) {
+    if millis <= 0 {
+        return;
+    }
+
+    std::thread::sleep(Duration::from_millis(millis as u64));
 }
 
 #[unsafe(no_mangle)]

@@ -47,7 +47,7 @@ codegen              lowers resolved intrinsic calls to approved ABI symbols
 Pure value APIs should be written in Echo source:
 
 ```php
-namespace std Http
+namespace std http
 
 type Response = {
     status: int
@@ -67,7 +67,7 @@ function text(string $body): Response {
 Resource and syscall APIs should be declared in trusted stdlib Echo source as intrinsics and implemented by Rust runtime primitives:
 
 ```php
-namespace std Net
+namespace std net
 
 class TcpServer {
     intrinsic static function listen(string $address): TcpServer
@@ -86,10 +86,10 @@ The `namespace std ...` form declares the compiler's internal stdlib module iden
 This distinction is intentional:
 
 ```php
-namespace std Net
+namespace std net
 ```
 
-declares trusted stdlib module `std.Net`, while:
+declares trusted stdlib module `std.net`, while:
 
 ```php
 namespace std\Net
@@ -97,7 +97,7 @@ namespace std\Net
 
 declares an ordinary PHP namespace named `std\Net`.
 
-Only trusted stdlib files may use `namespace std ...`. Ordinary user files that write `namespace std Net` should receive a diagnostic. Ordinary user files may still use `namespace std\Net` for PHP compatibility.
+Only trusted stdlib files may use `namespace std ...`. Ordinary user files that write `namespace std net` should receive a diagnostic. Ordinary user files may still use `namespace std\Net` for PHP compatibility.
 
 ## Intrinsic Binding Rules
 
@@ -115,15 +115,15 @@ Only trusted stdlib files may use `namespace std ...`. Ordinary user files that 
 Example registry concept:
 
 ```text
-std.Net.TcpServer::listen(string): TcpServer
+std.net.TcpServer::listen(string): TcpServer
   intrinsic: std.net.tcp_server.listen
   abi: echo_std_net_tcp_server_listen
 
-std.Net.TcpServer#accept(): TcpConnection
+std.net.TcpServer#accept(): TcpConnection
   intrinsic: std.net.tcp_server.accept
   abi: echo_std_net_tcp_server_accept
 
-std.Net.TcpConnection#write(bytes|string): int
+std.net.TcpConnection#write(bytes|string): int
   intrinsic: std.net.tcp_connection.write
   abi: echo_std_net_tcp_connection_write
 ```
@@ -148,14 +148,14 @@ Intrinsic resource values should be opaque Echo values, not exposed integer hand
 For a user import:
 
 ```php
-from std use Net\TcpServer
+from std use net\TcpServer
 ```
 
 The compiler should:
 
 1. Recognize `from std use ...` as an Echo-owned import, not a PHP namespace import.
 2. Load or reference the built-in stdlib module graph from `echo_std`.
-3. Resolve `Net\TcpServer` to the stdlib item `std.Net.TcpServer`.
+3. Resolve `net\TcpServer` to the stdlib item `std.net.TcpServer`.
 4. Make the local name `TcpServer` available in the importing file.
 5. Type-check calls against the stdlib Echo declarations.
 6. Lower pure Echo stdlib calls like ordinary Echo code.
@@ -167,7 +167,7 @@ Examples:
 
 - `echo_write(ptr, len)` is core runtime ABI because `echo` syntax needs output semantics.
 - `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
-- `std.Http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
+- `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.
 - A future image-processing package could use `echo_ext_*` if it is not part of the standard library.
 
@@ -182,8 +182,8 @@ Initial target direction:
 
 namespace App\Http
 
-from std use Net\TcpServer
-from std use Http\Response
+from std use net\TcpServer
+from std use http\Response
 
 let $server = TcpServer::listen("127.0.0.1:8080")
 

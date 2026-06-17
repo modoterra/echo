@@ -87,7 +87,9 @@ impl IrModule {
         let mut diagnostics = Vec::new();
 
         for statement in &program.statements {
-            if let Stmt::FunctionDecl(statement) = statement {
+            if let Stmt::FunctionDecl(statement) = statement
+                && !statement.is_intrinsic
+            {
                 self.functions
                     .insert(statement.name.clone(), statement.clone());
             }
@@ -171,13 +173,19 @@ impl IrModule {
                     self.write_value(body, value);
                 }
             }
-            Stmt::FunctionCall(statement) => match php_builtin(&statement.name) {
-                Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
-                    self.php_builtin_call(body, builtin, &statement.args)?
+            Stmt::FunctionCall(statement) => {
+                if statement.name == "time.sleep" {
+                    self.time_sleep_call(body, &statement.args, statement.span)?;
+                } else {
+                    match php_builtin(&statement.name) {
+                        Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
+                            self.php_builtin_call(body, builtin, &statement.args)?
+                        }
+                        None => self.userland_call(body, statement)?,
+                        Some(_) => self.userland_call(body, statement)?,
+                    }
                 }
-                None => self.userland_call(body, statement)?,
-                Some(_) => self.userland_call(body, statement)?,
-            },
+            }
             Stmt::DynamicFunctionCall(statement) => self.dynamic_function_call(body, statement)?,
             Stmt::FunctionDecl(_) => {}
             Stmt::Namespace(_) | Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) => {}
@@ -248,6 +256,34 @@ impl IrModule {
             "  %runtime_call_{call_id} = call %EchoValue @{}({})\n",
             userland_function_symbol(&statement.name),
             args.join(", ")
+        ));
+
+        Ok(())
+    }
+
+    fn time_sleep_call(
+        &mut self,
+        body: &mut String,
+        args: &[Expr],
+        span: Span,
+    ) -> Result<(), Diagnostic> {
+        let [Expr::Number(expr)] = args else {
+            return Err(Diagnostic::new(
+                "unsupported argument for time.sleep in LLVM codegen",
+                span,
+            ));
+        };
+
+        let millis = expr.value.parse::<i64>().map_err(|_| {
+            Diagnostic::new(
+                "unsupported duration for time.sleep in LLVM codegen",
+                expr.span,
+            )
+        })?;
+
+        body.push_str(&format!(
+            "  call void @{}(i64 {millis})\n",
+            CoreRuntimeSymbol::TimeSleep.symbol()
         ));
 
         Ok(())
@@ -609,6 +645,11 @@ impl IrModule {
         body: &mut String,
         expr: &echo_ast::FunctionCallExpr,
     ) -> Result<RuntimeValue, Diagnostic> {
+        if expr.name == "time.sleep" {
+            self.time_sleep_call(body, &expr.args, expr.span)?;
+            return Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()));
+        }
+
         let Some(builtin) = php_builtin(&expr.name) else {
             return self.render_userland_function_call_expr(body, expr);
         };
@@ -821,6 +862,8 @@ mod tests {
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "say_after".to_string(),
                 params: vec![],
+                return_type: None,
+                is_intrinsic: false,
                 body: vec![Stmt::Echo(EchoStmt {
                     exprs: vec![Expr::String(StringLiteral {
                         value: "after\n".to_string(),
@@ -858,6 +901,8 @@ mod tests {
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "say".to_string(),
                 params: vec!["message".to_string()],
+                return_type: None,
+                is_intrinsic: false,
                 body: vec![Stmt::Echo(EchoStmt {
                     exprs: vec![Expr::Variable(echo_ast::VariableExpr {
                         name: "message".to_string(),
@@ -902,6 +947,8 @@ mod tests {
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "greeting".to_string(),
                 params: vec![],
+                return_type: None,
+                is_intrinsic: false,
                 body: vec![Stmt::Return(ReturnStmt {
                     value: Expr::String(StringLiteral {
                         value: "hello\n".to_string(),
@@ -940,6 +987,8 @@ mod tests {
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "greet".to_string(),
                 params: vec!["name".to_string()],
+                return_type: None,
+                is_intrinsic: false,
                 body: vec![Stmt::Echo(EchoStmt {
                     exprs: vec![Expr::Binary(Box::new(echo_ast::BinaryExpr {
                         left: Expr::Binary(Box::new(echo_ast::BinaryExpr {
@@ -1010,6 +1059,22 @@ mod tests {
             ir.contains("call void @echo_write_value(%EchoValue %runtime_call_1)"),
             "{ir}"
         );
+    }
+
+    #[test]
+    fn time_sleep_lowers_to_core_runtime_call() {
+        let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
+            name: "time.sleep".to_string(),
+            args: vec![Expr::Number(echo_ast::NumberLiteral {
+                value: "50".to_string(),
+                span: Span::new(11, 13),
+            })],
+            span: Span::new(0, 14),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare void @echo_time_sleep(i64)"), "{ir}");
+        assert!(ir.contains("call void @echo_time_sleep(i64 50)"), "{ir}");
     }
 
     #[test]

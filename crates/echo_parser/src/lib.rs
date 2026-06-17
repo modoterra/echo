@@ -371,16 +371,23 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .allow_trailing()
             .collect::<Vec<_>>();
 
-        let function_call_expr = text::ident()
+        let function_name = text::ident()
+            .separated_by(just('.'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| parts.join("."));
+
+        let function_call_expr = function_name
+            .clone()
             .padded()
             .then_ignore(just('(').padded())
             .then(args.clone())
             .then_ignore(just(')').padded())
-            .map_with(|(name, args): (&str, Vec<Expr>), extra| {
+            .map_with(|(name, args): (String, Vec<Expr>), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Expr::FunctionCall(FunctionCallExpr {
-                    name: name.to_string(),
+                    name,
                     args,
                     span: Span::new(span.start, span.end),
                 })
@@ -590,7 +597,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let function_call_stmt = text::ident()
+        let statement_function_name = text::ident()
+            .separated_by(just('.'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| parts.join("."));
+
+        let function_call_stmt = statement_function_name
             .padded()
             .then_ignore(just('(').padded())
             .then(
@@ -602,11 +615,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             )
             .then_ignore(just(')').padded())
             .then_ignore(terminator.clone())
-            .map_with(|(name, args): (&str, Vec<Expr>), extra| {
+            .map_with(|(name, args): (String, Vec<Expr>), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::FunctionCall(FunctionCallStmt {
-                    name: name.to_string(),
+                    name,
                     args,
                     span: Span::new(span.start, span.end),
                 })
@@ -735,7 +748,46 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
                         params: params.into_iter().map(str::to_string).collect(),
+                        return_type: None,
+                        is_intrinsic: false,
                         body,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let intrinsic_function_decl_stmt = text::keyword("intrinsic")
+            .padded()
+            .ignore_then(text::keyword("function").padded())
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(
+                typed_param
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(
+                |((name, params), return_type): ((&str, Vec<TypedParam>), Option<String>),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::FunctionDecl(FunctionDeclStmt {
+                        name: name.to_string(),
+                        params: params.into_iter().map(|param| param.name).collect(),
+                        return_type,
+                        is_intrinsic: true,
+                        body: Vec::new(),
                         span: Span::new(span.start, span.end),
                     })
                 },
@@ -837,6 +889,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             });
 
         function_decl_stmt
+            .or(intrinsic_function_decl_stmt)
             .or(class_decl_stmt)
             .or(namespace_stmt)
             .or(use_stmt)
@@ -1062,14 +1115,14 @@ echo "done"
 
     #[test]
     fn parses_std_net_module_source() {
-        let program = parse_with_mode(include_str!("../../../std/Net.echo"), SourceMode::Strict)
-            .expect("std Net module parses");
+        let program = parse_with_mode(include_str!("../../../std/net.echo"), SourceMode::Strict)
+            .expect("std net module parses");
 
         assert!(matches!(
             &program.statements[0],
-            Stmt::Namespace(statement)
-                if statement.source == NamespaceSource::Std
-                    && statement.name.as_string() == "Net"
+                Stmt::Namespace(statement)
+                    if statement.source == NamespaceSource::Std
+                    && statement.name.as_string() == "net"
         ));
         assert!(matches!(
             &program.statements[1],
@@ -1078,6 +1131,36 @@ echo "done"
         assert!(matches!(
             &program.statements[2],
             Stmt::ClassDecl(statement) if statement.name == "TcpConnection"
+        ));
+    }
+
+    #[test]
+    fn parses_std_time_module_source() {
+        let program = parse_with_mode(include_str!("../../../std/time.echo"), SourceMode::Strict)
+            .expect("std time module parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Namespace(statement)
+                if statement.source == NamespaceSource::Std
+                    && statement.name.as_string() == "time"
+        ));
+        assert!(matches!(&program.statements[1], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
+    fn parses_dotted_std_function_call() {
+        let program = parse_with_mode(
+            r#"from std use time
+time.sleep(300)
+"#,
+            SourceMode::Strict,
+        )
+        .expect("dotted function call parses");
+
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::FunctionCall(statement) if statement.name == "time.sleep"
         ));
     }
 

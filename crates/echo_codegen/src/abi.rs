@@ -17,6 +17,7 @@ pub enum CoreRuntimeSymbol {
     TaskDefer,
     TaskRun,
     TaskJoin,
+    TimeSleep,
     CallFunction,
     Shutdown,
 }
@@ -30,6 +31,7 @@ impl CoreRuntimeSymbol {
         Self::TaskDefer,
         Self::TaskRun,
         Self::TaskJoin,
+        Self::TimeSleep,
         Self::CallFunction,
         Self::Shutdown,
     ];
@@ -43,6 +45,7 @@ impl CoreRuntimeSymbol {
             Self::TaskDefer => "echo_task_defer",
             Self::TaskRun => "echo_task_run",
             Self::TaskJoin => "echo_task_join",
+            Self::TimeSleep => "echo_time_sleep",
             Self::CallFunction => "echo_call_function",
             Self::Shutdown => "echo_shutdown",
         }
@@ -57,6 +60,7 @@ impl CoreRuntimeSymbol {
             Self::TaskDefer => RuntimeSignature::EchoValuePtr,
             Self::TaskRun => RuntimeSignature::EchoValueEchoValue,
             Self::TaskJoin => RuntimeSignature::EchoValueEchoValue,
+            Self::TimeSleep => RuntimeSignature::VoidI64,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }
@@ -70,6 +74,7 @@ impl CoreRuntimeSymbol {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeSignature {
     VoidNoArgs,
+    VoidI64,
     VoidPtrI64,
     VoidEchoValue,
     BoolNoArgs,
@@ -85,6 +90,7 @@ impl RuntimeSignature {
     pub fn llvm_decl(self, symbol: &str) -> String {
         match self {
             Self::VoidNoArgs => format!("declare void @{symbol}()"),
+            Self::VoidI64 => format!("declare void @{symbol}(i64)"),
             Self::VoidPtrI64 => format!("declare void @{symbol}(ptr, i64)"),
             Self::VoidEchoValue => format!("declare void @{symbol}(%EchoValue)"),
             Self::BoolNoArgs => format!("declare i1 @{symbol}()"),

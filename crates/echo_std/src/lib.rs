@@ -32,47 +32,61 @@ pub struct IntrinsicBinding {
     pub abi_symbol: &'static str,
 }
 
-pub const MODULES: &[StdModule] = &[StdModule {
-    name: "std.Net",
-    path: "std/Net.echo",
-    source: include_str!("../../../std/Net.echo"),
-}];
+pub const MODULES: &[StdModule] = &[
+    StdModule {
+        name: "std.net",
+        path: "std/net.echo",
+        source: include_str!("../../../std/net.echo"),
+    },
+    StdModule {
+        name: "std.time",
+        path: "std/time.echo",
+        source: include_str!("../../../std/time.echo"),
+    },
+];
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
     IntrinsicBinding {
-        owner: "std.Net.TcpServer",
+        owner: "std.net.TcpServer",
         method: "listen",
         receiver: IntrinsicReceiver::Static,
         intrinsic: "std.net.tcp_server.listen",
         abi_symbol: "echo_std_net_tcp_server_listen",
     },
     IntrinsicBinding {
-        owner: "std.Net.TcpServer",
+        owner: "std.net.TcpServer",
         method: "accept",
         receiver: IntrinsicReceiver::Instance,
         intrinsic: "std.net.tcp_server.accept",
         abi_symbol: "echo_std_net_tcp_server_accept",
     },
     IntrinsicBinding {
-        owner: "std.Net.TcpConnection",
+        owner: "std.net.TcpConnection",
         method: "read",
         receiver: IntrinsicReceiver::Instance,
         intrinsic: "std.net.tcp_connection.read",
         abi_symbol: "echo_std_net_tcp_connection_read",
     },
     IntrinsicBinding {
-        owner: "std.Net.TcpConnection",
+        owner: "std.net.TcpConnection",
         method: "write",
         receiver: IntrinsicReceiver::Instance,
         intrinsic: "std.net.tcp_connection.write",
         abi_symbol: "echo_std_net_tcp_connection_write",
     },
     IntrinsicBinding {
-        owner: "std.Net.TcpConnection",
+        owner: "std.net.TcpConnection",
         method: "close",
         receiver: IntrinsicReceiver::Instance,
         intrinsic: "std.net.tcp_connection.close",
         abi_symbol: "echo_std_net_tcp_connection_close",
+    },
+    IntrinsicBinding {
+        owner: "std.time",
+        method: "sleep",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.time.sleep",
+        abi_symbol: "echo_time_sleep",
     },
 ];
 
@@ -96,19 +110,31 @@ mod tests {
     fn packages_net_module_source() {
         let module = modules()
             .iter()
-            .find(|module| module.name == "std.Net")
-            .expect("std.Net module is packaged");
+            .find(|module| module.name == "std.net")
+            .expect("std.net module is packaged");
 
-        assert_eq!(module.path, "std/Net.echo");
-        assert!(module.source.contains("namespace std Net"));
+        assert_eq!(module.path, "std/net.echo");
+        assert!(module.source.contains("namespace std net"));
         assert!(module.source.contains("class TcpServer"));
         assert!(module.source.contains("intrinsic static function listen"));
     }
 
     #[test]
+    fn packages_time_module_source() {
+        let module = modules()
+            .iter()
+            .find(|module| module.name == "std.time")
+            .expect("std.time module is packaged");
+
+        assert_eq!(module.path, "std/time.echo");
+        assert!(module.source.contains("namespace std time"));
+        assert!(module.source.contains("intrinsic function sleep"));
+    }
+
+    #[test]
     fn exposes_net_intrinsic_bindings() {
         assert!(intrinsics().contains(&IntrinsicBinding {
-            owner: "std.Net.TcpServer",
+            owner: "std.net.TcpServer",
             method: "listen",
             receiver: IntrinsicReceiver::Static,
             intrinsic: "std.net.tcp_server.listen",
@@ -118,9 +144,20 @@ mod tests {
         assert_eq!(
             intrinsics()
                 .iter()
-                .filter(|binding| binding.owner.starts_with("std.Net."))
+                .filter(|binding| binding.owner.starts_with("std.net."))
                 .count(),
             5
         );
+    }
+
+    #[test]
+    fn exposes_time_intrinsic_binding() {
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.time",
+            method: "sleep",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.time.sleep",
+            abi_symbol: "echo_time_sleep",
+        }));
     }
 }

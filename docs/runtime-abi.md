@@ -85,12 +85,12 @@ Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: 
 
 Trusted stdlib Echo source may declare intrinsic functions and methods. Those declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` ABI symbols.
 
-Trusted stdlib source declares modules with `namespace std ...`, for example `namespace std Net`. This is a stdlib module declaration, not a PHP namespace declaration.
+Trusted stdlib source declares modules with `namespace std ...`, for example `namespace std net`. This is a stdlib module declaration, not a PHP namespace declaration.
 
 Example:
 
 ```php
-from std use Net\TcpServer
+from std use net\TcpServer
 
 let $server = TcpServer::listen("127.0.0.1:8080")
 ```
@@ -98,7 +98,7 @@ let $server = TcpServer::listen("127.0.0.1:8080")
 Expected intrinsic binding shape:
 
 ```text
-std.Net.TcpServer::listen(string): TcpServer
+std.net.TcpServer::listen(string): TcpServer
   -> echo_std_net_tcp_server_listen
 ```
 

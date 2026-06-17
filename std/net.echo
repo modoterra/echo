@@ -1,4 +1,4 @@
-namespace std Net
+namespace std net
 
 class TcpServer {
     intrinsic static function listen(string $address): TcpServer
