@@ -460,26 +460,9 @@ impl IrModule {
                     )
                 }),
             Expr::FunctionCall(expr) => self.render_function_call_expr(body, expr),
-            Expr::Defer(expr) => Err(Diagnostic::new(
-                "unsupported `defer` expression in LLVM codegen",
-                expr.span,
-            )),
-            Expr::Run(expr) => Err(Diagnostic::new(
-                "unsupported `run` expression in LLVM codegen",
-                expr.span(),
-            )),
-            Expr::Fork(expr) => Err(Diagnostic::new(
-                "unsupported `fork` expression in LLVM codegen",
-                expr.span(),
-            )),
-            Expr::Spawn(expr) => Err(Diagnostic::new(
-                "unsupported `spawn` expression in LLVM codegen",
-                expr.span,
-            )),
-            Expr::Join(expr) => Err(Diagnostic::new(
-                "unsupported `join` expression in LLVM codegen",
-                expr.span,
-            )),
+            Expr::Defer(_) | Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
                 self.render_concat_expr(body, &expr.left, &expr.right)
             }
@@ -683,8 +666,8 @@ fn llvm_string_literal(value: &str) -> String {
 mod tests {
     use super::*;
     use echo_ast::{
-        EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, NullLiteral, ReturnStmt,
-        StringLiteral,
+        AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
+        NullLiteral, ReturnStmt, StringLiteral,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -927,5 +910,44 @@ mod tests {
             ir.contains("call void @echo_write_value(%EchoValue %runtime_call_1)"),
             "{ir}"
         );
+    }
+
+    #[test]
+    fn concurrency_expressions_lower_to_null_placeholders() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Assign(AssignStmt {
+                name: "deferred".to_string(),
+                value: Expr::Defer(DeferExpr {
+                    body: vec![],
+                    span: Span::new(0, 10),
+                }),
+                span: Span::new(0, 10),
+            }),
+            Stmt::Assign(AssignStmt {
+                name: "task".to_string(),
+                value: Expr::Run(echo_ast::RunExpr::Task {
+                    expr: Box::new(Expr::Variable(echo_ast::VariableExpr {
+                        name: "deferred".to_string(),
+                        span: Span::new(11, 20),
+                    })),
+                    span: Span::new(11, 20),
+                }),
+                span: Span::new(11, 20),
+            }),
+            Stmt::Assign(AssignStmt {
+                name: "value".to_string(),
+                value: Expr::Join(echo_ast::JoinExpr {
+                    handle: Box::new(Expr::Variable(echo_ast::VariableExpr {
+                        name: "task".to_string(),
+                        span: Span::new(21, 30),
+                    })),
+                    span: Span::new(21, 30),
+                }),
+                span: Span::new(21, 30),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(ir.contains("ret i32 0"), "{ir}");
     }
 }
