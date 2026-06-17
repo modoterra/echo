@@ -1232,6 +1232,7 @@ mod tests {
             ("str_rot13", "echo_php_str_rot13"),
             ("chr", "echo_php_chr"),
             ("bin2hex", "echo_php_bin2hex"),
+            ("base64_encode", "echo_php_base64_encode"),
             ("hex2bin", "echo_php_hex2bin"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),

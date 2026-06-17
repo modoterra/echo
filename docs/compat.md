@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 49 | 558 |
-| Loaded local PHP internals, including extensions | 1516 | 49 | 1467 |
+| Baseline (`Core` + `standard`) | 607 | 50 | 557 |
+| Loaded local PHP internals, including extensions | 1516 | 50 | 1466 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (46/545)
+### standard (47/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -165,7 +165,7 @@ explicitly promote one.
 | `atan2` | missing |  |
 | `atanh` | missing |  |
 | `base64_decode` | missing |  |
-| `base64_encode` | missing |  |
+| `base64_encode` | implemented |  |
 | `base_convert` | missing |  |
 | `basename` | missing |  |
 | `bin2hex` | implemented |  |

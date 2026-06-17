@@ -851,6 +851,44 @@ pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_base64_encode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(encode_base64(
+            &bytes,
+        ))))),
+        None => EchoValue::error(),
+    }
+}
+
+fn encode_base64(bytes: &[u8]) -> Vec<u8> {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = Vec::with_capacity(bytes.len().div_ceil(3) * 4);
+
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = *chunk.get(1).unwrap_or(&0);
+        let third = *chunk.get(2).unwrap_or(&0);
+
+        encoded.push(TABLE[(first >> 2) as usize]);
+        encoded.push(TABLE[(((first & 0b0000_0011) << 4) | (second >> 4)) as usize]);
+
+        if chunk.len() > 1 {
+            encoded.push(TABLE[(((second & 0b0000_1111) << 2) | (third >> 6)) as usize]);
+        } else {
+            encoded.push(b'=');
+        }
+
+        if chunk.len() > 2 {
+            encoded.push(TABLE[(third & 0b0011_1111) as usize]);
+        } else {
+            encoded.push(b'=');
+        }
+    }
+
+    encoded
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
     match value.string_bytes().and_then(|bytes| decode_hex(&bytes)) {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
@@ -2176,6 +2214,64 @@ mod tests {
 
         unsafe {
             drop(Box::from_raw(numeric));
+            drop(Box::from_raw(text));
+            drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn base64_encode_preserves_php_byte_behavior() {
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let one_byte = Box::into_raw(Box::new(EchoString {
+            bytes: "f".as_bytes().to_vec(),
+        }));
+        let two_bytes = Box::into_raw(Box::new(EchoString {
+            bytes: "fo".as_bytes().to_vec(),
+        }));
+        let three_bytes = Box::into_raw(Box::new(EchoString {
+            bytes: "foo".as_bytes().to_vec(),
+        }));
+        let text = Box::into_raw(Box::new(EchoString {
+            bytes: "hello world".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::string(empty)).string_bytes(),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::string(one_byte)).string_bytes(),
+            Some("Zg==".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::string(two_bytes)).string_bytes(),
+            Some("Zm8=".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::string(three_bytes)).string_bytes(),
+            Some("Zm9v".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::string(text)).string_bytes(),
+            Some("aGVsbG8gd29ybGQ=".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::string(non_ascii)).string_bytes(),
+            Some("w4RjaG8=".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base64_encode(EchoValue::int(123)).string_bytes(),
+            Some("MTIz".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(one_byte));
+            drop(Box::from_raw(two_bytes));
+            drop(Box::from_raw(three_bytes));
             drop(Box::from_raw(text));
             drop(Box::from_raw(non_ascii));
         }
