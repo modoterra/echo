@@ -123,6 +123,15 @@ Do not apply these attributes broadly to output or buffering functions.
 
 ## Implementation Plan
 
+Current coverage:
+
+- `xo build -O0/-O1/-O2/-O3/-Oz file.echo -o program` is supported.
+- `O0` remains the default.
+- Native builds pass the selected optimization level to `clang` while linking generated LLVM IR with `echo_runtime`.
+- `xo build --emit-ir file.echo` emits raw generated IR.
+- `xo build --emit-ir -O2 file.echo` emits optimized IR through the external `opt` tool as a bootstrap.
+- In-process Inkwell optimization and a dedicated verifier pass remain future work.
+
 1. Add an optimization level enum shared by CLI/build code:
 
 ```rust
@@ -135,15 +144,15 @@ pub enum OptimizationLevel {
 }
 ```
 
-2. Parse optimization flags on `xo build`, defaulting to `O0`.
+2. Parse optimization flags on `xo build`, defaulting to `O0`. **Done.**
 
 3. Verify LLVM modules after IR generation and before optimization/linking.
 
-4. Run the selected LLVM default pipeline when level is not `O0`.
+4. Run the selected LLVM default pipeline when level is not `O0`. **Done for `--emit-ir` through external `opt`; native builds delegate optimization to `clang`.**
 
-5. Let `--emit-ir` emit raw IR for `O0` and optimized IR for optimized modes.
+5. Let `--emit-ir` emit raw IR for `O0` and optimized IR for optimized modes. **Done.**
 
-6. Link native binaries from optimized IR/modules when optimization is enabled.
+6. Link native binaries from optimized IR/modules when optimization is enabled. **Done via `clang -O*`.**
 
 7. Add tests for broad optimization properties rather than exact LLVM output.
 

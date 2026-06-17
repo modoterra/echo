@@ -41,9 +41,13 @@ enum Command {
     Build {
         #[command(flatten)]
         mode: ModeOverride,
+        #[command(flatten)]
+        optimization: OptimizationOptions,
         file: PathBuf,
         #[arg(short, long)]
-        output: PathBuf,
+        output: Option<PathBuf>,
+        #[arg(long)]
+        emit_ir: bool,
     },
 }
 
@@ -67,6 +71,55 @@ impl ModeOverride {
         } else {
             default
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, clap::Args)]
+struct OptimizationOptions {
+    /// LLVM optimization level for build output.
+    #[arg(short = 'O', default_value = "0", value_parser = parse_optimization_level)]
+    level: OptimizationLevel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OptimizationLevel {
+    O0,
+    O1,
+    O2,
+    O3,
+    Oz,
+}
+
+impl OptimizationLevel {
+    const fn clang_arg(self) -> &'static str {
+        match self {
+            Self::O0 => "-O0",
+            Self::O1 => "-O1",
+            Self::O2 => "-O2",
+            Self::O3 => "-O3",
+            Self::Oz => "-Oz",
+        }
+    }
+
+    const fn opt_pipeline(self) -> Option<&'static str> {
+        match self {
+            Self::O0 => None,
+            Self::O1 => Some("default<O1>"),
+            Self::O2 => Some("default<O2>"),
+            Self::O3 => Some("default<O3>"),
+            Self::Oz => Some("default<Oz>"),
+        }
+    }
+}
+
+fn parse_optimization_level(value: &str) -> Result<OptimizationLevel, String> {
+    match value {
+        "0" => Ok(OptimizationLevel::O0),
+        "1" => Ok(OptimizationLevel::O1),
+        "2" => Ok(OptimizationLevel::O2),
+        "3" => Ok(OptimizationLevel::O3),
+        "z" | "Z" => Ok(OptimizationLevel::Oz),
+        _ => Err(format!("expected one of 0, 1, 2, 3, or z, got `{value}`")),
     }
 }
 
@@ -108,23 +161,45 @@ fn main() {
         }
         Command::Run { mode, file } => {
             let binary_path = temp_path(&file, "program");
-            build_binary(&file, mode, &binary_path);
+            build_binary(&file, mode, OptimizationLevel::O0, &binary_path);
             run_command(&mut ProcessCommand::new(&binary_path));
             let _ = fs::remove_file(binary_path);
         }
-        Command::Build { mode, file, output } => {
-            build_binary(&file, mode, &output);
+        Command::Build {
+            mode,
+            optimization,
+            file,
+            output,
+            emit_ir,
+        } => {
+            if emit_ir {
+                let ir = compile_ir(&file, mode);
+                print!("{}", optimize_ir(&file, &ir, optimization.level));
+            } else {
+                let Some(output) = output else {
+                    eprintln!("error: xo build requires -o/--output unless --emit-ir is used");
+                    std::process::exit(1);
+                };
+
+                build_binary(&file, mode, optimization.level, &output);
+            }
         }
     }
 }
 
-fn build_binary(file: &PathBuf, mode: ModeOverride, output: &PathBuf) {
+fn build_binary(
+    file: &PathBuf,
+    mode: ModeOverride,
+    optimization: OptimizationLevel,
+    output: &PathBuf,
+) {
     ensure_runtime_library();
 
     let ir = compile_ir(file, mode);
     let ir_path = write_temp_ir(file, &ir);
     run_command(
         ProcessCommand::new("clang")
+            .arg(optimization.clang_arg())
             .arg("-x")
             .arg("ir")
             .arg(&ir_path)
@@ -135,6 +210,35 @@ fn build_binary(file: &PathBuf, mode: ModeOverride, output: &PathBuf) {
             .arg(output),
     );
     let _ = fs::remove_file(ir_path);
+}
+
+fn optimize_ir(file: &PathBuf, ir: &str, optimization: OptimizationLevel) -> String {
+    let Some(pipeline) = optimization.opt_pipeline() else {
+        return ir.to_string();
+    };
+
+    let ir_path = write_temp_ir(file, ir);
+    let output = ProcessCommand::new("opt")
+        .arg("-S")
+        .arg(format!("-passes={pipeline}"))
+        .arg(&ir_path)
+        .output()
+        .unwrap_or_else(|err| {
+            eprintln!("error: failed to run opt: {err}");
+            std::process::exit(1);
+        });
+    let _ = fs::remove_file(ir_path);
+
+    if !output.status.success() {
+        eprintln!("error: opt exited with {}", output.status);
+        eprint!("{}", String::from_utf8_lossy(&output.stderr));
+        std::process::exit(output.status.code().unwrap_or(1));
+    }
+
+    String::from_utf8(output.stdout).unwrap_or_else(|err| {
+        eprintln!("error: opt emitted non-UTF-8 IR: {err}");
+        std::process::exit(1);
+    })
 }
 
 fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
@@ -275,5 +379,15 @@ mod tests {
 
         let _ = fs::remove_file(first);
         let _ = fs::remove_file(second);
+    }
+
+    #[test]
+    fn parses_optimization_levels() {
+        assert_eq!(parse_optimization_level("0"), Ok(OptimizationLevel::O0));
+        assert_eq!(parse_optimization_level("1"), Ok(OptimizationLevel::O1));
+        assert_eq!(parse_optimization_level("2"), Ok(OptimizationLevel::O2));
+        assert_eq!(parse_optimization_level("3"), Ok(OptimizationLevel::O3));
+        assert_eq!(parse_optimization_level("z"), Ok(OptimizationLevel::Oz));
+        assert!(parse_optimization_level("4").is_err());
     }
 }
