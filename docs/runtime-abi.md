@@ -163,6 +163,8 @@ declare %EchoValue @echo_php_ucfirst(%EchoValue)
 declare %EchoValue @echo_php_lcfirst(%EchoValue)
 declare %EchoValue @echo_php_ord(%EchoValue)
 declare %EchoValue @echo_php_str_rot13(%EchoValue)
+declare %EchoValue @echo_php_chr(%EchoValue)
+declare %EchoValue @echo_php_bin2hex(%EchoValue)
 ```
 
 Core output behavior remains under `echo_*`:

@@ -1199,6 +1199,8 @@ mod tests {
             ("lcfirst", "echo_php_lcfirst"),
             ("ord", "echo_php_ord"),
             ("str_rot13", "echo_php_str_rot13"),
+            ("chr", "echo_php_chr"),
+            ("bin2hex", "echo_php_bin2hex"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

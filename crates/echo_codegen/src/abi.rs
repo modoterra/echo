@@ -357,6 +357,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
+    PhpBuiltin {
+        php_name: "chr",
+        symbol: "echo_php_chr",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "bin2hex",
+        symbol: "echo_php_bin2hex",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
 ];
 
 pub fn php_builtin(name: &str) -> Option<PhpBuiltin> {

@@ -175,6 +175,19 @@ impl EchoValue {
         }
     }
 
+    fn int_value(self) -> Option<i64> {
+        match self.kind {
+            ECHO_VALUE_BOOL => Some(if self.payload == 0 { 0 } else { 1 }),
+            ECHO_VALUE_INT => Some(self.payload as i64),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
+                let text = std::str::from_utf8(bytes).ok()?.trim_ascii();
+                text.parse::<i64>().ok()
+            },
+            _ => None,
+        }
+    }
+
     pub const fn is_string(self) -> bool {
         self.kind == ECHO_VALUE_STRING
     }
@@ -731,6 +744,34 @@ pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
                 };
             }
             EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_chr(value: EchoValue) -> EchoValue {
+    match value.int_value() {
+        Some(codepoint) => {
+            let byte = codepoint.rem_euclid(256) as u8;
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(vec![byte]))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
+    match value.string_bytes() {
+        Some(bytes) => {
+            let mut encoded = Vec::with_capacity(bytes.len() * 2);
+            for byte in bytes {
+                encoded.push(HEX[(byte >> 4) as usize]);
+                encoded.push(HEX[(byte & 0x0f) as usize]);
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(encoded))))
         }
         None => EchoValue::error(),
     }
@@ -1325,6 +1366,42 @@ mod tests {
             drop(Box::from_raw(ascii));
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(rot13));
+        }
+    }
+
+    #[test]
+    fn chr_and_bin2hex_preserve_php_byte_behavior() {
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "321".as_bytes().to_vec(),
+        }));
+        let text = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_chr(EchoValue::int(65)).string_bytes(),
+            Some("A".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_chr(EchoValue::string(numeric)).string_bytes(),
+            Some("A".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_bin2hex(EchoValue::string(text)).string_bytes(),
+            Some("4563686f".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_bin2hex(EchoValue::string(non_ascii)).string_bytes(),
+            Some("c384".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(text));
+            drop(Box::from_raw(non_ascii));
         }
     }
 
