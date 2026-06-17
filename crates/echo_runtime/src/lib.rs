@@ -650,6 +650,28 @@ pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            bytes.make_ascii_uppercase();
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strtolower(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            bytes.make_ascii_lowercase();
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1143,6 +1165,27 @@ mod tests {
             echo_call(&callable, &[]),
             Err(EchoError::UndefinedFunction(EchoSymbol::new("filter")))
         );
+    }
+
+    #[test]
+    fn string_case_builtins_convert_only_ascii_bytes() {
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo äÖ 123!".as_bytes().to_vec(),
+        }));
+        let value = EchoValue::string(string);
+
+        assert_eq!(
+            echo_php_strtoupper(value).string_bytes(),
+            Some("ECHO äÖ 123!".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strtolower(value).string_bytes(),
+            Some("echo äÖ 123!".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(string));
+        }
     }
 
     #[test]

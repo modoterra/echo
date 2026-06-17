@@ -70,15 +70,21 @@
         };
       }
 
-      function renderStats(suite) {
-        const phpTotal = suite.rows.reduce((sum, row) => sum + row.php_total_ms, 0);
+      function isSingleSeries(suite) {
+        return suite.benchmark_kind === "single";
+      }
+
+      function renderStats(suite, suiteLabels) {
         const echoTotal = suite.rows.reduce((sum, row) => sum + row.echo_total_ms, 0);
-        const speedup = phpTotal / echoTotal;
+        const speedupStat = isSingleSeries(suite)
+          ? `<div class="stat"><span>${suiteLabels.candidate} Total</span><strong>${echoTotal.toFixed(0)} ms</strong></div>`
+          : `<div class="stat"><span>Aggregate Speedup</span><strong>${(suite.rows.reduce((sum, row) => sum + row.php_total_ms, 0) / echoTotal).toFixed(2)}x</strong></div>`;
+
         document.getElementById("stats").innerHTML = `
           <div class="stat"><span>Fixtures</span><strong>${suite.rows.length}</strong></div>
           <div class="stat"><span>Iterations Each</span><strong>${suite.iterations}</strong></div>
           <div class="stat"><span>Suite Wall Time</span><strong>${suite.suite_total_ms.toFixed(0)} ms</strong></div>
-          <div class="stat"><span>Aggregate Speedup</span><strong>${speedup.toFixed(2)}x</strong></div>
+          ${speedupStat}
         `;
       }
 
@@ -116,19 +122,22 @@
         const suiteLabels = labels(suite);
         const phpTotal = rows.reduce((sum, row) => sum + row.php_total_ms, 0);
         const echoTotal = rows.reduce((sum, row) => sum + row.echo_total_ms, 0);
+        const singleSeries = isSingleSeries(suite);
 
         document.title = suite.title || "Echo PHP Benchmark Results";
         document.getElementById("title").textContent = suite.title || "Echo PHP Benchmark Results";
         document.getElementById("results-path").textContent =
           suite.results_path || "test-results/php/benchmark.html";
-        renderStats(suite);
+        renderStats(suite, suiteLabels);
 
         await vegaEmbed("#summary", {
           ...baseSpec(
-            [
-              { tool: suiteLabels.baseline, total_ms: phpTotal },
-              { tool: suiteLabels.candidate, total_ms: echoTotal },
-            ],
+            singleSeries
+              ? [{ tool: suiteLabels.candidate, total_ms: echoTotal }]
+              : [
+                  { tool: suiteLabels.baseline, total_ms: phpTotal },
+                  { tool: suiteLabels.candidate, total_ms: echoTotal },
+                ],
             "Suite Total Runtime"
           ),
           width: 480,
@@ -145,32 +154,51 @@
           },
         });
 
-        await vegaEmbed("#speedup", {
-          ...baseSpec(rows, suiteLabels.speedup),
-          mark: "bar",
-          encoding: {
-            x: { field: "fixture", type: "nominal", sort: null, axis: { labelAngle: -45 } },
-            y: { field: "speedup", type: "quantitative", title: "speedup (x)" },
-            tooltip: [
-              { field: "fixture", type: "nominal" },
-              { field: "speedup", type: "quantitative" },
-            ],
-          },
-        });
+        if (singleSeries) {
+          document.getElementById("speedup").remove();
+        } else {
+          await vegaEmbed("#speedup", {
+            ...baseSpec(rows, suiteLabels.speedup),
+            mark: "bar",
+            encoding: {
+              x: { field: "fixture", type: "nominal", sort: null, axis: { labelAngle: -45 } },
+              y: { field: "speedup", type: "quantitative", title: "speedup (x)" },
+              tooltip: [
+                { field: "fixture", type: "nominal" },
+                { field: "speedup", type: "quantitative" },
+              ],
+            },
+          });
+        }
 
         await vegaEmbed(
           "#time",
-          foldSpec(rows, "Average Wall Time", ["php_avg_us", "echo_avg_us"], "microseconds")
+          foldSpec(
+            rows,
+            "Average Wall Time",
+            singleSeries ? ["echo_avg_us"] : ["php_avg_us", "echo_avg_us"],
+            "microseconds"
+          )
         );
 
         await vegaEmbed(
           "#memory",
-          foldSpec(rows, "Maximum RSS", ["php_max_rss_kb", "echo_max_rss_kb"], "KB")
+          foldSpec(
+            rows,
+            "Maximum RSS",
+            singleSeries ? ["echo_max_rss_kb"] : ["php_max_rss_kb", "echo_max_rss_kb"],
+            "KB"
+          )
         );
 
         await vegaEmbed(
           "#cpu",
-          foldSpec(rows, "User CPU Time", ["php_user_cpu_s", "echo_user_cpu_s"], "seconds")
+          foldSpec(
+            rows,
+            "User CPU Time",
+            singleSeries ? ["echo_user_cpu_s"] : ["php_user_cpu_s", "echo_user_cpu_s"],
+            "seconds"
+          )
         );
       }
 

@@ -1,0 +1,4 @@
+ECHO äÖ 123!
+echo äÖ 123!
+ALREADY UPPER
+already lower

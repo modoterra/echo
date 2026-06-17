@@ -40,12 +40,6 @@ fn benchmark_echo_fixtures() {
 
         let echo_binary = build_echo_binary(&program_path, &run_artifact_dir_for(&fixture));
 
-        let mut run_first_command = command("run", &program_path);
-        let (run_first, run_resources) =
-            output_with_stdin_and_resources(&mut run_first_command, &stdin);
-        assert_success(&run_first, "xo run");
-        assert_eq!(run_first.stdout, expected_stdout, "xo run output mismatch");
-
         let (binary_first, binary_resources) =
             output_with_stdin_and_resources(&mut Command::new(&echo_binary), &stdin);
         assert_success(&binary_first, "Echo binary");
@@ -54,12 +48,6 @@ fn benchmark_echo_fixtures() {
             "Echo binary output mismatch"
         );
 
-        let run_duration = time_iterations(iterations, || {
-            let mut run = command("run", &program_path);
-            let output = output_with_stdin(&mut run, &stdin);
-            assert_success(&output, "xo run");
-        });
-
         let binary_duration = time_iterations(iterations, || {
             let output = output_with_stdin(&mut Command::new(&echo_binary), &stdin);
             assert_success(&output, "Echo binary");
@@ -67,9 +55,7 @@ fn benchmark_echo_fixtures() {
 
         let row = BenchmarkRow::new(
             &fixture.label(),
-            run_duration,
             binary_duration,
-            run_resources,
             binary_resources,
             echo_binary.clone(),
             iterations,
@@ -110,18 +96,14 @@ struct BenchmarkRow {
     fixture: String,
     iterations: usize,
     echo_binary: PathBuf,
-    run_total: Duration,
     binary_total: Duration,
-    run_resources: Option<ResourceMetrics>,
     binary_resources: Option<ResourceMetrics>,
 }
 
 impl BenchmarkRow {
     fn new(
         fixture: &str,
-        run_total: Duration,
         binary_total: Duration,
-        run_resources: Option<ResourceMetrics>,
         binary_resources: Option<ResourceMetrics>,
         echo_binary: PathBuf,
         iterations: usize,
@@ -130,50 +112,25 @@ impl BenchmarkRow {
             fixture: fixture.to_string(),
             iterations,
             echo_binary,
-            run_total,
             binary_total,
-            run_resources,
             binary_resources,
         }
-    }
-
-    fn run_avg_us(&self) -> f64 {
-        self.run_total.as_secs_f64() * 1_000_000.0 / self.iterations as f64
     }
 
     fn binary_avg_us(&self) -> f64 {
         self.binary_total.as_secs_f64() * 1_000_000.0 / self.iterations as f64
     }
 
-    fn speedup(&self) -> f64 {
-        self.run_avg_us() / self.binary_avg_us()
-    }
-
     fn format_report(&self) -> String {
-        let summary = if self.speedup() >= 1.0 {
-            format!("Echo binary is {:.2}x faster than xo run", self.speedup())
-        } else {
-            format!(
-                "Echo binary is {:.2}x slower than xo run",
-                1.0 / self.speedup()
-            )
-        };
-
         format!(
-            "{}\n{summary}\niterations: {}\necho_binary: {}\necho_build_timing: excluded; binary built once and reused\nxo_run_avg_us: {:.3}\necho_binary_avg_us: {:.3}\necho_binary_speedup_vs_xo_run: {:.3}x\nxo_run_total_ms: {:.3}\necho_binary_total_ms: {:.3}\nxo_run_max_rss_kb: {}\necho_binary_max_rss_kb: {}\nxo_run_user_cpu_s: {}\necho_binary_user_cpu_s: {}\nxo_run_system_cpu_s: {}\necho_binary_system_cpu_s: {}\n\n",
+            "{}\nEcho binary benchmark\niterations: {}\necho_binary: {}\necho_build_timing: excluded; binary built once and reused\necho_binary_avg_us: {:.3}\necho_binary_total_ms: {:.3}\necho_binary_max_rss_kb: {}\necho_binary_user_cpu_s: {}\necho_binary_system_cpu_s: {}\n\n",
             self.fixture,
             self.iterations,
             self.echo_binary.display(),
-            self.run_avg_us(),
             self.binary_avg_us(),
-            self.speedup(),
-            self.run_total.as_secs_f64() * 1_000.0,
             self.binary_total.as_secs_f64() * 1_000.0,
-            optional_u64(self.run_resources.as_ref().and_then(|m| m.max_rss_kb)),
             optional_u64(self.binary_resources.as_ref().and_then(|m| m.max_rss_kb)),
-            optional_f64(self.run_resources.as_ref().and_then(|m| m.user_cpu_s)),
             optional_f64(self.binary_resources.as_ref().and_then(|m| m.user_cpu_s)),
-            optional_f64(self.run_resources.as_ref().and_then(|m| m.system_cpu_s)),
             optional_f64(self.binary_resources.as_ref().and_then(|m| m.system_cpu_s)),
         )
     }
@@ -215,12 +172,6 @@ fn time_iterations(iterations: usize, mut f: impl FnMut()) -> Duration {
     }
 
     start.elapsed()
-}
-
-fn command(subcommand: &str, program_path: &Path) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_xo"));
-    command.arg(subcommand).arg(program_path);
-    command
 }
 
 fn build_echo_binary(program_path: &Path, artifact_dir: &Path) -> PathBuf {
@@ -370,53 +321,34 @@ fn write_suite_artifacts(rows: &[BenchmarkRow], suite_duration: Duration) {
 
 fn suite_csv(rows: &[BenchmarkRow]) -> String {
     let mut csv = String::from(
-        "fixture,iterations,xo_run_avg_us,echo_binary_avg_us,speedup,xo_run_total_ms,echo_binary_total_ms,xo_run_user_cpu_s,echo_binary_user_cpu_s,xo_run_system_cpu_s,echo_binary_system_cpu_s,xo_run_elapsed_wall_s,echo_binary_elapsed_wall_s,xo_run_max_rss_kb,echo_binary_max_rss_kb,xo_run_minor_page_faults,echo_binary_minor_page_faults,xo_run_major_page_faults,echo_binary_major_page_faults,xo_run_voluntary_context_switches,echo_binary_voluntary_context_switches,xo_run_involuntary_context_switches,echo_binary_involuntary_context_switches\n",
+        "fixture,iterations,echo_binary_avg_us,echo_binary_total_ms,echo_binary_user_cpu_s,echo_binary_system_cpu_s,echo_binary_elapsed_wall_s,echo_binary_max_rss_kb,echo_binary_minor_page_faults,echo_binary_major_page_faults,echo_binary_voluntary_context_switches,echo_binary_involuntary_context_switches\n",
     );
 
     for row in rows {
         csv.push_str(&format!(
-            "{},{},{:.3},{:.3},{:.6},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{:.3},{:.3},{},{},{},{},{},{},{},{}\n",
             row.fixture,
             row.iterations,
-            row.run_avg_us(),
             row.binary_avg_us(),
-            row.speedup(),
-            row.run_total.as_secs_f64() * 1_000.0,
             row.binary_total.as_secs_f64() * 1_000.0,
-            optional_f64(row.run_resources.as_ref().and_then(|m| m.user_cpu_s)),
             optional_f64(row.binary_resources.as_ref().and_then(|m| m.user_cpu_s)),
-            optional_f64(row.run_resources.as_ref().and_then(|m| m.system_cpu_s)),
             optional_f64(row.binary_resources.as_ref().and_then(|m| m.system_cpu_s)),
-            optional_f64(row.run_resources.as_ref().and_then(|m| m.elapsed_wall_s)),
             optional_f64(row.binary_resources.as_ref().and_then(|m| m.elapsed_wall_s)),
-            optional_u64(row.run_resources.as_ref().and_then(|m| m.max_rss_kb)),
             optional_u64(row.binary_resources.as_ref().and_then(|m| m.max_rss_kb)),
-            optional_u64(row.run_resources.as_ref().and_then(|m| m.minor_page_faults)),
             optional_u64(
                 row.binary_resources
                     .as_ref()
                     .and_then(|m| m.minor_page_faults)
             ),
-            optional_u64(row.run_resources.as_ref().and_then(|m| m.major_page_faults)),
             optional_u64(
                 row.binary_resources
                     .as_ref()
                     .and_then(|m| m.major_page_faults)
             ),
             optional_u64(
-                row.run_resources
-                    .as_ref()
-                    .and_then(|m| m.voluntary_context_switches)
-            ),
-            optional_u64(
                 row.binary_resources
                     .as_ref()
                     .and_then(|m| m.voluntary_context_switches)
-            ),
-            optional_u64(
-                row.run_resources
-                    .as_ref()
-                    .and_then(|m| m.involuntary_context_switches)
             ),
             optional_u64(
                 row.binary_resources
@@ -432,7 +364,7 @@ fn suite_csv(rows: &[BenchmarkRow]) -> String {
 fn suite_json(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
     let iterations = suite_iterations(rows);
     let mut json = format!(
-        "{{\n  \"title\": \"Echo and PHP Fixture Benchmark Results\",\n  \"results_path\": \"test-results/echo/benchmark.html\",\n  \"baseline_label\": \"xo run\",\n  \"candidate_label\": \"Echo binary\",\n  \"speedup_label\": \"Echo Binary Speedup vs xo run\",\n  \"iterations\": {iterations},\n  \"suite_total_ms\": {:.3},\n  \"rows\": [\n",
+        "{{\n  \"title\": \"Echo Binary Fixture Benchmark Results\",\n  \"results_path\": \"test-results/echo/benchmark.html\",\n  \"benchmark_kind\": \"single\",\n  \"candidate_label\": \"Echo binary\",\n  \"iterations\": {iterations},\n  \"suite_total_ms\": {:.3},\n  \"rows\": [\n",
         suite_duration.as_secs_f64() * 1_000.0
     );
 
@@ -441,18 +373,12 @@ fn suite_json(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
             json.push_str(",\n");
         }
         json.push_str(&format!(
-            "    {{\"fixture\":\"{}\",\"php_avg_us\":{:.3},\"echo_avg_us\":{:.3},\"speedup\":{:.6},\"php_total_ms\":{:.3},\"echo_total_ms\":{:.3},\"php_max_rss_kb\":{},\"echo_max_rss_kb\":{},\"php_user_cpu_s\":{},\"echo_user_cpu_s\":{},\"php_system_cpu_s\":{},\"echo_system_cpu_s\":{}}}",
+            "    {{\"fixture\":\"{}\",\"echo_avg_us\":{:.3},\"echo_total_ms\":{:.3},\"echo_max_rss_kb\":{},\"echo_user_cpu_s\":{},\"echo_system_cpu_s\":{}}}",
             json_escape(&row.fixture),
-            row.run_avg_us(),
             row.binary_avg_us(),
-            row.speedup(),
-            row.run_total.as_secs_f64() * 1_000.0,
             row.binary_total.as_secs_f64() * 1_000.0,
-            json_optional_u64(row.run_resources.as_ref().and_then(|m| m.max_rss_kb)),
             json_optional_u64(row.binary_resources.as_ref().and_then(|m| m.max_rss_kb)),
-            json_optional_f64(row.run_resources.as_ref().and_then(|m| m.user_cpu_s)),
             json_optional_f64(row.binary_resources.as_ref().and_then(|m| m.user_cpu_s)),
-            json_optional_f64(row.run_resources.as_ref().and_then(|m| m.system_cpu_s)),
             json_optional_f64(row.binary_resources.as_ref().and_then(|m| m.system_cpu_s)),
         ));
     }
@@ -463,32 +389,23 @@ fn suite_json(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
 
 fn suite_markdown(rows: &[BenchmarkRow], suite_duration: Duration) -> String {
     let iterations = suite_iterations(rows);
-    let run_total_ms = rows
-        .iter()
-        .map(|row| row.run_total.as_secs_f64() * 1_000.0)
-        .sum::<f64>();
     let binary_total_ms = rows
         .iter()
         .map(|row| row.binary_total.as_secs_f64() * 1_000.0)
         .sum::<f64>();
 
     let mut markdown = format!(
-        "# Echo and PHP Benchmark Summary\n\n- fixtures: {}\n- iterations per fixture: {iterations}\n- suite wall time ms: {:.3}\n- xo run measured total ms: {:.3}\n- echo binary measured total ms: {:.3}\n- aggregate speedup: {:.3}x\n\n| Fixture | xo run avg us | Echo binary avg us | Speedup | xo run RSS KB | Echo binary RSS KB |\n| --- | ---: | ---: | ---: | ---: | ---: |\n",
+        "# Echo Binary Benchmark Summary\n\n- fixtures: {}\n- iterations per fixture: {iterations}\n- suite wall time ms: {:.3}\n- echo binary measured total ms: {:.3}\n\n| Fixture | Echo binary avg us | Echo binary RSS KB |\n| --- | ---: | ---: |\n",
         rows.len(),
         suite_duration.as_secs_f64() * 1_000.0,
-        run_total_ms,
         binary_total_ms,
-        run_total_ms / binary_total_ms,
     );
 
     for row in rows {
         markdown.push_str(&format!(
-            "| {} | {:.3} | {:.3} | {:.3}x | {} | {} |\n",
+            "| {} | {:.3} | {} |\n",
             row.fixture,
-            row.run_avg_us(),
             row.binary_avg_us(),
-            row.speedup(),
-            optional_u64(row.run_resources.as_ref().and_then(|m| m.max_rss_kb)),
             optional_u64(row.binary_resources.as_ref().and_then(|m| m.max_rss_kb)),
         ));
     }

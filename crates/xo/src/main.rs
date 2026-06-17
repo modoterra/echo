@@ -1,9 +1,14 @@
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
 use echo_source::{SourceFile, SourceMode};
+
+static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Parser)]
 #[command(name = "xo")]
@@ -153,14 +158,36 @@ fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
 }
 
 fn write_temp_ir(file: &PathBuf, ir: &str) -> PathBuf {
-    let path = temp_path(file, "ll");
-
-    fs::write(&path, ir).unwrap_or_else(|err| {
-        eprintln!("error: failed to write {}: {err}", path.display());
-        std::process::exit(1);
-    });
+    let path = create_temp_file(file, "ll", ir.as_bytes());
 
     path
+}
+
+fn create_temp_file(file: &PathBuf, extension: &str, contents: &[u8]) -> PathBuf {
+    for _ in 0..100 {
+        let path = temp_path(file, extension);
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut temp_file) => {
+                temp_file.write_all(contents).unwrap_or_else(|err| {
+                    eprintln!("error: failed to write {}: {err}", path.display());
+                    std::process::exit(1);
+                });
+                return path;
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => {
+                eprintln!("error: failed to create {}: {err}", path.display());
+                std::process::exit(1);
+            }
+        }
+    }
+
+    eprintln!("error: failed to allocate unique temporary {extension} path");
+    std::process::exit(1);
 }
 
 fn temp_path(file: &PathBuf, extension: &str) -> PathBuf {
@@ -169,7 +196,16 @@ fn temp_path(file: &PathBuf, extension: &str) -> PathBuf {
         .and_then(|stem| stem.to_str())
         .unwrap_or("program");
 
-    std::env::temp_dir().join(format!("echo-{stem}-{}.{}", std::process::id(), extension))
+    let counter = TEMP_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+
+    std::env::temp_dir().join(format!(
+        "echo-{stem}-{}-{nanos}-{counter}.{extension}",
+        std::process::id(),
+    ))
 }
 
 fn runtime_library_path() -> PathBuf {
@@ -220,5 +256,24 @@ fn print_diagnostics(diagnostics: Vec<echo_diagnostics::Diagnostic>) {
             "error: {} at {}..{}",
             diagnostic.message, diagnostic.span.start, diagnostic.span.end
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temp_ir_files_are_unique_for_repeated_builds() {
+        let source = PathBuf::from("program.php");
+        let first = create_temp_file(&source, "ll", b"first");
+        let second = create_temp_file(&source, "ll", b"second");
+
+        assert_ne!(first, second);
+        assert_eq!(fs::read(&first).expect("first temp file"), b"first");
+        assert_eq!(fs::read(&second).expect("second temp file"), b"second");
+
+        let _ = fs::remove_file(first);
+        let _ = fs::remove_file(second);
     }
 }

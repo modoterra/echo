@@ -37,7 +37,7 @@
 - The `xo` fixture test overwrites latest stable artifacts in `test-results/php/<fixture>/`: `ast.txt`, `ir.ll`, `run.stdout`, `run.stderr`, `binary.stdout`, and `binary.stderr`.
 - Built executables use per-process paths under `test-results/php/.runs/<pid>/<fixture>/` to avoid concurrent test runs touching the same binary; stable stdout/stderr/IR artifacts still live under `test-results/php/<fixture>/`.
 - The ignored `crates/xo/tests/php_bench.rs` benchmark requires `php` on `PATH`, builds each fixture, compares PHP/Echo stdout, prints timing, and writes `benchmark.txt` under the same artifact directory.
-- The ignored `crates/xo/tests/echo_bench.rs` benchmark requires `clang` on `PATH`, covers both `tests/php` and `tests/echo`, skips fixtures with `unsupported.txt`, compares `xo run` with a prebuilt Echo binary, prints timing, and writes reports under `test-results/echo/`.
+- The ignored `crates/xo/tests/echo_bench.rs` benchmark requires `clang` on `PATH`, covers both `tests/php` and `tests/echo`, skips fixtures with `unsupported.txt`, validates built Echo binary stdout, prints binary timing, and writes reports under `test-results/echo/`.
 
 ## Parity Loop
 - Work in focused PHP slices: one fixture should introduce one new language/runtime behavior, but the slice should still be large enough to prove the behavior end-to-end.

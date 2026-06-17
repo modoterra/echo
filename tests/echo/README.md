@@ -16,4 +16,4 @@ Run the ignored benchmark with:
 cargo test -p xo --test echo_bench -- --ignored --nocapture
 ```
 
-Use `ECHO_BENCH_ITERATIONS=2` for a quick smoke check. The benchmark includes both PHP compatibility fixtures and Echo fixtures, skips fixtures with `unsupported.txt`, compares `xo run` with a prebuilt Echo binary, and writes reports under `test-results/echo/`.
+Use `ECHO_BENCH_ITERATIONS=2` for a quick smoke check. The benchmark includes both PHP compatibility fixtures and Echo fixtures, skips fixtures with `unsupported.txt`, validates built Echo binary stdout, times only the built binary, and writes reports under `test-results/echo/`.

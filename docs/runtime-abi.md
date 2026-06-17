@@ -151,6 +151,15 @@ declare %EchoValue @echo_php_ob_get_length()
 declare %EchoValue @echo_php_ob_get_level()
 ```
 
+Current PHP-facing string builtins use unary `%EchoValue` calls so PHP scalar coercion
+stays centralized in the runtime value layer:
+
+```llvm
+declare %EchoValue @echo_php_strlen(%EchoValue)
+declare %EchoValue @echo_php_strtoupper(%EchoValue)
+declare %EchoValue @echo_php_strtolower(%EchoValue)
+```
+
 Core output behavior remains under `echo_*`:
 
 ```llvm

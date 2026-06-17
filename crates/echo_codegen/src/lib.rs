@@ -1190,6 +1190,42 @@ mod tests {
     }
 
     #[test]
+    fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
+        for (php_name, symbol) in [
+            ("strtoupper", "echo_php_strtoupper"),
+            ("strtolower", "echo_php_strtolower"),
+        ] {
+            let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: php_name.to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "Echo".to_string(),
+                        span: Span::new(11, 17),
+                    })],
+                    span: Span::new(0, 18),
+                })],
+                span: Span::new(0, 19),
+            })]))
+            .expect("IR");
+
+            assert!(
+                ir.contains(&format!("declare %EchoValue @{symbol}(%EchoValue)")),
+                "{ir}"
+            );
+            assert!(
+                ir.contains(&format!(
+                    "call %EchoValue @{symbol}(%EchoValue %runtime_call_0)"
+                )),
+                "{ir}"
+            );
+            assert!(
+                ir.contains("call void @echo_write_value(%EchoValue %runtime_call_1)"),
+                "{ir}"
+            );
+        }
+    }
+
+    #[test]
     fn time_sleep_lowers_to_core_runtime_call() {
         let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
             name: "time.sleep".to_string(),
