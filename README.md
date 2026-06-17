@@ -10,6 +10,53 @@ Echo is early-stage software. The current implementation supports a small but gr
 
 Unsupported PHP behavior should fail explicitly rather than silently approximate semantics.
 
+## Direction
+
+Echo is intended to feel like PHP if PHP had a modern compiler, a standard library with native networking, and an owned concurrency runtime.
+
+Future Echo should support programs shaped like this:
+
+```php
+<?php
+
+namespace App\Http;
+
+use Echo\Net\TcpServer;
+use Echo\Http\Response;
+
+type User = shape {
+    const id: int,
+    email: string,
+    displayName?: string,
+};
+
+extend list<User> as $users {
+    function active(): list<User> {
+        return $users.filter(fn (User $user): bool => $user.displayName !== null);
+    }
+}
+
+const string Address = "127.0.0.1:8080";
+
+let $server = TcpServer::listen(Address);
+
+while (true) {
+    let $conn = join run {
+        return $server.accept();
+    };
+
+    run {
+        let $request = $conn.readRequest();
+        let $body = "Hello from Echo at " . $request.path . "\n";
+
+        $conn.write(Response::text($body));
+        $conn.close();
+    };
+}
+```
+
+The exact syntax will evolve, but the design goals are stable: PHP compatibility in Echo mode, stricter safety in strict mode, first-class `echo_std`, explicit receiver extensions, and one lazy Echo event loop per thread.
+
 ## Workspace
 
 This repository is a Rust workspace.
