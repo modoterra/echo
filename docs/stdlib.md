@@ -190,6 +190,7 @@ Examples:
 - `echo_php_str_repeat(...)` is PHP builtin ABI because `str_repeat()` is a PHP compatibility function.
 - `echo_php_substr(...)` is PHP builtin ABI because `substr()` is a PHP compatibility function.
 - `echo_php_strpos(...)` is PHP builtin ABI because `strpos()` is a PHP compatibility function.
+- `echo_php_strstr(...)` is PHP builtin ABI because `strstr()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.

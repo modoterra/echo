@@ -178,6 +178,7 @@ declare %EchoValue @echo_php_str_ends_with(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_str_repeat(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_substr(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strpos(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_strstr(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcmp(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcasecmp(%EchoValue, %EchoValue)
 ```
