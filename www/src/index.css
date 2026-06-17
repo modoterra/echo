@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+body {
+  @apply m-0 bg-white font-sans text-slate-950 antialiased;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-rendering: optimizeLegibility;
+}
