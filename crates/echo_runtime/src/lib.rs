@@ -1022,6 +1022,20 @@ pub extern "C" fn echo_php_stripos(haystack: EchoValue, needle: EchoValue) -> Ec
         .unwrap_or_else(|| EchoValue::bool(false))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strrpos(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    find_last_bytes(&haystack, &needle)
+        .map(|position| EchoValue::int(position as i64))
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -1030,6 +1044,16 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
+}
+
+fn find_last_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(haystack.len());
+    }
+
+    haystack
+        .windows(needle.len())
+        .rposition(|window| window == needle)
 }
 
 #[unsafe(no_mangle)]
@@ -2012,6 +2036,95 @@ mod tests {
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(needle_start));
             drop(Box::from_raw(needle_later));
+            drop(Box::from_raw(needle_missing));
+            drop(Box::from_raw(needle_empty));
+            drop(Box::from_raw(needle_non_ascii));
+        }
+    }
+
+    #[test]
+    fn strrpos_preserves_php_byte_behavior() {
+        let repeated_start = Box::into_raw(Box::new(EchoString {
+            bytes: "abcabc".as_bytes().to_vec(),
+        }));
+        let repeated_end = Box::into_raw(Box::new(EchoString {
+            bytes: "abcabc".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let empty_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "1234545".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächocho".as_bytes().to_vec(),
+        }));
+        let needle_start = Box::into_raw(Box::new(EchoString {
+            bytes: "ab".as_bytes().to_vec(),
+        }));
+        let needle_end = Box::into_raw(Box::new(EchoString {
+            bytes: "bc".as_bytes().to_vec(),
+        }));
+        let needle_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "xy".as_bytes().to_vec(),
+        }));
+        let needle_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let needle_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "c".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strrpos(
+                EchoValue::string(repeated_start),
+                EchoValue::string(needle_start)
+            ),
+            EchoValue::int(3)
+        );
+        assert_eq!(
+            echo_php_strrpos(
+                EchoValue::string(repeated_end),
+                EchoValue::string(needle_end)
+            ),
+            EchoValue::int(4)
+        );
+        assert_eq!(
+            echo_php_strrpos(
+                EchoValue::string(missing),
+                EchoValue::string(needle_missing)
+            ),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_strrpos(
+                EchoValue::string(empty_needle),
+                EchoValue::string(needle_empty)
+            ),
+            EchoValue::int(6)
+        );
+        assert_eq!(
+            echo_php_strrpos(EchoValue::string(numeric_needle), EchoValue::int(45)),
+            EchoValue::int(5)
+        );
+        assert_eq!(
+            echo_php_strrpos(
+                EchoValue::string(non_ascii),
+                EchoValue::string(needle_non_ascii)
+            ),
+            EchoValue::int(5)
+        );
+
+        unsafe {
+            drop(Box::from_raw(repeated_start));
+            drop(Box::from_raw(repeated_end));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(empty_needle));
+            drop(Box::from_raw(numeric_needle));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(needle_start));
+            drop(Box::from_raw(needle_end));
             drop(Box::from_raw(needle_missing));
             drop(Box::from_raw(needle_empty));
             drop(Box::from_raw(needle_non_ascii));

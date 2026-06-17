@@ -487,6 +487,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "strrpos",
+        symbol: "echo_php_strrpos",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "strstr",
         symbol: "echo_php_strstr",
         helper_symbol: None,
