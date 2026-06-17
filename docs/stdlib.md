@@ -28,11 +28,146 @@ The default decision rule is:
 - If it is optional/module-like, reserve it for `echo_ext_*`.
 - If it is only an implementation detail, keep it private and never emit it from codegen.
 
+## Implementation Model
+
+The standard library should be a real Echo library wherever Echo can express the behavior clearly.
+
+```text
+std/                 Echo-facing source files
+  net.echo           public types/classes and intrinsic declarations for networking
+  http.echo          request/response types and pure HTTP helpers
+  task.echo          task-facing API surface
+
+echo_std             Rust crate that packages/embeds std source and exposes std metadata
+echo_runtime         Rust crate that implements low-level runtime primitives
+compiler resolver    imports std symbols and validates intrinsic bindings
+codegen              lowers resolved intrinsic calls to approved ABI symbols
+```
+
+Pure value APIs should be written in Echo source:
+
+```php
+namespace std Http
+
+type Response = {
+    status: int
+    headers: Headers
+    body: bytes
+}
+
+function text(string $body): Response {
+    return Response {
+        status: 200
+        headers: Headers { contentType: "text/plain" }
+        body: bytes($body)
+    }
+}
+```
+
+Resource and syscall APIs should be declared in trusted stdlib Echo source as intrinsics and implemented by Rust runtime primitives:
+
+```php
+namespace std Net
+
+class TcpServer {
+    intrinsic static function listen(string $address): TcpServer
+    intrinsic function accept(): TcpConnection
+}
+
+class TcpConnection {
+    intrinsic function read(int $maxBytes): bytes
+    intrinsic function write(bytes|string $data): int
+    intrinsic function close(): void
+}
+```
+
+The `namespace std ...` form declares the compiler's internal stdlib module identity. User code imports it with `from std use ...`; it is not a PHP namespace and does not reserve `std\...`, `Std\...`, `Echo\...`, or `EchoStd\...`.
+
+This distinction is intentional:
+
+```php
+namespace std Net
+```
+
+declares trusted stdlib module `std.Net`, while:
+
+```php
+namespace std\Net
+```
+
+declares an ordinary PHP namespace named `std\Net`.
+
+Only trusted stdlib files may use `namespace std ...`. Ordinary user files that write `namespace std Net` should receive a diagnostic. Ordinary user files may still use `namespace std\Net` for PHP compatibility.
+
+## Intrinsic Binding Rules
+
+`intrinsic` is privileged. It means the declaration is implemented by a compiler/runtime-known operation. It is not a general userland FFI feature.
+
+- Built-in stdlib files may declare `intrinsic` functions and methods.
+- Ordinary project files cannot declare `intrinsic`; semantic analysis must reject them with a clear diagnostic.
+- Intrinsic declarations must have explicit parameter and return types.
+- Echo source never names arbitrary Rust symbols.
+- The compiler owns an intrinsic binding registry.
+- Every trusted intrinsic declaration must match a registry entry exactly.
+- Codegen emits only registry-approved ABI calls.
+- Runtime functions validate opaque resource kinds at the intrinsic boundary.
+
+Example registry concept:
+
+```text
+std.Net.TcpServer::listen(string): TcpServer
+  intrinsic: std.net.tcp_server.listen
+  abi: echo_std_net_tcp_server_listen
+
+std.Net.TcpServer#accept(): TcpConnection
+  intrinsic: std.net.tcp_server.accept
+  abi: echo_std_net_tcp_server_accept
+
+std.Net.TcpConnection#write(bytes|string): int
+  intrinsic: std.net.tcp_connection.write
+  abi: echo_std_net_tcp_connection_write
+```
+
+Instance intrinsic methods pass the receiver as the first runtime argument. Static intrinsic methods do not.
+
+```text
+TcpServer::listen($address)
+  -> echo_std_net_tcp_server_listen($address)
+
+$server.accept()
+  -> echo_std_net_tcp_server_accept($server)
+
+$conn.write($bytes)
+  -> echo_std_net_tcp_connection_write($conn, $bytes)
+```
+
+Intrinsic resource values should be opaque Echo values, not exposed integer handles or pointers. The runtime should reject using a `TcpConnection` where a `TcpServer` is required.
+
+## Compiler Pipeline
+
+For a user import:
+
+```php
+from std use Net\TcpServer
+```
+
+The compiler should:
+
+1. Recognize `from std use ...` as an Echo-owned import, not a PHP namespace import.
+2. Load or reference the built-in stdlib module graph from `echo_std`.
+3. Resolve `Net\TcpServer` to the stdlib item `std.Net.TcpServer`.
+4. Make the local name `TcpServer` available in the importing file.
+5. Type-check calls against the stdlib Echo declarations.
+6. Lower pure Echo stdlib calls like ordinary Echo code.
+7. Lower resolved intrinsic stdlib calls through the intrinsic binding registry.
+
+This lets Echo dogfood its own syntax for types and pure helpers while keeping sockets, files, processes, timers, and scheduler operations backed by Rust.
+
 Examples:
 
 - `echo_write(ptr, len)` is core runtime ABI because `echo` syntax needs output semantics.
 - `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
-- `http_serve(...)` belongs in `echo_std` because it is an Echo standard library API.
+- `std.Http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.
 - A future image-processing package could use `echo_ext_*` if it is not part of the standard library.
 
@@ -47,8 +182,8 @@ Initial target direction:
 
 namespace App\Http
 
-use Echo\Net\TcpServer
-use Echo\Http\Response
+from std use Net\TcpServer
+from std use Http\Response
 
 let $server = TcpServer::listen("127.0.0.1:8080")
 
@@ -72,6 +207,8 @@ The standard library should provide the HTTP API. The runtime should provide low
 Pure Echo implementations are still useful when they make semantics easier to audit or when the implementation is naturally expressed in Echo. Runtime-backed Rust implementations are preferred for low-level I/O, parsing, protocol handling, cryptography, compression, time, filesystem, process, and other areas where mature Rust crates provide better foundations.
 
 Strict Echo's array/list/object/tuple/type model is documented in [Strict-Mode Type System](strict-mode-type-system.md).
+
+Echo-owned imports, including `from std use ...`, are documented in [Imports](imports.md).
 
 ## First Slices
 

@@ -21,8 +21,8 @@ Future Echo should support programs shaped like this:
 
 namespace App\Http
 
-use Echo\Net\TcpServer
-use Echo\Http\Response
+from std use Net\TcpServer
+from std use Http\Response
 
 type User = {
     const id: int

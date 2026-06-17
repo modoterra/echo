@@ -5,11 +5,12 @@ Echo's generated LLVM IR may declare many runtime symbols as PHP compatibility g
 ## Symbol Layers
 
 - `echo_*`: core compiler/runtime ABI for language semantics such as output writes, value construction, dynamic calls, and shutdown.
+- `echo_std_*`: approved intrinsic ABI used by trusted Echo standard library declarations.
 - `echo_php_*`: PHP builtin ABI for known PHP function implementations such as `ob_start()` and `ob_flush()`.
 - `echo_ext_*`: reserved for a future extension/module ABI.
 - `echo_internal_*`: runtime-private implementation details. Codegen must not emit declarations or calls to these symbols.
 
-The core ABI should stay small and stable. PHP builtin coverage may become large, but those functions are not part of the core compiler/runtime contract.
+The core ABI should stay small and stable. PHP builtin coverage and standard-library intrinsic coverage may become large, but they are routed through registries rather than ad hoc codegen symbol construction.
 
 ## Static Builtin Calls
 
@@ -81,6 +82,27 @@ The codegen registry is an ABI-routing table, not a compile-time proof that ever
 The first HTTP server should be written as an Echo program using `echo_std`, not as an `xo serve` command.
 
 Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: codegen depends on the small core runtime ABI, PHP-compatible functions use `echo_php_*`, Echo-native library APIs live in `echo_std`, optional modules use `echo_ext_*`, and runtime internals stay private.
+
+Trusted stdlib Echo source may declare intrinsic functions and methods. Those declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` ABI symbols.
+
+Trusted stdlib source declares modules with `namespace std ...`, for example `namespace std Net`. This is a stdlib module declaration, not a PHP namespace declaration.
+
+Example:
+
+```php
+from std use Net\TcpServer
+
+let $server = TcpServer::listen("127.0.0.1:8080")
+```
+
+Expected intrinsic binding shape:
+
+```text
+std.Net.TcpServer::listen(string): TcpServer
+  -> echo_std_net_tcp_server_listen
+```
+
+`echo_std_*` symbols are not looked up from arbitrary user source. User code cannot name Rust symbols, and non-stdlib files cannot declare `intrinsic` bindings.
 
 ## Compatibility And Safety Modes
 
