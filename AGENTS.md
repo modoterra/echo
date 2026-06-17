@@ -10,6 +10,12 @@
 - When changing syntax, parsing, diagnostics, or runtime behavior, preserve PHP compatibility unless the task explicitly says otherwise.
 - Output buffering semantics are tracked in `docs/output-buffering.md`; consult it before changing `echo_runtime` or `ob_*` codegen.
 
+## Agent skills
+
+### Domain docs
+
+This repo uses a single-context domain documentation layout. See `docs/agents/domain.md`.
+
 ## Commands
 - Check all crates: `cargo check --workspace`.
 - Run all tests/doc-tests: `cargo test --workspace`.
