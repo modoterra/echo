@@ -98,20 +98,15 @@ fn echo_fixtures_are_exercised() {
 
         let ast_output = command_output(command("ast", &program_path));
         write_artifact(&artifact_dir.join("ast.txt"), &ast_output.stdout);
-        write_artifact(&artifact_dir.join("ast.stderr"), &ast_output.stderr);
-        write_status_artifact(&artifact_dir, "ast", &ast_output);
         assert_output_success(&ast_output, "xo ast");
 
         let ir_output = command_output(command("ir", &program_path));
         write_artifact(&artifact_dir.join("ir.ll"), &ir_output.stdout);
-        write_artifact(&artifact_dir.join("ir.stderr"), &ir_output.stderr);
-        write_status_artifact(&artifact_dir, "ir", &ir_output);
 
         let mut run = command("run", &program_path);
         let run_output = output_with_stdin(&mut run, &stdin);
         write_artifact(&artifact_dir.join("run.stdout"), &run_output.stdout);
         write_artifact(&artifact_dir.join("run.stderr"), &run_output.stderr);
-        write_status_artifact(&artifact_dir, "run", &run_output);
 
         let binary_dir = echo_run_artifact_dir_for(&fixture);
         fs::create_dir_all(&binary_dir)
@@ -124,7 +119,6 @@ fn echo_fixtures_are_exercised() {
             .arg("-o")
             .arg(&binary_path);
         let build_output = command_output(build);
-        write_command_artifacts(&artifact_dir, "build", &build_output);
 
         if let Some(expected_stdout) = expected_stdout {
             assert_output_success(&ir_output, "xo ir");
@@ -141,7 +135,6 @@ fn echo_fixtures_are_exercised() {
             assert_output_success(&binary_output, &format!("{}", binary_path.display()));
             write_artifact(&artifact_dir.join("binary.stdout"), &binary_output.stdout);
             write_artifact(&artifact_dir.join("binary.stderr"), &binary_output.stderr);
-            write_status_artifact(&artifact_dir, "binary", &binary_output);
             assert_eq!(
                 binary_output.stdout,
                 expected_stdout,
@@ -150,8 +143,7 @@ fn echo_fixtures_are_exercised() {
             );
         } else {
             write_artifact(&artifact_dir.join("binary.stdout"), b"");
-            write_artifact(&artifact_dir.join("binary.stderr"), b"");
-            write_artifact(&artifact_dir.join("binary.status"), b"not run");
+            write_artifact(&artifact_dir.join("binary.stderr"), &build_output.stderr);
         }
     }
 }
@@ -271,19 +263,6 @@ fn reset_dir(path: &Path) {
 fn write_artifact(path: &Path, bytes: &[u8]) {
     fs::write(path, bytes)
         .unwrap_or_else(|err| panic!("failed to write {}: {err}", path.display()));
-}
-
-fn write_command_artifacts(artifact_dir: &Path, name: &str, output: &std::process::Output) {
-    write_artifact(&artifact_dir.join(format!("{name}.stdout")), &output.stdout);
-    write_artifact(&artifact_dir.join(format!("{name}.stderr")), &output.stderr);
-    write_status_artifact(artifact_dir, name, output);
-}
-
-fn write_status_artifact(artifact_dir: &Path, name: &str, output: &std::process::Output) {
-    write_artifact(
-        &artifact_dir.join(format!("{name}.status")),
-        output.status.to_string().as_bytes(),
-    );
 }
 
 fn workspace_root() -> PathBuf {
