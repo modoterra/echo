@@ -8,12 +8,4 @@ $body =
     . $name
     . "\n"
 
-strlen(
-    $body
-)
-
-$task = run {
-    return "done"
-}
-
 echo $body

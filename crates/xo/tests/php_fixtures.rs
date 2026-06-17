@@ -79,20 +79,18 @@ fn echo_fixtures_are_exercised() {
         let program_path = fixture.join("program.echo");
         let stdin_path = fixture.join("stdin.txt");
         let stdout_path = fixture.join("stdout.txt");
+        let unsupported_path = fixture.join("unsupported.txt");
         let artifact_dir = echo_artifact_dir_for(&fixture);
 
         assert!(program_path.is_file(), "missing {}", program_path.display());
+        assert!(stdin_path.is_file(), "missing {}", stdin_path.display());
+        assert!(stdout_path.is_file(), "missing {}", stdout_path.display());
 
-        let stdin = if stdin_path.is_file() {
-            fs::read(&stdin_path)
-                .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()))
-        } else {
-            Vec::new()
-        };
-        let expected_stdout = stdout_path.is_file().then(|| {
-            fs::read(&stdout_path)
-                .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdout_path.display()))
-        });
+        let stdin = fs::read(&stdin_path)
+            .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()));
+        let expected_stdout = fs::read(&stdout_path)
+            .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdout_path.display()));
+        let unsupported = unsupported_path.is_file();
 
         reset_dir(&artifact_dir);
 
@@ -120,7 +118,10 @@ fn echo_fixtures_are_exercised() {
             .arg(&binary_path);
         let build_output = command_output(build);
 
-        if let Some(expected_stdout) = expected_stdout {
+        if unsupported {
+            write_artifact(&artifact_dir.join("binary.stdout"), b"");
+            write_artifact(&artifact_dir.join("binary.stderr"), &build_output.stderr);
+        } else {
             assert_output_success(&ir_output, "xo ir");
             assert_output_success(&run_output, "xo run");
             assert_eq!(
@@ -141,9 +142,6 @@ fn echo_fixtures_are_exercised() {
                 "{}",
                 binary_path.display()
             );
-        } else {
-            write_artifact(&artifact_dir.join("binary.stdout"), b"");
-            write_artifact(&artifact_dir.join("binary.stderr"), &build_output.stderr);
         }
     }
 }
