@@ -5,6 +5,7 @@ pub mod task;
 
 use std::cell::RefCell;
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
@@ -68,6 +69,9 @@ const ECHO_VALUE_BOOL: i32 = 1;
 const ECHO_VALUE_INT: i32 = 2;
 const ECHO_VALUE_STRING: i32 = 3;
 const ECHO_VALUE_ARRAY: i32 = 4;
+const ECHO_VALUE_TASK: i32 = 5;
+
+static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 
 impl EchoValue {
     pub const fn null() -> Self {
@@ -117,6 +121,13 @@ impl EchoValue {
         }
     }
 
+    pub fn task(value: *mut task::EchoTask) -> Self {
+        Self {
+            kind: ECHO_VALUE_TASK,
+            payload: value as u64,
+        }
+    }
+
     fn string_bytes(self) -> Option<Vec<u8>> {
         match self.kind {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
@@ -134,6 +145,7 @@ impl EchoValue {
                     .map(|value| value.bytes.clone())
             },
             ECHO_VALUE_ARRAY => Some(b"Array".to_vec()),
+            ECHO_VALUE_TASK => Some(b"Object".to_vec()),
             _ => None,
         }
     }
@@ -144,6 +156,10 @@ impl EchoValue {
 
     pub const fn is_array(self) -> bool {
         self.kind == ECHO_VALUE_ARRAY
+    }
+
+    pub const fn is_task(self) -> bool {
+        self.kind == ECHO_VALUE_TASK
     }
 }
 
@@ -371,6 +387,14 @@ pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_task_defer() -> EchoValue {
+    let id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
+    EchoValue::task(Box::into_raw(Box::new(task::EchoTask::deferred(
+        task::TaskId(id),
+    ))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
     let Some(mut bytes) = left.string_bytes() else {
         return EchoValue::error();
@@ -529,6 +553,14 @@ mod tests {
         runtime.write(b"hello", &mut stdout);
 
         assert_eq!(stdout, b"hello");
+    }
+
+    #[test]
+    fn task_defer_returns_task_value() {
+        let value = echo_task_defer();
+
+        assert!(value.is_task());
+        assert_ne!(value.payload, 0);
     }
 
     #[test]

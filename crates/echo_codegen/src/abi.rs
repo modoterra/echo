@@ -14,6 +14,7 @@ pub enum CoreRuntimeSymbol {
     WriteValue,
     ValueString,
     ValueConcat,
+    TaskDefer,
     CallFunction,
     Shutdown,
 }
@@ -24,6 +25,7 @@ impl CoreRuntimeSymbol {
         Self::WriteValue,
         Self::ValueString,
         Self::ValueConcat,
+        Self::TaskDefer,
         Self::CallFunction,
         Self::Shutdown,
     ];
@@ -34,6 +36,7 @@ impl CoreRuntimeSymbol {
             Self::WriteValue => "echo_write_value",
             Self::ValueString => "echo_value_string",
             Self::ValueConcat => "echo_value_concat",
+            Self::TaskDefer => "echo_task_defer",
             Self::CallFunction => "echo_call_function",
             Self::Shutdown => "echo_shutdown",
         }
@@ -45,6 +48,7 @@ impl CoreRuntimeSymbol {
             Self::WriteValue => RuntimeSignature::VoidEchoValue,
             Self::ValueString => RuntimeSignature::EchoValuePtrI64,
             Self::ValueConcat => RuntimeSignature::EchoValueEchoValueEchoValue,
+            Self::TaskDefer => RuntimeSignature::EchoValueNoArgs,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }

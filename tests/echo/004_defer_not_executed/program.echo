@@ -1,0 +1,5 @@
+$task = defer {
+    echo "not executed\n"
+}
+
+echo "after\n"

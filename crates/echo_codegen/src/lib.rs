@@ -460,7 +460,16 @@ impl IrModule {
                     )
                 }),
             Expr::FunctionCall(expr) => self.render_function_call_expr(body, expr),
-            Expr::Defer(_) | Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {
+            Expr::Defer(_) => {
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}()\n",
+                    CoreRuntimeSymbol::TaskDefer.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
+            }
+            Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
             }
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
@@ -913,7 +922,7 @@ mod tests {
     }
 
     #[test]
-    fn concurrency_expressions_lower_to_null_placeholders() {
+    fn defer_lowers_to_runtime_task_handle() {
         let ir = compile_to_ir(&program(vec![
             Stmt::Assign(AssignStmt {
                 name: "deferred".to_string(),
@@ -948,6 +957,8 @@ mod tests {
         ]))
         .expect("IR");
 
+        assert!(ir.contains("declare %EchoValue @echo_task_defer()"), "{ir}");
+        assert!(ir.contains("call %EchoValue @echo_task_defer()"), "{ir}");
         assert!(ir.contains("ret i32 0"), "{ir}");
     }
 }
