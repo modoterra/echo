@@ -194,6 +194,9 @@ impl IrModule {
                 body.push_str(&format!("  ret {value}\n"));
                 self.returned = true;
             }
+            Stmt::Expr(statement) => {
+                self.render_expr(body, &statement.expr)?;
+            }
             Stmt::Assign(statement) => {
                 let value = self.render_expr(body, &statement.value)?;
                 // PHP assignments copy values by default; references are handled separately.
@@ -1182,6 +1185,34 @@ mod tests {
             ir.contains("call %EchoValue @echo_task_sleep_current(i64 50, ptr @echo_defer_0_cont)"),
             "{ir}"
         );
+    }
+
+    #[test]
+    fn expression_statement_evaluates_and_discards_value() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Assign(AssignStmt {
+                name: "task".to_string(),
+                value: Expr::Defer(DeferExpr {
+                    body: vec![],
+                    span: Span::new(0, 10),
+                }),
+                span: Span::new(0, 10),
+            }),
+            Stmt::Expr(echo_ast::ExprStmt {
+                expr: Expr::Join(echo_ast::JoinExpr {
+                    handle: Box::new(Expr::Variable(echo_ast::VariableExpr {
+                        name: "task".to_string(),
+                        span: Span::new(11, 16),
+                    })),
+                    span: Span::new(11, 16),
+                }),
+                span: Span::new(11, 16),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(ir.contains("call %EchoValue @echo_task_join"), "{ir}");
+        assert!(!ir.contains("call void @echo_write_value"), "{ir}");
     }
 
     #[test]

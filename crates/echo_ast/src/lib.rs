@@ -16,6 +16,7 @@ pub enum Stmt {
     Assign(AssignStmt),
     AssignRef(AssignRefStmt),
     Return(ReturnStmt),
+    Expr(ExprStmt),
     Namespace(NamespaceStmt),
     Use(UseStmt),
     Import(ImportStmt),
@@ -69,6 +70,12 @@ pub struct AssignRefStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnStmt {
     pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprStmt {
+    pub expr: Expr,
     pub span: Span,
 }
 

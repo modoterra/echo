@@ -10,5 +10,5 @@ $second = run {
     echo "second\n"
 }
 
-echo join $first
-echo join $second
+join $first
+join $second

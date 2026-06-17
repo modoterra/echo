@@ -76,6 +76,7 @@ fn validate_statement_mode(statement: &Stmt, diagnostics: &mut Vec<Diagnostic>) 
         Stmt::Assign(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::AssignRef(_) => {}
         Stmt::Return(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::Expr(statement) => validate_expr_mode(&statement.expr, diagnostics),
         Stmt::Namespace(_) | Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) => {}
     }
 }
@@ -888,6 +889,18 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let expr_stmt = expr
+            .clone()
+            .then_ignore(terminator.clone())
+            .map_with(|expr, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Expr(echo_ast::ExprStmt {
+                    expr,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         function_decl_stmt
             .or(intrinsic_function_decl_stmt)
             .or(class_decl_stmt)
@@ -903,6 +916,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(assign_stmt)
             .or(dynamic_function_call_stmt)
             .or(function_call_stmt)
+            .or(expr_stmt)
     });
 
     open_php
@@ -1161,6 +1175,26 @@ time.sleep(300)
         assert!(matches!(
             &program.statements[1],
             Stmt::FunctionCall(statement) if statement.name == "time.sleep"
+        ));
+    }
+
+    #[test]
+    fn parses_concurrency_expression_statements() {
+        let program = parse_with_mode(
+            r#"run $task
+join $task
+"#,
+            SourceMode::Strict,
+        )
+        .expect("concurrency expression statements parse");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement) if matches!(statement.expr, Expr::Run(_))
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::Expr(statement) if matches!(statement.expr, Expr::Join(_))
         ));
     }
 
