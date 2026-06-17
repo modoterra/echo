@@ -207,6 +207,19 @@ impl EchoValue {
         }
     }
 
+    fn php_int_value(self) -> Option<i64> {
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0),
+            ECHO_VALUE_BOOL => Some(if self.payload == 0 { 0 } else { 1 }),
+            ECHO_VALUE_INT => Some(self.payload as i64),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
+                Some(parse_php_decimal_int(bytes))
+            },
+            _ => None,
+        }
+    }
+
     pub const fn is_string(self) -> bool {
         self.kind == ECHO_VALUE_STRING
     }
@@ -698,6 +711,14 @@ pub extern "C" fn echo_php_boolval(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_intval(value: EchoValue) -> EchoValue {
+    match value.php_int_value() {
+        Some(value) => EchoValue::int(value),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(mut bytes) => {
@@ -891,6 +912,45 @@ fn trim_bytes(bytes: &[u8], left: bool, right: bool) -> Vec<u8> {
     }
 
     bytes[start..end].to_vec()
+}
+
+fn parse_php_decimal_int(bytes: &[u8]) -> i64 {
+    let bytes = trim_ascii_start(bytes);
+    let (negative, digits) = match bytes.first().copied() {
+        Some(b'-') => (true, &bytes[1..]),
+        Some(b'+') => (false, &bytes[1..]),
+        _ => (false, bytes),
+    };
+
+    let mut value = 0i64;
+    let mut found_digit = false;
+    for byte in digits.iter().copied() {
+        if !byte.is_ascii_digit() {
+            break;
+        }
+        found_digit = true;
+        value = value
+            .saturating_mul(10)
+            .saturating_add((byte - b'0') as i64);
+    }
+
+    if !found_digit {
+        return 0;
+    }
+
+    if negative {
+        value.saturating_neg()
+    } else {
+        value
+    }
+}
+
+fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
+    let start = bytes
+        .iter()
+        .position(|byte| !byte.is_ascii_whitespace())
+        .unwrap_or(bytes.len());
+    &bytes[start..]
 }
 
 #[unsafe(no_mangle)]
@@ -1895,6 +1955,53 @@ mod tests {
             drop(Box::from_raw(empty));
             drop(Box::from_raw(zero));
             drop(Box::from_raw(false_text));
+        }
+    }
+
+    #[test]
+    fn intval_preserves_php_default_base_scalar_coercion() {
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let prefixed = Box::into_raw(Box::new(EchoString {
+            bytes: "42abc".as_bytes().to_vec(),
+        }));
+        let spaced = Box::into_raw(Box::new(EchoString {
+            bytes: "  15".as_bytes().to_vec(),
+        }));
+        let negative = Box::into_raw(Box::new(EchoString {
+            bytes: "-7".as_bytes().to_vec(),
+        }));
+        let non_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(echo_php_intval(EchoValue::null()), EchoValue::int(0));
+        assert_eq!(echo_php_intval(EchoValue::bool(false)), EchoValue::int(0));
+        assert_eq!(echo_php_intval(EchoValue::bool(true)), EchoValue::int(1));
+        assert_eq!(echo_php_intval(EchoValue::int(42)), EchoValue::int(42));
+        assert_eq!(echo_php_intval(EchoValue::string(empty)), EchoValue::int(0));
+        assert_eq!(
+            echo_php_intval(EchoValue::string(prefixed)),
+            EchoValue::int(42)
+        );
+        assert_eq!(
+            echo_php_intval(EchoValue::string(spaced)),
+            EchoValue::int(15)
+        );
+        assert_eq!(
+            echo_php_intval(EchoValue::string(negative)),
+            EchoValue::int(-7)
+        );
+        assert_eq!(
+            echo_php_intval(EchoValue::string(non_numeric)),
+            EchoValue::int(0)
+        );
+
+        unsafe {
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(prefixed));
+            drop(Box::from_raw(spaced));
+            drop(Box::from_raw(negative));
+            drop(Box::from_raw(non_numeric));
         }
     }
 

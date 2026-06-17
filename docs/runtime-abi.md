@@ -158,6 +158,7 @@ stays centralized in the runtime value layer:
 declare %EchoValue @echo_php_strlen(%EchoValue)
 declare %EchoValue @echo_php_strval(%EchoValue)
 declare %EchoValue @echo_php_boolval(%EchoValue)
+declare %EchoValue @echo_php_intval(%EchoValue)
 declare %EchoValue @echo_php_strtoupper(%EchoValue)
 declare %EchoValue @echo_php_strtolower(%EchoValue)
 declare %EchoValue @echo_php_strrev(%EchoValue)

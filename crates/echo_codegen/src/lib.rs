@@ -1221,6 +1221,7 @@ mod tests {
         for (php_name, symbol) in [
             ("strval", "echo_php_strval"),
             ("boolval", "echo_php_boolval"),
+            ("intval", "echo_php_intval"),
             ("strtoupper", "echo_php_strtoupper"),
             ("strtolower", "echo_php_strtolower"),
             ("strrev", "echo_php_strrev"),
