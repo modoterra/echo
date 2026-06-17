@@ -64,6 +64,7 @@ struct IrModule {
     returned: bool,
     next_string_id: usize,
     next_call_id: usize,
+    next_defer_id: usize,
 }
 
 impl IrModule {
@@ -77,6 +78,7 @@ impl IrModule {
             returned: false,
             next_string_id: 0,
             next_call_id: 0,
+            next_defer_id: 0,
         }
     }
 
@@ -460,11 +462,12 @@ impl IrModule {
                     )
                 }),
             Expr::FunctionCall(expr) => self.render_function_call_expr(body, expr),
-            Expr::Defer(_) => {
+            Expr::Defer(expr) => {
+                let function = self.render_defer_function(&expr.body)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 body.push_str(&format!(
-                    "  %runtime_call_{call_id} = call %EchoValue @{}()\n",
+                    "  %runtime_call_{call_id} = call %EchoValue @{}(ptr @{function})\n",
                     CoreRuntimeSymbol::TaskDefer.symbol()
                 ));
                 Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
@@ -511,6 +514,43 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
         }
+    }
+
+    fn render_defer_function(&mut self, statements: &[Stmt]) -> Result<String, Diagnostic> {
+        let function = format!("echo_defer_{}", self.next_defer_id);
+        self.next_defer_id += 1;
+
+        let saved_aliases = std::mem::take(&mut self.aliases);
+        let saved_locals = std::mem::take(&mut self.locals);
+        let saved_returned = self.returned;
+        self.returned = false;
+
+        let mut body = String::new();
+        for statement in statements {
+            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+                self.aliases = saved_aliases;
+                self.locals = saved_locals;
+                self.returned = saved_returned;
+                return Err(diagnostic);
+            }
+        }
+
+        let returned = self.returned;
+        self.aliases = saved_aliases;
+        self.locals = saved_locals;
+        self.returned = saved_returned;
+
+        self.functions_ir.push_str(&format!(
+            "define %EchoValue @{function}() {{\nentry:\n{}{}\n}}\n",
+            body,
+            if returned {
+                "".to_string()
+            } else {
+                "  ret %EchoValue { i32 0, i64 0 }".to_string()
+            }
+        ));
+
+        Ok(function)
     }
 
     fn render_function_call_expr(
@@ -957,8 +997,15 @@ mod tests {
         ]))
         .expect("IR");
 
-        assert!(ir.contains("declare %EchoValue @echo_task_defer()"), "{ir}");
-        assert!(ir.contains("call %EchoValue @echo_task_defer()"), "{ir}");
+        assert!(
+            ir.contains("declare %EchoValue @echo_task_defer(ptr)"),
+            "{ir}"
+        );
+        assert!(ir.contains("define %EchoValue @echo_defer_0()"), "{ir}");
+        assert!(
+            ir.contains("call %EchoValue @echo_task_defer(ptr @echo_defer_0)"),
+            "{ir}"
+        );
         assert!(ir.contains("ret i32 0"), "{ir}");
     }
 }

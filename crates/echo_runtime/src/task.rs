@@ -1,5 +1,7 @@
 use crate::{EchoError, EchoValue};
 
+pub type TaskCallback = unsafe extern "C" fn() -> EchoValue;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TaskId(pub usize);
 
@@ -44,16 +46,18 @@ pub enum TaskState {
     Failed(EchoError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct EchoTask {
     id: TaskId,
+    callback: Option<TaskCallback>,
     state: TaskState,
 }
 
 impl EchoTask {
-    pub fn deferred(id: TaskId) -> Self {
+    pub fn deferred(id: TaskId, callback: Option<TaskCallback>) -> Self {
         Self {
             id,
+            callback,
             state: TaskState::Deferred,
         }
     }
@@ -64,6 +68,10 @@ impl EchoTask {
 
     pub const fn state(&self) -> &TaskState {
         &self.state
+    }
+
+    pub const fn callback(&self) -> Option<TaskCallback> {
+        self.callback
     }
 
     pub fn start(&mut self) -> Result<(), TaskStartError> {
@@ -141,9 +149,14 @@ mod tests {
 
     #[test]
     fn deferred_task_starts_runs_waits_wakes_and_finishes() {
-        let mut task = EchoTask::deferred(TaskId(7));
+        unsafe extern "C" fn callback() -> EchoValue {
+            EchoValue::int(42)
+        }
+
+        let mut task = EchoTask::deferred(TaskId(7), Some(callback));
 
         assert_eq!(task.id(), TaskId(7));
+        assert!(task.callback().is_some());
         assert_eq!(task.state(), &TaskState::Deferred);
 
         assert_eq!(task.start(), Ok(()));
@@ -168,7 +181,7 @@ mod tests {
 
     #[test]
     fn task_rejects_invalid_transitions() {
-        let mut task = EchoTask::deferred(TaskId(1));
+        let mut task = EchoTask::deferred(TaskId(1), None);
 
         assert_eq!(task.run(), Err(TaskRunError::NotRunnable));
         assert_eq!(

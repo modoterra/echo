@@ -48,7 +48,7 @@ impl CoreRuntimeSymbol {
             Self::WriteValue => RuntimeSignature::VoidEchoValue,
             Self::ValueString => RuntimeSignature::EchoValuePtrI64,
             Self::ValueConcat => RuntimeSignature::EchoValueEchoValueEchoValue,
-            Self::TaskDefer => RuntimeSignature::EchoValueNoArgs,
+            Self::TaskDefer => RuntimeSignature::EchoValuePtr,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }
@@ -67,6 +67,7 @@ pub enum RuntimeSignature {
     BoolNoArgs,
     BoolEchoValue,
     EchoValueNoArgs,
+    EchoValuePtr,
     EchoValuePtrI64,
     EchoValueEchoValue,
     EchoValueEchoValueEchoValue,
@@ -81,6 +82,7 @@ impl RuntimeSignature {
             Self::BoolNoArgs => format!("declare i1 @{symbol}()"),
             Self::BoolEchoValue => format!("declare i1 @{symbol}(%EchoValue)"),
             Self::EchoValueNoArgs => format!("declare %EchoValue @{symbol}()"),
+            Self::EchoValuePtr => format!("declare %EchoValue @{symbol}(ptr)"),
             Self::EchoValuePtrI64 => format!("declare %EchoValue @{symbol}(ptr, i64)"),
             Self::EchoValueEchoValue => format!("declare %EchoValue @{symbol}(%EchoValue)"),
             Self::EchoValueEchoValueEchoValue => {

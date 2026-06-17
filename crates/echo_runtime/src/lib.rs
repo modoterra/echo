@@ -387,10 +387,11 @@ pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_task_defer() -> EchoValue {
+pub extern "C" fn echo_task_defer(callback: Option<task::TaskCallback>) -> EchoValue {
     let id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
     EchoValue::task(Box::into_raw(Box::new(task::EchoTask::deferred(
         task::TaskId(id),
+        callback,
     ))))
 }
 
@@ -557,7 +558,11 @@ mod tests {
 
     #[test]
     fn task_defer_returns_task_value() {
-        let value = echo_task_defer();
+        unsafe extern "C" fn callback() -> EchoValue {
+            EchoValue::int(1)
+        }
+
+        let value = echo_task_defer(Some(callback));
 
         assert!(value.is_task());
         assert_ne!(value.payload, 0);
