@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Echo PHP Benchmark Results</title>
+    <title>Echo Benchmark Results</title>
     <style>
       body {
         color: #172033;
@@ -41,9 +41,9 @@
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0"></script>
   </head>
   <body>
-    <h1>Echo PHP Benchmark Results</h1>
+    <h1 id="title">Echo PHP Benchmark Results</h1>
     <p class="note">
-      Open from <code>test-results/php/benchmark.html</code>. Benchmark data is embedded
+      Open from <code id="results-path">test-results/php/benchmark.html</code>. Benchmark data is embedded
       directly in this file so it works from <code>file://</code>. CDN scripts are pinned
       for local convenience.
     </p>
@@ -60,6 +60,14 @@
       async function loadSuite() {
         const suite = JSON.parse(document.getElementById("benchmark-data").textContent);
         return suite;
+      }
+
+      function labels(suite) {
+        return {
+          baseline: suite.baseline_label || "PHP",
+          candidate: suite.candidate_label || "Echo",
+          speedup: suite.speedup_label || "Echo Speedup vs PHP",
+        };
       }
 
       function renderStats(suite) {
@@ -105,16 +113,21 @@
       async function main() {
         const suite = await loadSuite();
         const rows = suite.rows;
+        const suiteLabels = labels(suite);
         const phpTotal = rows.reduce((sum, row) => sum + row.php_total_ms, 0);
         const echoTotal = rows.reduce((sum, row) => sum + row.echo_total_ms, 0);
 
+        document.title = suite.title || "Echo PHP Benchmark Results";
+        document.getElementById("title").textContent = suite.title || "Echo PHP Benchmark Results";
+        document.getElementById("results-path").textContent =
+          suite.results_path || "test-results/php/benchmark.html";
         renderStats(suite);
 
         await vegaEmbed("#summary", {
           ...baseSpec(
             [
-              { tool: "PHP", total_ms: phpTotal },
-              { tool: "Echo", total_ms: echoTotal },
+              { tool: suiteLabels.baseline, total_ms: phpTotal },
+              { tool: suiteLabels.candidate, total_ms: echoTotal },
             ],
             "Suite Total Runtime"
           ),
@@ -133,7 +146,7 @@
         });
 
         await vegaEmbed("#speedup", {
-          ...baseSpec(rows, "Echo Speedup vs PHP"),
+          ...baseSpec(rows, suiteLabels.speedup),
           mark: "bar",
           encoding: {
             x: { field: "fixture", type: "nominal", sort: null, axis: { labelAngle: -45 } },
