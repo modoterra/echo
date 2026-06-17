@@ -4,6 +4,7 @@ pub mod sched;
 pub mod task;
 
 use std::cell::RefCell;
+use std::cmp::Ordering as CmpOrdering;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -1018,6 +1019,22 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strcmp(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(left) = left.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(match left.cmp(&right) {
+        CmpOrdering::Less => -1,
+        CmpOrdering::Equal => 0,
+        CmpOrdering::Greater => 1,
+    })
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1814,6 +1831,79 @@ mod tests {
             drop(Box::from_raw(needle_later));
             drop(Box::from_raw(needle_missing));
             drop(Box::from_raw(needle_non_ascii));
+        }
+    }
+
+    #[test]
+    fn strcmp_preserves_php_byte_sign_behavior() {
+        let less_left = Box::into_raw(Box::new(EchoString {
+            bytes: "a".as_bytes().to_vec(),
+        }));
+        let less_right = Box::into_raw(Box::new(EchoString {
+            bytes: "b".as_bytes().to_vec(),
+        }));
+        let greater_left = Box::into_raw(Box::new(EchoString {
+            bytes: "b".as_bytes().to_vec(),
+        }));
+        let greater_right = Box::into_raw(Box::new(EchoString {
+            bytes: "a".as_bytes().to_vec(),
+        }));
+        let equal_left = Box::into_raw(Box::new(EchoString {
+            bytes: "same".as_bytes().to_vec(),
+        }));
+        let equal_right = Box::into_raw(Box::new(EchoString {
+            bytes: "same".as_bytes().to_vec(),
+        }));
+        let prefix_left = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+        let prefix_right = Box::into_raw(Box::new(EchoString {
+            bytes: "ab".as_bytes().to_vec(),
+        }));
+        let numeric_left = Box::into_raw(Box::new(EchoString {
+            bytes: "123".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strcmp(EchoValue::string(less_left), EchoValue::string(less_right)),
+            EchoValue::int(-1)
+        );
+        assert_eq!(
+            echo_php_strcmp(
+                EchoValue::string(greater_left),
+                EchoValue::string(greater_right)
+            ),
+            EchoValue::int(1)
+        );
+        assert_eq!(
+            echo_php_strcmp(
+                EchoValue::string(equal_left),
+                EchoValue::string(equal_right)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strcmp(
+                EchoValue::string(prefix_left),
+                EchoValue::string(prefix_right)
+            ),
+            EchoValue::int(1)
+        );
+        assert_eq!(
+            echo_php_strcmp(EchoValue::string(numeric_left), EchoValue::int(123)),
+            EchoValue::int(0)
+        );
+
+        unsafe {
+            drop(Box::from_raw(less_left));
+            drop(Box::from_raw(less_right));
+            drop(Box::from_raw(greater_left));
+            drop(Box::from_raw(greater_right));
+            drop(Box::from_raw(equal_left));
+            drop(Box::from_raw(equal_right));
+            drop(Box::from_raw(prefix_left));
+            drop(Box::from_raw(prefix_right));
+            drop(Box::from_raw(numeric_left));
         }
     }
 
