@@ -1224,6 +1224,7 @@ mod tests {
             ("intval", "echo_php_intval"),
             ("strtoupper", "echo_php_strtoupper"),
             ("strtolower", "echo_php_strtolower"),
+            ("ucwords", "echo_php_ucwords"),
             ("strrev", "echo_php_strrev"),
             ("ucfirst", "echo_php_ucfirst"),
             ("lcfirst", "echo_php_lcfirst"),

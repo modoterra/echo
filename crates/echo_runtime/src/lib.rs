@@ -741,6 +741,23 @@ pub extern "C" fn echo_php_strtolower(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ucwords(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            let mut uppercase_next = true;
+            for byte in &mut bytes {
+                if uppercase_next {
+                    byte.make_ascii_uppercase();
+                }
+                uppercase_next = matches!(*byte, b' ' | b'\t' | b'\r' | b'\n' | 0x0c | 0x0b);
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strrev(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(mut bytes) => {
@@ -1882,6 +1899,54 @@ mod tests {
 
         unsafe {
             drop(Box::from_raw(string));
+        }
+    }
+
+    #[test]
+    fn ucwords_preserves_php_default_separator_byte_behavior() {
+        let words = Box::into_raw(Box::new(EchoString {
+            bytes: "hello world".as_bytes().to_vec(),
+        }));
+        let tab = Box::into_raw(Box::new(EchoString {
+            bytes: "hello\tworld".as_bytes().to_vec(),
+        }));
+        let hyphen = Box::into_raw(Box::new(EchoString {
+            bytes: "hello-world".as_bytes().to_vec(),
+        }));
+        let mixed = Box::into_raw(Box::new(EchoString {
+            bytes: "mIXed CASE".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "ächo world".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_ucwords(EchoValue::string(words)).string_bytes(),
+            Some("Hello World".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_ucwords(EchoValue::string(tab)).string_bytes(),
+            Some("Hello\tWorld".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_ucwords(EchoValue::string(hyphen)).string_bytes(),
+            Some("Hello-world".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_ucwords(EchoValue::string(mixed)).string_bytes(),
+            Some("MIXed CASE".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_ucwords(EchoValue::string(non_ascii)).string_bytes(),
+            Some("ächo World".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(words));
+            drop(Box::from_raw(tab));
+            drop(Box::from_raw(hyphen));
+            drop(Box::from_raw(mixed));
+            drop(Box::from_raw(non_ascii));
         }
     }
 

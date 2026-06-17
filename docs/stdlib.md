@@ -184,6 +184,7 @@ Examples:
 - `echo_php_boolval(...)` is PHP builtin ABI because `boolval()` is a PHP compatibility function.
 - `echo_php_intval(...)` is PHP builtin ABI because `intval()` is a PHP compatibility function.
 - `echo_php_strtoupper(...)` and `echo_php_strtolower(...)` are PHP builtin ABI because `strtoupper()` and `strtolower()` are PHP compatibility functions.
+- `echo_php_ucwords(...)` is PHP builtin ABI because `ucwords()` is a PHP compatibility function.
 - `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are PHP builtin ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
 - `echo_php_ord(...)` and `echo_php_str_rot13(...)` are PHP builtin ABI because `ord()` and `str_rot13()` are PHP compatibility functions.
 - `echo_php_chr(...)`, `echo_php_bin2hex(...)`, and `echo_php_hex2bin(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, and `hex2bin()` are PHP compatibility functions.

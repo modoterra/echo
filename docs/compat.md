@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 48 | 559 |
-| Loaded local PHP internals, including extensions | 1516 | 48 | 1468 |
+| Baseline (`Core` + `standard`) | 607 | 49 | 558 |
+| Loaded local PHP internals, including extensions | 1516 | 49 | 1467 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (45/545)
+### standard (46/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -615,7 +615,7 @@ explicitly promote one.
 | `trim` | implemented |  |
 | `uasort` | missing |  |
 | `ucfirst` | implemented |  |
-| `ucwords` | missing |  |
+| `ucwords` | implemented |  |
 | `uksort` | missing |  |
 | `umask` | missing |  |
 | `uniqid` | missing |  |
