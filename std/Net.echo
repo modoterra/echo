@@ -1,0 +1,12 @@
+namespace std Net
+
+class TcpServer {
+    intrinsic static function listen(string $address): TcpServer
+    intrinsic function accept(): TcpConnection
+}
+
+class TcpConnection {
+    intrinsic function read(int $maxBytes): bytes
+    intrinsic function write(bytes|string $data): int
+    intrinsic function close(): void
+}
