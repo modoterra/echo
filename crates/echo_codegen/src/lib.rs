@@ -1275,6 +1275,31 @@ mod tests {
     }
 
     #[test]
+    fn http_response_text_lowers_to_std_intrinsic_call() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "http.responseText".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "hello".to_string(),
+                    span: Span::new(18, 25),
+                })],
+                span: Span::new(0, 26),
+            })],
+            span: Span::new(0, 26),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_std_http_response_text(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_std_http_response_text(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
     fn task_sleep_lowers_to_timer_continuation() {
         let ir = compile_to_ir(&program(vec![Stmt::Assign(AssignStmt {
             name: "task".to_string(),

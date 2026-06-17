@@ -1,0 +1,19 @@
+from std use net
+from std use time
+from std use http
+
+$server = net.listen("127.0.0.1:39184")
+
+$client = run {
+    time.sleep(5)
+    $connection = net.connect("127.0.0.1:39184")
+    net.write($connection, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+    echo net.read($connection, 128)
+    net.close($connection)
+}
+
+$connection = net.accept($server)
+net.read($connection, 128)
+net.write($connection, http.responseText("hello\n"))
+net.close($connection)
+join $client

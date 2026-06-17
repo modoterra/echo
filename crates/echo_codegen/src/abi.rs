@@ -135,6 +135,12 @@ impl StdIntrinsic {
 
 pub const STD_INTRINSICS: &[StdIntrinsic] = &[
     StdIntrinsic {
+        echo_name: "http.responseText",
+        symbol: "echo_std_http_response_text",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
         echo_name: "net.listen",
         symbol: "echo_std_net_listen",
         signature: RuntimeSignature::EchoValueEchoValue,

@@ -43,9 +43,21 @@ pub const MODULES: &[StdModule] = &[
         path: "std/time.echo",
         source: include_str!("../../../std/time.echo"),
     },
+    StdModule {
+        name: "std.http",
+        path: "std/http.echo",
+        source: include_str!("../../../std/http.echo"),
+    },
 ];
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
+    IntrinsicBinding {
+        owner: "std.http",
+        method: "responseText",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.http.response_text",
+        abi_symbol: "echo_std_http_response_text",
+    },
     IntrinsicBinding {
         owner: "std.net",
         method: "listen",
@@ -175,6 +187,18 @@ mod tests {
     }
 
     #[test]
+    fn packages_http_module_source() {
+        let module = modules()
+            .iter()
+            .find(|module| module.name == "std.http")
+            .expect("std.http module is packaged");
+
+        assert_eq!(module.path, "std/http.echo");
+        assert!(module.source.contains("namespace std http"));
+        assert!(module.source.contains("intrinsic function responseText"));
+    }
+
+    #[test]
     fn exposes_net_intrinsic_bindings() {
         assert!(intrinsics().contains(&IntrinsicBinding {
             owner: "std.net",
@@ -208,6 +232,17 @@ mod tests {
             receiver: IntrinsicReceiver::Static,
             intrinsic: "std.time.sleep",
             abi_symbol: "echo_time_sleep",
+        }));
+    }
+
+    #[test]
+    fn exposes_http_intrinsic_binding() {
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.http",
+            method: "responseText",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.http.response_text",
+            abi_symbol: "echo_std_http_response_text",
         }));
     }
 }

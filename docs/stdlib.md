@@ -232,4 +232,6 @@ Echo-owned imports, including `from std use ...`, are documented in [Imports](im
 - Build HTTP response formatting in `echo_std`.
 - Add request parsing and named-handler invocation.
 
+The first HTTP runtime slice formats text responses with the Rust `http` crate and writes those bytes over `std.net`. Request parsing is intentionally left as the next layer; do not couple Echo's public HTTP API to a Rust parser crate choice.
+
 The concurrency runtime model remains: Mio wakes sockets, Echo wakes tasks.

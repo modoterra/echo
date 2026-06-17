@@ -1163,6 +1163,20 @@ echo "done"
     }
 
     #[test]
+    fn parses_std_http_module_source() {
+        let program = parse_with_mode(include_str!("../../../std/http.echo"), SourceMode::Strict)
+            .expect("std http module parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Namespace(statement)
+                if statement.source == NamespaceSource::Std
+                    && statement.name.as_string() == "http"
+        ));
+        assert!(matches!(&program.statements[1], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
     fn parses_dotted_std_function_call() {
         let program = parse_with_mode(
             r#"from std use time

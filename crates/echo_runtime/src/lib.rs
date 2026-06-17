@@ -593,6 +593,42 @@ pub extern "C" fn echo_std_net_close(connection: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_std_http_response_text(body: EchoValue) -> EchoValue {
+    let Some(body) = body.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Ok(response) = http::Response::builder()
+        .status(http::StatusCode::OK)
+        .header(http::header::CONTENT_TYPE, "text/plain")
+        .header(http::header::CONTENT_LENGTH, body.len().to_string())
+        .header(http::header::CONNECTION, "close")
+        .body(body)
+    else {
+        return EchoValue::error();
+    };
+
+    let (parts, body) = response.into_parts();
+    let reason = parts.status.canonical_reason().unwrap_or("OK");
+    let mut bytes = format!("HTTP/1.1 {} {reason}\r\n", parts.status.as_u16()).into_bytes();
+
+    for (name, value) in &parts.headers {
+        let Ok(value) = value.to_str() else {
+            return EchoValue::error();
+        };
+        bytes.extend_from_slice(name.as_str().as_bytes());
+        bytes.extend_from_slice(b": ");
+        bytes.extend_from_slice(value.as_bytes());
+        bytes.extend_from_slice(b"\r\n");
+    }
+
+    bytes.extend_from_slice(b"\r\n");
+    bytes.extend_from_slice(&body);
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
     let Some(mut bytes) = left.string_bytes() else {
         return EchoValue::error();
@@ -823,6 +859,17 @@ mod tests {
         assert_eq!(echo_std_net_close(connection), EchoValue::null());
 
         client.join().expect("client");
+    }
+
+    #[test]
+    fn std_http_response_text_formats_http_response() {
+        let body = unsafe { echo_value_string(c"hello".as_ptr().cast(), 5) };
+        let response = echo_std_http_response_text(body);
+
+        assert_eq!(
+            response.string_bytes().expect("response"),
+            b"HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\ncontent-length: 5\r\nconnection: close\r\n\r\nhello"
+        );
     }
 
     #[test]
