@@ -1,0 +1,37 @@
+from std use net
+from std use time
+from std use http
+
+type User = {
+    const id: int
+    email: string
+}
+
+fn responseBody($request, list<User> $users): string {
+    return "Hello from Echo at " . $request.path . "\nUsers seen: " . count($users) . "\n"
+}
+
+let list<User> $users = {}
+let $server = net.listen("127.0.0.1:39186")
+
+let $serverTask = run {
+    let $conn = net.accept($server)
+    let $request = http.readRequest($conn)
+
+    $users[] = User {
+        id: count($users) + 1
+        email: "visitor" . count($users) . "@echo.local"
+    }
+
+    net.write($conn, http.responseText(responseBody($request, $users)))
+    net.close($conn)
+}
+
+time.sleep(50)
+let $conn = net.connect("127.0.0.1:39186")
+net.write($conn, "GET /demo HTTP/1.1\r\nHost: localhost\r\n\r\n")
+let $response = net.read($conn, 4096)
+echo $response
+net.close($conn)
+
+join $serverTask

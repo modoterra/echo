@@ -1,0 +1,6 @@
+let $name = "Echo"
+let $task = run {
+    echo $name . "\n"
+}
+
+join $task

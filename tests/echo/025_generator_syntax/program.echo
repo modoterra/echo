@@ -1,0 +1,11 @@
+gen fn connections($server): TcpConnection {
+    loop {
+        let $conn = net.accept($server)
+
+        if $conn is null {
+            break
+        }
+
+        yield $conn
+    }
+}

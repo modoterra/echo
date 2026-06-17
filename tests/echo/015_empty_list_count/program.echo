@@ -1,0 +1,3 @@
+let list<string> $items = {}
+echo count($items)
+echo "\n"

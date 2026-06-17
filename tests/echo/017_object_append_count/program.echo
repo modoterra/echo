@@ -1,0 +1,13 @@
+type User = {
+    const id: int
+    email: string
+}
+
+let list<User> $users = {}
+$users[] = User {
+    id: 1
+    email: "first@example.test"
+}
+
+echo count($users)
+echo "\n"

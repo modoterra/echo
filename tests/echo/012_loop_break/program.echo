@@ -1,0 +1,6 @@
+loop {
+    echo "once\n"
+    break
+}
+
+echo "done\n"

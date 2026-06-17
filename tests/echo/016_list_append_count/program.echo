@@ -1,0 +1,6 @@
+let list<string> $items = {}
+$items[] = "first"
+$items[] = "second"
+
+echo count($items)
+echo "\n"

@@ -1,0 +1,36 @@
+namespace app\http
+
+from std use net
+from std use http
+
+type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
+
+fn responseBody($request, list<User> $users): string {
+    let $body = "Hello from Echo at " . $request.path . "\n"
+    return $body . "Users seen: " . count($users) . "\n"
+}
+
+let list<User> $users = {}
+let $server = net.listen("127.0.0.1:8080")
+
+loop {
+    let $conn = join run {
+        return net.accept($server)
+    }
+
+    run {
+        let $request = http.readRequest($conn)
+
+        $users[] = User {
+            id: count($users) + 1
+            email: "visitor" . count($users) . "@echo.local"
+        }
+
+        net.write($conn, http.responseText(responseBody($request, $users)))
+        net.close($conn)
+    }
+}

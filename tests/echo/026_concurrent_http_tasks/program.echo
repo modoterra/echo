@@ -1,0 +1,29 @@
+from std use net
+from std use time
+from std use http
+
+let $server = net.listen("127.0.0.1:39187")
+
+let $serverTask = run {
+    let $conn = net.accept($server)
+    let $request = http.readRequest($conn)
+
+    ob_start()
+    echo "Hello from Echo at ", $request.path, "\n"
+    let $body = ob_get_clean()
+
+    net.write($conn, http.responseText($body))
+    net.close($conn)
+}
+
+let $clientTask = run {
+    time.sleep(50)
+    let $conn = net.connect("127.0.0.1:39187")
+    net.write($conn, "GET /concurrent HTTP/1.1\r\nHost: localhost\r\n\r\n")
+    let $response = net.read($conn, 4096)
+    echo $response
+    net.close($conn)
+}
+
+join $serverTask
+join $clientTask

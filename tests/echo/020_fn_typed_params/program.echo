@@ -1,0 +1,23 @@
+type Request = {
+    path: string
+}
+
+type User = {
+    const id: int
+    email: string
+}
+
+fn responseBody($request, list<User> $users): string {
+    return "Hello from Echo at " . $request.path . "\nUsers seen: " . count($users) . "\n"
+}
+
+let $request = Request {
+    path: "/demo"
+}
+let list<User> $users = {}
+$users[] = User {
+    id: 1
+    email: "first@example.test"
+}
+
+echo responseBody($request, $users)

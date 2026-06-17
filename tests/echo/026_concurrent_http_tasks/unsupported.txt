@@ -1,0 +1,1 @@
+Documents the intended single-threaded event-loop behavior for concurrent HTTP tasks. This currently deadlocks because blocking net I/O does not yet suspend the current EchoTask and wake through the event loop.

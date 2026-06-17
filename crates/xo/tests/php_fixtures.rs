@@ -101,6 +101,14 @@ fn echo_fixtures_are_exercised() {
         let ir_output = command_output(command("ir", &program_path));
         write_artifact(&artifact_dir.join("ir.ll"), &ir_output.stdout);
 
+        if unsupported {
+            write_artifact(&artifact_dir.join("run.stdout"), b"");
+            write_artifact(&artifact_dir.join("run.stderr"), b"");
+            write_artifact(&artifact_dir.join("binary.stdout"), b"");
+            write_artifact(&artifact_dir.join("binary.stderr"), b"");
+            continue;
+        }
+
         let mut run = command("run", &program_path);
         let run_output = output_with_stdin(&mut run, &stdin);
         write_artifact(&artifact_dir.join("run.stdout"), &run_output.stdout);
@@ -118,31 +126,26 @@ fn echo_fixtures_are_exercised() {
             .arg(&binary_path);
         let build_output = command_output(build);
 
-        if unsupported {
-            write_artifact(&artifact_dir.join("binary.stdout"), b"");
-            write_artifact(&artifact_dir.join("binary.stderr"), &build_output.stderr);
-        } else {
-            assert_output_success(&ir_output, "xo ir");
-            assert_output_success(&run_output, "xo run");
-            assert_eq!(
-                run_output.stdout,
-                expected_stdout,
-                "{}",
-                program_path.display()
-            );
-            assert_output_success(&build_output, "xo build");
+        assert_output_success(&ir_output, "xo ir");
+        assert_output_success(&run_output, "xo run");
+        assert_eq!(
+            run_output.stdout,
+            expected_stdout,
+            "{}",
+            program_path.display()
+        );
+        assert_output_success(&build_output, "xo build");
 
-            let binary_output = output_with_stdin(&mut Command::new(&binary_path), &stdin);
-            assert_output_success(&binary_output, &format!("{}", binary_path.display()));
-            write_artifact(&artifact_dir.join("binary.stdout"), &binary_output.stdout);
-            write_artifact(&artifact_dir.join("binary.stderr"), &binary_output.stderr);
-            assert_eq!(
-                binary_output.stdout,
-                expected_stdout,
-                "{}",
-                binary_path.display()
-            );
-        }
+        let binary_output = output_with_stdin(&mut Command::new(&binary_path), &stdin);
+        assert_output_success(&binary_output, &format!("{}", binary_path.display()));
+        write_artifact(&artifact_dir.join("binary.stdout"), &binary_output.stdout);
+        write_artifact(&artifact_dir.join("binary.stderr"), &binary_output.stderr);
+        assert_eq!(
+            binary_output.stdout,
+            expected_stdout,
+            "{}",
+            binary_path.display()
+        );
     }
 }
 

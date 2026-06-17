@@ -1,0 +1,5 @@
+let $value = loop {
+    break "ready\n"
+}
+
+echo $value

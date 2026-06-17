@@ -1,0 +1,10 @@
+let $missing = null
+let $name = "Echo"
+
+if $missing is null {
+    echo "missing\n"
+}
+
+if $name is not null {
+    echo $name . "\n"
+}

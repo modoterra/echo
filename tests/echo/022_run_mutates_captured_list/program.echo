@@ -1,0 +1,9 @@
+let list<string> $items = {}
+let $task = run {
+    $items[] = "inside"
+}
+
+join $task
+
+echo count($items)
+echo "\n"

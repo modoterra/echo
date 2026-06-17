@@ -1,0 +1,11 @@
+type User = {
+    const id: int
+    email: string
+}
+
+let $user = User {
+    id: 1
+    email: "first@example.test"
+}
+
+echo $user.email . "\n"
