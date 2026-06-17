@@ -181,3 +181,10 @@ Resolver responsibilities:
 - `from std use Foo\Bar`: bind through the stdlib module graph supplied by `echo_std`.
 - `from "./file.echo" use name`: load the Echo module and bind exported names.
 - `from "./data.json" use data satisfies Type`: load data, validate it against `Type`, and bind the typed value.
+
+## Current Coverage
+
+- `from std use ...` is parsed into a distinct Echo-owned import AST node.
+- Codegen validates the first imported path segment against packaged `echo_std` modules such as `std.net`, `std.time`, and `std.http`.
+- Unknown std module imports fail with a diagnostic such as `unknown std import \`potato\``.
+- Full local name binding, alias enforcement, item-level stdlib resolution, local file imports, and typed data imports are still future resolver work.

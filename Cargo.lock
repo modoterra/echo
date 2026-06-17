@@ -201,6 +201,7 @@ dependencies = [
  "echo_diagnostics",
  "echo_runtime",
  "echo_source",
+ "echo_std",
  "inkwell",
 ]
 

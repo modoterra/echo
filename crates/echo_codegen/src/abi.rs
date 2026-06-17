@@ -226,6 +226,8 @@ pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltinCodegen {
     ObStart,
+    VoidStatement,
+    VoidUnaryStatement,
     BoolStatement,
     ValueExpression,
     ValueUnaryExpression,
@@ -252,6 +254,22 @@ pub const PHP_RUNTIME_HELPERS: &[(&str, RuntimeSignature)] =
     &[("echo_php_ob_start_value", RuntimeSignature::BoolEchoValue)];
 
 pub const PHP_BUILTINS: &[PhpBuiltin] = &[
+    PhpBuiltin {
+        php_name: "flush",
+        symbol: "echo_php_flush",
+        helper_symbol: None,
+        signature: RuntimeSignature::VoidNoArgs,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::VoidStatement,
+    },
+    PhpBuiltin {
+        php_name: "ob_implicit_flush",
+        symbol: "echo_php_ob_implicit_flush",
+        helper_symbol: None,
+        signature: RuntimeSignature::VoidEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::VoidUnaryStatement,
+    },
     PhpBuiltin {
         php_name: "ob_start",
         symbol: "echo_php_ob_start",

@@ -5,8 +5,8 @@ use abi::{
     PhpBuiltin, STD_INTRINSICS, StdIntrinsic, php_builtin, std_intrinsic,
 };
 use echo_ast::{
-    BinaryOp, BreakStmt, Expr, FunctionDeclStmt, IfStmt, LoopExpr, LoopStmt, ObjectExpr, Program,
-    Stmt,
+    BinaryOp, BreakStmt, Expr, FunctionDeclStmt, IfStmt, ImportSource, LoopExpr, LoopStmt,
+    ObjectExpr, Program, Stmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -98,6 +98,14 @@ impl IrModule {
     fn render_program(&mut self, program: &Program) -> Result<String, Vec<Diagnostic>> {
         let mut body = String::new();
         let mut diagnostics = Vec::new();
+
+        for statement in &program.statements {
+            if let Stmt::Import(statement) = statement
+                && let Err(diagnostic) = validate_std_import(statement)
+            {
+                diagnostics.push(diagnostic);
+            }
+        }
 
         for statement in &program.statements {
             if let Stmt::FunctionDecl(statement) = statement
@@ -775,6 +783,33 @@ impl IrModule {
                     ));
                 }
             },
+            BuiltinCodegen::VoidStatement => {
+                if !args.is_empty() {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported arguments for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        args.first().map_or_else(|| Span::new(0, 0), Expr::span),
+                    ));
+                }
+
+                body.push_str(&format!("  call void @{}()\n", builtin.symbol));
+            }
+            BuiltinCodegen::VoidUnaryStatement => {
+                let [arg] = args else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        args.first().map_or_else(|| Span::new(0, 0), Expr::span),
+                    ));
+                };
+
+                let arg = self.render_expr_as_echo_value(body, arg)?;
+                body.push_str(&format!("  call void @{}({arg})\n", builtin.symbol));
+            }
             BuiltinCodegen::BoolStatement => {
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
@@ -807,6 +842,10 @@ impl IrModule {
     fn render_expr(&mut self, body: &mut String, expr: &Expr) -> Result<RuntimeValue, Diagnostic> {
         match expr {
             Expr::Null(_) => Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string())),
+            Expr::Bool(expr) => Ok(RuntimeValue::EchoValue(format!(
+                "{{ i32 1, i64 {} }}",
+                expr.value as u8
+            ))),
             Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
             Expr::Number(expr) => {
                 let Ok(value) = expr.value.parse::<i64>() else {
@@ -1124,6 +1163,119 @@ impl IrModule {
         };
 
         match builtin.codegen {
+            BuiltinCodegen::ObStart => {
+                let (symbol, arg) = match expr.args.as_slice() {
+                    [] => (builtin.symbol, None),
+                    [Expr::Null(_)] => (
+                        builtin
+                            .helper_symbol
+                            .expect("ob_start value helper must be declared"),
+                        Some("%EchoValue { i32 0, i64 0 }".to_string()),
+                    ),
+                    [Expr::String(arg)] => {
+                        let helper = builtin
+                            .helper_symbol
+                            .expect("ob_start value helper must be declared");
+                        let global = self.string_global(&arg.value);
+                        let value_id = self.next_call_id;
+                        self.next_call_id += 1;
+                        let value_name = format!("%runtime_call_{value_id}");
+
+                        body.push_str(&format!(
+                            "  {value_name} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
+                            CoreRuntimeSymbol::ValueString.symbol(),
+                            arg.value.len()
+                        ));
+
+                        (helper, Some(format!("%EchoValue {value_name}")))
+                    }
+                    [arg] => {
+                        return Err(Diagnostic::new(
+                            "unsupported ob_start callback argument in LLVM codegen",
+                            arg.span(),
+                        ));
+                    }
+                    _ => {
+                        return Err(Diagnostic::new(
+                            "unsupported ob_start argument count in LLVM codegen",
+                            expr.span,
+                        ));
+                    }
+                };
+
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let bool_name = format!("%runtime_bool_{call_id}");
+                let payload_name = format!("%runtime_bool_payload_{call_id}");
+                let value_name = format!("%runtime_call_{call_id}");
+
+                match arg {
+                    Some(arg) => {
+                        body.push_str(&format!("  {bool_name} = call i1 @{symbol}({arg})\n"))
+                    }
+                    None => body.push_str(&format!("  {bool_name} = call i1 @{symbol}()\n")),
+                }
+                body.push_str(&format!("  {payload_name} = zext i1 {bool_name} to i64\n"));
+                body.push_str(&format!(
+                    "  {value_name} = insertvalue %EchoValue {{ i32 1, i64 0 }}, i64 {payload_name}, 1\n"
+                ));
+
+                Ok(RuntimeValue::EchoValue(value_name))
+            }
+            BuiltinCodegen::VoidStatement => {
+                if !expr.args.is_empty() {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported arguments for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                }
+
+                body.push_str(&format!("  call void @{}()\n", builtin.symbol));
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
+            BuiltinCodegen::VoidUnaryStatement => {
+                let [arg] = expr.args.as_slice() else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                };
+
+                let arg = self.render_expr_as_echo_value(body, arg)?;
+                body.push_str(&format!("  call void @{}({arg})\n", builtin.symbol));
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
+            BuiltinCodegen::BoolStatement => {
+                if !expr.args.is_empty() {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported arguments for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                }
+
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let bool_name = format!("%runtime_bool_{call_id}");
+                let payload_name = format!("%runtime_bool_payload_{call_id}");
+                let value_name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!("  {bool_name} = call i1 @{}()\n", builtin.symbol));
+                body.push_str(&format!("  {payload_name} = zext i1 {bool_name} to i64\n"));
+                body.push_str(&format!(
+                    "  {value_name} = insertvalue %EchoValue {{ i32 1, i64 0 }}, i64 {payload_name}, 1\n"
+                ));
+
+                Ok(RuntimeValue::EchoValue(value_name))
+            }
             BuiltinCodegen::ValueExpression => {
                 if !expr.args.is_empty() {
                     return Err(Diagnostic::new(
@@ -1192,10 +1344,6 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
-            _ => Err(Diagnostic::new(
-                "unsupported expression in LLVM codegen",
-                expr.span,
-            )),
         }
     }
 
@@ -1278,6 +1426,32 @@ fn runtime_declarations() -> String {
         .join("\n")
 }
 
+fn validate_std_import(statement: &echo_ast::ImportStmt) -> Result<(), Diagnostic> {
+    if statement.source != ImportSource::Std {
+        return Ok(());
+    }
+
+    let Some(module) = statement.name.parts.first() else {
+        return Err(Diagnostic::new(
+            "empty std import in LLVM codegen",
+            statement.span,
+        ));
+    };
+
+    let module_name = format!("std.{module}");
+    if echo_std::modules()
+        .iter()
+        .any(|module| module.name == module_name)
+    {
+        Ok(())
+    } else {
+        Err(Diagnostic::new(
+            format!("unknown std import `{}`", statement.name.as_string()),
+            statement.span,
+        ))
+    }
+}
+
 fn userland_function_symbol(name: &str) -> String {
     format!("echo_user_{name}")
 }
@@ -1316,7 +1490,7 @@ mod tests {
     use super::*;
     use echo_ast::{
         AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-        NullLiteral, ReturnStmt, StringLiteral,
+        ImportStmt, NullLiteral, QualifiedName, ReturnStmt, StringLiteral,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -1325,6 +1499,31 @@ mod tests {
             statements,
             span: Span::new(0, 0),
         }
+    }
+
+    #[test]
+    fn validates_known_std_import() {
+        compile_to_ir(&program(vec![Stmt::Import(ImportStmt {
+            source: ImportSource::Std,
+            name: QualifiedName::new(vec!["net".to_string()]),
+            alias: None,
+            span: Span::new(0, 16),
+        })]))
+        .expect("known std import should compile");
+    }
+
+    #[test]
+    fn rejects_unknown_std_import() {
+        let diagnostics = compile_to_ir(&program(vec![Stmt::Import(ImportStmt {
+            source: ImportSource::Std,
+            name: QualifiedName::new(vec!["potato".to_string()]),
+            alias: None,
+            span: Span::new(0, 19),
+        })]))
+        .expect_err("unknown std import should fail");
+
+        assert_eq!(diagnostics[0].message, "unknown std import `potato`");
+        assert_eq!(diagnostics[0].span, Span::new(0, 19));
     }
 
     #[test]

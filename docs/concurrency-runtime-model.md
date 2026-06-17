@@ -253,6 +253,10 @@ The current implementation supports a first cooperative timer path for generated
 
 This is a bridge toward stackful fiber suspension. It intentionally does not yet capture arbitrary locals across a sleep point or suspend from the middle of arbitrary userland call stacks.
 
+The syntax-only generator fixture is currently supported when generator functions are declared but not invoked. Full generator iteration semantics are still future work.
+
+Concurrent HTTP over `run { ... }` remains blocked on task-aware networking. Blocking `net.accept()` or `net.read()` inside a task can occupy the current worker instead of suspending the task and waking it through the event loop.
+
 ## AST Direction
 
 Add explicit expression forms for these constructs:

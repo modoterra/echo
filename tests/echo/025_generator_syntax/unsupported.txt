@@ -1,1 +1,0 @@
-Syntax fixture for finalized `gen fn` and `yield`. Runtime generator handles and iteration are not implemented yet.

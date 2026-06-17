@@ -1,13 +1,13 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AppendStmt, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BreakStmt, ClassDeclStmt,
-    ClassMember, DeferExpr, DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr, ForkExpr,
-    FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt,
-    JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl, NamespaceSource, NamespaceStmt,
-    NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, QualifiedName, ReturnStmt,
-    RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField, TypedParam, UseStmt,
-    VariableExpr, YieldStmt,
+    AppendStmt, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BoolLiteral, BreakStmt,
+    ClassDeclStmt, ClassMember, DeferExpr, DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr,
+    ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource,
+    ImportStmt, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl, NamespaceSource,
+    NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, QualifiedName,
+    ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField, TypedParam,
+    UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -134,7 +134,7 @@ fn validate_expr_mode(expr: &Expr, diagnostics: &mut Vec<Diagnostic>) {
                 validate_expr_mode(value, diagnostics);
             }
         }
-        Expr::Null(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
+        Expr::Null(_) | Expr::Bool(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
     }
 }
 
@@ -371,6 +371,19 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let bool_literal = text::keyword("true")
+            .or(text::keyword("TRUE"))
+            .to(true)
+            .or(text::keyword("false").or(text::keyword("FALSE")).to(false))
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Bool(BoolLiteral {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let string = none_of('"')
             .repeated()
             .collect::<String>()
@@ -534,6 +547,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(function_call_expr)
             .or(variable)
             .or(null)
+            .or(bool_literal)
             .or(list_expr)
             .or(string)
             .or(number);

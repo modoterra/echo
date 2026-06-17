@@ -222,6 +222,7 @@ impl QualifiedName {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Null(NullLiteral),
+    Bool(BoolLiteral),
     String(StringLiteral),
     Number(NumberLiteral),
     Variable(VariableExpr),
@@ -242,6 +243,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Self::Null(expr) => expr.span,
+            Self::Bool(expr) => expr.span,
             Self::String(expr) => expr.span,
             Self::Number(expr) => expr.span,
             Self::Variable(expr) => expr.span,
@@ -288,6 +290,12 @@ pub struct ListExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NullLiteral {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoolLiteral {
+    pub value: bool,
     pub span: Span,
 }
 

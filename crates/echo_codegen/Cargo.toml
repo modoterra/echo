@@ -8,4 +8,5 @@ echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
 echo_runtime = { path = "../echo_runtime" }
 echo_source = { path = "../echo_source" }
+echo_std = { path = "../echo_std" }
 inkwell = { version = "0.9", features = ["llvm22-1"] }

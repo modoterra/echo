@@ -78,14 +78,14 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Flushes PHP/system/SAPI output buffers only.
 - Does not affect active user-level output buffers.
 - Returns no value.
-- Echo has not implemented this as a PHP-callable function yet. Current runtime writes to stdout and flushes Rust stdout immediately once bytes reach the system-output layer.
+- Echo implements this as a PHP-callable function that flushes Rust stdout without affecting active user-level output buffers.
 
 ### `ob_implicit_flush()`
 
 - Enables or disables implicit system flush after each non-empty output block.
 - Does not affect user-level output buffers and does not implicitly call `ob_flush()`.
 - Returns no value.
-- Echo has not implemented this yet.
+- Echo implements this as a PHP-callable function and stores the implicit flush flag. Current CLI-style output already flushes Rust stdout when bytes reach the system-output layer.
 
 ### `ob_flush()`
 
@@ -95,7 +95,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - For nested buffers, flushed bytes go to the parent buffer.
 - For the outermost buffer, flushed bytes go to stdout.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
-- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+- Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
 
 ### `ob_end_flush()`
 
@@ -106,7 +106,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - For nested buffers, flushed bytes go to the parent buffer.
 - For the outermost buffer, flushed bytes go to stdout.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
-- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+- Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
 
 ### `ob_clean()`
 
@@ -114,7 +114,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Discards active buffer contents.
 - Does not turn off the active buffer.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
-- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+- Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
 
 ### `ob_end_clean()`
 
@@ -123,7 +123,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Turns off/removes the active buffer.
 - Does not flush contents to parent/stdout.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
-- Echo currently returns a runtime bool but generated code ignores it; diagnostics/notices are deferred.
+- Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
 
 ### `ob_get_contents()`
 
@@ -197,8 +197,12 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - `ob_get_clean()` returns active buffer contents as an owned string and removes the active buffer without flushing it.
 - `ob_get_flush()` returns active buffer contents as an owned string, flushes those contents, and removes the active buffer.
 - Nested `ob_get_clean()` returns and removes only the active inner buffer without writing its bytes to the parent; nested `ob_get_flush()` returns the same bytes while also writing them to the parent.
+- `ob_start()`, `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` return observable PHP bool values in expression and assignment contexts.
+- Failed `ob_flush()`, `ob_end_flush()`, `ob_end_clean()`, and `ob_clean()` calls without an active buffer return PHP `false`; in echo context this emits an empty string.
+- `flush()` flushes system stdout without flushing active user-level output buffers.
+- `ob_implicit_flush()` toggles runtime implicit-flush state without flushing active user-level output buffers.
 
 ## Next Thin Slices
 
 - Output handler callback support for `ob_start()`.
-- Failure return values for `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` with no active buffer after bool return values are observable.
+- Notices for failed `ob_flush()`, `ob_end_flush()`, `ob_clean()`, and `ob_end_clean()` calls with no active buffer.

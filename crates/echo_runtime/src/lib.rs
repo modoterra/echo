@@ -12,6 +12,7 @@ use std::time::Duration;
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
     stack: Vec<OutputBuffer>,
+    implicit_flush: bool,
 }
 
 #[derive(Debug, Default)]
@@ -310,6 +311,10 @@ impl OutputRuntime {
         }
     }
 
+    pub fn ob_implicit_flush(&mut self, enabled: bool) {
+        self.implicit_flush = enabled;
+    }
+
     pub fn ob_start(&mut self) {
         self.ob_start_with_callback(None);
     }
@@ -509,6 +514,20 @@ pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
         ECHO_VALUE_ARRAY => unsafe { echo_write(c"Array".as_ptr().cast(), 5) },
         _ => {}
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_flush() {
+    let _ = io::stdout().flush();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ob_implicit_flush(value: EchoValue) {
+    OUTPUT.with(|runtime| {
+        runtime
+            .borrow_mut()
+            .ob_implicit_flush(value.bool_value().unwrap_or(false));
+    });
 }
 
 #[unsafe(no_mangle)]

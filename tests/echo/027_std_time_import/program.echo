@@ -1,0 +1,4 @@
+from std use time
+
+time.sleep(0)
+echo "ok\n"
