@@ -19,10 +19,10 @@ Future Echo should support programs shaped like this:
 ```php
 <?php
 
-namespace App\Http
+namespace app\http
 
-from std use net\TcpServer
-from std use http\Response
+from std use net
+from std use http
 
 type User = {
     const id: int
@@ -30,39 +30,34 @@ type User = {
     displayName?: string
 }
 
-extend list<User> as $users {
-    function active(): list<User> {
-        return $users.filter(fn ($user): bool => $user.displayName is not null)
-    }
+fn responseBody($request, list<User> $users): string {
+    let $body = "Hello from Echo at " . $request.path . "\n"
+    return $body . "Users seen: " . count($users) . "\n"
 }
 
-let $address = "127.0.0.1:8080"
 let list<User> $users = {}
+let $server = net.listen("127.0.0.1:8080")
 
-let $server = TcpServer::listen($address)
-
-while (true) {
+loop {
     let $conn = join run {
-        return $server.accept()
+        return net.accept($server)
     }
 
     run {
-        let $request = $conn.readRequest()
+        let $request = http.readRequest($conn)
+
         $users[] = User {
             id: count($users) + 1
             email: "visitor" . count($users) . "@echo.local"
         }
 
-        let $body = "Hello from Echo at " . $request.path . "\n"
-        $body = $body . "Users seen: " . count($users) . "\n"
-
-        $conn.write(Response::text($body))
-        $conn.close()
+        net.write($conn, http.responseText(responseBody($request, $users)))
+        net.close($conn)
     }
 }
 ```
 
-The exact syntax will evolve, but the design goals are stable: PHP compatibility in Echo mode, stricter safety in strict mode, first-class `echo_std`, explicit receiver extensions, and one lazy Echo event loop per thread.
+The exact syntax will evolve, but the design goals are stable: PHP compatibility in Echo mode, stricter safety in strict mode, first-class `echo_std`, Echo-owned `loop`/`run` concurrency, and one lazy Echo event loop per thread.
 
 ## Workspace
 

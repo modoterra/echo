@@ -1,0 +1,17 @@
+from std use net
+from std use http
+
+let $server = net.listen("127.0.0.1:8080")
+
+loop {
+    let $conn = net.accept($server)
+    let $request = http.readRequest($conn)
+
+    ob_start()
+    echo "Hello from Echo at ", $request.path, "\n"
+    echo "Rendered through ob_* buffering\n"
+    let $body = ob_get_clean()
+
+    net.write($conn, http.responseText($body))
+    net.close($conn)
+}

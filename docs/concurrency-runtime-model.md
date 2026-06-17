@@ -11,6 +11,8 @@ The language-level vocabulary is:
 - `fork`: start OS-thread-backed parallel work.
 - `spawn`: start a child process.
 - `join`: wait for result or completion.
+- `loop`: repeat a block until the body terminates it.
+- `gen fn`: declare a generator function that may `yield`.
 
 Do not introduce `async` / `await` in this phase. Do not use `spawn` for lightweight tasks. Do not introduce `EchoJob`.
 
@@ -35,6 +37,72 @@ The runtime concepts are:
 There is no `EchoJob` type. Deferred work is represented by `EchoTask` with state `Deferred`.
 
 ## Keyword Semantics
+
+### `loop`
+
+`loop { ... }` is Echo's unconditional loop construct. It does not take a condition; termination belongs in the body.
+
+```php
+loop {
+    let $conn = net.accept($server)
+
+    if $conn is null {
+        break
+    }
+
+    handle($conn)
+}
+```
+
+Meaning:
+
+- Repeats until the body exits with `break`, `return`, a thrown error, cancellation, or another terminating construct.
+- Does not support `loop while ...` or `loop (...)` forms.
+- Leaves PHP's `while`, `for`, `foreach`, and `do while` keywords as PHP-compatible syntax.
+- May become expression-valued through `break $value`.
+
+```php
+fn waitForConnection($server): TcpConnection {
+    return loop {
+        let $conn = net.accept($server)
+
+        if $conn is not null {
+            break $conn
+        }
+    }
+}
+```
+
+### `fn` and `gen fn`
+
+`fn` is Echo's short function form. `gen fn` is the only generator declaration form; Echo does not provide a long `generator function` alias.
+
+```php
+fn activeUsers($users): list<User> {
+    return $users.filter(fn ($user): bool => $user.active)
+}
+
+gen fn connections($server): TcpConnection {
+    loop {
+        let $conn = net.accept($server)
+
+        if $conn is null {
+            break
+        }
+
+        yield $conn
+    }
+}
+```
+
+Meaning:
+
+- `fn name(...) { ... }` declares an Echo function.
+- `fn (...) => expr` remains closure shorthand.
+- `fn (...) { ... }` is a block closure.
+- `gen fn name(...): T { ... }` declares a generator function yielding `T` values.
+- `yield` is valid only inside `gen fn`; it must not implicitly change a plain function's type.
+- The return annotation on `gen fn` names the yielded item type, not a hidden wrapper type in source.
 
 ### `defer`
 

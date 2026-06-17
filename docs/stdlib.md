@@ -222,20 +222,36 @@ Initial target direction:
 
 namespace App\Http
 
-from std use net\TcpServer
-from std use http\Response
+from std use net
+from std use http
 
-let $server = TcpServer::listen("127.0.0.1:8080")
+type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
 
-while (true) {
-    let $conn = join run {
-        return $server.accept()
-    }
+fn responseBody($request, list<User> $users): string {
+    let $body = "Hello from Echo at " . $request.path . "\n"
+    return $body . "Users seen: " . count($users) . "\n"
+}
+
+let list<User> $users = {}
+let $server = net.listen("127.0.0.1:8080")
+
+loop {
+    let $conn = join run { return net.accept($server) }
 
     run {
-        let $request = $conn.readRequest()
-        $conn.write(Response::text("hello " . $request.path . "\n"))
-        $conn.close()
+        let $request = http.readRequest($conn)
+
+        $users[] = User {
+            id: count($users) + 1
+            email: "visitor" . count($users) . "@echo.local"
+        }
+
+        net.write($conn, http.responseText(responseBody($request, $users)))
+        net.close($conn)
     }
 }
 ```
