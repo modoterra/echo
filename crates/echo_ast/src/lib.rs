@@ -14,13 +14,20 @@ pub enum Stmt {
     DynamicFunctionCall(DynamicFunctionCallStmt),
     FunctionDecl(FunctionDeclStmt),
     Assign(AssignStmt),
+    Let(LetStmt),
     AssignRef(AssignRefStmt),
     Return(ReturnStmt),
+    Yield(YieldStmt),
     Expr(ExprStmt),
     Namespace(NamespaceStmt),
     Use(UseStmt),
     Import(ImportStmt),
     ClassDecl(ClassDeclStmt),
+    TypeDecl(TypeDeclStmt),
+    Loop(LoopStmt),
+    If(IfStmt),
+    Break(BreakStmt),
+    Append(AppendStmt),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,6 +56,7 @@ pub struct FunctionDeclStmt {
     pub params: Vec<String>,
     pub return_type: Option<String>,
     pub is_intrinsic: bool,
+    pub is_generator: bool,
     pub body: Vec<Stmt>,
     pub span: Span,
 }
@@ -56,6 +64,14 @@ pub struct FunctionDeclStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssignStmt {
     pub name: String,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LetStmt {
+    pub name: String,
+    pub ty: Option<String>,
     pub value: Expr,
     pub span: Span,
 }
@@ -69,6 +85,12 @@ pub struct AssignRefStmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnStmt {
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct YieldStmt {
     pub value: Expr,
     pub span: Span,
 }
@@ -121,6 +143,47 @@ pub struct ClassDeclStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TypeDeclStmt {
+    pub name: String,
+    pub fields: Vec<TypeField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeField {
+    pub name: String,
+    pub ty: String,
+    pub is_const: bool,
+    pub is_optional: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LoopStmt {
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IfStmt {
+    pub condition: Expr,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BreakStmt {
+    pub value: Option<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AppendStmt {
+    pub target: String,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ClassMember {
     Method(MethodDecl),
 }
@@ -168,7 +231,11 @@ pub enum Expr {
     Fork(ForkExpr),
     Spawn(SpawnExpr),
     Join(JoinExpr),
+    Loop(LoopExpr),
     Binary(Box<BinaryExpr>),
+    Field(Box<FieldExpr>),
+    Object(ObjectExpr),
+    List(ListExpr),
 }
 
 impl Expr {
@@ -184,9 +251,39 @@ impl Expr {
             Self::Fork(expr) => expr.span(),
             Self::Spawn(expr) => expr.span,
             Self::Join(expr) => expr.span,
+            Self::Loop(expr) => expr.span,
             Self::Binary(expr) => expr.span,
+            Self::Field(expr) => expr.span,
+            Self::Object(expr) => expr.span,
+            Self::List(expr) => expr.span,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldExpr {
+    pub object: Expr,
+    pub field: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectExpr {
+    pub name: String,
+    pub fields: Vec<ObjectField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectField {
+    pub name: String,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ListExpr {
+    pub values: Vec<Expr>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -266,6 +363,12 @@ pub struct JoinExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct LoopExpr {
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinaryExpr {
     pub left: Expr,
     pub op: BinaryOp,
@@ -280,4 +383,6 @@ pub enum BinaryOp {
     Mul,
     Div,
     Concat,
+    Is,
+    IsNot,
 }

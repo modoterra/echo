@@ -58,6 +58,28 @@ impl EchoString {
     }
 }
 
+#[derive(Debug)]
+pub struct EchoList {
+    values: Vec<EchoValue>,
+}
+
+impl EchoList {
+    fn new() -> Self {
+        Self { values: Vec::new() }
+    }
+}
+
+#[derive(Debug)]
+pub struct EchoObject {
+    fields: Vec<(String, EchoValue)>,
+}
+
+impl EchoObject {
+    fn new() -> Self {
+        Self { fields: Vec::new() }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EchoValue {
@@ -75,6 +97,7 @@ const ECHO_VALUE_TASK: i32 = 5;
 const ECHO_VALUE_PENDING: i32 = 6;
 const ECHO_VALUE_TCP_LISTENER: i32 = 7;
 const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
+const ECHO_VALUE_OBJECT: i32 = 9;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 
@@ -135,6 +158,20 @@ impl EchoValue {
         }
     }
 
+    pub fn list(value: *mut EchoList) -> Self {
+        Self {
+            kind: ECHO_VALUE_ARRAY,
+            payload: value as u64,
+        }
+    }
+
+    pub fn object(value: *mut EchoObject) -> Self {
+        Self {
+            kind: ECHO_VALUE_OBJECT,
+            payload: value as u64,
+        }
+    }
+
     pub const fn pending() -> Self {
         Self {
             kind: ECHO_VALUE_PENDING,
@@ -173,7 +210,7 @@ impl EchoValue {
                     .map(|value| value.bytes.clone())
             },
             ECHO_VALUE_ARRAY => Some(b"Array".to_vec()),
-            ECHO_VALUE_TASK => Some(b"Object".to_vec()),
+            ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => Some(b"Object".to_vec()),
             _ => None,
         }
     }
@@ -674,6 +711,39 @@ pub extern "C" fn echo_std_http_response_text(body: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_std_http_read_request(connection: EchoValue) -> EchoValue {
+    if connection.kind != ECHO_VALUE_TCP_CONNECTION {
+        return EchoValue::error();
+    }
+
+    let Some(connection) =
+        (unsafe { (connection.payload as *mut net::EchoTcpConnection).as_mut() })
+    else {
+        return EchoValue::error();
+    };
+    let Ok(buffer) = net::read(connection, 4096) else {
+        return EchoValue::error();
+    };
+    let Ok(request) = std::str::from_utf8(buffer.as_bytes()) else {
+        return EchoValue::error();
+    };
+    let Some(request_line) = request.lines().next() else {
+        return EchoValue::error();
+    };
+    let mut parts = request_line.split_whitespace();
+    let (Some(_method), Some(path), Some(_version)) = (parts.next(), parts.next(), parts.next())
+    else {
+        return EchoValue::error();
+    };
+
+    let object = echo_value_object_new();
+    let path = EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        path.as_bytes().to_vec(),
+    ))));
+    unsafe { echo_value_object_set(object, b"path".as_ptr(), 4, path) }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
     let Some(mut bytes) = left.string_bytes() else {
         return EchoValue::error();
@@ -687,11 +757,105 @@ pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_value_add(left: EchoValue, right: EchoValue) -> EchoValue {
+    if !left.is_int() || !right.is_int() {
+        return EchoValue::error();
+    }
+
+    EchoValue::int((left.payload as i64) + (right.payload as i64))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_list_new() -> EchoValue {
+    EchoValue::list(Box::into_raw(Box::new(EchoList::new())))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_list_append(list: EchoValue, value: EchoValue) -> EchoValue {
+    if !list.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(values) = (unsafe { (list.payload as *mut EchoList).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    values.values.push(value);
+    list
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_object_new() -> EchoValue {
+    EchoValue::object(Box::into_raw(Box::new(EchoObject::new())))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_object_set(
+    object: EchoValue,
+    field_ptr: *const u8,
+    field_len: usize,
+    value: EchoValue,
+) -> EchoValue {
+    if object.kind != ECHO_VALUE_OBJECT || (field_ptr.is_null() && field_len != 0) {
+        return EchoValue::error();
+    }
+
+    let Some(fields) = (unsafe { (object.payload as *mut EchoObject).as_mut() }) else {
+        return EchoValue::error();
+    };
+    let field_bytes = unsafe { std::slice::from_raw_parts(field_ptr, field_len) };
+    let Ok(field) = std::str::from_utf8(field_bytes) else {
+        return EchoValue::error();
+    };
+
+    fields.fields.push((field.to_string(), value));
+    object
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_object_get(
+    object: EchoValue,
+    field_ptr: *const u8,
+    field_len: usize,
+) -> EchoValue {
+    if object.kind != ECHO_VALUE_OBJECT || (field_ptr.is_null() && field_len != 0) {
+        return EchoValue::error();
+    }
+
+    let Some(fields) = (unsafe { (object.payload as *const EchoObject).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let field_bytes = unsafe { std::slice::from_raw_parts(field_ptr, field_len) };
+    let Ok(field) = std::str::from_utf8(field_bytes) else {
+        return EchoValue::error();
+    };
+
+    fields
+        .fields
+        .iter()
+        .rev()
+        .find_map(|(name, value)| (name == field).then_some(*value))
+        .unwrap_or_else(EchoValue::error)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => EchoValue::int(bytes.len() as i64),
         None => EchoValue::error(),
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
+    if value.is_array() {
+        let Some(list) = (unsafe { (value.payload as *const EchoList).as_ref() }) else {
+            return EchoValue::error();
+        };
+        return EchoValue::int(list.values.len() as i64);
+    }
+
+    EchoValue::error()
 }
 
 #[unsafe(no_mangle)]

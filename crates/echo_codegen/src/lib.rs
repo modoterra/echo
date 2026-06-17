@@ -4,7 +4,10 @@ use abi::{
     BuiltinCodegen, BuiltinLowering, CoreRuntimeSymbol, PHP_BUILTINS, PHP_RUNTIME_HELPERS,
     PhpBuiltin, STD_INTRINSICS, StdIntrinsic, php_builtin, std_intrinsic,
 };
-use echo_ast::{BinaryOp, Expr, FunctionDeclStmt, Program, Stmt};
+use echo_ast::{
+    BinaryOp, BreakStmt, Expr, FunctionDeclStmt, IfStmt, LoopExpr, LoopStmt, ObjectExpr, Program,
+    Stmt,
+};
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
 use inkwell::context::Context;
@@ -62,9 +65,14 @@ struct IrModule {
     locals: HashMap<String, RuntimeValue>,
     functions: HashMap<String, FunctionDeclStmt>,
     returned: bool,
+    terminated: bool,
+    break_labels: Vec<String>,
+    break_value_slots: Vec<Option<String>>,
     next_string_id: usize,
     next_call_id: usize,
     next_defer_id: usize,
+    next_loop_id: usize,
+    next_if_id: usize,
 }
 
 impl IrModule {
@@ -76,9 +84,14 @@ impl IrModule {
             locals: HashMap::new(),
             functions: HashMap::new(),
             returned: false,
+            terminated: false,
+            break_labels: Vec::new(),
+            break_value_slots: Vec::new(),
             next_string_id: 0,
             next_call_id: 0,
             next_defer_id: 0,
+            next_loop_id: 0,
+            next_if_id: 0,
         }
     }
 
@@ -89,6 +102,7 @@ impl IrModule {
         for statement in &program.statements {
             if let Stmt::FunctionDecl(statement) = statement
                 && !statement.is_intrinsic
+                && !statement.is_generator
             {
                 self.functions
                     .insert(statement.name.clone(), statement.clone());
@@ -118,7 +132,9 @@ impl IrModule {
         let saved_aliases = std::mem::take(&mut self.aliases);
         let saved_locals = std::mem::take(&mut self.locals);
         let saved_returned = self.returned;
+        let saved_terminated = self.terminated;
         self.returned = false;
+        self.terminated = false;
 
         for param in &function.params {
             self.locals.insert(
@@ -134,6 +150,7 @@ impl IrModule {
                 self.aliases = saved_aliases;
                 self.locals = saved_locals;
                 self.returned = saved_returned;
+                self.terminated = saved_terminated;
                 return Err(diagnostic);
             }
         }
@@ -143,6 +160,7 @@ impl IrModule {
         self.aliases = saved_aliases;
         self.locals = saved_locals;
         self.returned = saved_returned;
+        self.terminated = saved_terminated;
 
         let params = function
             .params
@@ -190,11 +208,51 @@ impl IrModule {
             }
             Stmt::DynamicFunctionCall(statement) => self.dynamic_function_call(body, statement)?,
             Stmt::FunctionDecl(_) => {}
-            Stmt::Namespace(_) | Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) => {}
+            Stmt::Yield(statement) => {
+                return Err(Diagnostic::new(
+                    "unsupported yield statement in LLVM codegen",
+                    statement.span,
+                ));
+            }
+            Stmt::Namespace(_)
+            | Stmt::Use(_)
+            | Stmt::Import(_)
+            | Stmt::ClassDecl(_)
+            | Stmt::TypeDecl(_) => {}
+            Stmt::Loop(statement) => self.render_loop_stmt(body, statement)?,
+            Stmt::If(statement) => {
+                self.render_if_stmt(body, statement)?;
+            }
+            Stmt::Break(statement) => self.render_break_stmt(body, statement)?,
+            Stmt::Append(statement) => {
+                let target = self.resolve_alias(&statement.target);
+                let Some(list) = self.locals.get(&target).cloned() else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported append to undefined variable `${}` in LLVM codegen",
+                            statement.target
+                        ),
+                        statement.span,
+                    ));
+                };
+                let list = self.runtime_value_as_echo_value(body, list);
+                let value = self.render_expr_as_echo_value(body, &statement.value)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({list}, {value})\n",
+                    CoreRuntimeSymbol::ValueListAppend.symbol()
+                ));
+
+                self.locals.insert(target, RuntimeValue::EchoValue(name));
+            }
             Stmt::Return(statement) => {
                 let value = self.render_expr_as_echo_value(body, &statement.value)?;
                 body.push_str(&format!("  ret {value}\n"));
                 self.returned = true;
+                self.terminated = true;
             }
             Stmt::Expr(statement) => {
                 self.render_expr(body, &statement.expr)?;
@@ -203,6 +261,11 @@ impl IrModule {
                 let value = self.render_expr(body, &statement.value)?;
                 // PHP assignments copy values by default; references are handled separately.
                 // Source: https://www.php.net/manual/en/language.operators.assignment.php
+                let name = self.resolve_alias(&statement.name);
+                self.locals.insert(name, value);
+            }
+            Stmt::Let(statement) => {
+                let value = self.render_expr(body, &statement.value)?;
                 let name = self.resolve_alias(&statement.name);
                 self.locals.insert(name, value);
             }
@@ -225,6 +288,210 @@ impl IrModule {
         }
 
         Ok(())
+    }
+
+    fn render_loop_stmt(
+        &mut self,
+        body: &mut String,
+        statement: &LoopStmt,
+    ) -> Result<(), Diagnostic> {
+        let loop_id = self.next_loop_id;
+        self.next_loop_id += 1;
+        let loop_label = format!("loop_{loop_id}");
+        let after_label = format!("loop_after_{loop_id}");
+
+        body.push_str(&format!("  br label %{loop_label}\n\n{loop_label}:\n"));
+        self.break_labels.push(after_label.clone());
+        self.break_value_slots.push(None);
+
+        let saved_terminated = self.terminated;
+        self.terminated = false;
+
+        for statement in &statement.body {
+            self.render_stmt(body, statement)?;
+            if self.terminated {
+                break;
+            }
+        }
+
+        if !self.terminated {
+            body.push_str(&format!("  br label %{loop_label}\n"));
+        }
+
+        self.break_labels.pop();
+        self.break_value_slots.pop();
+        self.terminated = saved_terminated;
+        body.push_str(&format!("\n{after_label}:\n"));
+
+        Ok(())
+    }
+
+    fn render_break_stmt(
+        &mut self,
+        body: &mut String,
+        statement: &BreakStmt,
+    ) -> Result<(), Diagnostic> {
+        let Some(label) = self.break_labels.last().cloned() else {
+            return Err(Diagnostic::new(
+                "break used outside of loop in LLVM codegen",
+                statement.span,
+            ));
+        };
+
+        if let Some(value) = &statement.value {
+            let Some(Some(slot)) = self.break_value_slots.last().cloned() else {
+                return Err(Diagnostic::new(
+                    "break value used outside of expression loop in LLVM codegen",
+                    statement.span,
+                ));
+            };
+            let value = self.render_expr_as_echo_value(body, value)?;
+            body.push_str(&format!("  store {value}, ptr {slot}\n"));
+        }
+
+        body.push_str(&format!("  br label %{label}\n"));
+        self.terminated = true;
+
+        Ok(())
+    }
+
+    fn render_if_stmt(&mut self, body: &mut String, statement: &IfStmt) -> Result<(), Diagnostic> {
+        let condition = self.render_condition(body, &statement.condition)?;
+        let if_id = self.next_if_id;
+        self.next_if_id += 1;
+        let then_label = format!("if_then_{if_id}");
+        let after_label = format!("if_after_{if_id}");
+
+        body.push_str(&format!(
+            "  br i1 {condition}, label %{then_label}, label %{after_label}\n\n{then_label}:\n"
+        ));
+
+        let saved_terminated = self.terminated;
+        self.terminated = false;
+
+        for statement in &statement.body {
+            self.render_stmt(body, statement)?;
+            if self.terminated {
+                break;
+            }
+        }
+
+        if !self.terminated {
+            body.push_str(&format!("  br label %{after_label}\n"));
+        }
+
+        self.terminated = saved_terminated;
+        body.push_str(&format!("\n{after_label}:\n"));
+
+        Ok(())
+    }
+
+    fn render_loop_expr(
+        &mut self,
+        body: &mut String,
+        expr: &LoopExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let loop_id = self.next_loop_id;
+        self.next_loop_id += 1;
+        let loop_label = format!("loop_expr_{loop_id}");
+        let after_label = format!("loop_expr_after_{loop_id}");
+        let result_slot = format!("%loop_result_{loop_id}");
+        let result_name = format!("%loop_value_{loop_id}");
+
+        body.push_str(&format!("  {result_slot} = alloca %EchoValue\n"));
+        body.push_str(&format!("  br label %{loop_label}\n\n{loop_label}:\n"));
+        self.break_labels.push(after_label.clone());
+        self.break_value_slots.push(Some(result_slot.clone()));
+
+        let saved_terminated = self.terminated;
+        self.terminated = false;
+
+        for statement in &expr.body {
+            self.render_stmt(body, statement)?;
+            if self.terminated {
+                break;
+            }
+        }
+
+        if !self.terminated {
+            body.push_str(&format!("  br label %{loop_label}\n"));
+        }
+
+        self.break_labels.pop();
+        self.break_value_slots.pop();
+        self.terminated = saved_terminated;
+        body.push_str(&format!("\n{after_label}:\n"));
+        body.push_str(&format!(
+            "  {result_name} = load %EchoValue, ptr {result_slot}\n"
+        ));
+
+        Ok(RuntimeValue::EchoValue(result_name))
+    }
+
+    fn render_object_expr(
+        &mut self,
+        body: &mut String,
+        expr: &ObjectExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let mut object = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {object} = call %EchoValue @{}()\n",
+            CoreRuntimeSymbol::ValueObjectNew.symbol()
+        ));
+
+        for field in &expr.fields {
+            let field_global = self.string_global(&field.name);
+            let value = self.render_expr_as_echo_value(body, &field.value)?;
+            let call_id = self.next_call_id;
+            self.next_call_id += 1;
+            let next_object = format!("%runtime_call_{call_id}");
+
+            body.push_str(&format!(
+                "  {next_object} = call %EchoValue @{}(%EchoValue {object}, ptr @{field_global}, i64 {}, {value})\n",
+                CoreRuntimeSymbol::ValueObjectSet.symbol(),
+                field.name.len()
+            ));
+            object = next_object;
+        }
+
+        Ok(RuntimeValue::EchoValue(object))
+    }
+
+    fn render_condition(&mut self, body: &mut String, expr: &Expr) -> Result<String, Diagnostic> {
+        match expr {
+            Expr::Binary(expr) if matches!(expr.op, BinaryOp::Is | BinaryOp::IsNot) => {
+                if !matches!(expr.right, Expr::Null(_)) {
+                    return Err(Diagnostic::new(
+                        "unsupported non-null `is` comparison in LLVM codegen",
+                        expr.span,
+                    ));
+                }
+
+                let value = self.render_expr_as_echo_value(body, &expr.left)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let kind = format!("%value_kind_{call_id}");
+                let is_null = format!("%is_null_{call_id}");
+                let condition = format!("%condition_{call_id}");
+
+                body.push_str(&format!("  {kind} = extractvalue {value}, 0\n"));
+                body.push_str(&format!("  {is_null} = icmp eq i32 {kind}, 0\n"));
+
+                if expr.op == BinaryOp::IsNot {
+                    body.push_str(&format!("  {condition} = xor i1 {is_null}, true\n"));
+                    Ok(condition)
+                } else {
+                    Ok(is_null)
+                }
+            }
+            _ => Err(Diagnostic::new(
+                "unsupported if condition in LLVM codegen",
+                expr.span(),
+            )),
+        }
     }
 
     fn userland_call(
@@ -539,12 +806,17 @@ impl IrModule {
 
     fn render_expr(&mut self, body: &mut String, expr: &Expr) -> Result<RuntimeValue, Diagnostic> {
         match expr {
-            Expr::Null(expr) => Err(Diagnostic::new(
-                "unsupported null expression in LLVM codegen",
-                expr.span,
-            )),
+            Expr::Null(_) => Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string())),
             Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
-            Expr::Number(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
+            Expr::Number(expr) => {
+                let Ok(value) = expr.value.parse::<i64>() else {
+                    return Err(Diagnostic::new(
+                        "unsupported numeric literal in LLVM codegen",
+                        expr.span,
+                    ));
+                };
+                Ok(RuntimeValue::EchoValue(format!("{{ i32 2, i64 {value} }}")))
+            }
             Expr::Variable(expr) => self
                 .locals
                 .get(&self.resolve_alias(&expr.name))
@@ -560,7 +832,7 @@ impl IrModule {
                 }),
             Expr::FunctionCall(expr) => self.render_function_call_expr(body, expr),
             Expr::Defer(expr) => {
-                let function = self.render_defer_function(&expr.body)?;
+                let function = self.render_defer_function(body, &expr.body)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 body.push_str(&format!(
@@ -573,11 +845,47 @@ impl IrModule {
             Expr::Join(expr) => {
                 self.render_task_unary_expr(body, &expr.handle, CoreRuntimeSymbol::TaskJoin)
             }
+            Expr::Loop(expr) => self.render_loop_expr(body, expr),
             Expr::Fork(_) | Expr::Spawn(_) => {
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
             }
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
                 self.render_concat_expr(body, &expr.left, &expr.right)
+            }
+            Expr::Binary(expr) if expr.op == BinaryOp::Add => {
+                self.render_add_expr(body, &expr.left, &expr.right)
+            }
+            Expr::Field(expr) => {
+                let object = self.render_expr_as_echo_value(body, &expr.object)?;
+                let field_global = self.string_global(&expr.field);
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({object}, ptr @{field_global}, i64 {})\n",
+                    CoreRuntimeSymbol::ValueObjectGet.symbol(),
+                    expr.field.len()
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            Expr::Object(expr) => self.render_object_expr(body, expr),
+            Expr::List(expr) => {
+                if !expr.values.is_empty() {
+                    return Err(Diagnostic::new(
+                        "unsupported non-empty list expression in LLVM codegen",
+                        expr.span,
+                    ));
+                }
+
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}()\n",
+                    CoreRuntimeSymbol::ValueListNew.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
             }
             _ => Err(Diagnostic::new(
                 "unsupported expression in LLVM codegen",
@@ -617,9 +925,47 @@ impl IrModule {
         }
     }
 
-    fn render_defer_function(&mut self, statements: &[Stmt]) -> Result<String, Diagnostic> {
+    fn render_add_expr(
+        &mut self,
+        body: &mut String,
+        left: &Expr,
+        right: &Expr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let left = self.render_expr_as_echo_value(body, left)?;
+        let right = self.render_expr_as_echo_value(body, right)?;
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let name = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {name} = call %EchoValue @{}({left}, {right})\n",
+            CoreRuntimeSymbol::ValueAdd.symbol()
+        ));
+
+        Ok(RuntimeValue::EchoValue(name))
+    }
+
+    fn render_defer_function(
+        &mut self,
+        caller_body: &mut String,
+        statements: &[Stmt],
+    ) -> Result<String, Diagnostic> {
         let function = format!("echo_defer_{}", self.next_defer_id);
         self.next_defer_id += 1;
+
+        let captures = self
+            .locals
+            .iter()
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect::<Vec<_>>();
+
+        for (name, value) in &captures {
+            let global = format!("echo_capture_{}_{}", function, name);
+            self.globals
+                .push_str(&format!("@{global} = global %EchoValue zeroinitializer\n"));
+            let value = self.runtime_value_as_echo_value(caller_body, value.clone());
+            caller_body.push_str(&format!("  store {value}, ptr @{global}\n"));
+        }
 
         let saved_aliases = std::mem::take(&mut self.aliases);
         let saved_locals = std::mem::take(&mut self.locals);
@@ -629,6 +975,13 @@ impl IrModule {
         let sleep = statements.first().and_then(task_sleep_millis);
 
         let mut body = String::new();
+        for (name, _) in &captures {
+            let global = format!("echo_capture_{}_{}", function, name);
+            let local = format!("%capture_{}_{}", function, name);
+            body.push_str(&format!("  {local} = load %EchoValue, ptr @{global}\n"));
+            self.locals
+                .insert(name.clone(), RuntimeValue::EchoValue(local));
+        }
         if let Some(millis) = sleep {
             let continuation =
                 self.render_defer_continuation_function(&function, &statements[1..])?;
@@ -712,7 +1065,7 @@ impl IrModule {
     ) -> Result<RuntimeValue, Diagnostic> {
         match expr {
             echo_ast::RunExpr::Block { body: block, .. } => {
-                let function = self.render_defer_function(block)?;
+                let function = self.render_defer_function(body, block)?;
                 let defer_id = self.next_call_id;
                 self.next_call_id += 1;
                 body.push_str(&format!(
@@ -1019,6 +1372,7 @@ mod tests {
                 params: vec![],
                 return_type: None,
                 is_intrinsic: false,
+                is_generator: false,
                 body: vec![Stmt::Echo(EchoStmt {
                     exprs: vec![Expr::String(StringLiteral {
                         value: "after\n".to_string(),
@@ -1058,6 +1412,7 @@ mod tests {
                 params: vec!["message".to_string()],
                 return_type: None,
                 is_intrinsic: false,
+                is_generator: false,
                 body: vec![Stmt::Echo(EchoStmt {
                     exprs: vec![Expr::Variable(echo_ast::VariableExpr {
                         name: "message".to_string(),
@@ -1104,6 +1459,7 @@ mod tests {
                 params: vec![],
                 return_type: None,
                 is_intrinsic: false,
+                is_generator: false,
                 body: vec![Stmt::Return(ReturnStmt {
                     value: Expr::String(StringLiteral {
                         value: "hello\n".to_string(),
@@ -1144,6 +1500,7 @@ mod tests {
                 params: vec!["name".to_string()],
                 return_type: None,
                 is_intrinsic: false,
+                is_generator: false,
                 body: vec![Stmt::Echo(EchoStmt {
                     exprs: vec![Expr::Binary(Box::new(echo_ast::BinaryExpr {
                         left: Expr::Binary(Box::new(echo_ast::BinaryExpr {

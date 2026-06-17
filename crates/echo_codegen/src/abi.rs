@@ -13,7 +13,13 @@ pub enum CoreRuntimeSymbol {
     Write,
     WriteValue,
     ValueString,
+    ValueAdd,
     ValueConcat,
+    ValueListNew,
+    ValueListAppend,
+    ValueObjectNew,
+    ValueObjectSet,
+    ValueObjectGet,
     TaskDefer,
     TaskRun,
     TaskJoin,
@@ -28,7 +34,13 @@ impl CoreRuntimeSymbol {
         Self::Write,
         Self::WriteValue,
         Self::ValueString,
+        Self::ValueAdd,
         Self::ValueConcat,
+        Self::ValueListNew,
+        Self::ValueListAppend,
+        Self::ValueObjectNew,
+        Self::ValueObjectSet,
+        Self::ValueObjectGet,
         Self::TaskDefer,
         Self::TaskRun,
         Self::TaskJoin,
@@ -43,7 +55,13 @@ impl CoreRuntimeSymbol {
             Self::Write => "echo_write",
             Self::WriteValue => "echo_write_value",
             Self::ValueString => "echo_value_string",
+            Self::ValueAdd => "echo_value_add",
             Self::ValueConcat => "echo_value_concat",
+            Self::ValueListNew => "echo_value_list_new",
+            Self::ValueListAppend => "echo_value_list_append",
+            Self::ValueObjectNew => "echo_value_object_new",
+            Self::ValueObjectSet => "echo_value_object_set",
+            Self::ValueObjectGet => "echo_value_object_get",
             Self::TaskDefer => "echo_task_defer",
             Self::TaskRun => "echo_task_run",
             Self::TaskJoin => "echo_task_join",
@@ -59,7 +77,13 @@ impl CoreRuntimeSymbol {
             Self::Write => RuntimeSignature::VoidPtrI64,
             Self::WriteValue => RuntimeSignature::VoidEchoValue,
             Self::ValueString => RuntimeSignature::EchoValuePtrI64,
+            Self::ValueAdd => RuntimeSignature::EchoValueEchoValueEchoValue,
             Self::ValueConcat => RuntimeSignature::EchoValueEchoValueEchoValue,
+            Self::ValueListNew => RuntimeSignature::EchoValueNoArgs,
+            Self::ValueListAppend => RuntimeSignature::EchoValueEchoValueEchoValue,
+            Self::ValueObjectNew => RuntimeSignature::EchoValueNoArgs,
+            Self::ValueObjectSet => RuntimeSignature::EchoValueEchoValuePtrI64EchoValue,
+            Self::ValueObjectGet => RuntimeSignature::EchoValueEchoValuePtrI64,
             Self::TaskDefer => RuntimeSignature::EchoValuePtr,
             Self::TaskRun => RuntimeSignature::EchoValueEchoValue,
             Self::TaskJoin => RuntimeSignature::EchoValueEchoValue,
@@ -88,7 +112,9 @@ pub enum RuntimeSignature {
     EchoValuePtr,
     EchoValuePtrI64,
     EchoValueEchoValue,
+    EchoValueEchoValuePtrI64,
     EchoValueEchoValueEchoValue,
+    EchoValueEchoValuePtrI64EchoValue,
 }
 
 impl RuntimeSignature {
@@ -105,8 +131,14 @@ impl RuntimeSignature {
             Self::EchoValuePtr => format!("declare %EchoValue @{symbol}(ptr)"),
             Self::EchoValuePtrI64 => format!("declare %EchoValue @{symbol}(ptr, i64)"),
             Self::EchoValueEchoValue => format!("declare %EchoValue @{symbol}(%EchoValue)"),
+            Self::EchoValueEchoValuePtrI64 => {
+                format!("declare %EchoValue @{symbol}(%EchoValue, ptr, i64)")
+            }
             Self::EchoValueEchoValueEchoValue => {
                 format!("declare %EchoValue @{symbol}(%EchoValue, %EchoValue)")
+            }
+            Self::EchoValueEchoValuePtrI64EchoValue => {
+                format!("declare %EchoValue @{symbol}(%EchoValue, ptr, i64, %EchoValue)")
             }
         }
     }
@@ -137,6 +169,12 @@ pub const STD_INTRINSICS: &[StdIntrinsic] = &[
     StdIntrinsic {
         echo_name: "http.responseText",
         symbol: "echo_std_http_response_text",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "http.readRequest",
+        symbol: "echo_std_http_read_request",
         signature: RuntimeSignature::EchoValueEchoValue,
         arity: 1,
     },
@@ -297,6 +335,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "strlen",
         symbol: "echo_php_strlen",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "count",
+        symbol: "echo_php_count",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,

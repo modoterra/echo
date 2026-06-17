@@ -32,6 +32,11 @@ pub enum TokenKind {
     Ampersand,
     Equals,
     Backslash,
+    Question,
+    LessThan,
+    GreaterThan,
+    OpenBracket,
+    CloseBracket,
     Eof,
 }
 
@@ -109,6 +114,21 @@ enum RawToken {
     #[token("\\")]
     Backslash,
 
+    #[token("?")]
+    Question,
+
+    #[token("<")]
+    LessThan,
+
+    #[token(">")]
+    GreaterThan,
+
+    #[token("[")]
+    OpenBracket,
+
+    #[token("]")]
+    CloseBracket,
+
     #[regex(r"[ \t\r\n\f]+", logos::skip)]
     Whitespace,
 }
@@ -172,6 +192,11 @@ impl RawToken {
             RawToken::Ampersand => TokenKind::Ampersand,
             RawToken::Equals => TokenKind::Equals,
             RawToken::Backslash => TokenKind::Backslash,
+            RawToken::Question => TokenKind::Question,
+            RawToken::LessThan => TokenKind::LessThan,
+            RawToken::GreaterThan => TokenKind::GreaterThan,
+            RawToken::OpenBracket => TokenKind::OpenBracket,
+            RawToken::CloseBracket => TokenKind::CloseBracket,
             RawToken::Whitespace => unreachable!("logos skipped whitespace"),
         }
     }

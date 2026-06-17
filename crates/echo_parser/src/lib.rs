@@ -1,11 +1,13 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, ClassDeclStmt, ClassMember, DeferExpr,
-    DynamicFunctionCallStmt, EchoStmt, Expr, ForkExpr, FunctionCallExpr, FunctionCallStmt,
-    FunctionDeclStmt, ImportSource, ImportStmt, JoinExpr, MethodDecl, NamespaceSource,
-    NamespaceStmt, NullLiteral, NumberLiteral, Program, QualifiedName, ReturnStmt, RunExpr,
-    SpawnExpr, Stmt, StringLiteral, TypedParam, UseStmt, VariableExpr,
+    AppendStmt, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BreakStmt, ClassDeclStmt,
+    ClassMember, DeferExpr, DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr, ForkExpr,
+    FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt,
+    JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl, NamespaceSource, NamespaceStmt,
+    NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, QualifiedName, ReturnStmt,
+    RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField, TypedParam, UseStmt,
+    VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -74,16 +76,44 @@ fn validate_statement_mode(statement: &Stmt, diagnostics: &mut Vec<Diagnostic>) 
             }
         }
         Stmt::Assign(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::Let(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::AssignRef(_) => {}
         Stmt::Return(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::Yield(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::Expr(statement) => validate_expr_mode(&statement.expr, diagnostics),
-        Stmt::Namespace(_) | Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) => {}
+        Stmt::Loop(statement) => {
+            for statement in &statement.body {
+                validate_statement_mode(statement, diagnostics);
+            }
+        }
+        Stmt::If(statement) => {
+            validate_expr_mode(&statement.condition, diagnostics);
+            for statement in &statement.body {
+                validate_statement_mode(statement, diagnostics);
+            }
+        }
+        Stmt::Break(statement) => {
+            if let Some(value) = &statement.value {
+                validate_expr_mode(value, diagnostics);
+            }
+        }
+        Stmt::Append(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::Namespace(_)
+        | Stmt::Use(_)
+        | Stmt::Import(_)
+        | Stmt::ClassDecl(_)
+        | Stmt::TypeDecl(_) => {}
     }
 }
 
 fn validate_expr_mode(expr: &Expr, diagnostics: &mut Vec<Diagnostic>) {
     match expr {
         Expr::Defer(_) | Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {}
+        Expr::Loop(expr) => {
+            for statement in &expr.body {
+                validate_statement_mode(statement, diagnostics);
+            }
+        }
         Expr::FunctionCall(expr) => {
             for expr in &expr.args {
                 validate_expr_mode(expr, diagnostics);
@@ -92,6 +122,17 @@ fn validate_expr_mode(expr: &Expr, diagnostics: &mut Vec<Diagnostic>) {
         Expr::Binary(expr) => {
             validate_expr_mode(&expr.left, diagnostics);
             validate_expr_mode(&expr.right, diagnostics);
+        }
+        Expr::Field(expr) => validate_expr_mode(&expr.object, diagnostics),
+        Expr::Object(expr) => {
+            for field in &expr.fields {
+                validate_expr_mode(&field.value, diagnostics);
+            }
+        }
+        Expr::List(expr) => {
+            for value in &expr.values {
+                validate_expr_mode(value, diagnostics);
+            }
         }
         Expr::Null(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
     }
@@ -287,8 +328,7 @@ fn virtualize_before_close_brace(output: &mut [u8], source: &[u8], close_brace: 
         return;
     };
 
-    if !matches!(previous, b')' | b']' | b'}' | b'"' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_')
-    {
+    if !matches!(previous, b')' | b']' | b'"' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_') {
         return;
     }
 
@@ -442,18 +482,77 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let list_expr = expr
+            .clone()
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded())
+            .map_with(|values, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::List(ListExpr {
+                    values,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let object_field = text::ident()
+            .padded()
+            .then_ignore(just(':').padded())
+            .then(expr.clone().padded())
+            .then_ignore(just(';').padded().repeated())
+            .map(|(name, value): (&str, Expr)| ObjectField {
+                name: name.to_string(),
+                value,
+            });
+
+        let object_expr = text::ident()
+            .padded()
+            .then(
+                object_field
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(|(name, fields): (&str, Vec<ObjectField>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Object(ObjectExpr {
+                    name: name.to_string(),
+                    fields,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let atom = run_expr
             .or(fork_expr)
             .or(spawn_expr)
             .or(join_expr)
+            .or(object_expr)
             .or(function_call_expr)
             .or(variable)
             .or(null)
+            .or(list_expr)
             .or(string)
             .or(number);
 
-        atom.clone().foldl(
-            just('.').padded().ignore_then(atom).repeated(),
+        let fielded = atom.clone().foldl(
+            just('.').ignore_then(text::ident()).repeated(),
+            |left, field: &str| {
+                let span = Span::new(left.span().start, left.span().end + field.len() + 1);
+
+                Expr::Field(Box::new(FieldExpr {
+                    object: left,
+                    field: field.to_string(),
+                    span,
+                }))
+            },
+        );
+
+        let dotted = fielded.clone().foldl(
+            just('.').padded().ignore_then(fielded.clone()).repeated(),
             |left, right| {
                 let span = Span::new(left.span().start, right.span().end);
 
@@ -461,6 +560,42 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     left,
                     op: BinaryOp::Concat,
                     right,
+                    span,
+                }))
+            },
+        );
+
+        let additive = dotted.clone().foldl(
+            just('+').padded().ignore_then(dotted).repeated(),
+            |left, right| {
+                let span = Span::new(left.span().start, right.span().end);
+
+                Expr::Binary(Box::new(BinaryExpr {
+                    left,
+                    op: BinaryOp::Add,
+                    right,
+                    span,
+                }))
+            },
+        );
+
+        additive.clone().foldl(
+            text::keyword("is")
+                .padded()
+                .ignore_then(text::keyword("not").padded().to(true).or_not())
+                .then_ignore(text::keyword("null").padded())
+                .repeated(),
+            |left, is_not| {
+                let span = left.span();
+
+                Expr::Binary(Box::new(BinaryExpr {
+                    left,
+                    op: if is_not.unwrap_or(false) {
+                        BinaryOp::IsNot
+                    } else {
+                        BinaryOp::Is
+                    },
+                    right: Expr::Null(NullLiteral { span }),
                     span,
                 }))
             },
@@ -476,18 +611,35 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .collect::<Vec<_>>()
             .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
 
-        let type_name = text::ident()
-            .separated_by(just('\\'))
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| parts.join("\\"));
+        let type_expr = recursive(|type_expr| {
+            let type_name = text::ident()
+                .separated_by(just('\\'))
+                .at_least(1)
+                .collect::<Vec<_>>()
+                .map(|parts| parts.join("\\"));
 
-        let type_expr = type_name
-            .clone()
-            .separated_by(just('|').padded())
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| parts.join("|"));
+            let generic_type = type_name
+                .clone()
+                .then(
+                    type_expr
+                        .clone()
+                        .separated_by(just(',').padded())
+                        .at_least(1)
+                        .collect::<Vec<_>>()
+                        .delimited_by(just('<').padded(), just('>').padded())
+                        .or_not(),
+                )
+                .map(|(name, args): (String, Option<Vec<String>>)| match args {
+                    Some(args) => format!("{name}<{}>", args.join(", ")),
+                    None => name,
+                });
+
+            generic_type
+                .separated_by(just('|').padded())
+                .at_least(1)
+                .collect::<Vec<_>>()
+                .map(|parts| parts.join("|"))
+        });
 
         let namespace_stmt = text::keyword("namespace")
             .padded()
@@ -598,6 +750,19 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let yield_stmt = text::keyword("yield")
+            .padded()
+            .ignore_then(expr.clone().padded())
+            .then_ignore(terminator.clone())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Yield(YieldStmt {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let statement_function_name = text::ident()
             .separated_by(just('.'))
             .at_least(1)
@@ -683,6 +848,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('(').padded())
             .then(
                 typed_param
+                    .clone()
                     .padded()
                     .separated_by(just(',').padded())
                     .allow_trailing()
@@ -732,6 +898,48 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let type_field = text::keyword("const")
+            .padded()
+            .to(true)
+            .or_not()
+            .map(|is_const| is_const.unwrap_or(false))
+            .then(text::ident().padded())
+            .then(just('?').padded().to(true).or_not())
+            .then_ignore(just(':').padded())
+            .then(type_expr.clone().padded())
+            .then_ignore(just(';').padded().repeated())
+            .map(
+                |(((is_const, name), is_optional), ty): (((bool, &str), Option<bool>), String)| {
+                    TypeField {
+                        name: name.to_string(),
+                        ty,
+                        is_const,
+                        is_optional: is_optional.unwrap_or(false),
+                    }
+                },
+            );
+
+        let type_decl_stmt = text::keyword("type")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then(
+                type_field
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|(name, fields): (&str, Vec<TypeField>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::TypeDecl(TypeDeclStmt {
+                    name: name.to_string(),
+                    fields,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let function_decl_stmt = just("function")
             .padded()
             .ignore_then(text::ident().padded())
@@ -751,6 +959,50 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         params: params.into_iter().map(str::to_string).collect(),
                         return_type: None,
                         is_intrinsic: false,
+                        is_generator: false,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let fn_decl_stmt = text::keyword("fn")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(
+                typed_param
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then_ignore(just('{').padded())
+            .then(statement.clone().repeated().collect::<Vec<_>>())
+            .then_ignore(just('}').padded())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |(((name, params), return_type), body): (
+                    ((&str, Vec<TypedParam>), Option<String>),
+                    Vec<Stmt>,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::FunctionDecl(FunctionDeclStmt {
+                        name: name.to_string(),
+                        params: params.into_iter().map(|param| param.name).collect(),
+                        return_type,
+                        is_intrinsic: false,
+                        is_generator: false,
                         body,
                         span: Span::new(span.start, span.end),
                     })
@@ -788,7 +1040,52 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         params: params.into_iter().map(|param| param.name).collect(),
                         return_type,
                         is_intrinsic: true,
+                        is_generator: false,
                         body: Vec::new(),
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let gen_fn_decl_stmt = text::keyword("gen")
+            .padded()
+            .ignore_then(text::keyword("fn").padded())
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(
+                typed_param
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then_ignore(just('{').padded())
+            .then(statement.clone().repeated().collect::<Vec<_>>())
+            .then_ignore(just('}').padded())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |(((name, params), return_type), body): (
+                    ((&str, Vec<TypedParam>), Option<String>),
+                    Vec<Stmt>,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::FunctionDecl(FunctionDeclStmt {
+                        name: name.to_string(),
+                        params: params.into_iter().map(|param| param.name).collect(),
+                        return_type,
+                        is_intrinsic: false,
+                        is_generator: true,
+                        body,
                         span: Span::new(span.start, span.end),
                     })
                 },
@@ -809,11 +1106,193 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let block = statement
+        let stray_terminators = just(';').padded().repeated();
+        let block = stray_terminators
             .clone()
-            .repeated()
-            .collect::<Vec<_>>()
+            .ignore_then(
+                statement
+                    .clone()
+                    .then_ignore(stray_terminators.clone())
+                    .repeated()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(stray_terminators.clone())
             .delimited_by(just('{').padded(), just('}').padded());
+
+        let let_stmt = text::keyword("let")
+            .padded()
+            .ignore_then(type_expr.clone().padded().or_not())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then_ignore(terminator.clone())
+            .map_with(
+                |((ty, name), value): ((Option<String>, &str), Expr), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::Let(LetStmt {
+                        name: name.to_string(),
+                        ty,
+                        value,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let let_join_run_block_stmt = text::keyword("let")
+            .padded()
+            .ignore_then(type_expr.clone().padded().or_not())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("join").padded())
+            .then_ignore(text::keyword("run").padded())
+            .then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |((ty, name), body): ((Option<String>, &str), Vec<Stmt>), extra| {
+                    let span: SimpleSpan = extra.span();
+                    let run_span = Span::new(span.start, span.end);
+
+                    Stmt::Let(LetStmt {
+                        name: name.to_string(),
+                        ty,
+                        value: Expr::Join(JoinExpr {
+                            handle: Box::new(Expr::Run(RunExpr::Block {
+                                body,
+                                span: run_span,
+                            })),
+                            span: run_span,
+                        }),
+                        span: run_span,
+                    })
+                },
+            );
+
+        let let_loop_block_stmt = text::keyword("let")
+            .padded()
+            .ignore_then(type_expr.clone().padded().or_not())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("loop").padded())
+            .then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |((ty, name), body): ((Option<String>, &str), Vec<Stmt>), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::Let(LetStmt {
+                        name: name.to_string(),
+                        ty,
+                        value: Expr::Loop(LoopExpr {
+                            body,
+                            span: Span::new(span.start, span.end),
+                        }),
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let let_run_block_stmt = text::keyword("let")
+            .padded()
+            .ignore_then(type_expr.clone().padded().or_not())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("run").padded())
+            .then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |((ty, name), body): ((Option<String>, &str), Vec<Stmt>), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::Let(LetStmt {
+                        name: name.to_string(),
+                        ty,
+                        value: Expr::Run(RunExpr::Block {
+                            body,
+                            span: Span::new(span.start, span.end),
+                        }),
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let run_block_stmt = text::keyword("run")
+            .padded()
+            .ignore_then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|body, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Expr(echo_ast::ExprStmt {
+                    expr: Expr::Run(RunExpr::Block {
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let append_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('[').padded())
+            .then_ignore(just(']').padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then_ignore(terminator.clone())
+            .map_with(|(target, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Append(AppendStmt {
+                    target: target.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let loop_stmt = text::keyword("loop")
+            .padded()
+            .ignore_then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|body, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Loop(LoopStmt {
+                    body,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let if_stmt = text::keyword("if")
+            .padded()
+            .ignore_then(expr.clone())
+            .then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|(condition, body), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::If(IfStmt {
+                    condition,
+                    body,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let break_stmt = text::keyword("break")
+            .padded()
+            .ignore_then(expr.clone().padded().or_not())
+            .then_ignore(terminator.clone())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Break(BreakStmt {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
 
         let assign_defer_block_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -857,7 +1336,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("fork").padded())
-            .then(block)
+            .then(block.clone())
             .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
                 let span: SimpleSpan = extra.span();
@@ -901,17 +1380,30 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        function_decl_stmt
+        gen_fn_decl_stmt
+            .or(fn_decl_stmt)
+            .or(function_decl_stmt)
             .or(intrinsic_function_decl_stmt)
             .or(class_decl_stmt)
+            .or(type_decl_stmt)
             .or(namespace_stmt)
             .or(use_stmt)
             .or(import_stmt)
             .or(echo_stmt)
             .or(return_stmt)
+            .or(yield_stmt)
+            .or(loop_stmt)
+            .or(if_stmt)
+            .or(break_stmt)
+            .or(let_join_run_block_stmt)
+            .or(let_loop_block_stmt)
+            .or(let_run_block_stmt)
+            .or(let_stmt)
             .or(assign_defer_block_stmt)
             .or(assign_run_block_stmt)
             .or(assign_fork_block_stmt)
+            .or(run_block_stmt)
+            .or(append_stmt)
             .or(assign_ref_stmt)
             .or(assign_stmt)
             .or(dynamic_function_call_stmt)
@@ -1190,6 +1682,228 @@ time.sleep(300)
             &program.statements[1],
             Stmt::FunctionCall(statement) if statement.name == "time.sleep"
         ));
+    }
+
+    #[test]
+    fn parses_echo_fn_declaration() {
+        let program = parse_with_mode(
+            r#"fn responseBody($request, list<User> $users): string {
+    let $body = "Hello " . $request.path . "\n"
+    return $body
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("fn declaration parses");
+
+        assert!(matches!(&program.statements[0], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
+    fn parses_response_body_fn() {
+        let program = parse_with_mode(
+            r#"fn responseBody($request, list<User> $users): string {
+    let $body = "Hello from Echo at " . $request.path . "\n"
+    return $body . "Users seen: " . count($users) . "\n"
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("response body function parses");
+
+        assert!(matches!(&program.statements[0], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
+    fn parses_field_access_in_concat() {
+        let program = parse_with_mode(
+            r#"let $body = "Hello from Echo at " . $request.path . "\n"
+return $body . "Users seen: " . count($users) . "\n"
+"#,
+            SourceMode::Strict,
+        )
+        .expect("field access in concat parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Let(_)));
+        assert!(matches!(&program.statements[1], Stmt::Return(_)));
+    }
+
+    #[test]
+    fn parses_type_declaration_before_fn() {
+        let program = parse_with_mode(
+            r#"type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
+
+fn responseBody($request, list<User> $users): string {
+    return "ok"
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("type followed by fn parses");
+
+        assert!(matches!(&program.statements[0], Stmt::TypeDecl(_)));
+        assert!(matches!(&program.statements[1], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
+    fn preserves_typed_let_annotation() {
+        let program = parse_with_mode("let list<User> $users = {}", SourceMode::Strict)
+            .expect("typed let parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Let(statement) if statement.name == "users" && statement.ty.as_deref() == Some("list<User>")
+        ));
+    }
+
+    #[test]
+    fn parses_target_namespace_import_type_fn_prefix() {
+        let program = parse_with_mode(
+            r#"namespace app\http
+
+from std use net
+from std use http
+
+type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
+
+fn responseBody($request, list<User> $users): string {
+    return "ok"
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("target prefix parses");
+
+        assert_eq!(program.statements.len(), 5);
+    }
+
+    #[test]
+    fn parses_http_server_target_fixture() {
+        let program = parse_with_mode(
+            include_str!("../../../tests/echo/011_http_server_target/program.echo"),
+            SourceMode::Strict,
+        )
+        .expect("HTTP server target fixture parses");
+
+        assert!(matches!(program.statements.last(), Some(Stmt::Loop(_))));
+    }
+
+    #[test]
+    fn parses_target_server_loop() {
+        let program = parse_with_mode(
+            r#"loop {
+    let $conn = join run {
+        return net.accept($server)
+    }
+
+    run {
+        let $request = http.readRequest($conn)
+
+        $users[] = User {
+            id: count($users) + 1
+            email: "visitor" . count($users) . "@echo.local"
+        }
+
+        net.write($conn, http.responseText(responseBody($request, $users)))
+        net.close($conn)
+    }
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("target server loop parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Loop(_)));
+    }
+
+    #[test]
+    fn parses_simple_loop() {
+        let program = parse_with_mode(
+            r#"loop {
+    echo "x"
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("simple loop parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Loop(_)));
+    }
+
+    #[test]
+    fn parses_loop_with_join_run() {
+        let program = parse_with_mode(
+            r#"loop {
+    let $conn = join run {
+        return net.accept($server)
+    }
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("loop with join run parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Loop(_)));
+    }
+
+    #[test]
+    fn parses_loop_with_run_block() {
+        let program = parse_with_mode(
+            r#"loop {
+    run {
+        net.close($conn)
+    }
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("loop with run block parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Loop(_)));
+    }
+
+    #[test]
+    fn parses_let_join_run_block() {
+        let program = parse_with_mode(
+            r#"let $conn = join run {
+    return net.accept($server)
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("let join run block parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Let(_)));
+    }
+
+    #[test]
+    fn parses_target_run_block() {
+        let program = parse_with_mode(
+            r#"run {
+    let $request = http.readRequest($conn)
+
+    $users[] = User {
+        id: count($users) + 1
+        email: "visitor" . count($users) . "@echo.local"
+    }
+
+    net.write($conn, http.responseText(responseBody($request, $users)))
+    net.close($conn)
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("target run block parses");
+
+        assert!(matches!(&program.statements[0], Stmt::Expr(_)));
     }
 
     #[test]

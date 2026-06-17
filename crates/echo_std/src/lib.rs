@@ -59,6 +59,13 @@ pub const INTRINSICS: &[IntrinsicBinding] = &[
         abi_symbol: "echo_std_http_response_text",
     },
     IntrinsicBinding {
+        owner: "std.http",
+        method: "readRequest",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.http.read_request",
+        abi_symbol: "echo_std_http_read_request",
+    },
+    IntrinsicBinding {
         owner: "std.net",
         method: "listen",
         receiver: IntrinsicReceiver::Static,
