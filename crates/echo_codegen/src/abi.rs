@@ -341,6 +341,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
+    PhpBuiltin {
+        php_name: "ord",
+        symbol: "echo_php_ord",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "str_rot13",
+        symbol: "echo_php_str_rot13",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
 ];
 
 pub fn php_builtin(name: &str) -> Option<PhpBuiltin> {

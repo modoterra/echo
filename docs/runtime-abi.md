@@ -161,6 +161,8 @@ declare %EchoValue @echo_php_strtolower(%EchoValue)
 declare %EchoValue @echo_php_strrev(%EchoValue)
 declare %EchoValue @echo_php_ucfirst(%EchoValue)
 declare %EchoValue @echo_php_lcfirst(%EchoValue)
+declare %EchoValue @echo_php_ord(%EchoValue)
+declare %EchoValue @echo_php_str_rot13(%EchoValue)
 ```
 
 Core output behavior remains under `echo_*`:

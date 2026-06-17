@@ -709,6 +709,34 @@ pub extern "C" fn echo_php_lcfirst(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ord(value: EchoValue) -> EchoValue {
+    match value
+        .string_bytes()
+        .and_then(|bytes| bytes.first().copied())
+    {
+        Some(byte) => EchoValue::int(byte as i64),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            for byte in &mut bytes {
+                *byte = match *byte {
+                    b'a'..=b'm' | b'A'..=b'M' => *byte + 13,
+                    b'n'..=b'z' | b'N'..=b'Z' => *byte - 13,
+                    other => other,
+                };
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1268,6 +1296,35 @@ mod tests {
             drop(Box::from_raw(ucfirst));
             drop(Box::from_raw(lcfirst));
             drop(Box::from_raw(non_ascii_first));
+        }
+    }
+
+    #[test]
+    fn string_byte_builtins_preserve_php_byte_behavior() {
+        let ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "A".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+        let rot13 = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo PHP 4.3.0 ÄÖ!".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(echo_php_ord(EchoValue::string(ascii)), EchoValue::int(65));
+        assert_eq!(
+            echo_php_ord(EchoValue::string(non_ascii)),
+            EchoValue::int(195)
+        );
+        assert_eq!(
+            echo_php_str_rot13(EchoValue::string(rot13)).string_bytes(),
+            Some("Rpub CUC 4.3.0 ÄÖ!".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(ascii));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(rot13));
         }
     }
 
