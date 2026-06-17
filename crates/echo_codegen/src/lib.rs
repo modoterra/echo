@@ -1284,6 +1284,7 @@ mod tests {
             ("strpbrk", "echo_php_strpbrk"),
             ("strspn", "echo_php_strspn"),
             ("strcspn", "echo_php_strcspn"),
+            ("substr_count", "echo_php_substr_count"),
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
         ] {

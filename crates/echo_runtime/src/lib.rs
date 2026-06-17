@@ -1188,6 +1188,31 @@ pub extern "C" fn echo_php_strcspn(value: EchoValue, characters: EchoValue) -> E
     )
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_substr_count(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+    if needle.is_empty() {
+        return EchoValue::error();
+    }
+
+    let mut count = 0;
+    let mut offset = 0;
+    while offset <= haystack.len().saturating_sub(needle.len()) {
+        let Some(position) = find_bytes(&haystack[offset..], &needle) else {
+            break;
+        };
+        count += 1;
+        offset += position + needle.len();
+    }
+
+    EchoValue::int(count)
+}
+
 fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -2804,6 +2829,92 @@ mod tests {
             drop(Box::from_raw(mask_middle_match));
             drop(Box::from_raw(mask_non_ascii));
             drop(Box::from_raw(mask_empty));
+        }
+    }
+
+    #[test]
+    fn substr_count_preserves_php_non_overlapping_byte_behavior() {
+        let words = Box::into_raw(Box::new(EchoString {
+            bytes: "This is a test".as_bytes().to_vec(),
+        }));
+        let repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "aaaa".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "1234512345".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "ÄchoÄ".as_bytes().to_vec(),
+        }));
+        let empty_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+        let needle_words = Box::into_raw(Box::new(EchoString {
+            bytes: "is".as_bytes().to_vec(),
+        }));
+        let needle_repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "aa".as_bytes().to_vec(),
+        }));
+        let needle_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "xy".as_bytes().to_vec(),
+        }));
+        let needle_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+        let needle_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_substr_count(EchoValue::string(words), EchoValue::string(needle_words)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_substr_count(
+                EchoValue::string(repeated),
+                EchoValue::string(needle_repeated)
+            ),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_substr_count(
+                EchoValue::string(missing),
+                EchoValue::string(needle_missing)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_substr_count(EchoValue::string(numeric), EchoValue::int(45)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_substr_count(
+                EchoValue::string(non_ascii),
+                EchoValue::string(needle_non_ascii)
+            ),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_substr_count(
+                EchoValue::string(empty_needle),
+                EchoValue::string(needle_empty)
+            ),
+            EchoValue::error()
+        );
+
+        unsafe {
+            drop(Box::from_raw(words));
+            drop(Box::from_raw(repeated));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(empty_needle));
+            drop(Box::from_raw(needle_words));
+            drop(Box::from_raw(needle_repeated));
+            drop(Box::from_raw(needle_missing));
+            drop(Box::from_raw(needle_non_ascii));
+            drop(Box::from_raw(needle_empty));
         }
     }
 

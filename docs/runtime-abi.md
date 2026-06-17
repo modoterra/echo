@@ -187,6 +187,7 @@ declare %EchoValue @echo_php_strrchr(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strpbrk(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strspn(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcspn(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_substr_count(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcmp(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcasecmp(%EchoValue, %EchoValue)
 ```
