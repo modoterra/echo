@@ -1275,6 +1275,7 @@ mod tests {
             ("str_repeat", "echo_php_str_repeat"),
             ("substr", "echo_php_substr"),
             ("strpos", "echo_php_strpos"),
+            ("stripos", "echo_php_stripos"),
             ("strstr", "echo_php_strstr"),
             ("stristr", "echo_php_stristr"),
             ("strcmp", "echo_php_strcmp"),
