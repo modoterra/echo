@@ -1,0 +1,19 @@
+from std use net
+from std use time
+
+$server = net.listen("127.0.0.1:39183")
+
+$client = run {
+    time.sleep(5)
+    $connection = net.connect("127.0.0.1:39183")
+    net.write($connection, "ping")
+    echo net.read($connection, 4)
+    net.close($connection)
+}
+
+$connection = net.accept($server)
+echo net.read($connection, 4)
+net.write($connection, "pong")
+net.close($connection)
+join $client
+echo "\n"

@@ -32,6 +32,13 @@ impl TcpServer {
 }
 
 impl TcpConnection {
+    pub fn connect<A>(addr: A) -> io::Result<Self>
+    where
+        A: ToSocketAddrs,
+    {
+        net::connect(addr).map(|connection| Self { connection })
+    }
+
     pub fn read(&mut self, max_bytes: usize) -> io::Result<Bytes> {
         net::read(&mut self.connection, max_bytes).map(|buffer| buffer.into_bytes())
     }

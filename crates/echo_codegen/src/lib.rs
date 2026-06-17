@@ -2,7 +2,7 @@ mod abi;
 
 use abi::{
     BuiltinCodegen, BuiltinLowering, CoreRuntimeSymbol, PHP_BUILTINS, PHP_RUNTIME_HELPERS,
-    PhpBuiltin, php_builtin,
+    PhpBuiltin, STD_INTRINSICS, StdIntrinsic, php_builtin, std_intrinsic,
 };
 use echo_ast::{BinaryOp, Expr, FunctionDeclStmt, Program, Stmt};
 use echo_diagnostics::Diagnostic;
@@ -176,6 +176,8 @@ impl IrModule {
             Stmt::FunctionCall(statement) => {
                 if statement.name == "time.sleep" {
                     self.time_sleep_call(body, &statement.args, statement.span)?;
+                } else if let Some(intrinsic) = std_intrinsic(&statement.name) {
+                    self.std_intrinsic_call(body, intrinsic, &statement.args, statement.span)?;
                 } else {
                     match php_builtin(&statement.name) {
                         Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
@@ -290,6 +292,59 @@ impl IrModule {
         ));
 
         Ok(())
+    }
+
+    fn std_intrinsic_call(
+        &mut self,
+        body: &mut String,
+        intrinsic: StdIntrinsic,
+        args: &[Expr],
+        span: Span,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        if args.len() != intrinsic.arity {
+            return Err(Diagnostic::new(
+                format!(
+                    "unsupported argument count for std intrinsic `{}` in LLVM codegen",
+                    intrinsic.echo_name
+                ),
+                span,
+            ));
+        }
+
+        let mut rendered_args = Vec::new();
+        for arg in args {
+            rendered_args.push(self.render_std_intrinsic_arg(body, arg)?);
+        }
+
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let name = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {name} = call %EchoValue @{}({})\n",
+            intrinsic.symbol,
+            rendered_args.join(", ")
+        ));
+
+        Ok(RuntimeValue::EchoValue(name))
+    }
+
+    fn render_std_intrinsic_arg(
+        &mut self,
+        body: &mut String,
+        arg: &Expr,
+    ) -> Result<String, Diagnostic> {
+        if let Expr::Number(expr) = arg {
+            let value = expr.value.parse::<i64>().map_err(|_| {
+                Diagnostic::new(
+                    "unsupported numeric std intrinsic argument in LLVM codegen",
+                    expr.span,
+                )
+            })?;
+            return Ok(format!("%EchoValue {{ i32 2, i64 {value} }}"));
+        }
+
+        self.render_expr_as_echo_value(body, arg)
     }
 
     fn render_expr_as_echo_value(
@@ -704,6 +759,10 @@ impl IrModule {
             return Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()));
         }
 
+        if let Some(intrinsic) = std_intrinsic(&expr.name) {
+            return self.std_intrinsic_call(body, intrinsic, &expr.args, expr.span);
+        }
+
         let Some(builtin) = php_builtin(&expr.name) else {
             return self.render_userland_function_call_expr(body, expr);
         };
@@ -834,6 +893,7 @@ fn runtime_declarations() -> String {
                 .map(|(symbol, signature)| signature.llvm_decl(symbol)),
         )
         .chain(PHP_BUILTINS.iter().map(|builtin| builtin.llvm_decl()))
+        .chain(STD_INTRINSICS.iter().map(|intrinsic| intrinsic.llvm_decl()))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -1143,6 +1203,75 @@ mod tests {
 
         assert!(ir.contains("declare void @echo_time_sleep(i64)"), "{ir}");
         assert!(ir.contains("call void @echo_time_sleep(i64 50)"), "{ir}");
+    }
+
+    #[test]
+    fn net_listen_lowers_to_std_intrinsic_call() {
+        let ir = compile_to_ir(&program(vec![Stmt::Assign(AssignStmt {
+            name: "server".to_string(),
+            value: Expr::FunctionCall(FunctionCallExpr {
+                name: "net.listen".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "127.0.0.1:39183".to_string(),
+                    span: Span::new(11, 30),
+                })],
+                span: Span::new(0, 31),
+            }),
+            span: Span::new(0, 31),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_std_net_listen(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_std_net_listen(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn net_read_lowers_numeric_length_as_int_value() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Assign(AssignStmt {
+                name: "connection".to_string(),
+                value: Expr::FunctionCall(FunctionCallExpr {
+                    name: "net.connect".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "127.0.0.1:39183".to_string(),
+                        span: Span::new(0, 17),
+                    })],
+                    span: Span::new(0, 18),
+                }),
+                span: Span::new(0, 18),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "net.read".to_string(),
+                    args: vec![
+                        Expr::Variable(echo_ast::VariableExpr {
+                            name: "connection".to_string(),
+                            span: Span::new(19, 30),
+                        }),
+                        Expr::Number(echo_ast::NumberLiteral {
+                            value: "4".to_string(),
+                            span: Span::new(31, 32),
+                        }),
+                    ],
+                    span: Span::new(19, 33),
+                })],
+                span: Span::new(19, 33),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains(
+                "call %EchoValue @echo_std_net_read(%EchoValue %runtime_call_1, %EchoValue { i32 2, i64 4 })"
+            ),
+            "{ir}"
+        );
     }
 
     #[test]

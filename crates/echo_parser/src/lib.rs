@@ -1139,11 +1139,11 @@ echo "done"
                     && statement.name.as_string() == "net"
         ));
         assert!(matches!(
-            &program.statements[1],
+            &program.statements[7],
             Stmt::ClassDecl(statement) if statement.name == "TcpServer"
         ));
         assert!(matches!(
-            &program.statements[2],
+            &program.statements[8],
             Stmt::ClassDecl(statement) if statement.name == "TcpConnection"
         ));
     }

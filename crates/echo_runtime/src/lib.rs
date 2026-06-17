@@ -72,6 +72,8 @@ const ECHO_VALUE_STRING: i32 = 3;
 const ECHO_VALUE_ARRAY: i32 = 4;
 const ECHO_VALUE_TASK: i32 = 5;
 const ECHO_VALUE_PENDING: i32 = 6;
+const ECHO_VALUE_TCP_LISTENER: i32 = 7;
+const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 
@@ -137,6 +139,20 @@ impl EchoValue {
         }
     }
 
+    pub fn tcp_listener(value: *mut net::EchoTcpListener) -> Self {
+        Self {
+            kind: ECHO_VALUE_TCP_LISTENER,
+            payload: value as u64,
+        }
+    }
+
+    pub fn tcp_connection(value: *mut net::EchoTcpConnection) -> Self {
+        Self {
+            kind: ECHO_VALUE_TCP_CONNECTION,
+            payload: value as u64,
+        }
+    }
+
     fn string_bytes(self) -> Option<Vec<u8>> {
         match self.kind {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
@@ -181,6 +197,22 @@ impl EchoValue {
         }
 
         unsafe { (self.payload as *mut task::EchoTask).as_mut() }
+    }
+
+    fn as_tcp_listener_ref(self) -> Option<&'static net::EchoTcpListener> {
+        if self.kind != ECHO_VALUE_TCP_LISTENER || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *const net::EchoTcpListener).as_ref() }
+    }
+
+    fn as_tcp_connection_mut(self) -> Option<&'static mut net::EchoTcpConnection> {
+        if self.kind != ECHO_VALUE_TCP_CONNECTION || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut net::EchoTcpConnection).as_mut() }
     }
 }
 
@@ -475,6 +507,92 @@ pub extern "C" fn echo_task_sleep_current(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_listen(address: EchoValue) -> EchoValue {
+    let Some(bytes) = address.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(address) = String::from_utf8(bytes) else {
+        return EchoValue::error();
+    };
+
+    match net::listen(address) {
+        Ok(listener) => EchoValue::tcp_listener(Box::into_raw(Box::new(listener))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_connect(address: EchoValue) -> EchoValue {
+    let Some(bytes) = address.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(address) = String::from_utf8(bytes) else {
+        return EchoValue::error();
+    };
+
+    match net::connect(address) {
+        Ok(connection) => EchoValue::tcp_connection(Box::into_raw(Box::new(connection))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_accept(listener: EchoValue) -> EchoValue {
+    let Some(listener) = listener.as_tcp_listener_ref() else {
+        return EchoValue::error();
+    };
+
+    match net::accept(listener) {
+        Ok(connection) => EchoValue::tcp_connection(Box::into_raw(Box::new(connection))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_read(connection: EchoValue, max_bytes: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+    if !max_bytes.is_int() {
+        return EchoValue::error();
+    }
+
+    match net::read(connection, max_bytes.payload as usize) {
+        Ok(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            bytes.into_bytes().to_vec(),
+        )))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_write(connection: EchoValue, data: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+    let Some(bytes) = data.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    match net::write(connection, &bytes) {
+        Ok(written) => EchoValue::int(written as i64),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_close(connection: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+
+    match net::close(connection) {
+        Ok(()) => EchoValue::null(),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
     let Some(mut bytes) = left.string_bytes() else {
         return EchoValue::error();
@@ -673,6 +791,38 @@ mod tests {
 
         assert_eq!(CALLBACK_RUNS.load(Ordering::Relaxed), 1);
         assert_eq!(result, EchoValue::int(42));
+    }
+
+    #[test]
+    fn std_net_abi_exchanges_loopback_bytes() {
+        let address = unsafe { echo_value_string(c"127.0.0.1:0".as_ptr().cast(), 11) };
+        let server = echo_std_net_listen(address);
+        assert_eq!(server.kind, ECHO_VALUE_TCP_LISTENER);
+
+        let listener = server.as_tcp_listener_ref().expect("listener");
+        let address = listener.local_addr().expect("local addr").to_string();
+
+        let client = thread::spawn(move || {
+            let address = unsafe { echo_value_string(address.as_ptr(), address.len()) };
+            let connection = echo_std_net_connect(address);
+            assert_eq!(connection.kind, ECHO_VALUE_TCP_CONNECTION);
+
+            let request = unsafe { echo_value_string(c"ping".as_ptr().cast(), 4) };
+            assert_eq!(echo_std_net_write(connection, request), EchoValue::int(4));
+            let response = echo_std_net_read(connection, EchoValue::int(4));
+            assert_eq!(response.string_bytes().expect("response"), b"pong");
+            assert_eq!(echo_std_net_close(connection), EchoValue::null());
+        });
+
+        let connection = echo_std_net_accept(server);
+        assert_eq!(connection.kind, ECHO_VALUE_TCP_CONNECTION);
+        let request = echo_std_net_read(connection, EchoValue::int(4));
+        assert_eq!(request.string_bytes().expect("request"), b"ping");
+        let response = unsafe { echo_value_string(c"pong".as_ptr().cast(), 4) };
+        assert_eq!(echo_std_net_write(connection, response), EchoValue::int(4));
+        assert_eq!(echo_std_net_close(connection), EchoValue::null());
+
+        client.join().expect("client");
     }
 
     #[test]

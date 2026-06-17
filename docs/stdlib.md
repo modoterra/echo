@@ -81,6 +81,19 @@ class TcpConnection {
 }
 ```
 
+Lowercase stdlib modules may also expose module-style intrinsic functions for value-like APIs:
+
+```php
+namespace std net
+
+intrinsic function listen(string $address): TcpServer
+intrinsic function connect(string $address): TcpConnection
+intrinsic function accept(TcpServer $server): TcpConnection
+intrinsic function read(TcpConnection $connection, int $maxBytes): bytes
+intrinsic function write(TcpConnection $connection, bytes|string $data): int
+intrinsic function close(TcpConnection $connection): void
+```
+
 The `namespace std ...` form declares the compiler's internal stdlib module identity. User code imports it with `from std use ...`; it is not a PHP namespace and does not reserve `std\...`, `Std\...`, `Echo\...`, or `EchoStd\...`.
 
 This distinction is intentional:

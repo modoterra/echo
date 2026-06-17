@@ -79,6 +79,15 @@ pub fn accept(listener: &EchoTcpListener) -> io::Result<EchoTcpConnection> {
     })
 }
 
+pub fn connect<A>(addr: A) -> io::Result<EchoTcpConnection>
+where
+    A: ToSocketAddrs,
+{
+    TcpStream::connect(addr).map(|stream| EchoTcpConnection {
+        inner: Some(stream),
+    })
+}
+
 pub fn read(connection: &mut EchoTcpConnection, max_bytes: usize) -> io::Result<EchoNetBuffer> {
     let mut bytes = vec![0; max_bytes];
     let read = connection.stream_mut()?.read(&mut bytes)?;

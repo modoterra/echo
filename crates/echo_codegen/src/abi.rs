@@ -120,6 +120,66 @@ pub enum BuiltinLowering {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StdIntrinsic {
+    pub echo_name: &'static str,
+    pub symbol: &'static str,
+    pub signature: RuntimeSignature,
+    pub arity: usize,
+}
+
+impl StdIntrinsic {
+    pub fn llvm_decl(self) -> String {
+        self.signature.llvm_decl(self.symbol)
+    }
+}
+
+pub const STD_INTRINSICS: &[StdIntrinsic] = &[
+    StdIntrinsic {
+        echo_name: "net.listen",
+        symbol: "echo_std_net_listen",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "net.connect",
+        symbol: "echo_std_net_connect",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "net.accept",
+        symbol: "echo_std_net_accept",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "net.read",
+        symbol: "echo_std_net_read",
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        arity: 2,
+    },
+    StdIntrinsic {
+        echo_name: "net.write",
+        symbol: "echo_std_net_write",
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        arity: 2,
+    },
+    StdIntrinsic {
+        echo_name: "net.close",
+        symbol: "echo_std_net_close",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+];
+
+pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {
+    STD_INTRINSICS
+        .iter()
+        .copied()
+        .find(|intrinsic| intrinsic.echo_name == name)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltinCodegen {
     ObStart,
     BoolStatement,

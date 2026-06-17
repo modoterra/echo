@@ -47,6 +47,48 @@ pub const MODULES: &[StdModule] = &[
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
     IntrinsicBinding {
+        owner: "std.net",
+        method: "listen",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.net.listen",
+        abi_symbol: "echo_std_net_listen",
+    },
+    IntrinsicBinding {
+        owner: "std.net",
+        method: "connect",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.net.connect",
+        abi_symbol: "echo_std_net_connect",
+    },
+    IntrinsicBinding {
+        owner: "std.net",
+        method: "accept",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.net.accept",
+        abi_symbol: "echo_std_net_accept",
+    },
+    IntrinsicBinding {
+        owner: "std.net",
+        method: "read",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.net.read",
+        abi_symbol: "echo_std_net_read",
+    },
+    IntrinsicBinding {
+        owner: "std.net",
+        method: "write",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.net.write",
+        abi_symbol: "echo_std_net_write",
+    },
+    IntrinsicBinding {
+        owner: "std.net",
+        method: "close",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.net.close",
+        abi_symbol: "echo_std_net_close",
+    },
+    IntrinsicBinding {
         owner: "std.net.TcpServer",
         method: "listen",
         receiver: IntrinsicReceiver::Static,
@@ -115,6 +157,7 @@ mod tests {
 
         assert_eq!(module.path, "std/net.echo");
         assert!(module.source.contains("namespace std net"));
+        assert!(module.source.contains("intrinsic function listen"));
         assert!(module.source.contains("class TcpServer"));
         assert!(module.source.contains("intrinsic static function listen"));
     }
@@ -133,6 +176,13 @@ mod tests {
 
     #[test]
     fn exposes_net_intrinsic_bindings() {
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.net",
+            method: "connect",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.net.connect",
+            abi_symbol: "echo_std_net_connect",
+        }));
         assert!(intrinsics().contains(&IntrinsicBinding {
             owner: "std.net.TcpServer",
             method: "listen",
