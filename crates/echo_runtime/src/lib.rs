@@ -1114,6 +1114,26 @@ pub extern "C" fn echo_php_stristr(haystack: EchoValue, needle: EchoValue) -> Ec
     ))))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strrchr(haystack: EchoValue, needle: EchoValue) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+    if needle.is_empty() {
+        return EchoValue::bool(false);
+    }
+    let Some(position) = find_last_bytes(&haystack, &needle) else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        haystack[position..].to_vec(),
+    ))))
+}
+
 fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -2413,6 +2433,94 @@ mod tests {
             drop(Box::from_raw(needle_start));
             drop(Box::from_raw(needle_empty));
             drop(Box::from_raw(needle_non_ascii));
+        }
+    }
+
+    #[test]
+    fn strrchr_preserves_php_byte_behavior() {
+        let email = Box::into_raw(Box::new(EchoString {
+            bytes: "name@example.com".as_bytes().to_vec(),
+        }));
+        let repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "abcabc".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "1234545".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "ÄchoÄ".as_bytes().to_vec(),
+        }));
+        let empty_needle = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let needle_at = Box::into_raw(Box::new(EchoString {
+            bytes: "@".as_bytes().to_vec(),
+        }));
+        let needle_repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "bc".as_bytes().to_vec(),
+        }));
+        let needle_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "xy".as_bytes().to_vec(),
+        }));
+        let needle_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+        let needle_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_strrchr(EchoValue::string(email), EchoValue::string(needle_at)).string_bytes(),
+            Some("@example.com".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strrchr(
+                EchoValue::string(repeated),
+                EchoValue::string(needle_repeated)
+            )
+            .string_bytes(),
+            Some("bc".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strrchr(
+                EchoValue::string(missing),
+                EchoValue::string(needle_missing)
+            ),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_strrchr(EchoValue::string(numeric), EchoValue::int(45)).string_bytes(),
+            Some("45".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strrchr(
+                EchoValue::string(non_ascii),
+                EchoValue::string(needle_non_ascii)
+            )
+            .string_bytes(),
+            Some("Ä".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strrchr(
+                EchoValue::string(empty_needle),
+                EchoValue::string(needle_empty)
+            ),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(email));
+            drop(Box::from_raw(repeated));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(empty_needle));
+            drop(Box::from_raw(needle_at));
+            drop(Box::from_raw(needle_repeated));
+            drop(Box::from_raw(needle_missing));
+            drop(Box::from_raw(needle_non_ascii));
+            drop(Box::from_raw(needle_empty));
         }
     }
 

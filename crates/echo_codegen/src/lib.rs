@@ -1280,6 +1280,7 @@ mod tests {
             ("strripos", "echo_php_strripos"),
             ("strstr", "echo_php_strstr"),
             ("stristr", "echo_php_stristr"),
+            ("strrchr", "echo_php_strrchr"),
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
         ] {

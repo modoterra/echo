@@ -183,6 +183,7 @@ declare %EchoValue @echo_php_strrpos(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strripos(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strstr(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_stristr(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_strrchr(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcmp(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcasecmp(%EchoValue, %EchoValue)
 ```
