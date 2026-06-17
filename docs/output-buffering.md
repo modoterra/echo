@@ -17,6 +17,8 @@ Echo implements PHP user-level output buffers as a runtime-managed stack. Genera
 
 This spec covers the no-handler subset first. Output handler callbacks, compression handlers, URL rewriting, HTTP/server buffer integration, configurable buffer flags, and chunk-size auto-flush are deferred.
 
+Runtime symbol layering is documented in [Runtime ABI](runtime-abi.md). PHP-facing output-buffering functions use `echo_php_*`; core output writes remain `echo_*`.
+
 ## Runtime Model
 
 - The runtime owns a stack of output buffers.
@@ -67,8 +69,8 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Pushes an empty output buffer.
 - `ob_start(null)` explicitly starts a buffer without an output callback.
 - Returns `true` in PHP on success.
-- Echo supports statement-form `ob_start();` and `ob_start(null);`; generated code may call either the legacy no-argument runtime entry or the value-based runtime entry with `EchoValue::Null`.
-- Echo lowers string callback names through `echo_value_string(ptr, len)` and `echo_ob_start_value(%EchoValue)` so runtime callable normalization stays centralized.
+- Echo supports statement-form `ob_start();` and `ob_start(null);`; generated code calls either `echo_php_ob_start()` or the value-based `echo_php_ob_start_value(%EchoValue)` entry with `EchoValue::Null`.
+- Echo lowers string callback names through `echo_value_string(ptr, len)` and `echo_php_ob_start_value(%EchoValue)` so runtime callable normalization stays centralized.
 - Deferred: callback invocation, `chunk_size`, flags, failure modes, warnings/notices for invalid callbacks.
 
 ### `flush()`
@@ -129,7 +131,7 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns `false` if no output buffer is active.
 - Copying can increase memory usage because PHP returns a new string.
 - Echo supports string returns as opaque runtime string handles; echoing the no-active-buffer `false` value emits an empty string like PHP.
-- Current IR returns raw `ptr` handles for string-producing buffer APIs. This is a bootstrap shape; the long-term ABI should return `EchoValue` or a binary-safe string value carrying ownership and length.
+- Current IR returns `%EchoValue` for string-producing buffer APIs. String payloads are still opaque runtime handles; a future value representation should make ownership and binary-safe length semantics explicit.
 
 ### `ob_get_clean()`
 

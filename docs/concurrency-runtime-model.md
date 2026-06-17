@@ -217,7 +217,9 @@ pub struct JoinExpr {
 }
 ```
 
-Parser support should be careful with PHP compatibility. In `.echo` mode, these can be contextual or hard keywords. In `.php` mode, preserve existing PHP programs where possible, especially where `run`, `fork`, `spawn`, or `join` are function names.
+Parser support should be careful with PHP compatibility, but Echo features are always available. In Echo mode, valid PHP stays valid while `run`, `fork`, `spawn`, and `join` can also be used as Echo syntax where unambiguous. Strict mode may reject unsafe PHP patterns, but it must not be the only way to use Echo concurrency features.
+
+The first parser slices support `run $task`, `fork $worker`, `spawn "cmd"`, `join $task`, and assignment block forms such as `$task = defer { ... };`, `$task = run { ... };`, and `$worker = fork { ... };`. General block expressions in every expression position still need a broader parser refactor.
 
 Examples that AST output should eventually distinguish:
 
@@ -264,7 +266,7 @@ pub enum TaskState {
 }
 
 pub enum WaitReason {
-    Io(IoWait),
+    Io { token: IoToken, interest: IoInterest },
     Timer(Instant),
     Task(TaskId),
     Thread(ThreadId),
@@ -461,6 +463,10 @@ Reasoning: Tokio/smol/async-executor schedule Rust futures, but Echo tasks are P
 ## Minimal Event Loop
 
 Echo owns the event loop. Mio is the readiness poller.
+
+The event loop must be allocated on demand, with one lazy event loop per thread. Plain PHP-compatible programs and Echo programs that do not use concurrency keywords or Echo-aware I/O should not pay for scheduler or Mio setup. The compiler/runtime should request the current thread's event loop only when a program uses constructs such as `defer`, `run`, `join`, `fork`, `spawn`, timers, or nonblocking net/I/O APIs.
+
+This keeps normal CLI execution and PHP compatibility fixtures on the direct path while still allowing the runtime to grow an Echo-owned scheduler for concurrent programs.
 
 Minimal worker state:
 

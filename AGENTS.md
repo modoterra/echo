@@ -43,6 +43,6 @@
 - `xo run` and `xo build` share the same binary build path: generated LLVM IR is linked with `target/debug/libecho_runtime.a` via `clang -x ir`. Full end-to-end tests need `clang` on `PATH`; PHP benchmarks also need `php` on `PATH`.
 
 ## Source Notes
-- `echo_source::SourceFile::new` classifies `.echo` and `.xo` as `EchoFile`; every other extension is `PhpFile`.
+- `echo_source::SourceFile::new` classifies `.echo` and `.xo` as strict mode; every other extension defaults to Echo superset mode.
 - `examples/hello.echo` has no PHP open tag; `examples/hello.php` includes `<?php`. The parser accepts both forms.
 - Parser currently accepts `echo` statements, no-argument function-call statements, string/number literals, and `.` concat expressions for the supported fixture subset.

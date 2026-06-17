@@ -58,6 +58,13 @@ Run the CLI against an example.
 cargo run -p xo -- run examples/hello.php
 ```
 
+Mode defaults:
+
+- `.php` files use Echo superset mode by default.
+- `.echo` and `.xo` files use strict mode by default.
+- `--strict` forces strict mode.
+- `--unsafe` forces Echo superset mode and still keeps Echo language features enabled.
+
 Build the website.
 
 ```bash
