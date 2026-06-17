@@ -1,0 +1,7 @@
+$task = defer {
+    echo "inside\n"
+    return "done\n"
+}
+
+$started = run $task
+echo join $started

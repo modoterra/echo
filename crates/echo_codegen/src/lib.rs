@@ -472,7 +472,11 @@ impl IrModule {
                 ));
                 Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
             }
-            Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {
+            Expr::Run(expr) => self.render_run_expr(body, expr),
+            Expr::Join(expr) => {
+                self.render_task_unary_expr(body, &expr.handle, CoreRuntimeSymbol::TaskJoin)
+            }
+            Expr::Fork(_) | Expr::Spawn(_) => {
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
             }
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
@@ -551,6 +555,53 @@ impl IrModule {
         ));
 
         Ok(function)
+    }
+
+    fn render_run_expr(
+        &mut self,
+        body: &mut String,
+        expr: &echo_ast::RunExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        match expr {
+            echo_ast::RunExpr::Block { body: block, .. } => {
+                let function = self.render_defer_function(block)?;
+                let defer_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{defer_id} = call %EchoValue @{}(ptr @{function})\n",
+                    CoreRuntimeSymbol::TaskDefer.symbol()
+                ));
+
+                let run_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{run_id} = call %EchoValue @{}(%EchoValue %runtime_call_{defer_id})\n",
+                    CoreRuntimeSymbol::TaskRun.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{run_id}")))
+            }
+            echo_ast::RunExpr::Task { expr, .. } => {
+                self.render_task_unary_expr(body, expr, CoreRuntimeSymbol::TaskRun)
+            }
+        }
+    }
+
+    fn render_task_unary_expr(
+        &mut self,
+        body: &mut String,
+        expr: &Expr,
+        symbol: CoreRuntimeSymbol,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let task = self.render_expr_as_echo_value(body, expr)?;
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+
+        body.push_str(&format!(
+            "  %runtime_call_{call_id} = call %EchoValue @{}({task})\n",
+            symbol.symbol()
+        ));
+
+        Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
     }
 
     fn render_function_call_expr(
@@ -1006,6 +1057,16 @@ mod tests {
             ir.contains("call %EchoValue @echo_task_defer(ptr @echo_defer_0)"),
             "{ir}"
         );
+        assert!(
+            ir.contains("declare %EchoValue @echo_task_run(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(ir.contains("call %EchoValue @echo_task_run"), "{ir}");
+        assert!(
+            ir.contains("declare %EchoValue @echo_task_join(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(ir.contains("call %EchoValue @echo_task_join"), "{ir}");
         assert!(ir.contains("ret i32 0"), "{ir}");
     }
 }

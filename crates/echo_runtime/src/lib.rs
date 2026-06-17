@@ -161,6 +161,22 @@ impl EchoValue {
     pub const fn is_task(self) -> bool {
         self.kind == ECHO_VALUE_TASK
     }
+
+    fn as_task_ref(self) -> Option<&'static task::EchoTask> {
+        if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *const task::EchoTask).as_ref() }
+    }
+
+    fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
+        if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut task::EchoTask).as_mut() }
+    }
 }
 
 impl OutputRuntime {
@@ -387,12 +403,33 @@ pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_task_defer(callback: Option<task::TaskCallback>) -> EchoValue {
+pub extern "C" fn echo_task_defer(callback: Option<task::EchoTaskCallback>) -> EchoValue {
     let id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
     EchoValue::task(Box::into_raw(Box::new(task::EchoTask::deferred(
         task::TaskId(id),
         callback,
     ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_run(task_value: EchoValue) -> EchoValue {
+    let Some(task) = task_value.as_task_mut() else {
+        return EchoValue::error();
+    };
+
+    match task.run_to_completion() {
+        Ok(_) => task_value,
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_join(task: EchoValue) -> EchoValue {
+    let Some(task) = task.as_task_ref() else {
+        return EchoValue::error();
+    };
+
+    task.result().unwrap_or_else(|_| EchoValue::error())
 }
 
 #[unsafe(no_mangle)]
@@ -566,6 +603,19 @@ mod tests {
 
         assert!(value.is_task());
         assert_ne!(value.payload, 0);
+    }
+
+    #[test]
+    fn task_run_executes_callback_and_join_returns_result() {
+        unsafe extern "C" fn callback() -> EchoValue {
+            EchoValue::int(42)
+        }
+
+        let task = echo_task_defer(Some(callback));
+        let task = echo_task_run(task);
+        let result = echo_task_join(task);
+
+        assert_eq!(result, EchoValue::int(42));
     }
 
     #[test]

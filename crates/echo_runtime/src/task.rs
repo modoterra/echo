@@ -1,6 +1,6 @@
 use crate::{EchoError, EchoValue};
 
-pub type TaskCallback = unsafe extern "C" fn() -> EchoValue;
+pub type EchoTaskCallback = unsafe extern "C" fn() -> EchoValue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TaskId(pub usize);
@@ -49,12 +49,12 @@ pub enum TaskState {
 #[derive(Debug, Clone)]
 pub struct EchoTask {
     id: TaskId,
-    callback: Option<TaskCallback>,
+    callback: Option<EchoTaskCallback>,
     state: TaskState,
 }
 
 impl EchoTask {
-    pub fn deferred(id: TaskId, callback: Option<TaskCallback>) -> Self {
+    pub fn deferred(id: TaskId, callback: Option<EchoTaskCallback>) -> Self {
         Self {
             id,
             callback,
@@ -70,8 +70,30 @@ impl EchoTask {
         &self.state
     }
 
-    pub const fn callback(&self) -> Option<TaskCallback> {
+    pub const fn callback(&self) -> Option<EchoTaskCallback> {
         self.callback
+    }
+
+    pub fn run_to_completion(&mut self) -> Result<EchoValue, TaskExecuteError> {
+        self.start().map_err(|_| TaskExecuteError::InvalidState)?;
+        self.run().map_err(|_| TaskExecuteError::InvalidState)?;
+
+        let Some(callback) = self.callback else {
+            self.fail(EchoError::InvalidCallable);
+            return Err(TaskExecuteError::MissingCallback);
+        };
+
+        let value = unsafe { callback() };
+        self.finish(value);
+        Ok(value)
+    }
+
+    pub fn result(&self) -> Result<EchoValue, TaskResultError> {
+        match self.state {
+            TaskState::Finished(value) => Ok(value),
+            TaskState::Failed(_) => Err(TaskResultError::Failed),
+            _ => Err(TaskResultError::NotFinished),
+        }
     }
 
     pub fn start(&mut self) -> Result<(), TaskStartError> {
@@ -141,6 +163,18 @@ pub enum TaskWaitError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskWakeError {
     NotWaiting,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskExecuteError {
+    InvalidState,
+    MissingCallback,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskResultError {
+    NotFinished,
+    Failed,
 }
 
 #[cfg(test)]

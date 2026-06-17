@@ -15,6 +15,8 @@ pub enum CoreRuntimeSymbol {
     ValueString,
     ValueConcat,
     TaskDefer,
+    TaskRun,
+    TaskJoin,
     CallFunction,
     Shutdown,
 }
@@ -26,6 +28,8 @@ impl CoreRuntimeSymbol {
         Self::ValueString,
         Self::ValueConcat,
         Self::TaskDefer,
+        Self::TaskRun,
+        Self::TaskJoin,
         Self::CallFunction,
         Self::Shutdown,
     ];
@@ -37,6 +41,8 @@ impl CoreRuntimeSymbol {
             Self::ValueString => "echo_value_string",
             Self::ValueConcat => "echo_value_concat",
             Self::TaskDefer => "echo_task_defer",
+            Self::TaskRun => "echo_task_run",
+            Self::TaskJoin => "echo_task_join",
             Self::CallFunction => "echo_call_function",
             Self::Shutdown => "echo_shutdown",
         }
@@ -49,6 +55,8 @@ impl CoreRuntimeSymbol {
             Self::ValueString => RuntimeSignature::EchoValuePtrI64,
             Self::ValueConcat => RuntimeSignature::EchoValueEchoValueEchoValue,
             Self::TaskDefer => RuntimeSignature::EchoValuePtr,
+            Self::TaskRun => RuntimeSignature::EchoValueEchoValue,
+            Self::TaskJoin => RuntimeSignature::EchoValueEchoValue,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }
