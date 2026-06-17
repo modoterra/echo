@@ -17,12 +17,11 @@ function App() {
         <Logo />
         <div className="absolute left-0 top-[58%] w-[69%] text-left">
           <p className="text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            Echo is a Rust powered PHP superset for modern server software. It
-            keeps PHP familiar while adding native concurrency, parallel
-            execution, sharper diagnostics, stronger tooling, and a path to
-            compiled binaries with predictable performance gains. The xo mark
-            nods to Echo by sound rather than spelling, folding /ˈɛkoʊ/ toward a
-            compact /ɛk oʊ/ for a small command shaped for the terminal.
+            Echo is a Rust powered PHP superset for modern server software. It keeps PHP familiar
+            while adding native concurrency, parallel execution, sharper diagnostics, stronger
+            tooling, and a path to compiled binaries with predictable performance gains. The xo mark
+            nods to Echo by sound rather than spelling, folding /ˈɛkoʊ/ toward a compact /ɛk oʊ/ for
+            a small command shaped for the terminal.
           </p>
           <a
             href="https://github.com/modoterra/echo"
@@ -33,9 +32,7 @@ function App() {
             <RiGithubFill aria-hidden="true" className="size-5" />
             GitHub
           </a>
-          <p className="mt-4 text-sm text-slate-400">
-            © 2026 Modoterra Corporation
-          </p>
+          <p className="mt-4 text-sm text-slate-400">© 2026 Modoterra Corporation</p>
         </div>
       </section>
     </main>

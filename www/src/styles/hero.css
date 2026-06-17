@@ -39,9 +39,7 @@
 
 @keyframes echo-bg-float-a {
   from {
-    transform: translate(var(--echo-bg-a-x, -70px), var(--echo-bg-a-y, -20px))
-      rotate(0deg)
-      scale(1);
+    transform: translate(var(--echo-bg-a-x, -70px), var(--echo-bg-a-y, -20px)) rotate(0deg) scale(1);
   }
 
   to {
@@ -51,9 +49,7 @@
 
 @keyframes echo-bg-float-b {
   from {
-    transform: translate(var(--echo-bg-b-x, 90px), var(--echo-bg-b-y, 20px))
-      rotate(8deg)
-      scale(1.1);
+    transform: translate(var(--echo-bg-b-x, 90px), var(--echo-bg-b-y, 20px)) rotate(8deg) scale(1.1);
   }
 
   to {
@@ -63,8 +59,7 @@
 
 @keyframes echo-bg-float-c {
   from {
-    transform: translate(var(--echo-bg-c-x, -20px), var(--echo-bg-c-y, 60px))
-      rotate(-6deg)
+    transform: translate(var(--echo-bg-c-x, -20px), var(--echo-bg-c-y, 60px)) rotate(-6deg)
       scale(0.95);
   }
 
@@ -79,7 +74,8 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  background: radial-gradient(circle at 50% 45%, transparent 0%, rgba(255, 255, 255, 0.82) 62%),
+  background:
+    radial-gradient(circle at 50% 45%, transparent 0%, rgba(255, 255, 255, 0.82) 62%),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 1));
   pointer-events: none;
 }
@@ -90,7 +86,8 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
   background-size: 36px 36px;
   mask-image: radial-gradient(circle at 50% 45%, black, transparent 68%);
@@ -116,11 +113,13 @@
 }
 
 [data-theme="dark"] .hero::before {
-  background: radial-gradient(circle at 50% 45%, transparent 0%, rgba(10, 10, 18, 0.76) 66%),
+  background:
+    radial-gradient(circle at 50% 45%, transparent 0%, rgba(10, 10, 18, 0.76) 66%),
     linear-gradient(to bottom, rgba(10, 10, 18, 0.1), rgba(10, 10, 18, 1));
 }
 
 [data-theme="dark"] .hero::after {
-  background-image: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
 }

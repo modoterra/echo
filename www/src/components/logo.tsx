@@ -26,14 +26,7 @@ export function Logo() {
           <stop offset="68%" stopColor="#0EA5E9" />
           <stop offset="100%" stopColor="#06B6D4" />
         </linearGradient>
-        <mask
-          id="arc-mask"
-          x="300"
-          y="0"
-          width="160"
-          height="300"
-          maskUnits="userSpaceOnUse"
-        >
+        <mask id="arc-mask" x="300" y="0" width="160" height="300" maskUnits="userSpaceOnUse">
           <path
             d="M350 36 C415 86 415 214 350 264"
             fill="none"
