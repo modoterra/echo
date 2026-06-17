@@ -666,6 +666,14 @@ pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strval(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(mut bytes) => {
@@ -1786,6 +1794,38 @@ mod tests {
         assert_eq!(
             echo_php_strtolower(value).string_bytes(),
             Some("echo äÖ 123!".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(string));
+        }
+    }
+
+    #[test]
+    fn strval_preserves_php_scalar_string_coercion() {
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: "hello".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strval(EchoValue::string(string)).string_bytes(),
+            Some("hello".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strval(EchoValue::int(42)).string_bytes(),
+            Some("42".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strval(EchoValue::bool(true)).string_bytes(),
+            Some("1".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strval(EchoValue::bool(false)).string_bytes(),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            echo_php_strval(EchoValue::null()).string_bytes(),
+            Some(Vec::new())
         );
 
         unsafe {

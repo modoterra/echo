@@ -1219,6 +1219,7 @@ mod tests {
     #[test]
     fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         for (php_name, symbol) in [
+            ("strval", "echo_php_strval"),
             ("strtoupper", "echo_php_strtoupper"),
             ("strtolower", "echo_php_strtolower"),
             ("strrev", "echo_php_strrev"),

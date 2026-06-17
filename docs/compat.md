@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 45 | 562 |
-| Loaded local PHP internals, including extensions | 1516 | 45 | 1471 |
+| Baseline (`Core` + `standard`) | 607 | 46 | 561 |
+| Loaded local PHP internals, including extensions | 1516 | 46 | 1470 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (42/545)
+### standard (43/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -595,7 +595,7 @@ explicitly promote one.
 | `strtolower` | implemented |  |
 | `strtoupper` | implemented |  |
 | `strtr` | missing |  |
-| `strval` | missing |  |
+| `strval` | implemented |  |
 | `substr` | implemented |  |
 | `substr_compare` | missing |  |
 | `substr_count` | implemented |  |
