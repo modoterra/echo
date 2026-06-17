@@ -18,6 +18,8 @@ pub enum Stmt {
     Return(ReturnStmt),
     Namespace(NamespaceStmt),
     Use(UseStmt),
+    Import(ImportStmt),
+    ClassDecl(ClassDeclStmt),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,8 +72,15 @@ pub struct ReturnStmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceStmt {
+    pub source: NamespaceSource,
     pub name: QualifiedName,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NamespaceSource {
+    Php,
+    Std,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +88,48 @@ pub struct UseStmt {
     pub name: QualifiedName,
     pub alias: Option<String>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportStmt {
+    pub source: ImportSource,
+    pub name: QualifiedName,
+    pub alias: Option<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImportSource {
+    Std,
+    File(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassDeclStmt {
+    pub name: String,
+    pub members: Vec<ClassMember>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ClassMember {
+    Method(MethodDecl),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MethodDecl {
+    pub name: String,
+    pub params: Vec<TypedParam>,
+    pub return_type: Option<String>,
+    pub is_static: bool,
+    pub is_intrinsic: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedParam {
+    pub name: String,
+    pub ty: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

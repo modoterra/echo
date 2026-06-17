@@ -1,0 +1,6 @@
+namespace App\Net
+
+from std use Net\TcpServer
+from std use Net\TcpConnection as Connection
+
+echo "std net imported\n"

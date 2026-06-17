@@ -178,7 +178,7 @@ impl IrModule {
             },
             Stmt::DynamicFunctionCall(statement) => self.dynamic_function_call(body, statement)?,
             Stmt::FunctionDecl(_) => {}
-            Stmt::Namespace(_) | Stmt::Use(_) => {}
+            Stmt::Namespace(_) | Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) => {}
             Stmt::Return(statement) => {
                 let value = self.render_expr_as_echo_value(body, &statement.value)?;
                 body.push_str(&format!("  ret {value}\n"));

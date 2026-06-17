@@ -1,10 +1,11 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, DeferExpr, DynamicFunctionCallStmt, EchoStmt,
-    Expr, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, JoinExpr, NamespaceStmt,
-    NullLiteral, NumberLiteral, Program, QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt,
-    StringLiteral, UseStmt, VariableExpr,
+    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, ClassDeclStmt, ClassMember, DeferExpr,
+    DynamicFunctionCallStmt, EchoStmt, Expr, ForkExpr, FunctionCallExpr, FunctionCallStmt,
+    FunctionDeclStmt, ImportSource, ImportStmt, JoinExpr, MethodDecl, NamespaceSource,
+    NamespaceStmt, NullLiteral, NumberLiteral, Program, QualifiedName, ReturnStmt, RunExpr,
+    SpawnExpr, Stmt, StringLiteral, TypedParam, UseStmt, VariableExpr,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -75,7 +76,7 @@ fn validate_statement_mode(statement: &Stmt, diagnostics: &mut Vec<Diagnostic>) 
         Stmt::Assign(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::AssignRef(_) => {}
         Stmt::Return(statement) => validate_expr_mode(&statement.value, diagnostics),
-        Stmt::Namespace(_) | Stmt::Use(_) => {}
+        Stmt::Namespace(_) | Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) => {}
     }
 }
 
@@ -467,14 +468,36 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .collect::<Vec<_>>()
             .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
 
+        let type_name = text::ident()
+            .separated_by(just('\\'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| parts.join("\\"));
+
+        let type_expr = type_name
+            .clone()
+            .separated_by(just('|').padded())
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| parts.join("|"));
+
         let namespace_stmt = text::keyword("namespace")
             .padded()
-            .ignore_then(qualified_name.clone())
+            .ignore_then(
+                text::keyword("std")
+                    .padded()
+                    .ignore_then(qualified_name.clone())
+                    .map(|name| (NamespaceSource::Std, name))
+                    .or(qualified_name
+                        .clone()
+                        .map(|name| (NamespaceSource::Php, name))),
+            )
             .then_ignore(terminator.clone())
-            .map_with(|name, extra| {
+            .map_with(|(source, name), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::Namespace(NamespaceStmt {
+                    source,
                     name,
                     span: Span::new(span.start, span.end),
                 })
@@ -499,6 +522,40 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     span: Span::new(span.start, span.end),
                 })
             });
+
+        let import_source = text::keyword("std")
+            .padded()
+            .to(ImportSource::Std)
+            .or(just('"')
+                .ignore_then(none_of('"').repeated().collect::<String>())
+                .then_ignore(just('"'))
+                .padded()
+                .map(ImportSource::File));
+
+        let import_stmt = text::keyword("from")
+            .padded()
+            .ignore_then(import_source)
+            .then_ignore(text::keyword("use").padded())
+            .then(qualified_name.clone())
+            .then(
+                text::keyword("as")
+                    .padded()
+                    .ignore_then(text::ident().padded())
+                    .or_not(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(
+                |((source, name), alias): ((ImportSource, QualifiedName), Option<&str>), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::Import(ImportStmt {
+                        source,
+                        name,
+                        alias: alias.map(str::to_string),
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
 
         let echo_exprs = expr
             .clone()
@@ -583,6 +640,83 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .separated_by(just(',').padded())
             .allow_trailing()
             .collect::<Vec<_>>();
+
+        let typed_param = type_expr
+            .clone()
+            .padded()
+            .or_not()
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .map(|(ty, name): (Option<String>, &str)| TypedParam {
+                name: name.to_string(),
+                ty,
+            });
+
+        let method_decl = text::keyword("intrinsic")
+            .padded()
+            .to(true)
+            .or_not()
+            .map(|is_intrinsic| is_intrinsic.unwrap_or(false))
+            .then(
+                text::keyword("static")
+                    .padded()
+                    .to(true)
+                    .or_not()
+                    .map(|is_static| is_static.unwrap_or(false)),
+            )
+            .then_ignore(text::keyword("function").padded())
+            .then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(
+                typed_param
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(
+                |((((is_intrinsic, is_static), name), params), return_type): (
+                    (((bool, bool), &str), Vec<TypedParam>),
+                    Option<String>,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    ClassMember::Method(MethodDecl {
+                        name: name.to_string(),
+                        params,
+                        return_type,
+                        is_static,
+                        is_intrinsic,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let class_decl_stmt = text::keyword("class")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('{').padded())
+            .then(method_decl.repeated().collect::<Vec<_>>())
+            .then_ignore(just('}').padded())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|(name, members): (&str, Vec<ClassMember>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::ClassDecl(ClassDeclStmt {
+                    name: name.to_string(),
+                    members,
+                    span: Span::new(span.start, span.end),
+                })
+            });
 
         let function_decl_stmt = just("function")
             .padded()
@@ -703,8 +837,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             });
 
         function_decl_stmt
+            .or(class_decl_stmt)
             .or(namespace_stmt)
             .or(use_stmt)
+            .or(import_stmt)
             .or(echo_stmt)
             .or(return_stmt)
             .or(assign_defer_block_stmt)
@@ -922,6 +1058,27 @@ echo "done"
 
         assert!(matches!(&program.statements[0], Stmt::FunctionCall(_)));
         assert!(matches!(&program.statements[1], Stmt::Echo(_)));
+    }
+
+    #[test]
+    fn parses_std_net_module_source() {
+        let program = parse_with_mode(include_str!("../../../std/Net.echo"), SourceMode::Strict)
+            .expect("std Net module parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Namespace(statement)
+                if statement.source == NamespaceSource::Std
+                    && statement.name.as_string() == "Net"
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::ClassDecl(statement) if statement.name == "TcpServer"
+        ));
+        assert!(matches!(
+            &program.statements[2],
+            Stmt::ClassDecl(statement) if statement.name == "TcpConnection"
+        ));
     }
 
     #[test]

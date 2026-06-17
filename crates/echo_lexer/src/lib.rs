@@ -17,6 +17,7 @@ pub enum TokenKind {
     String(String),
     Number(String),
     Semicolon,
+    Colon,
     Comma,
     OpenParen,
     CloseParen,
@@ -27,6 +28,7 @@ pub enum TokenKind {
     Star,
     Slash,
     Dot,
+    Pipe,
     Ampersand,
     Equals,
     Backslash,
@@ -56,6 +58,9 @@ enum RawToken {
 
     #[token(";")]
     Semicolon,
+
+    #[token(":")]
+    Colon,
 
     #[token(",")]
     Comma,
@@ -91,6 +96,9 @@ enum RawToken {
 
     #[token(".")]
     Dot,
+
+    #[token("|")]
+    Pipe,
 
     #[token("&")]
     Ampersand,
@@ -148,6 +156,7 @@ impl RawToken {
             RawToken::String(value) => TokenKind::String(value),
             RawToken::Number(value) => TokenKind::Number(value),
             RawToken::Semicolon => TokenKind::Semicolon,
+            RawToken::Colon => TokenKind::Colon,
             RawToken::Comma => TokenKind::Comma,
             RawToken::OpenParen => TokenKind::OpenParen,
             RawToken::CloseParen => TokenKind::CloseParen,
@@ -159,6 +168,7 @@ impl RawToken {
             RawToken::Slash => TokenKind::Slash,
             RawToken::Comment => unreachable!("logos skipped comments"),
             RawToken::Dot => TokenKind::Dot,
+            RawToken::Pipe => TokenKind::Pipe,
             RawToken::Ampersand => TokenKind::Ampersand,
             RawToken::Equals => TokenKind::Equals,
             RawToken::Backslash => TokenKind::Backslash,
