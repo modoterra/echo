@@ -1194,6 +1194,9 @@ mod tests {
         for (php_name, symbol) in [
             ("strtoupper", "echo_php_strtoupper"),
             ("strtolower", "echo_php_strtolower"),
+            ("strrev", "echo_php_strrev"),
+            ("ucfirst", "echo_php_ucfirst"),
+            ("lcfirst", "echo_php_lcfirst"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

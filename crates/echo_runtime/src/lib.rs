@@ -672,6 +672,43 @@ pub extern "C" fn echo_php_strtolower(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strrev(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            bytes.reverse();
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ucfirst(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            if let Some(first) = bytes.first_mut() {
+                first.make_ascii_uppercase();
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_lcfirst(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(mut bytes) => {
+            if let Some(first) = bytes.first_mut() {
+                first.make_ascii_lowercase();
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1185,6 +1222,52 @@ mod tests {
 
         unsafe {
             drop(Box::from_raw(string));
+        }
+    }
+
+    #[test]
+    fn string_unary_builtins_preserve_php_byte_behavior() {
+        let reversed = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo ÄÖ 123!".as_bytes().to_vec(),
+        }));
+        let ucfirst = Box::into_raw(Box::new(EchoString {
+            bytes: "echo".as_bytes().to_vec(),
+        }));
+        let lcfirst = Box::into_raw(Box::new(EchoString {
+            bytes: "Echo".as_bytes().to_vec(),
+        }));
+        let non_ascii_first = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strrev(EchoValue::string(reversed)).string_bytes(),
+            Some(vec![
+                b'!', b'3', b'2', b'1', b' ', 0x96, 0xc3, 0x84, 0xc3, b' ', b'o', b'h', b'c', b'E'
+            ])
+        );
+        assert_eq!(
+            echo_php_ucfirst(EchoValue::string(ucfirst)).string_bytes(),
+            Some("Echo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_lcfirst(EchoValue::string(lcfirst)).string_bytes(),
+            Some("echo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_ucfirst(EchoValue::string(non_ascii_first)).string_bytes(),
+            Some("Ächo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_lcfirst(EchoValue::string(non_ascii_first)).string_bytes(),
+            Some("Ächo".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(reversed));
+            drop(Box::from_raw(ucfirst));
+            drop(Box::from_raw(lcfirst));
+            drop(Box::from_raw(non_ascii_first));
         }
     }
 

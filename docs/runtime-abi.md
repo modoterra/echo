@@ -158,6 +158,9 @@ stays centralized in the runtime value layer:
 declare %EchoValue @echo_php_strlen(%EchoValue)
 declare %EchoValue @echo_php_strtoupper(%EchoValue)
 declare %EchoValue @echo_php_strtolower(%EchoValue)
+declare %EchoValue @echo_php_strrev(%EchoValue)
+declare %EchoValue @echo_php_ucfirst(%EchoValue)
+declare %EchoValue @echo_php_lcfirst(%EchoValue)
 ```
 
 Core output behavior remains under `echo_*`:

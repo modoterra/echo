@@ -317,6 +317,30 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
+    PhpBuiltin {
+        php_name: "strrev",
+        symbol: "echo_php_strrev",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "ucfirst",
+        symbol: "echo_php_ucfirst",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "lcfirst",
+        symbol: "echo_php_lcfirst",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
 ];
 
 pub fn php_builtin(name: &str) -> Option<PhpBuiltin> {
