@@ -28,7 +28,7 @@ Mio, Crossbeam, Parking Lot, Slab, and similar crates are implementation details
 The runtime concepts are:
 
 - `EchoTask`: lightweight Echo task, eventually backed by PHP-compatible stackful fibers.
-- `EchoTaskGroup`: ordered collection of tasks/results for `run []`.
+- `EchoTaskGroup`: ordered collection of tasks/results for a future task-group expression.
 - `EchoThread`: OS-thread-backed parallel work handle.
 - `EchoProcess`: child-process handle.
 
@@ -42,8 +42,8 @@ There is no `EchoJob` type. Deferred work is represented by `EchoTask` with stat
 
 ```php
 $task = defer {
-    return fetch_user($id);
-};
+    return fetch_user($id)
+}
 ```
 
 Meaning:
@@ -59,10 +59,10 @@ Meaning:
 
 ```php
 $task = run {
-    return fetch_user($id);
-};
+    return fetch_user($id)
+}
 
-$user = join $task;
+$user = join $task
 ```
 
 Meaning:
@@ -76,28 +76,24 @@ Meaning:
 
 ```php
 $task = defer {
-    return fetch_user($id);
-};
+    return fetch_user($id)
+}
 
-run $task;
-$user = join $task;
+run $task
+$user = join $task
 ```
 
 If the task is already running, finished, or failed, the runtime should report a clear error.
 
-### `run []`
+### Task Groups
 
-`run []` starts multiple lightweight tasks concurrently and waits for all.
+A future task-group expression should start multiple lightweight tasks concurrently and wait for all. The exact surface syntax is intentionally open because `{}` is the list literal syntax and `run { ... }` already means a single task block.
 
 ```php
-[$user, $posts] = run [
-    {
-        return fetch_user($id);
-    },
-    {
-        return fetch_posts($id);
-    },
-];
+[$user, $posts] = run all {
+    fetch_user($id)
+    fetch_posts($id)
+}
 ```
 
 Meaning:
@@ -107,7 +103,7 @@ Meaning:
 - Returns results in source order.
 - Execution order is unspecified.
 - Result order is stable.
-- No explicit `join` is needed for `run []`.
+- No explicit `join` is needed for task-group syntax.
 - V1 may let all tasks finish and then rethrow the first error if one task fails.
 - V1 does not need cancellation.
 
@@ -128,10 +124,10 @@ results = echo_task_group_run_and_join(group)
 
 ```php
 $worker = fork {
-    return Image::resize($path, 1024, 1024);
-};
+    return Image::resize($path, 1024, 1024)
+}
 
-$image = join $worker;
+$image = join $worker
 ```
 
 Meaning:
@@ -147,8 +143,8 @@ Meaning:
 `spawn` is reserved for child processes.
 
 ```php
-$proc = spawn "worker --queue=emails";
-$status = join $proc;
+$proc = spawn "worker --queue=emails"
+$status = join $proc
 ```
 
 Meaning:
@@ -163,9 +159,9 @@ Meaning:
 `join` waits for a previously-started handle.
 
 ```php
-$value = join $task;
-$result = join $thread;
-$status = join $proc;
+$value = join $task
+$result = join $thread
+$status = join $proc
 ```
 
 Meaning:
@@ -374,7 +370,7 @@ declare %EchoValue @echo_process_join(ptr)
 %result = call %EchoValue @echo_task_join(ptr %task)
 ```
 
-`run []`:
+Task group expression:
 
 ```llvm
 %group = call ptr @echo_task_group_new()

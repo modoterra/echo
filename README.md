@@ -19,46 +19,46 @@ Future Echo should support programs shaped like this:
 ```php
 <?php
 
-namespace App\Http;
+namespace App\Http
 
-use Echo\Net\TcpServer;
-use Echo\Http\Response;
+use Echo\Net\TcpServer
+use Echo\Http\Response
 
-type User = shape {
-    const id: int,
-    email: string,
-    displayName?: string,
-};
+type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
 
 extend list<User> as $users {
     function active(): list<User> {
-        return $users.filter(fn (User $user): bool => $user.displayName !== null);
+        return $users.filter(fn ($user): bool => $user.displayName is not null)
     }
 }
 
-let $address = "127.0.0.1:8080";
-let list<User> $users = [];
+let $address = "127.0.0.1:8080"
+let list<User> $users = {}
 
-let $server = TcpServer::listen($address);
+let $server = TcpServer::listen($address)
 
 while (true) {
     let $conn = join run {
-        return $server.accept();
-    };
+        return $server.accept()
+    }
 
     run {
-        let $request = $conn.readRequest();
+        let $request = $conn.readRequest()
         $users[] = User {
-            id: count($users) + 1,
-            email: "visitor" . count($users) . "@echo.local",
-        };
+            id: count($users) + 1
+            email: "visitor" . count($users) . "@echo.local"
+        }
 
-        let $body = "Hello from Echo at " . $request.path . "\n";
-        $body = $body . "Users seen: " . count($users) . "\n";
+        let $body = "Hello from Echo at " . $request.path . "\n"
+        $body = $body . "Users seen: " . count($users) . "\n"
 
-        $conn.write(Response::text($body));
-        $conn.close();
-    };
+        $conn.write(Response::text($body))
+        $conn.close()
+    }
 }
 ```
 

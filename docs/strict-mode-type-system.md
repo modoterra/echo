@@ -2,7 +2,7 @@
 
 ## Goal
 
-Echo mode is the true PHP superset: PHP compatibility plus Echo language features. Strict mode is Echo-only safety mode: it keeps Echo features on, but rejects unsafe or ambiguous PHP compatibility patterns. Strict mode adds a cleaner compiler-native type model that separates arrays, lists, tuples, structural objects, shapes, classes, and receiver extensions.
+Echo mode is the true PHP superset: PHP compatibility plus Echo language features. Strict mode is Echo-only safety mode: it keeps Echo features on, but rejects unsafe or ambiguous PHP compatibility patterns. Strict mode adds a cleaner compiler-native type model that separates arrays, lists, tuples, structural objects, classes, and receiver extensions.
 
 The strict-mode goal is to avoid PHP associative-array ambiguity and give the compiler strong layout and access guarantees.
 
@@ -52,7 +52,7 @@ Strict Echo separates these families:
 ```php
 [1, 2, 3]              // array literal
 {1, 2, 3}              // list literal
-{}                     // empty list by default, or empty object with expected shape type
+{}                     // empty list by default, or empty object with expected object type
 (1, "Echo")            // tuple literal
 {id: 1, email: "x"}    // object/record literal
 ```
@@ -60,13 +60,13 @@ Strict Echo separates these families:
 Type families:
 
 ```text
-array<T>       dynamic contiguous zero-indexed array
-array<T>[N]    fixed-size contiguous zero-indexed array
-array[N]       fixed-size array with inferred element type
-list<T>        linked heap-backed dynamic list
-shape { ... }  structural object type
-{ ... }        structural object value when keyed
-( ... )        tuple value
+array<T>     dynamic contiguous zero-indexed array
+array<T>[N]  fixed-size contiguous zero-indexed array
+array[N]     fixed-size array with inferred element type
+list<T>      linked heap-backed dynamic list
+type T = { } structural object type alias
+{ ... }      structural object value when keyed
+( ... )      tuple value
 ```
 
 ## Arrays
@@ -228,13 +228,13 @@ let $xs = {};            // infer empty list
 let list<int> $ids = {}; // empty list<int>
 ```
 
-With expected shape context, `{}` can mean an empty object satisfying that shape:
+With expected object context, `{}` can mean an empty object satisfying that type:
 
 ```php
-type Options = shape {
-    retries?: int,
-    timeout?: int,
-};
+type Options = {
+    retries?: int
+    timeout?: int
+}
 
 let Options $opts = {}; // empty object satisfying Options
 ```
@@ -242,11 +242,11 @@ let Options $opts = {}; // empty object satisfying Options
 Brace literal disambiguation:
 
 ```text
-{}                         empty list by default
-{} with expected shape      empty object
-{value, value}              list literal
+{}                          empty list by default
+{} with expected object type empty object
+{value, value}               list literal
 {field: value, field: value} object/record literal
-mixed keyed/unkeyed         reject
+mixed keyed/unkeyed          reject
 ```
 
 Reject mixed brace literals:
@@ -258,19 +258,20 @@ let $bad = {
 };
 ```
 
-Lists use receiver functions for mutation:
+Lists can use append syntax or receiver functions for mutation:
 
 ```php
 let list<int> $xs = {1, 2, 3};
 
+$xs[] = 4;
 $xs.push(4);
 let ?int $last = $xs.pop();
 ```
 
-Do not use array append syntax for lists:
+Do not use indexed assignment as list growth:
 
 ```php
-$xs[] = 4; // reject
+$xs[3] = 4; // reject when this grows the list
 ```
 
 ## Tuples
@@ -313,20 +314,20 @@ Strict Echo uses structural objects for named-field data.
 Type syntax:
 
 ```php
-type User = shape {
-    const id: int,
-    email: string,
-    displayName?: string,
-};
+type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
 ```
 
 Value syntax:
 
 ```php
-let User $user = {
-    id: 1,
-    email: "a@example.com",
-};
+let User $user = User {
+    id: 1
+    email: "a@example.com"
+}
 ```
 
 Field access:
@@ -352,20 +353,20 @@ echo $user.unknown;
 Objects are mutable by default. A field is immutable only when declared `const`.
 
 ```php
-type Person = shape {
-    const id: int,
-    name: string,
-    age?: int,
-};
+type Person = {
+    const id: int
+    name: string
+    age?: int
+}
 ```
 
 Valid:
 
 ```php
-let Person $p = {
-    id: 1,
-    name: "Chris",
-};
+let Person $p = Person {
+    id: 1
+    name: "Chris"
+}
 
 $p.name = "Echo";
 $p.age = 36;
@@ -395,14 +396,14 @@ The field may be assigned later unless it is const.
 Const optional fields are construction-only:
 
 ```php
-type Options = shape {
-    const requestId?: string,
-    retries?: int,
-};
+type Options = {
+    const requestId?: string
+    retries?: int
+}
 
-let Options $opts = {
-    requestId: "abc",
-};
+let Options $opts = Options {
+    requestId: "abc"
+}
 
 let Options $empty = {};
 $empty.requestId = "abc"; // reject
@@ -422,7 +423,7 @@ Equivalent to:
 let User|null $user = null;
 ```
 
-This applies anywhere types are allowed: locals, returns, fields, generics where applicable, and shape fields.
+This applies anywhere types are allowed: locals, returns, fields, generics where applicable, and structural object fields.
 
 Local declarations:
 
@@ -444,10 +445,10 @@ Type aliases:
 ```php
 type UserId = int;
 type UserList = list<User>;
-type UserPayload = shape {
-    id: UserId,
-    email: string,
-};
+type UserPayload = {
+    id: UserId
+    email: string
+}
 ```
 
 Do not mirror PHPDoc/Psalm/PHPStan hyphenated pseudo-types as language syntax:
@@ -529,7 +530,7 @@ No receiver variable exists unless declared.
 Strict Echo separates access operators:
 
 ```php
-$value.field       // Echo object/shape field access
+$value.field       // Echo structural object field access
 $value.method()    // Echo receiver function from extend block
 $value->member     // PHP/class property or method access
 $value[index]      // array or tuple index access
@@ -539,7 +540,7 @@ $value[] = item    // dynamic array append only
 Examples:
 
 ```php
-$user.email;       // Echo object/shape field
+$user.email;       // Echo structural object field
 $users.pop();      // Echo receiver function
 $phpUser->save();  // PHP/class method
 $array[0];         // array index
@@ -547,7 +548,7 @@ $tuple[0];         // tuple index
 $array[] = 4;      // dynamic array append
 ```
 
-`->` remains PHP/class-oriented. Dot access is Echo member access for shape/object fields and receiver functions from `extend` blocks.
+`->` remains PHP/class-oriented. Dot access is Echo member access for structural object fields and receiver functions from `extend` blocks.
 
 Classes continue to use PHP-style `->`:
 
@@ -565,25 +566,25 @@ $user->save();
 Structural objects use dot:
 
 ```php
-type UserPayload = shape {
-    id: int,
-    email: string,
-};
+type UserPayload = {
+    id: int
+    email: string
+}
 
-let UserPayload $payload = {
-    id: 1,
-    email: "a@example.com",
-};
+let UserPayload $payload = UserPayload {
+    id: 1
+    email: "a@example.com"
+}
 
 echo $payload.email;
 ```
 
 ## Implementation Plan
 
-1. Add strict-mode parsing support for declarations, array/list/object/tuple literals, type aliases, shapes, and extend blocks.
-2. Add AST nodes for `TypeExpr`, shape fields, array/list/object/tuple literals, field/index access, receiver calls, and extend blocks.
+1. Add strict-mode parsing support for declarations, array/list/object/tuple literals, structural type aliases, and extend blocks.
+2. Add AST nodes for `TypeExpr`, structural fields, array/list/object/tuple literals, field/index access, receiver calls, and extend blocks.
 3. Add strict-mode semantic validation.
-4. Add type inference for arrays, lists, empty braces, objects, tuples, and contextual shape use.
+4. Add type inference for arrays, lists, empty braces, objects, tuples, and contextual object construction.
 5. Add object field checking for required fields, optional fields, unknown fields, and const fields.
 6. Add extend-block method resolution for dot receiver calls.
 7. Lower strict-mode values to compiler/runtime representations.
@@ -614,16 +615,16 @@ let list<int> $xs = {1, 2, 3};
 let list<int> $empty = {};
 let (int, string) $pair = (1, "Echo");
 
-type User = shape {
-    const id: int,
-    email: string,
-    displayName?: string,
-};
+type User = {
+    const id: int
+    email: string
+    displayName?: string
+}
 
-let User $user = {
-    id: 1,
-    email: "a@example.com",
-};
+let User $user = User {
+    id: 1
+    email: "a@example.com"
+}
 
 extend list<T> as $list {
     function pop(): ?T {
@@ -652,15 +653,15 @@ let array<int>[1] $fixed = [1];
 $fixed[] = 2;
 $fixed[1] = 2;
 
-type User = shape {
-    const id: int,
-    email: string,
-};
+type User = {
+    const id: int
+    email: string
+}
 
-let User $user = {
-    id: 1,
-    email: "a@example.com",
-};
+let User $user = User {
+    id: 1
+    email: "a@example.com"
+}
 
 $user.id = 2;
 $user.unknown = true;
@@ -685,7 +686,7 @@ Strict mode rejects the same associative array syntax.
 - Use `.` for Echo structural field access and extension receiver calls.
 - Use `[]` for array append and array/tuple indexing.
 - `list<T>` is distinct from `array<T>` because list is linked and heap-backed.
-- `{}` defaults to empty list, but can satisfy an expected empty/optional-field shape type.
+- `{}` defaults to empty list, but can satisfy an expected empty/optional-field object type.
 - Object fields are mutable by default.
 - `const` fields are immutable after construction.
 - Non-existing fields are hard errors.

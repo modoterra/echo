@@ -40,16 +40,29 @@ Examples:
 
 Echo should be able to run a small HTTP server as an Echo program using `echo_std`, not as an `xo serve` command.
 
-Initial target shape:
+Initial target direction:
 
 ```php
 <?php
 
-function handle($request) {
-    return http_response_text("hello\n");
-}
+namespace App\Http
 
-http_serve("127.0.0.1", 8080, "handle");
+use Echo\Net\TcpServer
+use Echo\Http\Response
+
+let $server = TcpServer::listen("127.0.0.1:8080")
+
+while (true) {
+    let $conn = join run {
+        return $server.accept()
+    }
+
+    run {
+        let $request = $conn.readRequest()
+        $conn.write(Response::text("hello " . $request.path . "\n"))
+        $conn.close()
+    }
+}
 ```
 
 The standard library should provide the HTTP API. The runtime should provide lower-level networking and scheduling primitives.
