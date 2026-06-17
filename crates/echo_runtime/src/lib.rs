@@ -1171,6 +1171,23 @@ pub extern "C" fn echo_php_strspn(value: EchoValue, characters: EchoValue) -> Ec
     )
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strcspn(value: EchoValue, characters: EchoValue) -> EchoValue {
+    let Some(value) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(characters) = characters.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(
+        value
+            .iter()
+            .take_while(|byte| !characters.contains(byte))
+            .count() as i64,
+    )
+}
+
 fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -2699,6 +2716,92 @@ mod tests {
             drop(Box::from_raw(mask_digits));
             drop(Box::from_raw(mask_prefix));
             drop(Box::from_raw(mask_missing));
+            drop(Box::from_raw(mask_non_ascii));
+            drop(Box::from_raw(mask_empty));
+        }
+    }
+
+    #[test]
+    fn strcspn_preserves_php_byte_mask_behavior() {
+        let no_match = Box::into_raw(Box::new(EchoString {
+            bytes: "abcd".as_bytes().to_vec(),
+        }));
+        let end_match = Box::into_raw(Box::new(EchoString {
+            bytes: "abcd".as_bytes().to_vec(),
+        }));
+        let middle_match = Box::into_raw(Box::new(EchoString {
+            bytes: "abcd".as_bytes().to_vec(),
+        }));
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "12345".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+        let mask_no_match = Box::into_raw(Box::new(EchoString {
+            bytes: "x".as_bytes().to_vec(),
+        }));
+        let mask_end_match = Box::into_raw(Box::new(EchoString {
+            bytes: "d".as_bytes().to_vec(),
+        }));
+        let mask_middle_match = Box::into_raw(Box::new(EchoString {
+            bytes: "bd".as_bytes().to_vec(),
+        }));
+        let mask_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "c".as_bytes().to_vec(),
+        }));
+        let mask_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_strcspn(
+                EchoValue::string(no_match),
+                EchoValue::string(mask_no_match)
+            ),
+            EchoValue::int(4)
+        );
+        assert_eq!(
+            echo_php_strcspn(
+                EchoValue::string(end_match),
+                EchoValue::string(mask_end_match)
+            ),
+            EchoValue::int(3)
+        );
+        assert_eq!(
+            echo_php_strcspn(
+                EchoValue::string(middle_match),
+                EchoValue::string(mask_middle_match)
+            ),
+            EchoValue::int(1)
+        );
+        assert_eq!(
+            echo_php_strcspn(EchoValue::string(numeric), EchoValue::int(34)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strcspn(
+                EchoValue::string(non_ascii),
+                EchoValue::string(mask_non_ascii)
+            ),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strcspn(EchoValue::string(empty), EchoValue::string(mask_empty)),
+            EchoValue::int(3)
+        );
+
+        unsafe {
+            drop(Box::from_raw(no_match));
+            drop(Box::from_raw(end_match));
+            drop(Box::from_raw(middle_match));
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(mask_no_match));
+            drop(Box::from_raw(mask_end_match));
+            drop(Box::from_raw(mask_middle_match));
             drop(Box::from_raw(mask_non_ascii));
             drop(Box::from_raw(mask_empty));
         }

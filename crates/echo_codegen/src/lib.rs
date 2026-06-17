@@ -1283,6 +1283,7 @@ mod tests {
             ("strrchr", "echo_php_strrchr"),
             ("strpbrk", "echo_php_strpbrk"),
             ("strspn", "echo_php_strspn"),
+            ("strcspn", "echo_php_strcspn"),
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
         ] {

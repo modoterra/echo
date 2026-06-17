@@ -1,0 +1,6 @@
+4
+3
+1
+2
+nonascii:2
+empty:3

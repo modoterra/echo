@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 43 | 564 |
-| Loaded local PHP internals, including extensions | 1516 | 43 | 1473 |
+| Baseline (`Core` + `standard`) | 607 | 44 | 563 |
+| Loaded local PHP internals, including extensions | 1516 | 44 | 1472 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (40/545)
+### standard (41/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -528,7 +528,7 @@ explicitly promote one.
 | `str_word_count` | missing |  |
 | `strchr` | missing |  |
 | `strcoll` | missing |  |
-| `strcspn` | missing |  |
+| `strcspn` | implemented |  |
 | `stream_bucket_append` | missing |  |
 | `stream_bucket_make_writeable` | missing |  |
 | `stream_bucket_new` | missing |  |
