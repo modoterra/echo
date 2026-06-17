@@ -11,7 +11,7 @@ Practical slices picked from `docs/`.
 5. [done] Make stdlib imports more real.
 6. [done] Promote the supported generator syntax fixture.
 7. [done] Add LLVM optimization flags.
-8. [next] Start strict-mode type-system diagnostics with one parser/AST-local rule.
+8. [done] Start strict-mode type-system diagnostics with one parser/AST-local rule.
 
 ## Current Notes
 
@@ -22,3 +22,4 @@ Practical slices picked from `docs/`.
 - Slice 5 validates `from std use ...` against packaged std modules and added Echo fixture `027_std_time_import`.
 - Slice 6 removed `unsupported.txt` from `025_generator_syntax`; declared but uncalled generator functions now parse, lower, run, and build as no-op declarations. `026_concurrent_http_tasks` remains unsupported because blocking socket I/O does not yet suspend/wake Echo tasks.
 - Slice 7 added `xo build -O0/-O1/-O2/-O3/-Oz`, `xo build --emit-ir`, optimized IR through external `opt`, and native optimization through `clang -O*`.
+- Slice 8 rejects PHP reference assignment in strict mode while preserving it in Echo superset mode.

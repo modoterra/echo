@@ -77,7 +77,10 @@ fn validate_statement_mode(statement: &Stmt, diagnostics: &mut Vec<Diagnostic>) 
         }
         Stmt::Assign(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::Let(statement) => validate_expr_mode(&statement.value, diagnostics),
-        Stmt::AssignRef(_) => {}
+        Stmt::AssignRef(statement) => diagnostics.push(Diagnostic::new(
+            "PHP references are not allowed in strict mode",
+            statement.span,
+        )),
         Stmt::Return(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::Yield(statement) => validate_expr_mode(&statement.value, diagnostics),
         Stmt::Expr(statement) => validate_expr_mode(&statement.expr, diagnostics),
@@ -1954,5 +1957,35 @@ $task = run $deferred;
             &program.statements[0],
             Stmt::Assign(statement) if matches!(statement.value, Expr::Run(_))
         ));
+    }
+
+    #[test]
+    fn echo_mode_accepts_php_reference_assignment() {
+        let program = parse_with_mode(
+            r#"<?php
+$a = "x";
+$b =& $a;
+"#,
+            SourceMode::Echo,
+        )
+        .expect("Echo superset mode accepts PHP references");
+
+        assert!(matches!(&program.statements[1], Stmt::AssignRef(_)));
+    }
+
+    #[test]
+    fn strict_mode_rejects_php_reference_assignment() {
+        let diagnostics = parse_with_mode(
+            r#"let $a = "x"
+$b =& $a
+"#,
+            SourceMode::Strict,
+        )
+        .expect_err("strict mode rejects PHP references");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "PHP references are not allowed in strict mode"
+        );
     }
 }

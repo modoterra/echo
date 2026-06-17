@@ -45,6 +45,13 @@ xo run --unsafe file.echo # Echo superset mode on an Echo file
 
 `--unsafe` means unsafe PHP compatibility patterns are allowed. It does not disable Echo language features.
 
+## Current Coverage
+
+- `.echo` and `.xo` files default to strict mode; `.php` files default to Echo superset mode.
+- `xo` supports `--strict` and `--unsafe` mode overrides.
+- Strict mode currently rejects PHP reference assignment (`$b =& $a`) as an unsafe PHP compatibility pattern.
+- Echo superset mode still accepts PHP reference assignment for compatibility.
+
 ## Value Families
 
 Strict Echo separates these families:
