@@ -1,3 +1,7 @@
 <?php
 
-echo "Hello, Echo\n";
+ob_start();
+
+echo "Hello, Echo";
+
+ob_flush();
