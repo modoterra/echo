@@ -1154,6 +1154,23 @@ pub extern "C" fn echo_php_strpbrk(value: EchoValue, characters: EchoValue) -> E
     ))))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strspn(value: EchoValue, characters: EchoValue) -> EchoValue {
+    let Some(value) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(characters) = characters.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(
+        value
+            .iter()
+            .take_while(|byte| characters.contains(byte))
+            .count() as i64,
+    )
+}
+
 fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -2604,6 +2621,83 @@ mod tests {
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(empty_mask));
             drop(Box::from_raw(mask_text));
+            drop(Box::from_raw(mask_missing));
+            drop(Box::from_raw(mask_non_ascii));
+            drop(Box::from_raw(mask_empty));
+        }
+    }
+
+    #[test]
+    fn strspn_preserves_php_byte_mask_behavior() {
+        let digits = Box::into_raw(Box::new(EchoString {
+            bytes: "42 is the answer".as_bytes().to_vec(),
+        }));
+        let prefix = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "12345".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+        let mask_digits = Box::into_raw(Box::new(EchoString {
+            bytes: "0123456789".as_bytes().to_vec(),
+        }));
+        let mask_prefix = Box::into_raw(Box::new(EchoString {
+            bytes: "abc".as_bytes().to_vec(),
+        }));
+        let mask_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "xyz".as_bytes().to_vec(),
+        }));
+        let mask_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Äc".as_bytes().to_vec(),
+        }));
+        let mask_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_strspn(EchoValue::string(digits), EchoValue::string(mask_digits)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strspn(EchoValue::string(prefix), EchoValue::string(mask_prefix)),
+            EchoValue::int(3)
+        );
+        assert_eq!(
+            echo_php_strspn(EchoValue::string(missing), EchoValue::string(mask_missing)),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strspn(EchoValue::string(numeric), EchoValue::int(12)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_php_strspn(
+                EchoValue::string(non_ascii),
+                EchoValue::string(mask_non_ascii)
+            ),
+            EchoValue::int(3)
+        );
+        assert_eq!(
+            echo_php_strspn(EchoValue::string(empty), EchoValue::string(mask_empty)),
+            EchoValue::int(0)
+        );
+
+        unsafe {
+            drop(Box::from_raw(digits));
+            drop(Box::from_raw(prefix));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(empty));
+            drop(Box::from_raw(mask_digits));
+            drop(Box::from_raw(mask_prefix));
             drop(Box::from_raw(mask_missing));
             drop(Box::from_raw(mask_non_ascii));
             drop(Box::from_raw(mask_empty));
