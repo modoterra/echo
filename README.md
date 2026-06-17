@@ -37,7 +37,7 @@ extend list<User> as $users {
 }
 
 let $address = "127.0.0.1:8080";
-let $users = [];
+let list<User> $users = [];
 
 let $server = TcpServer::listen($address);
 
@@ -48,7 +48,7 @@ while (true) {
 
     run {
         let $request = $conn.readRequest();
-        $users[] = shape {
+        $users[] = User {
             id: count($users) + 1,
             email: "visitor" . count($users) . "@echo.local",
         };
