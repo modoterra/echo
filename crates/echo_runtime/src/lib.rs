@@ -1134,6 +1134,26 @@ pub extern "C" fn echo_php_strrchr(haystack: EchoValue, needle: EchoValue) -> Ec
     ))))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strpbrk(value: EchoValue, characters: EchoValue) -> EchoValue {
+    let Some(value) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(characters) = characters.string_bytes() else {
+        return EchoValue::error();
+    };
+    if characters.is_empty() {
+        return EchoValue::error();
+    }
+    let Some(position) = value.iter().position(|byte| characters.contains(byte)) else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        value[position..].to_vec(),
+    ))))
+}
+
 fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -2521,6 +2541,72 @@ mod tests {
             drop(Box::from_raw(needle_missing));
             drop(Box::from_raw(needle_non_ascii));
             drop(Box::from_raw(needle_empty));
+        }
+    }
+
+    #[test]
+    fn strpbrk_preserves_php_byte_mask_behavior() {
+        let text = Box::into_raw(Box::new(EchoString {
+            bytes: "This is a Simple text.".as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: "12345".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ächo".as_bytes().to_vec(),
+        }));
+        let empty_mask = Box::into_raw(Box::new(EchoString {
+            bytes: "abcdef".as_bytes().to_vec(),
+        }));
+        let mask_text = Box::into_raw(Box::new(EchoString {
+            bytes: "mi".as_bytes().to_vec(),
+        }));
+        let mask_missing = Box::into_raw(Box::new(EchoString {
+            bytes: "xy".as_bytes().to_vec(),
+        }));
+        let mask_non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: "Ä".as_bytes().to_vec(),
+        }));
+        let mask_empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_strpbrk(EchoValue::string(text), EchoValue::string(mask_text)).string_bytes(),
+            Some("is is a Simple text.".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strpbrk(EchoValue::string(missing), EchoValue::string(mask_missing)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_strpbrk(EchoValue::string(numeric), EchoValue::int(34)).string_bytes(),
+            Some("345".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strpbrk(
+                EchoValue::string(non_ascii),
+                EchoValue::string(mask_non_ascii)
+            )
+            .string_bytes(),
+            Some("Ächo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_strpbrk(EchoValue::string(empty_mask), EchoValue::string(mask_empty)),
+            EchoValue::error()
+        );
+
+        unsafe {
+            drop(Box::from_raw(text));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(non_ascii));
+            drop(Box::from_raw(empty_mask));
+            drop(Box::from_raw(mask_text));
+            drop(Box::from_raw(mask_missing));
+            drop(Box::from_raw(mask_non_ascii));
+            drop(Box::from_raw(mask_empty));
         }
     }
 

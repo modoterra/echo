@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 41 | 566 |
-| Loaded local PHP internals, including extensions | 1516 | 41 | 1475 |
+| Baseline (`Core` + `standard`) | 607 | 42 | 565 |
+| Loaded local PHP internals, including extensions | 1516 | 42 | 1474 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (38/545)
+### standard (39/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -582,7 +582,7 @@ explicitly promote one.
 | `stristr` | implemented |  |
 | `strnatcasecmp` | missing |  |
 | `strnatcmp` | missing |  |
-| `strpbrk` | missing |  |
+| `strpbrk` | implemented |  |
 | `strpos` | implemented |  |
 | `strptime` | missing |  |
 | `strrchr` | implemented |  |
