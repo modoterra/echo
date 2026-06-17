@@ -36,9 +36,10 @@ extend list<User> as $users {
     }
 }
 
-const string Address = "127.0.0.1:8080";
+let $address = "127.0.0.1:8080";
+let $users = [];
 
-let $server = TcpServer::listen(Address);
+let $server = TcpServer::listen($address);
 
 while (true) {
     let $conn = join run {
@@ -47,7 +48,13 @@ while (true) {
 
     run {
         let $request = $conn.readRequest();
+        $users[] = shape {
+            id: count($users) + 1,
+            email: "visitor" . count($users) . "@echo.local",
+        };
+
         let $body = "Hello from Echo at " . $request.path . "\n";
+        $body = $body . "Users seen: " . count($users) . "\n";
 
         $conn.write(Response::text($body));
         $conn.close();
