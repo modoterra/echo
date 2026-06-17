@@ -3,7 +3,8 @@ use crate::task::{EchoTask, TaskExecuteError, TaskResultError};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io;
-use std::ptr::NonNull;
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
 
 thread_local! {
     static THREAD_EVENT_LOOP: RefCell<LazyEventLoop> = RefCell::new(LazyEventLoop::new());
@@ -11,14 +12,25 @@ thread_local! {
 
 pub struct EventLoop {
     poller: MioPoller,
-    runnable: VecDeque<NonNull<EchoTask>>,
+    worker: Arc<EventLoopWorker>,
+}
+
+struct EventLoopWorker {
+    runnable: Mutex<VecDeque<usize>>,
+    wake: Condvar,
 }
 
 impl EventLoop {
     pub fn new() -> io::Result<Self> {
+        let worker = Arc::new(EventLoopWorker {
+            runnable: Mutex::new(VecDeque::new()),
+            wake: Condvar::new(),
+        });
+        start_worker(worker.clone());
+
         Ok(Self {
             poller: MioPoller::new()?,
-            runnable: VecDeque::new(),
+            worker,
         })
     }
 
@@ -30,46 +42,68 @@ impl EventLoop {
         &mut self.poller
     }
 
-    pub fn schedule_task(&mut self, task: &mut EchoTask) -> Result<(), TaskExecuteError> {
+    pub fn schedule_task(&mut self, task: &EchoTask) -> Result<(), TaskExecuteError> {
         task.start().map_err(|_| TaskExecuteError::InvalidState)?;
-        self.runnable.push_back(NonNull::from(task));
+        self.worker
+            .runnable
+            .lock()
+            .expect("event loop runnable queue poisoned")
+            .push_back(task as *const EchoTask as usize);
+        self.worker.wake.notify_one();
         Ok(())
     }
 
-    pub fn join_task(&mut self, task: &mut EchoTask) -> Result<crate::EchoValue, TaskResultError> {
-        loop {
-            match task.result() {
-                Ok(value) => return Ok(value),
-                Err(TaskResultError::Failed) => return Err(TaskResultError::Failed),
-                Err(TaskResultError::NotFinished) => {}
-            }
-
-            let Some(runnable) = self.runnable.pop_front() else {
-                return Err(TaskResultError::NotFinished);
-            };
-
-            self.run_task(runnable)
-                .map_err(|_| TaskResultError::Failed)?;
-        }
+    pub fn join_task(&mut self, task: &EchoTask) -> Result<crate::EchoValue, TaskResultError> {
+        task.wait_for_result()
     }
 
     pub fn has_runnable_tasks(&self) -> bool {
-        !self.runnable.is_empty()
+        !self
+            .worker
+            .runnable
+            .lock()
+            .expect("event loop runnable queue poisoned")
+            .is_empty()
     }
+}
 
-    fn run_task(&mut self, mut task: NonNull<EchoTask>) -> Result<(), TaskExecuteError> {
-        let task = unsafe { task.as_mut() };
-        task.run().map_err(|_| TaskExecuteError::InvalidState)?;
+fn start_worker(worker: Arc<EventLoopWorker>) {
+    thread::spawn(move || {
+        loop {
+            let task = {
+                let mut runnable = worker
+                    .runnable
+                    .lock()
+                    .expect("event loop runnable queue poisoned");
+                while runnable.is_empty() {
+                    runnable = worker
+                        .wake
+                        .wait(runnable)
+                        .expect("event loop runnable queue poisoned");
+                }
 
-        let Some(callback) = task.callback() else {
-            task.fail(crate::EchoError::InvalidCallable);
-            return Err(TaskExecuteError::MissingCallback);
-        };
+                runnable.pop_front().expect("runnable task")
+            };
 
-        let value = unsafe { callback() };
-        task.finish(value);
-        Ok(())
-    }
+            let task = unsafe { &*(task as *const EchoTask) };
+            if run_task(task).is_err() {
+                task.fail(crate::EchoError::InvalidCallable);
+            }
+        }
+    });
+}
+
+fn run_task(task: &EchoTask) -> Result<(), TaskExecuteError> {
+    task.run().map_err(|_| TaskExecuteError::InvalidState)?;
+
+    let Some(callback) = task.callback() else {
+        task.fail(crate::EchoError::InvalidCallable);
+        return Err(TaskExecuteError::MissingCallback);
+    };
+
+    let value = unsafe { callback() };
+    task.finish(value);
+    Ok(())
 }
 
 #[derive(Default)]
@@ -143,12 +177,8 @@ mod tests {
 
         event_loop.schedule_task(&mut task).expect("schedule task");
 
-        assert!(event_loop.has_runnable_tasks());
-        assert_eq!(task.result(), Err(TaskResultError::NotFinished));
-
         let result = event_loop.join_task(&mut task).expect("join task");
 
         assert_eq!(result, EchoValue::int(42));
-        assert!(!event_loop.has_runnable_tasks());
     }
 }

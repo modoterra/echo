@@ -1,4 +1,5 @@
 use crate::{EchoError, EchoValue};
+use std::sync::{Condvar, Mutex};
 
 pub type EchoTaskCallback = unsafe extern "C" fn() -> EchoValue;
 
@@ -46,11 +47,11 @@ pub enum TaskState {
     Failed(EchoError),
 }
 
-#[derive(Debug, Clone)]
 pub struct EchoTask {
     id: TaskId,
     callback: Option<EchoTaskCallback>,
-    state: TaskState,
+    state: Mutex<TaskState>,
+    completed: Condvar,
 }
 
 impl EchoTask {
@@ -58,7 +59,8 @@ impl EchoTask {
         Self {
             id,
             callback,
-            state: TaskState::Deferred,
+            state: Mutex::new(TaskState::Deferred),
+            completed: Condvar::new(),
         }
     }
 
@@ -66,15 +68,15 @@ impl EchoTask {
         self.id
     }
 
-    pub const fn state(&self) -> &TaskState {
-        &self.state
+    pub fn state(&self) -> TaskState {
+        self.state.lock().expect("task state poisoned").clone()
     }
 
     pub const fn callback(&self) -> Option<EchoTaskCallback> {
         self.callback
     }
 
-    pub fn run_to_completion(&mut self) -> Result<EchoValue, TaskExecuteError> {
+    pub fn run_to_completion(&self) -> Result<EchoValue, TaskExecuteError> {
         self.start().map_err(|_| TaskExecuteError::InvalidState)?;
         self.run().map_err(|_| TaskExecuteError::InvalidState)?;
 
@@ -89,59 +91,78 @@ impl EchoTask {
     }
 
     pub fn result(&self) -> Result<EchoValue, TaskResultError> {
-        match self.state {
-            TaskState::Finished(value) => Ok(value),
+        match &*self.state.lock().expect("task state poisoned") {
+            TaskState::Finished(value) => Ok(*value),
             TaskState::Failed(_) => Err(TaskResultError::Failed),
             _ => Err(TaskResultError::NotFinished),
         }
     }
 
-    pub fn start(&mut self) -> Result<(), TaskStartError> {
-        match self.state {
+    pub fn wait_for_result(&self) -> Result<EchoValue, TaskResultError> {
+        let mut state = self.state.lock().expect("task state poisoned");
+        loop {
+            match &*state {
+                TaskState::Finished(value) => return Ok(*value),
+                TaskState::Failed(_) => return Err(TaskResultError::Failed),
+                _ => {
+                    state = self.completed.wait(state).expect("task state poisoned");
+                }
+            }
+        }
+    }
+
+    pub fn start(&self) -> Result<(), TaskStartError> {
+        let mut state = self.state.lock().expect("task state poisoned");
+        match &*state {
             TaskState::Deferred => {
-                self.state = TaskState::Runnable;
+                *state = TaskState::Runnable;
                 Ok(())
             }
             _ => Err(TaskStartError::NotDeferred),
         }
     }
 
-    pub fn run(&mut self) -> Result<(), TaskRunError> {
-        match self.state {
+    pub fn run(&self) -> Result<(), TaskRunError> {
+        let mut state = self.state.lock().expect("task state poisoned");
+        match &*state {
             TaskState::Runnable => {
-                self.state = TaskState::Running;
+                *state = TaskState::Running;
                 Ok(())
             }
             _ => Err(TaskRunError::NotRunnable),
         }
     }
 
-    pub fn wait(&mut self, reason: WaitReason) -> Result<(), TaskWaitError> {
-        match self.state {
+    pub fn wait(&self, reason: WaitReason) -> Result<(), TaskWaitError> {
+        let mut state = self.state.lock().expect("task state poisoned");
+        match &*state {
             TaskState::Running => {
-                self.state = TaskState::Waiting(reason);
+                *state = TaskState::Waiting(reason);
                 Ok(())
             }
             _ => Err(TaskWaitError::NotRunning),
         }
     }
 
-    pub fn wake(&mut self) -> Result<(), TaskWakeError> {
-        match self.state {
+    pub fn wake(&self) -> Result<(), TaskWakeError> {
+        let mut state = self.state.lock().expect("task state poisoned");
+        match &*state {
             TaskState::Waiting(_) => {
-                self.state = TaskState::Runnable;
+                *state = TaskState::Runnable;
                 Ok(())
             }
             _ => Err(TaskWakeError::NotWaiting),
         }
     }
 
-    pub fn finish(&mut self, value: EchoValue) {
-        self.state = TaskState::Finished(value);
+    pub fn finish(&self, value: EchoValue) {
+        *self.state.lock().expect("task state poisoned") = TaskState::Finished(value);
+        self.completed.notify_all();
     }
 
-    pub fn fail(&mut self, error: EchoError) {
-        self.state = TaskState::Failed(error);
+    pub fn fail(&self, error: EchoError) {
+        *self.state.lock().expect("task state poisoned") = TaskState::Failed(error);
+        self.completed.notify_all();
     }
 }
 
@@ -187,35 +208,35 @@ mod tests {
             EchoValue::int(42)
         }
 
-        let mut task = EchoTask::deferred(TaskId(7), Some(callback));
+        let task = EchoTask::deferred(TaskId(7), Some(callback));
 
         assert_eq!(task.id(), TaskId(7));
         assert!(task.callback().is_some());
-        assert_eq!(task.state(), &TaskState::Deferred);
+        assert_eq!(task.state(), TaskState::Deferred);
 
         assert_eq!(task.start(), Ok(()));
-        assert_eq!(task.state(), &TaskState::Runnable);
+        assert_eq!(task.state(), TaskState::Runnable);
 
         assert_eq!(task.run(), Ok(()));
-        assert_eq!(task.state(), &TaskState::Running);
+        assert_eq!(task.state(), TaskState::Running);
 
         let wait = WaitReason::Io {
             token: IoToken(3),
             interest: IoInterest::Readable,
         };
         assert_eq!(task.wait(wait.clone()), Ok(()));
-        assert_eq!(task.state(), &TaskState::Waiting(wait));
+        assert_eq!(task.state(), TaskState::Waiting(wait));
 
         assert_eq!(task.wake(), Ok(()));
-        assert_eq!(task.state(), &TaskState::Runnable);
+        assert_eq!(task.state(), TaskState::Runnable);
 
         task.finish(EchoValue::int(42));
-        assert_eq!(task.state(), &TaskState::Finished(EchoValue::int(42)));
+        assert_eq!(task.state(), TaskState::Finished(EchoValue::int(42)));
     }
 
     #[test]
     fn task_rejects_invalid_transitions() {
-        let mut task = EchoTask::deferred(TaskId(1), None);
+        let task = EchoTask::deferred(TaskId(1), None);
 
         assert_eq!(task.run(), Err(TaskRunError::NotRunnable));
         assert_eq!(
