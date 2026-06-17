@@ -1,13 +1,16 @@
 use crate::poll::MioPoller;
-use crate::task::{EchoTask, TaskExecuteError, TaskResultError};
+use crate::task::{EchoTask, EchoTaskCallback, TaskExecuteError, TaskResultError, WaitReason};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
+use std::time::Duration;
 
 thread_local! {
     static THREAD_EVENT_LOOP: RefCell<LazyEventLoop> = RefCell::new(LazyEventLoop::new());
+    static CURRENT_WORKER: RefCell<Option<Arc<EventLoopWorker>>> = const { RefCell::new(None) };
+    static CURRENT_TASK: RefCell<Option<usize>> = const { RefCell::new(None) };
 }
 
 pub struct EventLoop {
@@ -16,8 +19,17 @@ pub struct EventLoop {
 }
 
 struct EventLoopWorker {
-    runnable: Mutex<VecDeque<usize>>,
+    runnable: Mutex<VecDeque<RunnableWork>>,
     wake: Condvar,
+}
+
+#[derive(Clone, Copy)]
+enum RunnableWork {
+    Task(usize),
+    Continuation {
+        task: usize,
+        callback: EchoTaskCallback,
+    },
 }
 
 impl EventLoop {
@@ -48,7 +60,7 @@ impl EventLoop {
             .runnable
             .lock()
             .expect("event loop runnable queue poisoned")
-            .push_back(task as *const EchoTask as usize);
+            .push_back(RunnableWork::Task(task as *const EchoTask as usize));
         self.worker.wake.notify_one();
         Ok(())
     }
@@ -69,8 +81,10 @@ impl EventLoop {
 
 fn start_worker(worker: Arc<EventLoopWorker>) {
     thread::spawn(move || {
+        CURRENT_WORKER.with(|current| *current.borrow_mut() = Some(worker.clone()));
+
         loop {
-            let task = {
+            let work = {
                 let mut runnable = worker
                     .runnable
                     .lock()
@@ -85,9 +99,19 @@ fn start_worker(worker: Arc<EventLoopWorker>) {
                 runnable.pop_front().expect("runnable task")
             };
 
-            let task = unsafe { &*(task as *const EchoTask) };
-            if run_task(task).is_err() {
-                task.fail(crate::EchoError::InvalidCallable);
+            match work {
+                RunnableWork::Task(task) => {
+                    let task = unsafe { &*(task as *const EchoTask) };
+                    if run_task(task).is_err() {
+                        task.fail(crate::EchoError::InvalidCallable);
+                    }
+                }
+                RunnableWork::Continuation { task, callback } => {
+                    let task = unsafe { &*(task as *const EchoTask) };
+                    if run_continuation(task, callback).is_err() {
+                        task.fail(crate::EchoError::InvalidCallable);
+                    }
+                }
             }
         }
     });
@@ -101,9 +125,66 @@ fn run_task(task: &EchoTask) -> Result<(), TaskExecuteError> {
         return Err(TaskExecuteError::MissingCallback);
     };
 
-    let value = unsafe { callback() };
-    task.finish(value);
+    let value = with_current_task(task, callback);
+    if !value.is_pending() {
+        task.finish(value);
+    }
     Ok(())
+}
+
+fn run_continuation(task: &EchoTask, callback: EchoTaskCallback) -> Result<(), TaskExecuteError> {
+    task.wake().map_err(|_| TaskExecuteError::InvalidState)?;
+    task.run().map_err(|_| TaskExecuteError::InvalidState)?;
+
+    let value = with_current_task(task, callback);
+    if !value.is_pending() {
+        task.finish(value);
+    }
+    Ok(())
+}
+
+fn with_current_task(task: &EchoTask, callback: EchoTaskCallback) -> crate::EchoValue {
+    CURRENT_TASK.with(|current| *current.borrow_mut() = Some(task as *const EchoTask as usize));
+    let value = unsafe { callback() };
+    CURRENT_TASK.with(|current| *current.borrow_mut() = None);
+    value
+}
+
+pub fn sleep_current_task(millis: i64, continuation: Option<EchoTaskCallback>) -> bool {
+    if millis <= 0 {
+        return false;
+    }
+
+    let Some(callback) = continuation else {
+        return false;
+    };
+
+    let Some(task) = CURRENT_TASK.with(|current| *current.borrow()) else {
+        return false;
+    };
+    let Some(worker) = CURRENT_WORKER.with(|current| current.borrow().clone()) else {
+        return false;
+    };
+
+    let task_ref = unsafe { &*(task as *const EchoTask) };
+    if task_ref
+        .wait(WaitReason::TimerMillis(millis as u64))
+        .is_err()
+    {
+        return false;
+    }
+
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(millis as u64));
+        worker
+            .runnable
+            .lock()
+            .expect("event loop runnable queue poisoned")
+            .push_back(RunnableWork::Continuation { task, callback });
+        worker.wake.notify_one();
+    });
+
+    true
 }
 
 #[derive(Default)]

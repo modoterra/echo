@@ -174,6 +174,17 @@ Meaning:
 - If called inside an Echo task, suspend the current task rather than blocking the event-loop worker.
 - If called at top level, v1 may drive the runtime until completion.
 
+## Current Timer Slice
+
+The current implementation supports a first cooperative timer path for generated `run { ... }` / `defer { ... }` callbacks whose first statement is `time.sleep(<millis>)`:
+
+1. The generated task callback calls `echo_task_sleep_current(millis, continuation)`.
+2. The task enters `Waiting(WaitReason::TimerMillis(millis))` and returns a pending sentinel instead of finishing.
+3. The lazy event-loop worker schedules the continuation after the timer expires.
+4. `join` blocks on task completion; it does not run queued task work itself.
+
+This is a bridge toward stackful fiber suspension. It intentionally does not yet capture arbitrary locals across a sleep point or suspend from the middle of arbitrary userland call stacks.
+
 ## AST Direction
 
 Add explicit expression forms for these constructs:

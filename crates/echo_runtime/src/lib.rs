@@ -71,6 +71,7 @@ const ECHO_VALUE_INT: i32 = 2;
 const ECHO_VALUE_STRING: i32 = 3;
 const ECHO_VALUE_ARRAY: i32 = 4;
 const ECHO_VALUE_TASK: i32 = 5;
+const ECHO_VALUE_PENDING: i32 = 6;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 
@@ -129,6 +130,13 @@ impl EchoValue {
         }
     }
 
+    pub const fn pending() -> Self {
+        Self {
+            kind: ECHO_VALUE_PENDING,
+            payload: 0,
+        }
+    }
+
     fn string_bytes(self) -> Option<Vec<u8>> {
         match self.kind {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
@@ -161,6 +169,10 @@ impl EchoValue {
 
     pub const fn is_task(self) -> bool {
         self.kind == ECHO_VALUE_TASK
+    }
+
+    pub const fn is_pending(self) -> bool {
+        self.kind == ECHO_VALUE_PENDING
     }
 
     fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
@@ -447,6 +459,19 @@ pub extern "C" fn echo_time_sleep(millis: i64) {
     }
 
     std::thread::sleep(Duration::from_millis(millis as u64));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_sleep_current(
+    millis: i64,
+    continuation: Option<task::EchoTaskCallback>,
+) -> EchoValue {
+    if sched::sleep_current_task(millis, continuation) {
+        EchoValue::pending()
+    } else {
+        echo_time_sleep(millis);
+        EchoValue::null()
+    }
 }
 
 #[unsafe(no_mangle)]

@@ -1,0 +1,14 @@
+from std use time
+
+$first = run {
+    time.sleep(100)
+    echo "first\n"
+}
+
+$second = run {
+    time.sleep(50)
+    echo "second\n"
+}
+
+echo join $first
+echo join $second

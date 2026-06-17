@@ -565,19 +565,70 @@ impl IrModule {
         let saved_returned = self.returned;
         self.returned = false;
 
+        let sleep = statements.first().and_then(task_sleep_millis);
+
         let mut body = String::new();
-        for statement in statements {
-            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
-                self.aliases = saved_aliases;
-                self.locals = saved_locals;
-                self.returned = saved_returned;
-                return Err(diagnostic);
+        if let Some(millis) = sleep {
+            let continuation =
+                self.render_defer_continuation_function(&function, &statements[1..])?;
+            body.push_str(&format!(
+                "  %runtime_call_{} = call %EchoValue @{}(i64 {millis}, ptr @{continuation})\n",
+                self.next_call_id,
+                CoreRuntimeSymbol::TaskSleepCurrent.symbol()
+            ));
+            self.next_call_id += 1;
+            body.push_str(&format!(
+                "  ret %EchoValue %runtime_call_{}\n",
+                self.next_call_id - 1
+            ));
+            self.returned = true;
+        } else {
+            for statement in statements {
+                if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+                    self.aliases = saved_aliases;
+                    self.locals = saved_locals;
+                    self.returned = saved_returned;
+                    return Err(diagnostic);
+                }
             }
         }
 
         let returned = self.returned;
         self.aliases = saved_aliases;
         self.locals = saved_locals;
+        self.returned = saved_returned;
+
+        self.functions_ir.push_str(&format!(
+            "define %EchoValue @{function}() {{\nentry:\n{}{}\n}}\n",
+            body,
+            if returned {
+                "".to_string()
+            } else {
+                "  ret %EchoValue { i32 0, i64 0 }".to_string()
+            }
+        ));
+
+        Ok(function)
+    }
+
+    fn render_defer_continuation_function(
+        &mut self,
+        parent: &str,
+        statements: &[Stmt],
+    ) -> Result<String, Diagnostic> {
+        let function = format!("{parent}_cont");
+        let saved_returned = self.returned;
+        self.returned = false;
+
+        let mut body = String::new();
+        for statement in statements {
+            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+                self.returned = saved_returned;
+                return Err(diagnostic);
+            }
+        }
+
+        let returned = self.returned;
         self.returned = saved_returned;
 
         self.functions_ir.push_str(&format!(
@@ -786,6 +837,20 @@ fn runtime_declarations() -> String {
 
 fn userland_function_symbol(name: &str) -> String {
     format!("echo_user_{name}")
+}
+
+fn task_sleep_millis(statement: &Stmt) -> Option<i64> {
+    let Stmt::FunctionCall(statement) = statement else {
+        return None;
+    };
+    if statement.name != "time.sleep" {
+        return None;
+    }
+    let [Expr::Number(expr)] = statement.args.as_slice() else {
+        return None;
+    };
+
+    expr.value.parse().ok()
 }
 
 fn llvm_string_literal(value: &str) -> String {
@@ -1075,6 +1140,48 @@ mod tests {
 
         assert!(ir.contains("declare void @echo_time_sleep(i64)"), "{ir}");
         assert!(ir.contains("call void @echo_time_sleep(i64 50)"), "{ir}");
+    }
+
+    #[test]
+    fn task_sleep_lowers_to_timer_continuation() {
+        let ir = compile_to_ir(&program(vec![Stmt::Assign(AssignStmt {
+            name: "task".to_string(),
+            value: Expr::Run(echo_ast::RunExpr::Block {
+                body: vec![
+                    Stmt::FunctionCall(FunctionCallStmt {
+                        name: "time.sleep".to_string(),
+                        args: vec![Expr::Number(echo_ast::NumberLiteral {
+                            value: "50".to_string(),
+                            span: Span::new(0, 2),
+                        })],
+                        span: Span::new(0, 14),
+                    }),
+                    Stmt::Echo(EchoStmt {
+                        exprs: vec![Expr::String(StringLiteral {
+                            value: "done\n".to_string(),
+                            span: Span::new(15, 22),
+                        })],
+                        span: Span::new(15, 28),
+                    }),
+                ],
+                span: Span::new(0, 28),
+            }),
+            span: Span::new(0, 28),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_task_sleep_current(i64, ptr)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("define %EchoValue @echo_defer_0_cont()"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_task_sleep_current(i64 50, ptr @echo_defer_0_cont)"),
+            "{ir}"
+        );
     }
 
     #[test]
