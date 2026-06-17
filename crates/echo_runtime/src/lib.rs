@@ -829,6 +829,74 @@ fn trim_bytes(bytes: &[u8], left: bool, right: bool) -> Vec<u8> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_addslashes(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let mut escaped = Vec::with_capacity(bytes.len());
+            for byte in bytes {
+                match byte {
+                    b'\'' | b'"' | b'\\' => {
+                        escaped.push(b'\\');
+                        escaped.push(byte);
+                    }
+                    b'\0' => escaped.extend_from_slice(b"\\0"),
+                    other => escaped.push(other),
+                }
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(escaped))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stripslashes(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let mut stripped = Vec::with_capacity(bytes.len());
+            let mut index = 0;
+
+            while index < bytes.len() {
+                if bytes[index] != b'\\' || index + 1 == bytes.len() {
+                    stripped.push(bytes[index]);
+                    index += 1;
+                    continue;
+                }
+
+                match bytes[index + 1] {
+                    b'0' => stripped.push(b'\0'),
+                    other => stripped.push(other),
+                }
+                index += 2;
+            }
+
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(stripped))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_quotemeta(value: EchoValue) -> EchoValue {
+    const META_BYTES: &[u8] = b".\\+*?[^]($)";
+
+    match value.string_bytes() {
+        Some(bytes) if bytes.is_empty() => EchoValue::bool(false),
+        Some(bytes) => {
+            let mut quoted = Vec::with_capacity(bytes.len());
+            for byte in bytes {
+                if META_BYTES.contains(&byte) {
+                    quoted.push(b'\\');
+                }
+                quoted.push(byte);
+            }
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(quoted))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_str_contains(haystack: EchoValue, needle: EchoValue) -> EchoValue {
     match (haystack.string_bytes(), needle.string_bytes()) {
         (Some(haystack), Some(needle)) => EchoValue::bool(contains_bytes(&haystack, &needle)),
@@ -1582,6 +1650,44 @@ mod tests {
             drop(Box::from_raw(empty));
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(first_utf8_byte));
+        }
+    }
+
+    #[test]
+    fn string_escape_builtins_preserve_php_byte_behavior() {
+        let quoted = Box::into_raw(Box::new(EchoString {
+            bytes: vec![b'A', b'\'', b'"', b'\\', b'B'],
+        }));
+        let slashed_zero = Box::into_raw(Box::new(EchoString {
+            bytes: b"\\0".to_vec(),
+        }));
+        let meta = Box::into_raw(Box::new(EchoString {
+            bytes: b".\\+*?[^]($)".to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_addslashes(EchoValue::string(quoted)).string_bytes(),
+            Some(b"A\\'\\\"\\\\B".to_vec())
+        );
+        assert_eq!(
+            echo_php_stripslashes(EchoValue::string(slashed_zero)).string_bytes(),
+            Some(vec![0])
+        );
+        assert_eq!(
+            echo_php_quotemeta(EchoValue::string(meta)).string_bytes(),
+            Some(b"\\.\\\\\\+\\*\\?\\[\\^\\]\\(\\$\\)".to_vec())
+        );
+        assert_eq!(
+            echo_php_quotemeta(EchoValue::string(empty)),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(quoted));
+            drop(Box::from_raw(slashed_zero));
+            drop(Box::from_raw(meta));
+            drop(Box::from_raw(empty));
         }
     }
 

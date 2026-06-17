@@ -1231,6 +1231,9 @@ mod tests {
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
             ("rtrim", "echo_php_rtrim"),
+            ("addslashes", "echo_php_addslashes"),
+            ("stripslashes", "echo_php_stripslashes"),
+            ("quotemeta", "echo_php_quotemeta"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {
