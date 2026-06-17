@@ -165,6 +165,9 @@ declare %EchoValue @echo_php_ord(%EchoValue)
 declare %EchoValue @echo_php_str_rot13(%EchoValue)
 declare %EchoValue @echo_php_chr(%EchoValue)
 declare %EchoValue @echo_php_bin2hex(%EchoValue)
+declare %EchoValue @echo_php_trim(%EchoValue)
+declare %EchoValue @echo_php_ltrim(%EchoValue)
+declare %EchoValue @echo_php_rtrim(%EchoValue)
 ```
 
 Core output behavior remains under `echo_*`:

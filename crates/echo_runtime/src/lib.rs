@@ -77,6 +77,8 @@ const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 
+const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
+
 impl EchoValue {
     pub const fn null() -> Self {
         Self {
@@ -778,6 +780,55 @@ pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_trim(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
+            &bytes, true, true,
+        ))))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ltrim(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
+            &bytes, true, false,
+        ))))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rtrim(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
+            &bytes, false, true,
+        ))))),
+        None => EchoValue::error(),
+    }
+}
+
+fn trim_bytes(bytes: &[u8], left: bool, right: bool) -> Vec<u8> {
+    let mut start = 0;
+    let mut end = bytes.len();
+
+    if left {
+        while start < end && PHP_DEFAULT_TRIM_BYTES.contains(&bytes[start]) {
+            start += 1;
+        }
+    }
+
+    if right {
+        while end > start && PHP_DEFAULT_TRIM_BYTES.contains(&bytes[end - 1]) {
+            end -= 1;
+        }
+    }
+
+    bytes[start..end].to_vec()
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
     if ptr.is_null() && len != 0 {
         return EchoValue::error();
@@ -1401,6 +1452,46 @@ mod tests {
         unsafe {
             drop(Box::from_raw(numeric));
             drop(Box::from_raw(text));
+            drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn trim_builtins_strip_default_php_ascii_whitespace() {
+        let trim = Box::into_raw(Box::new(EchoString {
+            bytes: "\t Echo \n".as_bytes().to_vec(),
+        }));
+        let ltrim = Box::into_raw(Box::new(EchoString {
+            bytes: "\t Echo \n".as_bytes().to_vec(),
+        }));
+        let rtrim = Box::into_raw(Box::new(EchoString {
+            bytes: "\t Echo \n".as_bytes().to_vec(),
+        }));
+        let non_ascii = Box::into_raw(Box::new(EchoString {
+            bytes: " Ä ".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_trim(EchoValue::string(trim)).string_bytes(),
+            Some("Echo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_ltrim(EchoValue::string(ltrim)).string_bytes(),
+            Some("Echo \n".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_rtrim(EchoValue::string(rtrim)).string_bytes(),
+            Some("\t Echo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_trim(EchoValue::string(non_ascii)).string_bytes(),
+            Some("Ä".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(trim));
+            drop(Box::from_raw(ltrim));
+            drop(Box::from_raw(rtrim));
             drop(Box::from_raw(non_ascii));
         }
     }

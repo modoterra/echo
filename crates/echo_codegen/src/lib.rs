@@ -1201,6 +1201,9 @@ mod tests {
             ("str_rot13", "echo_php_str_rot13"),
             ("chr", "echo_php_chr"),
             ("bin2hex", "echo_php_bin2hex"),
+            ("trim", "echo_php_trim"),
+            ("ltrim", "echo_php_ltrim"),
+            ("rtrim", "echo_php_rtrim"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {
