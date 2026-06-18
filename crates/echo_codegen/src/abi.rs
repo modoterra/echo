@@ -455,6 +455,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "array_is_list",
+        symbol: "echo_php_array_is_list",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "is_array",
         symbol: "echo_php_is_array",
         helper_symbol: None,
@@ -497,6 +505,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "is_bool",
         symbol: "echo_php_is_bool",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "is_callable",
+        symbol: "echo_php_is_callable",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
@@ -561,6 +577,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "is_nan",
         symbol: "echo_php_is_nan",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "is_object",
+        symbol: "echo_php_is_object",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "is_resource",
+        symbol: "echo_php_is_resource",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,

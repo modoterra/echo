@@ -306,6 +306,10 @@ impl EchoValue {
         self.kind == ECHO_VALUE_LIST
     }
 
+    pub const fn is_object(self) -> bool {
+        self.kind == ECHO_VALUE_OBJECT
+    }
+
     pub const fn is_task(self) -> bool {
         self.kind == ECHO_VALUE_TASK
     }
@@ -1101,6 +1105,15 @@ fn function_reflection_by_name_and_source(
         .cloned()
 }
 
+fn function_reflection_by_name(name: &str) -> Option<RuntimeFunctionReflection> {
+    function_reflections()
+        .lock()
+        .expect("function reflection registry should not be poisoned")
+        .iter()
+        .find(|function| function.name.eq_ignore_ascii_case(name))
+        .cloned()
+}
+
 fn function_reflections() -> &'static Mutex<Vec<RuntimeFunctionReflection>> {
     static FUNCTION_REFLECTIONS: OnceLock<Mutex<Vec<RuntimeFunctionReflection>>> = OnceLock::new();
     FUNCTION_REFLECTIONS.get_or_init(|| Mutex::new(Vec::new()))
@@ -1119,6 +1132,11 @@ fn runtime_utf8_arg(ptr: *const u8, len: usize) -> Option<String> {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_is_list(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_array())
 }
 
@@ -1157,6 +1175,22 @@ pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_callable(value: EchoValue) -> EchoValue {
+    if value.kind != ECHO_VALUE_STRING {
+        return EchoValue::bool(false);
+    }
+
+    let Some(string) = (unsafe { (value.payload as *const EchoString).as_ref() }) else {
+        return EchoValue::bool(false);
+    };
+
+    match std::str::from_utf8(&string.bytes) {
+        Ok(name) => EchoValue::bool(function_reflection_by_name(name).is_some()),
+        Err(_) => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_int())
 }
@@ -1188,6 +1222,19 @@ pub extern "C" fn echo_php_is_nan(value: EchoValue) -> EchoValue {
         Some(value) => EchoValue::bool(value.is_nan()),
         None => EchoValue::error(),
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_object(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_object())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_resource(value: EchoValue) -> EchoValue {
+    EchoValue::bool(matches!(
+        value.kind,
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION
+    ))
 }
 
 #[unsafe(no_mangle)]
@@ -4735,6 +4782,86 @@ mod tests {
     }
 
     #[test]
+    fn is_object_reports_only_object_values() {
+        let object = Box::into_raw(Box::new(EchoObject { fields: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let list = Box::into_raw(Box::new(EchoList { values: Vec::new() }));
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: b"value".to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_is_object(EchoValue::object(object)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_object(EchoValue::array(array)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_object(EchoValue::list(list)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_object(EchoValue::string(string)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_object(EchoValue::int(42)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_object(EchoValue::bool(true)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_object(EchoValue::null()),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(object));
+            drop(Box::from_raw(array));
+            drop(Box::from_raw(list));
+            drop(Box::from_raw(string));
+        }
+    }
+
+    #[test]
+    fn is_resource_reports_runtime_resource_handles() {
+        let listener = Box::into_raw(Box::new(net::listen("127.0.0.1:0").expect("listen")));
+        let object = Box::into_raw(Box::new(EchoObject { fields: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_resource(EchoValue::tcp_listener(listener)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_resource(EchoValue::object(object)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_resource(EchoValue::array(array)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_resource(EchoValue::int(42)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_resource(EchoValue::null()),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(listener));
+            drop(Box::from_raw(object));
+            drop(Box::from_raw(array));
+        }
+    }
+
+    #[test]
     fn gettype_returns_php_type_names_for_current_values() {
         let string = Box::into_raw(Box::new(EchoString {
             bytes: b"abc".to_vec(),
@@ -4873,6 +5000,72 @@ mod tests {
             drop(Box::from_raw(alias));
             drop(Box::from_raw(construct));
             drop(Box::from_raw(missing));
+        }
+    }
+
+    #[test]
+    fn is_callable_reports_registered_function_names() {
+        unsafe {
+            register_reflection_for_test(
+                "fixture_callable_builtin",
+                "",
+                "",
+                REFLECTION_SOURCE_PHP_BUILTIN,
+            );
+            register_reflection_for_test("fixture_callable_userland", "", "", 0);
+        }
+
+        let builtin = Box::into_raw(Box::new(EchoString {
+            bytes: b"fixture_callable_builtin".to_vec(),
+        }));
+        let uppercase = Box::into_raw(Box::new(EchoString {
+            bytes: b"FIXTURE_CALLABLE_BUILTIN".to_vec(),
+        }));
+        let userland = Box::into_raw(Box::new(EchoString {
+            bytes: b"fixture_callable_userland".to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: b"definitely_missing_callable".to_vec(),
+        }));
+        let non_utf8 = Box::into_raw(Box::new(EchoString { bytes: vec![0xff] }));
+        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_callable(EchoValue::string(builtin)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_callable(EchoValue::string(uppercase)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_callable(EchoValue::string(userland)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_callable(EchoValue::string(missing)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_callable(EchoValue::string(non_utf8)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_callable(EchoValue::array(array)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_callable(EchoValue::null()),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(builtin));
+            drop(Box::from_raw(uppercase));
+            drop(Box::from_raw(userland));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(non_utf8));
+            drop(Box::from_raw(array));
         }
     }
 
