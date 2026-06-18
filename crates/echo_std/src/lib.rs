@@ -180,6 +180,13 @@ pub const INTRINSICS: &[IntrinsicBinding] = &[
         intrinsic: "std.reflect.return_type",
         abi_symbol: "echo_std_reflect_return_type",
     },
+    IntrinsicBinding {
+        owner: "std.reflect",
+        method: "typeOf",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.reflect.type_of",
+        abi_symbol: "echo_std_reflect_type_of",
+    },
 ];
 
 pub fn library_name() -> &'static str {
@@ -247,6 +254,7 @@ mod tests {
         assert!(module.source.contains("namespace std reflect"));
         assert!(module.source.contains("intrinsic function params"));
         assert!(module.source.contains("intrinsic function returnType"));
+        assert!(module.source.contains("intrinsic function typeOf"));
     }
 
     #[test]
@@ -325,6 +333,13 @@ mod tests {
             receiver: IntrinsicReceiver::Static,
             intrinsic: "std.reflect.return_type",
             abi_symbol: "echo_std_reflect_return_type",
+        }));
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.reflect",
+            method: "typeOf",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.reflect.type_of",
+            abi_symbol: "echo_std_reflect_type_of",
         }));
     }
 }

@@ -3,3 +3,4 @@ namespace std reflect
 intrinsic function exists(string $name): bool
 intrinsic function params(string $name): string
 intrinsic function returnType(string $name): string
+intrinsic function typeOf(mixed $value): string

@@ -2,7 +2,10 @@ from std use reflect
 
 echo "strlen signature:[" . reflect.params("strlen") . "):" . reflect.returnType("strlen") . "]\n"
 echo "strlen result:[" . strlen("abc") . "]\n"
+echo "strlen type:[" . reflect.typeOf(strlen("abc")) . "]\n"
 echo "strtoupper signature:[" . reflect.params("strtoupper") . "):" . reflect.returnType("strtoupper") . "]\n"
 echo "strtoupper result:[" . strtoupper("Echo") . "]\n"
+echo "strtoupper type:[" . reflect.typeOf(strtoupper("Echo")) . "]\n"
 echo "function_exists reflected:[" . reflect.exists("function_exists") . "]\n"
 echo "function_exists result:[" . function_exists("strlen") . "]\n"
+echo "function_exists type:[" . reflect.typeOf(function_exists("strlen")) . "]\n"

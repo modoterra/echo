@@ -760,6 +760,25 @@ pub extern "C" fn echo_std_reflect_return_type(name: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
+    let type_name = match value.kind {
+        ECHO_VALUE_NULL => b"null".as_slice(),
+        ECHO_VALUE_BOOL => b"bool".as_slice(),
+        ECHO_VALUE_INT => b"int".as_slice(),
+        ECHO_VALUE_STRING => b"string".as_slice(),
+        ECHO_VALUE_ARRAY => b"array".as_slice(),
+        ECHO_VALUE_TASK => b"task".as_slice(),
+        ECHO_VALUE_PENDING => b"pending".as_slice(),
+        ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
+        ECHO_VALUE_TCP_CONNECTION => b"TcpConnection".as_slice(),
+        ECHO_VALUE_OBJECT => b"object".as_slice(),
+        _ => b"unknown".as_slice(),
+    };
+
+    echo_runtime_string(type_name.to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_std_http_read_request(connection: EchoValue) -> EchoValue {
     if connection.kind != ECHO_VALUE_TCP_CONNECTION {
         return EchoValue::error();
@@ -4362,6 +4381,40 @@ mod tests {
             drop(Box::from_raw(alias));
             drop(Box::from_raw(construct));
             drop(Box::from_raw(missing));
+        }
+    }
+
+    #[test]
+    fn reflect_type_of_reports_runtime_value_categories() {
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: b"text".to_vec(),
+        }));
+        let list = Box::into_raw(Box::new(EchoList { values: Vec::new() }));
+
+        assert_eq!(
+            echo_std_reflect_type_of(EchoValue::null()).string_bytes(),
+            Some(b"null".to_vec())
+        );
+        assert_eq!(
+            echo_std_reflect_type_of(EchoValue::bool(true)).string_bytes(),
+            Some(b"bool".to_vec())
+        );
+        assert_eq!(
+            echo_std_reflect_type_of(EchoValue::int(42)).string_bytes(),
+            Some(b"int".to_vec())
+        );
+        assert_eq!(
+            echo_std_reflect_type_of(EchoValue::string(string)).string_bytes(),
+            Some(b"string".to_vec())
+        );
+        assert_eq!(
+            echo_std_reflect_type_of(EchoValue::list(list)).string_bytes(),
+            Some(b"array".to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(string));
+            drop(Box::from_raw(list));
         }
     }
 

@@ -242,6 +242,12 @@ pub const STD_INTRINSICS: &[StdIntrinsic] = &[
         signature: RuntimeSignature::EchoValueEchoValue,
         arity: 1,
     },
+    StdIntrinsic {
+        echo_name: "reflect.typeOf",
+        symbol: "echo_std_reflect_type_of",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
 ];
 
 pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {

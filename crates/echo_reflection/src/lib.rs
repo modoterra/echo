@@ -184,6 +184,10 @@ mod tests {
         assert_eq!(params.params_signature(), "string $name");
         assert_eq!(params.return_type_signature(), "string");
         assert!(params.is_intrinsic);
+
+        let type_of = function("reflect.typeOf").expect("reflect.typeOf reflected");
+        assert_eq!(type_of.params_signature(), "mixed $value");
+        assert_eq!(type_of.return_type_signature(), "string");
     }
 
     #[test]

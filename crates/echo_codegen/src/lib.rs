@@ -2296,6 +2296,17 @@ mod tests {
                 })],
                 span: Span::new(28, 55),
             }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "reflect.typeOf".to_string(),
+                    args: vec![Expr::Number(NumberLiteral {
+                        value: "1".to_string(),
+                        span: Span::new(72, 73),
+                    })],
+                    span: Span::new(56, 74),
+                })],
+                span: Span::new(56, 74),
+            }),
         ]))
         .expect("IR");
 
@@ -2308,6 +2319,10 @@ mod tests {
             "{ir}"
         );
         assert!(
+            ir.contains("declare %EchoValue @echo_std_reflect_type_of(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
             ir.contains("call %EchoValue @echo_std_reflect_params(%EchoValue %runtime_call_0)"),
             "{ir}"
         );
@@ -2315,6 +2330,10 @@ mod tests {
             ir.contains(
                 "call %EchoValue @echo_std_reflect_return_type(%EchoValue %runtime_call_2)"
             ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_std_reflect_type_of(%EchoValue { i32 2, i64 1 })"),
             "{ir}"
         );
     }

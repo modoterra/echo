@@ -104,11 +104,14 @@ namespace std reflect
 intrinsic function exists(string $name): bool
 intrinsic function params(string $name): string
 intrinsic function returnType(string $name): string
+intrinsic function typeOf(mixed $value): string
 ```
 
 `params()` returns the supported PHP parameter list as a string and
 `returnType()` returns the supported PHP return type string. Unknown names
 return `false` from `exists()` and an empty string from the string accessors.
+`typeOf()` reflects the runtime category of an Echo value, such as `null`,
+`bool`, `int`, `string`, `array`, `task`, resource-like std values, or `object`.
 The reflection data is derived from trusted Echo declarations in
 PHP builtin reflection data is derived from trusted Echo declarations in
 `std/php_builtins.echo`; Echo std function reflection is derived from the

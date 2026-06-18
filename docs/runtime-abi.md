@@ -157,6 +157,7 @@ Current Echo stdlib PHP reflection intrinsics use unary `%EchoValue` calls:
 declare %EchoValue @echo_std_reflect_exists(%EchoValue)
 declare %EchoValue @echo_std_reflect_params(%EchoValue)
 declare %EchoValue @echo_std_reflect_return_type(%EchoValue)
+declare %EchoValue @echo_std_reflect_type_of(%EchoValue)
 ```
 
 Current PHP-facing string builtins use unary `%EchoValue` calls so PHP scalar coercion
