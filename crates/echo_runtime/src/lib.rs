@@ -1674,6 +1674,14 @@ pub extern "C" fn echo_php_is_file(filename: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_link(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_is_link(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
 #[cfg(unix)]
 fn path_exists(bytes: &[u8]) -> bool {
     Path::new(OsStr::from_bytes(bytes)).exists()
@@ -1707,6 +1715,22 @@ fn path_is_file(bytes: &[u8]) -> bool {
 fn path_is_file(bytes: &[u8]) -> bool {
     std::str::from_utf8(bytes)
         .map(|path| Path::new(path).is_file())
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn path_is_link(bytes: &[u8]) -> bool {
+    std::fs::symlink_metadata(Path::new(OsStr::from_bytes(bytes)))
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn path_is_link(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|path| std::fs::symlink_metadata(Path::new(path)).ok())
+        .map(|metadata| metadata.file_type().is_symlink())
         .unwrap_or(false)
 }
 
@@ -3711,6 +3735,59 @@ mod tests {
             drop(Box::from_raw(missing));
             drop(Box::from_raw(empty));
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn is_link_reports_only_existing_symbolic_links() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("echo-runtime-is-link-{}", std::process::id()));
+        let target_path = temp_dir.join("target.txt");
+        let link_path = temp_dir.join("linked-target.txt");
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+        std::fs::write(&target_path, b"target").expect("write symlink target");
+        std::os::unix::fs::symlink(&target_path, &link_path).expect("create symlink");
+
+        let target = Box::into_raw(Box::new(EchoString {
+            bytes: target_path.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let link = Box::into_raw(Box::new(EchoString {
+            bytes: link_path.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: temp_dir
+                .join("definitely_missing_echo_link")
+                .to_string_lossy()
+                .as_bytes()
+                .to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_link(EchoValue::string(target)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_link(EchoValue::string(link)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_link(EchoValue::string(missing)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_link(EchoValue::string(empty)),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(target));
+            drop(Box::from_raw(link));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(empty));
+        }
+        std::fs::remove_dir_all(&temp_dir).ok();
     }
 
     #[test]

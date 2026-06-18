@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 89 | 518 |
-| Loaded local PHP internals, including extensions | 1516 | 89 | 1427 |
+| Baseline (`Core` + `standard`) | 607 | 90 | 517 |
+| Loaded local PHP internals, including extensions | 1516 | 90 | 1426 |
 
 ## Baseline Functions
 
@@ -356,7 +356,7 @@ explicitly promote one.
 | `is_int` | implemented | Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_integer` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_iterable` | implemented | Supports arrays; Traversable objects deferred. Source: https://www.php.net/manual/en/function.is-iterable.php |
-| `is_link` | missing |  |
+| `is_link` | implemented | Checks local filesystem paths and returns true only for existing symbolic links; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-link.php |
 | `is_long` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_nan` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-nan.php |
 | `is_null` | implemented | Source: https://www.php.net/manual/en/function.is-null.php |

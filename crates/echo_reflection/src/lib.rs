@@ -201,6 +201,7 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("file_exists", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("is_dir", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("is_file", &[("filename", Some("string"))], Some("bool")),
+        php_builtin_reflection("is_link", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("trim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("ltrim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("rtrim", &[("string", Some("string"))], Some("string")),

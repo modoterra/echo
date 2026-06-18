@@ -34,7 +34,7 @@ fn piped_repl_prints_bare_expression_results() {
 #[test]
 fn piped_repl_prints_bare_function_call_results() {
     let output = repl_output(
-        b"abs(-7)\nbasename(\"/etc/passwd\")\ndirname(\"/etc/passwd\")\ndechex(47)\ndecbin(26)\ndecoct(264)\nescapeshellarg(\"a b\")\nescapeshellcmd(\"a;b\")\ncount(explode(\",\", \"a,b\"))\nfile_exists(\"Cargo.toml\")\nis_dir(\".\")\nis_file(\"Cargo.toml\")\nis_float(42)\nis_double(\"4.2\")\nfunction_exists(\"is_float\")\nis_finite(42)\nis_finite(\"1e9999\")\nis_infinite(\"1e9999\")\nis_nan(\"1e9999\")\nis_object({ test: 5 })\nfunction_exists(\"is_object\")\narray_is_list([1, 2])\nfunction_exists(\"is_resource\")\nis_callable(\"strlen\")\n:quit\n",
+        b"abs(-7)\nbasename(\"/etc/passwd\")\ndirname(\"/etc/passwd\")\ndechex(47)\ndecbin(26)\ndecoct(264)\nescapeshellarg(\"a b\")\nescapeshellcmd(\"a;b\")\ncount(explode(\",\", \"a,b\"))\nfile_exists(\"Cargo.toml\")\nis_dir(\".\")\nis_file(\"Cargo.toml\")\nis_link(\"/proc/self/exe\")\nis_float(42)\nis_double(\"4.2\")\nfunction_exists(\"is_float\")\nis_finite(42)\nis_finite(\"1e9999\")\nis_infinite(\"1e9999\")\nis_nan(\"1e9999\")\nis_object({ test: 5 })\nfunction_exists(\"is_object\")\narray_is_list([1, 2])\nfunction_exists(\"is_resource\")\nis_callable(\"strlen\")\n:quit\n",
     );
 
     assert!(
@@ -45,7 +45,7 @@ fn piped_repl_prints_bare_function_call_results() {
     );
     assert_eq!(
         output.stdout,
-        b"7passwd/etc2f11010410'a b'a\\;b211111111111"
+        b"7passwd/etc2f11010410'a b'a\\;b2111111111111"
     );
 }
 
