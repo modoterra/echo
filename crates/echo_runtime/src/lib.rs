@@ -902,6 +902,20 @@ pub extern "C" fn echo_php_is_null(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_numeric(value: EchoValue) -> EchoValue {
+    let is_numeric = match value.kind {
+        ECHO_VALUE_INT => true,
+        ECHO_VALUE_STRING => unsafe {
+            (value.payload as *const EchoString)
+                .as_ref()
+                .is_some_and(|value| is_php_numeric_string(&value.bytes))
+        },
+        _ => false,
+    };
+    EchoValue::bool(is_numeric)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_bool())
 }
@@ -1290,6 +1304,59 @@ fn parse_php_decimal_int(bytes: &[u8]) -> i64 {
     } else {
         value
     }
+}
+
+fn is_php_numeric_string(bytes: &[u8]) -> bool {
+    let bytes = trim_ascii(bytes);
+    if bytes.is_empty() {
+        return false;
+    }
+
+    let mut index = match bytes.first().copied() {
+        Some(b'-' | b'+') => 1,
+        _ => 0,
+    };
+
+    let integer_digits = consume_ascii_digits(bytes, &mut index);
+    let fraction_digits = if bytes.get(index) == Some(&b'.') {
+        index += 1;
+        consume_ascii_digits(bytes, &mut index)
+    } else {
+        0
+    };
+
+    if integer_digits + fraction_digits == 0 {
+        return false;
+    }
+
+    if matches!(bytes.get(index), Some(b'e' | b'E')) {
+        index += 1;
+        if matches!(bytes.get(index), Some(b'-' | b'+')) {
+            index += 1;
+        }
+        if consume_ascii_digits(bytes, &mut index) == 0 {
+            return false;
+        }
+    }
+
+    index == bytes.len()
+}
+
+fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
+    let start = *index;
+    while bytes.get(*index).is_some_and(u8::is_ascii_digit) {
+        *index += 1;
+    }
+    *index - start
+}
+
+fn trim_ascii(bytes: &[u8]) -> &[u8] {
+    let bytes = trim_ascii_start(bytes);
+    let end = bytes
+        .iter()
+        .rposition(|byte| !byte.is_ascii_whitespace())
+        .map_or(0, |index| index + 1);
+    &bytes[..end]
 }
 
 fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
@@ -4097,6 +4164,56 @@ mod tests {
             drop(Box::from_raw(ltrim));
             drop(Box::from_raw(rtrim));
             drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn is_numeric_preserves_php_numeric_string_rules() {
+        let numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b" 1337e0 ".to_vec(),
+        }));
+        let decimal = Box::into_raw(Box::new(EchoString {
+            bytes: b"4.2".to_vec(),
+        }));
+        let hex_prefixed = Box::into_raw(Box::new(EchoString {
+            bytes: b"0x539".to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::int(42)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::string(numeric)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::string(decimal)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::string(hex_prefixed)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::string(empty)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::bool(true)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_numeric(EchoValue::null()),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(numeric));
+            drop(Box::from_raw(decimal));
+            drop(Box::from_raw(hex_prefixed));
+            drop(Box::from_raw(empty));
         }
     }
 

@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 63 | 544 |
-| Loaded local PHP internals, including extensions | 1516 | 63 | 1453 |
+| Baseline (`Core` + `standard`) | 607 | 64 | 543 |
+| Loaded local PHP internals, including extensions | 1516 | 64 | 1452 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (60/545)
+### standard (61/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -360,7 +360,7 @@ explicitly promote one.
 | `is_long` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_nan` | missing |  |
 | `is_null` | implemented | Source: https://www.php.net/manual/en/function.is-null.php |
-| `is_numeric` | missing |  |
+| `is_numeric` | implemented | Supports Echo integers and PHP numeric strings, including decimal/exponent forms and ASCII edge whitespace. Source: https://www.php.net/manual/en/function.is-numeric.php |
 | `is_object` | missing |  |
 | `is_readable` | missing |  |
 | `is_resource` | missing |  |
