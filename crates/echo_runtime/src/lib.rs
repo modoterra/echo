@@ -1517,6 +1517,59 @@ fn escape_shell_arg_unix(bytes: &[u8]) -> Vec<u8> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_escapeshellcmd(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            escape_shell_cmd_unix(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+fn escape_shell_cmd_unix(bytes: &[u8]) -> Vec<u8> {
+    let single_quotes_unpaired = bytes.iter().filter(|byte| **byte == b'\'').count() % 2 == 1;
+    let double_quotes_unpaired = bytes.iter().filter(|byte| **byte == b'"').count() % 2 == 1;
+    let mut escaped = Vec::with_capacity(bytes.len());
+
+    for byte in bytes {
+        if shell_cmd_byte_needs_escape(*byte)
+            || (*byte == b'\'' && single_quotes_unpaired)
+            || (*byte == b'"' && double_quotes_unpaired)
+        {
+            escaped.push(b'\\');
+        }
+        escaped.push(*byte);
+    }
+
+    escaped
+}
+
+fn shell_cmd_byte_needs_escape(byte: u8) -> bool {
+    matches!(
+        byte,
+        b'#' | b'&'
+            | b';'
+            | b'`'
+            | b'|'
+            | b'*'
+            | b'?'
+            | b'~'
+            | b'<'
+            | b'>'
+            | b'^'
+            | b'('
+            | b')'
+            | b'['
+            | b']'
+            | b'{'
+            | b'}'
+            | b'$'
+            | b'\\'
+            | b'\n'
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_basename(path: EchoValue, suffix: EchoValue) -> EchoValue {
     let Some(path) = path.string_bytes() else {
         return EchoValue::error();
@@ -3252,6 +3305,68 @@ mod tests {
             drop(Box::from_raw(numeric));
             drop(Box::from_raw(text));
             drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn escapeshellcmd_preserves_php_unix_shell_meta_escaping() {
+        fn string_value(bytes: &[u8]) -> *mut EchoString {
+            Box::into_raw(Box::new(EchoString {
+                bytes: bytes.to_vec(),
+            }))
+        }
+
+        let semicolon = string_value(b"path; rm -rf /");
+        let paired_double = string_value(b"echo \"ok\"");
+        let unpaired_double = string_value(b"echo \"unterminated");
+        let paired_single = string_value(b"echo 'ok'");
+        let unpaired_single = string_value(b"echo 'unterminated");
+        let newline = string_value(b"line\nbreak");
+        let slash = string_value(b"a\\b");
+        let dollar = string_value(b"a$b");
+
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(semicolon)).string_bytes(),
+            Some(b"path\\; rm -rf /".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(paired_double)).string_bytes(),
+            Some(b"echo \"ok\"".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(unpaired_double)).string_bytes(),
+            Some(b"echo \\\"unterminated".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(paired_single)).string_bytes(),
+            Some(b"echo 'ok'".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(unpaired_single)).string_bytes(),
+            Some(b"echo \\'unterminated".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(newline)).string_bytes(),
+            Some(b"line\\\nbreak".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(slash)).string_bytes(),
+            Some(b"a\\\\b".to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellcmd(EchoValue::string(dollar)).string_bytes(),
+            Some(b"a\\$b".to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(semicolon));
+            drop(Box::from_raw(paired_double));
+            drop(Box::from_raw(unpaired_double));
+            drop(Box::from_raw(paired_single));
+            drop(Box::from_raw(unpaired_single));
+            drop(Box::from_raw(newline));
+            drop(Box::from_raw(slash));
+            drop(Box::from_raw(dollar));
         }
     }
 

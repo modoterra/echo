@@ -184,6 +184,11 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string|false"),
         ),
         php_builtin_reflection("escapeshellarg", &[("arg", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "escapeshellcmd",
+            &[("command", Some("string"))],
+            Some("string"),
+        ),
         php_builtin_reflection("trim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("ltrim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("rtrim", &[("string", Some("string"))], Some("string")),

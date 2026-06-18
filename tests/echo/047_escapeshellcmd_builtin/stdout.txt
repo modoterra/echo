@@ -1,0 +1,7 @@
+plain:[ls -la]
+semicolon:[path\; rm -rf /]
+ampersand:[foo \& bar]
+paired-single:[echo 'ok']
+unpaired-single:[echo \'unterminated]
+dollar:[a\$b]
+exists:[1]
