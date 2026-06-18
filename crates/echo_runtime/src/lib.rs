@@ -1168,8 +1168,24 @@ pub extern "C" fn echo_php_is_float(_value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_finite(value: EchoValue) -> EchoValue {
-    match finite_php_float_coercion(value) {
-        Some(is_finite) => EchoValue::bool(is_finite),
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::bool(value.is_finite()),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_infinite(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::bool(value.is_infinite()),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_nan(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::bool(value.is_nan()),
         None => EchoValue::error(),
     }
 }
@@ -1591,17 +1607,18 @@ fn is_php_numeric_string(bytes: &[u8]) -> bool {
     index == bytes.len()
 }
 
-fn finite_php_float_coercion(value: EchoValue) -> Option<bool> {
+fn php_float_coercion(value: EchoValue) -> Option<f64> {
     match value.kind {
-        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(true),
-        ECHO_VALUE_BOOL | ECHO_VALUE_INT => Some(true),
+        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0.0),
+        ECHO_VALUE_BOOL => Some(if value.payload == 0 { 0.0 } else { 1.0 }),
+        ECHO_VALUE_INT => Some(value.payload as i64 as f64),
         ECHO_VALUE_STRING => unsafe {
             let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
             let text = std::str::from_utf8(trim_ascii(bytes)).ok()?;
             if text.is_empty() {
                 return None;
             }
-            Some(text.parse::<f64>().ok()?.is_finite())
+            text.parse::<f64>().ok()
         },
         _ => None,
     }
@@ -4609,6 +4626,105 @@ mod tests {
             echo_php_is_finite(EchoValue::array(array)),
             EchoValue::error()
         );
+
+        unsafe {
+            drop(Box::from_raw(finite_numeric));
+            drop(Box::from_raw(infinite_numeric));
+            drop(Box::from_raw(non_numeric));
+            drop(Box::from_raw(array));
+        }
+    }
+
+    #[test]
+    fn is_infinite_preserves_php_float_coercion_for_current_values() {
+        let finite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b" 4.2 ".to_vec(),
+        }));
+        let infinite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"1e9999".to_vec(),
+        }));
+        let negative_infinite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"-1e9999".to_vec(),
+        }));
+        let non_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"not numeric".to_vec(),
+        }));
+        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::int(42)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::bool(true)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::null()),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::string(finite_numeric)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::string(infinite_numeric)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::string(negative_infinite_numeric)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::string(non_numeric)),
+            EchoValue::error()
+        );
+        assert_eq!(
+            echo_php_is_infinite(EchoValue::array(array)),
+            EchoValue::error()
+        );
+
+        unsafe {
+            drop(Box::from_raw(finite_numeric));
+            drop(Box::from_raw(infinite_numeric));
+            drop(Box::from_raw(negative_infinite_numeric));
+            drop(Box::from_raw(non_numeric));
+            drop(Box::from_raw(array));
+        }
+    }
+
+    #[test]
+    fn is_nan_preserves_php_float_coercion_for_current_values() {
+        let finite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b" 4.2 ".to_vec(),
+        }));
+        let infinite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"1e9999".to_vec(),
+        }));
+        let non_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"not numeric".to_vec(),
+        }));
+        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+
+        assert_eq!(echo_php_is_nan(EchoValue::int(42)), EchoValue::bool(false));
+        assert_eq!(
+            echo_php_is_nan(EchoValue::bool(true)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(echo_php_is_nan(EchoValue::null()), EchoValue::bool(false));
+        assert_eq!(
+            echo_php_is_nan(EchoValue::string(finite_numeric)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_nan(EchoValue::string(infinite_numeric)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_nan(EchoValue::string(non_numeric)),
+            EchoValue::error()
+        );
+        assert_eq!(echo_php_is_nan(EchoValue::array(array)), EchoValue::error());
 
         unsafe {
             drop(Box::from_raw(finite_numeric));

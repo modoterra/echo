@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 71 | 536 |
-| Loaded local PHP internals, including extensions | 1516 | 71 | 1445 |
+| Baseline (`Core` + `standard`) | 607 | 73 | 534 |
+| Loaded local PHP internals, including extensions | 1516 | 73 | 1443 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (65/545)
+### standard (67/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -352,13 +352,13 @@ explicitly promote one.
 | `is_file` | missing |  |
 | `is_finite` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-finite.php |
 | `is_float` | implemented | Echo has no float values yet, so this is false for all currently representable values. Source: https://www.php.net/manual/en/function.is-float.php |
-| `is_infinite` | missing |  |
+| `is_infinite` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-infinite.php |
 | `is_int` | implemented | Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_integer` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_iterable` | implemented | Supports arrays; Traversable objects deferred. Source: https://www.php.net/manual/en/function.is-iterable.php |
 | `is_link` | missing |  |
 | `is_long` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
-| `is_nan` | missing |  |
+| `is_nan` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-nan.php |
 | `is_null` | implemented | Source: https://www.php.net/manual/en/function.is-null.php |
 | `is_numeric` | implemented | Supports Echo integers and PHP numeric strings, including decimal/exponent forms and ASCII edge whitespace. Source: https://www.php.net/manual/en/function.is-numeric.php |
 | `is_object` | missing |  |

@@ -1,0 +1,6 @@
+echo "int:[" . is_infinite(42) . "]\n"
+echo "bool:[" . is_infinite(true) . "]\n"
+echo "null:[" . is_infinite(null) . "]\n"
+echo "numeric-string:[" . is_infinite(" 4.2 ") . "]\n"
+echo "overflow-string:[" . is_infinite("1e9999") . "]\n"
+echo "exists:[" . function_exists("is_infinite") . "]\n"

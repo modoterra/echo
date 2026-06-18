@@ -1,0 +1,6 @@
+echo "int:[" . is_nan(42) . "]\n"
+echo "bool:[" . is_nan(true) . "]\n"
+echo "null:[" . is_nan(null) . "]\n"
+echo "numeric-string:[" . is_nan(" 4.2 ") . "]\n"
+echo "overflow-string:[" . is_nan("1e9999") . "]\n"
+echo "exists:[" . function_exists("is_nan") . "]\n"

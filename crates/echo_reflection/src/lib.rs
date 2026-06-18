@@ -133,6 +133,8 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("is_float", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_double", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_finite", &[("num", Some("float"))], Some("bool")),
+        php_builtin_reflection("is_infinite", &[("num", Some("float"))], Some("bool")),
+        php_builtin_reflection("is_nan", &[("num", Some("float"))], Some("bool")),
         php_builtin_reflection("is_string", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_scalar", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("strval", &[("value", Some("mixed"))], Some("string")),
