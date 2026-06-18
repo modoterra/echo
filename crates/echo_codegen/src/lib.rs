@@ -62,6 +62,7 @@ struct IrModule {
     globals: String,
     functions_ir: String,
     aliases: HashMap<String, String>,
+    std_imports: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
     functions: HashMap<String, FunctionDeclStmt>,
     returned: bool,
@@ -81,6 +82,7 @@ impl IrModule {
             globals: String::new(),
             functions_ir: String::new(),
             aliases: HashMap::new(),
+            std_imports: HashMap::new(),
             locals: HashMap::new(),
             functions: HashMap::new(),
             returned: false,
@@ -101,7 +103,7 @@ impl IrModule {
 
         for statement in &program.statements {
             if let Stmt::Import(statement) = statement
-                && let Err(diagnostic) = validate_std_import(statement)
+                && let Err(diagnostic) = self.register_std_import(statement)
             {
                 diagnostics.push(diagnostic);
             }
@@ -200,12 +202,13 @@ impl IrModule {
                 }
             }
             Stmt::FunctionCall(statement) => {
-                if statement.name == "time.sleep" {
+                let name = self.resolve_std_call_name(&statement.name, statement.span)?;
+                if name == "time.sleep" {
                     self.time_sleep_call(body, &statement.args, statement.span)?;
-                } else if let Some(intrinsic) = std_intrinsic(&statement.name) {
+                } else if let Some(intrinsic) = std_intrinsic(&name) {
                     self.std_intrinsic_call(body, intrinsic, &statement.args, statement.span)?;
                 } else {
-                    match php_builtin(&statement.name) {
+                    match php_builtin(&name) {
                         Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
                             self.php_builtin_call(body, builtin, &statement.args)?
                         }
@@ -1011,7 +1014,13 @@ impl IrModule {
         let saved_returned = self.returned;
         self.returned = false;
 
-        let sleep = statements.first().and_then(task_sleep_millis);
+        let sleep = if let Some(Stmt::FunctionCall(statement)) = statements.first()
+            && self.resolve_std_call_name(&statement.name, statement.span)? == "time.sleep"
+        {
+            task_sleep_millis(statements.first().expect("first statement exists"))
+        } else {
+            None
+        };
 
         let mut body = String::new();
         for (name, _) in &captures {
@@ -1149,16 +1158,18 @@ impl IrModule {
         body: &mut String,
         expr: &echo_ast::FunctionCallExpr,
     ) -> Result<RuntimeValue, Diagnostic> {
-        if expr.name == "time.sleep" {
+        let name = self.resolve_std_call_name(&expr.name, expr.span)?;
+
+        if name == "time.sleep" {
             self.time_sleep_call(body, &expr.args, expr.span)?;
             return Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()));
         }
 
-        if let Some(intrinsic) = std_intrinsic(&expr.name) {
+        if let Some(intrinsic) = std_intrinsic(&name) {
             return self.std_intrinsic_call(body, intrinsic, &expr.args, expr.span);
         }
 
-        let Some(builtin) = php_builtin(&expr.name) else {
+        let Some(builtin) = php_builtin(&name) else {
             return self.render_userland_function_call_expr(body, expr);
         };
 
@@ -1397,6 +1408,52 @@ impl IrModule {
         current.to_string()
     }
 
+    fn register_std_import(&mut self, statement: &echo_ast::ImportStmt) -> Result<(), Diagnostic> {
+        if statement.source != ImportSource::Std {
+            return Ok(());
+        }
+
+        let Some(module) = statement.name.parts.first() else {
+            return Err(Diagnostic::new(
+                "empty std import in LLVM codegen",
+                statement.span,
+            ));
+        };
+
+        if !is_known_std_module(module) {
+            return Err(Diagnostic::new(
+                format!("unknown std import `{}`", statement.name.as_string()),
+                statement.span,
+            ));
+        }
+
+        if statement.name.parts.len() == 1 {
+            let local = statement.alias.as_deref().unwrap_or(module).to_string();
+            self.std_imports.insert(local, module.clone());
+        }
+
+        Ok(())
+    }
+
+    fn resolve_std_call_name(&self, name: &str, span: Span) -> Result<String, Diagnostic> {
+        let Some((module, rest)) = name.split_once('.') else {
+            return Ok(name.to_string());
+        };
+
+        if let Some(imported) = self.std_imports.get(module) {
+            return Ok(format!("{imported}.{rest}"));
+        }
+
+        if is_known_std_module(module) {
+            return Err(Diagnostic::new(
+                format!("std module `{module}` must be imported before use"),
+                span,
+            ));
+        }
+
+        Ok(name.to_string())
+    }
+
     fn string_global(&mut self, value: &str) -> String {
         let name = format!("echo_str_{}", self.next_string_id);
         self.next_string_id += 1;
@@ -1426,30 +1483,11 @@ fn runtime_declarations() -> String {
         .join("\n")
 }
 
-fn validate_std_import(statement: &echo_ast::ImportStmt) -> Result<(), Diagnostic> {
-    if statement.source != ImportSource::Std {
-        return Ok(());
-    }
-
-    let Some(module) = statement.name.parts.first() else {
-        return Err(Diagnostic::new(
-            "empty std import in LLVM codegen",
-            statement.span,
-        ));
-    };
-
-    let module_name = format!("std.{module}");
-    if echo_std::modules()
+fn is_known_std_module(name: &str) -> bool {
+    let module_name = format!("std.{name}");
+    echo_std::modules()
         .iter()
         .any(|module| module.name == module_name)
-    {
-        Ok(())
-    } else {
-        Err(Diagnostic::new(
-            format!("unknown std import `{}`", statement.name.as_string()),
-            statement.span,
-        ))
-    }
 }
 
 fn userland_function_symbol(name: &str) -> String {
@@ -1501,6 +1539,24 @@ mod tests {
         }
     }
 
+    fn std_import(module: &str) -> Stmt {
+        Stmt::Import(ImportStmt {
+            source: ImportSource::Std,
+            name: QualifiedName::new(vec![module.to_string()]),
+            alias: None,
+            span: Span::new(0, 0),
+        })
+    }
+
+    fn std_import_alias(module: &str, alias: &str) -> Stmt {
+        Stmt::Import(ImportStmt {
+            source: ImportSource::Std,
+            name: QualifiedName::new(vec![module.to_string()]),
+            alias: Some(alias.to_string()),
+            span: Span::new(0, 0),
+        })
+    }
+
     #[test]
     fn validates_known_std_import() {
         compile_to_ir(&program(vec![Stmt::Import(ImportStmt {
@@ -1524,6 +1580,41 @@ mod tests {
 
         assert_eq!(diagnostics[0].message, "unknown std import `potato`");
         assert_eq!(diagnostics[0].span, Span::new(0, 19));
+    }
+
+    #[test]
+    fn rejects_unimported_std_module_call() {
+        let diagnostics = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
+            name: "net.listen".to_string(),
+            args: vec![Expr::String(StringLiteral {
+                value: "127.0.0.1:39183".to_string(),
+                span: Span::new(11, 30),
+            })],
+            span: Span::new(0, 31),
+        })]))
+        .expect_err("unimported std module should fail");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "std module `net` must be imported before use"
+        );
+    }
+
+    #[test]
+    fn aliases_std_module_calls() {
+        let ir = compile_to_ir(&program(vec![
+            std_import_alias("net", "socket"),
+            Stmt::FunctionCall(FunctionCallStmt {
+                name: "socket.close".to_string(),
+                args: vec![Expr::Null(NullLiteral {
+                    span: Span::new(13, 17),
+                })],
+                span: Span::new(0, 18),
+            }),
+        ]))
+        .expect("aliased std call compiles");
+
+        assert!(ir.contains("call %EchoValue @echo_std_net_close"), "{ir}");
     }
 
     #[test]
@@ -1890,14 +1981,17 @@ mod tests {
 
     #[test]
     fn time_sleep_lowers_to_core_runtime_call() {
-        let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
-            name: "time.sleep".to_string(),
-            args: vec![Expr::Number(echo_ast::NumberLiteral {
-                value: "50".to_string(),
-                span: Span::new(11, 13),
-            })],
-            span: Span::new(0, 14),
-        })]))
+        let ir = compile_to_ir(&program(vec![
+            std_import("time"),
+            Stmt::FunctionCall(FunctionCallStmt {
+                name: "time.sleep".to_string(),
+                args: vec![Expr::Number(echo_ast::NumberLiteral {
+                    value: "50".to_string(),
+                    span: Span::new(11, 13),
+                })],
+                span: Span::new(0, 14),
+            }),
+        ]))
         .expect("IR");
 
         assert!(ir.contains("declare void @echo_time_sleep(i64)"), "{ir}");
@@ -1906,18 +2000,21 @@ mod tests {
 
     #[test]
     fn net_listen_lowers_to_std_intrinsic_call() {
-        let ir = compile_to_ir(&program(vec![Stmt::Assign(AssignStmt {
-            name: "server".to_string(),
-            value: Expr::FunctionCall(FunctionCallExpr {
-                name: "net.listen".to_string(),
-                args: vec![Expr::String(StringLiteral {
-                    value: "127.0.0.1:39183".to_string(),
-                    span: Span::new(11, 30),
-                })],
+        let ir = compile_to_ir(&program(vec![
+            std_import("net"),
+            Stmt::Assign(AssignStmt {
+                name: "server".to_string(),
+                value: Expr::FunctionCall(FunctionCallExpr {
+                    name: "net.listen".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "127.0.0.1:39183".to_string(),
+                        span: Span::new(11, 30),
+                    })],
+                    span: Span::new(0, 31),
+                }),
                 span: Span::new(0, 31),
             }),
-            span: Span::new(0, 31),
-        })]))
+        ]))
         .expect("IR");
 
         assert!(
@@ -1933,6 +2030,7 @@ mod tests {
     #[test]
     fn net_read_lowers_numeric_length_as_int_value() {
         let ir = compile_to_ir(&program(vec![
+            std_import("net"),
             Stmt::Assign(AssignStmt {
                 name: "connection".to_string(),
                 value: Expr::FunctionCall(FunctionCallExpr {
@@ -1975,17 +2073,20 @@ mod tests {
 
     #[test]
     fn http_response_text_lowers_to_std_intrinsic_call() {
-        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
-            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
-                name: "http.responseText".to_string(),
-                args: vec![Expr::String(StringLiteral {
-                    value: "hello".to_string(),
-                    span: Span::new(18, 25),
+        let ir = compile_to_ir(&program(vec![
+            std_import("http"),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "http.responseText".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "hello".to_string(),
+                        span: Span::new(18, 25),
+                    })],
+                    span: Span::new(0, 26),
                 })],
                 span: Span::new(0, 26),
-            })],
-            span: Span::new(0, 26),
-        })]))
+            }),
+        ]))
         .expect("IR");
 
         assert!(
@@ -2000,30 +2101,33 @@ mod tests {
 
     #[test]
     fn task_sleep_lowers_to_timer_continuation() {
-        let ir = compile_to_ir(&program(vec![Stmt::Assign(AssignStmt {
-            name: "task".to_string(),
-            value: Expr::Run(echo_ast::RunExpr::Block {
-                body: vec![
-                    Stmt::FunctionCall(FunctionCallStmt {
-                        name: "time.sleep".to_string(),
-                        args: vec![Expr::Number(echo_ast::NumberLiteral {
-                            value: "50".to_string(),
-                            span: Span::new(0, 2),
-                        })],
-                        span: Span::new(0, 14),
-                    }),
-                    Stmt::Echo(EchoStmt {
-                        exprs: vec![Expr::String(StringLiteral {
-                            value: "done\n".to_string(),
-                            span: Span::new(15, 22),
-                        })],
-                        span: Span::new(15, 28),
-                    }),
-                ],
+        let ir = compile_to_ir(&program(vec![
+            std_import("time"),
+            Stmt::Assign(AssignStmt {
+                name: "task".to_string(),
+                value: Expr::Run(echo_ast::RunExpr::Block {
+                    body: vec![
+                        Stmt::FunctionCall(FunctionCallStmt {
+                            name: "time.sleep".to_string(),
+                            args: vec![Expr::Number(echo_ast::NumberLiteral {
+                                value: "50".to_string(),
+                                span: Span::new(0, 2),
+                            })],
+                            span: Span::new(0, 14),
+                        }),
+                        Stmt::Echo(EchoStmt {
+                            exprs: vec![Expr::String(StringLiteral {
+                                value: "done\n".to_string(),
+                                span: Span::new(15, 22),
+                            })],
+                            span: Span::new(15, 28),
+                        }),
+                    ],
+                    span: Span::new(0, 28),
+                }),
                 span: Span::new(0, 28),
             }),
-            span: Span::new(0, 28),
-        })]))
+        ]))
         .expect("IR");
 
         assert!(

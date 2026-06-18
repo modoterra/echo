@@ -187,4 +187,7 @@ Resolver responsibilities:
 - `from std use ...` is parsed into a distinct Echo-owned import AST node.
 - Codegen validates the first imported path segment against packaged `echo_std` modules such as `std.net`, `std.time`, and `std.http`.
 - Unknown std module imports fail with a diagnostic such as `unknown std import \`potato\``.
-- Full local name binding, alias enforcement, item-level stdlib resolution, local file imports, and typed data imports are still future resolver work.
+- Module imports bind the local module name for static module-style intrinsic calls such as `net.listen(...)` and `http.responseText(...)`.
+- Module aliases are supported for module-style intrinsic calls, for example `from std use net as socket` enables `socket.listen(...)`.
+- Known std module calls without a matching import fail with a diagnostic such as `std module \`net\` must be imported before use`.
+- Item-level stdlib resolution, local file imports, and typed data imports are still future resolver work.

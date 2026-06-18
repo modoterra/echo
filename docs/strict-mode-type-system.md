@@ -50,6 +50,8 @@ xo run --unsafe file.echo # Echo superset mode on an Echo file
 - `.echo` and `.xo` files default to strict mode; `.php` files default to Echo superset mode.
 - `xo` supports `--strict` and `--unsafe` mode overrides.
 - Strict mode currently rejects PHP reference assignment (`$b =& $a`) as an unsafe PHP compatibility pattern.
+- Strict mode rejects dynamic function-call statements (`$fn()`) as unsafe dynamic dispatch.
+- Strict mode rejects user `namespace std ...` declarations; only trusted packaged stdlib source may declare std modules. PHP namespaces such as `namespace std\Net` remain valid.
 - Echo superset mode still accepts PHP reference assignment for compatibility.
 
 ## Value Families

@@ -17,6 +17,38 @@ pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
 }
 
 pub fn parse_with_mode(source: &str, mode: SourceMode) -> Result<Program, Vec<Diagnostic>> {
+    parse_with_validation(source, ValidationMode::from_source_mode(mode))
+}
+
+pub fn parse_trusted_std(source: &str) -> Result<Program, Vec<Diagnostic>> {
+    parse_with_validation(source, ValidationMode::TrustedStd)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ValidationMode {
+    Echo,
+    Strict,
+    TrustedStd,
+}
+
+impl ValidationMode {
+    const fn from_source_mode(mode: SourceMode) -> Self {
+        match mode {
+            SourceMode::Echo => Self::Echo,
+            SourceMode::Strict => Self::Strict,
+        }
+    }
+
+    const fn validates_strict(self) -> bool {
+        matches!(self, Self::Strict | Self::TrustedStd)
+    }
+
+    const fn allows_std_namespace(self) -> bool {
+        matches!(self, Self::TrustedStd)
+    }
+}
+
+fn parse_with_validation(source: &str, mode: ValidationMode) -> Result<Program, Vec<Diagnostic>> {
     // For now, run the Logos lexer first so lexer errors are caught.
     // The Chumsky parser below still parses the source text directly.
     echo_lexer::lex(source)?;
@@ -38,11 +70,11 @@ pub fn parse_with_mode(source: &str, mode: SourceMode) -> Result<Program, Vec<Di
     Ok(program)
 }
 
-fn validate_mode(program: &Program, mode: SourceMode) -> Result<(), Vec<Diagnostic>> {
+fn validate_mode(program: &Program, mode: ValidationMode) -> Result<(), Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
-    if mode == SourceMode::Strict {
+    if mode.validates_strict() {
         for statement in &program.statements {
-            validate_statement_mode(statement, &mut diagnostics);
+            validate_statement_mode(statement, mode, &mut diagnostics);
         }
     }
 
@@ -53,88 +85,100 @@ fn validate_mode(program: &Program, mode: SourceMode) -> Result<(), Vec<Diagnost
     }
 }
 
-fn validate_statement_mode(statement: &Stmt, diagnostics: &mut Vec<Diagnostic>) {
+fn validate_statement_mode(
+    statement: &Stmt,
+    mode: ValidationMode,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     match statement {
         Stmt::Echo(statement) => {
             for expr in &statement.exprs {
-                validate_expr_mode(expr, diagnostics);
+                validate_expr_mode(expr, mode, diagnostics);
             }
         }
         Stmt::FunctionCall(statement) => {
             for expr in &statement.args {
-                validate_expr_mode(expr, diagnostics);
+                validate_expr_mode(expr, mode, diagnostics);
             }
         }
         Stmt::DynamicFunctionCall(statement) => {
+            diagnostics.push(Diagnostic::new(
+                "dynamic function calls are not allowed in strict mode",
+                statement.span,
+            ));
             for expr in &statement.args {
-                validate_expr_mode(expr, diagnostics);
+                validate_expr_mode(expr, mode, diagnostics);
             }
         }
         Stmt::FunctionDecl(statement) => {
             for statement in &statement.body {
-                validate_statement_mode(statement, diagnostics);
+                validate_statement_mode(statement, mode, diagnostics);
             }
         }
-        Stmt::Assign(statement) => validate_expr_mode(&statement.value, diagnostics),
-        Stmt::Let(statement) => validate_expr_mode(&statement.value, diagnostics),
+        Stmt::Assign(statement) => validate_expr_mode(&statement.value, mode, diagnostics),
+        Stmt::Let(statement) => validate_expr_mode(&statement.value, mode, diagnostics),
         Stmt::AssignRef(statement) => diagnostics.push(Diagnostic::new(
             "PHP references are not allowed in strict mode",
             statement.span,
         )),
-        Stmt::Return(statement) => validate_expr_mode(&statement.value, diagnostics),
-        Stmt::Yield(statement) => validate_expr_mode(&statement.value, diagnostics),
-        Stmt::Expr(statement) => validate_expr_mode(&statement.expr, diagnostics),
+        Stmt::Return(statement) => validate_expr_mode(&statement.value, mode, diagnostics),
+        Stmt::Yield(statement) => validate_expr_mode(&statement.value, mode, diagnostics),
+        Stmt::Expr(statement) => validate_expr_mode(&statement.expr, mode, diagnostics),
         Stmt::Loop(statement) => {
             for statement in &statement.body {
-                validate_statement_mode(statement, diagnostics);
+                validate_statement_mode(statement, mode, diagnostics);
             }
         }
         Stmt::If(statement) => {
-            validate_expr_mode(&statement.condition, diagnostics);
+            validate_expr_mode(&statement.condition, mode, diagnostics);
             for statement in &statement.body {
-                validate_statement_mode(statement, diagnostics);
+                validate_statement_mode(statement, mode, diagnostics);
             }
         }
         Stmt::Break(statement) => {
             if let Some(value) = &statement.value {
-                validate_expr_mode(value, diagnostics);
+                validate_expr_mode(value, mode, diagnostics);
             }
         }
-        Stmt::Append(statement) => validate_expr_mode(&statement.value, diagnostics),
-        Stmt::Namespace(_)
-        | Stmt::Use(_)
-        | Stmt::Import(_)
-        | Stmt::ClassDecl(_)
-        | Stmt::TypeDecl(_) => {}
+        Stmt::Append(statement) => validate_expr_mode(&statement.value, mode, diagnostics),
+        Stmt::Namespace(statement) => {
+            if statement.source == NamespaceSource::Std && !mode.allows_std_namespace() {
+                diagnostics.push(Diagnostic::new(
+                    "std namespace declarations are only allowed in trusted stdlib source",
+                    statement.span,
+                ));
+            }
+        }
+        Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) | Stmt::TypeDecl(_) => {}
     }
 }
 
-fn validate_expr_mode(expr: &Expr, diagnostics: &mut Vec<Diagnostic>) {
+fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<Diagnostic>) {
     match expr {
         Expr::Defer(_) | Expr::Run(_) | Expr::Fork(_) | Expr::Spawn(_) | Expr::Join(_) => {}
         Expr::Loop(expr) => {
             for statement in &expr.body {
-                validate_statement_mode(statement, diagnostics);
+                validate_statement_mode(statement, mode, diagnostics);
             }
         }
         Expr::FunctionCall(expr) => {
             for expr in &expr.args {
-                validate_expr_mode(expr, diagnostics);
+                validate_expr_mode(expr, mode, diagnostics);
             }
         }
         Expr::Binary(expr) => {
-            validate_expr_mode(&expr.left, diagnostics);
-            validate_expr_mode(&expr.right, diagnostics);
+            validate_expr_mode(&expr.left, mode, diagnostics);
+            validate_expr_mode(&expr.right, mode, diagnostics);
         }
-        Expr::Field(expr) => validate_expr_mode(&expr.object, diagnostics),
+        Expr::Field(expr) => validate_expr_mode(&expr.object, mode, diagnostics),
         Expr::Object(expr) => {
             for field in &expr.fields {
-                validate_expr_mode(&field.value, diagnostics);
+                validate_expr_mode(&field.value, mode, diagnostics);
             }
         }
         Expr::List(expr) => {
             for value in &expr.values {
-                validate_expr_mode(value, diagnostics);
+                validate_expr_mode(value, mode, diagnostics);
             }
         }
         Expr::Null(_) | Expr::Bool(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
@@ -1638,7 +1682,7 @@ echo "done"
 
     #[test]
     fn parses_std_net_module_source() {
-        let program = parse_with_mode(include_str!("../../../std/net.echo"), SourceMode::Strict)
+        let program = parse_trusted_std(include_str!("../../../std/net.echo"))
             .expect("std net module parses");
 
         assert!(matches!(
@@ -1659,7 +1703,7 @@ echo "done"
 
     #[test]
     fn parses_std_time_module_source() {
-        let program = parse_with_mode(include_str!("../../../std/time.echo"), SourceMode::Strict)
+        let program = parse_trusted_std(include_str!("../../../std/time.echo"))
             .expect("std time module parses");
 
         assert!(matches!(
@@ -1673,7 +1717,7 @@ echo "done"
 
     #[test]
     fn parses_std_http_module_source() {
-        let program = parse_with_mode(include_str!("../../../std/http.echo"), SourceMode::Strict)
+        let program = parse_trusted_std(include_str!("../../../std/http.echo"))
             .expect("std http module parses");
 
         assert!(matches!(
@@ -1698,6 +1742,30 @@ time.sleep(300)
         assert!(matches!(
             &program.statements[1],
             Stmt::FunctionCall(statement) if statement.name == "time.sleep"
+        ));
+    }
+
+    #[test]
+    fn strict_mode_rejects_user_std_namespace_declaration() {
+        let diagnostics = parse_with_mode("namespace std net", SourceMode::Strict)
+            .expect_err("user std namespace should be rejected");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "std namespace declarations are only allowed in trusted stdlib source"
+        );
+    }
+
+    #[test]
+    fn strict_mode_allows_php_namespace_named_std_net() {
+        let program = parse_with_mode("namespace std\\Net", SourceMode::Strict)
+            .expect("PHP namespace should stay valid");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Namespace(statement)
+                if statement.source == NamespaceSource::Php
+                    && statement.name.as_string() == "std\\Net"
         ));
     }
 
@@ -1986,6 +2054,39 @@ $b =& $a
         assert_eq!(
             diagnostics[0].message,
             "PHP references are not allowed in strict mode"
+        );
+    }
+
+    #[test]
+    fn echo_mode_accepts_dynamic_function_calls() {
+        let program = parse_with_mode(
+            r#"<?php
+$fn = "strlen";
+$fn("Echo");
+"#,
+            SourceMode::Echo,
+        )
+        .expect("Echo superset mode accepts dynamic calls");
+
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::DynamicFunctionCall(_)
+        ));
+    }
+
+    #[test]
+    fn strict_mode_rejects_dynamic_function_calls() {
+        let diagnostics = parse_with_mode(
+            r#"let $fn = "strlen"
+$fn("Echo")
+"#,
+            SourceMode::Strict,
+        )
+        .expect_err("strict mode rejects dynamic calls");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "dynamic function calls are not allowed in strict mode"
         );
     }
 }

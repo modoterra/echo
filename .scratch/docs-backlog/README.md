@@ -23,3 +23,5 @@ Practical slices picked from `docs/`.
 - Slice 6 removed `unsupported.txt` from `025_generator_syntax`; declared but uncalled generator functions now parse, lower, run, and build as no-op declarations. `026_concurrent_http_tasks` remains unsupported because blocking socket I/O does not yet suspend/wake Echo tasks.
 - Slice 7 added `xo build -O0/-O1/-O2/-O3/-Oz`, `xo build --emit-ir`, optimized IR through external `opt`, and native optimization through `clang -O*`.
 - Slice 8 rejects PHP reference assignment in strict mode while preserving it in Echo superset mode.
+- Follow-up strict slices reject user `namespace std ...` and dynamic function-call statements in strict mode.
+- Follow-up import slices require std module imports before module-style intrinsic calls and support std module aliases.
