@@ -189,6 +189,15 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("command", Some("string"))],
             Some("string"),
         ),
+        php_builtin_reflection(
+            "explode",
+            &[
+                ("separator", Some("string")),
+                ("string", Some("string")),
+                ("limit", Some("int")),
+            ],
+            Some("array"),
+        ),
         php_builtin_reflection("trim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("ltrim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("rtrim", &[("string", Some("string"))], Some("string")),

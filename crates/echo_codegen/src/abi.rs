@@ -297,6 +297,7 @@ pub enum BuiltinCodegen {
     ValueUnaryExpression,
     ValueBinaryExpression,
     ValueTernaryExpression,
+    Explode,
     SubstrCompare,
 }
 
@@ -807,6 +808,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "explode",
+        symbol: "echo_php_explode",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Explode,
     },
     PhpBuiltin {
         php_name: "trim",

@@ -923,6 +923,9 @@ impl IrModule {
             BuiltinCodegen::ValueTernaryExpression => {
                 unreachable!("expression builtin used as statement call")
             }
+            BuiltinCodegen::Explode => {
+                unreachable!("expression builtin used as statement call")
+            }
             BuiltinCodegen::SubstrCompare => {
                 unreachable!("expression builtin used as statement call")
             }
@@ -1570,6 +1573,34 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({first}, {second}, {third})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Explode => {
+                if !(2..=3).contains(&expr.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                }
+
+                let separator = self.render_expr_as_echo_value(body, &expr.args[0])?;
+                let string = self.render_expr_as_echo_value(body, &expr.args[1])?;
+                let limit = match expr.args.get(2) {
+                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 9223372036854775807 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({separator}, {string}, {limit})\n",
                     builtin.symbol
                 ));
 
@@ -2366,6 +2397,38 @@ mod tests {
             assert!(ir.contains("declare %EchoValue @"));
             assert!(ir.contains("(%EchoValue, %EchoValue, %EchoValue)"));
         }
+    }
+
+    #[test]
+    fn explode_lowers_optional_limit_to_php_default() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "explode".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: ",".to_string(),
+                        span: Span::new(8, 11),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "a,b".to_string(),
+                        span: Span::new(13, 18),
+                    }),
+                ],
+                span: Span::new(0, 19),
+            })],
+            span: Span::new(0, 20),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_explode(%EchoValue, %EchoValue, %EchoValue)")
+        );
+        assert!(
+            ir.contains(
+                "call %EchoValue @echo_php_explode(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 2, i64 9223372036854775807 })"
+            ),
+            "{ir}"
+        );
     }
 
     #[test]

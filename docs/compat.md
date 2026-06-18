@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 85 | 522 |
-| Loaded local PHP internals, including extensions | 1516 | 85 | 1431 |
+| Baseline (`Core` + `standard`) | 607 | 86 | 521 |
+| Loaded local PHP internals, including extensions | 1516 | 86 | 1430 |
 
 ## Baseline Functions
 
@@ -225,7 +225,7 @@ explicitly promote one.
 | `escapeshellcmd` | implemented | Supports Unix/POSIX backslash escaping for shell metacharacters and unpaired quotes; Windows caret escaping is deferred. Source: https://www.php.net/manual/en/function.escapeshellcmd.php |
 | `exec` | missing |  |
 | `exp` | missing |  |
-| `explode` | missing |  |
+| `explode` | implemented | Splits byte strings into PHP arrays with default, positive, zero, and negative limit behavior; empty-separator `ValueError` is currently surfaced as a runtime error. Source: https://www.php.net/manual/en/function.explode.php |
 | `expm1` | missing |  |
 | `extract` | missing |  |
 | `fclose` | missing |  |

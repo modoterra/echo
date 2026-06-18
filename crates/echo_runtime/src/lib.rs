@@ -1570,6 +1570,83 @@ fn shell_cmd_byte_needs_escape(byte: u8) -> bool {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_explode(
+    separator: EchoValue,
+    string: EchoValue,
+    limit: EchoValue,
+) -> EchoValue {
+    let Some(separator) = separator.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(string) = string.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(limit) = limit.php_int_value() else {
+        return EchoValue::error();
+    };
+    if separator.is_empty() {
+        return EchoValue::error();
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray {
+        values: explode_bytes(&separator, &string, limit)
+            .into_iter()
+            .map(|bytes| EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))))
+            .collect(),
+    })))
+}
+
+fn explode_bytes(separator: &[u8], string: &[u8], limit: i64) -> Vec<Vec<u8>> {
+    let limit = if limit == 0 { 1 } else { limit };
+    if limit > 0 {
+        return explode_bytes_positive_limit(separator, string, limit as usize);
+    }
+
+    let mut parts = explode_bytes_all(separator, string);
+    let omit = limit.unsigned_abs() as usize;
+    let keep = parts.len().saturating_sub(omit);
+    parts.truncate(keep);
+    parts
+}
+
+fn explode_bytes_positive_limit(separator: &[u8], string: &[u8], limit: usize) -> Vec<Vec<u8>> {
+    if limit == 1 {
+        return vec![string.to_vec()];
+    }
+
+    let mut parts = Vec::new();
+    let mut start = 0;
+    while parts.len() + 1 < limit {
+        let Some(offset) = find_subslice(&string[start..], separator) else {
+            break;
+        };
+        let end = start + offset;
+        parts.push(string[start..end].to_vec());
+        start = end + separator.len();
+    }
+    parts.push(string[start..].to_vec());
+    parts
+}
+
+fn explode_bytes_all(separator: &[u8], string: &[u8]) -> Vec<Vec<u8>> {
+    let mut parts = Vec::new();
+    let mut start = 0;
+    while let Some(offset) = find_subslice(&string[start..], separator) {
+        let end = start + offset;
+        parts.push(string[start..end].to_vec());
+        start = end + separator.len();
+    }
+    parts.push(string[start..].to_vec());
+    parts
+}
+
+fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_basename(path: EchoValue, suffix: EchoValue) -> EchoValue {
     let Some(path) = path.string_bytes() else {
         return EchoValue::error();
@@ -3368,6 +3445,82 @@ mod tests {
             drop(Box::from_raw(slash));
             drop(Box::from_raw(dollar));
         }
+    }
+
+    #[test]
+    fn explode_preserves_php_array_count_and_limit_behavior() {
+        fn string_value(bytes: &[u8]) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: bytes.to_vec(),
+            })))
+        }
+
+        fn array_string_values(value: EchoValue) -> Vec<Vec<u8>> {
+            let array = unsafe { (value.payload as *const EchoArray).as_ref() }.expect("array");
+            array
+                .values
+                .iter()
+                .map(|value| value.string_bytes().expect("string value"))
+                .collect()
+        }
+
+        let all = echo_php_explode(
+            string_value(b","),
+            string_value(b"a,b,c"),
+            EchoValue::int(i64::MAX),
+        );
+        let positive_limit = echo_php_explode(
+            string_value(b","),
+            string_value(b"a,b,c"),
+            EchoValue::int(2),
+        );
+        let zero_limit = echo_php_explode(
+            string_value(b","),
+            string_value(b"a,b,c"),
+            EchoValue::int(0),
+        );
+        let negative_limit = echo_php_explode(
+            string_value(b","),
+            string_value(b"a,b,c"),
+            EchoValue::int(-1),
+        );
+        let missing_negative =
+            echo_php_explode(string_value(b","), string_value(b"abc"), EchoValue::int(-1));
+        let edge_empty = echo_php_explode(
+            string_value(b","),
+            string_value(b",a,"),
+            EchoValue::int(i64::MAX),
+        );
+
+        assert_eq!(echo_php_count(all), EchoValue::int(3));
+        assert_eq!(echo_php_array_is_list(all), EchoValue::bool(true));
+        assert_eq!(all.string_bytes(), Some(b"Array".to_vec()));
+        assert_eq!(
+            array_string_values(all),
+            vec![b"a".to_vec(), b"b".to_vec(), b"c".to_vec()]
+        );
+        assert_eq!(
+            array_string_values(positive_limit),
+            vec![b"a".to_vec(), b"b,c".to_vec()]
+        );
+        assert_eq!(array_string_values(zero_limit), vec![b"a,b,c".to_vec()]);
+        assert_eq!(
+            array_string_values(negative_limit),
+            vec![b"a".to_vec(), b"b".to_vec()]
+        );
+        assert_eq!(array_string_values(missing_negative), Vec::<Vec<u8>>::new());
+        assert_eq!(
+            array_string_values(edge_empty),
+            vec![Vec::new(), b"a".to_vec(), Vec::new()]
+        );
+        assert_eq!(
+            echo_php_explode(
+                string_value(b""),
+                string_value(b"a,b"),
+                EchoValue::int(i64::MAX)
+            ),
+            EchoValue::error()
+        );
     }
 
     #[test]
