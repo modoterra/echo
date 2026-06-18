@@ -27,3 +27,4 @@ Practical slices picked from `docs/`.
 - Follow-up strict slices reject user `namespace std ...` and dynamic function-call statements in strict mode.
 - Follow-up import slices require std module imports before module-style intrinsic calls and support std module aliases.
 - Follow-up PHP string builtin slice added `strncmp()` and `strncasecmp()` with fixture `079_strncmp_builtins`.
+- Follow-up PHP string builtin slice added `substr_compare()` with fixture `080_substr_compare_builtin`.

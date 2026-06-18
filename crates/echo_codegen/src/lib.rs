@@ -840,6 +840,9 @@ impl IrModule {
             BuiltinCodegen::ValueTernaryExpression => {
                 unreachable!("expression builtin used as statement call")
             }
+            BuiltinCodegen::SubstrCompare => {
+                unreachable!("expression builtin used as statement call")
+            }
         }
 
         Ok(())
@@ -1378,6 +1381,39 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({first}, {second}, {third})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::SubstrCompare => {
+                if !(3..=5).contains(&expr.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                }
+
+                let haystack = self.render_expr_as_echo_value(body, &expr.args[0])?;
+                let needle = self.render_expr_as_echo_value(body, &expr.args[1])?;
+                let offset = self.render_expr_as_echo_value(body, &expr.args[2])?;
+                let length = match expr.args.get(3) {
+                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let case_insensitive = match expr.args.get(4) {
+                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({haystack}, {needle}, {offset}, {length}, {case_insensitive})\n",
                     builtin.symbol
                 ));
 
@@ -2045,6 +2081,36 @@ mod tests {
             assert!(ir.contains("declare %EchoValue @"));
             assert!(ir.contains("(%EchoValue, %EchoValue, %EchoValue)"));
         }
+    }
+
+    #[test]
+    fn substr_compare_lowers_optional_arguments_to_php_defaults() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "substr_compare".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "abcde".to_string(),
+                        span: Span::new(16, 23),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "de".to_string(),
+                        span: Span::new(25, 29),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "3".to_string(),
+                        span: Span::new(31, 32),
+                    }),
+                ],
+                span: Span::new(0, 33),
+            })],
+            span: Span::new(0, 34),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_php_substr_compare(%EchoValue, %EchoValue, %EchoValue, %EchoValue, %EchoValue)"));
+        assert!(ir.contains("call %EchoValue @echo_php_substr_compare("));
+        assert!(ir.contains("%EchoValue { i32 0, i64 0 }, %EchoValue { i32 1, i64 0 }"));
     }
 
     #[test]

@@ -115,6 +115,7 @@ pub enum RuntimeSignature {
     EchoValueEchoValuePtrI64,
     EchoValueEchoValueEchoValue,
     EchoValueEchoValueEchoValueEchoValue,
+    EchoValueEchoValueEchoValueEchoValueEchoValueEchoValue,
     EchoValueEchoValuePtrI64EchoValue,
 }
 
@@ -140,6 +141,11 @@ impl RuntimeSignature {
             }
             Self::EchoValueEchoValueEchoValueEchoValue => {
                 format!("declare %EchoValue @{symbol}(%EchoValue, %EchoValue, %EchoValue)")
+            }
+            Self::EchoValueEchoValueEchoValueEchoValueEchoValueEchoValue => {
+                format!(
+                    "declare %EchoValue @{symbol}(%EchoValue, %EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+                )
             }
             Self::EchoValueEchoValuePtrI64EchoValue => {
                 format!("declare %EchoValue @{symbol}(%EchoValue, ptr, i64, %EchoValue)")
@@ -237,6 +243,7 @@ pub enum BuiltinCodegen {
     ValueUnaryExpression,
     ValueBinaryExpression,
     ValueTernaryExpression,
+    SubstrCompare,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -674,6 +681,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "substr_compare",
+        symbol: "echo_php_substr_compare",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::SubstrCompare,
     },
     PhpBuiltin {
         php_name: "strcmp",

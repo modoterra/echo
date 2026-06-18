@@ -597,7 +597,7 @@ explicitly promote one.
 | `strtr` | missing |  |
 | `strval` | implemented |  |
 | `substr` | implemented |  |
-| `substr_compare` | missing |  |
+| `substr_compare` | implemented |  |
 | `substr_count` | implemented |  |
 | `substr_replace` | missing |  |
 | `symlink` | missing |  |

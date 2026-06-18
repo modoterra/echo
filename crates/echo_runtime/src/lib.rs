@@ -1608,6 +1608,67 @@ pub extern "C" fn echo_php_substr_count(haystack: EchoValue, needle: EchoValue) 
     EchoValue::int(count)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_substr_compare(
+    haystack: EchoValue,
+    needle: EchoValue,
+    offset: EchoValue,
+    length: EchoValue,
+    case_insensitive: EchoValue,
+) -> EchoValue {
+    let Some(haystack) = haystack.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(needle) = needle.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(offset) = offset.int_value() else {
+        return EchoValue::error();
+    };
+    let Some(case_insensitive) = case_insensitive.bool_value() else {
+        return EchoValue::error();
+    };
+
+    let start = if offset < 0 {
+        let start = haystack.len() as i64 + offset;
+        if start < 0 {
+            return EchoValue::bool(false);
+        }
+        start as usize
+    } else {
+        offset as usize
+    };
+
+    if start > haystack.len() {
+        return EchoValue::bool(false);
+    }
+
+    let default_length = needle.len().max(haystack.len().saturating_sub(start));
+    let length = if length.is_null() {
+        default_length
+    } else {
+        let Some(length) = length.int_value() else {
+            return EchoValue::error();
+        };
+        let Ok(length) = usize::try_from(length) else {
+            return EchoValue::bool(false);
+        };
+        length
+    };
+
+    let haystack = &haystack[start..haystack.len().min(start + length)];
+    let needle = &needle[..needle.len().min(length)];
+    if case_insensitive {
+        EchoValue::int(case_insensitive_ascii_compare(haystack, needle))
+    } else {
+        EchoValue::int(match haystack.cmp(needle) {
+            CmpOrdering::Less => -1,
+            CmpOrdering::Equal => 0,
+            CmpOrdering::Greater => 1,
+        })
+    }
+}
+
 fn find_bytes_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
@@ -3884,6 +3945,74 @@ mod tests {
             drop(Box::from_raw(abd));
             drop(Box::from_raw(ab));
             drop(Box::from_raw(upper_abd));
+        }
+    }
+
+    #[test]
+    fn substr_compare_preserves_php_offset_length_and_case_behavior() {
+        let haystack = Box::into_raw(Box::new(EchoString {
+            bytes: b"abcde".to_vec(),
+        }));
+        let needle_bc = Box::into_raw(Box::new(EchoString {
+            bytes: b"bc".to_vec(),
+        }));
+        let needle_bcg = Box::into_raw(Box::new(EchoString {
+            bytes: b"bcg".to_vec(),
+        }));
+        let needle_upper_bc = Box::into_raw(Box::new(EchoString {
+            bytes: b"BC".to_vec(),
+        }));
+        let needle_cd = Box::into_raw(Box::new(EchoString {
+            bytes: b"cd".to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_substr_compare(
+                EchoValue::string(haystack),
+                EchoValue::string(needle_bc),
+                EchoValue::int(1),
+                EchoValue::int(2),
+                EchoValue::bool(false)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_substr_compare(
+                EchoValue::string(haystack),
+                EchoValue::string(needle_bcg),
+                EchoValue::int(1),
+                EchoValue::int(2),
+                EchoValue::bool(false)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_substr_compare(
+                EchoValue::string(haystack),
+                EchoValue::string(needle_upper_bc),
+                EchoValue::int(1),
+                EchoValue::int(2),
+                EchoValue::bool(true)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_substr_compare(
+                EchoValue::string(haystack),
+                EchoValue::string(needle_cd),
+                EchoValue::int(1),
+                EchoValue::int(2),
+                EchoValue::bool(false)
+            ),
+            EchoValue::int(-1)
+        );
+
+        unsafe {
+            drop(Box::from_raw(haystack));
+            drop(Box::from_raw(needle_bc));
+            drop(Box::from_raw(needle_bcg));
+            drop(Box::from_raw(needle_upper_bc));
+            drop(Box::from_raw(needle_cd));
         }
     }
 
