@@ -182,7 +182,7 @@ Examples:
 - `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
 - `echo_php_count(...)` is PHP builtin ABI because `count()` is a PHP compatibility function.
 - `echo_php_is_array(...)` is PHP builtin ABI because `is_array()` is a PHP compatibility function.
-- `echo_php_is_null(...)`, `echo_php_is_bool(...)`, `echo_php_is_int(...)`, and `echo_php_is_string(...)` are PHP builtin ABI because the corresponding `is_*()` functions are PHP compatibility functions.
+- `echo_php_is_null(...)`, `echo_php_is_bool(...)`, `echo_php_is_int(...)`, `echo_php_is_string(...)`, `echo_php_is_countable(...)`, `echo_php_is_iterable(...)`, and `echo_php_is_scalar(...)` are PHP builtin ABI because the corresponding `is_*()` functions are PHP compatibility functions.
 - `echo_php_strval(...)` is PHP builtin ABI because `strval()` is a PHP compatibility function.
 - `echo_php_boolval(...)` is PHP builtin ABI because `boolval()` is a PHP compatibility function.
 - `echo_php_intval(...)` is PHP builtin ABI because `intval()` is a PHP compatibility function.

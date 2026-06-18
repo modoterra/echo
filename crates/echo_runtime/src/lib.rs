@@ -887,6 +887,16 @@ pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_countable(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_iterable(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_null(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_null())
 }
@@ -904,6 +914,11 @@ pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_string(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_string())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_scalar(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_bool() || value.is_int() || value.is_string())
 }
 
 #[unsafe(no_mangle)]

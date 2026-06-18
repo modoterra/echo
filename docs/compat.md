@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 60 | 547 |
-| Loaded local PHP internals, including extensions | 1516 | 60 | 1456 |
+| Baseline (`Core` + `standard`) | 607 | 63 | 544 |
+| Loaded local PHP internals, including extensions | 1516 | 63 | 1453 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (57/545)
+### standard (60/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -345,7 +345,7 @@ explicitly promote one.
 | `is_array` | implemented | Supports Echo list values as PHP arrays. Source: https://www.php.net/manual/en/function.is-array.php |
 | `is_bool` | implemented | Source: https://www.php.net/manual/en/function.is-bool.php |
 | `is_callable` | missing |  |
-| `is_countable` | missing |  |
+| `is_countable` | implemented | Supports arrays; Countable objects deferred. Source: https://www.php.net/manual/en/function.is-countable.php |
 | `is_dir` | missing |  |
 | `is_double` | missing |  |
 | `is_executable` | missing |  |
@@ -355,7 +355,7 @@ explicitly promote one.
 | `is_infinite` | missing |  |
 | `is_int` | implemented | Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_integer` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
-| `is_iterable` | missing |  |
+| `is_iterable` | implemented | Supports arrays; Traversable objects deferred. Source: https://www.php.net/manual/en/function.is-iterable.php |
 | `is_link` | missing |  |
 | `is_long` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_nan` | missing |  |
@@ -364,7 +364,7 @@ explicitly promote one.
 | `is_object` | missing |  |
 | `is_readable` | missing |  |
 | `is_resource` | missing |  |
-| `is_scalar` | missing |  |
+| `is_scalar` | implemented | Supports current scalar values: bool, int, string. Source: https://www.php.net/manual/en/function.is-scalar.php |
 | `is_string` | implemented | Source: https://www.php.net/manual/en/function.is-string.php |
 | `is_uploaded_file` | missing |  |
 | `is_writable` | missing |  |

@@ -395,6 +395,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "is_countable",
+        symbol: "echo_php_is_countable",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "is_iterable",
+        symbol: "echo_php_is_iterable",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "is_null",
         symbol: "echo_php_is_null",
         helper_symbol: None,
@@ -437,6 +453,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "is_string",
         symbol: "echo_php_is_string",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "is_scalar",
+        symbol: "echo_php_is_scalar",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
