@@ -141,6 +141,10 @@ impl EchoValue {
         self.kind == ECHO_VALUE_BOOL && self.payload == 0
     }
 
+    pub const fn is_bool(self) -> bool {
+        self.kind == ECHO_VALUE_BOOL
+    }
+
     pub const fn is_int(self) -> bool {
         self.kind == ECHO_VALUE_INT
     }
@@ -880,6 +884,26 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_array())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_null(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_null())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_bool())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_int())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_string(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_string())
 }
 
 #[unsafe(no_mangle)]

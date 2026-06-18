@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 54 | 553 |
-| Loaded local PHP internals, including extensions | 1516 | 54 | 1462 |
+| Baseline (`Core` + `standard`) | 607 | 60 | 547 |
+| Loaded local PHP internals, including extensions | 1516 | 60 | 1456 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (51/545)
+### standard (57/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -343,7 +343,7 @@ explicitly promote one.
 | `iptcembed` | missing |  |
 | `iptcparse` | missing |  |
 | `is_array` | implemented | Supports Echo list values as PHP arrays. Source: https://www.php.net/manual/en/function.is-array.php |
-| `is_bool` | missing |  |
+| `is_bool` | implemented | Source: https://www.php.net/manual/en/function.is-bool.php |
 | `is_callable` | missing |  |
 | `is_countable` | missing |  |
 | `is_dir` | missing |  |
@@ -353,19 +353,19 @@ explicitly promote one.
 | `is_finite` | missing |  |
 | `is_float` | missing |  |
 | `is_infinite` | missing |  |
-| `is_int` | missing |  |
-| `is_integer` | missing |  |
+| `is_int` | implemented | Source: https://www.php.net/manual/en/function.is-int.php |
+| `is_integer` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_iterable` | missing |  |
 | `is_link` | missing |  |
-| `is_long` | missing |  |
+| `is_long` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_nan` | missing |  |
-| `is_null` | missing |  |
+| `is_null` | implemented | Source: https://www.php.net/manual/en/function.is-null.php |
 | `is_numeric` | missing |  |
 | `is_object` | missing |  |
 | `is_readable` | missing |  |
 | `is_resource` | missing |  |
 | `is_scalar` | missing |  |
-| `is_string` | missing |  |
+| `is_string` | implemented | Source: https://www.php.net/manual/en/function.is-string.php |
 | `is_uploaded_file` | missing |  |
 | `is_writable` | missing |  |
 | `is_writeable` | missing |  |
