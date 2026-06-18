@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 64 | 543 |
-| Loaded local PHP internals, including extensions | 1516 | 64 | 1452 |
+| Baseline (`Core` + `standard`) | 607 | 65 | 542 |
+| Loaded local PHP internals, including extensions | 1516 | 65 | 1451 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (61/545)
+### standard (62/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -302,7 +302,7 @@ explicitly promote one.
 | `getservbyname` | missing |  |
 | `getservbyport` | missing |  |
 | `gettimeofday` | missing |  |
-| `gettype` | missing |  |
+| `gettype` | implemented | Returns PHP type names for Echo's current value tags. Source: https://www.php.net/manual/en/function.gettype.php |
 | `glob` | missing |  |
 | `header` | missing |  |
 | `header_register_callback` | missing |  |

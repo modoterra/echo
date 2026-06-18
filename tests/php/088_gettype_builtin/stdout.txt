@@ -1,0 +1,7 @@
+null:[NULL]
+false:[boolean]
+true:[boolean]
+int:[integer]
+string:[string]
+array-empty:[array]
+array-list:[array]

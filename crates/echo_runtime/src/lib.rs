@@ -882,6 +882,21 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
+    let type_name = match value.kind {
+        ECHO_VALUE_NULL => b"NULL".as_slice(),
+        ECHO_VALUE_BOOL => b"boolean".as_slice(),
+        ECHO_VALUE_INT => b"integer".as_slice(),
+        ECHO_VALUE_STRING => b"string".as_slice(),
+        ECHO_VALUE_ARRAY => b"array".as_slice(),
+        ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => b"object".as_slice(),
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
+        _ => b"unknown type".as_slice(),
+    };
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(type_name.to_vec()))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_array())
 }
@@ -4214,6 +4229,42 @@ mod tests {
             drop(Box::from_raw(decimal));
             drop(Box::from_raw(hex_prefixed));
             drop(Box::from_raw(empty));
+        }
+    }
+
+    #[test]
+    fn gettype_returns_php_type_names_for_current_values() {
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: b"abc".to_vec(),
+        }));
+        let list = Box::into_raw(Box::new(EchoList {
+            values: vec![EchoValue::int(1)],
+        }));
+
+        assert_eq!(
+            echo_php_gettype(EchoValue::null()).string_bytes(),
+            Some(b"NULL".to_vec())
+        );
+        assert_eq!(
+            echo_php_gettype(EchoValue::bool(false)).string_bytes(),
+            Some(b"boolean".to_vec())
+        );
+        assert_eq!(
+            echo_php_gettype(EchoValue::int(42)).string_bytes(),
+            Some(b"integer".to_vec())
+        );
+        assert_eq!(
+            echo_php_gettype(EchoValue::string(string)).string_bytes(),
+            Some(b"string".to_vec())
+        );
+        assert_eq!(
+            echo_php_gettype(EchoValue::list(list)).string_bytes(),
+            Some(b"array".to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(string));
+            drop(Box::from_raw(list));
         }
     }
 
