@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 88 | 519 |
-| Loaded local PHP internals, including extensions | 1516 | 88 | 1428 |
+| Baseline (`Core` + `standard`) | 607 | 89 | 518 |
+| Loaded local PHP internals, including extensions | 1516 | 89 | 1427 |
 
 ## Baseline Functions
 
@@ -349,7 +349,7 @@ explicitly promote one.
 | `is_dir` | implemented | Checks local filesystem paths and returns true only for existing directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-dir.php |
 | `is_double` | implemented | Alias of `is_float()`. Source: https://www.php.net/manual/en/function.is-float.php |
 | `is_executable` | missing |  |
-| `is_file` | missing |  |
+| `is_file` | implemented | Checks local filesystem paths and returns true only for existing regular files; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-file.php |
 | `is_finite` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-finite.php |
 | `is_float` | implemented | Echo has no float values yet, so this is false for all currently representable values. Source: https://www.php.net/manual/en/function.is-float.php |
 | `is_infinite` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-infinite.php |
