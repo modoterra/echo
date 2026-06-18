@@ -224,6 +224,24 @@ pub const STD_INTRINSICS: &[StdIntrinsic] = &[
         signature: RuntimeSignature::EchoValueEchoValue,
         arity: 1,
     },
+    StdIntrinsic {
+        echo_name: "php.exists",
+        symbol: "echo_std_php_exists",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "php.params",
+        symbol: "echo_std_php_params",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "php.returnType",
+        symbol: "echo_std_php_return_type",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
 ];
 
 pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {

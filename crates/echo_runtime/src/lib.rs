@@ -734,6 +734,32 @@ pub extern "C" fn echo_std_http_response_text(body: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_std_php_exists(name: EchoValue) -> EchoValue {
+    match php_builtin_metadata_for_value(name) {
+        Some(_) => EchoValue::bool(true),
+        None => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_php_params(name: EchoValue) -> EchoValue {
+    let params = php_builtin_metadata_for_value(name)
+        .map(|metadata| metadata.params)
+        .unwrap_or("");
+
+    echo_runtime_string(params.as_bytes().to_vec())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_php_return_type(name: EchoValue) -> EchoValue {
+    let return_type = php_builtin_metadata_for_value(name)
+        .map(|metadata| metadata.return_type)
+        .unwrap_or("");
+
+    echo_runtime_string(return_type.as_bytes().to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_std_http_read_request(connection: EchoValue) -> EchoValue {
     if connection.kind != ECHO_VALUE_TCP_CONNECTION {
         return EchoValue::error();
@@ -884,7 +910,7 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_function_exists(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
-        Some(bytes) => EchoValue::bool(echo_php_builtin_function_exists(&bytes)),
+        Some(bytes) => EchoValue::bool(php_builtin_metadata(&bytes).is_some()),
         None => EchoValue::error(),
     }
 }
@@ -904,85 +930,388 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(type_name.to_vec()))))
 }
 
-fn echo_php_builtin_function_exists(name: &[u8]) -> bool {
-    PHP_BUILTIN_FUNCTION_NAMES
-        .iter()
-        .any(|known| known.as_bytes().eq_ignore_ascii_case(name))
+fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
 }
 
-const PHP_BUILTIN_FUNCTION_NAMES: &[&str] = &[
-    "addslashes",
-    "base64_decode",
-    "base64_encode",
-    "bin2hex",
-    "boolval",
-    "chr",
-    "count",
-    "flush",
-    "function_exists",
-    "gettype",
-    "hex2bin",
-    "intval",
-    "is_array",
-    "is_bool",
-    "is_countable",
-    "is_int",
-    "is_integer",
-    "is_iterable",
-    "is_long",
-    "is_null",
-    "is_numeric",
-    "is_scalar",
-    "is_string",
-    "lcfirst",
-    "ltrim",
-    "ob_clean",
-    "ob_end_clean",
-    "ob_end_flush",
-    "ob_flush",
-    "ob_get_clean",
-    "ob_get_contents",
-    "ob_get_flush",
-    "ob_get_length",
-    "ob_get_level",
-    "ob_implicit_flush",
-    "ob_start",
-    "ord",
-    "quotemeta",
-    "rtrim",
-    "sizeof",
-    "str_rot13",
-    "str_contains",
-    "str_ends_with",
-    "str_repeat",
-    "str_starts_with",
-    "strcasecmp",
-    "strchr",
-    "strcmp",
-    "strcspn",
-    "stripos",
-    "stristr",
-    "strlen",
-    "strtolower",
-    "strpos",
-    "strpbrk",
-    "strrchr",
-    "strrev",
-    "strripos",
-    "strrpos",
-    "strspn",
-    "strstr",
-    "strtoupper",
-    "strval",
-    "stripslashes",
-    "strncmp",
-    "strncasecmp",
-    "substr",
-    "substr_compare",
-    "substr_count",
-    "trim",
-    "ucfirst",
-    "ucwords",
+fn php_builtin_metadata_for_value(value: EchoValue) -> Option<&'static PhpBuiltinMetadata> {
+    let bytes = value.string_bytes()?;
+    php_builtin_metadata(&bytes)
+}
+
+fn php_builtin_metadata(name: &[u8]) -> Option<&'static PhpBuiltinMetadata> {
+    PHP_BUILTIN_METADATA
+        .iter()
+        .find(|known| known.name.as_bytes().eq_ignore_ascii_case(name))
+}
+
+struct PhpBuiltinMetadata {
+    name: &'static str,
+    params: &'static str,
+    return_type: &'static str,
+}
+
+const PHP_BUILTIN_METADATA: &[PhpBuiltinMetadata] = &[
+    PhpBuiltinMetadata {
+        name: "addslashes",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "base64_decode",
+        params: "string $string, bool $strict = false",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "base64_encode",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "bin2hex",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "boolval",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "chr",
+        params: "int $codepoint",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "count",
+        params: "Countable|array $value, int $mode = COUNT_NORMAL",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "flush",
+        params: "",
+        return_type: "void",
+    },
+    PhpBuiltinMetadata {
+        name: "function_exists",
+        params: "string $function",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "gettype",
+        params: "mixed $value",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "hex2bin",
+        params: "string $string",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "intval",
+        params: "mixed $value, int $base = 10",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "is_array",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_bool",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_countable",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_int",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_integer",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_iterable",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_long",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_null",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_numeric",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_scalar",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "is_string",
+        params: "mixed $value",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "lcfirst",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "ltrim",
+        params: "string $string, string $characters = \" \\n\\r\\t\\v\\0\"",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_clean",
+        params: "",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_end_clean",
+        params: "",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_end_flush",
+        params: "",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_flush",
+        params: "",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_get_clean",
+        params: "",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_get_contents",
+        params: "",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_get_flush",
+        params: "",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_get_length",
+        params: "",
+        return_type: "int|false",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_get_level",
+        params: "",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_implicit_flush",
+        params: "bool $enable = true",
+        return_type: "void",
+    },
+    PhpBuiltinMetadata {
+        name: "ob_start",
+        params: "callable|null $callback = null, int $chunk_size = 0, int $flags = PHP_OUTPUT_HANDLER_STDFLAGS",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "ord",
+        params: "string $character",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "quotemeta",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "rtrim",
+        params: "string $string, string $characters = \" \\n\\r\\t\\v\\0\"",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "sizeof",
+        params: "Countable|array $value, int $mode = COUNT_NORMAL",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "str_rot13",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "str_contains",
+        params: "string $haystack, string $needle",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "str_ends_with",
+        params: "string $haystack, string $needle",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "str_repeat",
+        params: "string $string, int $times",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "str_starts_with",
+        params: "string $haystack, string $needle",
+        return_type: "bool",
+    },
+    PhpBuiltinMetadata {
+        name: "strcasecmp",
+        params: "string $string1, string $string2",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "strchr",
+        params: "string $haystack, string $needle, bool $before_needle = false",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strcmp",
+        params: "string $string1, string $string2",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "strcspn",
+        params: "string $string, string $characters, int $offset = 0, ?int $length = null",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "stripos",
+        params: "string $haystack, string $needle, int $offset = 0",
+        return_type: "int|false",
+    },
+    PhpBuiltinMetadata {
+        name: "stristr",
+        params: "string $haystack, string $needle, bool $before_needle = false",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strlen",
+        params: "string $string",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "strtolower",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "strpos",
+        params: "string $haystack, string $needle, int $offset = 0",
+        return_type: "int|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strpbrk",
+        params: "string $string, string $characters",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strrchr",
+        params: "string $haystack, string $needle",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strrev",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "strripos",
+        params: "string $haystack, string $needle, int $offset = 0",
+        return_type: "int|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strrpos",
+        params: "string $haystack, string $needle, int $offset = 0",
+        return_type: "int|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strspn",
+        params: "string $string, string $characters, int $offset = 0, ?int $length = null",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "strstr",
+        params: "string $haystack, string $needle, bool $before_needle = false",
+        return_type: "string|false",
+    },
+    PhpBuiltinMetadata {
+        name: "strtoupper",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "strval",
+        params: "mixed $value",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "stripslashes",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "strncmp",
+        params: "string $string1, string $string2, int $length",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "strncasecmp",
+        params: "string $string1, string $string2, int $length",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "substr",
+        params: "string $string, int $offset, ?int $length = null",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "substr_compare",
+        params: "string $haystack, string $needle, int $offset, ?int $length = null, bool $case_insensitive = false",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "substr_count",
+        params: "string $haystack, string $needle, int $offset = 0, ?int $length = null",
+        return_type: "int",
+    },
+    PhpBuiltinMetadata {
+        name: "trim",
+        params: "string $string, string $characters = \" \\n\\r\\t\\v\\0\"",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "ucfirst",
+        params: "string $string",
+        return_type: "string",
+    },
+    PhpBuiltinMetadata {
+        name: "ucwords",
+        params: "string $string, string $separators = \" \\t\\r\\n\\f\\v\"",
+        return_type: "string",
+    },
 ];
 
 #[unsafe(no_mangle)]

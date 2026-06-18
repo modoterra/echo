@@ -2252,6 +2252,53 @@ mod tests {
     }
 
     #[test]
+    fn php_reflection_lowers_to_std_intrinsic_call() {
+        let ir = compile_to_ir(&program(vec![
+            std_import("php"),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "php.params".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "strlen".to_string(),
+                        span: Span::new(18, 26),
+                    })],
+                    span: Span::new(0, 27),
+                })],
+                span: Span::new(0, 27),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "php.returnType".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "strlen".to_string(),
+                        span: Span::new(46, 54),
+                    })],
+                    span: Span::new(28, 55),
+                })],
+                span: Span::new(28, 55),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_std_php_params(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("declare %EchoValue @echo_std_php_return_type(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_std_php_params(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_std_php_return_type(%EchoValue %runtime_call_2)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
     fn task_sleep_lowers_to_timer_continuation() {
         let ir = compile_to_ir(&program(vec![
             std_import("time"),

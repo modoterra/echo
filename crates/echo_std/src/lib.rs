@@ -48,6 +48,11 @@ pub const MODULES: &[StdModule] = &[
         path: "std/http.echo",
         source: include_str!("../../../std/http.echo"),
     },
+    StdModule {
+        name: "std.php",
+        path: "std/php.echo",
+        source: include_str!("../../../std/php.echo"),
+    },
 ];
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
@@ -149,6 +154,27 @@ pub const INTRINSICS: &[IntrinsicBinding] = &[
         intrinsic: "std.time.sleep",
         abi_symbol: "echo_time_sleep",
     },
+    IntrinsicBinding {
+        owner: "std.php",
+        method: "exists",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.php.exists",
+        abi_symbol: "echo_std_php_exists",
+    },
+    IntrinsicBinding {
+        owner: "std.php",
+        method: "params",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.php.params",
+        abi_symbol: "echo_std_php_params",
+    },
+    IntrinsicBinding {
+        owner: "std.php",
+        method: "returnType",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.php.return_type",
+        abi_symbol: "echo_std_php_return_type",
+    },
 ];
 
 pub fn library_name() -> &'static str {
@@ -206,6 +232,19 @@ mod tests {
     }
 
     #[test]
+    fn packages_php_module_source() {
+        let module = modules()
+            .iter()
+            .find(|module| module.name == "std.php")
+            .expect("std.php module is packaged");
+
+        assert_eq!(module.path, "std/php.echo");
+        assert!(module.source.contains("namespace std php"));
+        assert!(module.source.contains("intrinsic function params"));
+        assert!(module.source.contains("intrinsic function returnType"));
+    }
+
+    #[test]
     fn exposes_net_intrinsic_bindings() {
         assert!(intrinsics().contains(&IntrinsicBinding {
             owner: "std.net",
@@ -250,6 +289,24 @@ mod tests {
             receiver: IntrinsicReceiver::Static,
             intrinsic: "std.http.response_text",
             abi_symbol: "echo_std_http_response_text",
+        }));
+    }
+
+    #[test]
+    fn exposes_php_intrinsic_bindings() {
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.php",
+            method: "params",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.php.params",
+            abi_symbol: "echo_std_php_params",
+        }));
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.php",
+            method: "returnType",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.php.return_type",
+            abi_symbol: "echo_std_php_return_type",
         }));
     }
 }

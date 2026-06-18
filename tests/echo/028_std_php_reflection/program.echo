@@ -1,0 +1,9 @@
+from std use php
+
+echo "strlen exists:[" . php.exists("strlen") . "]\n"
+echo "strlen params:[" . php.params("strlen") . "]\n"
+echo "strlen return:[" . php.returnType("strlen") . "]\n"
+echo "count params:[" . php.params("count") . "]\n"
+echo "STRLEN return:[" . php.returnType("STRLEN") . "]\n"
+echo "missing exists:[" . php.exists("definitely_missing_echo_builtin") . "]\n"
+echo "missing params:[" . php.params("definitely_missing_echo_builtin") . "]\n"

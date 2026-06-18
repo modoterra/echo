@@ -1,0 +1,7 @@
+strlen exists:[1]
+strlen params:[string $string]
+strlen return:[int]
+count params:[Countable|array $value, int $mode = COUNT_NORMAL]
+STRLEN return:[int]
+missing exists:[]
+missing params:[]
