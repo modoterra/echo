@@ -1,0 +1,6 @@
+echo "twelve:[" . decbin(12) . "]\n"
+echo "twenty-six:[" . decbin(26) . "]\n"
+echo "zero:[" . decbin(0) . "]\n"
+echo "negative:[" . decbin(-1) . "]\n"
+echo "numeric-string:[" . decbin("255") . "]\n"
+echo "exists:[" . function_exists("decbin") . "]\n"
