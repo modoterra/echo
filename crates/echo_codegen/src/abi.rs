@@ -319,6 +319,14 @@ pub const PHP_RUNTIME_HELPERS: &[(&str, RuntimeSignature)] =
 
 pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
+        php_name: "abs",
+        symbol: "echo_php_abs",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "flush",
         symbol: "echo_php_flush",
         helper_symbol: None,

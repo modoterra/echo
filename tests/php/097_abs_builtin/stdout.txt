@@ -1,0 +1,4 @@
+positive:[7]
+negative:[7]
+zero:[0]
+exists:[1]

@@ -96,6 +96,7 @@ pub fn reflect_std_functions(source: &str) -> Vec<FunctionReflection> {
 
 fn php_builtin_reflections() -> Vec<FunctionReflection> {
     [
+        php_builtin_reflection("abs", &[("num", Some("int|float"))], Some("int|float")),
         php_builtin_reflection("flush", &[], Some("void")),
         php_builtin_reflection(
             "ob_implicit_flush",

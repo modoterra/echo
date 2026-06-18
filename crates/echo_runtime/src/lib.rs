@@ -1136,6 +1136,17 @@ pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_abs(value: EchoValue) -> EchoValue {
+    match value.kind {
+        ECHO_VALUE_INT => match (value.payload as i64).checked_abs() {
+            Some(value) => EchoValue::int(value),
+            None => EchoValue::error(),
+        },
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_is_list(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_array())
 }
@@ -4554,6 +4565,15 @@ mod tests {
             drop(Box::from_raw(rtrim));
             drop(Box::from_raw(non_ascii));
         }
+    }
+
+    #[test]
+    fn abs_preserves_php_integer_absolute_value_behavior() {
+        assert_eq!(echo_php_abs(EchoValue::int(42)), EchoValue::int(42));
+        assert_eq!(echo_php_abs(EchoValue::int(-42)), EchoValue::int(42));
+        assert_eq!(echo_php_abs(EchoValue::int(0)), EchoValue::int(0));
+        assert_eq!(echo_php_abs(EchoValue::int(i64::MIN)), EchoValue::error());
+        assert_eq!(echo_php_abs(EchoValue::bool(true)), EchoValue::error());
     }
 
     #[test]

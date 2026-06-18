@@ -5,6 +5,9 @@ function greet($name) {
     return "hello " . $name
 }
 
+assert.ok(reflect.exists("abs"))
+assert.equals(reflect.params("abs"), "int|float $num")
+assert.equals(reflect.returnType("abs"), "int|float")
 assert.ok(reflect.exists("strlen"))
 assert.equals(reflect.params("strlen"), "string $string")
 assert.equals(reflect.returnType("strlen"), "int")

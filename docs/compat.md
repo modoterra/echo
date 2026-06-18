@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 77 | 530 |
-| Loaded local PHP internals, including extensions | 1516 | 77 | 1439 |
+| Baseline (`Core` + `standard`) | 607 | 78 | 529 |
+| Loaded local PHP internals, including extensions | 1516 | 78 | 1438 |
 
 ## Baseline Functions
 
@@ -87,11 +87,11 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (71/545)
+### standard (72/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
-| `abs` | missing |  |
+| `abs` | implemented | Supports current Echo integer values; float payloads are deferred. Source: https://www.php.net/manual/en/function.abs.php |
 | `acos` | missing |  |
 | `acosh` | missing |  |
 | `addcslashes` | missing |  |

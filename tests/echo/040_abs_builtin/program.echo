@@ -1,0 +1,4 @@
+echo "positive:[" . abs(7) . "]\n"
+echo "negative:[" . abs(-7) . "]\n"
+echo "zero:[" . abs(0) . "]\n"
+echo "exists:[" . function_exists("abs") . "]\n"
