@@ -199,6 +199,7 @@ version = "0.1.0"
 dependencies = [
  "echo_ast",
  "echo_diagnostics",
+ "echo_reflection",
  "echo_runtime",
  "echo_source",
  "echo_std",
@@ -234,10 +235,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "echo_reflection"
+version = "0.1.0"
+dependencies = [
+ "echo_ast",
+ "echo_parser",
+]
+
+[[package]]
 name = "echo_runtime"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "echo_reflection",
  "http",
  "mio",
  "socket2",

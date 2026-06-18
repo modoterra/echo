@@ -94,12 +94,12 @@ intrinsic function write(TcpConnection $connection, bytes|string $data): int
 intrinsic function close(TcpConnection $connection): void
 ```
 
-PHP builtin reflection is exposed as an Echo strict-mode stdlib module so Echo
-programs can inspect the compatibility surface without calling PHP reflection
-APIs directly:
+Function reflection is exposed as an Echo strict-mode stdlib module so Echo
+programs can inspect available functions without calling PHP reflection APIs
+directly:
 
 ```php
-namespace std php
+namespace std reflect
 
 intrinsic function exists(string $name): bool
 intrinsic function params(string $name): string
@@ -109,6 +109,11 @@ intrinsic function returnType(string $name): string
 `params()` returns the supported PHP parameter list as a string and
 `returnType()` returns the supported PHP return type string. Unknown names
 return `false` from `exists()` and an empty string from the string accessors.
+The reflection data is derived from trusted Echo declarations in
+PHP builtin reflection data is derived from trusted Echo declarations in
+`std/php_builtins.echo`; Echo std function reflection is derived from the
+packaged `std/*.echo` module declarations. It is not a separate runtime metadata
+table.
 
 The `namespace std ...` form declares the compiler's internal stdlib module identity. User code imports it with `from std use ...`; it is not a PHP namespace and does not reserve `std\...`, `Std\...`, `Echo\...`, or `EchoStd\...`.
 

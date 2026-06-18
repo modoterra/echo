@@ -8,6 +8,7 @@ crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 bytes = "1"
+echo_reflection = { path = "../echo_reflection" }
 http = "1"
 mio = { version = "1", features = ["os-poll", "net"] }
 socket2 = "0.5"

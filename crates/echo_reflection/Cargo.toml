@@ -1,0 +1,8 @@
+[package]
+name = "echo_reflection"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+echo_ast = { path = "../echo_ast" }
+echo_parser = { path = "../echo_parser" }

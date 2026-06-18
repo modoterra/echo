@@ -53,7 +53,7 @@ pub struct DynamicFunctionCallStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclStmt {
     pub name: String,
-    pub params: Vec<String>,
+    pub params: Vec<TypedParam>,
     pub return_type: Option<String>,
     pub is_intrinsic: bool,
     pub is_generator: bool,

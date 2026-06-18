@@ -1,9 +1,11 @@
-from std use php
+from std use reflect
 
-echo "strlen exists:[" . php.exists("strlen") . "]\n"
-echo "strlen params:[" . php.params("strlen") . "]\n"
-echo "strlen return:[" . php.returnType("strlen") . "]\n"
-echo "count params:[" . php.params("count") . "]\n"
-echo "STRLEN return:[" . php.returnType("STRLEN") . "]\n"
-echo "missing exists:[" . php.exists("definitely_missing_echo_builtin") . "]\n"
-echo "missing params:[" . php.params("definitely_missing_echo_builtin") . "]\n"
+echo "strlen exists:[" . reflect.exists("strlen") . "]\n"
+echo "strlen params:[" . reflect.params("strlen") . "]\n"
+echo "strlen return:[" . reflect.returnType("strlen") . "]\n"
+echo "count params:[" . reflect.params("count") . "]\n"
+echo "STRLEN return:[" . reflect.returnType("STRLEN") . "]\n"
+echo "time.sleep params:[" . reflect.params("time.sleep") . "]\n"
+echo "reflect.params return:[" . reflect.returnType("reflect.params") . "]\n"
+echo "missing exists:[" . reflect.exists("definitely_missing_echo_builtin") . "]\n"
+echo "missing params:[" . reflect.params("definitely_missing_echo_builtin") . "]\n"

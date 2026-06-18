@@ -154,9 +154,9 @@ declare %EchoValue @echo_php_ob_get_level()
 Current Echo stdlib PHP reflection intrinsics use unary `%EchoValue` calls:
 
 ```llvm
-declare %EchoValue @echo_std_php_exists(%EchoValue)
-declare %EchoValue @echo_std_php_params(%EchoValue)
-declare %EchoValue @echo_std_php_return_type(%EchoValue)
+declare %EchoValue @echo_std_reflect_exists(%EchoValue)
+declare %EchoValue @echo_std_reflect_params(%EchoValue)
+declare %EchoValue @echo_std_reflect_return_type(%EchoValue)
 ```
 
 Current PHP-facing string builtins use unary `%EchoValue` calls so PHP scalar coercion

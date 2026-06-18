@@ -1,4 +1,4 @@
-namespace std php
+namespace std reflect
 
 intrinsic function exists(string $name): bool
 intrinsic function params(string $name): string

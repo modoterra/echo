@@ -1038,7 +1038,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
-                        params: params.into_iter().map(str::to_string).collect(),
+                        params: params
+                            .into_iter()
+                            .map(|name| TypedParam {
+                                name: name.to_string(),
+                                ty: None,
+                            })
+                            .collect(),
                         return_type: None,
                         is_intrinsic: false,
                         is_generator: false,
@@ -1081,7 +1087,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
-                        params: params.into_iter().map(|param| param.name).collect(),
+                        params,
                         return_type,
                         is_intrinsic: false,
                         is_generator: false,
@@ -1119,7 +1125,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
-                        params: params.into_iter().map(|param| param.name).collect(),
+                        params,
                         return_type,
                         is_intrinsic: true,
                         is_generator: false,
@@ -1163,7 +1169,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
-                        params: params.into_iter().map(|param| param.name).collect(),
+                        params,
                         return_type,
                         is_intrinsic: false,
                         is_generator: true,
@@ -1748,6 +1754,26 @@ echo "done"
                     && statement.name.as_string() == "http"
         ));
         assert!(matches!(&program.statements[1], Stmt::FunctionDecl(_)));
+    }
+
+    #[test]
+    fn parses_std_php_builtins_module_source() {
+        let program = parse_trusted_std(include_str!("../../../std/php_builtins.echo"))
+            .expect("std php builtins module parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Namespace(statement)
+                if statement.source == NamespaceSource::Std
+                    && statement.name.as_string() == "php_builtins"
+        ));
+        assert!(matches!(
+            &program.statements[13],
+            Stmt::FunctionDecl(function)
+                if function.name == "strlen"
+                    && function.params[0].ty.as_deref() == Some("string")
+                    && function.return_type.as_deref() == Some("int")
+        ));
     }
 
     #[test]

@@ -148,8 +148,8 @@ impl IrModule {
 
         for param in &function.params {
             self.locals.insert(
-                param.clone(),
-                RuntimeValue::EchoValue(format!("%arg_{param}")),
+                param.name.clone(),
+                RuntimeValue::EchoValue(format!("%arg_{}", param.name)),
             );
         }
 
@@ -175,7 +175,7 @@ impl IrModule {
         let params = function
             .params
             .iter()
-            .map(|param| format!("%EchoValue %arg_{param}"))
+            .map(|param| format!("%EchoValue %arg_{}", param.name))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -1603,6 +1603,7 @@ mod tests {
     use echo_ast::{
         AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
         ImportStmt, NullLiteral, NumberLiteral, QualifiedName, ReturnStmt, StringLiteral,
+        TypedParam,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -1610,6 +1611,13 @@ mod tests {
             open_tag: None,
             statements,
             span: Span::new(0, 0),
+        }
+    }
+
+    fn param(name: &str) -> TypedParam {
+        TypedParam {
+            name: name.to_string(),
+            ty: None,
         }
     }
 
@@ -1773,7 +1781,7 @@ mod tests {
         let ir = compile_to_ir(&program(vec![
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "say".to_string(),
-                params: vec!["message".to_string()],
+                params: vec![param("message")],
                 return_type: None,
                 is_intrinsic: false,
                 is_generator: false,
@@ -1861,7 +1869,7 @@ mod tests {
         let ir = compile_to_ir(&program(vec![
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "greet".to_string(),
-                params: vec!["name".to_string()],
+                params: vec![param("name")],
                 return_type: None,
                 is_intrinsic: false,
                 is_generator: false,
@@ -2062,6 +2070,17 @@ mod tests {
     }
 
     #[test]
+    fn every_lowered_php_builtin_has_reflected_declaration() {
+        for builtin in PHP_BUILTINS {
+            assert!(
+                echo_reflection::php_builtin(builtin.php_name).is_some(),
+                "missing reflected declaration for {}",
+                builtin.php_name
+            );
+        }
+    }
+
+    #[test]
     fn string_prefix_compare_builtins_lower_to_php_builtin_with_three_echo_value_arguments() {
         for (php_name, symbol) in [
             ("strncmp", "echo_php_strncmp"),
@@ -2252,12 +2271,12 @@ mod tests {
     }
 
     #[test]
-    fn php_reflection_lowers_to_std_intrinsic_call() {
+    fn reflect_lowers_to_std_intrinsic_call() {
         let ir = compile_to_ir(&program(vec![
-            std_import("php"),
+            std_import("reflect"),
             Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {
-                    name: "php.params".to_string(),
+                    name: "reflect.params".to_string(),
                     args: vec![Expr::String(StringLiteral {
                         value: "strlen".to_string(),
                         span: Span::new(18, 26),
@@ -2268,7 +2287,7 @@ mod tests {
             }),
             Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {
-                    name: "php.returnType".to_string(),
+                    name: "reflect.returnType".to_string(),
                     args: vec![Expr::String(StringLiteral {
                         value: "strlen".to_string(),
                         span: Span::new(46, 54),
@@ -2281,19 +2300,21 @@ mod tests {
         .expect("IR");
 
         assert!(
-            ir.contains("declare %EchoValue @echo_std_php_params(%EchoValue)"),
+            ir.contains("declare %EchoValue @echo_std_reflect_params(%EchoValue)"),
             "{ir}"
         );
         assert!(
-            ir.contains("declare %EchoValue @echo_std_php_return_type(%EchoValue)"),
+            ir.contains("declare %EchoValue @echo_std_reflect_return_type(%EchoValue)"),
             "{ir}"
         );
         assert!(
-            ir.contains("call %EchoValue @echo_std_php_params(%EchoValue %runtime_call_0)"),
+            ir.contains("call %EchoValue @echo_std_reflect_params(%EchoValue %runtime_call_0)"),
             "{ir}"
         );
         assert!(
-            ir.contains("call %EchoValue @echo_std_php_return_type(%EchoValue %runtime_call_2)"),
+            ir.contains(
+                "call %EchoValue @echo_std_reflect_return_type(%EchoValue %runtime_call_2)"
+            ),
             "{ir}"
         );
     }

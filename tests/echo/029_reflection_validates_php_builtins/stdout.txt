@@ -1,0 +1,6 @@
+strlen signature:[string $string):int]
+strlen result:[3]
+strtoupper signature:[string $string):string]
+strtoupper result:[ECHO]
+function_exists reflected:[1]
+function_exists result:[1]
