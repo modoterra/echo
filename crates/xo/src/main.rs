@@ -8,6 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::{Parser, Subcommand};
 use echo_ast::{BinaryOp, EchoStmt, Expr, FunctionCallExpr, Program, Stmt};
 use echo_source::{SourceFile, SourceMode};
+use rustyline::DefaultEditor;
+use rustyline::error::ReadlineError;
 
 static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -214,24 +216,61 @@ fn main() {
 
 fn run_repl(mode: ModeOverride) {
     let interactive = io::stdin().is_terminal();
-    let mut line = String::new();
     let mut session = ReplSession::default();
 
     ensure_runtime_library_quiet();
 
     if interactive {
-        println!("{ANSI_DIM}Echo REPL. Use :quit or :exit to leave.{ANSI_RESET}");
+        run_interactive_repl(&mut session, mode);
+    } else {
+        run_piped_repl(&mut session, mode);
+    }
+}
+
+fn run_interactive_repl(session: &mut ReplSession, mode: ModeOverride) {
+    let mut editor = DefaultEditor::new().unwrap_or_else(|err| {
+        eprintln!("error: failed to initialize REPL editor: {err}");
+        std::process::exit(1);
+    });
+    let history_path = repl_history_path();
+    if let Some(path) = history_path.as_deref() {
+        let _ = editor.load_history(path);
     }
 
+    println!("{ANSI_DIM}Echo REPL. Use :quit or :exit to leave.{ANSI_RESET}");
+
     loop {
-        if interactive {
-            print!("{}", repl_prompt());
-            io::stdout().flush().unwrap_or_else(|err| {
-                eprintln!("error: failed to flush stdout: {err}");
+        let line = match editor.readline(&repl_prompt()) {
+            Ok(line) => line,
+            Err(ReadlineError::Interrupted | ReadlineError::Eof) => break,
+            Err(err) => {
+                eprintln!("error: failed to read stdin: {err}");
                 std::process::exit(1);
-            });
+            }
+        };
+
+        let input = line.trim();
+        if input.is_empty() {
+            continue;
         }
 
+        if input == ":quit" || input == ":exit" {
+            break;
+        }
+
+        let _ = editor.add_history_entry(input);
+        run_repl_input(session, input, mode, true);
+    }
+
+    if let Some(path) = history_path.as_deref() {
+        let _ = editor.save_history(path);
+    }
+}
+
+fn run_piped_repl(session: &mut ReplSession, mode: ModeOverride) {
+    let mut line = String::new();
+
+    loop {
         line.clear();
         match io::stdin().read_line(&mut line) {
             Ok(0) => break,
@@ -251,7 +290,7 @@ fn run_repl(mode: ModeOverride) {
             break;
         }
 
-        run_repl_input(&mut session, input, mode, interactive);
+        run_repl_input(session, input, mode, false);
     }
 }
 
@@ -307,6 +346,13 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
 
 fn repl_prompt() -> String {
     format!("{ANSI_GREEN}xo){ANSI_RESET} ")
+}
+
+fn repl_history_path() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .filter(|home| !home.is_empty())
+        .map(PathBuf::from)
+        .map(|home| home.join(".xo_history"))
 }
 
 fn is_repl_persistent_statement(statement: &Stmt) -> bool {

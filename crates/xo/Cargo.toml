@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+rustyline = "14"
 echo_source = { path = "../echo_source" }
 echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }

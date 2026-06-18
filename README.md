@@ -114,6 +114,7 @@ cargo run -p xo -- repl
 ```
 
 Bare expressions such as `5` or `5+3` print their resulting value.
+Interactive sessions support arrow-key history saved in `~/.xo_history`.
 
 Run Echo assertion tests in a file or directory.
 
