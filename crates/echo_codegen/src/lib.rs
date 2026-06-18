@@ -2244,6 +2244,7 @@ mod tests {
             ("escapeshellarg", "echo_php_escapeshellarg"),
             ("escapeshellcmd", "echo_php_escapeshellcmd"),
             ("file_exists", "echo_php_file_exists"),
+            ("is_dir", "echo_php_is_dir"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
             ("rtrim", "echo_php_rtrim"),

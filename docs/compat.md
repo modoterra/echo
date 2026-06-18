@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 87 | 520 |
-| Loaded local PHP internals, including extensions | 1516 | 87 | 1429 |
+| Baseline (`Core` + `standard`) | 607 | 88 | 519 |
+| Loaded local PHP internals, including extensions | 1516 | 88 | 1428 |
 
 ## Baseline Functions
 
@@ -346,7 +346,7 @@ explicitly promote one.
 | `is_bool` | implemented | Source: https://www.php.net/manual/en/function.is-bool.php |
 | `is_callable` | implemented | Supports string function names in the runtime function registry; callable arrays/objects and optional arguments are deferred. Source: https://www.php.net/manual/en/function.is-callable.php |
 | `is_countable` | implemented | Supports arrays; Countable objects deferred. Source: https://www.php.net/manual/en/function.is-countable.php |
-| `is_dir` | missing |  |
+| `is_dir` | implemented | Checks local filesystem paths and returns true only for existing directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-dir.php |
 | `is_double` | implemented | Alias of `is_float()`. Source: https://www.php.net/manual/en/function.is-float.php |
 | `is_executable` | missing |  |
 | `is_file` | missing |  |

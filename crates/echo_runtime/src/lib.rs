@@ -1658,6 +1658,14 @@ pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_dir(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_is_dir(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
 #[cfg(unix)]
 fn path_exists(bytes: &[u8]) -> bool {
     Path::new(OsStr::from_bytes(bytes)).exists()
@@ -1667,6 +1675,18 @@ fn path_exists(bytes: &[u8]) -> bool {
 fn path_exists(bytes: &[u8]) -> bool {
     std::str::from_utf8(bytes)
         .map(|path| Path::new(path).exists())
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn path_is_dir(bytes: &[u8]) -> bool {
+    Path::new(OsStr::from_bytes(bytes)).is_dir()
+}
+
+#[cfg(not(unix))]
+fn path_is_dir(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .map(|path| Path::new(path).is_dir())
         .unwrap_or(false)
 }
 
@@ -3578,6 +3598,48 @@ mod tests {
         );
         assert_eq!(
             echo_php_file_exists(EchoValue::string(empty)),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(cargo_toml));
+            drop(Box::from_raw(src_dir));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(empty));
+        }
+    }
+
+    #[test]
+    fn is_dir_reports_only_existing_directories() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let existing_file = manifest_dir.join("Cargo.toml");
+        let existing_dir = manifest_dir.join("src");
+        let missing_path = manifest_dir.join("definitely_missing_echo_directory");
+        let cargo_toml = Box::into_raw(Box::new(EchoString {
+            bytes: existing_file.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let src_dir = Box::into_raw(Box::new(EchoString {
+            bytes: existing_dir.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: missing_path.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_dir(EchoValue::string(cargo_toml)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_dir(EchoValue::string(src_dir)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_dir(EchoValue::string(missing)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_dir(EchoValue::string(empty)),
             EchoValue::bool(false)
         );
 

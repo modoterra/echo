@@ -1,0 +1,5 @@
+echo "directory:[" . is_dir(".") . "]\n"
+echo "file:[" . is_dir("Cargo.toml") . "]\n"
+echo "missing:[" . is_dir("definitely_missing_echo_directory") . "]\n"
+echo "empty:[" . is_dir("") . "]\n"
+echo "exists:[" . function_exists("is_dir") . "]\n"
