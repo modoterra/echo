@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 52 | 555 |
-| Loaded local PHP internals, including extensions | 1516 | 52 | 1464 |
+| Baseline (`Core` + `standard`) | 607 | 54 | 553 |
+| Loaded local PHP internals, including extensions | 1516 | 54 | 1462 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (49/545)
+### standard (51/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -342,7 +342,7 @@ explicitly promote one.
 | `ip2long` | missing |  |
 | `iptcembed` | missing |  |
 | `iptcparse` | missing |  |
-| `is_array` | missing |  |
+| `is_array` | implemented | Supports Echo list values as PHP arrays. Source: https://www.php.net/manual/en/function.is-array.php |
 | `is_bool` | missing |  |
 | `is_callable` | missing |  |
 | `is_countable` | missing |  |
@@ -501,7 +501,7 @@ explicitly promote one.
 | `similar_text` | missing |  |
 | `sin` | missing |  |
 | `sinh` | missing |  |
-| `sizeof` | missing |  |
+| `sizeof` | implemented | Alias of `count()`. Source: https://www.php.net/manual/en/function.sizeof.php |
 | `sleep` | missing |  |
 | `socket_get_status` | missing |  |
 | `socket_set_blocking` | missing |  |

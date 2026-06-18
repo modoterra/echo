@@ -157,6 +157,7 @@ stays centralized in the runtime value layer:
 ```llvm
 declare %EchoValue @echo_php_strlen(%EchoValue)
 declare %EchoValue @echo_php_count(%EchoValue)
+declare %EchoValue @echo_php_is_array(%EchoValue)
 declare %EchoValue @echo_php_strval(%EchoValue)
 declare %EchoValue @echo_php_boolval(%EchoValue)
 declare %EchoValue @echo_php_intval(%EchoValue)

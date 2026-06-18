@@ -878,6 +878,11 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strval(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
