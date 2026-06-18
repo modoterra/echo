@@ -882,6 +882,14 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_function_exists(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::bool(echo_php_builtin_function_exists(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
     let type_name = match value.kind {
         ECHO_VALUE_NULL => b"NULL".as_slice(),
@@ -895,6 +903,87 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
     };
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(type_name.to_vec()))))
 }
+
+fn echo_php_builtin_function_exists(name: &[u8]) -> bool {
+    PHP_BUILTIN_FUNCTION_NAMES
+        .iter()
+        .any(|known| known.as_bytes().eq_ignore_ascii_case(name))
+}
+
+const PHP_BUILTIN_FUNCTION_NAMES: &[&str] = &[
+    "addslashes",
+    "base64_decode",
+    "base64_encode",
+    "bin2hex",
+    "boolval",
+    "chr",
+    "count",
+    "flush",
+    "function_exists",
+    "gettype",
+    "hex2bin",
+    "intval",
+    "is_array",
+    "is_bool",
+    "is_countable",
+    "is_int",
+    "is_integer",
+    "is_iterable",
+    "is_long",
+    "is_null",
+    "is_numeric",
+    "is_scalar",
+    "is_string",
+    "lcfirst",
+    "ltrim",
+    "ob_clean",
+    "ob_end_clean",
+    "ob_end_flush",
+    "ob_flush",
+    "ob_get_clean",
+    "ob_get_contents",
+    "ob_get_flush",
+    "ob_get_length",
+    "ob_get_level",
+    "ob_implicit_flush",
+    "ob_start",
+    "ord",
+    "quotemeta",
+    "rtrim",
+    "sizeof",
+    "str_rot13",
+    "str_contains",
+    "str_ends_with",
+    "str_repeat",
+    "str_starts_with",
+    "strcasecmp",
+    "strchr",
+    "strcmp",
+    "strcspn",
+    "stripos",
+    "stristr",
+    "strlen",
+    "strtolower",
+    "strpos",
+    "strpbrk",
+    "strrchr",
+    "strrev",
+    "strripos",
+    "strrpos",
+    "strspn",
+    "strstr",
+    "strtoupper",
+    "strval",
+    "stripslashes",
+    "strncmp",
+    "strncasecmp",
+    "substr",
+    "substr_compare",
+    "substr_count",
+    "trim",
+    "ucfirst",
+    "ucwords",
+];
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
@@ -4265,6 +4354,54 @@ mod tests {
         unsafe {
             drop(Box::from_raw(string));
             drop(Box::from_raw(list));
+        }
+    }
+
+    #[test]
+    fn function_exists_reports_supported_internal_builtins() {
+        let strlen = Box::into_raw(Box::new(EchoString {
+            bytes: b"strlen".to_vec(),
+        }));
+        let uppercase = Box::into_raw(Box::new(EchoString {
+            bytes: b"STRLEN".to_vec(),
+        }));
+        let alias = Box::into_raw(Box::new(EchoString {
+            bytes: b"sizeof".to_vec(),
+        }));
+        let construct = Box::into_raw(Box::new(EchoString {
+            bytes: b"echo".to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: b"definitely_missing_echo_builtin".to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_function_exists(EchoValue::string(strlen)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_function_exists(EchoValue::string(uppercase)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_function_exists(EchoValue::string(alias)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_function_exists(EchoValue::string(construct)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_function_exists(EchoValue::string(missing)),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(strlen));
+            drop(Box::from_raw(uppercase));
+            drop(Box::from_raw(alias));
+            drop(Box::from_raw(construct));
+            drop(Box::from_raw(missing));
         }
     }
 

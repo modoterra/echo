@@ -181,6 +181,7 @@ Examples:
 - `echo_write(ptr, len)` is core runtime ABI because `echo` syntax needs output semantics.
 - `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
 - `echo_php_count(...)` is PHP builtin ABI because `count()` is a PHP compatibility function.
+- `echo_php_function_exists(...)` is PHP builtin ABI because `function_exists()` is a PHP compatibility function.
 - `echo_php_gettype(...)` is PHP builtin ABI because `gettype()` is a PHP compatibility function.
 - `echo_php_is_array(...)` is PHP builtin ABI because `is_array()` is a PHP compatibility function.
 - `echo_php_is_null(...)`, `echo_php_is_bool(...)`, `echo_php_is_int(...)`, `echo_php_is_string(...)`, `echo_php_is_countable(...)`, `echo_php_is_iterable(...)`, `echo_php_is_numeric(...)`, and `echo_php_is_scalar(...)` are PHP builtin ABI because the corresponding `is_*()` functions are PHP compatibility functions.

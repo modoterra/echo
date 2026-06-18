@@ -15,12 +15,12 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 65 | 542 |
-| Loaded local PHP internals, including extensions | 1516 | 65 | 1451 |
+| Baseline (`Core` + `standard`) | 607 | 66 | 541 |
+| Loaded local PHP internals, including extensions | 1516 | 66 | 1450 |
 
 ## Baseline Functions
 
-### Core (3/62)
+### Core (4/62)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -39,7 +39,7 @@ explicitly promote one.
 | `func_get_arg` | missing |  |
 | `func_get_args` | missing |  |
 | `func_num_args` | missing |  |
-| `function_exists` | missing |  |
+| `function_exists` | implemented | Recognizes Echo's supported internal PHP builtin names, case-insensitively; user-defined function registry support is deferred. Source: https://www.php.net/manual/en/function.function-exists.php |
 | `gc_collect_cycles` | missing |  |
 | `gc_disable` | missing |  |
 | `gc_enable` | missing |  |

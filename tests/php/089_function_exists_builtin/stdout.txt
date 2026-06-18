@@ -1,0 +1,7 @@
+strlen:[1]
+STRLEN:[1]
+sizeof:[1]
+function_exists:[1]
+echo:[]
+missing:[]
+empty-string:[]

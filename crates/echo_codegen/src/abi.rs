@@ -387,6 +387,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "function_exists",
+        symbol: "echo_php_function_exists",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "gettype",
         symbol: "echo_php_gettype",
         helper_symbol: None,
