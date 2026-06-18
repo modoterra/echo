@@ -128,9 +128,10 @@ Current coverage:
 - `xo build -O0/-O1/-O2/-O3/-Oz file.echo -o program` is supported.
 - `O0` remains the default.
 - Native builds pass the selected optimization level to `clang` while linking generated LLVM IR with `echo_runtime`.
+- Generated IR is verified with external `opt -passes=verify` before native builds and optimized IR emission.
 - `xo build --emit-ir file.echo` emits raw generated IR.
 - `xo build --emit-ir -O2 file.echo` emits optimized IR through the external `opt` tool as a bootstrap.
-- In-process Inkwell optimization and a dedicated verifier pass remain future work.
+- In-process Inkwell optimization and verification remain future work.
 
 1. Add an optimization level enum shared by CLI/build code:
 
@@ -146,7 +147,7 @@ pub enum OptimizationLevel {
 
 2. Parse optimization flags on `xo build`, defaulting to `O0`. **Done.**
 
-3. Verify LLVM modules after IR generation and before optimization/linking.
+3. Verify LLVM modules after IR generation and before optimization/linking. **Done through external `opt -passes=verify`.**
 
 4. Run the selected LLVM default pipeline when level is not `O0`. **Done for `--emit-ir` through external `opt`; native builds delegate optimization to `clang`.**
 

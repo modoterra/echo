@@ -174,6 +174,7 @@ fn main() {
         } => {
             if emit_ir {
                 let ir = compile_ir(&file, mode);
+                verify_ir(&file, &ir);
                 print!("{}", optimize_ir(&file, &ir, optimization.level));
             } else {
                 let Some(output) = output else {
@@ -196,6 +197,7 @@ fn build_binary(
     ensure_runtime_library();
 
     let ir = compile_ir(file, mode);
+    verify_ir(file, &ir);
     let ir_path = write_temp_ir(file, &ir);
     run_command(
         ProcessCommand::new("clang")
@@ -210,6 +212,26 @@ fn build_binary(
             .arg(output),
     );
     let _ = fs::remove_file(ir_path);
+}
+
+fn verify_ir(file: &PathBuf, ir: &str) {
+    let ir_path = write_temp_ir(file, ir);
+    let output = ProcessCommand::new("opt")
+        .arg("-disable-output")
+        .arg("-passes=verify")
+        .arg(&ir_path)
+        .output()
+        .unwrap_or_else(|err| {
+            eprintln!("error: failed to run opt verifier: {err}");
+            std::process::exit(1);
+        });
+    let _ = fs::remove_file(ir_path);
+
+    if !output.status.success() {
+        eprintln!("error: generated LLVM IR failed verification");
+        eprint!("{}", String::from_utf8_lossy(&output.stderr));
+        std::process::exit(output.status.code().unwrap_or(1));
+    }
 }
 
 fn optimize_ir(file: &PathBuf, ir: &str, optimization: OptimizationLevel) -> String {
