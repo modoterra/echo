@@ -1,10 +1,13 @@
+from std use assert
 from std use reflect
 
 function greet($name) {
     return "hello " . $name . "\n"
 }
 
-echo "greet exists:[" . reflect.exists("greet") . "]\n"
-echo "greet params:[" . reflect.params("greet") . "]\n"
-echo "greet return:[" . reflect.returnType("greet") . "]\n"
-echo "greet result:[" . greet("Echo") . "]\n"
+assert.ok(reflect.exists("greet"))
+assert.equals(reflect.params("greet"), "$name")
+assert.equals(reflect.returnType("greet"), "")
+assert.equals(greet("Echo"), "hello Echo\n")
+assert.equals(reflect.typeOf(greet("Echo")), "string")
+echo "\n"

@@ -93,7 +93,7 @@ impl CoreRuntimeSymbol {
             Self::TaskSleepCurrent => RuntimeSignature::EchoValueI64Ptr,
             Self::TimeSleep => RuntimeSignature::VoidI64,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
-            Self::RegisterFunction => RuntimeSignature::VoidPtrI64PtrI64PtrI64,
+            Self::RegisterFunction => RuntimeSignature::VoidPtrI64PtrI64PtrI64I32,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }
     }
@@ -108,7 +108,7 @@ pub enum RuntimeSignature {
     VoidNoArgs,
     VoidI64,
     VoidPtrI64,
-    VoidPtrI64PtrI64PtrI64,
+    VoidPtrI64PtrI64PtrI64I32,
     VoidEchoValue,
     BoolNoArgs,
     BoolEchoValue,
@@ -130,8 +130,8 @@ impl RuntimeSignature {
             Self::VoidNoArgs => format!("declare void @{symbol}()"),
             Self::VoidI64 => format!("declare void @{symbol}(i64)"),
             Self::VoidPtrI64 => format!("declare void @{symbol}(ptr, i64)"),
-            Self::VoidPtrI64PtrI64PtrI64 => {
-                format!("declare void @{symbol}(ptr, i64, ptr, i64, ptr, i64)")
+            Self::VoidPtrI64PtrI64PtrI64I32 => {
+                format!("declare void @{symbol}(ptr, i64, ptr, i64, ptr, i64, i32)")
             }
             Self::VoidEchoValue => format!("declare void @{symbol}(%EchoValue)"),
             Self::BoolNoArgs => format!("declare i1 @{symbol}()"),

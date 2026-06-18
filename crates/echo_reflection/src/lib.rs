@@ -2,7 +2,6 @@ use std::sync::OnceLock;
 
 use echo_ast::{NamespaceSource, Stmt, TypedParam};
 
-pub const PHP_BUILTINS_SOURCE: &str = include_str!("../../../std/php_builtins.echo");
 const STD_MODULE_SOURCES: &[(&str, &str)] = &[
     ("http", include_str!("../../../std/http.echo")),
     ("assert", include_str!("../../../std/assert.echo")),
@@ -78,7 +77,7 @@ pub fn std_function(name: &str) -> Option<&'static FunctionReflection> {
 pub fn functions() -> &'static [FunctionReflection] {
     static FUNCTIONS: OnceLock<Vec<FunctionReflection>> = OnceLock::new();
     FUNCTIONS.get_or_init(|| {
-        let mut functions = reflect_php_builtins(PHP_BUILTINS_SOURCE);
+        let mut functions = php_builtin_reflections();
         for (_, source) in STD_MODULE_SOURCES {
             functions.extend(reflect_std_functions(source));
         }
@@ -88,15 +87,236 @@ pub fn functions() -> &'static [FunctionReflection] {
 
 pub fn php_builtins() -> &'static [FunctionReflection] {
     static PHP_BUILTINS: OnceLock<Vec<FunctionReflection>> = OnceLock::new();
-    PHP_BUILTINS.get_or_init(|| reflect_php_builtins(PHP_BUILTINS_SOURCE))
-}
-
-pub fn reflect_php_builtins(source: &str) -> Vec<FunctionReflection> {
-    reflect_functions(source, FunctionSource::PhpBuiltin)
+    PHP_BUILTINS.get_or_init(php_builtin_reflections)
 }
 
 pub fn reflect_std_functions(source: &str) -> Vec<FunctionReflection> {
     reflect_functions(source, FunctionSource::Std)
+}
+
+fn php_builtin_reflections() -> Vec<FunctionReflection> {
+    [
+        php_builtin_reflection("flush", &[], Some("void")),
+        php_builtin_reflection(
+            "ob_implicit_flush",
+            &[("enable", Some("bool"))],
+            Some("void"),
+        ),
+        php_builtin_reflection("ob_start", &[], Some("bool")),
+        php_builtin_reflection("ob_flush", &[], Some("bool")),
+        php_builtin_reflection("ob_clean", &[], Some("bool")),
+        php_builtin_reflection("ob_end_flush", &[], Some("bool")),
+        php_builtin_reflection("ob_end_clean", &[], Some("bool")),
+        php_builtin_reflection("ob_get_clean", &[], Some("string|false")),
+        php_builtin_reflection("ob_get_contents", &[], Some("string|false")),
+        php_builtin_reflection("ob_get_flush", &[], Some("string|false")),
+        php_builtin_reflection("ob_get_length", &[], Some("int|false")),
+        php_builtin_reflection("ob_get_level", &[], Some("int")),
+        php_builtin_reflection("strlen", &[("string", Some("string"))], Some("int")),
+        php_builtin_reflection("count", &[("value", Some("Countable|array"))], Some("int")),
+        php_builtin_reflection("sizeof", &[("value", Some("Countable|array"))], Some("int")),
+        php_builtin_reflection(
+            "function_exists",
+            &[("function", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection("gettype", &[("value", Some("mixed"))], Some("string")),
+        php_builtin_reflection("is_array", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_countable", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_iterable", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_numeric", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_null", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_bool", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_int", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_integer", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_long", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_string", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("is_scalar", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("strval", &[("value", Some("mixed"))], Some("string")),
+        php_builtin_reflection("boolval", &[("value", Some("mixed"))], Some("bool")),
+        php_builtin_reflection("intval", &[("value", Some("mixed"))], Some("int")),
+        php_builtin_reflection("strtoupper", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("strtolower", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("ucwords", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("strrev", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("ucfirst", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("lcfirst", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("ord", &[("character", Some("string"))], Some("int")),
+        php_builtin_reflection("str_rot13", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("chr", &[("codepoint", Some("int"))], Some("string")),
+        php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "base64_encode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "base64_decode",
+            &[("string", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hex2bin",
+            &[("string", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection("trim", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("ltrim", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("rtrim", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("addslashes", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "stripslashes",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection("quotemeta", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "str_contains",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "str_starts_with",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "str_ends_with",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "str_repeat",
+            &[("string", Some("string")), ("times", Some("int"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "substr",
+            &[("string", Some("string")), ("offset", Some("int"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "strpos",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "stripos",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "strrpos",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "strripos",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "strstr",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "strchr",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "stristr",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "strrchr",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "strpbrk",
+            &[("string", Some("string")), ("characters", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "strspn",
+            &[("string", Some("string")), ("characters", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "strcspn",
+            &[("string", Some("string")), ("characters", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "substr_count",
+            &[("haystack", Some("string")), ("needle", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "substr_compare",
+            &[
+                ("haystack", Some("string")),
+                ("needle", Some("string")),
+                ("offset", Some("int")),
+                ("length", Some("int|null")),
+                ("case_insensitive", Some("bool")),
+            ],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "strcmp",
+            &[("string1", Some("string")), ("string2", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "strcasecmp",
+            &[("string1", Some("string")), ("string2", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "strncmp",
+            &[
+                ("string1", Some("string")),
+                ("string2", Some("string")),
+                ("length", Some("int")),
+            ],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "strncasecmp",
+            &[
+                ("string1", Some("string")),
+                ("string2", Some("string")),
+                ("length", Some("int")),
+            ],
+            Some("int"),
+        ),
+    ]
+    .into()
+}
+
+fn php_builtin_reflection(
+    name: &str,
+    params: &[(&str, Option<&str>)],
+    return_type: Option<&str>,
+) -> FunctionReflection {
+    FunctionReflection {
+        name: name.to_string(),
+        qualified_name: name.to_string(),
+        source: FunctionSource::PhpBuiltin,
+        params: params
+            .iter()
+            .map(|(name, ty)| ParamReflection {
+                name: (*name).to_string(),
+                ty: ty.map(str::to_string),
+            })
+            .collect(),
+        return_type: return_type.map(str::to_string),
+        is_intrinsic: true,
+    }
 }
 
 pub fn reflect_functions(source: &str, function_source: FunctionSource) -> Vec<FunctionReflection> {
@@ -164,7 +384,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reflects_php_builtin_declarations_from_echo_source() {
+    fn reflects_php_builtin_signatures_from_global_registry() {
         let strlen = php_builtin("STRLEN").expect("strlen reflected");
 
         assert_eq!(strlen.name, "strlen");

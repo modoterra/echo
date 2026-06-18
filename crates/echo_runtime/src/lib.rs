@@ -87,6 +87,7 @@ struct RuntimeFunctionReflection {
     name: String,
     params_signature: String,
     return_type: String,
+    source_kind: i32,
 }
 
 #[repr(C)]
@@ -110,6 +111,8 @@ const ECHO_VALUE_OBJECT: i32 = 9;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
+
+const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
 
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
 
@@ -776,6 +779,7 @@ pub unsafe extern "C" fn echo_reflection_register_function(
     params_len: usize,
     return_type_ptr: *const u8,
     return_type_len: usize,
+    source_kind: i32,
 ) {
     let Some(name) = runtime_utf8_arg(name_ptr, name_len) else {
         return;
@@ -787,13 +791,12 @@ pub unsafe extern "C" fn echo_reflection_register_function(
         return;
     };
 
-    let mut functions = userland_reflections()
+    let mut functions = function_reflections()
         .lock()
-        .expect("userland reflection registry should not be poisoned");
-    if let Some(existing) = functions
-        .iter_mut()
-        .find(|function| function.name.eq_ignore_ascii_case(&name))
-    {
+        .expect("function reflection registry should not be poisoned");
+    if let Some(existing) = functions.iter_mut().find(|function| {
+        function.name.eq_ignore_ascii_case(&name) && function.source_kind == source_kind
+    }) {
         existing.params_signature = params_signature;
         existing.return_type = return_type;
     } else {
@@ -801,6 +804,7 @@ pub unsafe extern "C" fn echo_reflection_register_function(
             name,
             params_signature,
             return_type,
+            source_kind,
         });
     }
 }
@@ -990,7 +994,10 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
 pub extern "C" fn echo_php_function_exists(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => match std::str::from_utf8(&bytes) {
-            Ok(name) => EchoValue::bool(echo_reflection::php_builtin(name).is_some()),
+            Ok(name) => EchoValue::bool(
+                function_reflection_by_name_and_source(name, REFLECTION_SOURCE_PHP_BUILTIN)
+                    .is_some(),
+            ),
             Err(_) => EchoValue::bool(false),
         },
         None => EchoValue::error(),
@@ -1019,25 +1026,31 @@ fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
 fn function_reflection_for_value(value: EchoValue) -> Option<RuntimeFunctionReflection> {
     let bytes = value.string_bytes()?;
     let name = std::str::from_utf8(&bytes).ok()?;
-    if let Some(function) = echo_reflection::function(name) {
-        return Some(RuntimeFunctionReflection {
-            name: function.qualified_name.clone(),
-            params_signature: function.params_signature(),
-            return_type: function.return_type_signature().to_string(),
-        });
-    }
-
-    userland_reflections()
+    function_reflections()
         .lock()
-        .expect("userland reflection registry should not be poisoned")
+        .expect("function reflection registry should not be poisoned")
         .iter()
         .find(|function| function.name.eq_ignore_ascii_case(name))
         .cloned()
 }
 
-fn userland_reflections() -> &'static Mutex<Vec<RuntimeFunctionReflection>> {
-    static USERLAND_REFLECTIONS: OnceLock<Mutex<Vec<RuntimeFunctionReflection>>> = OnceLock::new();
-    USERLAND_REFLECTIONS.get_or_init(|| Mutex::new(Vec::new()))
+fn function_reflection_by_name_and_source(
+    name: &str,
+    source_kind: i32,
+) -> Option<RuntimeFunctionReflection> {
+    function_reflections()
+        .lock()
+        .expect("function reflection registry should not be poisoned")
+        .iter()
+        .find(|function| {
+            function.name.eq_ignore_ascii_case(name) && function.source_kind == source_kind
+        })
+        .cloned()
+}
+
+fn function_reflections() -> &'static Mutex<Vec<RuntimeFunctionReflection>> {
+    static FUNCTION_REFLECTIONS: OnceLock<Mutex<Vec<RuntimeFunctionReflection>>> = OnceLock::new();
+    FUNCTION_REFLECTIONS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 fn runtime_utf8_arg(ptr: *const u8, len: usize) -> Option<String> {
@@ -4468,6 +4481,21 @@ mod tests {
 
     #[test]
     fn function_exists_reports_supported_internal_builtins() {
+        unsafe {
+            register_reflection_for_test(
+                "strlen",
+                "string $string",
+                "int",
+                REFLECTION_SOURCE_PHP_BUILTIN,
+            );
+            register_reflection_for_test(
+                "sizeof",
+                "Countable|array $value",
+                "int",
+                REFLECTION_SOURCE_PHP_BUILTIN,
+            );
+        }
+
         let strlen = Box::into_raw(Box::new(EchoString {
             bytes: b"strlen".to_vec(),
         }));
@@ -4511,6 +4539,25 @@ mod tests {
             drop(Box::from_raw(alias));
             drop(Box::from_raw(construct));
             drop(Box::from_raw(missing));
+        }
+    }
+
+    unsafe fn register_reflection_for_test(
+        name: &str,
+        params: &str,
+        return_type: &str,
+        source_kind: i32,
+    ) {
+        unsafe {
+            echo_reflection_register_function(
+                name.as_ptr(),
+                name.len(),
+                params.as_ptr(),
+                params.len(),
+                return_type.as_ptr(),
+                return_type.len(),
+                source_kind,
+            );
         }
     }
 

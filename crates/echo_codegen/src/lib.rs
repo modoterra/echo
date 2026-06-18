@@ -19,6 +19,10 @@ enum RuntimeValue {
     EchoValue(String),
 }
 
+const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
+const REFLECTION_SOURCE_STD: i32 = 2;
+const REFLECTION_SOURCE_USERLAND: i32 = 3;
+
 pub fn backend_name() -> &'static str {
     "llvm"
 }
@@ -125,7 +129,7 @@ impl IrModule {
             }
         }
 
-        self.render_userland_reflection_registrations(&mut body);
+        self.render_reflection_registrations(&mut body);
 
         for statement in &program.statements {
             if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
@@ -140,7 +144,38 @@ impl IrModule {
         }
     }
 
-    fn render_userland_reflection_registrations(&mut self, body: &mut String) {
+    fn render_reflection_registrations(&mut self, body: &mut String) {
+        let php_builtins = echo_reflection::php_builtins()
+            .iter()
+            .map(|function| {
+                (
+                    function.qualified_name.clone(),
+                    function.params_signature(),
+                    function.return_type_signature().to_string(),
+                    REFLECTION_SOURCE_PHP_BUILTIN,
+                )
+            })
+            .collect::<Vec<_>>();
+        for (name, params, return_type, source_kind) in php_builtins {
+            self.register_function_reflection(body, &name, &params, &return_type, source_kind);
+        }
+
+        let std_functions = echo_reflection::functions()
+            .iter()
+            .filter(|function| function.source == echo_reflection::FunctionSource::Std)
+            .map(|function| {
+                (
+                    function.qualified_name.clone(),
+                    function.params_signature(),
+                    function.return_type_signature().to_string(),
+                    REFLECTION_SOURCE_STD,
+                )
+            })
+            .collect::<Vec<_>>();
+        for (name, params, return_type, source_kind) in std_functions {
+            self.register_function_reflection(body, &name, &params, &return_type, source_kind);
+        }
+
         let mut functions = self.functions.values().cloned().collect::<Vec<_>>();
         functions.sort_by(|left, right| left.name.cmp(&right.name));
 
@@ -149,18 +184,35 @@ impl IrModule {
             let params = function_params_signature(&function.params);
             let return_type = function.return_type.clone().unwrap_or_default();
 
-            let name_global = self.string_global(&name);
-            let params_global = self.string_global(&params);
-            let return_type_global = self.string_global(&return_type);
-
-            body.push_str(&format!(
-                "  call void @{}(ptr @{name_global}, i64 {}, ptr @{params_global}, i64 {}, ptr @{return_type_global}, i64 {})\n",
-                CoreRuntimeSymbol::RegisterFunction.symbol(),
-                name.len(),
-                params.len(),
-                return_type.len()
-            ));
+            self.register_function_reflection(
+                body,
+                &name,
+                &params,
+                &return_type,
+                REFLECTION_SOURCE_USERLAND,
+            );
         }
+    }
+
+    fn register_function_reflection(
+        &mut self,
+        body: &mut String,
+        name: &str,
+        params: &str,
+        return_type: &str,
+        source_kind: i32,
+    ) {
+        let name_global = self.string_global(name);
+        let params_global = self.string_global(params);
+        let return_type_global = self.string_global(return_type);
+
+        body.push_str(&format!(
+            "  call void @{}(ptr @{name_global}, i64 {}, ptr @{params_global}, i64 {}, ptr @{return_type_global}, i64 {}, i32 {source_kind})\n",
+            CoreRuntimeSymbol::RegisterFunction.symbol(),
+            name.len(),
+            params.len(),
+            return_type.len()
+        ));
     }
 
     fn render_userland_function(&mut self, function: &FunctionDeclStmt) -> Result<(), Diagnostic> {
@@ -1768,8 +1820,8 @@ mod tests {
 
         assert!(ir.contains("declare %EchoValue @echo_value_string(ptr, i64)"));
         assert!(ir.contains("declare void @echo_write_value(%EchoValue)"));
-        assert!(ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_0, i64 6)"));
-        assert!(ir.contains("call i1 @echo_php_ob_start_value(%EchoValue %runtime_call_0)"));
+        assert!(ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_"));
+        assert!(ir.contains("call i1 @echo_php_ob_start_value(%EchoValue %runtime_call_"));
     }
 
     #[test]
@@ -1850,7 +1902,7 @@ mod tests {
 
         assert!(
             ir.contains(
-                "declare void @echo_reflection_register_function(ptr, i64, ptr, i64, ptr, i64)"
+                "declare void @echo_reflection_register_function(ptr, i64, ptr, i64, ptr, i64, i32)"
             ),
             "{ir}"
         );

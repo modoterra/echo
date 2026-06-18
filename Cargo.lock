@@ -247,7 +247,6 @@ name = "echo_runtime"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "echo_reflection",
  "http",
  "mio",
  "socket2",

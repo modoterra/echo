@@ -1757,26 +1757,6 @@ echo "done"
     }
 
     #[test]
-    fn parses_std_php_builtins_module_source() {
-        let program = parse_trusted_std(include_str!("../../../std/php_builtins.echo"))
-            .expect("std php builtins module parses");
-
-        assert!(matches!(
-            &program.statements[0],
-            Stmt::Namespace(statement)
-                if statement.source == NamespaceSource::Std
-                    && statement.name.as_string() == "php_builtins"
-        ));
-        assert!(matches!(
-            &program.statements[13],
-            Stmt::FunctionDecl(function)
-                if function.name == "strlen"
-                    && function.params[0].ty.as_deref() == Some("string")
-                    && function.return_type.as_deref() == Some("int")
-        ));
-    }
-
-    #[test]
     fn parses_dotted_std_function_call() {
         let program = parse_with_mode(
             r#"from std use time

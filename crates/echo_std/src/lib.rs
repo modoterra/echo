@@ -58,11 +58,6 @@ pub const MODULES: &[StdModule] = &[
         path: "std/reflect.echo",
         source: include_str!("../../../std/reflect.echo"),
     },
-    StdModule {
-        name: "std.php_builtins",
-        path: "std/php_builtins.echo",
-        source: include_str!("../../../std/php_builtins.echo"),
-    },
 ];
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
@@ -287,19 +282,6 @@ mod tests {
         assert!(module.source.contains("intrinsic function params"));
         assert!(module.source.contains("intrinsic function returnType"));
         assert!(module.source.contains("intrinsic function typeOf"));
-    }
-
-    #[test]
-    fn packages_php_builtins_module_source() {
-        let module = modules()
-            .iter()
-            .find(|module| module.name == "std.php_builtins")
-            .expect("std.php_builtins module is packaged");
-
-        assert_eq!(module.path, "std/php_builtins.echo");
-        assert!(module.source.contains("namespace std php_builtins"));
-        assert!(module.source.contains("intrinsic function strlen"));
-        assert!(module.source.contains("intrinsic function function_exists"));
     }
 
     #[test]
