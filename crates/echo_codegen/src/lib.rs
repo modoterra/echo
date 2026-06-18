@@ -2243,6 +2243,7 @@ mod tests {
             ("hex2bin", "echo_php_hex2bin"),
             ("escapeshellarg", "echo_php_escapeshellarg"),
             ("escapeshellcmd", "echo_php_escapeshellcmd"),
+            ("file_exists", "echo_php_file_exists"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
             ("rtrim", "echo_php_rtrim"),

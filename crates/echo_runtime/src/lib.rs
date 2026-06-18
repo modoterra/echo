@@ -5,7 +5,11 @@ pub mod task;
 
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
+use std::ffi::OsStr;
 use std::io::{self, Write};
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
@@ -1644,6 +1648,26 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_exists(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+#[cfg(unix)]
+fn path_exists(bytes: &[u8]) -> bool {
+    Path::new(OsStr::from_bytes(bytes)).exists()
+}
+
+#[cfg(not(unix))]
+fn path_exists(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .map(|path| Path::new(path).exists())
+        .unwrap_or(false)
 }
 
 #[unsafe(no_mangle)]
@@ -3521,6 +3545,48 @@ mod tests {
             ),
             EchoValue::error()
         );
+    }
+
+    #[test]
+    fn file_exists_reports_existing_files_and_directories() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let existing_file = manifest_dir.join("Cargo.toml");
+        let existing_dir = manifest_dir.join("src");
+        let missing_path = manifest_dir.join("definitely_missing_echo_file");
+        let cargo_toml = Box::into_raw(Box::new(EchoString {
+            bytes: existing_file.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let src_dir = Box::into_raw(Box::new(EchoString {
+            bytes: existing_dir.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let missing = Box::into_raw(Box::new(EchoString {
+            bytes: missing_path.to_string_lossy().as_bytes().to_vec(),
+        }));
+        let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+
+        assert_eq!(
+            echo_php_file_exists(EchoValue::string(cargo_toml)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_file_exists(EchoValue::string(src_dir)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_file_exists(EchoValue::string(missing)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_file_exists(EchoValue::string(empty)),
+            EchoValue::bool(false)
+        );
+
+        unsafe {
+            drop(Box::from_raw(cargo_toml));
+            drop(Box::from_raw(src_dir));
+            drop(Box::from_raw(missing));
+            drop(Box::from_raw(empty));
+        }
     }
 
     #[test]

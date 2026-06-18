@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 86 | 521 |
-| Loaded local PHP internals, including extensions | 1516 | 86 | 1430 |
+| Baseline (`Core` + `standard`) | 607 | 87 | 520 |
+| Loaded local PHP internals, including extensions | 1516 | 87 | 1429 |
 
 ## Baseline Functions
 
@@ -237,7 +237,7 @@ explicitly promote one.
 | `fgetcsv` | missing |  |
 | `fgets` | missing |  |
 | `file` | missing |  |
-| `file_exists` | missing |  |
+| `file_exists` | implemented | Checks local filesystem paths for files or directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-exists.php |
 | `file_get_contents` | missing |  |
 | `file_put_contents` | missing |  |
 | `fileatime` | missing |  |

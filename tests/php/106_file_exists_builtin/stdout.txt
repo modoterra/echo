@@ -1,0 +1,5 @@
+file:[1]
+directory:[1]
+missing:[]
+empty:[]
+exists:[1]
