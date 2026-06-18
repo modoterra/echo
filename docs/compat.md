@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 79 | 528 |
-| Loaded local PHP internals, including extensions | 1516 | 79 | 1437 |
+| Baseline (`Core` + `standard`) | 607 | 80 | 527 |
+| Loaded local PHP internals, including extensions | 1516 | 80 | 1436 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (73/545)
+### standard (74/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -208,7 +208,7 @@ explicitly promote one.
 | `decoct` | missing |  |
 | `deg2rad` | missing |  |
 | `dir` | missing |  |
-| `dirname` | missing |  |
+| `dirname` | implemented | Supports Unix-style `/` separators and positive `levels`; Windows `\` separator behavior and direct PHP ValueError diagnostics are deferred. Source: https://www.php.net/manual/en/function.dirname.php |
 | `disk_free_space` | missing |  |
 | `disk_total_space` | missing |  |
 | `diskfreespace` | missing |  |

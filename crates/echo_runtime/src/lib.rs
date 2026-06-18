@@ -1495,6 +1495,50 @@ fn php_basename(path: &[u8], suffix: &[u8]) -> Vec<u8> {
     basename
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_dirname(path: EchoValue, levels: EchoValue) -> EchoValue {
+    let Some(path) = path.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(levels) = levels.php_int_value() else {
+        return EchoValue::error();
+    };
+    if levels <= 0 {
+        return EchoValue::error();
+    }
+
+    let mut dirname = path;
+    for _ in 0..levels {
+        dirname = php_dirname_once(&dirname);
+    }
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(dirname))))
+}
+
+fn php_dirname_once(path: &[u8]) -> Vec<u8> {
+    let Some(last_non_slash) = path.iter().rposition(|byte| *byte != b'/') else {
+        return b"/".to_vec();
+    };
+    let path = &path[..=last_non_slash];
+    let Some(last_slash) = path.iter().rposition(|byte| *byte == b'/') else {
+        return b".".to_vec();
+    };
+    if last_slash == 0 {
+        return b"/".to_vec();
+    }
+
+    let parent = &path[..last_slash];
+    let parent_end = parent
+        .iter()
+        .rposition(|byte| *byte != b'/')
+        .map_or(0, |position| position + 1);
+    if parent_end == 0 {
+        b"/".to_vec()
+    } else {
+        parent[..parent_end].to_vec()
+    }
+}
+
 fn decode_base64_non_strict(bytes: &[u8]) -> Vec<u8> {
     let mut values = Vec::new();
     for byte in bytes.iter().copied() {
@@ -3303,6 +3347,70 @@ mod tests {
             drop(Box::from_raw(dot));
             drop(Box::from_raw(empty_suffix));
             drop(Box::from_raw(missing_suffix));
+        }
+    }
+
+    #[test]
+    fn dirname_preserves_php_unix_path_string_behavior() {
+        let file = Box::into_raw(Box::new(EchoString {
+            bytes: "/etc/passwd".as_bytes().to_vec(),
+        }));
+        let trailing = Box::into_raw(Box::new(EchoString {
+            bytes: "/etc/".as_bytes().to_vec(),
+        }));
+        let root = Box::into_raw(Box::new(EchoString {
+            bytes: "/".as_bytes().to_vec(),
+        }));
+        let dot = Box::into_raw(Box::new(EchoString {
+            bytes: ".".as_bytes().to_vec(),
+        }));
+        let relative = Box::into_raw(Box::new(EchoString {
+            bytes: "foo/bar/baz".as_bytes().to_vec(),
+        }));
+        let repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "foo//bar".as_bytes().to_vec(),
+        }));
+        let nested = Box::into_raw(Box::new(EchoString {
+            bytes: "/usr/local/lib".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(file), EchoValue::int(1)).string_bytes(),
+            Some("/etc".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(trailing), EchoValue::int(1)).string_bytes(),
+            Some("/".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(root), EchoValue::int(1)).string_bytes(),
+            Some("/".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(dot), EchoValue::int(1)).string_bytes(),
+            Some(".".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(relative), EchoValue::int(1)).string_bytes(),
+            Some("foo/bar".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(repeated), EchoValue::int(1)).string_bytes(),
+            Some("foo".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_dirname(EchoValue::string(nested), EchoValue::int(2)).string_bytes(),
+            Some("/usr".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(file));
+            drop(Box::from_raw(trailing));
+            drop(Box::from_raw(root));
+            drop(Box::from_raw(dot));
+            drop(Box::from_raw(relative));
+            drop(Box::from_raw(repeated));
+            drop(Box::from_raw(nested));
         }
     }
 

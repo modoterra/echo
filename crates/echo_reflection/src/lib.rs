@@ -119,6 +119,11 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("path", Some("string")), ("suffix", Some("string"))],
             Some("string"),
         ),
+        php_builtin_reflection(
+            "dirname",
+            &[("path", Some("string")), ("levels", Some("int"))],
+            Some("string"),
+        ),
         php_builtin_reflection("count", &[("value", Some("Countable|array"))], Some("int")),
         php_builtin_reflection("sizeof", &[("value", Some("Countable|array"))], Some("int")),
         php_builtin_reflection(

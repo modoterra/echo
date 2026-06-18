@@ -1,0 +1,8 @@
+file:[/etc]
+trailing:[/]
+root:[/]
+dot:[.]
+relative:[foo/bar]
+repeated:[foo]
+levels:[/usr]
+exists:[1]
