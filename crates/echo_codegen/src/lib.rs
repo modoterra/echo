@@ -920,20 +920,27 @@ impl IrModule {
             }
             Expr::Object(expr) => self.render_object_expr(body, expr),
             Expr::List(expr) => {
-                if !expr.values.is_empty() {
-                    return Err(Diagnostic::new(
-                        "unsupported non-empty list expression in LLVM codegen",
-                        expr.span,
-                    ));
-                }
-
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
+                let mut list = format!("%runtime_call_{call_id}");
                 body.push_str(&format!(
-                    "  %runtime_call_{call_id} = call %EchoValue @{}()\n",
+                    "  {list} = call %EchoValue @{}()\n",
                     CoreRuntimeSymbol::ValueListNew.symbol()
                 ));
-                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
+
+                for value in &expr.values {
+                    let value = self.render_expr_as_echo_value(body, value)?;
+                    let append_id = self.next_call_id;
+                    self.next_call_id += 1;
+                    let appended = format!("%runtime_call_{append_id}");
+                    body.push_str(&format!(
+                        "  {appended} = call %EchoValue @{}(%EchoValue {list}, {value})\n",
+                        CoreRuntimeSymbol::ValueListAppend.symbol()
+                    ));
+                    list = appended;
+                }
+
+                Ok(RuntimeValue::EchoValue(list))
             }
             _ => Err(Diagnostic::new(
                 "unsupported expression in LLVM codegen",

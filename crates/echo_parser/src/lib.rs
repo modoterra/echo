@@ -562,6 +562,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let short_array_expr = expr
+            .clone()
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(just('[').padded(), just(']').padded())
+            .map_with(|values, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::List(ListExpr {
+                    values,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let object_field = text::ident()
             .padded()
             .then_ignore(just(':').padded())
@@ -599,6 +615,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(variable)
             .or(null)
             .or(bool_literal)
+            .or(short_array_expr)
             .or(list_expr)
             .or(string)
             .or(number);

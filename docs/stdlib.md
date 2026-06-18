@@ -180,6 +180,7 @@ Examples:
 
 - `echo_write(ptr, len)` is core runtime ABI because `echo` syntax needs output semantics.
 - `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
+- `echo_php_count(...)` is PHP builtin ABI because `count()` is a PHP compatibility function.
 - `echo_php_strval(...)` is PHP builtin ABI because `strval()` is a PHP compatibility function.
 - `echo_php_boolval(...)` is PHP builtin ABI because `boolval()` is a PHP compatibility function.
 - `echo_php_intval(...)` is PHP builtin ABI because `intval()` is a PHP compatibility function.

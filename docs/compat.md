@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 51 | 556 |
-| Loaded local PHP internals, including extensions | 1516 | 51 | 1465 |
+| Baseline (`Core` + `standard`) | 607 | 52 | 555 |
+| Loaded local PHP internals, including extensions | 1516 | 52 | 1464 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (48/545)
+### standard (49/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -197,7 +197,7 @@ explicitly promote one.
 | `copy` | missing |  |
 | `cos` | missing |  |
 | `cosh` | missing |  |
-| `count` | missing |  |
+| `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
 | `count_chars` | missing |  |
 | `crc32` | missing |  |
 | `crypt` | missing |  |
