@@ -1,0 +1,6 @@
+fifteen:[17]
+two-sixty-four:[410]
+zero:[0]
+negative:[1777777777777777777777]
+numeric-string:[377]
+exists:[1]

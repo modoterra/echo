@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 82 | 525 |
-| Loaded local PHP internals, including extensions | 1516 | 82 | 1434 |
+| Baseline (`Core` + `standard`) | 607 | 83 | 524 |
+| Loaded local PHP internals, including extensions | 1516 | 83 | 1433 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (76/545)
+### standard (77/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -205,7 +205,7 @@ explicitly promote one.
 | `debug_zval_dump` | missing |  |
 | `decbin` | implemented | Converts integers to unsigned binary strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.decbin.php |
 | `dechex` | implemented | Converts integers to lowercase unsigned hexadecimal strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.dechex.php |
-| `decoct` | missing |  |
+| `decoct` | implemented | Converts integers to unsigned octal strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.decoct.php |
 | `deg2rad` | missing |  |
 | `dir` | missing |  |
 | `dirname` | implemented | Supports Unix-style `/` separators and positive `levels`; Windows `\` separator behavior and direct PHP ValueError diagnostics are deferred. Source: https://www.php.net/manual/en/function.dirname.php |

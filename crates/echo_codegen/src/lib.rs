@@ -2205,6 +2205,7 @@ mod tests {
             ("chr", "echo_php_chr"),
             ("decbin", "echo_php_decbin"),
             ("dechex", "echo_php_dechex"),
+            ("decoct", "echo_php_decoct"),
             ("bin2hex", "echo_php_bin2hex"),
             ("base64_encode", "echo_php_base64_encode"),
             ("base64_decode", "echo_php_base64_decode"),

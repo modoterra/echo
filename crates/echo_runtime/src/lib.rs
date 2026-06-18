@@ -1418,6 +1418,16 @@ pub extern "C" fn echo_php_decbin(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
+    match value.php_int_value() {
+        Some(number) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            format!("{:o}", number as u64).into_bytes(),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
     const HEX: &[u8; 16] = b"0123456789abcdef";
 
@@ -3192,6 +3202,14 @@ mod tests {
                     .as_bytes()
                     .to_vec()
             )
+        );
+        assert_eq!(
+            echo_php_decoct(EchoValue::int(264)).string_bytes(),
+            Some("410".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_decoct(EchoValue::int(-1)).string_bytes(),
+            Some("1777777777777777777777".as_bytes().to_vec())
         );
         assert_eq!(
             echo_php_bin2hex(EchoValue::string(text)).string_bytes(),
