@@ -114,6 +114,11 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("ob_get_length", &[], Some("int|false")),
         php_builtin_reflection("ob_get_level", &[], Some("int")),
         php_builtin_reflection("strlen", &[("string", Some("string"))], Some("int")),
+        php_builtin_reflection(
+            "basename",
+            &[("path", Some("string")), ("suffix", Some("string"))],
+            Some("string"),
+        ),
         php_builtin_reflection("count", &[("value", Some("Countable|array"))], Some("int")),
         php_builtin_reflection("sizeof", &[("value", Some("Countable|array"))], Some("int")),
         php_builtin_reflection(

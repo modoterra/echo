@@ -1,0 +1,6 @@
+echo "file:[" . basename("/etc/passwd") . "]\n"
+echo "suffix:[" . basename("/etc/sudoers.d", ".d") . "]\n"
+echo "trailing:[" . basename("/etc/") . "]\n"
+echo "root:[" . basename("/") . "]\n"
+echo "dot:[" . basename(".") . "]\n"
+echo "exists:[" . function_exists("basename") . "]\n"

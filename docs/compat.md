@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 78 | 529 |
-| Loaded local PHP internals, including extensions | 1516 | 78 | 1438 |
+| Baseline (`Core` + `standard`) | 607 | 79 | 528 |
+| Loaded local PHP internals, including extensions | 1516 | 79 | 1437 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (72/545)
+### standard (73/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ explicitly promote one.
 | `base64_decode` | implemented |  |
 | `base64_encode` | implemented |  |
 | `base_convert` | missing |  |
-| `basename` | missing |  |
+| `basename` | implemented | Supports Unix-style `/` separators and optional suffix stripping; Windows `\` separator behavior is deferred. Source: https://www.php.net/manual/en/function.basename.php |
 | `bin2hex` | implemented |  |
 | `bindec` | missing |  |
 | `boolval` | implemented |  |

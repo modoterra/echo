@@ -908,6 +908,9 @@ impl IrModule {
                     builtin.symbol
                 ));
             }
+            BuiltinCodegen::Basename => {
+                unreachable!("expression builtin used as statement call")
+            }
             BuiltinCodegen::ValueUnaryExpression => {
                 unreachable!("expression builtin used as statement call")
             }
@@ -1458,6 +1461,36 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({arg})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Basename => {
+                if !(1..=2).contains(&expr.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                }
+
+                let path = self.render_expr_as_echo_value(body, &expr.args[0])?;
+                let suffix = match expr.args.get(1) {
+                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                    None => self.runtime_value_as_echo_value(
+                        body,
+                        RuntimeValue::StaticString(String::new()),
+                    ),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({path}, {suffix})\n",
                     builtin.symbol
                 ));
 
@@ -2328,6 +2361,29 @@ mod tests {
         assert!(ir.contains("declare %EchoValue @echo_php_substr_compare(%EchoValue, %EchoValue, %EchoValue, %EchoValue, %EchoValue)"));
         assert!(ir.contains("call %EchoValue @echo_php_substr_compare("));
         assert!(ir.contains("%EchoValue { i32 0, i64 0 }, %EchoValue { i32 1, i64 0 }"));
+    }
+
+    #[test]
+    fn basename_lowers_optional_suffix_to_empty_string() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "basename".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "/etc/passwd".to_string(),
+                    span: Span::new(9, 22),
+                })],
+                span: Span::new(0, 23),
+            })],
+            span: Span::new(0, 24),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_php_basename(%EchoValue, %EchoValue)"));
+        assert!(ir.contains("call %EchoValue @echo_php_basename("));
+        assert!(
+            ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_")
+                && ir.contains(", i64 0)")
+        );
     }
 
     #[test]

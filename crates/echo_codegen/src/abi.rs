@@ -287,6 +287,7 @@ pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltinCodegen {
+    Basename,
     ObStart,
     VoidStatement,
     VoidUnaryStatement,
@@ -741,6 +742,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "basename",
+        symbol: "echo_php_basename",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Basename,
     },
     PhpBuiltin {
         php_name: "hex2bin",

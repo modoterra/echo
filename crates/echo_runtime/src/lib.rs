@@ -1462,6 +1462,39 @@ pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_basename(path: EchoValue, suffix: EchoValue) -> EchoValue {
+    let Some(path) = path.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(suffix) = suffix.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_basename(
+        &path, &suffix,
+    )))))
+}
+
+fn php_basename(path: &[u8], suffix: &[u8]) -> Vec<u8> {
+    let trimmed_end = path
+        .iter()
+        .rposition(|byte| *byte != b'/')
+        .map_or(0, |position| position + 1);
+    let path = &path[..trimmed_end];
+    let start = path
+        .iter()
+        .rposition(|byte| *byte == b'/')
+        .map_or(0, |position| position + 1);
+    let mut basename = path[start..].to_vec();
+
+    if !suffix.is_empty() && basename.ends_with(suffix) {
+        basename.truncate(basename.len() - suffix.len());
+    }
+
+    basename
+}
+
 fn decode_base64_non_strict(bytes: &[u8]) -> Vec<u8> {
     let mut values = Vec::new();
     for byte in bytes.iter().copied() {
@@ -3217,6 +3250,59 @@ mod tests {
             drop(Box::from_raw(non_ascii));
             drop(Box::from_raw(ignored));
             drop(Box::from_raw(invalid));
+        }
+    }
+
+    #[test]
+    fn basename_preserves_php_unix_path_string_behavior() {
+        let path = Box::into_raw(Box::new(EchoString {
+            bytes: "/etc/sudoers.d".as_bytes().to_vec(),
+        }));
+        let suffix = Box::into_raw(Box::new(EchoString {
+            bytes: ".d".as_bytes().to_vec(),
+        }));
+        let trailing = Box::into_raw(Box::new(EchoString {
+            bytes: "/etc/".as_bytes().to_vec(),
+        }));
+        let root = Box::into_raw(Box::new(EchoString {
+            bytes: "/".as_bytes().to_vec(),
+        }));
+        let dot = Box::into_raw(Box::new(EchoString {
+            bytes: ".".as_bytes().to_vec(),
+        }));
+        let empty_suffix = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let missing_suffix = Box::into_raw(Box::new(EchoString {
+            bytes: ".txt".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_basename(EchoValue::string(path), EchoValue::string(suffix)).string_bytes(),
+            Some("sudoers".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_basename(EchoValue::string(trailing), EchoValue::string(empty_suffix))
+                .string_bytes(),
+            Some("etc".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_basename(EchoValue::string(root), EchoValue::string(missing_suffix))
+                .string_bytes(),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            echo_php_basename(EchoValue::string(dot), EchoValue::string(empty_suffix))
+                .string_bytes(),
+            Some(".".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(path));
+            drop(Box::from_raw(suffix));
+            drop(Box::from_raw(trailing));
+            drop(Box::from_raw(root));
+            drop(Box::from_raw(dot));
+            drop(Box::from_raw(empty_suffix));
+            drop(Box::from_raw(missing_suffix));
         }
     }
 

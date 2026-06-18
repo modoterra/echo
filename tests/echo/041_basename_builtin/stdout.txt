@@ -1,0 +1,6 @@
+file:[passwd]
+suffix:[sudoers]
+trailing:[etc]
+root:[]
+dot:[.]
+exists:[1]
