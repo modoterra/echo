@@ -10,6 +10,10 @@
 - When changing syntax, parsing, diagnostics, or runtime behavior, preserve PHP compatibility unless the task explicitly says otherwise.
 - Output buffering semantics are tracked in `docs/output-buffering.md`; consult it before changing `echo_runtime` or `ob_*` codegen.
 
+## Module Ownership Invariants
+- Global domain vocabulary and module ownership are defined in `CONTEXT.md`; read it before changing compiler, runtime, or REPL behavior.
+- REPL examples are language-development inputs. Do not solve them with REPL-only lookup tables, evaluators, type environments, or ad hoc value semantics; implement behavior in the shared language pipeline first.
+
 ## Agent skills
 
 ### Domain docs
