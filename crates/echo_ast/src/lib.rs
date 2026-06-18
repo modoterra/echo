@@ -237,6 +237,7 @@ pub enum Expr {
     Field(Box<FieldExpr>),
     Object(ObjectExpr),
     List(ListExpr),
+    Array(ArrayExpr),
 }
 
 impl Expr {
@@ -258,6 +259,7 @@ impl Expr {
             Self::Field(expr) => expr.span,
             Self::Object(expr) => expr.span,
             Self::List(expr) => expr.span,
+            Self::Array(expr) => expr.span,
         }
     }
 }
@@ -285,6 +287,19 @@ pub struct ObjectField {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ListExpr {
     pub values: Vec<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrayExpr {
+    pub elements: Vec<ArrayElement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrayElement {
+    pub key: Option<Expr>,
+    pub value: Expr,
     pub span: Span,
 }
 

@@ -15,12 +15,12 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 66 | 541 |
-| Loaded local PHP internals, including extensions | 1516 | 66 | 1450 |
+| Baseline (`Core` + `standard`) | 607 | 71 | 536 |
+| Loaded local PHP internals, including extensions | 1516 | 71 | 1445 |
 
 ## Baseline Functions
 
-### Core (4/62)
+### Core (6/62)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -80,14 +80,14 @@ explicitly promote one.
 | `strcasecmp` | implemented |  |
 | `strcmp` | implemented |  |
 | `strlen` | implemented |  |
-| `strncasecmp` | missing |  |
-| `strncmp` | missing |  |
+| `strncasecmp` | implemented | Source: https://www.php.net/manual/en/function.strncasecmp.php |
+| `strncmp` | implemented | Source: https://www.php.net/manual/en/function.strncmp.php |
 | `trait_exists` | missing |  |
 | `trigger_error` | missing |  |
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (62/545)
+### standard (65/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -347,11 +347,11 @@ explicitly promote one.
 | `is_callable` | missing |  |
 | `is_countable` | implemented | Supports arrays; Countable objects deferred. Source: https://www.php.net/manual/en/function.is-countable.php |
 | `is_dir` | missing |  |
-| `is_double` | missing |  |
+| `is_double` | implemented | Alias of `is_float()`. Source: https://www.php.net/manual/en/function.is-float.php |
 | `is_executable` | missing |  |
 | `is_file` | missing |  |
-| `is_finite` | missing |  |
-| `is_float` | missing |  |
+| `is_finite` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-finite.php |
+| `is_float` | implemented | Echo has no float values yet, so this is false for all currently representable values. Source: https://www.php.net/manual/en/function.is-float.php |
 | `is_infinite` | missing |  |
 | `is_int` | implemented | Source: https://www.php.net/manual/en/function.is-int.php |
 | `is_integer` | implemented | Alias of `is_int()`. Source: https://www.php.net/manual/en/function.is-int.php |

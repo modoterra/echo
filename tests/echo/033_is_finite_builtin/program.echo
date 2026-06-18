@@ -1,0 +1,6 @@
+echo "int:[" . is_finite(42) . "]\n"
+echo "bool:[" . is_finite(true) . "]\n"
+echo "null:[" . is_finite(null) . "]\n"
+echo "numeric-string:[" . is_finite(" 4.2 ") . "]\n"
+echo "overflow-string:[" . is_finite("1e9999") . "]\n"
+echo "exists:[" . function_exists("is_finite") . "]\n"

@@ -32,6 +32,34 @@ fn piped_repl_prints_bare_expression_results() {
 }
 
 #[test]
+fn piped_repl_prints_bare_function_call_results() {
+    let output = repl_output(
+        b"is_float(42)\nis_double(\"4.2\")\nfunction_exists(\"is_float\")\nis_finite(42)\nis_finite(\"1e9999\")\n:quit\n",
+    );
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"11");
+}
+
+#[test]
+fn piped_repl_keeps_statement_context() {
+    let output = repl_output(b"let $a = \"ok\";\necho $a;\n:quit\n");
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"ok");
+}
+
+#[test]
 fn piped_repl_reports_diagnostics_and_continues() {
     let output = repl_output(b"echo ;\necho \"ok\";\n:exit\n");
 

@@ -6,10 +6,18 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
-use echo_ast::{EchoStmt, Stmt};
+use echo_ast::{BinaryOp, EchoStmt, Expr, FunctionCallExpr, Program, Stmt};
 use echo_source::{SourceFile, SourceMode};
 
 static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+const ANSI_RESET: &str = "\x1b[0m";
+const ANSI_DIM: &str = "\x1b[2m";
+const ANSI_GREEN: &str = "\x1b[32m";
+const ANSI_CYAN: &str = "\x1b[36m";
+const ANSI_BLUE: &str = "\x1b[34m";
+const ANSI_MAGENTA: &str = "\x1b[35m";
+const ANSI_YELLOW: &str = "\x1b[33m";
 
 #[derive(Debug, Parser)]
 #[command(name = "xo")]
@@ -207,16 +215,17 @@ fn main() {
 fn run_repl(mode: ModeOverride) {
     let interactive = io::stdin().is_terminal();
     let mut line = String::new();
+    let mut session = ReplSession::default();
 
     ensure_runtime_library_quiet();
 
     if interactive {
-        println!("Echo REPL. Use :quit or :exit to leave.");
+        println!("{ANSI_DIM}Echo REPL. Use :quit or :exit to leave.{ANSI_RESET}");
     }
 
     loop {
         if interactive {
-            print!("xo> ");
+            print!("{}", repl_prompt());
             io::stdout().flush().unwrap_or_else(|err| {
                 eprintln!("error: failed to flush stdout: {err}");
                 std::process::exit(1);
@@ -242,17 +251,39 @@ fn run_repl(mode: ModeOverride) {
             break;
         }
 
-        run_repl_input(input, mode, interactive);
+        run_repl_input(&mut session, input, mode, interactive);
     }
 }
 
-fn run_repl_input(input: &str, mode: ModeOverride, interactive: bool) {
+#[derive(Debug, Default)]
+struct ReplSession {
+    statements: Vec<Stmt>,
+}
+
+fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, interactive: bool) {
     let file = PathBuf::from("repl.echo");
     let source = source_file_from_text(file.clone(), input.to_string(), mode);
 
-    let ir = match try_compile_repl_ir(&source) {
+    let parsed = match try_parse_repl_input(&source) {
+        Ok(parsed) => parsed,
+        Err(diagnostics) => {
+            print_diagnostics(diagnostics);
+            return;
+        }
+    };
+
+    let mut program = parsed.program.clone();
+    let current_statements = program.statements.clone();
+    let mut statements = session.statements.clone();
+    statements.extend(program.statements);
+    program.statements = statements;
+
+    let ir = match echo_codegen::compile_to_ir(&program) {
         Ok(ir) => ir,
         Err(diagnostics) => {
+            if interactive {
+                print_repl_metadata(&parsed.input);
+            }
             print_diagnostics(diagnostics);
             return;
         }
@@ -261,8 +292,56 @@ fn run_repl_input(input: &str, mode: ModeOverride, interactive: bool) {
     verify_ir(&file, &ir);
     let binary_path = temp_path(&file, "program");
     build_ir_binary_quiet(&file, &ir, OptimizationLevel::O0, &binary_path);
-    run_repl_binary(&binary_path, interactive);
+    let output = run_repl_binary(&binary_path);
+    let should_store = output.status.success() && matches!(parsed.input, ReplInput::Statement);
+    print_repl_output(&output, parsed.input, interactive);
+    if should_store {
+        session.statements.extend(
+            current_statements
+                .into_iter()
+                .filter(is_repl_persistent_statement),
+        );
+    }
     let _ = fs::remove_file(binary_path);
+}
+
+fn repl_prompt() -> String {
+    format!("{ANSI_GREEN}xo){ANSI_RESET} ")
+}
+
+fn is_repl_persistent_statement(statement: &Stmt) -> bool {
+    matches!(
+        statement,
+        Stmt::Assign(_)
+            | Stmt::Let(_)
+            | Stmt::AssignRef(_)
+            | Stmt::Namespace(_)
+            | Stmt::Use(_)
+            | Stmt::Import(_)
+            | Stmt::FunctionDecl(_)
+            | Stmt::ClassDecl(_)
+            | Stmt::TypeDecl(_)
+            | Stmt::Append(_)
+    )
+}
+
+#[derive(Debug)]
+struct ReplParsed {
+    program: Program,
+    input: ReplInput,
+}
+
+#[derive(Debug)]
+enum ReplInput {
+    Statement,
+    Expression(ExpressionInfo),
+}
+
+#[derive(Debug)]
+struct ExpressionInfo {
+    kind: &'static str,
+    static_type: String,
+    span: echo_source::Span,
 }
 
 fn run_tests(path: &PathBuf, mode: ModeOverride) {
@@ -435,15 +514,18 @@ fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
     }
 }
 
-fn try_compile_repl_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnostics::Diagnostic>> {
+fn try_parse_repl_input(
+    source: &SourceFile,
+) -> Result<ReplParsed, Vec<echo_diagnostics::Diagnostic>> {
     let mut program = match echo_parser::parse_with_mode(&source.text, source.mode) {
         Ok(program) => program,
         Err(diagnostics) => return Err(diagnostics),
     };
 
-    if let [Stmt::Expr(statement)] = program.statements.as_mut_slice() {
-        let span = statement.span;
-        let expr = statement.expr.clone();
+    let mut input = ReplInput::Statement;
+    if let Some(expr) = repl_display_expr(program.statements.as_slice()) {
+        let span = expr.span();
+        input = ReplInput::Expression(expression_info(&expr));
         program.statements = vec![Stmt::Echo(EchoStmt {
             exprs: vec![expr],
             span,
@@ -451,7 +533,19 @@ fn try_compile_repl_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnosti
         program.span = span;
     }
 
-    echo_codegen::compile_to_ir(&program)
+    Ok(ReplParsed { program, input })
+}
+
+fn repl_display_expr(statements: &[Stmt]) -> Option<Expr> {
+    match statements {
+        [Stmt::Expr(statement)] => Some(statement.expr.clone()),
+        [Stmt::FunctionCall(statement)] => Some(Expr::FunctionCall(FunctionCallExpr {
+            name: statement.name.clone(),
+            args: statement.args.clone(),
+            span: statement.span,
+        })),
+        _ => None,
+    }
 }
 
 fn try_compile_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnostics::Diagnostic>> {
@@ -552,20 +646,13 @@ fn ensure_runtime_library_quiet() {
     }
 }
 
-fn run_repl_binary(binary_path: &PathBuf, interactive: bool) {
+fn run_repl_binary(binary_path: &PathBuf) -> std::process::Output {
     let output = ProcessCommand::new(binary_path)
         .output()
         .unwrap_or_else(|err| {
             eprintln!("error: failed to run {}: {err}", binary_path.display());
             std::process::exit(1);
         });
-
-    print!("{}", String::from_utf8_lossy(&output.stdout));
-    eprint!("{}", String::from_utf8_lossy(&output.stderr));
-
-    if interactive && !output.stdout.is_empty() && !output.stdout.ends_with(b"\n") {
-        println!();
-    }
 
     if !output.status.success() {
         eprintln!(
@@ -574,6 +661,128 @@ fn run_repl_binary(binary_path: &PathBuf, interactive: bool) {
             output.status
         );
     }
+
+    output
+}
+
+fn print_repl_output(output: &std::process::Output, input: ReplInput, interactive: bool) {
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+
+    if !interactive {
+        print!("{}", String::from_utf8_lossy(&output.stdout));
+        return;
+    }
+
+    match input {
+        ReplInput::Statement => {
+            print!("{}", String::from_utf8_lossy(&output.stdout));
+            if !output.stdout.is_empty() && !output.stdout.ends_with(b"\n") {
+                println!();
+            }
+        }
+        ReplInput::Expression(info) => {
+            let value = String::from_utf8_lossy(&output.stdout);
+            println!("{ANSI_CYAN}=>{ANSI_RESET} {value}");
+            print_expression_metadata(&info);
+        }
+    }
+}
+
+fn print_repl_metadata(input: &ReplInput) {
+    if let ReplInput::Expression(info) = input {
+        print_expression_metadata(info);
+    }
+}
+
+fn print_expression_metadata(info: &ExpressionInfo) {
+    println!(
+        "{ANSI_DIM}   kind:{ANSI_RESET} {}  {ANSI_DIM}type:{ANSI_RESET} {}  {ANSI_DIM}span:{ANSI_RESET} {}..{}",
+        colorize_expr_kind(info.kind),
+        colorize_type(&info.static_type),
+        info.span.start,
+        info.span.end
+    );
+}
+
+fn expression_info(expr: &Expr) -> ExpressionInfo {
+    ExpressionInfo {
+        kind: expression_kind(expr),
+        static_type: expression_static_type(expr),
+        span: expr.span(),
+    }
+}
+
+fn expression_kind(expr: &Expr) -> &'static str {
+    match expr {
+        Expr::Null(_) => "null literal",
+        Expr::Bool(_) => "bool literal",
+        Expr::String(_) => "string literal",
+        Expr::Number(_) => "number literal",
+        Expr::Variable(_) => "variable",
+        Expr::FunctionCall(_) => "function call",
+        Expr::Defer(_) => "defer expression",
+        Expr::Run(_) => "run expression",
+        Expr::Fork(_) => "fork expression",
+        Expr::Spawn(_) => "spawn expression",
+        Expr::Join(_) => "join expression",
+        Expr::Loop(_) => "loop expression",
+        Expr::Binary(expr) => match expr.op {
+            BinaryOp::Add => "add expression",
+            BinaryOp::Sub => "subtract expression",
+            BinaryOp::Mul => "multiply expression",
+            BinaryOp::Div => "divide expression",
+            BinaryOp::Concat => "concat expression",
+            BinaryOp::Is | BinaryOp::IsNot => "null test expression",
+        },
+        Expr::Field(_) => "field expression",
+        Expr::Object(_) => "object expression",
+        Expr::List(_) => "list expression",
+        Expr::Array(_) => "array expression",
+    }
+}
+
+fn expression_static_type(expr: &Expr) -> String {
+    match expr {
+        Expr::Null(_) => "null".to_string(),
+        Expr::Bool(_) => "bool".to_string(),
+        Expr::String(_) => "string".to_string(),
+        Expr::Number(_) => "int".to_string(),
+        Expr::List(_) => "list".to_string(),
+        Expr::Array(_) => "array".to_string(),
+        Expr::Object(_) => "object".to_string(),
+        Expr::Binary(expr) => match expr.op {
+            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => "int".to_string(),
+            BinaryOp::Concat => "string".to_string(),
+            BinaryOp::Is | BinaryOp::IsNot => "bool".to_string(),
+        },
+        Expr::FunctionCall(call) => echo_reflection::function(&call.name)
+            .and_then(|function| function.return_type.clone())
+            .unwrap_or_else(|| "unknown".to_string()),
+        Expr::Variable(_)
+        | Expr::Defer(_)
+        | Expr::Run(_)
+        | Expr::Fork(_)
+        | Expr::Spawn(_)
+        | Expr::Join(_)
+        | Expr::Loop(_)
+        | Expr::Field(_) => "unknown".to_string(),
+    }
+}
+
+fn colorize_expr_kind(kind: &str) -> String {
+    format!("{ANSI_MAGENTA}{kind}{ANSI_RESET}")
+}
+
+fn colorize_type(ty: &str) -> String {
+    let color = match ty {
+        "int" => ANSI_YELLOW,
+        "string" => ANSI_GREEN,
+        "bool" => ANSI_BLUE,
+        "null" => ANSI_DIM,
+        _ => ANSI_CYAN,
+    };
+
+    format!("{color}{ty}{ANSI_RESET}")
 }
 
 fn run_command(command: &mut ProcessCommand) {
@@ -668,5 +877,79 @@ mod tests {
         );
 
         assert_eq!(source.mode, SourceMode::Echo);
+    }
+
+    #[test]
+    fn repl_prompt_uses_xo_paren_with_ansi_color() {
+        assert_eq!(repl_prompt(), "\x1b[32mxo)\x1b[0m ");
+    }
+
+    #[test]
+    fn repl_expression_info_describes_addition() {
+        let source = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "5+3".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: false,
+            },
+        );
+        let parsed = try_parse_repl_input(&source).expect("expression should parse");
+        let ReplInput::Expression(info) = parsed.input else {
+            panic!("bare expression should be classified as expression input");
+        };
+
+        assert_eq!(info.kind, "add expression");
+        assert_eq!(info.static_type, "int");
+        assert_eq!(info.span.start, 0);
+        assert_eq!(info.span.end, 3);
+    }
+
+    #[test]
+    fn repl_expression_info_reflects_bare_function_call_return_type() {
+        let source = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "is_float(42)".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: false,
+            },
+        );
+        let parsed = try_parse_repl_input(&source).expect("function call should parse");
+        let ReplInput::Expression(info) = parsed.input else {
+            panic!("bare function call should be classified as expression input");
+        };
+
+        assert_eq!(info.kind, "function call");
+        assert_eq!(info.static_type, "bool");
+        assert_eq!(info.span.start, 0);
+        assert_eq!(info.span.end, 12);
+    }
+
+    #[test]
+    fn repl_expression_info_distinguishes_collection_literals() {
+        let cases = [
+            ("{1, 2}", "list expression", "list"),
+            ("[1, 2]", "array expression", "array"),
+            ("{ test: 5 }", "object expression", "object"),
+        ];
+
+        for (source, expected_kind, expected_type) in cases {
+            let source = source_file_from_text(
+                PathBuf::from("repl.echo"),
+                source.to_string(),
+                ModeOverride {
+                    strict: false,
+                    unsafe_mode: false,
+                },
+            );
+            let parsed = try_parse_repl_input(&source).expect("expression should parse");
+            let ReplInput::Expression(info) = parsed.input else {
+                panic!("bare expression should be classified as expression input");
+            };
+
+            assert_eq!(info.kind, expected_kind);
+            assert_eq!(info.static_type, expected_type);
+        }
     }
 }

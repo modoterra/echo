@@ -746,6 +746,7 @@ dependencies = [
  "echo_diagnostics",
  "echo_lexer",
  "echo_parser",
+ "echo_reflection",
  "echo_runtime",
  "echo_source",
 ]

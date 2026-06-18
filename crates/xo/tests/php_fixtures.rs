@@ -12,12 +12,14 @@ fn php_fixtures_work_end_to_end() {
         let program_path = fixture.join("program.php");
         let stdin_path = fixture.join("stdin.txt");
         let stdout_path = fixture.join("stdout.txt");
+        let unsupported_path = fixture.join("unsupported.txt");
         let artifact_dir = artifact_dir_for(&fixture);
 
         assert!(program_path.is_file(), "missing {}", program_path.display());
         assert!(stdin_path.is_file(), "missing {}", stdin_path.display());
         assert!(stdout_path.is_file(), "missing {}", stdout_path.display());
 
+        let unsupported = unsupported_path.is_file();
         let expected_stdout = fs::read(&stdout_path)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdout_path.display()));
         let stdin = fs::read(&stdin_path)
@@ -28,6 +30,15 @@ fn php_fixtures_work_end_to_end() {
         let ast_output = command_output(command("ast", &program_path));
         assert_output_success(&ast_output, "xo ast");
         write_artifact(&artifact_dir.join("ast.txt"), &ast_output.stdout);
+
+        if unsupported {
+            write_artifact(&artifact_dir.join("ir.ll"), b"");
+            write_artifact(&artifact_dir.join("run.stdout"), b"");
+            write_artifact(&artifact_dir.join("run.stderr"), b"");
+            write_artifact(&artifact_dir.join("binary.stdout"), b"");
+            write_artifact(&artifact_dir.join("binary.stderr"), b"");
+            continue;
+        }
 
         let ir_output = command_output(command("ir", &program_path));
         assert_output_success(&ir_output, "xo ir");

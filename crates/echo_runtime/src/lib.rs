@@ -72,6 +72,17 @@ impl EchoList {
 }
 
 #[derive(Debug)]
+pub struct EchoArray {
+    values: Vec<EchoValue>,
+}
+
+impl EchoArray {
+    fn new() -> Self {
+        Self { values: Vec::new() }
+    }
+}
+
+#[derive(Debug)]
 pub struct EchoObject {
     fields: Vec<(String, EchoValue)>,
 }
@@ -108,6 +119,7 @@ const ECHO_VALUE_PENDING: i32 = 6;
 const ECHO_VALUE_TCP_LISTENER: i32 = 7;
 const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
 const ECHO_VALUE_OBJECT: i32 = 9;
+const ECHO_VALUE_LIST: i32 = 10;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
@@ -177,6 +189,13 @@ impl EchoValue {
 
     pub fn list(value: *mut EchoList) -> Self {
         Self {
+            kind: ECHO_VALUE_LIST,
+            payload: value as u64,
+        }
+    }
+
+    pub fn array(value: *mut EchoArray) -> Self {
+        Self {
             kind: ECHO_VALUE_ARRAY,
             payload: value as u64,
         }
@@ -227,6 +246,7 @@ impl EchoValue {
                     .map(|value| value.bytes.clone())
             },
             ECHO_VALUE_ARRAY => Some(b"Array".to_vec()),
+            ECHO_VALUE_LIST => Some(b"List".to_vec()),
             ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => Some(b"Object".to_vec()),
             _ => None,
         }
@@ -254,7 +274,7 @@ impl EchoValue {
                 let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
                 Some(!bytes.is_empty() && bytes != b"0")
             },
-            ECHO_VALUE_ARRAY => Some(true),
+            ECHO_VALUE_ARRAY | ECHO_VALUE_LIST => Some(true),
             ECHO_VALUE_TASK | ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => Some(true),
             ECHO_VALUE_PENDING => Some(false),
             _ => None,
@@ -280,6 +300,10 @@ impl EchoValue {
 
     pub const fn is_array(self) -> bool {
         self.kind == ECHO_VALUE_ARRAY
+    }
+
+    pub const fn is_list(self) -> bool {
+        self.kind == ECHO_VALUE_LIST
     }
 
     pub const fn is_task(self) -> bool {
@@ -528,6 +552,7 @@ pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
         ECHO_VALUE_INT => echo_write_i64(value.payload as i64),
         ECHO_VALUE_STRING => unsafe { echo_write_string(value.payload as *const EchoString) },
         ECHO_VALUE_ARRAY => unsafe { echo_write(c"Array".as_ptr().cast(), 5) },
+        ECHO_VALUE_LIST => unsafe { echo_write(c"List".as_ptr().cast(), 4) },
         _ => {}
     }
 }
@@ -817,6 +842,7 @@ pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
         ECHO_VALUE_INT => b"int".as_slice(),
         ECHO_VALUE_STRING => b"string".as_slice(),
         ECHO_VALUE_ARRAY => b"array".as_slice(),
+        ECHO_VALUE_LIST => b"list".as_slice(),
         ECHO_VALUE_TASK => b"task".as_slice(),
         ECHO_VALUE_PENDING => b"pending".as_slice(),
         ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
@@ -904,7 +930,7 @@ pub extern "C" fn echo_value_list_new() -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_value_list_append(list: EchoValue, value: EchoValue) -> EchoValue {
-    if !list.is_array() {
+    if !list.is_list() {
         return EchoValue::error();
     }
 
@@ -914,6 +940,25 @@ pub extern "C" fn echo_value_list_append(list: EchoValue, value: EchoValue) -> E
 
     values.values.push(value);
     list
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_array_new() -> EchoValue {
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::new())))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_array_append(array: EchoValue, value: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(values) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    values.values.push(value);
+    array
 }
 
 #[unsafe(no_mangle)]
@@ -981,6 +1026,13 @@ pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
     if value.is_array() {
+        let Some(array) = (unsafe { (value.payload as *const EchoArray).as_ref() }) else {
+            return EchoValue::error();
+        };
+        return EchoValue::int(array.values.len() as i64);
+    }
+
+    if value.is_list() {
         let Some(list) = (unsafe { (value.payload as *const EchoList).as_ref() }) else {
             return EchoValue::error();
         };
@@ -1012,6 +1064,7 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
         ECHO_VALUE_INT => b"integer".as_slice(),
         ECHO_VALUE_STRING => b"string".as_slice(),
         ECHO_VALUE_ARRAY => b"array".as_slice(),
+        ECHO_VALUE_LIST => b"list".as_slice(),
         ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => b"object".as_slice(),
         ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
         _ => b"unknown type".as_slice(),
@@ -1071,12 +1124,12 @@ pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_countable(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_array())
+    EchoValue::bool(value.is_array() || value.is_list())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_iterable(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_array())
+    EchoValue::bool(value.is_array() || value.is_list())
 }
 
 #[unsafe(no_mangle)]
@@ -1106,6 +1159,19 @@ pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_int())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_float(_value: EchoValue) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_finite(value: EchoValue) -> EchoValue {
+    match finite_php_float_coercion(value) {
+        Some(is_finite) => EchoValue::bool(is_finite),
+        None => EchoValue::error(),
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -1523,6 +1589,22 @@ fn is_php_numeric_string(bytes: &[u8]) -> bool {
     }
 
     index == bytes.len()
+}
+
+fn finite_php_float_coercion(value: EchoValue) -> Option<bool> {
+    match value.kind {
+        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(true),
+        ECHO_VALUE_BOOL | ECHO_VALUE_INT => Some(true),
+        ECHO_VALUE_STRING => unsafe {
+            let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
+            let text = std::str::from_utf8(trim_ascii(bytes)).ok()?;
+            if text.is_empty() {
+                return None;
+            }
+            Some(text.parse::<f64>().ok()?.is_finite())
+        },
+        _ => None,
+    }
 }
 
 fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
@@ -2227,9 +2309,26 @@ fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
         ECHO_VALUE_NULL => true,
         ECHO_VALUE_BOOL | ECHO_VALUE_INT => left.payload == right.payload,
         ECHO_VALUE_STRING => left.string_bytes() == right.string_bytes(),
-        ECHO_VALUE_ARRAY => echo_lists_equal(left, right),
+        ECHO_VALUE_ARRAY => echo_arrays_equal(left, right),
+        ECHO_VALUE_LIST => echo_lists_equal(left, right),
         _ => left.payload == right.payload,
     }
+}
+
+fn echo_arrays_equal(left: EchoValue, right: EchoValue) -> bool {
+    let Some(left) = (unsafe { (left.payload as *const EchoArray).as_ref() }) else {
+        return false;
+    };
+    let Some(right) = (unsafe { (right.payload as *const EchoArray).as_ref() }) else {
+        return false;
+    };
+
+    left.values.len() == right.values.len()
+        && left
+            .values
+            .iter()
+            .zip(&right.values)
+            .all(|(left, right)| echo_values_equal(*left, *right))
 }
 
 fn echo_lists_equal(left: EchoValue, right: EchoValue) -> bool {
@@ -4444,6 +4543,82 @@ mod tests {
     }
 
     #[test]
+    fn is_float_is_false_for_current_non_float_values() {
+        let string = Box::into_raw(Box::new(EchoString {
+            bytes: b"4.2".to_vec(),
+        }));
+        let array = Box::into_raw(Box::new(EchoArray {
+            values: vec![EchoValue::int(1)],
+        }));
+
+        assert_eq!(
+            echo_php_is_float(EchoValue::int(42)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_float(EchoValue::string(string)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_float(EchoValue::array(array)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(echo_php_is_float(EchoValue::null()), EchoValue::bool(false));
+
+        unsafe {
+            drop(Box::from_raw(string));
+            drop(Box::from_raw(array));
+        }
+    }
+
+    #[test]
+    fn is_finite_preserves_php_float_coercion_for_current_values() {
+        let finite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b" 4.2 ".to_vec(),
+        }));
+        let infinite_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"1e9999".to_vec(),
+        }));
+        let non_numeric = Box::into_raw(Box::new(EchoString {
+            bytes: b"not numeric".to_vec(),
+        }));
+        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+
+        assert_eq!(
+            echo_php_is_finite(EchoValue::int(42)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_finite(EchoValue::bool(false)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(echo_php_is_finite(EchoValue::null()), EchoValue::bool(true));
+        assert_eq!(
+            echo_php_is_finite(EchoValue::string(finite_numeric)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_is_finite(EchoValue::string(infinite_numeric)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_is_finite(EchoValue::string(non_numeric)),
+            EchoValue::error()
+        );
+        assert_eq!(
+            echo_php_is_finite(EchoValue::array(array)),
+            EchoValue::error()
+        );
+
+        unsafe {
+            drop(Box::from_raw(finite_numeric));
+            drop(Box::from_raw(infinite_numeric));
+            drop(Box::from_raw(non_numeric));
+            drop(Box::from_raw(array));
+        }
+    }
+
+    #[test]
     fn gettype_returns_php_type_names_for_current_values() {
         let string = Box::into_raw(Box::new(EchoString {
             bytes: b"abc".to_vec(),
@@ -4470,12 +4645,55 @@ mod tests {
         );
         assert_eq!(
             echo_php_gettype(EchoValue::list(list)).string_bytes(),
-            Some(b"array".to_vec())
+            Some(b"list".to_vec())
         );
 
         unsafe {
             drop(Box::from_raw(string));
             drop(Box::from_raw(list));
+        }
+    }
+
+    #[test]
+    fn lists_are_distinct_from_php_arrays() {
+        let list = Box::into_raw(Box::new(EchoList {
+            values: vec![EchoValue::int(1)],
+        }));
+        let value = EchoValue::list(list);
+
+        assert_eq!(value.string_bytes(), Some(b"List".to_vec()));
+        assert_eq!(echo_php_is_array(value), EchoValue::bool(false));
+        assert_eq!(echo_php_is_countable(value), EchoValue::bool(true));
+        assert_eq!(echo_php_is_iterable(value), EchoValue::bool(true));
+
+        unsafe {
+            drop(Box::from_raw(list));
+        }
+    }
+
+    #[test]
+    fn arrays_are_distinct_from_lists() {
+        let array = Box::into_raw(Box::new(EchoArray {
+            values: vec![EchoValue::int(1), EchoValue::int(2)],
+        }));
+        let value = EchoValue::array(array);
+
+        assert_eq!(value.string_bytes(), Some(b"Array".to_vec()));
+        assert_eq!(
+            echo_std_reflect_type_of(value).string_bytes(),
+            Some(b"array".to_vec())
+        );
+        assert_eq!(
+            echo_php_gettype(value).string_bytes(),
+            Some(b"array".to_vec())
+        );
+        assert_eq!(echo_php_count(value), EchoValue::int(2));
+        assert_eq!(echo_php_is_array(value), EchoValue::bool(true));
+        assert_eq!(echo_php_is_countable(value), EchoValue::bool(true));
+        assert_eq!(echo_php_is_iterable(value), EchoValue::bool(true));
+
+        unsafe {
+            drop(Box::from_raw(array));
         }
     }
 
@@ -4586,7 +4804,7 @@ mod tests {
         );
         assert_eq!(
             echo_std_reflect_type_of(EchoValue::list(list)).string_bytes(),
-            Some(b"array".to_vec())
+            Some(b"list".to_vec())
         );
 
         unsafe {

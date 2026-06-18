@@ -1,13 +1,13 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AppendStmt, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BoolLiteral, BreakStmt,
-    ClassDeclStmt, ClassMember, DeferExpr, DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr,
-    ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource,
-    ImportStmt, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl, NamespaceSource,
-    NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, QualifiedName,
-    ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField, TypedParam,
-    UseStmt, VariableExpr, YieldStmt,
+    AppendStmt, ArrayElement, ArrayExpr, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp,
+    BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr, DynamicFunctionCallStmt,
+    EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
+    IfStmt, ImportSource, ImportStmt, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl,
+    NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program,
+    QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField,
+    TypedParam, UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -179,6 +179,18 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
         Expr::List(expr) => {
             for value in &expr.values {
                 validate_expr_mode(value, mode, diagnostics);
+            }
+        }
+        Expr::Array(expr) => {
+            for element in &expr.elements {
+                if let Some(key) = &element.key {
+                    validate_expr_mode(key, mode, diagnostics);
+                    diagnostics.push(Diagnostic::new(
+                        "keyed array elements are not allowed in strict mode",
+                        element.span,
+                    ));
+                }
+                validate_expr_mode(&element.value, mode, diagnostics);
             }
         }
         Expr::Null(_) | Expr::Bool(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
@@ -562,18 +574,44 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let short_array_expr = expr
+        let array_element = expr
             .clone()
+            .padded()
+            .then(
+                just('=')
+                    .then_ignore(just('>'))
+                    .padded()
+                    .ignore_then(expr.clone().padded())
+                    .or_not(),
+            )
+            .map_with(|(left, value): (Expr, Option<Expr>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                match value {
+                    Some(value) => ArrayElement {
+                        key: Some(left),
+                        value,
+                        span: Span::new(span.start, span.end),
+                    },
+                    None => ArrayElement {
+                        key: None,
+                        value: left,
+                        span: Span::new(span.start, span.end),
+                    },
+                }
+            });
+
+        let array_expr = array_element
             .padded()
             .separated_by(just(',').padded())
             .allow_trailing()
             .collect::<Vec<_>>()
             .delimited_by(just('[').padded(), just(']').padded())
-            .map_with(|values, extra| {
+            .map_with(|elements, extra| {
                 let span: SimpleSpan = extra.span();
 
-                Expr::List(ListExpr {
-                    values,
+                Expr::Array(ArrayExpr {
+                    elements,
                     span: Span::new(span.start, span.end),
                 })
             });
@@ -586,6 +624,23 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map(|(name, value): (&str, Expr)| ObjectField {
                 name: name.to_string(),
                 value,
+            });
+
+        let structural_object_expr = object_field
+            .clone()
+            .separated_by(just(',').padded().or(just(';').padded()))
+            .allow_trailing()
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded())
+            .map_with(|fields, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Object(ObjectExpr {
+                    name: String::new(),
+                    fields,
+                    span: Span::new(span.start, span.end),
+                })
             });
 
         let object_expr = text::ident()
@@ -610,12 +665,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(fork_expr)
             .or(spawn_expr)
             .or(join_expr)
+            .or(structural_object_expr)
             .or(object_expr)
             .or(function_call_expr)
             .or(variable)
             .or(null)
             .or(bool_literal)
-            .or(short_array_expr)
+            .or(array_expr)
             .or(list_expr)
             .or(string)
             .or(number);
@@ -1789,6 +1845,67 @@ time.sleep(300)
                         if matches!(&call.args[2], Expr::Number(number) if number.value == "-2")
                 )
         ));
+    }
+
+    #[test]
+    fn parses_brace_values_as_lists_or_structural_objects() {
+        let list = parse_with_mode("{1, 2, 3}", SourceMode::Strict).expect("list literal parses");
+        assert!(matches!(
+            &list.statements[0],
+            Stmt::Expr(statement)
+                if matches!(&statement.expr, Expr::List(expr) if expr.values.len() == 3)
+        ));
+
+        let object =
+            parse_with_mode("{ test: 5 }", SourceMode::Strict).expect("object literal parses");
+        assert!(matches!(
+            &object.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::Object(expr) if expr.name.is_empty()
+                        && expr.fields.len() == 1
+                        && expr.fields[0].name == "test"
+                )
+        ));
+    }
+
+    #[test]
+    fn parses_bracket_values_as_arrays() {
+        let program = parse_with_mode("[1, 2, 3]", SourceMode::Strict).expect("array parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(&statement.expr, Expr::Array(expr) if expr.elements.len() == 3)
+        ));
+    }
+
+    #[test]
+    fn echo_mode_accepts_php_compat_keyed_arrays() {
+        let program = parse_with_mode(r#"["asdf" => 5]"#, SourceMode::Echo)
+            .expect("PHP keyed array parses in Echo mode");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::Array(expr)
+                        if expr.elements.len() == 1 && expr.elements[0].key.is_some()
+                )
+        ));
+    }
+
+    #[test]
+    fn strict_mode_rejects_php_compat_keyed_arrays() {
+        let diagnostics = parse_with_mode(r#"["asdf" => 5]"#, SourceMode::Strict)
+            .expect_err("strict mode rejects keyed arrays");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "keyed array elements are not allowed in strict mode"
+        );
     }
 
     #[test]

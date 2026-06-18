@@ -1,0 +1,3 @@
+echo "float-int:[" . is_float(42) . "]\n"
+echo "double-string:[" . is_double("4.2") . "]\n"
+echo "exists:[" . function_exists("is_float") . "]\n"

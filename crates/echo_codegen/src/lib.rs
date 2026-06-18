@@ -996,34 +996,76 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             Expr::Object(expr) => self.render_object_expr(body, expr),
-            Expr::List(expr) => {
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let mut list = format!("%runtime_call_{call_id}");
-                body.push_str(&format!(
-                    "  {list} = call %EchoValue @{}()\n",
-                    CoreRuntimeSymbol::ValueListNew.symbol()
-                ));
-
-                for value in &expr.values {
-                    let value = self.render_expr_as_echo_value(body, value)?;
-                    let append_id = self.next_call_id;
-                    self.next_call_id += 1;
-                    let appended = format!("%runtime_call_{append_id}");
-                    body.push_str(&format!(
-                        "  {appended} = call %EchoValue @{}(%EchoValue {list}, {value})\n",
-                        CoreRuntimeSymbol::ValueListAppend.symbol()
-                    ));
-                    list = appended;
-                }
-
-                Ok(RuntimeValue::EchoValue(list))
-            }
+            Expr::List(expr) => self.render_list_values(body, &expr.values),
+            Expr::Array(expr) => self.render_array_expr(body, expr),
             _ => Err(Diagnostic::new(
                 "unsupported expression in LLVM codegen",
                 expr.span(),
             )),
         }
+    }
+
+    fn render_array_expr(
+        &mut self,
+        body: &mut String,
+        expr: &echo_ast::ArrayExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        if let Some(element) = expr.elements.iter().find(|element| element.key.is_some()) {
+            return Err(Diagnostic::new(
+                "keyed array literals require associative array lowering",
+                element.span,
+            ));
+        }
+
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let mut array = format!("%runtime_call_{call_id}");
+        body.push_str(&format!(
+            "  {array} = call %EchoValue @{}()\n",
+            CoreRuntimeSymbol::ValueArrayNew.symbol()
+        ));
+
+        for element in &expr.elements {
+            let value = self.render_expr_as_echo_value(body, &element.value)?;
+            let append_id = self.next_call_id;
+            self.next_call_id += 1;
+            let appended = format!("%runtime_call_{append_id}");
+            body.push_str(&format!(
+                "  {appended} = call %EchoValue @{}(%EchoValue {array}, {value})\n",
+                CoreRuntimeSymbol::ValueArrayAppend.symbol()
+            ));
+            array = appended;
+        }
+
+        Ok(RuntimeValue::EchoValue(array))
+    }
+
+    fn render_list_values(
+        &mut self,
+        body: &mut String,
+        values: &[Expr],
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let mut list = format!("%runtime_call_{call_id}");
+        body.push_str(&format!(
+            "  {list} = call %EchoValue @{}()\n",
+            CoreRuntimeSymbol::ValueListNew.symbol()
+        ));
+
+        for value in values {
+            let value = self.render_expr_as_echo_value(body, value)?;
+            let append_id = self.next_call_id;
+            self.next_call_id += 1;
+            let appended = format!("%runtime_call_{append_id}");
+            body.push_str(&format!(
+                "  {appended} = call %EchoValue @{}(%EchoValue {list}, {value})\n",
+                CoreRuntimeSymbol::ValueListAppend.symbol()
+            ));
+            list = appended;
+        }
+
+        Ok(RuntimeValue::EchoValue(list))
     }
 
     fn render_concat_expr(
@@ -1689,9 +1731,9 @@ fn llvm_string_literal(value: &str) -> String {
 mod tests {
     use super::*;
     use echo_ast::{
-        AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-        ImportStmt, NullLiteral, NumberLiteral, QualifiedName, ReturnStmt, StringLiteral,
-        TypedParam,
+        ArrayElement, ArrayExpr, AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr,
+        FunctionCallStmt, FunctionDeclStmt, ImportStmt, NullLiteral, NumberLiteral, QualifiedName,
+        ReturnStmt, StringLiteral, TypedParam,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -2547,6 +2589,58 @@ mod tests {
 
         assert!(ir.contains("call %EchoValue @echo_task_join"), "{ir}");
         assert!(!ir.contains("call void @echo_write_value"), "{ir}");
+    }
+
+    #[test]
+    fn array_literals_lower_to_array_runtime() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::Array(ArrayExpr {
+                elements: vec![ArrayElement {
+                    key: None,
+                    value: Expr::Number(NumberLiteral {
+                        value: "1".to_string(),
+                        span: Span::new(1, 2),
+                    }),
+                    span: Span::new(1, 2),
+                }],
+                span: Span::new(0, 3),
+            })],
+            span: Span::new(0, 3),
+        })]))
+        .expect("array literal should lower");
+
+        assert!(ir.contains("declare %EchoValue @echo_value_array_new()"));
+        assert!(ir.contains("declare %EchoValue @echo_value_array_append(%EchoValue, %EchoValue)"));
+        assert!(ir.contains("call %EchoValue @echo_value_array_new()"));
+        assert!(ir.contains("call %EchoValue @echo_value_array_append"));
+        assert!(!ir.contains("call %EchoValue @echo_value_list_append"));
+    }
+
+    #[test]
+    fn keyed_array_literals_require_associative_array_lowering() {
+        let diagnostics = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::Array(ArrayExpr {
+                elements: vec![ArrayElement {
+                    key: Some(Expr::String(StringLiteral {
+                        value: "key".to_string(),
+                        span: Span::new(1, 6),
+                    })),
+                    value: Expr::Number(NumberLiteral {
+                        value: "1".to_string(),
+                        span: Span::new(10, 11),
+                    }),
+                    span: Span::new(1, 11),
+                }],
+                span: Span::new(0, 12),
+            })],
+            span: Span::new(0, 12),
+        })]))
+        .expect_err("keyed arrays should not lower yet");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "keyed array literals require associative array lowering"
+        );
     }
 
     #[test]
