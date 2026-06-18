@@ -1,0 +1,6 @@
+ten:[a]
+forty-seven:[2f]
+zero:[0]
+negative:[ffffffffffffffff]
+numeric-string:[ff]
+exists:[1]

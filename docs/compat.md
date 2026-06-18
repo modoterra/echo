@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 80 | 527 |
-| Loaded local PHP internals, including extensions | 1516 | 80 | 1436 |
+| Baseline (`Core` + `standard`) | 607 | 81 | 526 |
+| Loaded local PHP internals, including extensions | 1516 | 81 | 1435 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (74/545)
+### standard (75/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -204,7 +204,7 @@ explicitly promote one.
 | `current` | missing |  |
 | `debug_zval_dump` | missing |  |
 | `decbin` | missing |  |
-| `dechex` | missing |  |
+| `dechex` | implemented | Converts integers to lowercase unsigned hexadecimal strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.dechex.php |
 | `decoct` | missing |  |
 | `deg2rad` | missing |  |
 | `dir` | missing |  |

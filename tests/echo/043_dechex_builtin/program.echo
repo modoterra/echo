@@ -1,0 +1,6 @@
+echo "ten:[" . dechex(10) . "]\n"
+echo "forty-seven:[" . dechex(47) . "]\n"
+echo "zero:[" . dechex(0) . "]\n"
+echo "negative:[" . dechex(-1) . "]\n"
+echo "numeric-string:[" . dechex("255") . "]\n"
+echo "exists:[" . function_exists("dechex") . "]\n"

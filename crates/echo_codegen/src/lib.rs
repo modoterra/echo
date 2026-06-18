@@ -2203,6 +2203,7 @@ mod tests {
             ("ord", "echo_php_ord"),
             ("str_rot13", "echo_php_str_rot13"),
             ("chr", "echo_php_chr"),
+            ("dechex", "echo_php_dechex"),
             ("bin2hex", "echo_php_bin2hex"),
             ("base64_encode", "echo_php_base64_encode"),
             ("base64_decode", "echo_php_base64_decode"),

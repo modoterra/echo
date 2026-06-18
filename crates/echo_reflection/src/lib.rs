@@ -164,6 +164,7 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("ord", &[("character", Some("string"))], Some("int")),
         php_builtin_reflection("str_rot13", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("chr", &[("codepoint", Some("int"))], Some("string")),
+        php_builtin_reflection("dechex", &[("num", Some("int"))], Some("string")),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "base64_encode",
