@@ -526,7 +526,7 @@ explicitly promote one.
 | `str_split` | missing |  |
 | `str_starts_with` | implemented |  |
 | `str_word_count` | missing |  |
-| `strchr` | missing |  |
+| `strchr` | implemented | Alias of `strstr`. |
 | `strcoll` | missing |  |
 | `strcspn` | implemented |  |
 | `stream_bucket_append` | missing |  |

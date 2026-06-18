@@ -11,7 +11,7 @@ use echo_ast::{
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
 use inkwell::context::Context;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 enum RuntimeValue {
@@ -1533,6 +1533,8 @@ impl IrModule {
 }
 
 fn runtime_declarations() -> String {
+    let mut seen = HashSet::new();
+
     CoreRuntimeSymbol::ALL
         .iter()
         .map(|function| function.llvm_decl())
@@ -1543,6 +1545,7 @@ fn runtime_declarations() -> String {
         )
         .chain(PHP_BUILTINS.iter().map(|builtin| builtin.llvm_decl()))
         .chain(STD_INTRINSICS.iter().map(|intrinsic| intrinsic.llvm_decl()))
+        .filter(|declaration| seen.insert(declaration.clone()))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -1996,6 +1999,7 @@ mod tests {
             ("strrpos", "echo_php_strrpos"),
             ("strripos", "echo_php_strripos"),
             ("strstr", "echo_php_strstr"),
+            ("strchr", "echo_php_strstr"),
             ("stristr", "echo_php_stristr"),
             ("strrchr", "echo_php_strrchr"),
             ("strpbrk", "echo_php_strpbrk"),
@@ -2041,6 +2045,13 @@ mod tests {
                 "{ir}"
             );
         }
+    }
+
+    #[test]
+    fn runtime_declarations_deduplicate_alias_symbols() {
+        let declarations = runtime_declarations();
+
+        assert_eq!(declarations.matches("@echo_php_strstr(").count(), 1);
     }
 
     #[test]

@@ -29,3 +29,4 @@ Practical slices picked from `docs/`.
 - Follow-up PHP string builtin slice added `strncmp()` and `strncasecmp()` with fixture `079_strncmp_builtins`.
 - Follow-up PHP string builtin slice added `substr_compare()` with fixture `080_substr_compare_builtin`.
 - Follow-up parser slice added unary-negative numeric argument support with fixture `081_negative_numeric_arguments`.
+- Follow-up PHP string alias slice mapped `strchr()` to `strstr()` with fixture `082_strchr_alias_builtin`.
