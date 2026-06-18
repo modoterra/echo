@@ -445,14 +445,18 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let number = text::digits(10).to_slice().map_with(|value: &str, extra| {
-            let span: SimpleSpan = extra.span();
+        let number = just('-')
+            .or_not()
+            .then(text::digits(10))
+            .to_slice()
+            .map_with(|value: &str, extra| {
+                let span: SimpleSpan = extra.span();
 
-            Expr::Number(NumberLiteral {
-                value: value.to_string(),
-                span: Span::new(span.start, span.end),
-            })
-        });
+                Expr::Number(NumberLiteral {
+                    value: value.to_string(),
+                    span: Span::new(span.start, span.end),
+                })
+            });
 
         let variable = just('$')
             .ignore_then(text::ident())
@@ -1742,6 +1746,25 @@ time.sleep(300)
         assert!(matches!(
             &program.statements[1],
             Stmt::FunctionCall(statement) if statement.name == "time.sleep"
+        ));
+    }
+
+    #[test]
+    fn parses_negative_numeric_function_arguments() {
+        let program = parse_with_mode(
+            r#"<?php echo substr_compare("abcde", "de", -2, 2);"#,
+            SourceMode::Echo,
+        )
+        .expect("negative numeric argument parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Echo(statement)
+                if matches!(
+                    &statement.exprs[0],
+                    Expr::FunctionCall(call)
+                        if matches!(&call.args[2], Expr::Number(number) if number.value == "-2")
+                )
         ));
     }
 
