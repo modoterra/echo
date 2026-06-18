@@ -114,6 +114,7 @@ pub enum RuntimeSignature {
     EchoValueEchoValue,
     EchoValueEchoValuePtrI64,
     EchoValueEchoValueEchoValue,
+    EchoValueEchoValueEchoValueEchoValue,
     EchoValueEchoValuePtrI64EchoValue,
 }
 
@@ -136,6 +137,9 @@ impl RuntimeSignature {
             }
             Self::EchoValueEchoValueEchoValue => {
                 format!("declare %EchoValue @{symbol}(%EchoValue, %EchoValue)")
+            }
+            Self::EchoValueEchoValueEchoValueEchoValue => {
+                format!("declare %EchoValue @{symbol}(%EchoValue, %EchoValue, %EchoValue)")
             }
             Self::EchoValueEchoValuePtrI64EchoValue => {
                 format!("declare %EchoValue @{symbol}(%EchoValue, ptr, i64, %EchoValue)")
@@ -232,6 +236,7 @@ pub enum BuiltinCodegen {
     ValueExpression,
     ValueUnaryExpression,
     ValueBinaryExpression,
+    ValueTernaryExpression,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -685,6 +690,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "strncmp",
+        symbol: "echo_php_strncmp",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "strncasecmp",
+        symbol: "echo_php_strncasecmp",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
     },
 ];
 

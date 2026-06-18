@@ -26,3 +26,4 @@ Practical slices picked from `docs/`.
 - Slice 8 rejects PHP reference assignment in strict mode while preserving it in Echo superset mode.
 - Follow-up strict slices reject user `namespace std ...` and dynamic function-call statements in strict mode.
 - Follow-up import slices require std module imports before module-style intrinsic calls and support std module aliases.
+- Follow-up PHP string builtin slice added `strncmp()` and `strncasecmp()` with fixture `079_strncmp_builtins`.

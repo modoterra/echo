@@ -837,6 +837,9 @@ impl IrModule {
             BuiltinCodegen::ValueBinaryExpression => {
                 unreachable!("expression builtin used as statement call")
             }
+            BuiltinCodegen::ValueTernaryExpression => {
+                unreachable!("expression builtin used as statement call")
+            }
         }
 
         Ok(())
@@ -1355,6 +1358,31 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::ValueTernaryExpression => {
+                let [first, second, third] = expr.args.as_slice() else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            expr.name
+                        ),
+                        expr.span,
+                    ));
+                };
+
+                let first = self.render_expr_as_echo_value(body, first)?;
+                let second = self.render_expr_as_echo_value(body, second)?;
+                let third = self.render_expr_as_echo_value(body, third)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({first}, {second}, {third})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
         }
     }
 
@@ -1528,7 +1556,7 @@ mod tests {
     use super::*;
     use echo_ast::{
         AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-        ImportStmt, NullLiteral, QualifiedName, ReturnStmt, StringLiteral,
+        ImportStmt, NullLiteral, NumberLiteral, QualifiedName, ReturnStmt, StringLiteral,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -1976,6 +2004,46 @@ mod tests {
                 ir.contains("call void @echo_write_value(%EchoValue %runtime_call_2)"),
                 "{ir}"
             );
+        }
+    }
+
+    #[test]
+    fn string_prefix_compare_builtins_lower_to_php_builtin_with_three_echo_value_arguments() {
+        for (php_name, symbol) in [
+            ("strncmp", "echo_php_strncmp"),
+            ("strncasecmp", "echo_php_strncasecmp"),
+        ] {
+            let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: php_name.to_string(),
+                    args: vec![
+                        Expr::String(StringLiteral {
+                            value: "Echo PHP".to_string(),
+                            span: Span::new(13, 23),
+                        }),
+                        Expr::String(StringLiteral {
+                            value: "PHP".to_string(),
+                            span: Span::new(25, 30),
+                        }),
+                        Expr::Number(NumberLiteral {
+                            value: "3".to_string(),
+                            span: Span::new(32, 33),
+                        }),
+                    ],
+                    span: Span::new(0, 34),
+                })],
+                span: Span::new(0, 35),
+            })]))
+            .expect("IR");
+
+            assert!(
+                ir.contains(&format!(
+                    "call %EchoValue @{symbol}(%EchoValue %runtime_call_"
+                )),
+                "IR should call {symbol}: {ir}"
+            );
+            assert!(ir.contains("declare %EchoValue @"));
+            assert!(ir.contains("(%EchoValue, %EchoValue, %EchoValue)"));
         }
     }
 

@@ -1654,6 +1654,59 @@ pub extern "C" fn echo_php_strcasecmp(left: EchoValue, right: EchoValue) -> Echo
     EchoValue::int(case_insensitive_ascii_compare(&left, &right))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strncmp(
+    left: EchoValue,
+    right: EchoValue,
+    length: EchoValue,
+) -> EchoValue {
+    let Some(left) = left.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(
+        match left[..left.len().min(length)].cmp(&right[..right.len().min(length)]) {
+            CmpOrdering::Less => -1,
+            CmpOrdering::Equal => 0,
+            CmpOrdering::Greater => 1,
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strncasecmp(
+    left: EchoValue,
+    right: EchoValue,
+    length: EchoValue,
+) -> EchoValue {
+    let Some(left) = left.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(case_insensitive_ascii_compare(
+        &left[..left.len().min(length)],
+        &right[..right.len().min(length)],
+    ))
+}
+
 fn case_insensitive_ascii_compare(left: &[u8], right: &[u8]) -> i64 {
     for (left, right) in left.iter().zip(right) {
         let left = left.to_ascii_lowercase();
@@ -3767,6 +3820,70 @@ mod tests {
             drop(Box::from_raw(numeric_left));
             drop(Box::from_raw(non_ascii_left));
             drop(Box::from_raw(non_ascii_right));
+        }
+    }
+
+    #[test]
+    fn strncmp_builtins_preserve_php_prefix_behavior() {
+        let abc = Box::into_raw(Box::new(EchoString {
+            bytes: b"abc".to_vec(),
+        }));
+        let abd = Box::into_raw(Box::new(EchoString {
+            bytes: b"abd".to_vec(),
+        }));
+        let ab = Box::into_raw(Box::new(EchoString {
+            bytes: b"ab".to_vec(),
+        }));
+        let upper_abd = Box::into_raw(Box::new(EchoString {
+            bytes: b"ABD".to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_strncmp(
+                EchoValue::string(abc),
+                EchoValue::string(abd),
+                EchoValue::int(2)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strncmp(
+                EchoValue::string(abc),
+                EchoValue::string(abd),
+                EchoValue::int(3)
+            ),
+            EchoValue::int(-1)
+        );
+        assert_eq!(
+            echo_php_strncmp(
+                EchoValue::string(abc),
+                EchoValue::string(ab),
+                EchoValue::int(3)
+            ),
+            EchoValue::int(1)
+        );
+        assert_eq!(
+            echo_php_strncasecmp(
+                EchoValue::string(abc),
+                EchoValue::string(upper_abd),
+                EchoValue::int(2)
+            ),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_strncasecmp(
+                EchoValue::string(abc),
+                EchoValue::string(upper_abd),
+                EchoValue::int(3)
+            ),
+            EchoValue::int(-1)
+        );
+
+        unsafe {
+            drop(Box::from_raw(abc));
+            drop(Box::from_raw(abd));
+            drop(Box::from_raw(ab));
+            drop(Box::from_raw(upper_abd));
         }
     }
 
