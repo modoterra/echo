@@ -1493,6 +1493,30 @@ pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_escapeshellarg(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            escape_shell_arg_unix(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+fn escape_shell_arg_unix(bytes: &[u8]) -> Vec<u8> {
+    let mut escaped = Vec::with_capacity(bytes.len() + 2);
+    escaped.push(b'\'');
+    for byte in bytes {
+        if *byte == b'\'' {
+            escaped.extend_from_slice(b"'\\''");
+        } else {
+            escaped.push(*byte);
+        }
+    }
+    escaped.push(b'\'');
+    escaped
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_basename(path: EchoValue, suffix: EchoValue) -> EchoValue {
     let Some(path) = path.string_bytes() else {
         return EchoValue::error();
@@ -3218,6 +3242,10 @@ mod tests {
         assert_eq!(
             echo_php_bin2hex(EchoValue::string(non_ascii)).string_bytes(),
             Some("c384".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellarg(EchoValue::string(text)).string_bytes(),
+            Some("'Echo'".as_bytes().to_vec())
         );
 
         unsafe {

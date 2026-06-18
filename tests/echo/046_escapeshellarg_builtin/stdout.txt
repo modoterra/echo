@@ -1,0 +1,7 @@
+plain:['hello']
+space:['hello world']
+quote:['can'\''t']
+empty:['']
+meta:['path; rm -rf /']
+numeric:['42']
+exists:[1]

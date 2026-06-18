@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 83 | 524 |
-| Loaded local PHP internals, including extensions | 1516 | 83 | 1433 |
+| Baseline (`Core` + `standard`) | 607 | 84 | 523 |
+| Loaded local PHP internals, including extensions | 1516 | 84 | 1432 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (77/545)
+### standard (78/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -221,7 +221,7 @@ explicitly promote one.
 | `error_clear_last` | missing |  |
 | `error_get_last` | missing |  |
 | `error_log` | missing |  |
-| `escapeshellarg` | missing |  |
+| `escapeshellarg` | implemented | Supports Unix/POSIX single-quote wrapping and embedded single-quote escaping; Windows-specific quoting behavior is deferred. Source: https://www.php.net/manual/en/function.escapeshellarg.php |
 | `escapeshellcmd` | missing |  |
 | `exec` | missing |  |
 | `exp` | missing |  |
