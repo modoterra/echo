@@ -107,6 +107,14 @@ Run the CLI against an example.
 cargo run -p xo -- run examples/hello.php
 ```
 
+Start a line-oriented REPL.
+
+```bash
+cargo run -p xo -- repl
+```
+
+Bare expressions such as `5` or `5+3` print their resulting value.
+
 Run Echo assertion tests in a file or directory.
 
 ```bash

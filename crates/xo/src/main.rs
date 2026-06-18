@@ -1,11 +1,12 @@
 use std::fs;
-use std::io::Write;
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
+use echo_ast::{EchoStmt, Stmt};
 use echo_source::{SourceFile, SourceMode};
 
 static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -37,6 +38,10 @@ enum Command {
         #[command(flatten)]
         mode: ModeOverride,
         file: PathBuf,
+    },
+    Repl {
+        #[command(flatten)]
+        mode: ModeOverride,
     },
     Test {
         #[command(flatten)]
@@ -170,6 +175,9 @@ fn main() {
             run_command(&mut ProcessCommand::new(&binary_path));
             let _ = fs::remove_file(binary_path);
         }
+        Command::Repl { mode } => {
+            run_repl(mode);
+        }
         Command::Test { mode, path } => {
             run_tests(&path, mode);
         }
@@ -194,6 +202,67 @@ fn main() {
             }
         }
     }
+}
+
+fn run_repl(mode: ModeOverride) {
+    let interactive = io::stdin().is_terminal();
+    let mut line = String::new();
+
+    ensure_runtime_library_quiet();
+
+    if interactive {
+        println!("Echo REPL. Use :quit or :exit to leave.");
+    }
+
+    loop {
+        if interactive {
+            print!("xo> ");
+            io::stdout().flush().unwrap_or_else(|err| {
+                eprintln!("error: failed to flush stdout: {err}");
+                std::process::exit(1);
+            });
+        }
+
+        line.clear();
+        match io::stdin().read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(err) => {
+                eprintln!("error: failed to read stdin: {err}");
+                std::process::exit(1);
+            }
+        }
+
+        let input = line.trim();
+        if input.is_empty() {
+            continue;
+        }
+
+        if input == ":quit" || input == ":exit" {
+            break;
+        }
+
+        run_repl_input(input, mode, interactive);
+    }
+}
+
+fn run_repl_input(input: &str, mode: ModeOverride, interactive: bool) {
+    let file = PathBuf::from("repl.echo");
+    let source = source_file_from_text(file.clone(), input.to_string(), mode);
+
+    let ir = match try_compile_repl_ir(&source) {
+        Ok(ir) => ir,
+        Err(diagnostics) => {
+            print_diagnostics(diagnostics);
+            return;
+        }
+    };
+
+    verify_ir(&file, &ir);
+    let binary_path = temp_path(&file, "program");
+    build_ir_binary_quiet(&file, &ir, OptimizationLevel::O0, &binary_path);
+    run_repl_binary(&binary_path, interactive);
+    let _ = fs::remove_file(binary_path);
 }
 
 fn run_tests(path: &PathBuf, mode: ModeOverride) {
@@ -273,10 +342,22 @@ fn build_binary(
     optimization: OptimizationLevel,
     output: &PathBuf,
 ) {
-    ensure_runtime_library();
-
     let ir = compile_ir(file, mode);
     verify_ir(file, &ir);
+    build_ir_binary(file, &ir, optimization, output);
+}
+
+fn build_ir_binary(file: &PathBuf, ir: &str, optimization: OptimizationLevel, output: &PathBuf) {
+    ensure_runtime_library();
+    build_ir_binary_quiet(file, ir, optimization, output);
+}
+
+fn build_ir_binary_quiet(
+    file: &PathBuf,
+    ir: &str,
+    optimization: OptimizationLevel,
+    output: &PathBuf,
+) {
     let ir_path = write_temp_ir(file, &ir);
     run_command(
         ProcessCommand::new("clang")
@@ -345,21 +426,41 @@ fn optimize_ir(file: &PathBuf, ir: &str, optimization: OptimizationLevel) -> Str
 fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
     let source = read_source_file(file, mode);
 
-    let program = match echo_parser::parse_with_mode(&source.text, source.mode) {
-        Ok(program) => program,
-        Err(diagnostics) => {
-            print_diagnostics(diagnostics);
-            std::process::exit(1);
-        }
-    };
-
-    match echo_codegen::compile_to_ir(&program) {
+    match try_compile_ir(&source) {
         Ok(ir) => ir,
         Err(diagnostics) => {
             print_diagnostics(diagnostics);
             std::process::exit(1);
         }
     }
+}
+
+fn try_compile_repl_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnostics::Diagnostic>> {
+    let mut program = match echo_parser::parse_with_mode(&source.text, source.mode) {
+        Ok(program) => program,
+        Err(diagnostics) => return Err(diagnostics),
+    };
+
+    if let [Stmt::Expr(statement)] = program.statements.as_mut_slice() {
+        let span = statement.span;
+        let expr = statement.expr.clone();
+        program.statements = vec![Stmt::Echo(EchoStmt {
+            exprs: vec![expr],
+            span,
+        })];
+        program.span = span;
+    }
+
+    echo_codegen::compile_to_ir(&program)
+}
+
+fn try_compile_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnostics::Diagnostic>> {
+    let program = match echo_parser::parse_with_mode(&source.text, source.mode) {
+        Ok(program) => program,
+        Err(diagnostics) => return Err(diagnostics),
+    };
+
+    echo_codegen::compile_to_ir(&program)
 }
 
 fn write_temp_ir(file: &PathBuf, ir: &str) -> PathBuf {
@@ -430,6 +531,51 @@ fn ensure_runtime_library() {
     );
 }
 
+fn ensure_runtime_library_quiet() {
+    let output = ProcessCommand::new("cargo")
+        .arg("build")
+        .arg("-p")
+        .arg("echo_runtime")
+        .output()
+        .unwrap_or_else(|err| {
+            eprintln!("error: failed to run cargo build -p echo_runtime: {err}");
+            std::process::exit(1);
+        });
+
+    if !output.status.success() {
+        eprintln!(
+            "error: cargo build -p echo_runtime exited with {}",
+            output.status
+        );
+        eprint!("{}", String::from_utf8_lossy(&output.stderr));
+        std::process::exit(output.status.code().unwrap_or(1));
+    }
+}
+
+fn run_repl_binary(binary_path: &PathBuf, interactive: bool) {
+    let output = ProcessCommand::new(binary_path)
+        .output()
+        .unwrap_or_else(|err| {
+            eprintln!("error: failed to run {}: {err}", binary_path.display());
+            std::process::exit(1);
+        });
+
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+
+    if interactive && !output.stdout.is_empty() && !output.stdout.ends_with(b"\n") {
+        println!();
+    }
+
+    if !output.status.success() {
+        eprintln!(
+            "error: {} exited with {}",
+            binary_path.display(),
+            output.status
+        );
+    }
+}
+
 fn run_command(command: &mut ProcessCommand) {
     let status = command.status().unwrap_or_else(|err| {
         eprintln!("error: failed to run {command:?}: {err}");
@@ -450,7 +596,11 @@ fn read_source(file: &PathBuf) -> String {
 }
 
 fn read_source_file(file: &PathBuf, mode: ModeOverride) -> SourceFile {
-    let mut source = SourceFile::new(file.clone(), read_source(file));
+    source_file_from_text(file.clone(), read_source(file), mode)
+}
+
+fn source_file_from_text(file: PathBuf, text: String, mode: ModeOverride) -> SourceFile {
+    let mut source = SourceFile::new(file, text);
     source.mode = mode.apply(source.mode);
     source
 }
@@ -490,5 +640,33 @@ mod tests {
         assert_eq!(parse_optimization_level("3"), Ok(OptimizationLevel::O3));
         assert_eq!(parse_optimization_level("z"), Ok(OptimizationLevel::Oz));
         assert!(parse_optimization_level("4").is_err());
+    }
+
+    #[test]
+    fn repl_source_defaults_to_strict_mode() {
+        let source = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "echo \"hello\";".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: false,
+            },
+        );
+
+        assert_eq!(source.mode, SourceMode::Strict);
+    }
+
+    #[test]
+    fn repl_source_can_use_unsafe_mode() {
+        let source = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "<?php echo \"hello\";".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: true,
+            },
+        );
+
+        assert_eq!(source.mode, SourceMode::Echo);
     }
 }
