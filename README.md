@@ -107,6 +107,12 @@ Run the CLI against an example.
 cargo run -p xo -- run examples/hello.php
 ```
 
+Run Echo assertion tests in a file or directory.
+
+```bash
+cargo run -p xo -- test tests/echo/031_reflection_assertions/program.echo
+```
+
 Mode defaults:
 
 - `.php` files use Echo superset mode by default.

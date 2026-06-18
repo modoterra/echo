@@ -1,0 +1,5 @@
+greet exists:[1]
+greet params:[$name]
+greet return:[]
+greet result:[hello Echo
+]

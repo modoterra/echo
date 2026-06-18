@@ -6,7 +6,7 @@ use abi::{
 };
 use echo_ast::{
     BinaryOp, BreakStmt, Expr, FunctionDeclStmt, IfStmt, ImportSource, LoopExpr, LoopStmt,
-    ObjectExpr, Program, Stmt,
+    ObjectExpr, Program, Stmt, TypedParam,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -125,6 +125,8 @@ impl IrModule {
             }
         }
 
+        self.render_userland_reflection_registrations(&mut body);
+
         for statement in &program.statements {
             if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
                 diagnostics.push(diagnostic);
@@ -135,6 +137,29 @@ impl IrModule {
             Ok(body)
         } else {
             Err(diagnostics)
+        }
+    }
+
+    fn render_userland_reflection_registrations(&mut self, body: &mut String) {
+        let mut functions = self.functions.values().cloned().collect::<Vec<_>>();
+        functions.sort_by(|left, right| left.name.cmp(&right.name));
+
+        for function in &functions {
+            let name = function.name.clone();
+            let params = function_params_signature(&function.params);
+            let return_type = function.return_type.clone().unwrap_or_default();
+
+            let name_global = self.string_global(&name);
+            let params_global = self.string_global(&params);
+            let return_type_global = self.string_global(&return_type);
+
+            body.push_str(&format!(
+                "  call void @{}(ptr @{name_global}, i64 {}, ptr @{params_global}, i64 {}, ptr @{return_type_global}, i64 {})\n",
+                CoreRuntimeSymbol::RegisterFunction.symbol(),
+                name.len(),
+                params.len(),
+                return_type.len()
+            ));
         }
     }
 
@@ -1557,6 +1582,17 @@ fn runtime_declarations() -> String {
         .join("\n")
 }
 
+fn function_params_signature(params: &[TypedParam]) -> String {
+    params
+        .iter()
+        .map(|param| match &param.ty {
+            Some(ty) => format!("{ty} ${}", param.name),
+            None => format!("${}", param.name),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn is_known_std_module(name: &str) -> bool {
     let module_name = format!("std.{name}");
     echo_std::modules()
@@ -1777,6 +1813,56 @@ mod tests {
     }
 
     #[test]
+    fn userland_function_declaration_registers_reflection_metadata() {
+        let ir = compile_to_ir(&program(vec![
+            std_import("reflect"),
+            Stmt::FunctionDecl(FunctionDeclStmt {
+                name: "greet".to_string(),
+                params: vec![TypedParam {
+                    name: "name".to_string(),
+                    ty: Some("string".to_string()),
+                }],
+                return_type: Some("string".to_string()),
+                is_intrinsic: false,
+                is_generator: false,
+                body: vec![Stmt::Return(ReturnStmt {
+                    value: Expr::String(StringLiteral {
+                        value: "hello\n".to_string(),
+                        span: Span::new(0, 8),
+                    }),
+                    span: Span::new(0, 15),
+                })],
+                span: Span::new(0, 40),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "reflect.params".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "greet".to_string(),
+                        span: Span::new(50, 57),
+                    })],
+                    span: Span::new(35, 58),
+                })],
+                span: Span::new(35, 59),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains(
+                "declare void @echo_reflection_register_function(ptr, i64, ptr, i64, ptr, i64)"
+            ),
+            "{ir}"
+        );
+        assert!(ir.contains("c\"greet\""), "{ir}");
+        assert!(ir.contains("c\"string $name\""), "{ir}");
+        assert!(
+            ir.contains("call void @echo_reflection_register_function("),
+            "{ir}"
+        );
+    }
+
+    #[test]
     fn userland_call_passes_string_argument_as_echo_value() {
         let ir = compile_to_ir(&program(vec![
             Stmt::FunctionDecl(FunctionDeclStmt {
@@ -1814,11 +1900,11 @@ mod tests {
             "{ir}"
         );
         assert!(
-            ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_0, i64 6)"),
+            ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_"),
             "{ir}"
         );
         assert!(
-            ir.contains("call %EchoValue @echo_user_say(%EchoValue %runtime_call_0)"),
+            ir.contains("call %EchoValue @echo_user_say(%EchoValue %runtime_call_"),
             "{ir}"
         );
     }

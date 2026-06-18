@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 #[derive(Debug, Default)]
@@ -81,6 +82,13 @@ impl EchoObject {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RuntimeFunctionReflection {
+    name: String,
+    params_signature: String,
+    return_type: String,
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EchoValue {
@@ -101,6 +109,7 @@ const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
 const ECHO_VALUE_OBJECT: i32 = 9;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
+static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
 
@@ -744,7 +753,7 @@ pub extern "C" fn echo_std_reflect_exists(name: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_std_reflect_params(name: EchoValue) -> EchoValue {
     let params = function_reflection_for_value(name)
-        .map(|function| function.params_signature())
+        .map(|function| function.params_signature)
         .unwrap_or_default();
 
     echo_runtime_string(params.into_bytes())
@@ -753,10 +762,47 @@ pub extern "C" fn echo_std_reflect_params(name: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_std_reflect_return_type(name: EchoValue) -> EchoValue {
     let return_type = function_reflection_for_value(name)
-        .map(|function| function.return_type_signature())
-        .unwrap_or("");
+        .map(|function| function.return_type)
+        .unwrap_or_default();
 
-    echo_runtime_string(return_type.as_bytes().to_vec())
+    echo_runtime_string(return_type.into_bytes())
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_reflection_register_function(
+    name_ptr: *const u8,
+    name_len: usize,
+    params_ptr: *const u8,
+    params_len: usize,
+    return_type_ptr: *const u8,
+    return_type_len: usize,
+) {
+    let Some(name) = runtime_utf8_arg(name_ptr, name_len) else {
+        return;
+    };
+    let Some(params_signature) = runtime_utf8_arg(params_ptr, params_len) else {
+        return;
+    };
+    let Some(return_type) = runtime_utf8_arg(return_type_ptr, return_type_len) else {
+        return;
+    };
+
+    let mut functions = userland_reflections()
+        .lock()
+        .expect("userland reflection registry should not be poisoned");
+    if let Some(existing) = functions
+        .iter_mut()
+        .find(|function| function.name.eq_ignore_ascii_case(&name))
+    {
+        existing.params_signature = params_signature;
+        existing.return_type = return_type;
+    } else {
+        functions.push(RuntimeFunctionReflection {
+            name,
+            params_signature,
+            return_type,
+        });
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -776,6 +822,20 @@ pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
     };
 
     echo_runtime_string(type_name.to_vec())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_assert_ok(condition: EchoValue) -> EchoValue {
+    let passed = condition.kind == ECHO_VALUE_BOOL && condition.payload != 0;
+    record_assertion(passed, "assert.ok failed");
+    EchoValue::bool(passed)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_assert_equals(actual: EchoValue, expected: EchoValue) -> EchoValue {
+    let passed = echo_values_equal(actual, expected);
+    record_assertion(passed, "assert.equals failed");
+    EchoValue::bool(passed)
 }
 
 #[unsafe(no_mangle)]
@@ -956,12 +1016,39 @@ fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
 }
 
-fn function_reflection_for_value(
-    value: EchoValue,
-) -> Option<&'static echo_reflection::FunctionReflection> {
+fn function_reflection_for_value(value: EchoValue) -> Option<RuntimeFunctionReflection> {
     let bytes = value.string_bytes()?;
     let name = std::str::from_utf8(&bytes).ok()?;
-    echo_reflection::function(name)
+    if let Some(function) = echo_reflection::function(name) {
+        return Some(RuntimeFunctionReflection {
+            name: function.qualified_name.clone(),
+            params_signature: function.params_signature(),
+            return_type: function.return_type_signature().to_string(),
+        });
+    }
+
+    userland_reflections()
+        .lock()
+        .expect("userland reflection registry should not be poisoned")
+        .iter()
+        .find(|function| function.name.eq_ignore_ascii_case(name))
+        .cloned()
+}
+
+fn userland_reflections() -> &'static Mutex<Vec<RuntimeFunctionReflection>> {
+    static USERLAND_REFLECTIONS: OnceLock<Mutex<Vec<RuntimeFunctionReflection>>> = OnceLock::new();
+    USERLAND_REFLECTIONS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+fn runtime_utf8_arg(ptr: *const u8, len: usize) -> Option<String> {
+    if ptr.is_null() && len != 0 {
+        return None;
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+    std::str::from_utf8(bytes)
+        .ok()
+        .map(std::string::ToString::to_string)
 }
 
 #[unsafe(no_mangle)]
@@ -2091,6 +2178,10 @@ pub extern "C" fn echo_shutdown() {
         runtime.borrow_mut().shutdown(&mut stdout);
         write_stdout(&stdout);
     });
+
+    if ASSERT_FAILURES.load(Ordering::Relaxed) > 0 {
+        std::process::exit(1);
+    }
 }
 
 fn write_stdout(bytes: &[u8]) {
@@ -2103,6 +2194,45 @@ fn write_stdout(bytes: &[u8]) {
         .write_all(bytes)
         .expect("failed to write Echo runtime output");
     stdout.flush().expect("failed to flush Echo runtime output");
+}
+
+fn record_assertion(passed: bool, message: &str) {
+    if passed {
+        return;
+    }
+
+    ASSERT_FAILURES.fetch_add(1, Ordering::Relaxed);
+    eprintln!("{message}");
+}
+
+fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
+    if left.kind != right.kind {
+        return false;
+    }
+
+    match left.kind {
+        ECHO_VALUE_NULL => true,
+        ECHO_VALUE_BOOL | ECHO_VALUE_INT => left.payload == right.payload,
+        ECHO_VALUE_STRING => left.string_bytes() == right.string_bytes(),
+        ECHO_VALUE_ARRAY => echo_lists_equal(left, right),
+        _ => left.payload == right.payload,
+    }
+}
+
+fn echo_lists_equal(left: EchoValue, right: EchoValue) -> bool {
+    let Some(left) = (unsafe { (left.payload as *const EchoList).as_ref() }) else {
+        return false;
+    };
+    let Some(right) = (unsafe { (right.payload as *const EchoList).as_ref() }) else {
+        return false;
+    };
+
+    left.values.len() == right.values.len()
+        && left
+            .values
+            .iter()
+            .zip(&right.values)
+            .all(|(left, right)| echo_values_equal(*left, *right))
 }
 
 #[cfg(test)]
@@ -4415,6 +4545,34 @@ mod tests {
         unsafe {
             drop(Box::from_raw(string));
             drop(Box::from_raw(list));
+        }
+    }
+
+    #[test]
+    fn assert_intrinsics_report_success() {
+        let left = Box::into_raw(Box::new(EchoString {
+            bytes: b"same".to_vec(),
+        }));
+        let right = Box::into_raw(Box::new(EchoString {
+            bytes: b"same".to_vec(),
+        }));
+
+        assert_eq!(
+            echo_std_assert_ok(EchoValue::bool(true)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_std_assert_equals(EchoValue::int(42), EchoValue::int(42)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_std_assert_equals(EchoValue::string(left), EchoValue::string(right)),
+            EchoValue::bool(true)
+        );
+
+        unsafe {
+            drop(Box::from_raw(left));
+            drop(Box::from_raw(right));
         }
     }
 

@@ -1,0 +1,4 @@
+namespace std assert
+
+intrinsic function ok(bool $condition): bool
+intrinsic function equals(mixed $actual, mixed $expected): bool

@@ -94,6 +94,19 @@ intrinsic function write(TcpConnection $connection, bytes|string $data): int
 intrinsic function close(TcpConnection $connection): void
 ```
 
+Tests can use the tiny assertion stdlib module:
+
+```php
+namespace std assert
+
+intrinsic function ok(bool $condition): bool
+intrinsic function equals(mixed $actual, mixed $expected): bool
+```
+
+Assertion failures are reported on stderr and make the process exit nonzero at
+shutdown, so `xo test` can run Echo tests through the normal compiler/runtime
+path.
+
 Function reflection is exposed as an Echo strict-mode stdlib module so Echo
 programs can inspect available functions without calling PHP reflection APIs
 directly:
@@ -112,11 +125,11 @@ intrinsic function typeOf(mixed $value): string
 return `false` from `exists()` and an empty string from the string accessors.
 `typeOf()` reflects the runtime category of an Echo value, such as `null`,
 `bool`, `int`, `string`, `array`, `task`, resource-like std values, or `object`.
-The reflection data is derived from trusted Echo declarations in
 PHP builtin reflection data is derived from trusted Echo declarations in
 `std/php_builtins.echo`; Echo std function reflection is derived from the
-packaged `std/*.echo` module declarations. It is not a separate runtime metadata
-table.
+packaged `std/*.echo` module declarations. Userland function reflection is
+derived from parsed function declarations and registered by generated program
+startup code. It is not a separate hand-maintained runtime metadata table.
 
 The `namespace std ...` form declares the compiler's internal stdlib module identity. User code imports it with `from std use ...`; it is not a PHP namespace and does not reserve `std\...`, `Std\...`, `Echo\...`, or `EchoStd\...`.
 

@@ -72,6 +72,7 @@ Echo has two distinct lookup concepts:
 
 - Codegen builtin registry: maps static PHP source-level function names to direct `echo_php_*` symbols.
 - Runtime function dispatcher: resolves dynamic callables such as `$fn()` and reports runtime failures.
+- Runtime reflection registry: receives generated userland function declarations at program startup through `echo_reflection_register_function(ptr, i64, ptr, i64, ptr, i64)`.
 
 The codegen registry is an ABI-routing table, not a compile-time proof that every possible call is safe. Compile-time safety checks belong in a later semantic resolver, not in ABI declaration code.
 

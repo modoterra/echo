@@ -1,0 +1,10 @@
+from std use reflect
+
+function greet($name) {
+    return "hello " . $name . "\n"
+}
+
+echo "greet exists:[" . reflect.exists("greet") . "]\n"
+echo "greet params:[" . reflect.params("greet") . "]\n"
+echo "greet return:[" . reflect.returnType("greet") . "]\n"
+echo "greet result:[" . greet("Echo") . "]\n"

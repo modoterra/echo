@@ -26,6 +26,7 @@ pub enum CoreRuntimeSymbol {
     TaskSleepCurrent,
     TimeSleep,
     CallFunction,
+    RegisterFunction,
     Shutdown,
 }
 
@@ -47,6 +48,7 @@ impl CoreRuntimeSymbol {
         Self::TaskSleepCurrent,
         Self::TimeSleep,
         Self::CallFunction,
+        Self::RegisterFunction,
         Self::Shutdown,
     ];
 
@@ -68,6 +70,7 @@ impl CoreRuntimeSymbol {
             Self::TaskSleepCurrent => "echo_task_sleep_current",
             Self::TimeSleep => "echo_time_sleep",
             Self::CallFunction => "echo_call_function",
+            Self::RegisterFunction => "echo_reflection_register_function",
             Self::Shutdown => "echo_shutdown",
         }
     }
@@ -90,6 +93,7 @@ impl CoreRuntimeSymbol {
             Self::TaskSleepCurrent => RuntimeSignature::EchoValueI64Ptr,
             Self::TimeSleep => RuntimeSignature::VoidI64,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
+            Self::RegisterFunction => RuntimeSignature::VoidPtrI64PtrI64PtrI64,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }
     }
@@ -104,6 +108,7 @@ pub enum RuntimeSignature {
     VoidNoArgs,
     VoidI64,
     VoidPtrI64,
+    VoidPtrI64PtrI64PtrI64,
     VoidEchoValue,
     BoolNoArgs,
     BoolEchoValue,
@@ -125,6 +130,9 @@ impl RuntimeSignature {
             Self::VoidNoArgs => format!("declare void @{symbol}()"),
             Self::VoidI64 => format!("declare void @{symbol}(i64)"),
             Self::VoidPtrI64 => format!("declare void @{symbol}(ptr, i64)"),
+            Self::VoidPtrI64PtrI64PtrI64 => {
+                format!("declare void @{symbol}(ptr, i64, ptr, i64, ptr, i64)")
+            }
             Self::VoidEchoValue => format!("declare void @{symbol}(%EchoValue)"),
             Self::BoolNoArgs => format!("declare i1 @{symbol}()"),
             Self::BoolEchoValue => format!("declare i1 @{symbol}(%EchoValue)"),
@@ -176,6 +184,18 @@ impl StdIntrinsic {
 }
 
 pub const STD_INTRINSICS: &[StdIntrinsic] = &[
+    StdIntrinsic {
+        echo_name: "assert.ok",
+        symbol: "echo_std_assert_ok",
+        signature: RuntimeSignature::EchoValueEchoValue,
+        arity: 1,
+    },
+    StdIntrinsic {
+        echo_name: "assert.equals",
+        symbol: "echo_std_assert_equals",
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        arity: 2,
+    },
     StdIntrinsic {
         echo_name: "http.responseText",
         symbol: "echo_std_http_response_text",

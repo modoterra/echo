@@ -34,6 +34,11 @@ pub struct IntrinsicBinding {
 
 pub const MODULES: &[StdModule] = &[
     StdModule {
+        name: "std.assert",
+        path: "std/assert.echo",
+        source: include_str!("../../../std/assert.echo"),
+    },
+    StdModule {
         name: "std.net",
         path: "std/net.echo",
         source: include_str!("../../../std/net.echo"),
@@ -61,6 +66,20 @@ pub const MODULES: &[StdModule] = &[
 ];
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
+    IntrinsicBinding {
+        owner: "std.assert",
+        method: "ok",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.assert.ok",
+        abi_symbol: "echo_std_assert_ok",
+    },
+    IntrinsicBinding {
+        owner: "std.assert",
+        method: "equals",
+        receiver: IntrinsicReceiver::Static,
+        intrinsic: "std.assert.equals",
+        abi_symbol: "echo_std_assert_equals",
+    },
     IntrinsicBinding {
         owner: "std.http",
         method: "responseText",
@@ -244,6 +263,19 @@ mod tests {
     }
 
     #[test]
+    fn packages_assert_module_source() {
+        let module = modules()
+            .iter()
+            .find(|module| module.name == "std.assert")
+            .expect("std.assert module is packaged");
+
+        assert_eq!(module.path, "std/assert.echo");
+        assert!(module.source.contains("namespace std assert"));
+        assert!(module.source.contains("intrinsic function ok"));
+        assert!(module.source.contains("intrinsic function equals"));
+    }
+
+    #[test]
     fn packages_reflect_module_source() {
         let module = modules()
             .iter()
@@ -315,6 +347,24 @@ mod tests {
             receiver: IntrinsicReceiver::Static,
             intrinsic: "std.http.response_text",
             abi_symbol: "echo_std_http_response_text",
+        }));
+    }
+
+    #[test]
+    fn exposes_assert_intrinsic_bindings() {
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.assert",
+            method: "ok",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.assert.ok",
+            abi_symbol: "echo_std_assert_ok",
+        }));
+        assert!(intrinsics().contains(&IntrinsicBinding {
+            owner: "std.assert",
+            method: "equals",
+            receiver: IntrinsicReceiver::Static,
+            intrinsic: "std.assert.equals",
+            abi_symbol: "echo_std_assert_equals",
         }));
     }
 

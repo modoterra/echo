@@ -5,6 +5,7 @@ use echo_ast::{NamespaceSource, Stmt, TypedParam};
 pub const PHP_BUILTINS_SOURCE: &str = include_str!("../../../std/php_builtins.echo");
 const STD_MODULE_SOURCES: &[(&str, &str)] = &[
     ("http", include_str!("../../../std/http.echo")),
+    ("assert", include_str!("../../../std/assert.echo")),
     ("net", include_str!("../../../std/net.echo")),
     ("reflect", include_str!("../../../std/reflect.echo")),
     ("time", include_str!("../../../std/time.echo")),

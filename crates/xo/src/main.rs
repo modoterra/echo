@@ -38,6 +38,11 @@ enum Command {
         mode: ModeOverride,
         file: PathBuf,
     },
+    Test {
+        #[command(flatten)]
+        mode: ModeOverride,
+        path: PathBuf,
+    },
     Build {
         #[command(flatten)]
         mode: ModeOverride,
@@ -165,6 +170,9 @@ fn main() {
             run_command(&mut ProcessCommand::new(&binary_path));
             let _ = fs::remove_file(binary_path);
         }
+        Command::Test { mode, path } => {
+            run_tests(&path, mode);
+        }
         Command::Build {
             mode,
             optimization,
@@ -184,6 +192,77 @@ fn main() {
 
                 build_binary(&file, mode, optimization.level, &output);
             }
+        }
+    }
+}
+
+fn run_tests(path: &PathBuf, mode: ModeOverride) {
+    let tests = collect_test_files(path);
+    if tests.is_empty() {
+        eprintln!("error: no .echo tests found in {}", path.display());
+        std::process::exit(1);
+    }
+
+    let mut failures = 0;
+    for test in tests {
+        let binary_path = temp_path(&test, "test");
+        build_binary(&test, mode, OptimizationLevel::O0, &binary_path);
+        let output = ProcessCommand::new(&binary_path)
+            .output()
+            .unwrap_or_else(|err| {
+                eprintln!("error: failed to run {}: {err}", binary_path.display());
+                std::process::exit(1);
+            });
+        let _ = fs::remove_file(&binary_path);
+
+        print!("{}", String::from_utf8_lossy(&output.stdout));
+        eprint!("{}", String::from_utf8_lossy(&output.stderr));
+
+        if output.status.success() {
+            println!("ok {}", test.display());
+        } else {
+            failures += 1;
+            eprintln!("FAILED {}", test.display());
+        }
+    }
+
+    if failures > 0 {
+        eprintln!("{failures} test(s) failed");
+        std::process::exit(1);
+    }
+}
+
+fn collect_test_files(path: &PathBuf) -> Vec<PathBuf> {
+    let mut tests = Vec::new();
+    collect_test_files_into(path, &mut tests);
+    tests.sort();
+    tests
+}
+
+fn collect_test_files_into(path: &PathBuf, tests: &mut Vec<PathBuf>) {
+    if path.is_file() {
+        if path.extension().and_then(|extension| extension.to_str()) == Some("echo") {
+            tests.push(path.clone());
+        }
+        return;
+    }
+
+    let entries = fs::read_dir(path).unwrap_or_else(|err| {
+        eprintln!("error: failed to read {}: {err}", path.display());
+        std::process::exit(1);
+    });
+
+    for entry in entries {
+        let path = entry
+            .unwrap_or_else(|err| {
+                eprintln!("error: failed to read test directory entry: {err}");
+                std::process::exit(1);
+            })
+            .path();
+        if path.is_dir() {
+            collect_test_files_into(&path, tests);
+        } else if path.extension().and_then(|extension| extension.to_str()) == Some("echo") {
+            tests.push(path);
         }
     }
 }

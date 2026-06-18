@@ -1,0 +1,17 @@
+from std use assert
+from std use reflect
+
+function greet($name) {
+    return "hello " . $name
+}
+
+assert.ok(reflect.exists("strlen"))
+assert.equals(reflect.params("strlen"), "string $string")
+assert.equals(reflect.returnType("strlen"), "int")
+assert.ok(reflect.exists("reflect.params"))
+assert.equals(reflect.returnType("reflect.params"), "string")
+assert.ok(reflect.exists("greet"))
+assert.equals(reflect.params("greet"), "$name")
+assert.equals(reflect.returnType("greet"), "")
+assert.equals(reflect.typeOf(greet("Echo")), "string")
+echo "\n"
