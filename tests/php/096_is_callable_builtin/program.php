@@ -1,0 +1,13 @@
+<?php
+// is_callable() checks whether a value can be called as a function.
+// Source: https://www.php.net/manual/en/function.is-callable.php
+function fixture_callable() {
+    return "ok";
+}
+
+echo "strlen:[" . is_callable("strlen") . "]\n";
+echo "userland:[" . is_callable("fixture_callable") . "]\n";
+echo "missing:[" . is_callable("definitely_missing_echo_callable") . "]\n";
+echo "int:[" . is_callable(42) . "]\n";
+echo "null:[" . is_callable(null) . "]\n";
+echo "array:[" . is_callable([1, 2]) . "]\n";

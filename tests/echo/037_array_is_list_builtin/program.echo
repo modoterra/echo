@@ -1,0 +1,5 @@
+echo "empty:[" . array_is_list([]) . "]\n"
+echo "array:[" . array_is_list([1, 2, 3]) . "]\n"
+echo "list:[" . array_is_list({1, 2, 3}) . "]\n"
+echo "object:[" . array_is_list({ test: 5 }) . "]\n"
+echo "exists:[" . function_exists("array_is_list") . "]\n"

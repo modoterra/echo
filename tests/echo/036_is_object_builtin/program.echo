@@ -1,0 +1,8 @@
+echo "int:[" . is_object(42) . "]\n"
+echo "bool:[" . is_object(true) . "]\n"
+echo "null:[" . is_object(null) . "]\n"
+echo "string:[" . is_object("value") . "]\n"
+echo "array:[" . is_object([1, 2]) . "]\n"
+echo "list:[" . is_object({1, 2}) . "]\n"
+echo "object:[" . is_object({ test: 5 }) . "]\n"
+echo "exists:[" . function_exists("is_object") . "]\n"

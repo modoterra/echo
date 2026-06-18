@@ -15,8 +15,8 @@ explicitly promote one.
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 73 | 534 |
-| Loaded local PHP internals, including extensions | 1516 | 73 | 1443 |
+| Baseline (`Core` + `standard`) | 607 | 77 | 530 |
+| Loaded local PHP internals, including extensions | 1516 | 77 | 1439 |
 
 ## Baseline Functions
 
@@ -87,7 +87,7 @@ explicitly promote one.
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (67/545)
+### standard (71/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -120,7 +120,7 @@ explicitly promote one.
 | `array_intersect_key` | missing |  |
 | `array_intersect_uassoc` | missing |  |
 | `array_intersect_ukey` | missing |  |
-| `array_is_list` | missing |  |
+| `array_is_list` | implemented | Echo PHP arrays are currently contiguous vectors; associative/key-gap arrays are deferred. Source: https://www.php.net/manual/en/function.array-is-list.php |
 | `array_key_exists` | missing |  |
 | `array_key_first` | missing |  |
 | `array_key_last` | missing |  |
@@ -344,7 +344,7 @@ explicitly promote one.
 | `iptcparse` | missing |  |
 | `is_array` | implemented | Supports Echo list values as PHP arrays. Source: https://www.php.net/manual/en/function.is-array.php |
 | `is_bool` | implemented | Source: https://www.php.net/manual/en/function.is-bool.php |
-| `is_callable` | missing |  |
+| `is_callable` | implemented | Supports string function names in the runtime function registry; callable arrays/objects and optional arguments are deferred. Source: https://www.php.net/manual/en/function.is-callable.php |
 | `is_countable` | implemented | Supports arrays; Countable objects deferred. Source: https://www.php.net/manual/en/function.is-countable.php |
 | `is_dir` | missing |  |
 | `is_double` | implemented | Alias of `is_float()`. Source: https://www.php.net/manual/en/function.is-float.php |
@@ -361,9 +361,9 @@ explicitly promote one.
 | `is_nan` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-nan.php |
 | `is_null` | implemented | Source: https://www.php.net/manual/en/function.is-null.php |
 | `is_numeric` | implemented | Supports Echo integers and PHP numeric strings, including decimal/exponent forms and ASCII edge whitespace. Source: https://www.php.net/manual/en/function.is-numeric.php |
-| `is_object` | missing |  |
+| `is_object` | implemented | Supports Echo structural object values. Source: https://www.php.net/manual/en/function.is-object.php |
 | `is_readable` | missing |  |
-| `is_resource` | missing |  |
+| `is_resource` | implemented | Reports Echo runtime resource handles such as TCP listeners/connections. Source: https://www.php.net/manual/en/function.is-resource.php |
 | `is_scalar` | implemented | Supports current scalar values: bool, int, string. Source: https://www.php.net/manual/en/function.is-scalar.php |
 | `is_string` | implemented | Source: https://www.php.net/manual/en/function.is-string.php |
 | `is_uploaded_file` | missing |  |

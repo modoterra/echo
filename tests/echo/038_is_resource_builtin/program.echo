@@ -1,0 +1,12 @@
+from std use net
+
+echo "int:[" . is_resource(42) . "]\n"
+echo "bool:[" . is_resource(true) . "]\n"
+echo "null:[" . is_resource(null) . "]\n"
+echo "string:[" . is_resource("value") . "]\n"
+echo "array:[" . is_resource([1, 2]) . "]\n"
+echo "list:[" . is_resource({1, 2}) . "]\n"
+echo "object:[" . is_resource({ test: 5 }) . "]\n"
+$server = net.listen("127.0.0.1:39188")
+echo "server:[" . is_resource($server) . "]\n"
+echo "exists:[" . function_exists("is_resource") . "]\n"

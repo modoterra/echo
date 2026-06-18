@@ -34,7 +34,7 @@ fn piped_repl_prints_bare_expression_results() {
 #[test]
 fn piped_repl_prints_bare_function_call_results() {
     let output = repl_output(
-        b"is_float(42)\nis_double(\"4.2\")\nfunction_exists(\"is_float\")\nis_finite(42)\nis_finite(\"1e9999\")\nis_infinite(\"1e9999\")\nis_nan(\"1e9999\")\nfunction_exists(\"is_nan\")\n:quit\n",
+        b"is_float(42)\nis_double(\"4.2\")\nfunction_exists(\"is_float\")\nis_finite(42)\nis_finite(\"1e9999\")\nis_infinite(\"1e9999\")\nis_nan(\"1e9999\")\nis_object({ test: 5 })\nfunction_exists(\"is_object\")\narray_is_list([1, 2])\nfunction_exists(\"is_resource\")\nis_callable(\"strlen\")\n:quit\n",
     );
 
     assert!(
@@ -43,7 +43,7 @@ fn piped_repl_prints_bare_function_call_results() {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.stdout, b"1111");
+    assert_eq!(output.stdout, b"11111111");
 }
 
 #[test]
