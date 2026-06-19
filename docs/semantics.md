@@ -11,7 +11,7 @@ The layer is intentionally reusable:
 echo_parser -> echo_ast -> echo_semantics -> echo_codegen
                                       |
                                       +-> xo repl metadata
-                                      +-> future echo_vm
+                                      +-> future LLVM JIT execution
                                       +-> future echo_lsp
 ```
 

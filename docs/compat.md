@@ -11,6 +11,25 @@ on 2026-06-17. PHP reports many ordinary-looking functions through the
 compatibility surface and keeps other PHP extensions optional unless we
 explicitly promote one.
 
+## Syntax-Adjacent Compatibility
+
+These PHP constructs are not reported by `get_defined_functions()`, but they
+belong in the same compatibility planning surface because they interact with
+filesystem loading, runtime process state, diagnostics, and related builtins.
+
+### Include/Require Family
+
+| Construct | Status | Notes |
+| --- | --- | --- |
+| `include` | missing | Language construct. Returns `false` and raises a warning on failure; successful includes return `1` unless the included file returns another value. Source: https://www.php.net/manual/en/function.include.php |
+| `include_once` | missing | Language construct. Includes and evaluates a file once per process include set; returns `true` when the file was already included. Source: https://www.php.net/manual/en/function.include-once.php |
+| `require` | missing | Language construct. Like `include`, but missing files are fatal. Source: https://www.php.net/manual/en/function.require.php |
+| `require_once` | missing | Language construct. Like `require`, but skips files already included through the shared include/require once set. Source: https://www.php.net/manual/en/function.require-once.php |
+
+Related baseline functions tracked below: `get_included_files`,
+`get_required_files`, `get_include_path`, `set_include_path`,
+`restore_include_path`, and `stream_resolve_include_path`.
+
 ## Totals
 
 | Surface | Functions | Implemented | Remaining |
@@ -477,6 +496,7 @@ explicitly promote one.
 | `register_tick_function` | missing |  |
 | `rename` | missing |  |
 | `request_parse_body` | missing |  |
+| `restore_include_path` | missing | Source: https://www.php.net/manual/en/function.restore-include-path.php |
 | `reset` | missing |  |
 | `rewind` | missing |  |
 | `rewinddir` | missing |  |
