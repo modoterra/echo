@@ -94,6 +94,38 @@ fn piped_repl_keeps_array_after_append() {
 }
 
 #[test]
+fn piped_repl_reads_array_and_list_indexes() {
+    let output = repl_output(b"let $a = [];\n$a[] = 4;\n$a[0];\n{7}[0];\n:quit\n");
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"47");
+}
+
+#[test]
+fn piped_repl_rejects_object_index_access() {
+    let output = repl_output(b"{ a: 3 }[\"a\"];\n:quit\n");
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"");
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("index access requires array or list target, found object"),
+        "expected object index diagnostic on stderr, got:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn piped_repl_rejects_list_append_without_corrupting_list() {
     let output = repl_output(b"let $a = {};\n$a;\n$a[] = 2;\n$a\n:quit\n");
 

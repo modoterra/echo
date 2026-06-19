@@ -62,7 +62,8 @@ impl Type {
             Self::String => "string".to_string(),
             Self::Array => "array".to_string(),
             Self::List => "list".to_string(),
-            Self::Object(Some(name)) => name.clone(),
+            Self::Object(Some(name)) if !name.is_empty() => name.clone(),
+            Self::Object(Some(_)) => "object".to_string(),
             Self::Object(None) => "object".to_string(),
             Self::Task => "task".to_string(),
             Self::Never => "never".to_string(),
@@ -281,6 +282,20 @@ impl Analyzer {
                 self.analyze_expr(&expr.object);
                 Type::Unknown
             }
+            Expr::Index(expr) => {
+                let collection_ty = self.analyze_expr(&expr.collection);
+                self.analyze_expr(&expr.index);
+                if !collection_ty.allows_index_access() {
+                    self.diagnostics.push(Diagnostic::new(
+                        format!(
+                            "index access requires array or list target, found {}",
+                            collection_ty.display_name()
+                        ),
+                        expr.span,
+                    ));
+                }
+                Type::Unknown
+            }
             Expr::Object(expr) => {
                 for field in &expr.fields {
                     self.analyze_expr(&field.value);
@@ -339,13 +354,22 @@ impl Type {
             _ => false,
         }
     }
+
+    fn allows_index_access(&self) -> bool {
+        match self {
+            Self::Array | Self::List => true,
+            Self::Named(name) => name.starts_with("array") || name.starts_with("list"),
+            Self::Unknown => true,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use echo_ast::{
-        AppendStmt, ArrayExpr, ExprStmt, LetStmt, ListExpr, NumberLiteral, StringLiteral,
-        VariableExpr,
+        AppendStmt, ArrayExpr, ExprStmt, IndexExpr, LetStmt, ListExpr, NumberLiteral, ObjectExpr,
+        ObjectField, StringLiteral, VariableExpr,
     };
 
     use super::*;
@@ -507,6 +531,72 @@ mod tests {
         assert_eq!(
             diagnostics[0].message,
             "PHP array append syntax requires array target, found array<int>[3]"
+        );
+    }
+
+    #[test]
+    fn allows_index_access_for_arrays_and_lists() {
+        analyze(&program(vec![
+            Stmt::Expr(ExprStmt {
+                expr: Expr::Index(Box::new(IndexExpr {
+                    collection: Expr::Array(ArrayExpr {
+                        elements: vec![],
+                        span: Span::new(0, 2),
+                    }),
+                    index: Expr::Number(NumberLiteral {
+                        value: "0".to_string(),
+                        span: Span::new(3, 4),
+                    }),
+                    span: Span::new(0, 5),
+                })),
+                span: Span::new(0, 5),
+            }),
+            Stmt::Expr(ExprStmt {
+                expr: Expr::Index(Box::new(IndexExpr {
+                    collection: Expr::List(ListExpr {
+                        values: vec![],
+                        span: Span::new(6, 8),
+                    }),
+                    index: Expr::Number(NumberLiteral {
+                        value: "0".to_string(),
+                        span: Span::new(9, 10),
+                    }),
+                    span: Span::new(6, 11),
+                })),
+                span: Span::new(6, 11),
+            }),
+        ]))
+        .expect("array and list index access should analyze");
+    }
+
+    #[test]
+    fn rejects_index_access_for_objects() {
+        let diagnostics = analyze(&program(vec![Stmt::Expr(ExprStmt {
+            expr: Expr::Index(Box::new(IndexExpr {
+                collection: Expr::Object(ObjectExpr {
+                    name: String::new(),
+                    fields: vec![ObjectField {
+                        name: "a".to_string(),
+                        value: Expr::Number(NumberLiteral {
+                            value: "1".to_string(),
+                            span: Span::new(5, 6),
+                        }),
+                    }],
+                    span: Span::new(0, 7),
+                }),
+                index: Expr::String(StringLiteral {
+                    value: "a".to_string(),
+                    span: Span::new(8, 11),
+                }),
+                span: Span::new(0, 12),
+            })),
+            span: Span::new(0, 12),
+        })]))
+        .expect_err("object index access should be rejected");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "index access requires array or list target, found object"
         );
     }
 }

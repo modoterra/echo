@@ -1053,6 +1053,20 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            Expr::Index(expr) => {
+                let collection = self.render_expr_as_echo_value(body, &expr.collection)?;
+                let index = self.render_expr_as_echo_value(body, &expr.index)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({collection}, {index})\n",
+                    CoreRuntimeSymbol::ValueIndexGet.symbol()
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             Expr::Object(expr) => self.render_object_expr(body, expr),
             Expr::List(expr) => self.render_list_values(body, &expr.values),
             Expr::Array(expr) => self.render_array_expr(body, expr),
@@ -2918,6 +2932,35 @@ mod tests {
             "declare %EchoValue @echo_value_array_set(%EchoValue, %EchoValue, %EchoValue)"
         ));
         assert!(ir.contains("call %EchoValue @echo_value_array_set"));
+    }
+
+    #[test]
+    fn index_access_lowers_to_index_get_runtime() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::Index(Box::new(echo_ast::IndexExpr {
+                collection: Expr::Array(ArrayExpr {
+                    elements: vec![ArrayElement {
+                        key: None,
+                        value: Expr::Number(NumberLiteral {
+                            value: "4".to_string(),
+                            span: Span::new(1, 2),
+                        }),
+                        span: Span::new(1, 2),
+                    }],
+                    span: Span::new(0, 3),
+                }),
+                index: Expr::Number(NumberLiteral {
+                    value: "0".to_string(),
+                    span: Span::new(4, 5),
+                }),
+                span: Span::new(0, 6),
+            }))],
+            span: Span::new(0, 6),
+        })]))
+        .expect("index access should lower");
+
+        assert!(ir.contains("declare %EchoValue @echo_value_index_get(%EchoValue, %EchoValue)"));
+        assert!(ir.contains("call %EchoValue @echo_value_index_get"));
     }
 
     #[test]

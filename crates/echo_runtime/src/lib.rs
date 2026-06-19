@@ -1293,6 +1293,45 @@ pub extern "C" fn echo_value_array_set(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_value_index_get(collection: EchoValue, index: EchoValue) -> EchoValue {
+    if collection.is_array() {
+        let Some(key) = EchoArrayKey::from_value(index) else {
+            return EchoValue::null();
+        };
+        let Some(array) = (unsafe { (collection.payload as *const EchoArray).as_ref() }) else {
+            return EchoValue::null();
+        };
+
+        return array
+            .keys
+            .iter()
+            .position(|existing| existing == &key)
+            .map(|position| array.values[position])
+            .unwrap_or_else(EchoValue::null);
+    }
+
+    if collection.is_list() {
+        let Some(index) = index.int_value() else {
+            return EchoValue::null();
+        };
+        if index < 0 {
+            return EchoValue::null();
+        }
+        let Some(list) = (unsafe { (collection.payload as *const EchoList).as_ref() }) else {
+            return EchoValue::null();
+        };
+
+        return list
+            .values
+            .get(index as usize)
+            .copied()
+            .unwrap_or_else(EchoValue::null);
+    }
+
+    EchoValue::error()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_object_new() -> EchoValue {
     EchoValue::object(Box::into_raw(Box::new(EchoObject::new())))
 }
@@ -3418,6 +3457,40 @@ mod tests {
         assert_eq!(
             array.inspect_bytes(),
             Some(b"Array [0 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, ... 2 more]".to_vec())
+        );
+    }
+
+    #[test]
+    fn index_get_reads_array_and_list_values() {
+        let array = echo_value_array_append(echo_value_array_new(), EchoValue::int(4));
+        let key = test_string_value(b"name");
+        let array = echo_value_array_set(array, key, test_string_value(b"Echo"));
+
+        assert_eq!(
+            echo_value_index_get(array, EchoValue::int(0)),
+            EchoValue::int(4)
+        );
+        assert_eq!(
+            echo_value_index_get(array, test_string_value(b"name")).string_bytes(),
+            Some(b"Echo".to_vec())
+        );
+
+        let list = echo_value_list_append(echo_value_list_new(), EchoValue::int(7));
+        assert_eq!(
+            echo_value_index_get(list, EchoValue::int(0)),
+            EchoValue::int(7)
+        );
+    }
+
+    #[test]
+    fn index_get_returns_null_for_missing_values() {
+        assert_eq!(
+            echo_value_index_get(echo_value_array_new(), EchoValue::int(0)),
+            EchoValue::null()
+        );
+        assert_eq!(
+            echo_value_index_get(echo_value_list_new(), EchoValue::int(0)),
+            EchoValue::null()
         );
     }
 

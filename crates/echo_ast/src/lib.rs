@@ -236,6 +236,7 @@ pub enum Expr {
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
     Field(Box<FieldExpr>),
+    Index(Box<IndexExpr>),
     Object(ObjectExpr),
     List(ListExpr),
     Array(ArrayExpr),
@@ -259,6 +260,7 @@ impl Expr {
             Self::Unary(expr) => expr.span,
             Self::Binary(expr) => expr.span,
             Self::Field(expr) => expr.span,
+            Self::Index(expr) => expr.span,
             Self::Object(expr) => expr.span,
             Self::List(expr) => expr.span,
             Self::Array(expr) => expr.span,
@@ -270,6 +272,13 @@ impl Expr {
 pub struct FieldExpr {
     pub object: Expr,
     pub field: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IndexExpr {
+    pub collection: Expr,
+    pub index: Expr,
     pub span: Span,
 }
 

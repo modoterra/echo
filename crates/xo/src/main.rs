@@ -811,6 +811,7 @@ fn expression_kind(expr: &Expr) -> &'static str {
             BinaryOp::Is | BinaryOp::IsNot => "null test expression",
         },
         Expr::Field(_) => "field expression",
+        Expr::Index(_) => "index expression",
         Expr::Object(_) => "object expression",
         Expr::List(_) => "list expression",
         Expr::Array(_) => "array expression",
@@ -841,6 +842,7 @@ fn expression_static_type(expr: &Expr) -> String {
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
         Expr::Variable(_)
+        | Expr::Index(_)
         | Expr::Defer(_)
         | Expr::Run(_)
         | Expr::Fork(_)

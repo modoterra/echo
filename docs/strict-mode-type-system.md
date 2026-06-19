@@ -124,6 +124,9 @@ Array reads use indexes:
 let int $first = $a[0];
 ```
 
+Echo superset mode follows PHP square-bracket array element access:
+https://www.php.net/manual/en/language.types.array.php
+
 Indexed assignment is replacement only:
 
 ```php
@@ -549,7 +552,7 @@ Strict Echo separates access operators:
 $value.field       // Echo structural object field access
 $value.method()    // Echo receiver function from extend block
 $value->member     // PHP/class property or method access
-$value[index]      // array or tuple index access
+$value[index]      // array, fixed-size array, or list index access
 $value[] = item    // non-fixed array append only
 ```
 
@@ -700,7 +703,7 @@ Strict mode rejects the same associative array syntax.
 
 - Keep `->` for PHP/class access.
 - Use `.` for Echo structural field access and extension receiver calls.
-- Use `[]` for array append and array/tuple indexing.
+- Use `[]` for array/list indexing and non-fixed array append.
 - `list<T>` is distinct from `array<T>` because list is linked and heap-backed.
 - `{}` defaults to empty list, but can satisfy an expected empty/optional-field object type.
 - Object fields are mutable by default.

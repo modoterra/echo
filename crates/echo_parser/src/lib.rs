@@ -4,10 +4,10 @@ use echo_ast::{
     AppendStmt, ArrayElement, ArrayExpr, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp,
     BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr, DynamicFunctionCallStmt,
     EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-    IfStmt, ImportSource, ImportStmt, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl,
-    NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program,
-    QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField,
-    TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
+    IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt,
+    MethodDecl, NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr,
+    ObjectField, Program, QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral,
+    TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -172,6 +172,10 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
         }
         Expr::Unary(expr) => validate_expr_mode(&expr.expr, mode, diagnostics),
         Expr::Field(expr) => validate_expr_mode(&expr.object, mode, diagnostics),
+        Expr::Index(expr) => {
+            validate_expr_mode(&expr.collection, mode, diagnostics);
+            validate_expr_mode(&expr.index, mode, diagnostics);
+        }
         Expr::Object(expr) => {
             for field in &expr.fields {
                 validate_expr_mode(&field.value, mode, diagnostics);
@@ -688,16 +692,42 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(string)
             .or(number);
 
-        let fielded = atom.clone().foldl(
-            just('.').ignore_then(text::ident()).repeated(),
-            |left, field: &str| {
-                let span = Span::new(left.span().start, left.span().end + field.len() + 1);
+        #[derive(Clone)]
+        enum Postfix {
+            Field(String),
+            Index(Expr),
+        }
 
-                Expr::Field(Box::new(FieldExpr {
-                    object: left,
-                    field: field.to_string(),
-                    span,
-                }))
+        let field_postfix = just('.')
+            .ignore_then(text::ident())
+            .map(|field: &str| Postfix::Field(field.to_string()));
+        let index_postfix = expr
+            .clone()
+            .padded()
+            .delimited_by(just('[').padded(), just(']').padded())
+            .map(Postfix::Index);
+
+        let fielded = atom.clone().foldl(
+            field_postfix.or(index_postfix).repeated(),
+            |left, postfix| match postfix {
+                Postfix::Field(field) => {
+                    let span = Span::new(left.span().start, left.span().end + field.len() + 1);
+
+                    Expr::Field(Box::new(FieldExpr {
+                        object: left,
+                        field,
+                        span,
+                    }))
+                }
+                Postfix::Index(index) => {
+                    let span = Span::new(left.span().start, index.span().end + 1);
+
+                    Expr::Index(Box::new(IndexExpr {
+                        collection: left,
+                        index,
+                        span,
+                    }))
+                }
             },
         );
 
@@ -1998,6 +2028,22 @@ time.sleep(300)
             &program.statements[0],
             Stmt::Expr(statement)
                 if matches!(&statement.expr, Expr::Array(expr) if expr.elements.len() == 3)
+        ));
+    }
+
+    #[test]
+    fn parses_index_access_expressions() {
+        let program = parse_with_mode("$a[0]", SourceMode::Strict).expect("index access parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::Index(expr)
+                        if matches!(&expr.collection, Expr::Variable(variable) if variable.name == "a")
+                            && matches!(&expr.index, Expr::Number(number) if number.value == "0")
+                )
         ));
     }
 
