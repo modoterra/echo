@@ -1,7 +1,15 @@
+mod completion;
+mod definition;
 mod diagnostics;
 mod document;
+mod hover;
 pub mod position;
+mod references;
+mod rename;
+mod semantic_tokens;
 mod server;
+mod signature_help;
+mod symbols;
 
 pub use document::{Document, mode_from_uri};
 pub use server::{Backend, run_stdio};

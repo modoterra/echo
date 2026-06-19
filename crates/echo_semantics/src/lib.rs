@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use echo_ast::{
-    BinaryOp, ClassMember, Expr, FunctionDeclStmt, ImportSource, NamespaceSource, Program, Stmt,
-    UnaryOp,
+    BinaryOp, ClassMember, Expr, FunctionDeclStmt, ImportSource, MagicConstantKind,
+    NamespaceSource, Program, RequireKind, Stmt, UnaryOp,
 };
 use echo_diagnostics::Diagnostic;
 use echo_index::{
-    DependencyFact, DependencyKind, EchoFileMode, FileId, FqName, IndexFacts, Signature,
-    SymbolFact, SymbolKind, SymbolName, TextRange,
+    DependencyFact, DependencyKind, EchoFileMode, FileId, FqName, IndexFacts, ReferenceFact,
+    ReferenceKind, Signature, SymbolFact, SymbolKind, SymbolName, TextRange,
 };
 use echo_source::Span;
 use smol_str::SmolStr;
@@ -104,12 +104,27 @@ pub fn index_facts(program: &Program, file_id: FileId, mode: EchoFileMode) -> In
     extractor.into_facts()
 }
 
+pub fn index_facts_from_source(
+    source: &str,
+    program: &Program,
+    file_id: FileId,
+    mode: EchoFileMode,
+) -> IndexFacts {
+    let mut extractor = IndexFactExtractor::new(file_id, mode);
+    extractor.source_dir.clone_from(&program.source_dir);
+    extractor.extract_phpdoc_var_source_facts(source);
+    extractor.extract_statements(&program.statements);
+    extractor.into_facts()
+}
+
 struct IndexFactExtractor {
     file_id: FileId,
     mode: EchoFileMode,
+    source_dir: Option<String>,
     namespace: Vec<SmolStr>,
     declarations: Vec<SymbolFact>,
     dependencies: Vec<DependencyFact>,
+    references: Vec<ReferenceFact>,
 }
 
 impl IndexFactExtractor {
@@ -117,14 +132,33 @@ impl IndexFactExtractor {
         Self {
             file_id,
             mode,
+            source_dir: None,
             namespace: Vec::new(),
             declarations: Vec::new(),
             dependencies: Vec::new(),
+            references: Vec::new(),
         }
     }
 
     fn extract(&mut self, program: &Program) {
+        self.source_dir.clone_from(&program.source_dir);
         self.extract_statements(&program.statements);
+    }
+
+    fn extract_phpdoc_var_source_facts(&mut self, source: &str) {
+        for annotation in phpdoc_var_annotations(source) {
+            self.declarations.push(SymbolFact {
+                name: SymbolName::new(annotation.variable.as_str()),
+                fq_name: Some(self.fq_name(&annotation.variable)),
+                kind: SymbolKind::LocalVariable,
+                range: annotation.range,
+                selection_range: annotation.selection_range,
+                visibility: None,
+                signature: Some(Signature {
+                    text: annotation.ty,
+                }),
+            });
+        }
     }
 
     fn extract_statements(&mut self, statements: &[Stmt]) {
@@ -243,18 +277,141 @@ impl IndexFactExtractor {
                 });
             }
             Stmt::Loop(statement) => self.extract_statements(&statement.body),
-            Stmt::If(statement) => self.extract_statements(&statement.body),
-            Stmt::Echo(_)
-            | Stmt::FunctionCall(_)
-            | Stmt::DynamicFunctionCall(_)
-            | Stmt::Assign(_)
-            | Stmt::Let(_)
-            | Stmt::AssignRef(_)
-            | Stmt::Return(_)
-            | Stmt::Yield(_)
-            | Stmt::Expr(_)
-            | Stmt::Break(_)
-            | Stmt::Append(_) => {}
+            Stmt::If(statement) => {
+                self.extract_expr_dependencies(&statement.condition);
+                self.extract_statements(&statement.body);
+            }
+            Stmt::Echo(statement) => {
+                for expr in &statement.exprs {
+                    self.extract_expr_dependencies(expr);
+                }
+            }
+            Stmt::FunctionCall(statement) => {
+                for expr in &statement.args {
+                    self.extract_expr_dependencies(expr);
+                }
+            }
+            Stmt::DynamicFunctionCall(statement) => {
+                for expr in &statement.args {
+                    self.extract_expr_dependencies(expr);
+                }
+            }
+            Stmt::Assign(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::Let(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::AssignRef(_) | Stmt::Break(_) => {}
+            Stmt::Return(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::Yield(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::Expr(statement) => self.extract_expr_dependencies(&statement.expr),
+            Stmt::Append(statement) => self.extract_expr_dependencies(&statement.value),
+        }
+    }
+
+    fn extract_expr_dependencies(&mut self, expr: &Expr) {
+        match expr {
+            Expr::FunctionCall(expr) => {
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(arg);
+                }
+            }
+            Expr::MethodCall(expr) => {
+                self.extract_expr_dependencies(&expr.object);
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(arg);
+                }
+            }
+            Expr::StaticCall(expr) => {
+                let name = expr.class_name.as_string();
+                self.references.push(ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    range: TextRange::new(
+                        expr.span.start as u32,
+                        expr.span.start.saturating_add(name.len()) as u32,
+                    ),
+                    name,
+                });
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(arg);
+                }
+            }
+            Expr::Assign(expr) => self.extract_expr_dependencies(&expr.value),
+            Expr::Require(expr) => {
+                let target = self
+                    .const_string_expr(&expr.path)
+                    .unwrap_or_else(|| expr_path_label(&expr.path));
+                self.dependencies.push(DependencyFact {
+                    kind: require_dependency_kind(expr.kind, &target),
+                    target,
+                    alias: None,
+                    range: span_range(expr.span),
+                });
+                self.extract_expr_dependencies(&expr.path);
+            }
+            Expr::Defer(expr) => self.extract_statements(&expr.body),
+            Expr::Run(expr) => match expr {
+                echo_ast::RunExpr::Block { body, .. } => self.extract_statements(body),
+                echo_ast::RunExpr::Task { expr, .. } => self.extract_expr_dependencies(expr),
+                echo_ast::RunExpr::Group { entries, .. } => {
+                    for entry in entries {
+                        self.extract_statements(entry);
+                    }
+                }
+            },
+            Expr::Fork(expr) => match expr {
+                echo_ast::ForkExpr::Block { body, .. } => self.extract_statements(body),
+                echo_ast::ForkExpr::Task { expr, .. } => self.extract_expr_dependencies(expr),
+            },
+            Expr::Spawn(expr) => self.extract_expr_dependencies(&expr.command),
+            Expr::Join(expr) => self.extract_expr_dependencies(&expr.handle),
+            Expr::Loop(expr) => self.extract_statements(&expr.body),
+            Expr::Unary(expr) => self.extract_expr_dependencies(&expr.expr),
+            Expr::Binary(expr) => {
+                self.extract_expr_dependencies(&expr.left);
+                self.extract_expr_dependencies(&expr.right);
+            }
+            Expr::Field(expr) => self.extract_expr_dependencies(&expr.object),
+            Expr::Index(expr) => {
+                self.extract_expr_dependencies(&expr.collection);
+                self.extract_expr_dependencies(&expr.index);
+            }
+            Expr::Object(expr) => {
+                for field in &expr.fields {
+                    self.extract_expr_dependencies(&field.value);
+                }
+            }
+            Expr::List(expr) => {
+                for value in &expr.values {
+                    self.extract_expr_dependencies(value);
+                }
+            }
+            Expr::Array(expr) => {
+                for element in &expr.elements {
+                    if let Some(key) = &element.key {
+                        self.extract_expr_dependencies(key);
+                    }
+                    self.extract_expr_dependencies(&element.value);
+                }
+            }
+            Expr::Null(_)
+            | Expr::Bool(_)
+            | Expr::String(_)
+            | Expr::Number(_)
+            | Expr::Variable(_)
+            | Expr::MagicConstant(_) => {}
+        }
+    }
+
+    fn const_string_expr(&self, expr: &Expr) -> Option<String> {
+        match expr {
+            Expr::String(expr) => Some(expr.value.clone()),
+            Expr::MagicConstant(expr) if expr.kind == MagicConstantKind::Dir => {
+                self.source_dir.clone()
+            }
+            Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
+                let left = self.const_string_expr(&expr.left)?;
+                let right = self.const_string_expr(&expr.right)?;
+                Some(format!("{left}{right}"))
+            }
+            _ => None,
         }
     }
 
@@ -268,12 +425,116 @@ impl IndexFactExtractor {
             mode: self.mode,
             declarations: self.declarations,
             dependencies: self.dependencies,
+            references: self.references,
         }
     }
 }
 
 fn span_range(span: Span) -> TextRange {
     TextRange::new(span.start as u32, span.end as u32)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PhpDocVarAnnotation {
+    ty: String,
+    variable: String,
+    range: TextRange,
+    selection_range: TextRange,
+}
+
+fn phpdoc_var_annotations(source: &str) -> Vec<PhpDocVarAnnotation> {
+    let mut annotations = Vec::new();
+    let mut search_start = 0;
+
+    while let Some(relative_start) = source[search_start..].find("/**") {
+        let comment_start = search_start + relative_start;
+        let content_start = comment_start + 3;
+        let Some(relative_end) = source[content_start..].find("*/") else {
+            break;
+        };
+        let comment_end = content_start + relative_end + 2;
+        let comment = &source[content_start..content_start + relative_end];
+
+        for (line_start, line) in comment_lines(comment, content_start) {
+            let trimmed = line.trim_start_matches([' ', '\t', '*']);
+            let Some(var_offset) = trimmed.find("@var") else {
+                continue;
+            };
+            let annotation_start = line_start + line.len() - trimmed.len() + var_offset;
+            let after_var = &trimmed[var_offset + 4..];
+            let after_var_offset = annotation_start + 4;
+            let Some(annotation) = parse_phpdoc_var_annotation(after_var, after_var_offset) else {
+                continue;
+            };
+            annotations.push(annotation);
+        }
+
+        search_start = comment_end;
+    }
+
+    annotations
+}
+
+fn comment_lines(comment: &str, base_offset: usize) -> impl Iterator<Item = (usize, &str)> {
+    let mut offset = 0;
+    comment.split_inclusive('\n').map(move |line| {
+        let line_start = base_offset + offset;
+        offset += line.len();
+        (line_start, line.trim_end_matches(['\r', '\n']))
+    })
+}
+
+fn parse_phpdoc_var_annotation(text: &str, base_offset: usize) -> Option<PhpDocVarAnnotation> {
+    let trimmed_start = text.len() - text.trim_start().len();
+    let text = text.trim_start();
+    let base_offset = base_offset + trimmed_start;
+
+    let ty_end = text.find(char::is_whitespace)?;
+    let ty = text[..ty_end].trim();
+    if ty.is_empty() {
+        return None;
+    }
+
+    let after_ty = &text[ty_end..];
+    let variable_relative = after_ty.find('$')?;
+    let variable_start_in_text = ty_end + variable_relative;
+    let variable_text = &text[variable_start_in_text + 1..];
+    let variable_len = variable_text
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+        .map(char::len_utf8)
+        .sum::<usize>();
+    if variable_len == 0 {
+        return None;
+    }
+
+    let selection_start = base_offset + variable_start_in_text;
+    let selection_end = selection_start + 1 + variable_len;
+
+    Some(PhpDocVarAnnotation {
+        ty: ty.to_string(),
+        variable: variable_text[..variable_len].to_string(),
+        range: TextRange::new(base_offset as u32, selection_end as u32),
+        selection_range: TextRange::new(selection_start as u32, selection_end as u32),
+    })
+}
+
+fn require_dependency_kind(kind: RequireKind, target: &str) -> DependencyKind {
+    if target.ends_with("/vendor/autoload.php") || target.ends_with("\\vendor\\autoload.php") {
+        DependencyKind::ComposerAutoload
+    } else {
+        match kind {
+            RequireKind::Require => DependencyKind::Require,
+            RequireKind::RequireOnce => DependencyKind::RequireOnce,
+        }
+    }
+}
+
+fn expr_path_label(expr: &Expr) -> String {
+    match expr {
+        Expr::Variable(expr) => format!("${}", expr.name),
+        _ => "<dynamic path>".to_string(),
+    }
 }
 
 fn namespace_display(namespace: &[SmolStr]) -> String {
@@ -625,9 +886,10 @@ impl Type {
 #[cfg(test)]
 mod tests {
     use echo_ast::{
-        AppendStmt, ArrayExpr, AssignStmt, ClassDeclStmt, ExprStmt, ForkExpr, FunctionDeclStmt,
-        ImportStmt, IndexExpr, JoinExpr, LetStmt, ListExpr, MethodDecl, NamespaceStmt,
-        NumberLiteral, ObjectExpr, ObjectField, QualifiedName, RunExpr, SpawnExpr, StringLiteral,
+        AppendStmt, ArrayExpr, AssignExpr, AssignStmt, BinaryExpr, ClassDeclStmt, ExprStmt,
+        ForkExpr, FunctionCallExpr, FunctionDeclStmt, IfStmt, ImportStmt, IndexExpr, JoinExpr,
+        LetStmt, ListExpr, MagicConstantExpr, MethodDecl, NamespaceStmt, NumberLiteral, ObjectExpr,
+        ObjectField, QualifiedName, RequireExpr, RunExpr, SpawnExpr, StaticCallExpr, StringLiteral,
         TypeDeclStmt, UseStmt, VariableExpr,
     };
 
@@ -1104,5 +1366,177 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn extracts_require_dependency_facts_from_expressions() {
+        let mut source = program(vec![
+            Stmt::If(IfStmt {
+                condition: Expr::FunctionCall(FunctionCallExpr {
+                    name: "file_exists".to_string(),
+                    args: vec![Expr::Assign(Box::new(AssignExpr {
+                        name: "maintenance".to_string(),
+                        value: Expr::Binary(Box::new(BinaryExpr {
+                            left: Expr::MagicConstant(MagicConstantExpr {
+                                kind: MagicConstantKind::Dir,
+                                span: Span::new(20, 27),
+                            }),
+                            op: BinaryOp::Concat,
+                            right: Expr::String(StringLiteral {
+                                value: "/../storage/framework/maintenance.php".to_string(),
+                                span: Span::new(28, 67),
+                            }),
+                            span: Span::new(20, 67),
+                        })),
+                        span: Span::new(5, 67),
+                    }))],
+                    span: Span::new(0, 68),
+                }),
+                body: vec![Stmt::Expr(ExprStmt {
+                    expr: Expr::Require(Box::new(RequireExpr {
+                        kind: RequireKind::Require,
+                        path: Expr::Variable(VariableExpr {
+                            name: "maintenance".to_string(),
+                            span: Span::new(82, 94),
+                        }),
+                        span: Span::new(74, 94),
+                    })),
+                    span: Span::new(74, 95),
+                })],
+                span: Span::new(0, 100),
+            }),
+            Stmt::Expr(ExprStmt {
+                expr: Expr::Require(Box::new(RequireExpr {
+                    kind: RequireKind::Require,
+                    path: Expr::Binary(Box::new(BinaryExpr {
+                        left: Expr::MagicConstant(MagicConstantExpr {
+                            kind: MagicConstantKind::Dir,
+                            span: Span::new(108, 115),
+                        }),
+                        op: BinaryOp::Concat,
+                        right: Expr::String(StringLiteral {
+                            value: "/../vendor/autoload.php".to_string(),
+                            span: Span::new(116, 141),
+                        }),
+                        span: Span::new(108, 141),
+                    })),
+                    span: Span::new(100, 141),
+                })),
+                span: Span::new(100, 142),
+            }),
+            Stmt::Assign(AssignStmt {
+                name: "app".to_string(),
+                value: Expr::Require(Box::new(RequireExpr {
+                    kind: RequireKind::RequireOnce,
+                    path: Expr::Binary(Box::new(BinaryExpr {
+                        left: Expr::MagicConstant(MagicConstantExpr {
+                            kind: MagicConstantKind::Dir,
+                            span: Span::new(163, 170),
+                        }),
+                        op: BinaryOp::Concat,
+                        right: Expr::String(StringLiteral {
+                            value: "/../bootstrap/app.php".to_string(),
+                            span: Span::new(171, 194),
+                        }),
+                        span: Span::new(163, 194),
+                    })),
+                    span: Span::new(150, 194),
+                })),
+                span: Span::new(143, 195),
+            }),
+        ]);
+        source.source_dir = Some("/project/public".to_string());
+
+        let facts = index_facts(&source, FileId(10), EchoFileMode::PhpCompat);
+
+        assert_eq!(
+            facts
+                .dependencies
+                .iter()
+                .map(|dependency| (dependency.kind, dependency.target.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                (DependencyKind::Require, "$maintenance"),
+                (
+                    DependencyKind::ComposerAutoload,
+                    "/project/public/../vendor/autoload.php"
+                ),
+                (
+                    DependencyKind::RequireOnce,
+                    "/project/public/../bootstrap/app.php"
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn extracts_static_class_reference_facts() {
+        let facts = index_facts(
+            &program(vec![
+                Stmt::Use(UseStmt {
+                    name: QualifiedName::new(vec![
+                        "Illuminate".to_string(),
+                        "Http".to_string(),
+                        "Request".to_string(),
+                    ]),
+                    alias: None,
+                    span: Span::new(0, 30),
+                }),
+                Stmt::Expr(ExprStmt {
+                    expr: Expr::StaticCall(StaticCallExpr {
+                        class_name: QualifiedName::new(vec!["Request".to_string()]),
+                        method: "capture".to_string(),
+                        args: Vec::new(),
+                        span: Span::new(31, 49),
+                    }),
+                    span: Span::new(31, 50),
+                }),
+            ]),
+            FileId(11),
+            EchoFileMode::PhpCompat,
+        );
+
+        assert_eq!(facts.references.len(), 1);
+        assert_eq!(facts.references[0].kind, ReferenceKind::ClassLike);
+        assert_eq!(facts.references[0].name, "Request");
+        assert_eq!(facts.references[0].range, TextRange::new(31, 38));
+    }
+
+    #[test]
+    fn extracts_phpdoc_var_local_variable_fact_from_source() {
+        let program = program(vec![Stmt::Assign(AssignStmt {
+            name: "app".to_string(),
+            value: Expr::Require(Box::new(RequireExpr {
+                kind: RequireKind::RequireOnce,
+                path: Expr::String(StringLiteral {
+                    value: "/bootstrap/app.php".to_string(),
+                    span: Span::new(49, 69),
+                }),
+                span: Span::new(36, 69),
+            })),
+            span: Span::new(29, 70),
+        })]);
+        let facts = index_facts_from_source(
+            "/** @var Application $app */\n$app = require_once '/bootstrap/app.php';",
+            &program,
+            FileId(12),
+            EchoFileMode::PhpCompat,
+        );
+
+        let symbol = facts
+            .declarations
+            .iter()
+            .find(|symbol| symbol.kind == SymbolKind::LocalVariable)
+            .expect("phpdoc variable symbol");
+
+        assert_eq!(symbol.name.text.as_str(), "app");
+        assert_eq!(
+            symbol
+                .signature
+                .as_ref()
+                .map(|signature| signature.text.as_str()),
+            Some("Application")
+        );
+        assert_eq!(symbol.selection_range, TextRange::new(21, 25));
     }
 }

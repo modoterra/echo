@@ -27,7 +27,7 @@ echo_parser
 - Stay independent from editor protocols and compiler backend details.
 
 First slice scope is declaration indexing only. References, relations,
-definition lookup, and workspace dependency invalidation are future work.
+workspace dependency invalidation are future work.
 
 ## Ownership Boundary
 
@@ -38,6 +38,8 @@ pub struct IndexFacts {
     pub file_id: FileId,
     pub mode: EchoFileMode,
     pub declarations: Vec<SymbolFact>,
+    pub dependencies: Vec<DependencyFact>,
+    pub references: Vec<ReferenceFact>,
 }
 ```
 
@@ -348,16 +350,18 @@ pub enum ReferenceKind {
 }
 ```
 
-Future queries:
+Current and future queries:
 
 ```rust
-pub fn symbol_at(&self, file_id: FileId, offset: TextOffset) -> Option<SymbolId>;
-pub fn definition_of(&self, file_id: FileId, offset: TextOffset) -> Option<SymbolLocation>;
-pub fn references_to(&self, symbol_id: SymbolId) -> Vec<ReferenceLocation>;
+pub fn document_symbols(&self, file_id: FileId) -> Vec<&Symbol>;
+pub fn workspace_symbols(&self, query: &str, limit: usize) -> Vec<&Symbol>;
+pub fn dependencies(&self, query: DependencyQuery<'_>) -> Vec<&DependencyFact>;
+pub fn references(&self, query: ReferenceQuery) -> Vec<&ReferenceFact>;
+pub fn definition_at(&self, file_id: FileId, offset: TextOffset) -> Option<DefinitionLocation>;
 ```
 
-Relations can later support implementation lookup, type hierarchy, and call
-hierarchy foundations:
+Future cross-file reference-to-symbol queries and relations can later support
+rename, implementation lookup, type hierarchy, and call hierarchy foundations:
 
 ```rust
 pub struct RelationTable {

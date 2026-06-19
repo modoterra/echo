@@ -2,18 +2,35 @@ use std::sync::Mutex;
 
 use dashmap::DashMap;
 use echo_diagnostics::Diagnostic as EchoDiagnostic;
-use echo_index::{EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile};
+use echo_index::{
+    DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile, TextOffset,
+};
 use echo_source::SourceMode;
 use tower_lsp_server::jsonrpc::Result;
 use tower_lsp_server::ls_types::{
-    Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    InitializeParams, InitializeResult, InitializedParams, MessageType, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
+    CompletionParams, CompletionResponse, Diagnostic, DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentSymbolParams,
+    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
+    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
+    MessageType, OneOf, PrepareRenameResponse, ReferenceParams, RenameOptions, RenameParams,
+    SemanticTokensParams, SemanticTokensResult, SemanticTokensServerCapabilities,
+    ServerCapabilities, SignatureHelp, SignatureHelpParams, TextDocumentPositionParams,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceEdit,
+    WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 use tower_lsp_server::{Client, LanguageServer, LspService, Server};
 
+use crate::completion::{completion_items, completion_options};
+use crate::definition::definition_location_to_lsp;
 use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
+use crate::hover::hover_at;
+use crate::position::position_to_offset;
+use crate::references::reference_locations_to_lsp;
+use crate::rename::{prepare_rename_at, rename_workspace_edit};
+use crate::semantic_tokens::{semantic_tokens_for_source, semantic_tokens_options};
+use crate::signature_help::{signature_help_at, signature_help_options};
+use crate::symbols::{document_symbols_to_lsp, workspace_symbols_to_lsp};
 
 #[derive(Debug)]
 pub struct Backend {
@@ -48,6 +65,7 @@ impl Backend {
                         mode: document.mode,
                         declarations: Vec::new(),
                         dependencies: Vec::new(),
+                        references: Vec::new(),
                     },
                 );
                 diagnostics_to_lsp(&document.text, &diagnostics)
@@ -81,6 +99,24 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                completion_provider: Some(completion_options()),
+                document_symbol_provider: Some(OneOf::Left(true)),
+                definition_provider: Some(OneOf::Left(true)),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
+                references_provider: Some(OneOf::Left(true)),
+                rename_provider: Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                })),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        semantic_tokens_options(),
+                    ),
+                ),
+                signature_help_provider: Some(signature_help_options()),
+                workspace_symbol_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             offset_encoding: None,
@@ -156,6 +192,216 @@ impl LanguageServer for Backend {
 
         self.publish_diagnostics(uri, Vec::new()).await;
     }
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
+        let uri = params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(Some(DocumentSymbolResponse::Nested(Vec::new())));
+        };
+
+        let symbols = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            document_symbols_to_lsp(&document.text, &index.document_symbols(document.file_id))
+        };
+
+        Ok(Some(DocumentSymbolResponse::Nested(symbols)))
+    }
+
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let position_params = params.text_document_position_params;
+        let uri = position_params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        let Some(offset) = position_to_offset(&document.text, position_params.position) else {
+            return Ok(None);
+        };
+        let offset = TextOffset(offset as u32);
+
+        let hover = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            hover_at(
+                &document.text,
+                offset,
+                &index.document_symbols(document.file_id),
+                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+            )
+        };
+
+        Ok(hover)
+    }
+
+    async fn symbol(
+        &self,
+        params: WorkspaceSymbolParams,
+    ) -> Result<Option<WorkspaceSymbolResponse>> {
+        let symbols = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            workspace_symbols_to_lsp(&index, &params.query, 100)
+        };
+
+        Ok(Some(WorkspaceSymbolResponse::Flat(symbols)))
+    }
+
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let position_params = params.text_document_position_params;
+        let uri = position_params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        let Some(offset) = position_to_offset(&document.text, position_params.position) else {
+            return Ok(None);
+        };
+
+        let location = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            let Some(definition) = index.definition_at(document.file_id, TextOffset(offset as u32))
+            else {
+                return Ok(None);
+            };
+            definition_location_to_lsp(&index, &document.text, document.file_id, &uri, definition)
+        };
+
+        Ok(location.map(GotoDefinitionResponse::Scalar))
+    }
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let position_params = params.text_document_position;
+        let uri = position_params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        let Some(offset) = position_to_offset(&document.text, position_params.position) else {
+            return Ok(None);
+        };
+
+        let locations = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            let references = index.references_at(
+                document.file_id,
+                TextOffset(offset as u32),
+                params.context.include_declaration,
+            );
+            reference_locations_to_lsp(&document.text, document.file_id, &uri, &references)
+        };
+
+        Ok(Some(locations))
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+
+        Ok(Some(SemanticTokensResult::Tokens(
+            semantic_tokens_for_source(&document.text_string()),
+        )))
+    }
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+
+        let items = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            completion_items(
+                &index.document_symbols(document.file_id),
+                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+            )
+        };
+
+        Ok(Some(CompletionResponse::Array(items)))
+    }
+
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        let position_params = params.text_document_position_params;
+        let uri = position_params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        let Some(offset) = position_to_offset(&document.text, position_params.position) else {
+            return Ok(None);
+        };
+
+        let help = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            signature_help_at(
+                &document.text,
+                TextOffset(offset as u32),
+                &index.document_symbols(document.file_id),
+                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+            )
+        };
+
+        Ok(help)
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let position_params = params.text_document_position;
+        let uri = position_params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        let Some(offset) = position_to_offset(&document.text, position_params.position) else {
+            return Ok(None);
+        };
+
+        let edit = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            let references = index.references_at(document.file_id, TextOffset(offset as u32), true);
+            rename_workspace_edit(
+                &document.text,
+                &uri,
+                TextOffset(offset as u32),
+                &params.new_name,
+                &index.document_symbols(document.file_id),
+                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+                &references,
+            )
+        };
+
+        Ok(edit)
+    }
+
+    async fn prepare_rename(
+        &self,
+        params: TextDocumentPositionParams,
+    ) -> Result<Option<PrepareRenameResponse>> {
+        let position_params = params;
+        let uri = position_params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        let Some(offset) = position_to_offset(&document.text, position_params.position) else {
+            return Ok(None);
+        };
+
+        let response = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            let references = index.references_at(document.file_id, TextOffset(offset as u32), true);
+            prepare_rename_at(
+                &document.text,
+                TextOffset(offset as u32),
+                &index.document_symbols(document.file_id),
+                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+                &references,
+            )
+        };
+
+        Ok(response)
+    }
 }
 
 pub async fn run_stdio() -> std::io::Result<()> {
@@ -179,7 +425,9 @@ fn parse_index_facts(
     mode: EchoFileMode,
 ) -> std::result::Result<IndexFacts, Vec<EchoDiagnostic>> {
     let program = echo_parser::parse_with_mode(source, source_mode(mode))?;
-    Ok(echo_semantics::index_facts(&program, file_id, mode))
+    Ok(echo_semantics::index_facts_from_source(
+        source, &program, file_id, mode,
+    ))
 }
 
 #[cfg(test)]
@@ -223,5 +471,48 @@ class UserController {
         assert_eq!(facts.dependencies[0].kind, DependencyKind::PhpUse);
         assert_eq!(facts.dependencies[0].target, "Psr\\Log\\LoggerInterface");
         assert_eq!(facts.dependencies[0].alias.as_deref(), Some("Logger"));
+    }
+
+    #[test]
+    fn laravel_entrypoint_produces_import_and_static_reference_facts() {
+        let facts = parse_index_facts(
+            r#"<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
+
+define('LARAVEL_START', microtime(true));
+
+if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+require __DIR__.'/../vendor/autoload.php';
+
+/** @var Application $app */
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+$app->handleRequest(Request::capture());
+"#,
+            FileId(4),
+            EchoFileMode::PhpCompat,
+        )
+        .expect("source parses");
+
+        assert!(facts.dependencies.iter().any(|dependency| {
+            dependency.kind == DependencyKind::PhpUse
+                && dependency.target == "Illuminate\\Http\\Request"
+        }));
+        assert!(facts.references.iter().any(|reference| {
+            reference.name == "Request" && reference.range.start < reference.range.end
+        }));
+        assert!(facts.declarations.iter().any(|symbol| {
+            symbol.kind == SymbolKind::LocalVariable
+                && symbol.name.text == "app"
+                && symbol
+                    .signature
+                    .as_ref()
+                    .is_some_and(|signature| signature.text == "Application")
+        }));
     }
 }

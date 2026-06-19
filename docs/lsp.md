@@ -37,9 +37,10 @@ The first implementation slice should provide:
 - Syntax diagnostics from the shared parser/frontend.
 - Diagnostic clearing on document close.
 
-Do not advertise completion, hover, definition, semantic tokens, formatting,
-document symbols, workspace symbols, or code actions until each capability is
-implemented.
+Do not advertise formatting or code actions until each capability is
+implemented. Document symbols, workspace symbols, hover, go-to definition,
+references, completion, signature help, rename, and full-document semantic
+tokens are implemented from shared compiler/frontend facts.
 
 ## Crate Shape
 
@@ -236,8 +237,31 @@ ServerCapabilities {
 }
 ```
 
-Document symbols and workspace symbols can be added after `echo_index`
-declaration indexing is wired through semantic facts.
+Document symbols and workspace symbols are served from `echo_index` declaration
+facts. Hover is served from declaration and dependency facts, including PHP
+`use`, `require`, and `require_once` facts extracted by `echo_semantics`.
+Go-to definition resolves declaration/dependency self-navigation and PHP
+imported static class references such as `Request::capture()` back to the
+matching `use Illuminate\Http\Request;` dependency fact.
+References are initially same-file and import-aware, so finding references for
+that imported `Request` name returns both the `use` dependency and static class
+reference.
+Semantic tokens are full-document only for now and are converted from shared
+`echo_lexer` tokens, with lightweight LSP-side classification for PHP keywords,
+variables, strings, numbers, functions, methods, classes, namespaces, and
+operators.
+PHPDoc `@var Type $name` annotations are indexed by `echo_semantics` for local
+variable hover/type facts, which covers Laravel bootstrap annotations such as
+`/** @var Application $app */`.
+Completion currently includes reflected PHP builtins, PHP `use` imports, indexed
+local variables, and the Laravel bootstrap `Application` method surface needed
+for `$app->handleRequest(...)`.
+Signature help currently includes reflected PHP builtin functions and the
+Laravel bootstrap call shapes for `Request::capture()` and
+`Application::handleRequest(Request $request)`.
+Rename is same-file and covers PHP variables, PHPDoc local-variable annotations,
+and imported class references such as `Request` in the Laravel bootstrap
+fixture.
 
 ## CLI Wiring
 

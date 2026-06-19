@@ -46,6 +46,18 @@ pub struct DependencyFact {
     pub range: TextRange,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReferenceFact {
+    pub kind: ReferenceKind,
+    pub name: String,
+    pub range: TextRange,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReferenceKind {
+    ClassLike,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DependencyKind {
     PhpUse,

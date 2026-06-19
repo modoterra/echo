@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    DependencyFact, DependencyQuery, EchoFileMode, FileId, FqName, IndexedFile, Symbol, SymbolFact,
-    SymbolId,
+    DefinitionLocation, DependencyFact, DependencyQuery, EchoFileMode, FileId, FqName, IndexedFile,
+    ReferenceFact, ReferenceLocation, ReferenceQuery, Symbol, SymbolFact, SymbolId, SymbolLocation,
+    TextOffset,
 };
 
 #[derive(Debug, Clone)]
@@ -11,6 +12,7 @@ pub struct IndexFacts {
     pub mode: EchoFileMode,
     pub declarations: Vec<SymbolFact>,
     pub dependencies: Vec<DependencyFact>,
+    pub references: Vec<ReferenceFact>,
 }
 
 impl IndexFacts {
@@ -24,6 +26,7 @@ impl IndexFacts {
             mode,
             declarations,
             dependencies: Vec::new(),
+            references: Vec::new(),
         }
     }
 }
@@ -38,6 +41,7 @@ pub struct EchoIndex {
     symbols_by_name: HashMap<String, Vec<SymbolId>>,
     symbols_by_fq_name: HashMap<FqName, Vec<SymbolId>>,
     dependencies_by_file: HashMap<FileId, Vec<DependencyFact>>,
+    references_by_file: HashMap<FileId, Vec<ReferenceFact>>,
 }
 
 impl Clone for EchoIndex {
@@ -51,6 +55,7 @@ impl Clone for EchoIndex {
             symbols_by_name: self.symbols_by_name.clone(),
             symbols_by_fq_name: self.symbols_by_fq_name.clone(),
             dependencies_by_file: self.dependencies_by_file.clone(),
+            references_by_file: self.references_by_file.clone(),
         }
     }
 }
@@ -78,6 +83,7 @@ impl EchoIndex {
         self.files.remove(&file_id);
         self.remove_symbols_for_file(file_id);
         self.dependencies_by_file.remove(&file_id);
+        self.references_by_file.remove(&file_id);
     }
 
     pub fn update_file(&mut self, file_id: FileId, facts: IndexFacts) {
@@ -85,6 +91,7 @@ impl EchoIndex {
         self.remove_symbols_for_file(file_id);
         self.dependencies_by_file
             .insert(file_id, facts.dependencies);
+        self.references_by_file.insert(file_id, facts.references);
 
         let mut symbol_ids = Vec::with_capacity(facts.declarations.len());
         for fact in facts.declarations {
@@ -190,6 +197,121 @@ impl EchoIndex {
         matches
     }
 
+    pub fn references(&self, query: ReferenceQuery) -> Vec<&ReferenceFact> {
+        let mut matches = Vec::new();
+
+        for (file_id, references) in &self.references_by_file {
+            if query
+                .file_id
+                .is_some_and(|query_file| query_file != *file_id)
+            {
+                continue;
+            }
+
+            matches.extend(
+                references
+                    .iter()
+                    .filter(|reference| query.matches(*file_id, reference)),
+            );
+        }
+
+        matches
+    }
+
+    pub fn definition_at(&self, file_id: FileId, offset: TextOffset) -> Option<DefinitionLocation> {
+        for symbol in self.document_symbols(file_id) {
+            if symbol.selection_range.contains(offset) || symbol.range.contains(offset) {
+                return Some(DefinitionLocation::Symbol(SymbolLocation {
+                    file_id,
+                    symbol_id: symbol.id,
+                    range: symbol.range,
+                    selection_range: symbol.selection_range,
+                }));
+            }
+        }
+
+        let dependencies = self.dependencies(DependencyQuery::in_file(file_id));
+        for dependency in &dependencies {
+            if dependency.range.contains(offset) {
+                return Some(DefinitionLocation::Dependency {
+                    file_id,
+                    range: dependency.range,
+                    selection_range: dependency.range,
+                });
+            }
+        }
+
+        let reference = self
+            .references(ReferenceQuery::at(file_id, offset))
+            .into_iter()
+            .next()?;
+        let dependency = dependencies.into_iter().find(|dependency| {
+            dependency.alias.as_deref() == Some(reference.name.as_str())
+                || dependency
+                    .target
+                    .rsplit('\\')
+                    .next()
+                    .is_some_and(|name| name == reference.name)
+        })?;
+
+        Some(DefinitionLocation::Dependency {
+            file_id,
+            range: dependency.range,
+            selection_range: dependency.range,
+        })
+    }
+
+    pub fn references_at(
+        &self,
+        file_id: FileId,
+        offset: TextOffset,
+        include_declaration: bool,
+    ) -> Vec<ReferenceLocation> {
+        let Some(name) = self.reference_name_at(file_id, offset) else {
+            return Vec::new();
+        };
+
+        let mut locations = Vec::new();
+        if include_declaration {
+            locations.extend(
+                self.dependencies(DependencyQuery::in_file(file_id))
+                    .into_iter()
+                    .filter(|dependency| dependency_matches_name(dependency, &name))
+                    .map(|dependency| ReferenceLocation {
+                        file_id,
+                        range: dependency.range,
+                    }),
+            );
+        }
+
+        locations.extend(
+            self.references(ReferenceQuery::in_file(file_id))
+                .into_iter()
+                .filter(|reference| reference.name == name)
+                .map(|reference| ReferenceLocation {
+                    file_id,
+                    range: reference.range,
+                }),
+        );
+
+        locations
+    }
+
+    fn reference_name_at(&self, file_id: FileId, offset: TextOffset) -> Option<String> {
+        if let Some(reference) = self
+            .references(ReferenceQuery::at(file_id, offset))
+            .into_iter()
+            .next()
+        {
+            return Some(reference.name.clone());
+        }
+
+        self.dependencies(DependencyQuery::in_file(file_id))
+            .into_iter()
+            .find(|dependency| dependency.range.contains(offset))
+            .map(dependency_reference_name)
+    }
+
     fn alloc_symbol_id(&mut self) -> SymbolId {
         let symbol_id = SymbolId(self.next_symbol_id);
         self.next_symbol_id += 1;
@@ -219,11 +341,29 @@ impl EchoIndex {
     }
 }
 
+fn dependency_reference_name(dependency: &DependencyFact) -> String {
+    dependency
+        .alias
+        .clone()
+        .or_else(|| dependency.target.rsplit('\\').next().map(str::to_string))
+        .unwrap_or_else(|| dependency.target.clone())
+}
+
+fn dependency_matches_name(dependency: &DependencyFact, name: &str) -> bool {
+    dependency.alias.as_deref() == Some(name)
+        || dependency
+            .target
+            .rsplit('\\')
+            .next()
+            .is_some_and(|target_name| target_name == name)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex, FileId, FqName,
-        IndexFacts, IndexedFile, SymbolFact, SymbolKind, SymbolName, TextRange,
+        DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoFileMode,
+        EchoIndex, FileId, FqName, IndexFacts, IndexedFile, ReferenceFact, ReferenceKind,
+        SymbolFact, SymbolKind, SymbolName, TextOffset, TextRange,
     };
     use smol_str::SmolStr;
 
@@ -423,6 +563,7 @@ mod tests {
                     alias: Some("LoggerInterface".to_owned()),
                     range: TextRange::new(5, 33),
                 }],
+                references: Vec::new(),
             },
         );
 
@@ -431,5 +572,86 @@ mod tests {
         assert_eq!(dependencies.len(), 1);
         assert_eq!(dependencies[0].kind, DependencyKind::PhpUse);
         assert_eq!(dependencies[0].target, "Psr\\Log\\LoggerInterface");
+    }
+
+    #[test]
+    fn resolves_class_reference_to_php_use_dependency() {
+        let mut index = EchoIndex::new();
+        let file_id = index.alloc_file_id();
+        index.insert_file(file(file_id, "file:///one.php"));
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![DependencyFact {
+                    kind: DependencyKind::PhpUse,
+                    target: "Illuminate\\Http\\Request".to_string(),
+                    alias: None,
+                    range: TextRange::new(6, 36),
+                }],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    name: "Request".to_string(),
+                    range: TextRange::new(100, 107),
+                }],
+            },
+        );
+
+        let definition = index
+            .definition_at(file_id, TextOffset(102))
+            .expect("definition");
+
+        assert_eq!(
+            definition,
+            DefinitionLocation::Dependency {
+                file_id,
+                range: TextRange::new(6, 36),
+                selection_range: TextRange::new(6, 36),
+            }
+        );
+    }
+
+    #[test]
+    fn returns_references_for_imported_class_reference() {
+        let mut index = EchoIndex::new();
+        let file_id = index.alloc_file_id();
+        index.insert_file(file(file_id, "file:///one.php"));
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![DependencyFact {
+                    kind: DependencyKind::PhpUse,
+                    target: "Illuminate\\Http\\Request".to_string(),
+                    alias: None,
+                    range: TextRange::new(6, 36),
+                }],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    name: "Request".to_string(),
+                    range: TextRange::new(100, 107),
+                }],
+            },
+        );
+
+        let references = index.references_at(file_id, TextOffset(102), true);
+
+        assert_eq!(
+            references,
+            vec![
+                crate::ReferenceLocation {
+                    file_id,
+                    range: TextRange::new(6, 36),
+                },
+                crate::ReferenceLocation {
+                    file_id,
+                    range: TextRange::new(100, 107),
+                },
+            ]
+        );
     }
 }
