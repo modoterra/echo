@@ -945,6 +945,8 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::Number(_) => "number literal",
         Expr::Variable(_) => "variable",
         Expr::FunctionCall(_) => "function call",
+        Expr::MethodCall(_) => "method call",
+        Expr::StaticCall(_) => "static call",
         Expr::Assign(_) => "assignment expression",
         Expr::MagicConstant(_) => "magic constant",
         Expr::Require(_) => "require expression",
@@ -999,6 +1001,7 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::FunctionCall(call) => echo_reflection::function(&call.name)
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
+        Expr::MethodCall(_) | Expr::StaticCall(_) => "unknown".to_string(),
         Expr::Assign(expr) => expression_static_type(&expr.value),
         Expr::MagicConstant(_) => "string".to_string(),
         Expr::Require(_) => "bool".to_string(),

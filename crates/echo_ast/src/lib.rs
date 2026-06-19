@@ -228,6 +228,8 @@ pub enum Expr {
     Number(NumberLiteral),
     Variable(VariableExpr),
     FunctionCall(FunctionCallExpr),
+    MethodCall(Box<MethodCallExpr>),
+    StaticCall(StaticCallExpr),
     Assign(Box<AssignExpr>),
     MagicConstant(MagicConstantExpr),
     Require(Box<RequireExpr>),
@@ -255,6 +257,8 @@ impl Expr {
             Self::Number(expr) => expr.span,
             Self::Variable(expr) => expr.span,
             Self::FunctionCall(expr) => expr.span,
+            Self::MethodCall(expr) => expr.span,
+            Self::StaticCall(expr) => expr.span,
             Self::Assign(expr) => expr.span,
             Self::MagicConstant(expr) => expr.span,
             Self::Require(expr) => expr.span,
@@ -353,6 +357,22 @@ pub struct VariableExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionCallExpr {
     pub name: String,
+    pub args: Vec<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MethodCallExpr {
+    pub object: Expr,
+    pub method: String,
+    pub args: Vec<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticCallExpr {
+    pub class_name: QualifiedName,
+    pub method: String,
     pub args: Vec<Expr>,
     pub span: Span,
 }

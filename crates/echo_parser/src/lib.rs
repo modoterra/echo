@@ -5,10 +5,11 @@ use echo_ast::{
     BinaryOp, BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr,
     DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr,
     FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr,
-    LetStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MethodDecl,
-    NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program,
-    QualifiedName, RequireExpr, RequireKind, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral,
-    TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
+    LetStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MethodCallExpr,
+    MethodDecl, NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr,
+    ObjectField, Program, QualifiedName, RequireExpr, RequireKind, ReturnStmt, RunExpr, SpawnExpr,
+    StaticCallExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp,
+    UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -164,6 +165,17 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
             }
         }
         Expr::FunctionCall(expr) => {
+            for expr in &expr.args {
+                validate_expr_mode(expr, mode, diagnostics);
+            }
+        }
+        Expr::MethodCall(expr) => {
+            validate_expr_mode(&expr.object, mode, diagnostics);
+            for expr in &expr.args {
+                validate_expr_mode(expr, mode, diagnostics);
+            }
+        }
+        Expr::StaticCall(expr) => {
             for expr in &expr.args {
                 validate_expr_mode(expr, mode, diagnostics);
             }
@@ -567,6 +579,29 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let static_call_expr = text::ident()
+            .separated_by(just('\\'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()))
+            .then_ignore(just("::").padded())
+            .then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(args.clone())
+            .then_ignore(just(')').padded())
+            .map_with(
+                |((class_name, method), args): ((QualifiedName, &str), Vec<Expr>), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Expr::StaticCall(StaticCallExpr {
+                        class_name,
+                        method: method.to_string(),
+                        args,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
         let run_expr = text::keyword("run")
             .padded()
             .ignore_then(expr.clone())
@@ -745,6 +780,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(parenthesized)
             .or(structural_object_expr)
             .or(object_expr)
+            .or(static_call_expr)
             .or(function_call_expr)
             .or(variable)
             .or(magic_dir)
@@ -757,10 +793,20 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         #[derive(Clone)]
         enum Postfix {
+            MethodCall { method: String, args: Vec<Expr> },
             Field(String),
             Index(Expr),
         }
 
+        let method_call_postfix = just("->")
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(args.clone())
+            .then_ignore(just(')').padded())
+            .map(|(method, args): (&str, Vec<Expr>)| Postfix::MethodCall {
+                method: method.to_string(),
+                args,
+            });
         let field_postfix = just('.')
             .ignore_then(text::ident())
             .map(|field: &str| Postfix::Field(field.to_string()));
@@ -771,8 +817,24 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map(Postfix::Index);
 
         let fielded = atom.clone().foldl(
-            field_postfix.or(index_postfix).repeated(),
+            method_call_postfix
+                .or(field_postfix)
+                .or(index_postfix)
+                .repeated(),
             |left, postfix| match postfix {
+                Postfix::MethodCall { method, args } => {
+                    let end = args
+                        .last()
+                        .map_or(left.span().end + method.len() + 4, |arg| arg.span().end + 1);
+                    let span = Span::new(left.span().start, end);
+
+                    Expr::MethodCall(Box::new(MethodCallExpr {
+                        object: left,
+                        method,
+                        args,
+                        span,
+                    }))
+                }
                 Postfix::Field(field) => {
                     let span = Span::new(left.span().start, left.span().end + field.len() + 1);
 

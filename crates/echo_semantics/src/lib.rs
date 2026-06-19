@@ -444,6 +444,19 @@ impl Analyzer {
                     .map(Type::Named)
                     .unwrap_or(Type::Unknown)
             }
+            Expr::MethodCall(expr) => {
+                self.analyze_expr(&expr.object);
+                for arg in &expr.args {
+                    self.analyze_expr(arg);
+                }
+                Type::Unknown
+            }
+            Expr::StaticCall(expr) => {
+                for arg in &expr.args {
+                    self.analyze_expr(arg);
+                }
+                Type::Unknown
+            }
             Expr::Assign(expr) => {
                 let ty = self.analyze_expr(&expr.value);
                 self.variables.insert(

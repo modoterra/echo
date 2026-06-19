@@ -149,6 +149,18 @@ pub enum MirExpr {
         source: Expr,
         call: MirFunctionCall,
     },
+    MethodCall {
+        source: Expr,
+        object: Box<MirExpr>,
+        method: String,
+        args: Vec<MirExpr>,
+    },
+    StaticCall {
+        source: Expr,
+        class_name: echo_ast::QualifiedName,
+        method: String,
+        args: Vec<MirExpr>,
+    },
     Assign {
         source: Expr,
         name: String,
@@ -263,6 +275,8 @@ impl MirExpr {
             | Self::Number { source, .. }
             | Self::Variable { source, .. }
             | Self::FunctionCall { source, .. }
+            | Self::MethodCall { source, .. }
+            | Self::StaticCall { source, .. }
             | Self::Assign { source, .. }
             | Self::MagicDir { source }
             | Self::Require { source, .. }
@@ -290,6 +304,8 @@ impl MirExpr {
             | Self::Number { source, .. }
             | Self::Variable { source, .. }
             | Self::FunctionCall { source, .. }
+            | Self::MethodCall { source, .. }
+            | Self::StaticCall { source, .. }
             | Self::Assign { source, .. }
             | Self::MagicDir { source }
             | Self::Require { source, .. }
@@ -480,6 +496,18 @@ fn lower_expr(expr: &Expr) -> MirExpr {
                 args: value.args.iter().map(lower_expr).collect(),
                 span: value.span,
             },
+        },
+        Expr::MethodCall(value) => MirExpr::MethodCall {
+            source: expr.clone(),
+            object: Box::new(lower_expr(&value.object)),
+            method: value.method.clone(),
+            args: value.args.iter().map(lower_expr).collect(),
+        },
+        Expr::StaticCall(value) => MirExpr::StaticCall {
+            source: expr.clone(),
+            class_name: value.class_name.clone(),
+            method: value.method.clone(),
+            args: value.args.iter().map(lower_expr).collect(),
         },
         Expr::Assign(value) => MirExpr::Assign {
             source: expr.clone(),

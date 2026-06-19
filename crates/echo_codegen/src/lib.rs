@@ -2129,6 +2129,19 @@ impl IrModule {
             echo_mir::MirExpr::FunctionCall { call, .. } => {
                 self.render_mir_function_call_expr(body, call)
             }
+            echo_mir::MirExpr::MethodCall { object, args, .. } => {
+                self.render_mir_expr_as_echo_value(body, object)?;
+                for arg in args {
+                    self.render_mir_expr_as_echo_value(body, arg)?;
+                }
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
+            echo_mir::MirExpr::StaticCall { args, .. } => {
+                for arg in args {
+                    self.render_mir_expr_as_echo_value(body, arg)?;
+                }
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
             echo_mir::MirExpr::Assign { name, value, .. } => {
                 let value = self.render_mir_expr(body, value)?;
                 let resolved = self.resolve_alias(name);
