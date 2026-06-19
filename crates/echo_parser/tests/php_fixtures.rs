@@ -36,8 +36,12 @@ fn echo_language_fixtures_parse() {
 
     for fixture in fixtures {
         let program_path = fixture.join("program.echo");
+        let unsupported_path = fixture.join("unsupported.txt");
 
         assert!(program_path.is_file(), "missing {}", program_path.display());
+        if unsupported_path.is_file() {
+            continue;
+        }
 
         let source = fs::read_to_string(&program_path)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", program_path.display()));

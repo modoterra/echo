@@ -140,7 +140,15 @@ fn validate_statement_mode(
                 validate_expr_mode(value, mode, diagnostics);
             }
         }
-        Stmt::Append(statement) => validate_expr_mode(&statement.value, mode, diagnostics),
+        Stmt::Append(statement) => {
+            if mode.validates_strict() {
+                diagnostics.push(Diagnostic::new(
+                    "PHP array append syntax is not allowed in strict mode",
+                    statement.span,
+                ));
+            }
+            validate_expr_mode(&statement.value, mode, diagnostics);
+        }
         Stmt::Namespace(statement) => {
             if statement.source == NamespaceSource::Std && !mode.allows_std_namespace() {
                 diagnostics.push(Diagnostic::new(
@@ -2337,6 +2345,36 @@ $b =& $a
         assert_eq!(
             diagnostics[0].message,
             "PHP references are not allowed in strict mode"
+        );
+    }
+
+    #[test]
+    fn echo_mode_accepts_php_array_append_assignment() {
+        let program = parse_with_mode(
+            r#"<?php
+$a = [];
+$a[] = 1;
+"#,
+            SourceMode::Echo,
+        )
+        .expect("Echo superset mode accepts PHP append syntax");
+
+        assert!(matches!(&program.statements[1], Stmt::Append(_)));
+    }
+
+    #[test]
+    fn strict_mode_rejects_php_array_append_assignment() {
+        let diagnostics = parse_with_mode(
+            r#"let $a = {}
+$a[] = 1
+"#,
+            SourceMode::Strict,
+        )
+        .expect_err("strict mode rejects PHP append syntax");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "PHP array append syntax is not allowed in strict mode"
         );
     }
 

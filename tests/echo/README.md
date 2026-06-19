@@ -6,9 +6,10 @@ Each case is a directory containing:
 
 - `stdin.txt`
 - `stdout.txt`
-- `unsupported.txt` only when the syntax is intentionally not executable yet.
+- `unsupported.txt` only when the syntax is intentionally not part of the valid
+  executable strict language yet.
 
-The parser fixture harness parses every Echo fixture. The `xo` fixture harness also invokes `ast`, `ir`, `run`, and `build` for every Echo fixture and writes artifacts under `test-results/echo/<fixture>/`. Fixtures without `unsupported.txt` are expected to run and produce exactly `stdout.txt`. Fixtures with `unsupported.txt` may cover syntax that is not executable yet; their command outputs are still recorded as artifacts.
+The parser fixture harness parses every supported Echo fixture. The `xo` fixture harness also invokes `ast`, `ir`, `run`, and `build` for every supported Echo fixture and writes artifacts under `test-results/echo/<fixture>/`. Fixtures without `unsupported.txt` are expected to run and produce exactly `stdout.txt`. Fixtures with `unsupported.txt` may cover invalid or not-yet-executable syntax; their command outputs are still recorded as artifacts when useful.
 
 Run the ignored benchmark with:
 

@@ -63,6 +63,25 @@ fn piped_repl_keeps_statement_context() {
 }
 
 #[test]
+fn piped_repl_rejects_php_append_without_corrupting_array() {
+    let output = repl_output(b"let $a = [];\n$a;\n$a[] = 2;\n$a\n:quit\n");
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"ArrayArray");
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("PHP array append syntax is not allowed in strict mode"),
+        "expected strict append diagnostic on stderr, got:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn piped_repl_reports_diagnostics_and_continues() {
     let output = repl_output(b"echo ;\necho \"ok\";\n:exit\n");
 

@@ -107,18 +107,18 @@ fn echo_fixtures_are_exercised() {
 
         let ast_output = command_output(command("ast", &program_path));
         write_artifact(&artifact_dir.join("ast.txt"), &ast_output.stdout);
-        assert_output_success(&ast_output, "xo ast");
-
-        let ir_output = command_output(command("ir", &program_path));
-        write_artifact(&artifact_dir.join("ir.ll"), &ir_output.stdout);
-
         if unsupported {
+            write_artifact(&artifact_dir.join("ir.ll"), b"");
             write_artifact(&artifact_dir.join("run.stdout"), b"");
             write_artifact(&artifact_dir.join("run.stderr"), b"");
             write_artifact(&artifact_dir.join("binary.stdout"), b"");
             write_artifact(&artifact_dir.join("binary.stderr"), b"");
             continue;
         }
+        assert_output_success(&ast_output, "xo ast");
+
+        let ir_output = command_output(command("ir", &program_path));
+        write_artifact(&artifact_dir.join("ir.ll"), &ir_output.stdout);
 
         let mut run = command("run", &program_path);
         let run_output = output_with_stdin(&mut run, &stdin);

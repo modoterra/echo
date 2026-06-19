@@ -24,6 +24,14 @@ may expose or format behavior, but should not define language semantics locally.
 
 `echo_ast` owns syntax tree shape.
 
+Collection syntax has distinct meanings and must not be conflated:
+
+- `[]` is a PHP-compatible array literal.
+- `{}` is a strict Echo list literal.
+- `{ field: value }` is a strict Echo structural object literal.
+- `()` is reserved for tuples.
+- Fixed-size arrays are distinct from dynamic arrays and lists.
+
 `echo_parser` owns source parsing and source-mode validation.
 
 `echo_semantics` owns semantic and type analysis: variable bindings, expression
