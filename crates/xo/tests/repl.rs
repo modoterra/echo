@@ -63,6 +63,19 @@ fn piped_repl_keeps_statement_context() {
 }
 
 #[test]
+fn piped_repl_echo_statement_keeps_php_array_output() {
+    let output = repl_output(b"let $a = [];\n$a[] = 2;\necho $a;\n:quit\n");
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"Array");
+}
+
+#[test]
 fn piped_repl_keeps_array_after_append() {
     let output = repl_output(b"let $a = [];\n$a;\n$a[] = 2;\n$a\n:quit\n");
 
@@ -72,7 +85,7 @@ fn piped_repl_keeps_array_after_append() {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.stdout, b"ArrayArray");
+    assert_eq!(output.stdout, b"Array []Array [0 => 2]");
     assert!(
         !String::from_utf8_lossy(&output.stderr).contains("requires array target"),
         "array append should not produce semantic diagnostic, got:\n{}",
@@ -90,7 +103,7 @@ fn piped_repl_rejects_list_append_without_corrupting_list() {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.stdout, b"ListList");
+    assert_eq!(output.stdout, b"List []List []");
     assert!(
         String::from_utf8_lossy(&output.stderr)
             .contains("PHP array append syntax requires array target, found list"),

@@ -168,6 +168,8 @@ static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
 
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
+const INSPECT_MAX_DEPTH: usize = 3;
+const INSPECT_MAX_ITEMS: usize = 8;
 
 impl EchoValue {
     pub const fn null() -> Self {
@@ -302,6 +304,63 @@ impl EchoValue {
             ECHO_VALUE_LIST => Some(b"List".to_vec()),
             ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => Some(b"Object".to_vec()),
             _ => None,
+        }
+    }
+
+    fn inspect_bytes(self) -> Option<Vec<u8>> {
+        Some(self.inspect_string(0).into_bytes())
+    }
+
+    fn inspect_string(self, depth: usize) -> String {
+        if depth >= INSPECT_MAX_DEPTH {
+            return match self.kind {
+                ECHO_VALUE_ARRAY => "Array [...]".to_string(),
+                ECHO_VALUE_LIST => "List [...]".to_string(),
+                ECHO_VALUE_OBJECT => "Object {...}".to_string(),
+                _ => self
+                    .string_bytes()
+                    .and_then(|bytes| String::from_utf8(bytes).ok())
+                    .unwrap_or_default(),
+            };
+        }
+
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => String::new(),
+            ECHO_VALUE_BOOL => {
+                if self.payload == 0 {
+                    String::new()
+                } else {
+                    "1".to_string()
+                }
+            }
+            ECHO_VALUE_INT => (self.payload as i64).to_string(),
+            ECHO_VALUE_FLOAT => format_php_float(f64::from_bits(self.payload)),
+            ECHO_VALUE_STRING => unsafe {
+                (self.payload as *const EchoString)
+                    .as_ref()
+                    .map(|value| {
+                        if depth == 0 {
+                            String::from_utf8_lossy(&value.bytes).into_owned()
+                        } else {
+                            inspect_string_literal(&value.bytes)
+                        }
+                    })
+                    .unwrap_or_default()
+            },
+            ECHO_VALUE_ARRAY => unsafe {
+                (self.payload as *const EchoArray)
+                    .as_ref()
+                    .map(|array| inspect_array(array, depth + 1))
+                    .unwrap_or_else(|| "Array".to_string())
+            },
+            ECHO_VALUE_LIST => unsafe {
+                (self.payload as *const EchoList)
+                    .as_ref()
+                    .map(|list| inspect_list(list, depth + 1))
+                    .unwrap_or_else(|| "List".to_string())
+            },
+            ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => "Object".to_string(),
+            _ => String::new(),
         }
     }
 
@@ -602,6 +661,13 @@ pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
+    if repl_inspect_enabled() {
+        if let Some(bytes) = value.inspect_bytes() {
+            unsafe { echo_write(bytes.as_ptr(), bytes.len()) };
+        }
+        return;
+    }
+
     match value.kind {
         ECHO_VALUE_NULL | ECHO_VALUE_ERROR => {}
         ECHO_VALUE_BOOL => {
@@ -619,6 +685,75 @@ pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
         ECHO_VALUE_LIST => unsafe { echo_write(c"List".as_ptr().cast(), 4) },
         _ => {}
     }
+}
+
+fn repl_inspect_enabled() -> bool {
+    std::env::var_os("ECHO_REPL_INSPECT").is_some()
+}
+
+fn inspect_array(array: &EchoArray, depth: usize) -> String {
+    let mut parts = Vec::new();
+    for (key, value) in array
+        .keys
+        .iter()
+        .zip(array.values.iter())
+        .take(INSPECT_MAX_ITEMS)
+    {
+        parts.push(format!(
+            "{} => {}",
+            inspect_array_key(key),
+            value.inspect_string(depth)
+        ));
+    }
+
+    if array.values.len() > INSPECT_MAX_ITEMS {
+        parts.push(format!(
+            "... {} more",
+            array.values.len() - INSPECT_MAX_ITEMS
+        ));
+    }
+
+    format!("Array [{}]", parts.join(", "))
+}
+
+fn inspect_list(list: &EchoList, depth: usize) -> String {
+    let mut parts = Vec::new();
+    for value in list.values.iter().take(INSPECT_MAX_ITEMS) {
+        parts.push(value.inspect_string(depth));
+    }
+
+    if list.values.len() > INSPECT_MAX_ITEMS {
+        parts.push(format!(
+            "... {} more",
+            list.values.len() - INSPECT_MAX_ITEMS
+        ));
+    }
+
+    format!("List [{}]", parts.join(", "))
+}
+
+fn inspect_array_key(key: &EchoArrayKey) -> String {
+    match key {
+        EchoArrayKey::Int(value) => value.to_string(),
+        EchoArrayKey::String(bytes) => inspect_string_literal(bytes),
+    }
+}
+
+fn inspect_string_literal(bytes: &[u8]) -> String {
+    let mut literal = String::from("\"");
+    for byte in bytes {
+        match byte {
+            b'\\' => literal.push_str("\\\\"),
+            b'"' => literal.push_str("\\\""),
+            b'\n' => literal.push_str("\\n"),
+            b'\r' => literal.push_str("\\r"),
+            b'\t' => literal.push_str("\\t"),
+            0x20..=0x7e => literal.push(*byte as char),
+            _ => literal.push_str(&format!("\\x{byte:02x}")),
+        }
+    }
+    literal.push('"');
+    literal
 }
 
 #[unsafe(no_mangle)]
@@ -3259,6 +3394,31 @@ mod tests {
         assert_eq!(array.keys.len(), 2);
         assert_eq!(array.values, vec![EchoValue::int(1), EchoValue::int(3)]);
         assert_eq!(echo_php_array_is_list(result), EchoValue::bool(false));
+    }
+
+    #[test]
+    fn repl_inspector_displays_array_values() {
+        let key = test_string_value(b"name");
+        let array = echo_value_array_set(echo_value_array_new(), key, test_string_value(b"Echo"));
+        let array = echo_value_array_append(array, EchoValue::int(4));
+
+        assert_eq!(
+            array.inspect_bytes(),
+            Some(br#"Array ["name" => "Echo", 0 => 4]"#.to_vec())
+        );
+    }
+
+    #[test]
+    fn repl_inspector_truncates_large_arrays() {
+        let mut array = echo_value_array_new();
+        for value in 0..10 {
+            array = echo_value_array_append(array, EchoValue::int(value));
+        }
+
+        assert_eq!(
+            array.inspect_bytes(),
+            Some(b"Array [0 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, ... 2 more]".to_vec())
+        );
     }
 
     #[test]

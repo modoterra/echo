@@ -343,7 +343,10 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
     verify_ir(&file, &ir);
     let binary_path = temp_path(&file, "program");
     build_ir_binary_quiet(&file, &ir, OptimizationLevel::O0, &binary_path);
-    let output = run_repl_binary(&binary_path);
+    let output = run_repl_binary(
+        &binary_path,
+        matches!(parsed.input, ReplInput::Expression(_)),
+    );
     let should_store = output.status.success() && matches!(parsed.input, ReplInput::Statement);
     print_repl_output(&output, parsed.input, interactive);
     if should_store {
@@ -704,13 +707,16 @@ fn ensure_runtime_library_quiet() {
     }
 }
 
-fn run_repl_binary(binary_path: &PathBuf) -> std::process::Output {
-    let output = ProcessCommand::new(binary_path)
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("error: failed to run {}: {err}", binary_path.display());
-            std::process::exit(1);
-        });
+fn run_repl_binary(binary_path: &PathBuf, inspect_expression: bool) -> std::process::Output {
+    let mut command = ProcessCommand::new(binary_path);
+    if inspect_expression {
+        command.env("ECHO_REPL_INSPECT", "1");
+    }
+
+    let output = command.output().unwrap_or_else(|err| {
+        eprintln!("error: failed to run {}: {err}", binary_path.display());
+        std::process::exit(1);
+    });
 
     if !output.status.success() {
         eprintln!(
