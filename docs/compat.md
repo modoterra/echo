@@ -23,12 +23,21 @@ filesystem loading, runtime process state, diagnostics, and related builtins.
 | --- | --- | --- |
 | `include` | missing | Language construct. Returns `false` and raises a warning on failure; successful includes return `1` unless the included file returns another value. Source: https://www.php.net/manual/en/function.include.php |
 | `include_once` | missing | Language construct. Includes and evaluates a file once per process include set; returns `true` when the file was already included. Source: https://www.php.net/manual/en/function.include-once.php |
-| `require` | missing | Language construct. Like `include`, but missing files are fatal. Source: https://www.php.net/manual/en/function.require.php |
-| `require_once` | missing | Language construct. Like `require`, but skips files already included through the shared include/require once set. Source: https://www.php.net/manual/en/function.require-once.php |
+| `require` | partial | Language construct. Echo now checks required files and treats missing files as fatal, but does not evaluate loaded PHP source yet. Source: https://www.php.net/manual/en/function.require.php |
+| `require_once` | partial | Echo now tracks a process-local once set and checks required files, but does not evaluate loaded PHP source yet. Source: https://www.php.net/manual/en/function.require-once.php |
 
 Related baseline functions tracked below: `get_included_files`,
 `get_required_files`, `get_include_path`, `set_include_path`,
 `restore_include_path`, and `stream_resolve_include_path`.
+
+### Bootstrap Syntax
+
+| Construct | Status | Notes |
+| --- | --- | --- |
+| assignment expressions | partial | Assignments are expressions and evaluate to the assigned value. Source: https://www.php.net/manual/en/language.operators.assignment.php |
+| `__DIR__` | partial | File-backed `xo` compilation resolves it from the canonical source path. Source: https://www.php.net/manual/en/language.constants.magic.php |
+| `define` | partial | Echo accepts runtime constant definitions for bootstrap compatibility, but constant lookup is not implemented yet. Source: https://www.php.net/manual/en/function.define.php |
+| `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
 
 ## Totals
 

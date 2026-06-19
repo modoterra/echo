@@ -72,6 +72,7 @@ pub fn compile_hir_to_ir(program: &echo_hir::HirProgram) -> Result<String, Vec<D
 
 pub fn compile_mir_to_ir(program: &echo_mir::MirProgram) -> Result<String, Vec<Diagnostic>> {
     let mut module = IrModule::new();
+    module.source_dir = program.source_dir().map(str::to_string);
     let body = module.render_program(program)?;
 
     Ok(format!(
@@ -281,6 +282,11 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_value_bool",
+            echo_runtime::echo_value_bool as extern "C" fn(echo_runtime::EchoValue) -> bool
+                as usize,
+        ),
+        (
             "echo_value_concat",
             echo_runtime::echo_value_concat
                 as extern "C" fn(
@@ -431,6 +437,18 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_require",
+            echo_runtime::echo_php_require
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_require_once",
+            echo_runtime::echo_php_require_once
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_task_sleep_current",
             echo_runtime::echo_task_sleep_current
                 as extern "C" fn(
@@ -522,6 +540,20 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
         (
             "echo_php_strlen",
             echo_runtime::echo_php_strlen
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_define",
+            echo_runtime::echo_php_define
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_microtime",
+            echo_runtime::echo_php_microtime
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
                 as usize,
         ),
@@ -1137,6 +1169,7 @@ struct IrModule {
     std_imports: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
     functions: HashMap<String, echo_mir::MirFunction>,
+    source_dir: Option<String>,
     returned: bool,
     terminated: bool,
     break_labels: Vec<String>,
@@ -1157,6 +1190,7 @@ impl IrModule {
             std_imports: HashMap::new(),
             locals: HashMap::new(),
             functions: HashMap::new(),
+            source_dir: None,
             returned: false,
             terminated: false,
             break_labels: Vec::new(),
@@ -1660,10 +1694,17 @@ impl IrModule {
                     Ok(is_null)
                 }
             }
-            _ => Err(Diagnostic::new(
-                "unsupported if condition in LLVM codegen",
-                expr.syntax().span(),
-            )),
+            _ => {
+                let value = self.render_mir_expr_as_echo_value(body, expr)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let condition = format!("%condition_{call_id}");
+                body.push_str(&format!(
+                    "  {condition} = call i1 @{}({value})\n",
+                    CoreRuntimeSymbol::ValueBool.symbol()
+                ));
+                Ok(condition)
+            }
         }
     }
 
@@ -1995,10 +2036,45 @@ impl IrModule {
                     builtin.symbol
                 ));
             }
+            BuiltinCodegen::ValueUnaryExpression => {
+                let [arg] = args else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        span,
+                    ));
+                };
+                let arg = self.render_mir_expr_as_echo_value(body, arg)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}({arg})\n",
+                    builtin.symbol
+                ));
+            }
+            BuiltinCodegen::ValueBinaryExpression => {
+                let [left, right] = args else {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        span,
+                    ));
+                };
+                let left = self.render_mir_expr_as_echo_value(body, left)?;
+                let right = self.render_mir_expr_as_echo_value(body, right)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}({left}, {right})\n",
+                    builtin.symbol
+                ));
+            }
             BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
-            | BuiltinCodegen::ValueUnaryExpression
-            | BuiltinCodegen::ValueBinaryExpression
             | BuiltinCodegen::ValueTernaryExpression
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
@@ -2052,6 +2128,30 @@ impl IrModule {
                 }),
             echo_mir::MirExpr::FunctionCall { call, .. } => {
                 self.render_mir_function_call_expr(body, call)
+            }
+            echo_mir::MirExpr::Assign { name, value, .. } => {
+                let value = self.render_mir_expr(body, value)?;
+                let resolved = self.resolve_alias(name);
+                self.locals.insert(resolved, value.clone());
+                Ok(value)
+            }
+            echo_mir::MirExpr::MagicDir { .. } => Ok(RuntimeValue::StaticString(
+                self.source_dir.clone().unwrap_or_else(|| ".".to_string()),
+            )),
+            echo_mir::MirExpr::Require { once, path, .. } => {
+                let path = self.render_mir_expr_as_echo_value(body, path)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let symbol = if *once {
+                    CoreRuntimeSymbol::RequireOnce
+                } else {
+                    CoreRuntimeSymbol::Require
+                };
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}({path})\n",
+                    symbol.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
             }
             echo_mir::MirExpr::Defer { body: block, .. } => {
                 let function = self.render_mir_defer_function(body, block)?;
@@ -3105,6 +3205,7 @@ mod tests {
         Program {
             open_tag: None,
             statements,
+            source_dir: None,
             span: Span::new(0, 0),
         }
     }

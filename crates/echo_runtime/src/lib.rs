@@ -12,6 +12,7 @@ pub mod time;
 
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::io::{self as std_io, Write};
 #[cfg(unix)]
@@ -19,7 +20,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Default)]
 pub struct OutputRuntime {
@@ -176,6 +177,7 @@ static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_PROCESS_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(1);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
+static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
 
 const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
 
@@ -1467,6 +1469,11 @@ pub extern "C" fn echo_value_unary_minus(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_value_bool(value: EchoValue) -> bool {
+    value.bool_value().unwrap_or(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_list_new() -> EchoValue {
     EchoValue::list(Box::into_raw(Box::new(EchoList::new())))
 }
@@ -2282,6 +2289,57 @@ pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoValue {
+    match name.string_bytes() {
+        Some(bytes) if !bytes.is_empty() => EchoValue::bool(true),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0));
+
+    if as_float.bool_value().unwrap_or(false) {
+        return EchoValue::float(now.as_secs_f64());
+    }
+
+    let micros = now.subsec_micros();
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        format!("0.{micros:06} {}", now.as_secs()).into_bytes(),
+    ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_require(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => require_path(&bytes),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_require_once(filename: EchoValue) -> EchoValue {
+    let Some(bytes) = filename.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let key = canonical_require_key(&bytes);
+    let files = REQUIRED_ONCE_FILES.get_or_init(|| Mutex::new(HashSet::new()));
+    {
+        let mut files = files.lock().expect("require_once set poisoned");
+        if files.contains(&key) {
+            return EchoValue::bool(true);
+        }
+        files.insert(key);
+    }
+
+    require_path(&bytes)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_dir(filename: EchoValue) -> EchoValue {
     match filename.string_bytes() {
         Some(bytes) => EchoValue::bool(path_is_dir(&bytes)),
@@ -2310,11 +2368,59 @@ fn path_exists(bytes: &[u8]) -> bool {
     Path::new(OsStr::from_bytes(bytes)).exists()
 }
 
+#[cfg(unix)]
+fn require_path(bytes: &[u8]) -> EchoValue {
+    let path = Path::new(OsStr::from_bytes(bytes));
+    if path.exists() {
+        EchoValue::bool(true)
+    } else {
+        eprintln!(
+            "PHP Fatal error: Failed opening required '{}'",
+            String::from_utf8_lossy(bytes)
+        );
+        std::process::exit(1);
+    }
+}
+
+#[cfg(unix)]
+fn canonical_require_key(bytes: &[u8]) -> Vec<u8> {
+    let path = Path::new(OsStr::from_bytes(bytes));
+    std::fs::canonicalize(path)
+        .ok()
+        .map(|path| path.as_os_str().as_bytes().to_vec())
+        .unwrap_or_else(|| bytes.to_vec())
+}
+
 #[cfg(not(unix))]
 fn path_exists(bytes: &[u8]) -> bool {
     std::str::from_utf8(bytes)
         .map(|path| Path::new(path).exists())
         .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn require_path(bytes: &[u8]) -> EchoValue {
+    let Ok(path) = std::str::from_utf8(bytes) else {
+        return EchoValue::error();
+    };
+    if Path::new(path).exists() {
+        EchoValue::bool(true)
+    } else {
+        eprintln!("PHP Fatal error: Failed opening required '{path}'");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(not(unix))]
+fn canonical_require_key(bytes: &[u8]) -> Vec<u8> {
+    let Ok(path) = std::str::from_utf8(bytes) else {
+        return bytes.to_vec();
+    };
+    std::fs::canonicalize(path)
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .map(String::into_bytes)
+        .unwrap_or_else(|| bytes.to_vec())
 }
 
 #[cfg(unix)]

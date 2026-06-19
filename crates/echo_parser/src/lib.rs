@@ -1,12 +1,13 @@
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AppendStmt, ArrayElement, ArrayExpr, AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp,
-    BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr, DynamicFunctionCallStmt,
-    EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-    IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt,
-    MethodDecl, NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr,
-    ObjectField, Program, QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral,
+    AppendStmt, ArrayElement, ArrayExpr, AssignExpr, AssignRefStmt, AssignStmt, BinaryExpr,
+    BinaryOp, BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr,
+    DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr,
+    FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr,
+    LetStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MethodDecl,
+    NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program,
+    QualifiedName, RequireExpr, RequireKind, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral,
     TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
@@ -167,6 +168,8 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
                 validate_expr_mode(expr, mode, diagnostics);
             }
         }
+        Expr::Assign(expr) => validate_expr_mode(&expr.value, mode, diagnostics),
+        Expr::Require(expr) => validate_expr_mode(&expr.path, mode, diagnostics),
         Expr::Binary(expr) => {
             validate_expr_mode(&expr.left, mode, diagnostics);
             validate_expr_mode(&expr.right, mode, diagnostics);
@@ -199,7 +202,12 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
                 validate_expr_mode(&element.value, mode, diagnostics);
             }
         }
-        Expr::Null(_) | Expr::Bool(_) | Expr::String(_) | Expr::Number(_) | Expr::Variable(_) => {}
+        Expr::Null(_)
+        | Expr::Bool(_)
+        | Expr::String(_)
+        | Expr::Number(_)
+        | Expr::Variable(_)
+        | Expr::MagicConstant(_) => {}
     }
 }
 
@@ -521,6 +529,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let magic_dir = just("__DIR__").map_with(|_, extra| {
+            let span: SimpleSpan = extra.span();
+
+            Expr::MagicConstant(MagicConstantExpr {
+                kind: MagicConstantKind::Dir,
+                span: Span::new(span.start, span.end),
+            })
+        });
+
         let args = expr
             .clone()
             .padded()
@@ -596,6 +613,21 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     handle: Box::new(handle),
                     span: Span::new(span.start, span.end),
                 })
+            });
+
+        let require_expr = text::keyword("require_once")
+            .to(RequireKind::RequireOnce)
+            .or(text::keyword("require").to(RequireKind::Require))
+            .padded()
+            .then(expr.clone())
+            .map_with(|(kind, path), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Require(Box::new(RequireExpr {
+                    kind,
+                    path,
+                    span: Span::new(span.start, span.end),
+                }))
             });
 
         let list_expr = expr
@@ -709,11 +741,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(fork_expr)
             .or(spawn_expr)
             .or(join_expr)
+            .or(require_expr)
             .or(parenthesized)
             .or(structural_object_expr)
             .or(object_expr)
             .or(function_call_expr)
             .or(variable)
+            .or(magic_dir)
             .or(null)
             .or(bool_literal)
             .or(array_expr)
@@ -841,7 +875,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             },
         );
 
-        additive.clone().foldl(
+        let is_expr = additive.clone().foldl(
             text::keyword("is")
                 .padded()
                 .ignore_then(text::keyword("not").padded().to(true).or_not())
@@ -861,7 +895,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     span,
                 }))
             },
-        )
+        );
+
+        just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .map_with(|(name, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Assign(Box::new(AssignExpr {
+                    name: name.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .or(is_expr)
     });
 
     let statement = recursive(|statement| {
@@ -1743,6 +1792,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             Program {
                 open_tag,
                 statements,
+                source_dir: None,
                 span: Span::new(span.start, span.end),
             }
         })

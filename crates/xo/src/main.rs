@@ -182,7 +182,7 @@ fn main() {
         Command::Ast { mode, file } => {
             let source = read_source_file(&file, mode);
 
-            match echo_parser::parse_with_mode(&source.text, source.mode) {
+            match parse_source_program(&source) {
                 Ok(program) => {
                     println!("{program:#?}");
                 }
@@ -737,10 +737,7 @@ fn run_jit(file: &PathBuf, mode: ModeOverride) {
 }
 
 fn try_run_jit(source: &SourceFile) -> Result<i32, Vec<echo_diagnostics::Diagnostic>> {
-    let program = match echo_parser::parse_with_mode(&source.text, source.mode) {
-        Ok(program) => program,
-        Err(diagnostics) => return Err(diagnostics),
-    };
+    let program = parse_source_program(source)?;
 
     echo_codegen::run_program_jit(&program)
 }
@@ -748,10 +745,7 @@ fn try_run_jit(source: &SourceFile) -> Result<i32, Vec<echo_diagnostics::Diagnos
 fn try_parse_repl_input(
     source: &SourceFile,
 ) -> Result<ReplParsed, Vec<echo_diagnostics::Diagnostic>> {
-    let mut program = match echo_parser::parse_with_mode(&source.text, source.mode) {
-        Ok(program) => program,
-        Err(diagnostics) => return Err(diagnostics),
-    };
+    let mut program = parse_source_program(source)?;
 
     let mut input = ReplInput::Statement;
     if let Some(expr) = repl_display_expr(program.statements.as_slice()) {
@@ -780,12 +774,20 @@ fn repl_display_expr(statements: &[Stmt]) -> Option<Expr> {
 }
 
 fn try_compile_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnostics::Diagnostic>> {
-    let program = match echo_parser::parse_with_mode(&source.text, source.mode) {
-        Ok(program) => program,
-        Err(diagnostics) => return Err(diagnostics),
-    };
+    let program = parse_source_program(source)?;
 
     echo_codegen::compile_to_ir(&program)
+}
+
+fn parse_source_program(source: &SourceFile) -> Result<Program, Vec<echo_diagnostics::Diagnostic>> {
+    let mut program = echo_parser::parse_with_mode(&source.text, source.mode)?;
+    program.source_dir = source_dir_for(&source.path);
+    Ok(program)
+}
+
+fn source_dir_for(path: &PathBuf) -> Option<String> {
+    let path = fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+    path.parent().map(|path| path.display().to_string())
 }
 
 fn write_temp_ir(file: &PathBuf, ir: &str) -> PathBuf {
@@ -943,6 +945,9 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::Number(_) => "number literal",
         Expr::Variable(_) => "variable",
         Expr::FunctionCall(_) => "function call",
+        Expr::Assign(_) => "assignment expression",
+        Expr::MagicConstant(_) => "magic constant",
+        Expr::Require(_) => "require expression",
         Expr::Defer(_) => "defer expression",
         Expr::Run(_) => "run expression",
         Expr::Fork(_) => "fork expression",
@@ -994,6 +999,9 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::FunctionCall(call) => echo_reflection::function(&call.name)
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
+        Expr::Assign(expr) => expression_static_type(&expr.value),
+        Expr::MagicConstant(_) => "string".to_string(),
+        Expr::Require(_) => "bool".to_string(),
         Expr::Defer(_) | Expr::Run(_) => "task".to_string(),
         Expr::Fork(_) => "thread".to_string(),
         Expr::Spawn(_) => "process".to_string(),

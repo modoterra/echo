@@ -99,6 +99,16 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("abs", &[("num", Some("int|float"))], Some("int|float")),
         php_builtin_reflection("flush", &[], Some("void")),
         php_builtin_reflection(
+            "define",
+            &[("constant_name", Some("string")), ("value", Some("mixed"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "microtime",
+            &[("as_float", Some("bool"))],
+            Some("string|float"),
+        ),
+        php_builtin_reflection(
             "ob_implicit_flush",
             &[("enable", Some("bool"))],
             Some("void"),

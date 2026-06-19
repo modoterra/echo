@@ -444,6 +444,23 @@ impl Analyzer {
                     .map(Type::Named)
                     .unwrap_or(Type::Unknown)
             }
+            Expr::Assign(expr) => {
+                let ty = self.analyze_expr(&expr.value);
+                self.variables.insert(
+                    expr.name.clone(),
+                    VariableInfo {
+                        name: expr.name.clone(),
+                        ty: ty.clone(),
+                        span: expr.span,
+                    },
+                );
+                ty
+            }
+            Expr::MagicConstant(_) => Type::String,
+            Expr::Require(expr) => {
+                self.analyze_expr(&expr.path);
+                Type::Bool
+            }
             Expr::Defer(expr) => {
                 self.analyze_statements(&expr.body);
                 Type::Task
@@ -607,6 +624,7 @@ mod tests {
         Program {
             open_tag: None,
             statements,
+            source_dir: None,
             span: Span::new(0, 0),
         }
     }

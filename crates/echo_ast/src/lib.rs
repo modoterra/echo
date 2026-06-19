@@ -4,6 +4,7 @@ use echo_source::Span;
 pub struct Program {
     pub open_tag: Option<Span>,
     pub statements: Vec<Stmt>,
+    pub source_dir: Option<String>,
     pub span: Span,
 }
 
@@ -227,6 +228,9 @@ pub enum Expr {
     Number(NumberLiteral),
     Variable(VariableExpr),
     FunctionCall(FunctionCallExpr),
+    Assign(Box<AssignExpr>),
+    MagicConstant(MagicConstantExpr),
+    Require(Box<RequireExpr>),
     Defer(DeferExpr),
     Run(RunExpr),
     Fork(ForkExpr),
@@ -251,6 +255,9 @@ impl Expr {
             Self::Number(expr) => expr.span,
             Self::Variable(expr) => expr.span,
             Self::FunctionCall(expr) => expr.span,
+            Self::Assign(expr) => expr.span,
+            Self::MagicConstant(expr) => expr.span,
+            Self::Require(expr) => expr.span,
             Self::Defer(expr) => expr.span,
             Self::Run(expr) => expr.span(),
             Self::Fork(expr) => expr.span(),
@@ -347,6 +354,37 @@ pub struct VariableExpr {
 pub struct FunctionCallExpr {
     pub name: String,
     pub args: Vec<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssignExpr {
+    pub name: String,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MagicConstantKind {
+    Dir,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MagicConstantExpr {
+    pub kind: MagicConstantKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequireKind {
+    Require,
+    RequireOnce,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RequireExpr {
+    pub kind: RequireKind,
+    pub path: Expr,
     pub span: Span,
 }
 

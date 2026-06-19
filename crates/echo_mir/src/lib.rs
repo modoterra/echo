@@ -5,12 +5,17 @@ use echo_source::Span;
 
 #[derive(Debug, Clone)]
 pub struct MirProgram {
+    source_dir: Option<String>,
     imports: Vec<ImportStmt>,
     functions: Vec<MirFunction>,
     statements: Vec<MirStmt>,
 }
 
 impl MirProgram {
+    pub fn source_dir(&self) -> Option<&str> {
+        self.source_dir.as_deref()
+    }
+
     pub fn imports(&self) -> &[ImportStmt] {
         &self.imports
     }
@@ -144,6 +149,19 @@ pub enum MirExpr {
         source: Expr,
         call: MirFunctionCall,
     },
+    Assign {
+        source: Expr,
+        name: String,
+        value: Box<MirExpr>,
+    },
+    MagicDir {
+        source: Expr,
+    },
+    Require {
+        source: Expr,
+        once: bool,
+        path: Box<MirExpr>,
+    },
     Defer {
         source: Expr,
         body: Vec<MirStmt>,
@@ -245,6 +263,9 @@ impl MirExpr {
             | Self::Number { source, .. }
             | Self::Variable { source, .. }
             | Self::FunctionCall { source, .. }
+            | Self::Assign { source, .. }
+            | Self::MagicDir { source }
+            | Self::Require { source, .. }
             | Self::Defer { source, .. }
             | Self::Run { source, .. }
             | Self::Fork { source, .. }
@@ -269,6 +290,9 @@ impl MirExpr {
             | Self::Number { source, .. }
             | Self::Variable { source, .. }
             | Self::FunctionCall { source, .. }
+            | Self::Assign { source, .. }
+            | Self::MagicDir { source }
+            | Self::Require { source, .. }
             | Self::Defer { source, .. }
             | Self::Run { source, .. }
             | Self::Fork { source, .. }
@@ -296,6 +320,7 @@ pub fn lower_program(program: &HirProgram) -> Result<MirProgram, Vec<Diagnostic>
         .collect::<Vec<_>>();
 
     Ok(MirProgram {
+        source_dir: program.source().source_dir.clone(),
         imports,
         functions,
         statements,
@@ -456,6 +481,21 @@ fn lower_expr(expr: &Expr) -> MirExpr {
                 span: value.span,
             },
         },
+        Expr::Assign(value) => MirExpr::Assign {
+            source: expr.clone(),
+            name: value.name.clone(),
+            value: Box::new(lower_expr(&value.value)),
+        },
+        Expr::MagicConstant(value) => match value.kind {
+            echo_ast::MagicConstantKind::Dir => MirExpr::MagicDir {
+                source: expr.clone(),
+            },
+        },
+        Expr::Require(value) => MirExpr::Require {
+            source: expr.clone(),
+            once: value.kind == echo_ast::RequireKind::RequireOnce,
+            path: Box::new(lower_expr(&value.path)),
+        },
         Expr::Defer(value) => MirExpr::Defer {
             source: expr.clone(),
             body: value
@@ -575,6 +615,7 @@ mod tests {
         Program {
             open_tag: None,
             statements,
+            source_dir: None,
             span: Span::new(0, 0),
         }
     }
