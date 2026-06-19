@@ -1,12 +1,12 @@
 [package]
-name = "echo_semantics"
+name = "echo_hir"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
-echo_index = { path = "../echo_index" }
-echo_reflection = { path = "../echo_reflection" }
+echo_semantics = { path = "../echo_semantics" }
+
+[dev-dependencies]
 echo_source = { path = "../echo_source" }
-smol_str = "0.3"

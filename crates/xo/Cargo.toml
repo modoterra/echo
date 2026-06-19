@@ -6,11 +6,13 @@ edition = "2024"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 rustyline = "14"
+tokio = { version = "1", features = ["rt-multi-thread"] }
 echo_source = { path = "../echo_source" }
 echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
 echo_lexer = { path = "../echo_lexer" }
 echo_parser = { path = "../echo_parser" }
+echo_lsp = { path = "../echo_lsp" }
 echo_codegen = { path = "../echo_codegen" }
 echo_reflection = { path = "../echo_reflection" }
 echo_runtime = { path = "../echo_runtime" }

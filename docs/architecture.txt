@@ -1,0 +1,281 @@
+Echo Architecture
+=================
+
+Echo is a PHP-compatible compiled language built around LLVM.
+
+Echo has one compiler backend: LLVM.
+Echo has two LLVM execution modes: AOT and JIT.
+
+
+Compilation Pipeline
+--------------------
+
+                         .echo / .php source
+                                  |
+                                  v
+                     +-------------------------+
+                     | xo CLI orchestration    |
+                     | - ast / ir / run / build|
+                     | - repl host             |
+                     +------------+------------+
+                                  |
+                                  v
+                     +-------------------------+
+                     | echo_source             |
+                     | SourceFile              |
+                     | source-mode selection   |
+                     +------------+------------+
+                                  |
+                                  v
+                     +-------------------------+
+                     | ParserConfig            |
+                     | - Php mode              |
+                     |   require <?php         |
+                     |   no Echo extensions    |
+                     | - Echo mode             |
+                     |   optional <?php        |
+                     |   Echo extensions ok    |
+                     +------------+------------+
+                                  |
+                                  v
+              +-----------------------------------------+
+              | echo_lexer / echo_parser               |
+              | one shared parser implementation        |
+              | AST                                    |
+              +-------------------+---------------------+
+                                  |
+                                  v
+                     +-------------------------+
+                     | echo_ast                |
+                     | Program                 |
+                     | - source_kind           |
+                     | - opening_tag           |
+                     | - statements            |
+                     +------------+------------+
+                                  |
+                                  v
+                     +-------------------------+
+                     | echo_hir                |
+                     | resolved PHP/Echo       |
+                     | semantics               |
+                     +------------+------------+
+                                  |
+                                  v
+                     +-------------------------+
+                     | echo_mir                |
+                     | required compiler IR    |
+                     | backend-neutral, not VM |
+                     +------------+------------+
+                                  |
+                                  v
+                     +-------------------------+
+                     | echo_codegen            |
+                     | LLVM IR via inkwell     |
+                     +------------+------------+
+                                  |
+             +--------------------+--------------------+
+             |                    |                    |
+             v                    v                    v
+  +----------------------+  +----------------------+  +----------------------+
+  | xo build             |  | xo run               |  | embedded Echo        |
+  | AOT/native build     |  | temp native now      |  | LLVM JIT in host     |
+  | object/binary        |  | LLVM JIT later       |  | process             |
+  +----------+-----------+  +----------+-----------+  +----------+-----------+
+             |                         |                         |
+             v                         v                         v
+  +-----------------------------------------------------------------------+
+  | echo_runtime                                                          |
+  | shared runtime contract for AOT and JIT                               |
+  | runtime symbols linked or registered for generated LLVM code          |
+  +-----------------------------------------------------------------------+
+
+
+Short Form
+----------
+
+  Source -> AST -> HIR -> MIR -> LLVM IR -> AOT/JIT
+
+
+LLVM-First Execution Model
+--------------------------
+
+Echo's primary compiler path is intentionally linear:
+
+  Source -> AST -> HIR -> MIR -> LLVM IR
+
+HIR owns resolved PHP/Echo meaning. MIR is the required compiler IR between HIR
+and LLVM. MIR is backend-neutral, but it is not VM bytecode and not a second
+execution engine.
+
+LLVM IR is the single backend target. From LLVM IR, Echo can support multiple
+execution modes without introducing another language engine:
+
+  LLVM IR -> AOT/native build
+  LLVM IR -> JIT/in-process execution
+
+`xo build` uses the AOT path and links generated code with `echo_runtime`.
+
+`xo run` may initially build and run a temporary native binary. Later, it should
+move to LLVM JIT for faster development loops.
+
+Embedded Echo should use LLVM JIT in the host process. The host registers
+`echo_runtime` symbols so generated LLVM code can call the same runtime
+functions used by AOT builds.
+
+This avoids semantic drift because Echo has one compiler backend and one runtime
+contract.
+
+
+Runtime Contract
+----------------
+
+`echo_runtime` remains the shared semantic/runtime layer. LLVM-generated code
+should call runtime functions such as:
+
+  echo_write
+  echo_write_i64
+  echo_write_string
+  echo_value_add
+  echo_to_printable
+  echo_array_get
+  echo_array_set
+  echo_call_dynamic
+  echo_ob_start
+  echo_ob_flush
+  echo_throw
+  echo_shutdown
+
+AOT and JIT both use the same runtime contract:
+
+  AOT:
+    LLVM IR -> object/binary -> linked with echo_runtime
+
+  JIT:
+    LLVM IR -> in-process execution -> registered echo_runtime symbols
+
+
+Why Not a Custom VM Now?
+------------------------
+
+A custom Echo VM is optional future work, not part of the current compiler
+architecture. A VM would create a second execution engine beside LLVM codegen,
+which increases the risk of semantic drift.
+
+For example, the same Echo program could accidentally behave differently under a
+custom VM and LLVM codegen if both independently implement language behavior.
+
+LLVM JIT gives Echo most of the near-term benefits of an embedded execution mode
+while preserving the same LLVM backend used for native builds.
+
+A custom VM may be reconsidered later if Echo needs portable bytecode, stronger
+sandboxing, a tiny interpreter, deterministic debugger stepping, or plugin
+scripts without native code execution. Until then, the architecture remains
+LLVM-first.
+
+
+Source-Mode Rule
+----------------
+
+There are multiple parser configurations, not multiple parsers.
+
+  *.php   -> PHP mode
+             opening <?php required
+             Echo-only syntax disabled
+
+  *.echo  -> Echo mode
+             opening <?php optional
+             Echo-only syntax enabled
+
+The AST records source-level facts such as source mode and opening-tag
+presence. It does not lower syntax into runtime or LLVM concepts.
+
+
+Ownership Boundaries
+--------------------
+
+  echo_source
+      Owns source file classification and source text metadata.
+
+  echo_lexer
+      Owns tokenization and lexer diagnostics.
+
+  echo_parser
+      Owns parsing, source-mode validation, and parser diagnostics. It should
+      remain one shared parser for PHP-compatible syntax plus gated Echo
+      extensions.
+
+  echo_ast
+      Owns syntax tree shape. AST nodes preserve source syntax and source-level
+      facts.
+
+  echo_hir
+      Owns lowering from AST plus semantic facts into resolved PHP/Echo
+      meaning. HIR should not have its own parser.
+
+  echo_mir
+      Owns the required compiler IR between HIR and LLVM IR. MIR exists to make
+      lowering regular and testable; it is not VM bytecode and does not execute
+      Echo programs.
+
+  echo_semantics
+      Owns meaning that requires analysis: variable bindings, expression types,
+      scope rules, symbol resolution, and semantic diagnostics.
+
+  echo_codegen
+      Owns MIR to LLVM IR generation through inkwell. LLVM is the single
+      compiler backend target.
+
+  echo_runtime
+      Owns executable value and runtime behavior in Rust. AOT links it; JIT
+      registers its symbols in the host process.
+
+  xo
+      Owns CLI orchestration, command presentation, REPL hosting, and display
+      formatting. It must not define private language semantics.
+
+
+MIR Requirement
+---------------
+
+MIR is required for the architecture. It is Echo's backend-neutral compiler IR
+between HIR and LLVM IR. MIR should make code generation simpler to test and
+less tied to AST or HIR details.
+
+MIR must not become a second executable representation or a second semantic
+engine. It lowers to LLVM IR; AOT and JIT both execute through LLVM.
+
+
+Roadmap
+-------
+
+Current:
+
+  AST -> LLVM IR -> temp native binary
+
+Next:
+
+  AST -> HIR -> MIR -> LLVM IR -> native binary
+
+Then:
+
+  AST -> HIR -> MIR -> LLVM IR -> JIT
+
+
+Future Shape
+------------
+
+The target flow is:
+
+  source text
+    -> parser config from source mode
+    -> shared lexer/parser
+    -> AST
+    -> HIR
+    -> MIR
+    -> LLVM IR
+    -> AOT/native build or LLVM JIT
+    -> Rust-owned runtime behavior
+
+The REPL, embedding hosts, and native builds should consume the same LLVM-first
+language pipeline instead of maintaining local parsers, evaluators, symbol
+tables, type environments, or execution engines.
