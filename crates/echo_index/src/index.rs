@@ -79,6 +79,12 @@ impl EchoIndex {
         self.files.get(&file_id)
     }
 
+    pub fn file_by_path(&self, path: &std::path::Path) -> Option<&IndexedFile> {
+        self.files
+            .values()
+            .find(|file| file.path.as_deref() == Some(path))
+    }
+
     pub fn remove_file(&mut self, file_id: FileId) {
         self.files.remove(&file_id);
         self.remove_symbols_for_file(file_id);
@@ -174,6 +180,33 @@ impl EchoIndex {
             .flatten()
             .filter_map(|symbol_id| self.symbols.get(symbol_id))
             .collect()
+    }
+
+    pub fn method_definition(&self, class_name: &str, method_name: &str) -> Option<SymbolLocation> {
+        let target = format!("{class_name}::{method_name}");
+        let short_target = class_name
+            .rsplit('\\')
+            .next()
+            .map(|short_name| format!("{short_name}::{method_name}"));
+
+        self.symbols
+            .values()
+            .find(|symbol| {
+                symbol.kind == crate::SymbolKind::Method
+                    && symbol.fq_name.as_ref().is_some_and(|fq_name| {
+                        let fq_name = fq_name.as_string();
+                        fq_name == target
+                            || short_target
+                                .as_ref()
+                                .is_some_and(|short_target| fq_name == *short_target)
+                    })
+            })
+            .map(|symbol| SymbolLocation {
+                file_id: symbol.file_id,
+                symbol_id: symbol.id,
+                range: symbol.range,
+                selection_range: symbol.selection_range,
+            })
     }
 
     pub fn dependencies(&self, query: DependencyQuery<'_>) -> Vec<&DependencyFact> {
@@ -653,5 +686,30 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn resolves_method_definition_by_fully_qualified_class_name() {
+        let mut index = EchoIndex::new();
+        let file_id = index.alloc_file_id();
+        index.insert_file(file(file_id, "file:///project/vendor/Application.php"));
+        index.update_file(
+            file_id,
+            IndexFacts::declarations(
+                file_id,
+                EchoFileMode::PhpCompat,
+                vec![fq_symbol(
+                    &["Illuminate", "Foundation"],
+                    "Application::handleRequest",
+                    SymbolKind::Method,
+                )],
+            ),
+        );
+
+        let location = index
+            .method_definition("Illuminate\\Foundation\\Application", "handleRequest")
+            .expect("method definition");
+
+        assert_eq!(location.file_id, file_id);
     }
 }

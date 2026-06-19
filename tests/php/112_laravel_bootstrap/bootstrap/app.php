@@ -14,12 +14,5 @@ class Request
 
 namespace {
 
-class Application
-{
-    public function handleRequest($request)
-    {
-    }
-}
-
-return new Application();
+return new Illuminate\Foundation\Application();
 }

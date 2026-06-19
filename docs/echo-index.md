@@ -261,11 +261,14 @@ Meaning:
 - `Require` / `RequireOnce` / `Include` / `IncludeOnce`: PHP include graph
   edges. These should be facts first; execution and conditional include
   semantics belong in semantic/runtime layers.
-- `ComposerAutoload`: future project configuration edge from Composer metadata
-  to PHP-compatible symbol discovery.
+- `ComposerAutoload`: the concrete `vendor/autoload.php` source edge. Composer
+  metadata and classmap resolution can layer on top later.
 
-The first slice only stores these facts. It should not resolve Composer
-autoloading, execute include files, or infer conditional availability.
+The index stores these facts without executing include files or inferring
+conditional availability. Consumers such as `echo_lsp` may use concrete
+filesystem paths from these facts to parse imported PHP source units into the
+same index, so features such as definition lookup can cross from an entrypoint
+through `require_once` into vendored declarations.
 
 ## Initial Index API
 

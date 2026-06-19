@@ -243,6 +243,11 @@ facts. Hover is served from declaration and dependency facts, including PHP
 Go-to definition resolves declaration/dependency self-navigation and PHP
 imported static class references such as `Request::capture()` back to the
 matching `use Illuminate\Http\Request;` dependency fact.
+For open filesystem-backed PHP files, the server also follows concrete
+`require`, `require_once`, `include`, `include_once`, and Composer autoload file
+dependencies extracted by `echo_semantics`, parses those imported PHP source
+units into `echo_index`, and can resolve PHPDoc-typed receiver method calls such
+as `$app->handleRequest(...)` to indexed class methods in included vendor files.
 References are initially same-file and import-aware, so finding references for
 that imported `Request` name returns both the `use` dependency and static class
 reference.

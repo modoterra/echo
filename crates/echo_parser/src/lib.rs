@@ -1204,11 +1204,26 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 ty,
             });
 
-        let method_decl = text::keyword("intrinsic")
+        let method_body = none_of('}')
+            .repeated()
+            .ignored()
+            .delimited_by(just('{').padded(), just('}').padded())
+            .ignored();
+
+        let method_visibility = text::keyword("public")
+            .or(text::keyword("protected"))
+            .or(text::keyword("private"))
             .padded()
-            .to(true)
-            .or_not()
-            .map(|is_intrinsic| is_intrinsic.unwrap_or(false))
+            .or_not();
+
+        let method_decl = method_visibility
+            .ignore_then(
+                text::keyword("intrinsic")
+                    .padded()
+                    .to(true)
+                    .or_not()
+                    .map(|is_intrinsic| is_intrinsic.unwrap_or(false)),
+            )
             .then(
                 text::keyword("static")
                     .padded()
@@ -1234,7 +1249,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .ignore_then(type_expr.clone().padded())
                     .or_not(),
             )
-            .then_ignore(terminator.clone())
+            .then_ignore(terminator.clone().or(method_body))
             .map_with(
                 |((((is_intrinsic, is_static), name), params), return_type): (
                     (((bool, bool), &str), Vec<TypedParam>),
@@ -2839,6 +2854,26 @@ $fn("Echo");
         assert!(matches!(
             &program.statements[1],
             Stmt::DynamicFunctionCall(_)
+        ));
+    }
+
+    #[test]
+    fn echo_mode_accepts_php_class_method_with_visibility_and_body() {
+        let program = parse_with_mode(
+            "<?php namespace Illuminate\\Foundation; class Application { public function handleRequest($request) { } }",
+            SourceMode::Echo,
+        )
+        .expect("Echo superset mode accepts PHP method bodies");
+
+        assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::ClassDecl(statement)
+                if statement.name == "Application"
+                    && matches!(
+                        &statement.members[0],
+                        ClassMember::Method(method) if method.name == "handleRequest"
+                    )
         ));
     }
 
