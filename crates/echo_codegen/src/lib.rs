@@ -4,13 +4,12 @@ use abi::{
     BuiltinCodegen, BuiltinLowering, CoreRuntimeSymbol, PHP_BUILTINS, PHP_RUNTIME_HELPERS,
     PhpBuiltin, STD_INTRINSICS, StdIntrinsic, php_builtin, std_intrinsic,
 };
-use echo_ast::{
-    BinaryOp, BreakStmt, Expr, FunctionDeclStmt, IfStmt, ImportSource, LoopExpr, LoopStmt,
-    ObjectExpr, Program, Stmt, TypedParam, UnaryOp,
-};
+use echo_ast::{BinaryOp, ImportSource, Program, Stmt, TypedParam, UnaryOp};
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
+use inkwell::OptimizationLevel as LlvmOptimizationLevel;
 use inkwell::context::Context;
+use inkwell::memory_buffer::MemoryBuffer;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
@@ -22,6 +21,30 @@ enum RuntimeValue {
 const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
 const REFLECTION_SOURCE_STD: i32 = 2;
 const REFLECTION_SOURCE_USERLAND: i32 = 3;
+
+fn stmt_span(statement: &Stmt) -> Span {
+    match statement {
+        Stmt::Echo(statement) => statement.span,
+        Stmt::FunctionCall(statement) => statement.span,
+        Stmt::DynamicFunctionCall(statement) => statement.span,
+        Stmt::FunctionDecl(statement) => statement.span,
+        Stmt::Assign(statement) => statement.span,
+        Stmt::Let(statement) => statement.span,
+        Stmt::AssignRef(statement) => statement.span,
+        Stmt::Return(statement) => statement.span,
+        Stmt::Yield(statement) => statement.span,
+        Stmt::Expr(statement) => statement.span,
+        Stmt::Namespace(statement) => statement.span,
+        Stmt::Use(statement) => statement.span,
+        Stmt::Import(statement) => statement.span,
+        Stmt::ClassDecl(statement) => statement.span,
+        Stmt::TypeDecl(statement) => statement.span,
+        Stmt::Loop(statement) => statement.span,
+        Stmt::If(statement) => statement.span,
+        Stmt::Break(statement) => statement.span,
+        Stmt::Append(statement) => statement.span,
+    }
+}
 
 pub fn backend_name() -> &'static str {
     "llvm"
@@ -35,8 +58,19 @@ pub fn smoke_test_module_ir() -> String {
 }
 
 pub fn compile_to_ir(program: &Program) -> Result<String, Vec<Diagnostic>> {
-    echo_semantics::analyze(program)?;
+    let hir = echo_hir::lower_program(program)?;
+    let mir = echo_mir::lower_program(&hir)?;
 
+    compile_mir_to_ir(&mir)
+}
+
+pub fn compile_hir_to_ir(program: &echo_hir::HirProgram) -> Result<String, Vec<Diagnostic>> {
+    let mir = echo_mir::lower_program(program)?;
+
+    compile_mir_to_ir(&mir)
+}
+
+pub fn compile_mir_to_ir(program: &echo_mir::MirProgram) -> Result<String, Vec<Diagnostic>> {
     let mut module = IrModule::new();
     let body = module.render_program(program)?;
 
@@ -64,13 +98,1045 @@ entry:
     ))
 }
 
+pub fn run_program_jit(program: &Program) -> Result<i32, Vec<Diagnostic>> {
+    let ir = compile_to_ir(program)?;
+    run_ir_jit(&ir)
+}
+
+pub fn run_mir_jit(program: &echo_mir::MirProgram) -> Result<i32, Vec<Diagnostic>> {
+    let ir = compile_mir_to_ir(program)?;
+    run_ir_jit(&ir)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JitOutput {
+    pub status: i32,
+    pub stdout: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct JitOptions {
+    pub capture_stdout: bool,
+    pub repl_inspect: bool,
+}
+
+pub fn run_ir_jit_with_options(
+    ir: &str,
+    options: JitOptions,
+) -> Result<JitOutput, Vec<Diagnostic>> {
+    if options.capture_stdout {
+        let (status, stdout) =
+            echo_runtime::capture_stdout(options.repl_inspect, || run_ir_jit(ir));
+        let status = status?;
+
+        Ok(JitOutput { status, stdout })
+    } else {
+        Ok(JitOutput {
+            status: run_ir_jit(ir)?,
+            stdout: Vec::new(),
+        })
+    }
+}
+
+fn run_ir_jit(ir: &str) -> Result<i32, Vec<Diagnostic>> {
+    let context = Context::create();
+    let mut ir_bytes = ir.as_bytes().to_vec();
+    ir_bytes.push(0);
+    let memory_buffer = MemoryBuffer::create_from_memory_range_copy(&ir_bytes, "echo_jit");
+    let module = context
+        .create_module_from_ir(memory_buffer)
+        .map_err(|err| jit_diagnostic(format!("failed to parse generated LLVM IR: {err}")))?;
+    let execution_engine = module
+        .create_jit_execution_engine(LlvmOptimizationLevel::None)
+        .map_err(|err| jit_diagnostic(format!("failed to create LLVM JIT engine: {err}")))?;
+
+    register_jit_runtime_symbols(&module, &execution_engine)?;
+
+    type Main = unsafe extern "C" fn() -> i32;
+    let main = unsafe {
+        execution_engine
+            .get_function::<Main>("main")
+            .map_err(|err| jit_diagnostic(format!("failed to find JIT main function: {err:?}")))?
+    };
+
+    Ok(unsafe { main.call() })
+}
+
+fn register_jit_runtime_symbols(
+    module: &inkwell::module::Module<'_>,
+    execution_engine: &inkwell::execution_engine::ExecutionEngine<'_>,
+) -> Result<(), Vec<Diagnostic>> {
+    let addresses = jit_runtime_symbol_addresses()
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+    let mut missing = Vec::new();
+
+    for function in module.get_functions() {
+        if function.count_basic_blocks() != 0 {
+            continue;
+        }
+
+        let Ok(symbol) = function.get_name().to_str() else {
+            continue;
+        };
+
+        if !symbol.starts_with("echo_") {
+            continue;
+        }
+
+        if let Some(address) = addresses.get(symbol) {
+            execution_engine.add_global_mapping(&function, *address);
+        } else {
+            missing.push(symbol.to_string());
+        }
+    }
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        missing.sort();
+        missing.dedup();
+        Err(jit_diagnostic(format!(
+            "missing JIT runtime symbol mappings: {}",
+            missing.join(", ")
+        )))
+    }
+}
+
+fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
+    vec![
+        (
+            "echo_write",
+            echo_runtime::echo_write as unsafe extern "C" fn(*const u8, usize) as usize,
+        ),
+        (
+            "echo_write_value",
+            echo_runtime::echo_write_value as unsafe extern "C" fn(echo_runtime::EchoValue)
+                as usize,
+        ),
+        (
+            "echo_value_string",
+            echo_runtime::echo_value_string
+                as unsafe extern "C" fn(*const u8, usize) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_add",
+            echo_runtime::echo_value_add
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_sub",
+            echo_runtime::echo_value_sub
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_mul",
+            echo_runtime::echo_value_mul
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_div",
+            echo_runtime::echo_value_div
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_mod",
+            echo_runtime::echo_value_mod
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_pow",
+            echo_runtime::echo_value_pow
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_unary_plus",
+            echo_runtime::echo_value_unary_plus
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_unary_minus",
+            echo_runtime::echo_value_unary_minus
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_concat",
+            echo_runtime::echo_value_concat
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_list_new",
+            echo_runtime::echo_value_list_new as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_list_append",
+            echo_runtime::echo_value_list_append
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_array_new",
+            echo_runtime::echo_value_array_new as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_array_append",
+            echo_runtime::echo_value_array_append
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_array_set",
+            echo_runtime::echo_value_array_set
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_index_get",
+            echo_runtime::echo_value_index_get
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_object_new",
+            echo_runtime::echo_value_object_new as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_object_set",
+            echo_runtime::echo_value_object_set
+                as unsafe extern "C" fn(
+                    echo_runtime::EchoValue,
+                    *const u8,
+                    usize,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_object_get",
+            echo_runtime::echo_value_object_get
+                as unsafe extern "C" fn(
+                    echo_runtime::EchoValue,
+                    *const u8,
+                    usize,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_task_defer",
+            echo_runtime::echo_task_defer
+                as extern "C" fn(
+                    Option<echo_runtime::task::EchoTaskCallback>,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_task_run",
+            echo_runtime::echo_task_run
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_task_join",
+            echo_runtime::echo_task_join
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_task_group_new",
+            echo_runtime::echo_task_group_new as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_task_group_add",
+            echo_runtime::echo_task_group_add
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_task_group_run_and_join",
+            echo_runtime::echo_task_group_run_and_join
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_thread_fork",
+            echo_runtime::echo_thread_fork
+                as extern "C" fn(
+                    Option<echo_runtime::task::EchoTaskCallback>,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_thread_fork_task",
+            echo_runtime::echo_thread_fork_task
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_thread_join",
+            echo_runtime::echo_thread_join
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_process_spawn",
+            echo_runtime::echo_process_spawn
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_process_join",
+            echo_runtime::echo_process_join
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_join",
+            echo_runtime::echo_join
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_task_sleep_current",
+            echo_runtime::echo_task_sleep_current
+                as extern "C" fn(
+                    i64,
+                    Option<echo_runtime::task::EchoTaskCallback>,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_time_sleep",
+            echo_runtime::echo_time_sleep as extern "C" fn(i64) as usize,
+        ),
+        (
+            "echo_call_function",
+            echo_runtime::echo_call_function
+                as unsafe extern "C" fn(*const u8, usize) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_reflection_register_function",
+            echo_runtime::echo_reflection_register_function
+                as unsafe extern "C" fn(*const u8, usize, *const u8, usize, *const u8, usize, i32)
+                as usize,
+        ),
+        (
+            "echo_php_abs",
+            echo_runtime::echo_php_abs
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_flush",
+            echo_runtime::echo_php_flush as extern "C" fn() as usize,
+        ),
+        (
+            "echo_php_ob_implicit_flush",
+            echo_runtime::echo_php_ob_implicit_flush as extern "C" fn(echo_runtime::EchoValue)
+                as usize,
+        ),
+        (
+            "echo_php_ob_start",
+            echo_runtime::echo_php_ob_start as extern "C" fn() -> bool as usize,
+        ),
+        (
+            "echo_php_ob_start_value",
+            echo_runtime::echo_php_ob_start_value as extern "C" fn(echo_runtime::EchoValue) -> bool
+                as usize,
+        ),
+        (
+            "echo_php_ob_flush",
+            echo_runtime::echo_php_ob_flush as extern "C" fn() -> bool as usize,
+        ),
+        (
+            "echo_php_ob_clean",
+            echo_runtime::echo_php_ob_clean as extern "C" fn() -> bool as usize,
+        ),
+        (
+            "echo_php_ob_end_flush",
+            echo_runtime::echo_php_ob_end_flush as extern "C" fn() -> bool as usize,
+        ),
+        (
+            "echo_php_ob_end_clean",
+            echo_runtime::echo_php_ob_end_clean as extern "C" fn() -> bool as usize,
+        ),
+        (
+            "echo_php_ob_get_clean",
+            echo_runtime::echo_php_ob_get_clean as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ob_get_contents",
+            echo_runtime::echo_php_ob_get_contents as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ob_get_flush",
+            echo_runtime::echo_php_ob_get_flush as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ob_get_level",
+            echo_runtime::echo_php_ob_get_level as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ob_get_length",
+            echo_runtime::echo_php_ob_get_length as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_strlen",
+            echo_runtime::echo_php_strlen
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_count",
+            echo_runtime::echo_php_count
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_function_exists",
+            echo_runtime::echo_php_function_exists
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_gettype",
+            echo_runtime::echo_php_gettype
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_array_is_list",
+            echo_runtime::echo_php_array_is_list
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_array",
+            echo_runtime::echo_php_is_array
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_countable",
+            echo_runtime::echo_php_is_countable
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_iterable",
+            echo_runtime::echo_php_is_iterable
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_numeric",
+            echo_runtime::echo_php_is_numeric
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_null",
+            echo_runtime::echo_php_is_null
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_bool",
+            echo_runtime::echo_php_is_bool
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_callable",
+            echo_runtime::echo_php_is_callable
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_int",
+            echo_runtime::echo_php_is_int
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_float",
+            echo_runtime::echo_php_is_float
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_finite",
+            echo_runtime::echo_php_is_finite
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_infinite",
+            echo_runtime::echo_php_is_infinite
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_nan",
+            echo_runtime::echo_php_is_nan
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_object",
+            echo_runtime::echo_php_is_object
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_resource",
+            echo_runtime::echo_php_is_resource
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_string",
+            echo_runtime::echo_php_is_string
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_scalar",
+            echo_runtime::echo_php_is_scalar
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_strval",
+            echo_runtime::echo_php_strval
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_boolval",
+            echo_runtime::echo_php_boolval
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_intval",
+            echo_runtime::echo_php_intval
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_strtoupper",
+            echo_runtime::echo_php_strtoupper
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_strtolower",
+            echo_runtime::echo_php_strtolower
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ucwords",
+            echo_runtime::echo_php_ucwords
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_strrev",
+            echo_runtime::echo_php_strrev
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ucfirst",
+            echo_runtime::echo_php_ucfirst
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_lcfirst",
+            echo_runtime::echo_php_lcfirst
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ord",
+            echo_runtime::echo_php_ord
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_str_rot13",
+            echo_runtime::echo_php_str_rot13
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_chr",
+            echo_runtime::echo_php_chr
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_decbin",
+            echo_runtime::echo_php_decbin
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_dechex",
+            echo_runtime::echo_php_dechex
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_decoct",
+            echo_runtime::echo_php_decoct
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_bin2hex",
+            echo_runtime::echo_php_bin2hex
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_base64_encode",
+            echo_runtime::echo_php_base64_encode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_base64_decode",
+            echo_runtime::echo_php_base64_decode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_basename",
+            echo_runtime::echo_php_basename
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_dirname",
+            echo_runtime::echo_php_dirname
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_hex2bin",
+            echo_runtime::echo_php_hex2bin
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_escapeshellarg",
+            echo_runtime::echo_php_escapeshellarg
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_escapeshellcmd",
+            echo_runtime::echo_php_escapeshellcmd
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_explode",
+            echo_runtime::echo_php_explode
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_file_exists",
+            echo_runtime::echo_php_file_exists
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_dir",
+            echo_runtime::echo_php_is_dir
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_file",
+            echo_runtime::echo_php_is_file
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_link",
+            echo_runtime::echo_php_is_link
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_trim",
+            echo_runtime::echo_php_trim
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_ltrim",
+            echo_runtime::echo_php_ltrim
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_rtrim",
+            echo_runtime::echo_php_rtrim
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_addslashes",
+            echo_runtime::echo_php_addslashes
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_stripslashes",
+            echo_runtime::echo_php_stripslashes
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_quotemeta",
+            echo_runtime::echo_php_quotemeta
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_str_contains",
+            echo_runtime::echo_php_str_contains
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_str_starts_with",
+            echo_runtime::echo_php_str_starts_with
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_str_ends_with",
+            echo_runtime::echo_php_str_ends_with
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_str_repeat",
+            echo_runtime::echo_php_str_repeat
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_substr",
+            echo_runtime::echo_php_substr
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strpos",
+            echo_runtime::echo_php_strpos
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_stripos",
+            echo_runtime::echo_php_stripos
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strrpos",
+            echo_runtime::echo_php_strrpos
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strripos",
+            echo_runtime::echo_php_strripos
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strstr",
+            echo_runtime::echo_php_strstr
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_stristr",
+            echo_runtime::echo_php_stristr
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strrchr",
+            echo_runtime::echo_php_strrchr
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strpbrk",
+            echo_runtime::echo_php_strpbrk
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strspn",
+            echo_runtime::echo_php_strspn
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strcspn",
+            echo_runtime::echo_php_strcspn
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_substr_count",
+            echo_runtime::echo_php_substr_count
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_substr_compare",
+            echo_runtime::echo_php_substr_compare
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strcmp",
+            echo_runtime::echo_php_strcmp
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strcasecmp",
+            echo_runtime::echo_php_strcasecmp
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strncmp",
+            echo_runtime::echo_php_strncmp
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strncasecmp",
+            echo_runtime::echo_php_strncasecmp
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_std_assert_ok",
+            echo_runtime::echo_std_assert_ok
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_assert_equals",
+            echo_runtime::echo_std_assert_equals
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_std_http_response_text",
+            echo_runtime::echo_std_http_response_text
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_http_read_request",
+            echo_runtime::echo_std_http_read_request
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_net_listen",
+            echo_runtime::echo_std_net_listen
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_net_connect",
+            echo_runtime::echo_std_net_connect
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_net_accept",
+            echo_runtime::echo_std_net_accept
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_net_read",
+            echo_runtime::echo_std_net_read
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_std_net_write",
+            echo_runtime::echo_std_net_write
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_std_net_close",
+            echo_runtime::echo_std_net_close
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_reflect_exists",
+            echo_runtime::echo_std_reflect_exists
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_reflect_params",
+            echo_runtime::echo_std_reflect_params
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_reflect_return_type",
+            echo_runtime::echo_std_reflect_return_type
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_std_reflect_type_of",
+            echo_runtime::echo_std_reflect_type_of
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_shutdown",
+            echo_runtime::echo_shutdown as extern "C" fn() as usize,
+        ),
+    ]
+}
+
+fn jit_diagnostic(message: String) -> Vec<Diagnostic> {
+    vec![Diagnostic::new(message, Span::new(0, 0))]
+}
+
 struct IrModule {
     globals: String,
     functions_ir: String,
     aliases: HashMap<String, String>,
     std_imports: HashMap<String, String>,
     locals: HashMap<String, RuntimeValue>,
-    functions: HashMap<String, FunctionDeclStmt>,
+    functions: HashMap<String, echo_mir::MirFunction>,
     returned: bool,
     terminated: bool,
     break_labels: Vec<String>,
@@ -103,26 +1169,22 @@ impl IrModule {
         }
     }
 
-    fn render_program(&mut self, program: &Program) -> Result<String, Vec<Diagnostic>> {
+    fn render_program(
+        &mut self,
+        program: &echo_mir::MirProgram,
+    ) -> Result<String, Vec<Diagnostic>> {
         let mut body = String::new();
         let mut diagnostics = Vec::new();
 
-        for statement in &program.statements {
-            if let Stmt::Import(statement) = statement
-                && let Err(diagnostic) = self.register_std_import(statement)
-            {
+        for statement in program.imports() {
+            if let Err(diagnostic) = self.register_std_import(statement) {
                 diagnostics.push(diagnostic);
             }
         }
 
-        for statement in &program.statements {
-            if let Stmt::FunctionDecl(statement) = statement
-                && !statement.is_intrinsic
-                && !statement.is_generator
-            {
-                self.functions
-                    .insert(statement.name.clone(), statement.clone());
-            }
+        for statement in program.functions() {
+            self.functions
+                .insert(statement.name.clone(), statement.clone());
         }
 
         for function in self.functions.clone().into_values() {
@@ -133,8 +1195,8 @@ impl IrModule {
 
         self.render_reflection_registrations(&mut body);
 
-        for statement in &program.statements {
-            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+        for statement in program.statements() {
+            if let Err(diagnostic) = self.render_mir_stmt(&mut body, statement) {
                 diagnostics.push(diagnostic);
             }
         }
@@ -217,7 +1279,10 @@ impl IrModule {
         ));
     }
 
-    fn render_userland_function(&mut self, function: &FunctionDeclStmt) -> Result<(), Diagnostic> {
+    fn render_userland_function(
+        &mut self,
+        function: &echo_mir::MirFunction,
+    ) -> Result<(), Diagnostic> {
         let saved_aliases = std::mem::take(&mut self.aliases);
         let saved_locals = std::mem::take(&mut self.locals);
         let saved_returned = self.returned;
@@ -235,7 +1300,7 @@ impl IrModule {
         let mut body = String::new();
 
         for statement in &function.body {
-            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+            if let Err(diagnostic) = self.render_mir_stmt(&mut body, statement) {
                 self.aliases = saved_aliases;
                 self.locals = saved_locals;
                 self.returned = saved_returned;
@@ -272,118 +1337,104 @@ impl IrModule {
         Ok(())
     }
 
-    fn render_stmt(&mut self, body: &mut String, statement: &Stmt) -> Result<(), Diagnostic> {
+    fn render_mir_stmt(
+        &mut self,
+        body: &mut String,
+        statement: &echo_mir::MirStmt,
+    ) -> Result<(), Diagnostic> {
         match statement {
-            Stmt::Echo(statement) => {
-                for expr in &statement.exprs {
-                    let value = self.render_expr(body, expr)?;
+            echo_mir::MirStmt::Echo { exprs, .. } => {
+                for expr in exprs {
+                    let value = self.render_mir_expr(body, expr)?;
                     self.write_value(body, value);
                 }
+                Ok(())
             }
-            Stmt::FunctionCall(statement) => {
-                let name = self.resolve_std_call_name(&statement.name, statement.span)?;
-                if name == "time.sleep" {
-                    self.time_sleep_call(body, &statement.args, statement.span)?;
-                } else if let Some(intrinsic) = std_intrinsic(&name) {
-                    self.std_intrinsic_call(body, intrinsic, &statement.args, statement.span)?;
-                } else {
-                    match php_builtin(&name) {
-                        Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
-                            self.php_builtin_call(body, builtin, &statement.args)?
-                        }
-                        None => self.userland_call(body, statement)?,
-                        Some(_) => self.userland_call(body, statement)?,
-                    }
-                }
+            echo_mir::MirStmt::FunctionCall { call, .. } => {
+                self.render_mir_function_call_stmt(body, call)
             }
-            Stmt::DynamicFunctionCall(statement) => self.dynamic_function_call(body, statement)?,
-            Stmt::FunctionDecl(_) => {}
-            Stmt::Yield(statement) => {
-                return Err(Diagnostic::new(
-                    "unsupported yield statement in LLVM codegen",
-                    statement.span,
-                ));
+            echo_mir::MirStmt::DynamicFunctionCall { source, name, args } => {
+                self.render_mir_dynamic_function_call(body, source, name, args)
             }
-            Stmt::Namespace(_)
-            | Stmt::Use(_)
-            | Stmt::Import(_)
-            | Stmt::ClassDecl(_)
-            | Stmt::TypeDecl(_) => {}
-            Stmt::Loop(statement) => self.render_loop_stmt(body, statement)?,
-            Stmt::If(statement) => {
-                self.render_if_stmt(body, statement)?;
+            echo_mir::MirStmt::Assign { name, value, .. } => {
+                let value = self.render_mir_expr(body, value)?;
+                let name = self.resolve_alias(name);
+                self.locals.insert(name, value);
+                Ok(())
             }
-            Stmt::Break(statement) => self.render_break_stmt(body, statement)?,
-            Stmt::Append(statement) => {
-                let target = self.resolve_alias(&statement.target);
-                let Some(list) = self.locals.get(&target).cloned() else {
-                    return Err(Diagnostic::new(
-                        format!(
-                            "unsupported append to undefined variable `${}` in LLVM codegen",
-                            statement.target
-                        ),
-                        statement.span,
-                    ));
-                };
-                let list = self.runtime_value_as_echo_value(body, list);
-                let value = self.render_expr_as_echo_value(body, &statement.value)?;
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call %EchoValue @{}({list}, {value})\n",
-                    CoreRuntimeSymbol::ValueArrayAppend.symbol()
-                ));
-
-                self.locals.insert(target, RuntimeValue::EchoValue(name));
+            echo_mir::MirStmt::Let { name, value, .. } => {
+                let value = self.render_mir_expr(body, value)?;
+                let name = self.resolve_alias(name);
+                self.locals.insert(name, value);
+                Ok(())
             }
-            Stmt::Return(statement) => {
-                let value = self.render_expr_as_echo_value(body, &statement.value)?;
+            echo_mir::MirStmt::Return { value, .. } => {
+                let value = self.render_mir_expr_as_echo_value(body, value)?;
                 body.push_str(&format!("  ret {value}\n"));
                 self.returned = true;
                 self.terminated = true;
+                Ok(())
             }
-            Stmt::Expr(statement) => {
-                self.render_expr(body, &statement.expr)?;
+            echo_mir::MirStmt::Expr { expr, .. } => {
+                self.render_mir_expr(body, expr)?;
+                Ok(())
             }
-            Stmt::Assign(statement) => {
-                let value = self.render_expr(body, &statement.value)?;
-                // PHP assignments copy values by default; references are handled separately.
-                // Source: https://www.php.net/manual/en/language.operators.assignment.php
-                let name = self.resolve_alias(&statement.name);
-                self.locals.insert(name, value);
+            echo_mir::MirStmt::Loop {
+                body: loop_body, ..
+            } => self.render_mir_loop_stmt(body, loop_body),
+            echo_mir::MirStmt::If {
+                condition,
+                body: if_body,
+                ..
+            } => self.render_mir_if_stmt(body, condition, if_body),
+            echo_mir::MirStmt::Break { source, value } => {
+                self.render_mir_break_stmt(body, source, value.as_ref())
             }
-            Stmt::Let(statement) => {
-                let value = self.render_expr(body, &statement.value)?;
-                let name = self.resolve_alias(&statement.name);
-                self.locals.insert(name, value);
-            }
-            Stmt::AssignRef(statement) => {
-                let target = self.resolve_alias(&statement.target);
-                if self.locals.contains_key(&target) {
-                    // PHP references make two variable names aliases for the same value cell.
-                    // Source: https://www.php.net/manual/en/language.references.php
-                    self.aliases.insert(statement.name.clone(), target);
-                } else {
-                    return Err(Diagnostic::new(
-                        format!(
-                            "unsupported reference to undefined variable `${}` in LLVM codegen",
-                            statement.target
-                        ),
-                        statement.span,
-                    ));
+            echo_mir::MirStmt::Append {
+                source,
+                target,
+                value,
+            } => self.render_mir_append_stmt(body, source, target, value),
+            echo_mir::MirStmt::AssignRef {
+                source,
+                name,
+                target,
+            } => self.render_mir_assign_ref_stmt(source, name, target),
+            echo_mir::MirStmt::Yield { source, .. } => Err(Diagnostic::new(
+                "unsupported yield statement in LLVM codegen",
+                stmt_span(source),
+            )),
+            echo_mir::MirStmt::Noop { .. } => Ok(()),
+        }
+    }
+
+    fn render_mir_function_call_stmt(
+        &mut self,
+        body: &mut String,
+        call: &echo_mir::MirFunctionCall,
+    ) -> Result<(), Diagnostic> {
+        let name = self.resolve_std_call_name(&call.name, call.span)?;
+        if name == "time.sleep" {
+            self.mir_time_sleep_call(body, &call.args, call.span)?;
+        } else if let Some(intrinsic) = std_intrinsic(&name) {
+            self.mir_std_intrinsic_call(body, intrinsic, &call.args, call.span)?;
+        } else {
+            match php_builtin(&name) {
+                Some(builtin) if builtin.lowering == BuiltinLowering::DirectRuntimeCall => {
+                    self.mir_php_builtin_call(body, builtin, &call.args, call.span)?
                 }
+                None => self.mir_userland_call(body, call)?,
+                Some(_) => self.mir_userland_call(body, call)?,
             }
         }
 
         Ok(())
     }
 
-    fn render_loop_stmt(
+    fn render_mir_loop_stmt(
         &mut self,
         body: &mut String,
-        statement: &LoopStmt,
+        statements: &[echo_mir::MirStmt],
     ) -> Result<(), Diagnostic> {
         let loop_id = self.next_loop_id;
         self.next_loop_id += 1;
@@ -397,8 +1448,8 @@ impl IrModule {
         let saved_terminated = self.terminated;
         self.terminated = false;
 
-        for statement in &statement.body {
-            self.render_stmt(body, statement)?;
+        for statement in statements {
+            self.render_mir_stmt(body, statement)?;
             if self.terminated {
                 break;
             }
@@ -416,26 +1467,27 @@ impl IrModule {
         Ok(())
     }
 
-    fn render_break_stmt(
+    fn render_mir_break_stmt(
         &mut self,
         body: &mut String,
-        statement: &BreakStmt,
+        source: &Stmt,
+        value: Option<&echo_mir::MirExpr>,
     ) -> Result<(), Diagnostic> {
         let Some(label) = self.break_labels.last().cloned() else {
             return Err(Diagnostic::new(
                 "break used outside of loop in LLVM codegen",
-                statement.span,
+                stmt_span(source),
             ));
         };
 
-        if let Some(value) = &statement.value {
+        if let Some(value) = value {
             let Some(Some(slot)) = self.break_value_slots.last().cloned() else {
                 return Err(Diagnostic::new(
                     "break value used outside of expression loop in LLVM codegen",
-                    statement.span,
+                    stmt_span(source),
                 ));
             };
-            let value = self.render_expr_as_echo_value(body, value)?;
+            let value = self.render_mir_expr_as_echo_value(body, value)?;
             body.push_str(&format!("  store {value}, ptr {slot}\n"));
         }
 
@@ -445,8 +1497,13 @@ impl IrModule {
         Ok(())
     }
 
-    fn render_if_stmt(&mut self, body: &mut String, statement: &IfStmt) -> Result<(), Diagnostic> {
-        let condition = self.render_condition(body, &statement.condition)?;
+    fn render_mir_if_stmt(
+        &mut self,
+        body: &mut String,
+        condition_expr: &echo_mir::MirExpr,
+        statements: &[echo_mir::MirStmt],
+    ) -> Result<(), Diagnostic> {
+        let condition = self.render_mir_condition(body, condition_expr)?;
         let if_id = self.next_if_id;
         self.next_if_id += 1;
         let then_label = format!("if_then_{if_id}");
@@ -459,8 +1516,8 @@ impl IrModule {
         let saved_terminated = self.terminated;
         self.terminated = false;
 
-        for statement in &statement.body {
-            self.render_stmt(body, statement)?;
+        for statement in statements {
+            self.render_mir_stmt(body, statement)?;
             if self.terminated {
                 break;
             }
@@ -476,10 +1533,59 @@ impl IrModule {
         Ok(())
     }
 
-    fn render_loop_expr(
+    fn render_mir_append_stmt(
         &mut self,
         body: &mut String,
-        expr: &LoopExpr,
+        source: &Stmt,
+        target: &str,
+        value: &echo_mir::MirExpr,
+    ) -> Result<(), Diagnostic> {
+        let resolved_target = self.resolve_alias(target);
+        let Some(list) = self.locals.get(&resolved_target).cloned() else {
+            return Err(Diagnostic::new(
+                format!("unsupported append to undefined variable `${target}` in LLVM codegen"),
+                stmt_span(source),
+            ));
+        };
+        let list = self.runtime_value_as_echo_value(body, list);
+        let value = self.render_mir_expr_as_echo_value(body, value)?;
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let name = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {name} = call %EchoValue @{}({list}, {value})\n",
+            CoreRuntimeSymbol::ValueArrayAppend.symbol()
+        ));
+
+        self.locals
+            .insert(resolved_target, RuntimeValue::EchoValue(name));
+
+        Ok(())
+    }
+
+    fn render_mir_assign_ref_stmt(
+        &mut self,
+        source: &Stmt,
+        name: &str,
+        target: &str,
+    ) -> Result<(), Diagnostic> {
+        let resolved_target = self.resolve_alias(target);
+        if self.locals.contains_key(&resolved_target) {
+            self.aliases.insert(name.to_string(), resolved_target);
+            Ok(())
+        } else {
+            Err(Diagnostic::new(
+                format!("unsupported reference to undefined variable `${target}` in LLVM codegen"),
+                stmt_span(source),
+            ))
+        }
+    }
+
+    fn render_mir_loop_expr(
+        &mut self,
+        body: &mut String,
+        statements: &[echo_mir::MirStmt],
     ) -> Result<RuntimeValue, Diagnostic> {
         let loop_id = self.next_loop_id;
         self.next_loop_id += 1;
@@ -496,8 +1602,8 @@ impl IrModule {
         let saved_terminated = self.terminated;
         self.terminated = false;
 
-        for statement in &expr.body {
-            self.render_stmt(body, statement)?;
+        for statement in statements {
+            self.render_mir_stmt(body, statement)?;
             if self.terminated {
                 break;
             }
@@ -518,49 +1624,26 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(result_name))
     }
 
-    fn render_object_expr(
+    fn render_mir_condition(
         &mut self,
         body: &mut String,
-        expr: &ObjectExpr,
-    ) -> Result<RuntimeValue, Diagnostic> {
-        let call_id = self.next_call_id;
-        self.next_call_id += 1;
-        let mut object = format!("%runtime_call_{call_id}");
-
-        body.push_str(&format!(
-            "  {object} = call %EchoValue @{}()\n",
-            CoreRuntimeSymbol::ValueObjectNew.symbol()
-        ));
-
-        for field in &expr.fields {
-            let field_global = self.string_global(&field.name);
-            let value = self.render_expr_as_echo_value(body, &field.value)?;
-            let call_id = self.next_call_id;
-            self.next_call_id += 1;
-            let next_object = format!("%runtime_call_{call_id}");
-
-            body.push_str(&format!(
-                "  {next_object} = call %EchoValue @{}(%EchoValue {object}, ptr @{field_global}, i64 {}, {value})\n",
-                CoreRuntimeSymbol::ValueObjectSet.symbol(),
-                field.name.len()
-            ));
-            object = next_object;
-        }
-
-        Ok(RuntimeValue::EchoValue(object))
-    }
-
-    fn render_condition(&mut self, body: &mut String, expr: &Expr) -> Result<String, Diagnostic> {
+        expr: &echo_mir::MirExpr,
+    ) -> Result<String, Diagnostic> {
         match expr {
-            Expr::Binary(expr) if matches!(expr.op, BinaryOp::Is | BinaryOp::IsNot) => {
-                if !matches!(expr.right, Expr::Null(_)) {
+            echo_mir::MirExpr::Binary {
+                source,
+                left,
+                op,
+                right,
+            } if matches!(op, BinaryOp::Is | BinaryOp::IsNot) => {
+                if !matches!(right.as_ref(), echo_mir::MirExpr::Null { .. }) {
                     return Err(Diagnostic::new(
                         "unsupported non-null `is` comparison in LLVM codegen",
-                        expr.span,
+                        source.span(),
                     ));
                 }
 
-                let value = self.render_expr_as_echo_value(body, &expr.left)?;
+                let value = self.render_mir_expr_as_echo_value(body, left)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 let kind = format!("%value_kind_{call_id}");
@@ -570,7 +1653,7 @@ impl IrModule {
                 body.push_str(&format!("  {kind} = extractvalue {value}, 0\n"));
                 body.push_str(&format!("  {is_null} = icmp eq i32 {kind}, 0\n"));
 
-                if expr.op == BinaryOp::IsNot {
+                if *op == BinaryOp::IsNot {
                     body.push_str(&format!("  {condition} = xor i1 {is_null}, true\n"));
                     Ok(condition)
                 } else {
@@ -579,36 +1662,36 @@ impl IrModule {
             }
             _ => Err(Diagnostic::new(
                 "unsupported if condition in LLVM codegen",
-                expr.span(),
+                expr.syntax().span(),
             )),
         }
     }
 
-    fn userland_call(
+    fn mir_userland_call(
         &mut self,
         body: &mut String,
-        statement: &echo_ast::FunctionCallStmt,
+        call: &echo_mir::MirFunctionCall,
     ) -> Result<(), Diagnostic> {
-        let Some(function) = self.functions.get(&statement.name).cloned() else {
+        let Some(function) = self.functions.get(&call.name).cloned() else {
             return Err(Diagnostic::new(
-                format!("unsupported function `{}` in LLVM codegen", statement.name),
-                statement.span,
+                format!("unsupported function `{}` in LLVM codegen", call.name),
+                call.span,
             ));
         };
 
-        if statement.args.len() != function.params.len() {
+        if call.args.len() != function.params.len() {
             return Err(Diagnostic::new(
                 format!(
                     "unsupported argument count for userland function `{}` in LLVM codegen",
-                    statement.name
+                    call.name
                 ),
-                statement.span,
+                call.span,
             ));
         }
 
         let mut args = Vec::new();
-        for arg in &statement.args {
-            args.push(self.render_expr_as_echo_value(body, arg)?);
+        for arg in &call.args {
+            args.push(self.render_mir_expr_as_echo_value(body, arg)?);
         }
 
         let call_id = self.next_call_id;
@@ -616,30 +1699,36 @@ impl IrModule {
 
         body.push_str(&format!(
             "  %runtime_call_{call_id} = call %EchoValue @{}({})\n",
-            userland_function_symbol(&statement.name),
+            userland_function_symbol(&call.name),
             args.join(", ")
         ));
 
         Ok(())
     }
 
-    fn time_sleep_call(
+    fn mir_time_sleep_call(
         &mut self,
         body: &mut String,
-        args: &[Expr],
+        args: &[echo_mir::MirExpr],
         span: Span,
     ) -> Result<(), Diagnostic> {
-        let [Expr::Number(expr)] = args else {
+        let [
+            echo_mir::MirExpr::Number {
+                source: expr,
+                value,
+            },
+        ] = args
+        else {
             return Err(Diagnostic::new(
                 "unsupported argument for time.sleep in LLVM codegen",
                 span,
             ));
         };
 
-        let millis = expr.value.parse::<i64>().map_err(|_| {
+        let millis = value.parse::<i64>().map_err(|_| {
             Diagnostic::new(
                 "unsupported duration for time.sleep in LLVM codegen",
-                expr.span,
+                expr.span(),
             )
         })?;
 
@@ -651,11 +1740,11 @@ impl IrModule {
         Ok(())
     }
 
-    fn std_intrinsic_call(
+    fn mir_std_intrinsic_call(
         &mut self,
         body: &mut String,
         intrinsic: StdIntrinsic,
-        args: &[Expr],
+        args: &[echo_mir::MirExpr],
         span: Span,
     ) -> Result<RuntimeValue, Diagnostic> {
         if args.len() != intrinsic.arity {
@@ -670,7 +1759,7 @@ impl IrModule {
 
         let mut rendered_args = Vec::new();
         for arg in args {
-            rendered_args.push(self.render_std_intrinsic_arg(body, arg)?);
+            rendered_args.push(self.render_mir_std_intrinsic_arg(body, arg)?);
         }
 
         let call_id = self.next_call_id;
@@ -686,30 +1775,30 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(name))
     }
 
-    fn render_std_intrinsic_arg(
+    fn render_mir_std_intrinsic_arg(
         &mut self,
         body: &mut String,
-        arg: &Expr,
+        arg: &echo_mir::MirExpr,
     ) -> Result<String, Diagnostic> {
-        if let Expr::Number(expr) = arg {
-            let value = expr.value.parse::<i64>().map_err(|_| {
+        if let echo_mir::MirExpr::Number { source, value } = arg {
+            let value = value.parse::<i64>().map_err(|_| {
                 Diagnostic::new(
                     "unsupported numeric std intrinsic argument in LLVM codegen",
-                    expr.span,
+                    source.span(),
                 )
             })?;
             return Ok(format!("%EchoValue {{ i32 2, i64 {value} }}"));
         }
 
-        self.render_expr_as_echo_value(body, arg)
+        self.render_mir_expr_as_echo_value(body, arg)
     }
 
-    fn render_expr_as_echo_value(
+    fn render_mir_expr_as_echo_value(
         &mut self,
         body: &mut String,
-        expr: &Expr,
+        expr: &echo_mir::MirExpr,
     ) -> Result<String, Diagnostic> {
-        let value = self.render_expr(body, expr)?;
+        let value = self.render_mir_expr(body, expr)?;
         Ok(self.runtime_value_as_echo_value(body, value))
     }
 
@@ -733,52 +1822,47 @@ impl IrModule {
         }
     }
 
-    fn dynamic_function_call(
+    fn render_mir_dynamic_function_call(
         &mut self,
         body: &mut String,
-        statement: &echo_ast::DynamicFunctionCallStmt,
+        source: &Stmt,
+        name: &str,
+        args: &[echo_mir::MirExpr],
     ) -> Result<(), Diagnostic> {
-        if !statement.args.is_empty() {
+        if !args.is_empty() {
             return Err(Diagnostic::new(
                 format!(
-                    "unsupported arguments for dynamic function call `${}` in LLVM codegen",
-                    statement.name
+                    "unsupported arguments for dynamic function call `${name}` in LLVM codegen"
                 ),
-                statement.span,
+                stmt_span(source),
             ));
         }
 
-        let RuntimeValue::StaticString(name) = self
+        let RuntimeValue::StaticString(function_name) = self
             .locals
-            .get(&self.resolve_alias(&statement.name))
+            .get(&self.resolve_alias(name))
             .cloned()
             .ok_or_else(|| {
                 Diagnostic::new(
-                    format!(
-                        "unsupported undefined dynamic function `${}` in LLVM codegen",
-                        statement.name
-                    ),
-                    statement.span,
+                    format!("unsupported undefined dynamic function `${name}` in LLVM codegen"),
+                    stmt_span(source),
                 )
             })?
         else {
             return Err(Diagnostic::new(
-                format!(
-                    "unsupported non-string dynamic function `${}` in LLVM codegen",
-                    statement.name
-                ),
-                statement.span,
+                format!("unsupported non-string dynamic function `${name}` in LLVM codegen"),
+                stmt_span(source),
             ));
         };
 
-        let global = self.string_global(&name);
+        let global = self.string_global(&function_name);
         let call_id = self.next_call_id;
         self.next_call_id += 1;
 
         body.push_str(&format!(
             "  %runtime_call_{call_id} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
             CoreRuntimeSymbol::CallFunction.symbol(),
-            name.len()
+            function_name.len()
         ));
 
         Ok(())
@@ -803,11 +1887,12 @@ impl IrModule {
         }
     }
 
-    fn php_builtin_call(
+    fn mir_php_builtin_call(
         &mut self,
         body: &mut String,
         builtin: PhpBuiltin,
-        args: &[Expr],
+        args: &[echo_mir::MirExpr],
+        span: Span,
     ) -> Result<(), Diagnostic> {
         match builtin.codegen {
             BuiltinCodegen::ObStart => match args {
@@ -820,7 +1905,7 @@ impl IrModule {
                         builtin.symbol
                     ));
                 }
-                [Expr::Null(_)] => {
+                [echo_mir::MirExpr::Null { .. }] => {
                     let helper = builtin
                         .helper_symbol
                         .expect("ob_start value helper must be declared");
@@ -832,11 +1917,11 @@ impl IrModule {
                         helper
                     ));
                 }
-                [Expr::String(expr)] => {
+                [echo_mir::MirExpr::String { value, .. }] => {
                     let helper = builtin
                         .helper_symbol
                         .expect("ob_start value helper must be declared");
-                    let global = self.string_global(&expr.value);
+                    let global = self.string_global(value);
                     let value_id = self.next_call_id;
                     self.next_call_id += 1;
                     let start_id = self.next_call_id;
@@ -845,7 +1930,7 @@ impl IrModule {
                     body.push_str(&format!(
                         "  %runtime_call_{value_id} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
                         CoreRuntimeSymbol::ValueString.symbol(),
-                        expr.value.len()
+                        value.len()
                     ));
                     body.push_str(&format!(
                         "  %runtime_call_{start_id} = call i1 @{}(%EchoValue %runtime_call_{value_id})\n",
@@ -855,13 +1940,13 @@ impl IrModule {
                 [expr] => {
                     return Err(Diagnostic::new(
                         "unsupported ob_start callback argument in LLVM codegen",
-                        expr.span(),
+                        expr.syntax().span(),
                     ));
                 }
                 _ => {
                     return Err(Diagnostic::new(
                         "unsupported ob_start argument count in LLVM codegen",
-                        args.first().map_or_else(|| Span::new(0, 0), Expr::span),
+                        args.first().map_or(span, |expr| expr.syntax().span()),
                     ));
                 }
             },
@@ -872,7 +1957,7 @@ impl IrModule {
                             "unsupported arguments for builtin `{}` in LLVM codegen",
                             builtin.php_name
                         ),
-                        args.first().map_or_else(|| Span::new(0, 0), Expr::span),
+                        args.first().map_or(span, |expr| expr.syntax().span()),
                     ));
                 }
 
@@ -885,11 +1970,11 @@ impl IrModule {
                             "unsupported argument count for builtin `{}` in LLVM codegen",
                             builtin.php_name
                         ),
-                        args.first().map_or_else(|| Span::new(0, 0), Expr::span),
+                        args.first().map_or(span, |expr| expr.syntax().span()),
                     ));
                 };
 
-                let arg = self.render_expr_as_echo_value(body, arg)?;
+                let arg = self.render_mir_expr_as_echo_value(body, arg)?;
                 body.push_str(&format!("  call void @{}({arg})\n", builtin.symbol));
             }
             BuiltinCodegen::BoolStatement => {
@@ -910,25 +1995,13 @@ impl IrModule {
                     builtin.symbol
                 ));
             }
-            BuiltinCodegen::Basename => {
-                unreachable!("expression builtin used as statement call")
-            }
-            BuiltinCodegen::Dirname => {
-                unreachable!("expression builtin used as statement call")
-            }
-            BuiltinCodegen::ValueUnaryExpression => {
-                unreachable!("expression builtin used as statement call")
-            }
-            BuiltinCodegen::ValueBinaryExpression => {
-                unreachable!("expression builtin used as statement call")
-            }
-            BuiltinCodegen::ValueTernaryExpression => {
-                unreachable!("expression builtin used as statement call")
-            }
-            BuiltinCodegen::Explode => {
-                unreachable!("expression builtin used as statement call")
-            }
-            BuiltinCodegen::SubstrCompare => {
+            BuiltinCodegen::Basename
+            | BuiltinCodegen::Dirname
+            | BuiltinCodegen::ValueUnaryExpression
+            | BuiltinCodegen::ValueBinaryExpression
+            | BuiltinCodegen::ValueTernaryExpression
+            | BuiltinCodegen::Explode
+            | BuiltinCodegen::SubstrCompare => {
                 unreachable!("expression builtin used as statement call")
             }
         }
@@ -936,18 +2009,26 @@ impl IrModule {
         Ok(())
     }
 
-    fn render_expr(&mut self, body: &mut String, expr: &Expr) -> Result<RuntimeValue, Diagnostic> {
+    fn render_mir_expr(
+        &mut self,
+        body: &mut String,
+        expr: &echo_mir::MirExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
         match expr {
-            Expr::Null(_) => Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string())),
-            Expr::Bool(expr) => Ok(RuntimeValue::EchoValue(format!(
+            echo_mir::MirExpr::Null { .. } => {
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
+            echo_mir::MirExpr::Bool { value, .. } => Ok(RuntimeValue::EchoValue(format!(
                 "{{ i32 1, i64 {} }}",
-                expr.value as u8
+                *value as u8
             ))),
-            Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
-            Expr::Number(expr) => {
-                if let Ok(value) = expr.value.parse::<i64>() {
+            echo_mir::MirExpr::String { value, .. } => {
+                Ok(RuntimeValue::StaticString(value.clone()))
+            }
+            echo_mir::MirExpr::Number { source, value } => {
+                if let Ok(value) = value.parse::<i64>() {
                     Ok(RuntimeValue::EchoValue(format!("{{ i32 2, i64 {value} }}")))
-                } else if let Ok(value) = expr.value.parse::<f64>() {
+                } else if let Ok(value) = value.parse::<f64>() {
                     Ok(RuntimeValue::EchoValue(format!(
                         "{{ i32 11, i64 {} }}",
                         value.to_bits() as i64
@@ -955,26 +2036,25 @@ impl IrModule {
                 } else {
                     Err(Diagnostic::new(
                         "unsupported numeric literal in LLVM codegen",
-                        expr.span,
+                        source.span(),
                     ))
                 }
             }
-            Expr::Variable(expr) => self
+            echo_mir::MirExpr::Variable { source, name } => self
                 .locals
-                .get(&self.resolve_alias(&expr.name))
+                .get(&self.resolve_alias(name))
                 .cloned()
                 .ok_or_else(|| {
                     Diagnostic::new(
-                        format!(
-                            "unsupported undefined variable `${}` in LLVM codegen",
-                            expr.name
-                        ),
-                        expr.span,
+                        format!("unsupported undefined variable `${name}` in LLVM codegen"),
+                        source.span(),
                     )
                 }),
-            Expr::FunctionCall(expr) => self.render_function_call_expr(body, expr),
-            Expr::Defer(expr) => {
-                let function = self.render_defer_function(body, &expr.body)?;
+            echo_mir::MirExpr::FunctionCall { call, .. } => {
+                self.render_mir_function_call_expr(body, call)
+            }
+            echo_mir::MirExpr::Defer { body: block, .. } => {
+                let function = self.render_mir_defer_function(body, block)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 body.push_str(&format!(
@@ -983,64 +2063,64 @@ impl IrModule {
                 ));
                 Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
             }
-            Expr::Run(expr) => self.render_run_expr(body, expr),
-            Expr::Join(expr) => {
-                self.render_task_unary_expr(body, &expr.handle, CoreRuntimeSymbol::TaskJoin)
+            echo_mir::MirExpr::Run { source, expr } => self.render_mir_run_expr(body, source, expr),
+            echo_mir::MirExpr::Join { handle, .. } => {
+                self.render_mir_task_unary_expr(body, handle, CoreRuntimeSymbol::Join)
             }
-            Expr::Loop(expr) => self.render_loop_expr(body, expr),
-            Expr::Fork(_) | Expr::Spawn(_) => {
-                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            echo_mir::MirExpr::Loop { body: block, .. } => self.render_mir_loop_expr(body, block),
+            echo_mir::MirExpr::Fork { source, expr } => {
+                self.render_mir_fork_expr(body, source, expr)
             }
-            Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
-                self.render_concat_expr(body, &expr.left, &expr.right)
+            echo_mir::MirExpr::Spawn { command, .. } => {
+                self.render_mir_task_unary_expr(body, command, CoreRuntimeSymbol::ProcessSpawn)
             }
-            Expr::Binary(expr) if expr.op == BinaryOp::Add => self.render_numeric_binary_expr(
+            echo_mir::MirExpr::Binary {
+                source,
+                left,
+                op,
+                right,
+            } if *op == BinaryOp::Concat => self.render_mir_concat_expr(body, left, right),
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Add => {
+                self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValueAdd)
+            }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Sub => {
+                self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValueSub)
+            }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Mul => {
+                self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValueMul)
+            }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Div => {
+                self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValueDiv)
+            }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Mod => {
+                self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValueMod)
+            }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Pow => {
+                self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValuePow)
+            }
+            echo_mir::MirExpr::Unary { op, expr, .. } => self.render_mir_numeric_unary_expr(
                 body,
-                &expr.left,
-                &expr.right,
-                CoreRuntimeSymbol::ValueAdd,
-            ),
-            Expr::Binary(expr) if expr.op == BinaryOp::Sub => self.render_numeric_binary_expr(
-                body,
-                &expr.left,
-                &expr.right,
-                CoreRuntimeSymbol::ValueSub,
-            ),
-            Expr::Binary(expr) if expr.op == BinaryOp::Mul => self.render_numeric_binary_expr(
-                body,
-                &expr.left,
-                &expr.right,
-                CoreRuntimeSymbol::ValueMul,
-            ),
-            Expr::Binary(expr) if expr.op == BinaryOp::Div => self.render_numeric_binary_expr(
-                body,
-                &expr.left,
-                &expr.right,
-                CoreRuntimeSymbol::ValueDiv,
-            ),
-            Expr::Binary(expr) if expr.op == BinaryOp::Mod => self.render_numeric_binary_expr(
-                body,
-                &expr.left,
-                &expr.right,
-                CoreRuntimeSymbol::ValueMod,
-            ),
-            Expr::Binary(expr) if expr.op == BinaryOp::Pow => self.render_numeric_binary_expr(
-                body,
-                &expr.left,
-                &expr.right,
-                CoreRuntimeSymbol::ValuePow,
-            ),
-            Expr::Unary(expr) => self.render_numeric_unary_expr(
-                body,
-                &expr.expr,
-                match expr.op {
+                expr,
+                match op {
                     UnaryOp::Plus => CoreRuntimeSymbol::ValueUnaryPlus,
                     UnaryOp::Minus => CoreRuntimeSymbol::ValueUnaryMinus,
                 },
             ),
-            Expr::Field(expr) => {
-                let object = self.render_expr_as_echo_value(body, &expr.object)?;
-                let field_global = self.string_global(&expr.field);
+            echo_mir::MirExpr::Field { object, field, .. } => {
+                let object = self.render_mir_expr_as_echo_value(body, object)?;
+                let field_global = self.string_global(field);
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 let name = format!("%runtime_call_{call_id}");
@@ -1048,14 +2128,16 @@ impl IrModule {
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({object}, ptr @{field_global}, i64 {})\n",
                     CoreRuntimeSymbol::ValueObjectGet.symbol(),
-                    expr.field.len()
+                    field.len()
                 ));
 
                 Ok(RuntimeValue::EchoValue(name))
             }
-            Expr::Index(expr) => {
-                let collection = self.render_expr_as_echo_value(body, &expr.collection)?;
-                let index = self.render_expr_as_echo_value(body, &expr.index)?;
+            echo_mir::MirExpr::Index {
+                collection, index, ..
+            } => {
+                let collection = self.render_mir_expr_as_echo_value(body, collection)?;
+                let index = self.render_mir_expr_as_echo_value(body, index)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 let name = format!("%runtime_call_{call_id}");
@@ -1067,20 +2149,20 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
-            Expr::Object(expr) => self.render_object_expr(body, expr),
-            Expr::List(expr) => self.render_list_values(body, &expr.values),
-            Expr::Array(expr) => self.render_array_expr(body, expr),
-            _ => Err(Diagnostic::new(
+            echo_mir::MirExpr::Object { fields, .. } => self.render_mir_object_expr(body, fields),
+            echo_mir::MirExpr::List { values, .. } => self.render_mir_list_values(body, values),
+            echo_mir::MirExpr::Array { elements, .. } => self.render_mir_array_expr(body, elements),
+            echo_mir::MirExpr::Binary { source, .. } => Err(Diagnostic::new(
                 "unsupported expression in LLVM codegen",
-                expr.span(),
+                source.span(),
             )),
         }
     }
 
-    fn render_array_expr(
+    fn render_mir_array_expr(
         &mut self,
         body: &mut String,
-        expr: &echo_ast::ArrayExpr,
+        elements: &[echo_mir::MirArrayElement],
     ) -> Result<RuntimeValue, Diagnostic> {
         let call_id = self.next_call_id;
         self.next_call_id += 1;
@@ -1090,14 +2172,14 @@ impl IrModule {
             CoreRuntimeSymbol::ValueArrayNew.symbol()
         ));
 
-        for element in &expr.elements {
-            let value = self.render_expr_as_echo_value(body, &element.value)?;
+        for element in elements {
+            let value = self.render_mir_expr_as_echo_value(body, &element.value)?;
             let append_id = self.next_call_id;
             self.next_call_id += 1;
             let appended = format!("%runtime_call_{append_id}");
             match &element.key {
                 Some(key) => {
-                    let key = self.render_expr_as_echo_value(body, key)?;
+                    let key = self.render_mir_expr_as_echo_value(body, key)?;
                     body.push_str(&format!(
                         "  {appended} = call %EchoValue @{}(%EchoValue {array}, {key}, {value})\n",
                         CoreRuntimeSymbol::ValueArraySet.symbol()
@@ -1116,10 +2198,10 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(array))
     }
 
-    fn render_list_values(
+    fn render_mir_list_values(
         &mut self,
         body: &mut String,
-        values: &[Expr],
+        values: &[echo_mir::MirExpr],
     ) -> Result<RuntimeValue, Diagnostic> {
         let call_id = self.next_call_id;
         self.next_call_id += 1;
@@ -1130,7 +2212,7 @@ impl IrModule {
         ));
 
         for value in values {
-            let value = self.render_expr_as_echo_value(body, value)?;
+            let value = self.render_mir_expr_as_echo_value(body, value)?;
             let append_id = self.next_call_id;
             self.next_call_id += 1;
             let appended = format!("%runtime_call_{append_id}");
@@ -1144,14 +2226,46 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(list))
     }
 
-    fn render_concat_expr(
+    fn render_mir_object_expr(
         &mut self,
         body: &mut String,
-        left: &Expr,
-        right: &Expr,
+        fields: &[echo_mir::MirObjectField],
     ) -> Result<RuntimeValue, Diagnostic> {
-        let left = self.render_expr(body, left)?;
-        let right = self.render_expr(body, right)?;
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let mut object = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {object} = call %EchoValue @{}()\n",
+            CoreRuntimeSymbol::ValueObjectNew.symbol()
+        ));
+
+        for field in fields {
+            let field_global = self.string_global(&field.name);
+            let value = self.render_mir_expr_as_echo_value(body, &field.value)?;
+            let call_id = self.next_call_id;
+            self.next_call_id += 1;
+            let next_object = format!("%runtime_call_{call_id}");
+
+            body.push_str(&format!(
+                "  {next_object} = call %EchoValue @{}(%EchoValue {object}, ptr @{field_global}, i64 {}, {value})\n",
+                CoreRuntimeSymbol::ValueObjectSet.symbol(),
+                field.name.len()
+            ));
+            object = next_object;
+        }
+
+        Ok(RuntimeValue::EchoValue(object))
+    }
+
+    fn render_mir_concat_expr(
+        &mut self,
+        body: &mut String,
+        left: &echo_mir::MirExpr,
+        right: &echo_mir::MirExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let left = self.render_mir_expr(body, left)?;
+        let right = self.render_mir_expr(body, right)?;
 
         match (left, right) {
             (RuntimeValue::StaticString(mut left), RuntimeValue::StaticString(right)) => {
@@ -1175,15 +2289,15 @@ impl IrModule {
         }
     }
 
-    fn render_numeric_binary_expr(
+    fn render_mir_numeric_binary_expr(
         &mut self,
         body: &mut String,
-        left: &Expr,
-        right: &Expr,
+        left: &echo_mir::MirExpr,
+        right: &echo_mir::MirExpr,
         symbol: CoreRuntimeSymbol,
     ) -> Result<RuntimeValue, Diagnostic> {
-        let left = self.render_expr_as_echo_value(body, left)?;
-        let right = self.render_expr_as_echo_value(body, right)?;
+        let left = self.render_mir_expr_as_echo_value(body, left)?;
+        let right = self.render_mir_expr_as_echo_value(body, right)?;
         let call_id = self.next_call_id;
         self.next_call_id += 1;
         let name = format!("%runtime_call_{call_id}");
@@ -1196,13 +2310,13 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(name))
     }
 
-    fn render_numeric_unary_expr(
+    fn render_mir_numeric_unary_expr(
         &mut self,
         body: &mut String,
-        expr: &Expr,
+        expr: &echo_mir::MirExpr,
         symbol: CoreRuntimeSymbol,
     ) -> Result<RuntimeValue, Diagnostic> {
-        let value = self.render_expr_as_echo_value(body, expr)?;
+        let value = self.render_mir_expr_as_echo_value(body, expr)?;
         let call_id = self.next_call_id;
         self.next_call_id += 1;
         let name = format!("%runtime_call_{call_id}");
@@ -1215,10 +2329,10 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(name))
     }
 
-    fn render_defer_function(
+    fn render_mir_defer_function(
         &mut self,
         caller_body: &mut String,
-        statements: &[Stmt],
+        statements: &[echo_mir::MirStmt],
     ) -> Result<String, Diagnostic> {
         let function = format!("echo_defer_{}", self.next_defer_id);
         self.next_defer_id += 1;
@@ -1242,10 +2356,10 @@ impl IrModule {
         let saved_returned = self.returned;
         self.returned = false;
 
-        let sleep = if let Some(Stmt::FunctionCall(statement)) = statements.first()
-            && self.resolve_std_call_name(&statement.name, statement.span)? == "time.sleep"
+        let sleep = if let Some(echo_mir::MirStmt::FunctionCall { call, .. }) = statements.first()
+            && self.resolve_std_call_name(&call.name, call.span)? == "time.sleep"
         {
-            task_sleep_millis(statements.first().expect("first statement exists"))
+            mir_task_sleep_millis(statements.first().expect("first statement exists"))
         } else {
             None
         };
@@ -1260,7 +2374,7 @@ impl IrModule {
         }
         if let Some(millis) = sleep {
             let continuation =
-                self.render_defer_continuation_function(&function, &statements[1..])?;
+                self.render_mir_defer_continuation_function(&function, &statements[1..])?;
             body.push_str(&format!(
                 "  %runtime_call_{} = call %EchoValue @{}(i64 {millis}, ptr @{continuation})\n",
                 self.next_call_id,
@@ -1274,7 +2388,7 @@ impl IrModule {
             self.returned = true;
         } else {
             for statement in statements {
-                if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+                if let Err(diagnostic) = self.render_mir_stmt(&mut body, statement) {
                     self.aliases = saved_aliases;
                     self.locals = saved_locals;
                     self.returned = saved_returned;
@@ -1301,10 +2415,10 @@ impl IrModule {
         Ok(function)
     }
 
-    fn render_defer_continuation_function(
+    fn render_mir_defer_continuation_function(
         &mut self,
         parent: &str,
-        statements: &[Stmt],
+        statements: &[echo_mir::MirStmt],
     ) -> Result<String, Diagnostic> {
         let function = format!("{parent}_cont");
         let saved_returned = self.returned;
@@ -1312,7 +2426,7 @@ impl IrModule {
 
         let mut body = String::new();
         for statement in statements {
-            if let Err(diagnostic) = self.render_stmt(&mut body, statement) {
+            if let Err(diagnostic) = self.render_mir_stmt(&mut body, statement) {
                 self.returned = saved_returned;
                 return Err(diagnostic);
             }
@@ -1334,14 +2448,15 @@ impl IrModule {
         Ok(function)
     }
 
-    fn render_run_expr(
+    fn render_mir_run_expr(
         &mut self,
         body: &mut String,
-        expr: &echo_ast::RunExpr,
+        source: &echo_ast::Expr,
+        expr: &echo_mir::MirRunExpr,
     ) -> Result<RuntimeValue, Diagnostic> {
         match expr {
-            echo_ast::RunExpr::Block { body: block, .. } => {
-                let function = self.render_defer_function(body, block)?;
+            echo_mir::MirRunExpr::Block { body: block } => {
+                let function = self.render_mir_defer_function(body, block)?;
                 let defer_id = self.next_call_id;
                 self.next_call_id += 1;
                 body.push_str(&format!(
@@ -1357,19 +2472,88 @@ impl IrModule {
                 ));
                 Ok(RuntimeValue::EchoValue(format!("%runtime_call_{run_id}")))
             }
-            echo_ast::RunExpr::Task { expr, .. } => {
-                self.render_task_unary_expr(body, expr, CoreRuntimeSymbol::TaskRun)
+            echo_mir::MirRunExpr::Task { expr } => {
+                self.render_mir_task_unary_expr(body, expr, CoreRuntimeSymbol::TaskRun)
+            }
+            echo_mir::MirRunExpr::Group { entries } => {
+                self.render_mir_run_group_expr(body, source, entries)
             }
         }
     }
 
-    fn render_task_unary_expr(
+    fn render_mir_run_group_expr(
         &mut self,
         body: &mut String,
-        expr: &Expr,
+        _source: &echo_ast::Expr,
+        entries: &[Vec<echo_mir::MirStmt>],
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let group_id = self.next_call_id;
+        self.next_call_id += 1;
+        let mut group = format!("%runtime_call_{group_id}");
+        body.push_str(&format!(
+            "  {group} = call %EchoValue @{}()\n",
+            CoreRuntimeSymbol::TaskGroupNew.symbol()
+        ));
+
+        for entry in entries {
+            let function = self.render_mir_defer_function(body, entry)?;
+            let defer_id = self.next_call_id;
+            self.next_call_id += 1;
+            let task = format!("%runtime_call_{defer_id}");
+            body.push_str(&format!(
+                "  {task} = call %EchoValue @{}(ptr @{function})\n",
+                CoreRuntimeSymbol::TaskDefer.symbol()
+            ));
+
+            let add_id = self.next_call_id;
+            self.next_call_id += 1;
+            let added = format!("%runtime_call_{add_id}");
+            body.push_str(&format!(
+                "  {added} = call %EchoValue @{}(%EchoValue {group}, %EchoValue {task})\n",
+                CoreRuntimeSymbol::TaskGroupAdd.symbol()
+            ));
+            group = added;
+        }
+
+        let run_id = self.next_call_id;
+        self.next_call_id += 1;
+        body.push_str(&format!(
+            "  %runtime_call_{run_id} = call %EchoValue @{}(%EchoValue {group})\n",
+            CoreRuntimeSymbol::TaskGroupRunAndJoin.symbol()
+        ));
+        Ok(RuntimeValue::EchoValue(format!("%runtime_call_{run_id}")))
+    }
+
+    fn render_mir_fork_expr(
+        &mut self,
+        body: &mut String,
+        _source: &echo_ast::Expr,
+        expr: &echo_mir::MirForkExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        match expr {
+            echo_mir::MirForkExpr::Block { body: block } => {
+                let function = self.render_mir_defer_function(body, block)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}(ptr @{function})\n",
+                    CoreRuntimeSymbol::ThreadFork.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
+            }
+            echo_mir::MirForkExpr::Task { expr } => {
+                self.render_mir_task_unary_expr(body, expr, CoreRuntimeSymbol::ThreadForkTask)
+            }
+        }
+    }
+
+    fn render_mir_task_unary_expr(
+        &mut self,
+        body: &mut String,
+        expr: &echo_mir::MirExpr,
         symbol: CoreRuntimeSymbol,
     ) -> Result<RuntimeValue, Diagnostic> {
-        let task = self.render_expr_as_echo_value(body, expr)?;
+        let task = self.render_mir_expr_as_echo_value(body, expr)?;
         let call_id = self.next_call_id;
         self.next_call_id += 1;
 
@@ -1381,41 +2565,41 @@ impl IrModule {
         Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
     }
 
-    fn render_function_call_expr(
+    fn render_mir_function_call_expr(
         &mut self,
         body: &mut String,
-        expr: &echo_ast::FunctionCallExpr,
+        call: &echo_mir::MirFunctionCall,
     ) -> Result<RuntimeValue, Diagnostic> {
-        let name = self.resolve_std_call_name(&expr.name, expr.span)?;
+        let name = self.resolve_std_call_name(&call.name, call.span)?;
 
         if name == "time.sleep" {
-            self.time_sleep_call(body, &expr.args, expr.span)?;
+            self.mir_time_sleep_call(body, &call.args, call.span)?;
             return Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()));
         }
 
         if let Some(intrinsic) = std_intrinsic(&name) {
-            return self.std_intrinsic_call(body, intrinsic, &expr.args, expr.span);
+            return self.mir_std_intrinsic_call(body, intrinsic, &call.args, call.span);
         }
 
         let Some(builtin) = php_builtin(&name) else {
-            return self.render_userland_function_call_expr(body, expr);
+            return self.render_mir_userland_function_call_expr(body, call);
         };
 
         match builtin.codegen {
             BuiltinCodegen::ObStart => {
-                let (symbol, arg) = match expr.args.as_slice() {
+                let (symbol, arg) = match call.args.as_slice() {
                     [] => (builtin.symbol, None),
-                    [Expr::Null(_)] => (
+                    [echo_mir::MirExpr::Null { .. }] => (
                         builtin
                             .helper_symbol
                             .expect("ob_start value helper must be declared"),
                         Some("%EchoValue { i32 0, i64 0 }".to_string()),
                     ),
-                    [Expr::String(arg)] => {
+                    [echo_mir::MirExpr::String { value, .. }] => {
                         let helper = builtin
                             .helper_symbol
                             .expect("ob_start value helper must be declared");
-                        let global = self.string_global(&arg.value);
+                        let global = self.string_global(value);
                         let value_id = self.next_call_id;
                         self.next_call_id += 1;
                         let value_name = format!("%runtime_call_{value_id}");
@@ -1423,7 +2607,7 @@ impl IrModule {
                         body.push_str(&format!(
                             "  {value_name} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
                             CoreRuntimeSymbol::ValueString.symbol(),
-                            arg.value.len()
+                            value.len()
                         ));
 
                         (helper, Some(format!("%EchoValue {value_name}")))
@@ -1431,13 +2615,13 @@ impl IrModule {
                     [arg] => {
                         return Err(Diagnostic::new(
                             "unsupported ob_start callback argument in LLVM codegen",
-                            arg.span(),
+                            arg.syntax().span(),
                         ));
                     }
                     _ => {
                         return Err(Diagnostic::new(
                             "unsupported ob_start argument count in LLVM codegen",
-                            expr.span,
+                            call.span,
                         ));
                     }
                 };
@@ -1462,13 +2646,13 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(value_name))
             }
             BuiltinCodegen::VoidStatement => {
-                if !expr.args.is_empty() {
+                if !call.args.is_empty() {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported arguments for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
@@ -1476,28 +2660,28 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
             }
             BuiltinCodegen::VoidUnaryStatement => {
-                let [arg] = expr.args.as_slice() else {
+                let [arg] = call.args.as_slice() else {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 };
 
-                let arg = self.render_expr_as_echo_value(body, arg)?;
+                let arg = self.render_mir_expr_as_echo_value(body, arg)?;
                 body.push_str(&format!("  call void @{}({arg})\n", builtin.symbol));
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
             }
             BuiltinCodegen::BoolStatement => {
-                if !expr.args.is_empty() {
+                if !call.args.is_empty() {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported arguments for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
@@ -1516,13 +2700,13 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(value_name))
             }
             BuiltinCodegen::ValueExpression => {
-                if !expr.args.is_empty() {
+                if !call.args.is_empty() {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported arguments for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
@@ -1537,17 +2721,17 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::ValueUnaryExpression => {
-                let [arg] = expr.args.as_slice() else {
+                let [arg] = call.args.as_slice() else {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 };
 
-                let arg = self.render_expr_as_echo_value(body, arg)?;
+                let arg = self.render_mir_expr_as_echo_value(body, arg)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 let name = format!("%runtime_call_{call_id}");
@@ -1560,19 +2744,19 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::Basename => {
-                if !(1..=2).contains(&expr.args.len()) {
+                if !(1..=2).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
-                let path = self.render_expr_as_echo_value(body, &expr.args[0])?;
-                let suffix = match expr.args.get(1) {
-                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                let path = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let suffix = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
                     None => self.runtime_value_as_echo_value(
                         body,
                         RuntimeValue::StaticString(String::new()),
@@ -1590,19 +2774,19 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::Dirname => {
-                if !(1..=2).contains(&expr.args.len()) {
+                if !(1..=2).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
-                let path = self.render_expr_as_echo_value(body, &expr.args[0])?;
-                let levels = match expr.args.get(1) {
-                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                let path = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let levels = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
                     None => "%EchoValue { i32 2, i64 1 }".to_string(),
                 };
                 let call_id = self.next_call_id;
@@ -1617,18 +2801,18 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::ValueBinaryExpression => {
-                let [left, right] = expr.args.as_slice() else {
+                let [left, right] = call.args.as_slice() else {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 };
 
-                let left = self.render_expr_as_echo_value(body, left)?;
-                let right = self.render_expr_as_echo_value(body, right)?;
+                let left = self.render_mir_expr_as_echo_value(body, left)?;
+                let right = self.render_mir_expr_as_echo_value(body, right)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 let name = format!("%runtime_call_{call_id}");
@@ -1641,19 +2825,19 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::ValueTernaryExpression => {
-                let [first, second, third] = expr.args.as_slice() else {
+                let [first, second, third] = call.args.as_slice() else {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 };
 
-                let first = self.render_expr_as_echo_value(body, first)?;
-                let second = self.render_expr_as_echo_value(body, second)?;
-                let third = self.render_expr_as_echo_value(body, third)?;
+                let first = self.render_mir_expr_as_echo_value(body, first)?;
+                let second = self.render_mir_expr_as_echo_value(body, second)?;
+                let third = self.render_mir_expr_as_echo_value(body, third)?;
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;
                 let name = format!("%runtime_call_{call_id}");
@@ -1666,20 +2850,20 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::Explode => {
-                if !(2..=3).contains(&expr.args.len()) {
+                if !(2..=3).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
-                let separator = self.render_expr_as_echo_value(body, &expr.args[0])?;
-                let string = self.render_expr_as_echo_value(body, &expr.args[1])?;
-                let limit = match expr.args.get(2) {
-                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                let separator = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let string = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let limit = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
                     None => "%EchoValue { i32 2, i64 9223372036854775807 }".to_string(),
                 };
                 let call_id = self.next_call_id;
@@ -1694,25 +2878,25 @@ impl IrModule {
                 Ok(RuntimeValue::EchoValue(name))
             }
             BuiltinCodegen::SubstrCompare => {
-                if !(3..=5).contains(&expr.args.len()) {
+                if !(3..=5).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
                         format!(
                             "unsupported argument count for builtin `{}` in LLVM codegen",
-                            expr.name
+                            call.name
                         ),
-                        expr.span,
+                        call.span,
                     ));
                 }
 
-                let haystack = self.render_expr_as_echo_value(body, &expr.args[0])?;
-                let needle = self.render_expr_as_echo_value(body, &expr.args[1])?;
-                let offset = self.render_expr_as_echo_value(body, &expr.args[2])?;
-                let length = match expr.args.get(3) {
-                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                let haystack = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let needle = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let offset = self.render_mir_expr_as_echo_value(body, &call.args[2])?;
+                let length = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
                     None => "%EchoValue { i32 0, i64 0 }".to_string(),
                 };
-                let case_insensitive = match expr.args.get(4) {
-                    Some(expr) => self.render_expr_as_echo_value(body, expr)?,
+                let case_insensitive = match call.args.get(4) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
                     None => "%EchoValue { i32 1, i64 0 }".to_string(),
                 };
                 let call_id = self.next_call_id;
@@ -1729,31 +2913,31 @@ impl IrModule {
         }
     }
 
-    fn render_userland_function_call_expr(
+    fn render_mir_userland_function_call_expr(
         &mut self,
         body: &mut String,
-        expr: &echo_ast::FunctionCallExpr,
+        call: &echo_mir::MirFunctionCall,
     ) -> Result<RuntimeValue, Diagnostic> {
-        let Some(function) = self.functions.get(&expr.name).cloned() else {
+        let Some(function) = self.functions.get(&call.name).cloned() else {
             return Err(Diagnostic::new(
                 "unsupported expression in LLVM codegen",
-                expr.span,
+                call.span,
             ));
         };
 
-        if expr.args.len() != function.params.len() {
+        if call.args.len() != function.params.len() {
             return Err(Diagnostic::new(
                 format!(
                     "unsupported argument count for userland function `{}` in LLVM codegen",
-                    expr.name
+                    call.name
                 ),
-                expr.span,
+                call.span,
             ));
         }
 
         let mut args = Vec::new();
-        for arg in &expr.args {
-            args.push(self.render_expr_as_echo_value(body, arg)?);
+        for arg in &call.args {
+            args.push(self.render_mir_expr_as_echo_value(body, arg)?);
         }
 
         let call_id = self.next_call_id;
@@ -1762,7 +2946,7 @@ impl IrModule {
 
         body.push_str(&format!(
             "  {name} = call %EchoValue @{}({})\n",
-            userland_function_symbol(&expr.name),
+            userland_function_symbol(&call.name),
             args.join(", ")
         ));
 
@@ -1879,18 +3063,18 @@ fn userland_function_symbol(name: &str) -> String {
     format!("echo_user_{name}")
 }
 
-fn task_sleep_millis(statement: &Stmt) -> Option<i64> {
-    let Stmt::FunctionCall(statement) = statement else {
+fn mir_task_sleep_millis(statement: &echo_mir::MirStmt) -> Option<i64> {
+    let echo_mir::MirStmt::FunctionCall { call, .. } = statement else {
         return None;
     };
-    if statement.name != "time.sleep" {
+    if call.name != "time.sleep" {
         return None;
     }
-    let [Expr::Number(expr)] = statement.args.as_slice() else {
+    let [echo_mir::MirExpr::Number { value, .. }] = call.args.as_slice() else {
         return None;
     };
 
-    expr.value.parse().ok()
+    value.parse().ok()
 }
 
 fn llvm_string_literal(value: &str) -> String {
@@ -1912,7 +3096,7 @@ fn llvm_string_literal(value: &str) -> String {
 mod tests {
     use super::*;
     use echo_ast::{
-        ArrayElement, ArrayExpr, AssignStmt, DeferExpr, EchoStmt, FunctionCallExpr,
+        ArrayElement, ArrayExpr, AssignStmt, DeferExpr, EchoStmt, Expr, FunctionCallExpr,
         FunctionCallStmt, FunctionDeclStmt, ImportStmt, NullLiteral, NumberLiteral, QualifiedName,
         ReturnStmt, StringLiteral, TypedParam,
     };
@@ -1948,6 +3132,38 @@ mod tests {
             alias: Some(alias.to_string()),
             span: Span::new(0, 0),
         })
+    }
+
+    #[test]
+    fn ast_hir_and_mir_entrypoints_emit_same_ir() {
+        let program = program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::String(StringLiteral {
+                value: "hello".to_string(),
+                span: Span::new(5, 12),
+            })],
+            span: Span::new(0, 13),
+        })]);
+        let hir = echo_hir::lower_program(&program).expect("program should lower to HIR");
+        let mir = echo_mir::lower_program(&hir).expect("HIR should lower to MIR");
+
+        let ast_ir = compile_to_ir(&program).expect("AST entrypoint should compile");
+        let hir_ir = compile_hir_to_ir(&hir).expect("HIR entrypoint should compile");
+        let mir_ir = compile_mir_to_ir(&mir).expect("MIR entrypoint should compile");
+
+        assert_eq!(ast_ir, hir_ir);
+        assert_eq!(hir_ir, mir_ir);
+        assert!(mir_ir.contains("call void @echo_write("));
+    }
+
+    #[test]
+    fn ast_to_hir_to_mir_to_llvm_ir_executes_with_jit() {
+        let program = program(vec![]);
+        let hir = echo_hir::lower_program(&program).expect("program should lower to HIR");
+        let mir = echo_mir::lower_program(&hir).expect("HIR should lower to MIR");
+
+        let status = run_mir_jit(&mir).expect("MIR should execute through LLVM JIT");
+
+        assert_eq!(status, 0);
     }
 
     #[test]
@@ -2878,7 +4094,7 @@ mod tests {
         ]))
         .expect("IR");
 
-        assert!(ir.contains("call %EchoValue @echo_task_join"), "{ir}");
+        assert!(ir.contains("call %EchoValue @echo_join"), "{ir}");
         assert!(!ir.contains("call void @echo_write_value"), "{ir}");
     }
 
@@ -3042,10 +4258,10 @@ mod tests {
         );
         assert!(ir.contains("call %EchoValue @echo_task_run"), "{ir}");
         assert!(
-            ir.contains("declare %EchoValue @echo_task_join(%EchoValue)"),
+            ir.contains("declare %EchoValue @echo_join(%EchoValue)"),
             "{ir}"
         );
-        assert!(ir.contains("call %EchoValue @echo_task_join"), "{ir}");
+        assert!(ir.contains("call %EchoValue @echo_join"), "{ir}");
         assert!(ir.contains("ret i32 0"), "{ir}");
     }
 }

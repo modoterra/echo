@@ -161,6 +161,19 @@ fn piped_repl_reports_diagnostics_and_continues() {
     );
 }
 
+#[test]
+fn piped_repl_can_join_spawned_process_handle_later() {
+    let output = repl_output(b"$proc = spawn \"exit 7\"\njoin $proc\n:quit\n");
+
+    assert!(
+        output.status.success(),
+        "xo repl failed with status {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"7");
+}
+
 fn repl_output(input: &[u8]) -> std::process::Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_xo"))
         .arg("repl")

@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
-use std::process::Command as ProcessCommand;
+use std::process::{Child, Command as ProcessCommand};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -31,6 +32,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    Lsp,
     Lex {
         file: PathBuf,
     },
@@ -47,6 +49,9 @@ enum Command {
     Run {
         #[command(flatten)]
         mode: ModeOverride,
+        /// Execute with the in-process LLVM JIT instead of a temporary native binary.
+        #[arg(long)]
+        jit: bool,
         file: PathBuf,
     },
     Repl {
@@ -147,6 +152,18 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Lsp => {
+            let runtime = tokio::runtime::Runtime::new().unwrap_or_else(|err| {
+                eprintln!("error: failed to initialize LSP runtime: {err}");
+                std::process::exit(1);
+            });
+            runtime.block_on(async {
+                if let Err(err) = echo_lsp::run_stdio().await {
+                    eprintln!("error: Echo LSP server failed: {err}");
+                    std::process::exit(1);
+                }
+            });
+        }
         Command::Lex { file } => {
             let source = read_source(&file);
 
@@ -179,11 +196,15 @@ fn main() {
             let ir = compile_ir(&file, mode);
             print!("{ir}");
         }
-        Command::Run { mode, file } => {
-            let binary_path = temp_path(&file, "program");
-            build_binary(&file, mode, OptimizationLevel::O0, &binary_path);
-            run_command(&mut ProcessCommand::new(&binary_path));
-            let _ = fs::remove_file(binary_path);
+        Command::Run { mode, jit, file } => {
+            if jit {
+                run_jit(&file, mode);
+            } else {
+                let binary_path = temp_path(&file, "program");
+                build_binary(&file, mode, OptimizationLevel::O0, &binary_path);
+                run_command(&mut ProcessCommand::new(&binary_path));
+                let _ = fs::remove_file(binary_path);
+            }
         }
         Command::Repl { mode } => {
             run_repl(mode);
@@ -217,8 +238,6 @@ fn main() {
 fn run_repl(mode: ModeOverride) {
     let interactive = io::stdin().is_terminal();
     let mut session = ReplSession::default();
-
-    ensure_runtime_library_quiet();
 
     if interactive {
         run_interactive_repl(&mut session, mode);
@@ -297,6 +316,7 @@ fn run_piped_repl(session: &mut ReplSession, mode: ModeOverride) {
 #[derive(Debug, Default)]
 struct ReplSession {
     statements: Vec<Stmt>,
+    processes: HashMap<String, Child>,
 }
 
 fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, interactive: bool) {
@@ -310,6 +330,12 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
             return;
         }
     };
+
+    if let Some(output) = run_repl_process_handle_input(session, &parsed.program, &mut parsed.input)
+    {
+        print_repl_output(&output, parsed.input, interactive);
+        return;
+    }
 
     let mut program = parsed.program.clone();
     let current_statements = program.statements.clone();
@@ -340,14 +366,17 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
         }
     };
 
-    verify_ir(&file, &ir);
-    let binary_path = temp_path(&file, "program");
-    build_ir_binary_quiet(&file, &ir, OptimizationLevel::O0, &binary_path);
-    let output = run_repl_binary(
-        &binary_path,
-        matches!(parsed.input, ReplInput::Expression(_)),
-    );
-    let should_store = output.status.success() && matches!(parsed.input, ReplInput::Statement);
+    let output = match run_repl_jit(&ir, matches!(parsed.input, ReplInput::Expression(_))) {
+        Ok(output) => output,
+        Err(diagnostics) => {
+            if interactive {
+                print_repl_metadata(&parsed.input);
+            }
+            print_diagnostics(diagnostics);
+            return;
+        }
+    };
+    let should_store = output.status == 0 && matches!(parsed.input, ReplInput::Statement);
     print_repl_output(&output, parsed.input, interactive);
     if should_store {
         session.statements.extend(
@@ -356,7 +385,6 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
                 .filter(is_repl_persistent_statement),
         );
     }
-    let _ = fs::remove_file(binary_path);
 }
 
 fn repl_prompt() -> String {
@@ -368,6 +396,123 @@ fn repl_history_path() -> Option<PathBuf> {
         .filter(|home| !home.is_empty())
         .map(PathBuf::from)
         .map(|home| home.join(".xo_history"))
+}
+
+fn run_repl_process_handle_input(
+    session: &mut ReplSession,
+    program: &Program,
+    input: &mut ReplInput,
+) -> Option<ReplExecutionOutput> {
+    if let Some((name, command)) = repl_spawn_assignment(program) {
+        match spawn_shell_command(&command) {
+            Ok(child) => {
+                session.processes.insert(name, child);
+                return Some(ReplExecutionOutput {
+                    status: 0,
+                    stdout: Vec::new(),
+                });
+            }
+            Err(err) => {
+                eprintln!("error: failed to spawn process: {err}");
+                return Some(ReplExecutionOutput {
+                    status: 1,
+                    stdout: Vec::new(),
+                });
+            }
+        }
+    }
+
+    let ReplInput::Expression(_) = input else {
+        return None;
+    };
+
+    match repl_process_handle_expr(program) {
+        Some(ReplProcessInput::Join(name)) => {
+            let Some(mut child) = session.processes.remove(&name) else {
+                eprintln!("error: join target `${name}` is not a live process handle");
+                return Some(ReplExecutionOutput {
+                    status: 1,
+                    stdout: Vec::new(),
+                });
+            };
+
+            let status = match child.wait() {
+                Ok(status) => status.code().unwrap_or_default(),
+                Err(err) => {
+                    eprintln!("error: failed to join process `${name}`: {err}");
+                    return Some(ReplExecutionOutput {
+                        status: 1,
+                        stdout: Vec::new(),
+                    });
+                }
+            };
+
+            apply_repl_live_process_type(input, "int");
+            Some(ReplExecutionOutput {
+                status: 0,
+                stdout: status.to_string().into_bytes(),
+            })
+        }
+        Some(ReplProcessInput::Inspect(name)) if session.processes.contains_key(&name) => {
+            apply_repl_live_process_type(input, "process");
+            Some(ReplExecutionOutput {
+                status: 0,
+                stdout: b"Object".to_vec(),
+            })
+        }
+        _ => None,
+    }
+}
+
+fn apply_repl_live_process_type(input: &mut ReplInput, ty: &str) {
+    if let ReplInput::Expression(info) = input {
+        info.static_type = ty.to_string();
+    }
+}
+
+fn repl_spawn_assignment(program: &Program) -> Option<(String, String)> {
+    let [Stmt::Assign(statement)] = program.statements.as_slice() else {
+        return None;
+    };
+    let Expr::Spawn(spawn) = &statement.value else {
+        return None;
+    };
+    let Expr::String(command) = spawn.command.as_ref() else {
+        return None;
+    };
+
+    Some((statement.name.clone(), command.value.clone()))
+}
+
+enum ReplProcessInput {
+    Join(String),
+    Inspect(String),
+}
+
+fn repl_process_handle_expr(program: &Program) -> Option<ReplProcessInput> {
+    let [Stmt::Echo(statement)] = program.statements.as_slice() else {
+        return None;
+    };
+    let [expr] = statement.exprs.as_slice() else {
+        return None;
+    };
+
+    match expr {
+        Expr::Join(join) => match join.handle.as_ref() {
+            Expr::Variable(variable) => Some(ReplProcessInput::Join(variable.name.clone())),
+            _ => None,
+        },
+        Expr::Variable(variable) => Some(ReplProcessInput::Inspect(variable.name.clone())),
+        _ => None,
+    }
+}
+
+fn spawn_shell_command(command: &str) -> std::io::Result<Child> {
+    if cfg!(windows) {
+        ProcessCommand::new("cmd").arg("/C").arg(command).spawn()
+    } else {
+        ProcessCommand::new("sh").arg("-c").arg(command).spawn()
+    }
 }
 
 fn is_repl_persistent_statement(statement: &Stmt) -> bool {
@@ -575,6 +720,31 @@ fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
     }
 }
 
+fn run_jit(file: &PathBuf, mode: ModeOverride) {
+    let source = read_source_file(file, mode);
+
+    match try_run_jit(&source) {
+        Ok(status) => {
+            if status != 0 {
+                std::process::exit(status);
+            }
+        }
+        Err(diagnostics) => {
+            print_diagnostics(diagnostics);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn try_run_jit(source: &SourceFile) -> Result<i32, Vec<echo_diagnostics::Diagnostic>> {
+    let program = match echo_parser::parse_with_mode(&source.text, source.mode) {
+        Ok(program) => program,
+        Err(diagnostics) => return Err(diagnostics),
+    };
+
+    echo_codegen::run_program_jit(&program)
+}
+
 fn try_parse_repl_input(
     source: &SourceFile,
 ) -> Result<ReplParsed, Vec<echo_diagnostics::Diagnostic>> {
@@ -686,52 +856,35 @@ fn ensure_runtime_library() {
     );
 }
 
-fn ensure_runtime_library_quiet() {
-    let output = ProcessCommand::new("cargo")
-        .arg("build")
-        .arg("-p")
-        .arg("echo_runtime")
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("error: failed to run cargo build -p echo_runtime: {err}");
-            std::process::exit(1);
-        });
-
-    if !output.status.success() {
-        eprintln!(
-            "error: cargo build -p echo_runtime exited with {}",
-            output.status
-        );
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
+#[derive(Debug)]
+struct ReplExecutionOutput {
+    status: i32,
+    stdout: Vec<u8>,
 }
 
-fn run_repl_binary(binary_path: &PathBuf, inspect_expression: bool) -> std::process::Output {
-    let mut command = ProcessCommand::new(binary_path);
-    if inspect_expression {
-        command.env("ECHO_REPL_INSPECT", "1");
+fn run_repl_jit(
+    ir: &str,
+    inspect_expression: bool,
+) -> Result<ReplExecutionOutput, Vec<echo_diagnostics::Diagnostic>> {
+    let output = echo_codegen::run_ir_jit_with_options(
+        ir,
+        echo_codegen::JitOptions {
+            capture_stdout: true,
+            repl_inspect: inspect_expression,
+        },
+    )?;
+
+    if output.status != 0 {
+        eprintln!("error: JIT main exited with status {}", output.status);
     }
 
-    let output = command.output().unwrap_or_else(|err| {
-        eprintln!("error: failed to run {}: {err}", binary_path.display());
-        std::process::exit(1);
-    });
-
-    if !output.status.success() {
-        eprintln!(
-            "error: {} exited with {}",
-            binary_path.display(),
-            output.status
-        );
-    }
-
-    output
+    Ok(ReplExecutionOutput {
+        status: output.status,
+        stdout: output.stdout,
+    })
 }
 
-fn print_repl_output(output: &std::process::Output, input: ReplInput, interactive: bool) {
-    eprint!("{}", String::from_utf8_lossy(&output.stderr));
-
+fn print_repl_output(output: &ReplExecutionOutput, input: ReplInput, interactive: bool) {
     if !interactive {
         print!("{}", String::from_utf8_lossy(&output.stdout));
         return;
@@ -841,15 +994,12 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::FunctionCall(call) => echo_reflection::function(&call.name)
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
-        Expr::Variable(_)
-        | Expr::Index(_)
-        | Expr::Defer(_)
-        | Expr::Run(_)
-        | Expr::Fork(_)
-        | Expr::Spawn(_)
-        | Expr::Join(_)
-        | Expr::Loop(_)
-        | Expr::Field(_) => "unknown".to_string(),
+        Expr::Defer(_) | Expr::Run(_) => "task".to_string(),
+        Expr::Fork(_) => "thread".to_string(),
+        Expr::Spawn(_) => "process".to_string(),
+        Expr::Variable(_) | Expr::Index(_) | Expr::Join(_) | Expr::Loop(_) | Expr::Field(_) => {
+            "unknown".to_string()
+        }
     }
 }
 
@@ -1091,5 +1241,39 @@ mod tests {
         };
         assert_eq!(info.kind, "variable");
         assert_eq!(info.static_type, "array");
+    }
+
+    #[test]
+    fn repl_live_process_join_reports_int_type() {
+        let mode = ModeOverride {
+            strict: false,
+            unsafe_mode: false,
+        };
+        let first = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "$proc = spawn \"exit 7\"".to_string(),
+            mode,
+        );
+        let second =
+            source_file_from_text(PathBuf::from("repl.echo"), "join $proc".to_string(), mode);
+        let mut first = try_parse_repl_input(&first).expect("spawn should parse");
+        let mut second = try_parse_repl_input(&second).expect("join should parse");
+        let mut session = ReplSession::default();
+
+        let output = run_repl_process_handle_input(&mut session, &first.program, &mut first.input)
+            .expect("spawn assignment should be handled by live process path");
+        assert_eq!(output.status, 0);
+
+        let output =
+            run_repl_process_handle_input(&mut session, &second.program, &mut second.input)
+                .expect("join should be handled by live process path");
+        assert_eq!(output.status, 0);
+        assert_eq!(output.stdout, b"7");
+
+        let ReplInput::Expression(info) = second.input else {
+            panic!("join should be expression input");
+        };
+        assert_eq!(info.kind, "join expression");
+        assert_eq!(info.static_type, "int");
     }
 }

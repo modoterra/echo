@@ -360,12 +360,13 @@ pub struct DeferExpr {
 pub enum RunExpr {
     Block { body: Vec<Stmt>, span: Span },
     Task { expr: Box<Expr>, span: Span },
+    Group { entries: Vec<Vec<Stmt>>, span: Span },
 }
 
 impl RunExpr {
     pub fn span(&self) -> Span {
         match self {
-            Self::Block { span, .. } | Self::Task { span, .. } => *span,
+            Self::Block { span, .. } | Self::Task { span, .. } | Self::Group { span, .. } => *span,
         }
     }
 }

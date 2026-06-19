@@ -1,0 +1,6 @@
+$task = defer {
+    return "forked\n"
+}
+
+$worker = fork $task
+echo join $worker

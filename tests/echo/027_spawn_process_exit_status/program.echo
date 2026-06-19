@@ -1,0 +1,2 @@
+$proc = spawn "exit 7"
+echo join $proc

@@ -1,0 +1,6 @@
+$results = run [
+    { return "left"; },
+    { return "right"; },
+]
+
+echo $results[0] . "-" . $results[1] . "\n"

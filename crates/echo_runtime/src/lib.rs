@@ -1,12 +1,19 @@
+pub mod abi;
+pub mod error;
+pub mod io;
 pub mod net;
 pub mod poll;
+pub mod process;
 pub mod sched;
 pub mod task;
+pub mod task_group;
+pub mod thread;
+pub mod time;
 
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
 use std::ffi::OsStr;
-use std::io::{self, Write};
+use std::io::{self as std_io, Write};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
@@ -161,8 +168,13 @@ const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
 const ECHO_VALUE_OBJECT: i32 = 9;
 const ECHO_VALUE_LIST: i32 = 10;
 const ECHO_VALUE_FLOAT: i32 = 11;
+const ECHO_VALUE_PROCESS: i32 = 12;
+const ECHO_VALUE_THREAD: i32 = 13;
+const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
+static NEXT_PROCESS_ID: AtomicUsize = AtomicUsize::new(1);
+static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(1);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 
 const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
@@ -241,6 +253,27 @@ impl EchoValue {
         }
     }
 
+    pub fn task_group(value: *mut task_group::EchoTaskGroup) -> Self {
+        Self {
+            kind: ECHO_VALUE_TASK_GROUP,
+            payload: value as u64,
+        }
+    }
+
+    pub fn process(value: *mut process::EchoProcess) -> Self {
+        Self {
+            kind: ECHO_VALUE_PROCESS,
+            payload: value as u64,
+        }
+    }
+
+    pub fn thread(value: *mut thread::EchoThread) -> Self {
+        Self {
+            kind: ECHO_VALUE_THREAD,
+            payload: value as u64,
+        }
+    }
+
     pub fn list(value: *mut EchoList) -> Self {
         Self {
             kind: ECHO_VALUE_LIST,
@@ -302,7 +335,11 @@ impl EchoValue {
             },
             ECHO_VALUE_ARRAY => Some(b"Array".to_vec()),
             ECHO_VALUE_LIST => Some(b"List".to_vec()),
-            ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => Some(b"Object".to_vec()),
+            ECHO_VALUE_TASK
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_OBJECT
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_THREAD => Some(b"Object".to_vec()),
             _ => None,
         }
     }
@@ -359,7 +396,11 @@ impl EchoValue {
                     .map(|list| inspect_list(list, depth + 1))
                     .unwrap_or_else(|| "List".to_string())
             },
-            ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => "Object".to_string(),
+            ECHO_VALUE_TASK
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_OBJECT
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_THREAD => "Object".to_string(),
             _ => String::new(),
         }
     }
@@ -389,7 +430,12 @@ impl EchoValue {
                 Some(!bytes.is_empty() && bytes != b"0")
             },
             ECHO_VALUE_ARRAY | ECHO_VALUE_LIST => Some(true),
-            ECHO_VALUE_TASK | ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => Some(true),
+            ECHO_VALUE_TASK
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_TCP_LISTENER
+            | ECHO_VALUE_TCP_CONNECTION
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_THREAD => Some(true),
             ECHO_VALUE_PENDING => Some(false),
             _ => None,
         }
@@ -439,6 +485,30 @@ impl EchoValue {
         }
 
         unsafe { (self.payload as *mut task::EchoTask).as_mut() }
+    }
+
+    fn as_task_group_mut(self) -> Option<&'static mut task_group::EchoTaskGroup> {
+        if self.kind != ECHO_VALUE_TASK_GROUP || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut task_group::EchoTaskGroup).as_mut() }
+    }
+
+    fn as_process_mut(self) -> Option<&'static mut process::EchoProcess> {
+        if self.kind != ECHO_VALUE_PROCESS || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut process::EchoProcess).as_mut() }
+    }
+
+    fn as_thread_mut(self) -> Option<&'static mut thread::EchoThread> {
+        if self.kind != ECHO_VALUE_THREAD || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut thread::EchoThread).as_mut() }
     }
 
     fn as_tcp_listener_ref(self) -> Option<&'static net::EchoTcpListener> {
@@ -610,6 +680,39 @@ pub fn echo_call(callable: &EchoCallable, _args: &[EchoValue]) -> Result<EchoVal
 
 thread_local! {
     static OUTPUT: RefCell<OutputRuntime> = RefCell::new(OutputRuntime::new());
+    static EXECUTION: RefCell<RuntimeExecution> = RefCell::new(RuntimeExecution::default());
+}
+
+#[derive(Debug, Default)]
+struct RuntimeExecution {
+    stdout: Option<Vec<u8>>,
+    repl_inspect: bool,
+}
+
+pub fn reset_execution_state() {
+    OUTPUT.with(|runtime| {
+        *runtime.borrow_mut() = OutputRuntime::new();
+    });
+    ASSERT_FAILURES.store(0, Ordering::Relaxed);
+}
+
+pub fn capture_stdout<T>(repl_inspect: bool, f: impl FnOnce() -> T) -> (T, Vec<u8>) {
+    reset_execution_state();
+    EXECUTION.with(|execution| {
+        *execution.borrow_mut() = RuntimeExecution {
+            stdout: Some(Vec::new()),
+            repl_inspect,
+        };
+    });
+
+    let result = f();
+    let stdout = EXECUTION.with(|execution| {
+        let mut execution = execution.borrow_mut();
+        execution.repl_inspect = false;
+        execution.stdout.take().unwrap_or_default()
+    });
+
+    (result, stdout)
 }
 
 #[unsafe(no_mangle)]
@@ -688,7 +791,8 @@ pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
 }
 
 fn repl_inspect_enabled() -> bool {
-    std::env::var_os("ECHO_REPL_INSPECT").is_some()
+    EXECUTION.with(|execution| execution.borrow().repl_inspect)
+        || std::env::var_os("ECHO_REPL_INSPECT").is_some()
 }
 
 fn inspect_array(array: &EchoArray, depth: usize) -> String {
@@ -758,7 +862,7 @@ fn inspect_string_literal(bytes: &[u8]) -> String {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_flush() {
-    let _ = io::stdout().flush();
+    let _ = std_io::stdout().flush();
 }
 
 #[unsafe(no_mangle)]
@@ -798,7 +902,7 @@ pub extern "C" fn echo_task_run(task_value: EchoValue) -> EchoValue {
     match sched::with_thread_event_loop(|event_loop| {
         event_loop
             .schedule_task(task)
-            .map_err(|_| io::Error::other("failed to schedule Echo task"))
+            .map_err(|_| std_io::Error::other("failed to schedule Echo task"))
     }) {
         Ok(()) => task_value,
         Err(_) => EchoValue::error(),
@@ -820,9 +924,142 @@ pub extern "C" fn echo_task_join(task_value: EchoValue) -> EchoValue {
     sched::with_thread_event_loop(|event_loop| {
         event_loop
             .join_task(task)
-            .map_err(|_| io::Error::other("failed to join Echo task"))
+            .map_err(|_| std_io::Error::other("failed to join Echo task"))
     })
     .unwrap_or_else(|_| EchoValue::error())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_group_new() -> EchoValue {
+    EchoValue::task_group(Box::into_raw(Box::new(task_group::EchoTaskGroup::new())))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_group_add(group_value: EchoValue, task_value: EchoValue) -> EchoValue {
+    let Some(group) = group_value.as_task_group_mut() else {
+        return EchoValue::error();
+    };
+    let Some(task) = task_value.as_task_mut() else {
+        return EchoValue::error();
+    };
+
+    group.add(task as *mut task::EchoTask);
+    group_value
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_group_run_and_join(group_value: EchoValue) -> EchoValue {
+    let Some(group) = group_value.as_task_group_mut() else {
+        return EchoValue::error();
+    };
+
+    let schedule_result = sched::with_thread_event_loop(|event_loop| {
+        for task in &group.tasks {
+            let Some(task) = (unsafe { task.as_ref() }) else {
+                return Err(std_io::Error::other("invalid Echo task in group"));
+            };
+            event_loop
+                .schedule_task(task)
+                .map_err(|_| std_io::Error::other("failed to schedule Echo task group task"))?;
+        }
+        Ok(())
+    });
+    if schedule_result.is_err() {
+        return EchoValue::error();
+    }
+
+    let mut results = EchoList::new();
+    for task in &group.tasks {
+        let Some(task) = (unsafe { task.as_ref() }) else {
+            return EchoValue::error();
+        };
+        let result = match task.result() {
+            Ok(value) => value,
+            Err(task::TaskResultError::Failed) => return EchoValue::error(),
+            Err(task::TaskResultError::NotFinished) => {
+                match sched::with_thread_event_loop(|event_loop| {
+                    event_loop
+                        .join_task(task)
+                        .map_err(|_| std_io::Error::other("failed to join Echo task group task"))
+                }) {
+                    Ok(value) => value,
+                    Err(_) => return EchoValue::error(),
+                }
+            }
+        };
+        results.values.push(result);
+    }
+
+    EchoValue::list(Box::into_raw(Box::new(results)))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_thread_fork(callback: Option<task::EchoTaskCallback>) -> EchoValue {
+    let Some(callback) = callback else {
+        return EchoValue::error();
+    };
+    let id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
+    let thread = thread::EchoThread::fork(task::ThreadId(id), callback);
+
+    EchoValue::thread(Box::into_raw(Box::new(thread)))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_thread_fork_task(task_value: EchoValue) -> EchoValue {
+    let Some(task) = task_value.as_task_mut() else {
+        return EchoValue::error();
+    };
+    let Some(callback) = task.callback() else {
+        return EchoValue::error();
+    };
+    let id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
+    let thread = thread::EchoThread::fork(task::ThreadId(id), callback);
+
+    EchoValue::thread(Box::into_raw(Box::new(thread)))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_thread_join(thread_value: EchoValue) -> EchoValue {
+    let Some(thread) = thread_value.as_thread_mut() else {
+        return EchoValue::error();
+    };
+
+    thread.join()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_process_spawn(command: EchoValue) -> EchoValue {
+    let Some(command) = command.string_bytes() else {
+        return EchoValue::error();
+    };
+    let id = NEXT_PROCESS_ID.fetch_add(1, Ordering::Relaxed);
+
+    match process::EchoProcess::spawn(task::ProcessId(id), command) {
+        Ok(process) => EchoValue::process(Box::into_raw(Box::new(process))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_process_join(process_value: EchoValue) -> EchoValue {
+    let Some(process) = process_value.as_process_mut() else {
+        return EchoValue::error();
+    };
+
+    process.join()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
+    match handle.kind {
+        ECHO_VALUE_TASK => echo_task_join(handle),
+        ECHO_VALUE_THREAD => echo_thread_join(handle),
+        ECHO_VALUE_PROCESS => echo_process_join(handle),
+        _ => {
+            eprintln!("error: join target is not a task, thread, or process handle");
+            EchoValue::error()
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -1044,6 +1281,9 @@ pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
         ECHO_VALUE_ARRAY => b"array".as_slice(),
         ECHO_VALUE_LIST => b"list".as_slice(),
         ECHO_VALUE_TASK => b"task".as_slice(),
+        ECHO_VALUE_TASK_GROUP => b"task_group".as_slice(),
+        ECHO_VALUE_THREAD => b"thread".as_slice(),
+        ECHO_VALUE_PROCESS => b"process".as_slice(),
         ECHO_VALUE_PENDING => b"pending".as_slice(),
         ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
         ECHO_VALUE_TCP_CONNECTION => b"TcpConnection".as_slice(),
@@ -1436,7 +1676,11 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
         ECHO_VALUE_STRING => b"string".as_slice(),
         ECHO_VALUE_ARRAY => b"array".as_slice(),
         ECHO_VALUE_LIST => b"list".as_slice(),
-        ECHO_VALUE_TASK | ECHO_VALUE_OBJECT => b"object".as_slice(),
+        ECHO_VALUE_TASK
+        | ECHO_VALUE_TASK_GROUP
+        | ECHO_VALUE_OBJECT
+        | ECHO_VALUE_PROCESS
+        | ECHO_VALUE_THREAD => b"object".as_slice(),
         ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
         _ => b"unknown type".as_slice(),
     };
@@ -1623,7 +1867,11 @@ pub extern "C" fn echo_php_is_object(value: EchoValue) -> EchoValue {
 pub extern "C" fn echo_php_is_resource(value: EchoValue) -> EchoValue {
     EchoValue::bool(matches!(
         value.kind,
-        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION
+        ECHO_VALUE_TCP_LISTENER
+            | ECHO_VALUE_TCP_CONNECTION
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_THREAD
     ))
 }
 
@@ -3239,7 +3487,19 @@ fn write_stdout(bytes: &[u8]) {
         return;
     }
 
-    let mut stdout = io::stdout().lock();
+    if EXECUTION.with(|execution| {
+        let mut execution = execution.borrow_mut();
+        if let Some(stdout) = execution.stdout.as_mut() {
+            stdout.extend_from_slice(bytes);
+            true
+        } else {
+            false
+        }
+    }) {
+        return;
+    }
+
+    let mut stdout = std_io::stdout().lock();
     stdout
         .write_all(bytes)
         .expect("failed to write Echo runtime output");
@@ -3458,6 +3718,17 @@ mod tests {
             array.inspect_bytes(),
             Some(b"Array [0 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, ... 2 more]".to_vec())
         );
+    }
+
+    #[test]
+    fn runtime_capture_stdout_enables_repl_inspection_without_process_env() {
+        let array = echo_value_array_append(echo_value_array_new(), EchoValue::int(2));
+
+        let ((), stdout) = capture_stdout(true, || unsafe {
+            echo_write_value(array);
+        });
+
+        assert_eq!(stdout, b"Array [0 => 2]");
     }
 
     #[test]

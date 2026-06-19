@@ -1,8 +1,10 @@
+use std::collections::VecDeque;
 use std::env;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -17,67 +19,104 @@ fn benchmark_php_fixtures_against_php() {
     let iterations = benchmark_iterations();
     let fixtures = fixture_dirs();
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
+    let jobs = benchmark_jobs(fixtures.len());
     let suite_start = Instant::now();
-    let mut rows = Vec::new();
+    let queue = Arc::new(Mutex::new(VecDeque::from(fixtures)));
+    let rows = Arc::new(Mutex::new(Vec::new()));
 
-    for fixture in fixtures {
-        let program_path = fixture.join("program.php");
-        let stdin_path = fixture.join("stdin.txt");
-        let stdout_path = fixture.join("stdout.txt");
-        let artifact_dir = artifact_dir_for(&fixture);
+    println!(
+        "running {} PHP benchmark fixtures with {jobs} worker(s)",
+        queue.lock().expect("benchmark queue lock poisoned").len()
+    );
 
-        fs::create_dir_all(&artifact_dir)
-            .unwrap_or_else(|err| panic!("failed to create {}: {err}", artifact_dir.display()));
+    thread::scope(|scope| {
+        for _ in 0..jobs {
+            let queue = Arc::clone(&queue);
+            let rows = Arc::clone(&rows);
 
-        let expected_stdout = fs::read(&stdout_path)
-            .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdout_path.display()));
-        let stdin = fs::read(&stdin_path)
-            .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()));
+            scope.spawn(move || {
+                loop {
+                    let fixture = queue
+                        .lock()
+                        .expect("benchmark queue lock poisoned")
+                        .pop_front();
 
-        let echo_binary = build_echo_binary(&program_path, &run_artifact_dir_for(&fixture));
+                    let Some(fixture) = fixture else {
+                        break;
+                    };
 
-        let (php_first, php_resources) =
-            output_with_stdin_and_resources(Command::new("php").arg(&program_path), &stdin);
-        assert_success(&php_first, "php");
-        assert_eq!(php_first.stdout, expected_stdout, "php output mismatch");
+                    let row = benchmark_fixture(&fixture, iterations);
+                    rows.lock().expect("benchmark rows lock poisoned").push(row);
+                }
+            });
+        }
+    });
 
-        let (echo_first, echo_resources) =
-            output_with_stdin_and_resources(&mut Command::new(&echo_binary), &stdin);
-        assert_success(&echo_first, "Echo binary");
-        assert_eq!(echo_first.stdout, expected_stdout, "Echo output mismatch");
-
-        let php_duration = time_iterations(iterations, || {
-            let output = output_with_stdin(Command::new("php").arg(&program_path), &stdin);
-            assert_success(&output, "php");
-        });
-
-        let echo_duration = time_iterations(iterations, || {
-            let output = output_with_stdin(&mut Command::new(&echo_binary), &stdin);
-            assert_success(&output, "Echo binary");
-        });
-
-        let fixture_name = fixture
-            .file_name()
-            .and_then(|name| name.to_str())
-            .expect("fixture path should have UTF-8 file name");
-        let row = BenchmarkRow::new(
-            fixture_name,
-            php_duration,
-            echo_duration,
-            php_resources,
-            echo_resources,
-            echo_binary.clone(),
-            iterations,
-        );
-        let report = row.format_report();
-
-        print!("{report}");
-        fs::write(artifact_dir.join("benchmark.txt"), report)
-            .unwrap_or_else(|err| panic!("failed to write benchmark report: {err}"));
-        rows.push(row);
+    let mut rows = Arc::try_unwrap(rows)
+        .expect("benchmark worker still holds rows")
+        .into_inner()
+        .expect("benchmark rows lock poisoned");
+    rows.sort_by(|left, right| left.fixture.cmp(&right.fixture));
+    for row in &rows {
+        print!("{}", row.format_report());
     }
-
     write_suite_artifacts(&rows, suite_start.elapsed());
+}
+
+fn benchmark_fixture(fixture: &Path, iterations: usize) -> BenchmarkRow {
+    let program_path = fixture.join("program.php");
+    let stdin_path = fixture.join("stdin.txt");
+    let stdout_path = fixture.join("stdout.txt");
+    let artifact_dir = artifact_dir_for(fixture);
+
+    fs::create_dir_all(&artifact_dir)
+        .unwrap_or_else(|err| panic!("failed to create {}: {err}", artifact_dir.display()));
+
+    let expected_stdout = fs::read(&stdout_path)
+        .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdout_path.display()));
+    let stdin = fs::read(&stdin_path)
+        .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()));
+
+    let echo_binary = build_echo_binary(&program_path, &run_artifact_dir_for(fixture));
+
+    let (php_first, php_resources) =
+        output_with_stdin_and_resources(Command::new("php").arg(&program_path), &stdin);
+    assert_success(&php_first, "php");
+    assert_eq!(php_first.stdout, expected_stdout, "php output mismatch");
+
+    let (echo_first, echo_resources) =
+        output_with_stdin_and_resources(&mut Command::new(&echo_binary), &stdin);
+    assert_success(&echo_first, "Echo binary");
+    assert_eq!(echo_first.stdout, expected_stdout, "Echo output mismatch");
+
+    let php_duration = time_iterations(iterations, || {
+        let output = output_with_stdin(Command::new("php").arg(&program_path), &stdin);
+        assert_success(&output, "php");
+    });
+
+    let echo_duration = time_iterations(iterations, || {
+        let output = output_with_stdin(&mut Command::new(&echo_binary), &stdin);
+        assert_success(&output, "Echo binary");
+    });
+
+    let fixture_name = fixture
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("fixture path should have UTF-8 file name");
+    let row = BenchmarkRow::new(
+        fixture_name,
+        php_duration,
+        echo_duration,
+        php_resources,
+        echo_resources,
+        echo_binary.clone(),
+        iterations,
+    );
+    let report = row.format_report();
+
+    fs::write(artifact_dir.join("benchmark.txt"), report)
+        .unwrap_or_else(|err| panic!("failed to write benchmark report: {err}"));
+    row
 }
 
 #[derive(Debug)]
@@ -179,6 +218,21 @@ fn benchmark_iterations() -> usize {
     iterations
 }
 
+fn benchmark_jobs(fixture_count: usize) -> usize {
+    let jobs = match env::var("ECHO_BENCH_JOBS") {
+        Ok(value) => value.parse().unwrap_or_else(|err| {
+            panic!("ECHO_BENCH_JOBS must be a positive integer, got {value:?}: {err}")
+        }),
+        Err(env::VarError::NotPresent) => thread::available_parallelism()
+            .map(|parallelism| parallelism.get())
+            .unwrap_or(1),
+        Err(err) => panic!("failed to read ECHO_BENCH_JOBS: {err}"),
+    };
+
+    assert!(jobs > 0, "ECHO_BENCH_JOBS must be greater than zero");
+    jobs.min(fixture_count.max(1))
+}
+
 fn time_iterations(iterations: usize, mut f: impl FnMut()) -> Duration {
     let start = Instant::now();
 
@@ -215,12 +269,7 @@ fn output_with_stdin(command: &mut Command, stdin: &[u8]) -> std::process::Outpu
         .spawn()
         .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
 
-    child
-        .stdin
-        .as_mut()
-        .expect("stdin should be piped")
-        .write_all(stdin)
-        .expect("failed to write fixture stdin");
+    write_fixture_stdin(child.stdin.as_mut().expect("stdin should be piped"), stdin);
 
     child
         .wait_with_output()
@@ -238,12 +287,8 @@ fn output_with_stdin_and_resources(
         .spawn()
         .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
 
-    child
-        .stdin
-        .take()
-        .expect("stdin should be piped")
-        .write_all(stdin)
-        .expect("failed to write fixture stdin");
+    let mut child_stdin = child.stdin.take().expect("stdin should be piped");
+    write_fixture_stdin(&mut child_stdin, stdin);
 
     let pid = child.id();
     let mut metrics = ResourceMetrics::default();
@@ -264,6 +309,14 @@ fn output_with_stdin_and_resources(
         .expect("failed to wait for command");
 
     (output, Some(metrics))
+}
+
+fn write_fixture_stdin(writer: &mut impl Write, stdin: &[u8]) {
+    match writer.write_all(stdin) {
+        Ok(()) => {}
+        Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {}
+        Err(err) => panic!("failed to write fixture stdin: {err}"),
+    }
 }
 
 fn merge_proc_metrics(metrics: &mut ResourceMetrics, pid: u32) {

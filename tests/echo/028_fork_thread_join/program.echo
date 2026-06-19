@@ -1,0 +1,5 @@
+$worker = fork {
+    return "thread\n"
+}
+
+echo join $worker

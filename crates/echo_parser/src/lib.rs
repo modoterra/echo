@@ -53,7 +53,8 @@ fn parse_with_validation(source: &str, mode: ValidationMode) -> Result<Program, 
     // The Chumsky parser below still parses the source text directly.
     echo_lexer::lex(source)?;
 
-    let source = virtualize_statement_terminators(&strip_comments_preserving_spans(source));
+    let source = normalize_heredoc_literals(source);
+    let source = virtualize_statement_terminators(&strip_comments_preserving_spans(&source));
 
     let program = parser().parse(&source).into_result().map_err(|errors| {
         errors
@@ -209,12 +210,13 @@ fn strip_comments_preserving_spans(source: &str) -> String {
 
     while index < bytes.len() {
         match bytes[index] {
-            b'"' => {
+            b'"' | b'\'' => {
+                let quote = bytes[index];
                 index += 1;
                 while index < bytes.len() {
                     match bytes[index] {
                         b'\\' => index = (index + 2).min(bytes.len()),
-                        b'"' => {
+                        byte if byte == quote => {
                             index += 1;
                             break;
                         }
@@ -272,12 +274,13 @@ fn virtualize_statement_terminators(source: &str) -> String {
 
     while index < bytes.len() {
         match bytes[index] {
-            b'"' => {
+            b'"' | b'\'' => {
+                let quote = bytes[index];
                 index += 1;
                 while index < bytes.len() {
                     match bytes[index] {
                         b'\\' => index = (index + 2).min(bytes.len()),
-                        b'"' => {
+                        byte if byte == quote => {
                             index += 1;
                             break;
                         }
@@ -448,11 +451,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let string = none_of('"')
+        let double_quoted_char = just('\\')
+            .then(any())
+            .map(|(_, c)| format!("\\{c}"))
+            .or(none_of('"').map(|c: char| c.to_string()));
+        let double_quoted_string = double_quoted_char
             .repeated()
-            .collect::<String>()
+            .collect::<Vec<_>>()
+            .map(|parts| parts.concat())
             .delimited_by(just('"'), just('"'))
-            .map(unescape_string)
+            .map(unescape_double_quoted_string)
             .map_with(|value, extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -461,6 +469,27 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     span: Span::new(span.start, span.end),
                 })
             });
+
+        let single_quoted_char = just('\\')
+            .then(any())
+            .map(|(_, c)| format!("\\{c}"))
+            .or(none_of('\'').map(|c: char| c.to_string()));
+        let single_quoted_string = single_quoted_char
+            .repeated()
+            .collect::<Vec<_>>()
+            .map(|parts| parts.concat())
+            .delimited_by(just('\''), just('\''))
+            .map(unescape_single_quoted_string)
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::String(StringLiteral {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let string = double_quoted_string.or(single_quoted_string);
 
         let number = text::digits(10)
             .then(just('.').then(text::digits(10)).or_not())
@@ -1459,6 +1488,40 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
+        let run_group_entries = block
+            .clone()
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .delimited_by(just('[').padded(), just(']').padded());
+
+        let let_run_group_stmt = text::keyword("let")
+            .padded()
+            .ignore_then(type_expr.clone().padded().or_not())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("run").padded())
+            .then(run_group_entries.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |((ty, name), entries): ((Option<String>, &str), Vec<Vec<Stmt>>), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::Let(LetStmt {
+                        name: name.to_string(),
+                        ty,
+                        value: Expr::Run(RunExpr::Group {
+                            entries,
+                            span: Span::new(span.start, span.end),
+                        }),
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
         let run_block_stmt = text::keyword("run")
             .padded()
             .ignore_then(block.clone())
@@ -1571,6 +1634,25 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let assign_run_group_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then_ignore(text::keyword("run").padded())
+            .then(run_group_entries)
+            .then_ignore(terminator.clone())
+            .map_with(|(name, entries): (&str, Vec<Vec<Stmt>>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Assign(AssignStmt {
+                    name: name.to_string(),
+                    value: Expr::Run(RunExpr::Group {
+                        entries,
+                        span: Span::new(span.start, span.end),
+                    }),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let assign_fork_block_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
@@ -1636,9 +1718,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(break_stmt)
             .or(let_join_run_block_stmt)
             .or(let_loop_block_stmt)
+            .or(let_run_group_stmt)
             .or(let_run_block_stmt)
             .or(let_stmt)
             .or(assign_defer_block_stmt)
+            .or(assign_run_group_stmt)
             .or(assign_run_block_stmt)
             .or(assign_fork_block_stmt)
             .or(run_block_stmt)
@@ -1664,7 +1748,119 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         })
 }
 
-fn unescape_string(input: String) -> String {
+fn normalize_heredoc_literals(source: &str) -> String {
+    let mut output = source.as_bytes().to_vec();
+    let mut index = 0;
+    let bytes = source.as_bytes();
+
+    while index + 3 <= bytes.len() {
+        if &bytes[index..index + 3] != b"<<<" {
+            index += 1;
+            continue;
+        }
+
+        let Some((label, content_start)) = parse_heredoc_label(source, index + 3) else {
+            index += 3;
+            continue;
+        };
+        let Some(end_start) = find_heredoc_end(source, content_start, &label) else {
+            index += 3;
+            continue;
+        };
+
+        output[index] = b'"';
+        for byte in output.iter_mut().take(content_start).skip(index + 1) {
+            if *byte != b'\n' && *byte != b'\r' {
+                *byte = b' ';
+            }
+        }
+        for byte in output.iter_mut().take(end_start).skip(content_start) {
+            if *byte == b'"' || *byte == b'\\' {
+                *byte = b' ';
+            }
+        }
+        output[end_start] = b'"';
+        let mut end = end_start + label.len();
+        if output.get(end) == Some(&b';') {
+            end += 1;
+        }
+        for byte in output.iter_mut().take(end).skip(end_start + 1) {
+            if *byte != b'\n' && *byte != b'\r' {
+                *byte = b' ';
+            }
+        }
+        index = end;
+    }
+
+    String::from_utf8(output).expect("heredoc normalization preserves UTF-8")
+}
+
+fn parse_heredoc_label(source: &str, mut index: usize) -> Option<(String, usize)> {
+    let bytes = source.as_bytes();
+    while matches!(bytes.get(index), Some(b' ' | b'\t')) {
+        index += 1;
+    }
+
+    let quote = match bytes.get(index) {
+        Some(b'\'' | b'"') => {
+            let quote = bytes[index];
+            index += 1;
+            Some(quote)
+        }
+        _ => None,
+    };
+
+    let label_start = index;
+    while matches!(
+        bytes.get(index),
+        Some(b'A'..=b'Z' | b'a'..=b'z' | b'_' | b'0'..=b'9')
+    ) {
+        index += 1;
+    }
+    if index == label_start {
+        return None;
+    }
+    let label = source[label_start..index].to_string();
+
+    if let Some(quote) = quote {
+        if bytes.get(index) != Some(&quote) {
+            return None;
+        }
+        index += 1;
+    }
+    while matches!(bytes.get(index), Some(b' ' | b'\t')) {
+        index += 1;
+    }
+    match bytes.get(index) {
+        Some(b'\n') => Some((label, index + 1)),
+        Some(b'\r') if bytes.get(index + 1) == Some(&b'\n') => Some((label, index + 2)),
+        _ => None,
+    }
+}
+
+fn find_heredoc_end(source: &str, mut index: usize, label: &str) -> Option<usize> {
+    while index < source.len() {
+        let line_end = source[index..]
+            .find(['\r', '\n'])
+            .map(|offset| index + offset)
+            .unwrap_or(source.len());
+        let line = &source[index..line_end];
+        let terminator = line.strip_suffix(';').unwrap_or(line);
+        if terminator == label {
+            return Some(index);
+        }
+        index = line_end;
+        if source.as_bytes().get(index) == Some(&b'\r') {
+            index += 1;
+        }
+        if source.as_bytes().get(index) == Some(&b'\n') {
+            index += 1;
+        }
+    }
+    None
+}
+
+fn unescape_double_quoted_string(input: String) -> String {
     let mut output = String::new();
     let mut chars = input.chars();
 
@@ -1688,9 +1884,85 @@ fn unescape_string(input: String) -> String {
     output
 }
 
+fn unescape_single_quoted_string(input: String) -> String {
+    let mut output = String::new();
+    let mut chars = input.chars();
+
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            output.push(c);
+            continue;
+        }
+
+        match chars.next() {
+            Some('\\') => output.push('\\'),
+            Some('\'') => output.push('\''),
+            Some(other) => {
+                output.push('\\');
+                output.push(other);
+            }
+            None => output.push('\\'),
+        }
+    }
+
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_php_string_literal_forms() {
+        let program = parse_with_mode(
+            r#"<?php
+echo 'single quoted';
+echo "double quoted\n";
+echo <<<'NOW'
+nowdoc body
+NOW;
+echo <<<HTML
+heredoc body
+HTML;
+"#,
+            SourceMode::Echo,
+        )
+        .expect("program parses");
+
+        assert_eq!(program.statements.len(), 4);
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Echo(statement)
+                if matches!(&statement.exprs[0], Expr::String(string) if string.value == "single quoted")
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::Echo(statement)
+                if matches!(&statement.exprs[0], Expr::String(string) if string.value == "double quoted\n")
+        ));
+        assert!(matches!(
+            &program.statements[2],
+            Stmt::Echo(statement)
+                if matches!(&statement.exprs[0], Expr::String(string) if string.value.contains("nowdoc body"))
+        ));
+        assert!(matches!(
+            &program.statements[3],
+            Stmt::Echo(statement)
+                if matches!(&statement.exprs[0], Expr::String(string) if string.value.contains("heredoc body"))
+        ));
+    }
+
+    #[test]
+    fn parses_php_single_quoted_string_escapes() {
+        let program = parse_with_mode(r#"<?php echo 'c:\path\n and \'quote\'';"#, SourceMode::Echo)
+            .expect("program parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Echo(statement)
+                if matches!(&statement.exprs[0], Expr::String(string) if string.value == r#"c:\path\n and 'quote'"#)
+        ));
+    }
 
     #[test]
     fn parses_concurrency_keyword_expressions() {
@@ -1746,6 +2018,34 @@ $worker = fork { return "parallel"; };
         assert!(matches!(
             &program.statements[2],
             Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(ForkExpr::Block { .. }))
+        ));
+    }
+
+    #[test]
+    fn parses_run_group_assignments() {
+        let program = parse_with_mode(
+            r#"<?php
+$tasks = run [
+    { return "user"; },
+    { return "posts"; },
+];
+let $more = run [
+    { return "audit"; },
+];
+"#,
+            SourceMode::Echo,
+        )
+        .expect("program parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Assign(statement)
+                if matches!(&statement.value, Expr::Run(RunExpr::Group { entries, .. }) if entries.len() == 2)
+        ));
+        assert!(matches!(
+            &program.statements[1],
+            Stmt::Let(statement)
+                if matches!(&statement.value, Expr::Run(RunExpr::Group { entries, .. }) if entries.len() == 1)
         ));
     }
 
