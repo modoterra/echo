@@ -22,6 +22,10 @@ pub enum DefinitionLocation {
         range: TextRange,
         selection_range: TextRange,
     },
+    File {
+        file_id: FileId,
+        selection_range: TextRange,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

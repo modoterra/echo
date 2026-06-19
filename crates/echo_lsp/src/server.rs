@@ -23,7 +23,9 @@ use tower_lsp_server::ls_types::{
 use tower_lsp_server::{Client, LanguageServer, LspService, Server};
 
 use crate::completion::{completion_items, completion_options};
-use crate::definition::{definition_location_to_lsp, method_definition_at};
+use crate::definition::{
+    definition_location_to_lsp, dependency_target_location_at, method_definition_at,
+};
 use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
 use crate::hover::hover_at;
@@ -269,8 +271,13 @@ impl LanguageServer for Backend {
         };
 
         let location = {
-            let index = self.index.lock().expect("echo index mutex poisoned");
+            let mut index = self.index.lock().expect("echo index mutex poisoned");
             let text_offset = TextOffset(offset as u32);
+            if let Some(location) =
+                dependency_target_location_at(&mut index, document.file_id, text_offset)
+            {
+                return Ok(Some(GotoDefinitionResponse::Scalar(location)));
+            }
             let definition = method_definition_at(
                 &index,
                 &document.text,

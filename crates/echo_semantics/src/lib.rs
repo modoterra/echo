@@ -206,6 +206,7 @@ impl IndexFactExtractor {
                     target: statement.name.as_string(),
                     alias: statement.alias.clone(),
                     range: span_range(statement.span),
+                    target_range: span_range(statement.span),
                 });
             }
             Stmt::Import(statement) => {
@@ -223,6 +224,7 @@ impl IndexFactExtractor {
                     target,
                     alias: statement.alias.clone(),
                     range: span_range(statement.span),
+                    target_range: span_range(statement.span),
                 });
             }
             Stmt::FunctionDecl(statement) => {
@@ -343,6 +345,7 @@ impl IndexFactExtractor {
                     target,
                     alias: None,
                     range: span_range(expr.span),
+                    target_range: span_range(expr.path.span()),
                 });
                 self.extract_expr_dependencies(&expr.path);
             }
@@ -1467,6 +1470,8 @@ mod tests {
                 ),
             ]
         );
+        assert_eq!(facts.dependencies[1].range, TextRange::new(100, 141));
+        assert_eq!(facts.dependencies[1].target_range, TextRange::new(108, 141));
     }
 
     #[test]

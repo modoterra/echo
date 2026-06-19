@@ -85,6 +85,10 @@ impl EchoIndex {
             .find(|file| file.path.as_deref() == Some(path))
     }
 
+    pub fn file_id_by_path(&self, path: &std::path::Path) -> Option<FileId> {
+        self.file_by_path(path).map(|file| file.file_id)
+    }
+
     pub fn remove_file(&mut self, file_id: FileId) {
         self.files.remove(&file_id);
         self.remove_symbols_for_file(file_id);
@@ -265,11 +269,14 @@ impl EchoIndex {
 
         let dependencies = self.dependencies(DependencyQuery::in_file(file_id));
         for dependency in &dependencies {
-            if dependency.range.contains(offset) {
+            if dependency.target_range.contains(offset)
+                || (dependency.kind == crate::DependencyKind::PhpUse
+                    && dependency.range.contains(offset))
+            {
                 return Some(DefinitionLocation::Dependency {
                     file_id,
                     range: dependency.range,
-                    selection_range: dependency.range,
+                    selection_range: dependency.target_range,
                 });
             }
         }
@@ -290,7 +297,7 @@ impl EchoIndex {
         Some(DefinitionLocation::Dependency {
             file_id,
             range: dependency.range,
-            selection_range: dependency.range,
+            selection_range: dependency.target_range,
         })
     }
 
@@ -595,6 +602,7 @@ mod tests {
                     target: "Psr\\Log\\LoggerInterface".to_owned(),
                     alias: Some("LoggerInterface".to_owned()),
                     range: TextRange::new(5, 33),
+                    target_range: TextRange::new(5, 33),
                 }],
                 references: Vec::new(),
             },
@@ -623,6 +631,7 @@ mod tests {
                     target: "Illuminate\\Http\\Request".to_string(),
                     alias: None,
                     range: TextRange::new(6, 36),
+                    target_range: TextRange::new(6, 36),
                 }],
                 references: vec![ReferenceFact {
                     kind: ReferenceKind::ClassLike,
@@ -662,6 +671,7 @@ mod tests {
                     target: "Illuminate\\Http\\Request".to_string(),
                     alias: None,
                     range: TextRange::new(6, 36),
+                    target_range: TextRange::new(6, 36),
                 }],
                 references: vec![ReferenceFact {
                     kind: ReferenceKind::ClassLike,

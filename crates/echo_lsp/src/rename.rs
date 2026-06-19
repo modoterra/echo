@@ -339,12 +339,14 @@ mod tests {
             target: "Illuminate\\Foundation\\Application".to_string(),
             alias: None,
             range: TextRange::new(6, 43),
+            target_range: TextRange::new(6, 43),
         };
         let request_dependency = DependencyFact {
             kind: DependencyKind::PhpUse,
             target: "Illuminate\\Http\\Request".to_string(),
             alias: None,
             range: TextRange::new(44, 74),
+            target_range: TextRange::new(44, 74),
         };
         let reference = ReferenceLocation {
             file_id: FileId(1),

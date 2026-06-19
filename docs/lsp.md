@@ -248,6 +248,10 @@ For open filesystem-backed PHP files, the server also follows concrete
 dependencies extracted by `echo_semantics`, parses those imported PHP source
 units into `echo_index`, and can resolve PHPDoc-typed receiver method calls such
 as `$app->handleRequest(...)` to indexed class methods in included vendor files.
+Go-to definition on PHP `use` imports consults Composer `autoload_classmap.php`
+and `autoload_psr4.php` beside the indexed `vendor/autoload.php`, so imports
+such as `use Illuminate\Http\Request;` can open their concrete vendor class file
+even when that vendor file is not yet fully parseable by Echo.
 References are initially same-file and import-aware, so finding references for
 that imported `Request` name returns both the `use` dependency and static class
 reference.

@@ -44,6 +44,7 @@ pub struct DependencyFact {
     pub target: String,
     pub alias: Option<String>,
     pub range: TextRange,
+    pub target_range: TextRange,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

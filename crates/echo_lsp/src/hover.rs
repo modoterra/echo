@@ -43,11 +43,14 @@ pub fn hover_at(
     dependencies
         .iter()
         .copied()
-        .find(|dependency| dependency.range.contains(offset))
+        .find(|dependency| {
+            dependency.target_range.contains(offset)
+                || (dependency.kind == DependencyKind::PhpUse && dependency.range.contains(offset))
+        })
         .map(|dependency| {
             markup_hover(
                 dependency_hover_text(dependency),
-                Some(range_to_lsp_range(text, dependency.range)),
+                Some(range_to_lsp_range(text, dependency.target_range)),
             )
         })
 }
@@ -195,6 +198,7 @@ mod tests {
             target: "Illuminate\\Http\\Request".to_string(),
             alias: None,
             range: TextRange::new(6, 36),
+            target_range: TextRange::new(10, 34),
         };
 
         let hover = hover_at(&text, TextOffset(10), &[], &[&dependency]).expect("hover");
@@ -203,6 +207,13 @@ mod tests {
             panic!("expected markup hover");
         };
         assert_eq!(markup.value, "PHP use `Illuminate\\Http\\Request`");
+        assert_eq!(
+            hover.range.expect("hover range"),
+            tower_lsp_server::ls_types::Range {
+                start: tower_lsp_server::ls_types::Position::new(1, 4),
+                end: tower_lsp_server::ls_types::Position::new(1, 28),
+            }
+        );
     }
 
     #[test]

@@ -113,6 +113,7 @@ mod tests {
             target: "Illuminate\\Http\\Request".to_string(),
             alias: None,
             range: TextRange::new(0, 30),
+            target_range: TextRange::new(0, 30),
         };
         let app = Symbol {
             id: SymbolId(1),
