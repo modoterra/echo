@@ -12,6 +12,20 @@ Echo's generated LLVM IR may declare many runtime symbols as PHP compatibility g
 
 The core ABI should stay small and stable. PHP builtin coverage and standard-library intrinsic coverage may become large, but they are routed through registries rather than ad hoc codegen symbol construction.
 
+## Rust Runtime Ownership
+
+Echo runtime and executable semantics should be implemented in Rust crates owned by
+this workspace. Generated code may call stable `echo_*`, `echo_php_*`,
+`echo_std_*`, and future `echo_ext_*` ABI symbols, but those symbols should be
+backed by Rust implementation code.
+
+Do not add C/C++ runtime implementations, `libm`/`-lm`, libc math entry points,
+or other non-Rust link dependencies to implement language behavior. The current
+native build path uses `clang` as a bootstrap linker driver for generated LLVM IR
+and `target/debug/libecho_runtime.a`; that driver is not part of the language
+semantics and should not be used to smuggle in C runtime behavior. Future build
+plumbing should move toward a Rust-owned link path where practical.
+
 ## Static Builtin Calls
 
 When source code names a known PHP builtin directly, codegen may lower it to the PHP builtin ABI through the compile-time builtin registry.

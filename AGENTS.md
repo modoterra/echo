@@ -13,6 +13,7 @@
 ## Module Ownership Invariants
 - Global domain vocabulary and module ownership are defined in `CONTEXT.md`; read it before changing compiler, runtime, or REPL behavior.
 - REPL examples are language-development inputs. Do not solve them with REPL-only lookup tables, evaluators, type environments, or ad hoc value semantics; implement behavior in the shared language pipeline first.
+- Runtime and executable semantics should be owned by Rust code in this workspace. Do not add C/C++ runtime implementations, `libm`/`-lm`, libc math calls, or new non-Rust link dependencies for language behavior. The current `clang` native-link driver is a bootstrap path, not a license to add C runtime semantics; replacing it with a Rust-owned link path is preferred when touching build plumbing.
 
 ## Agent skills
 
@@ -63,7 +64,7 @@ This repo uses a single-context domain documentation layout. See `docs/agents/do
 
 ## Current Gotchas
 - Parser currently parses source text directly with Chumsky after first calling `echo_lexer::lex(source)?` only to surface lexer errors.
-- `xo run` and `xo build` share the same binary build path: generated LLVM IR is linked with `target/debug/libecho_runtime.a` via `clang -x ir`. Full end-to-end tests need `clang` on `PATH`; PHP benchmarks also need `php` on `PATH`.
+- `xo run` and `xo build` share the same binary build path: generated LLVM IR is linked with `target/debug/libecho_runtime.a` via `clang -x ir`. This is transitional build plumbing; avoid adding any C/C++ runtime libraries or language semantics through that path. Full end-to-end tests need `clang` on `PATH`; PHP benchmarks also need `php` on `PATH`.
 
 ## Source Notes
 - `echo_source::SourceFile::new` classifies `.echo` and `.xo` as strict mode; every other extension defaults to Echo superset mode.

@@ -127,7 +127,7 @@ Current coverage:
 
 - `xo build -O0/-O1/-O2/-O3/-Oz file.echo -o program` is supported.
 - `O0` remains the default.
-- Native builds pass the selected optimization level to `clang` while linking generated LLVM IR with `echo_runtime`.
+- Native builds pass the selected optimization level to `clang` while linking generated LLVM IR with `echo_runtime`. This is transitional build plumbing only; language/runtime behavior must stay in Rust-owned runtime crates and must not add C/C++ runtime libraries, `libm`/`-lm`, libc math calls, or other non-Rust link dependencies.
 - Generated IR is verified with external `opt -passes=verify` before native builds and optimized IR emission.
 - `xo build --emit-ir file.echo` emits raw generated IR.
 - `xo build --emit-ir -O2 file.echo` emits optimized IR through the external `opt` tool as a bootstrap.
@@ -153,7 +153,7 @@ pub enum OptimizationLevel {
 
 5. Let `--emit-ir` emit raw IR for `O0` and optimized IR for optimized modes. **Done.**
 
-6. Link native binaries from optimized IR/modules when optimization is enabled. **Done via `clang -O*`.**
+6. Link native binaries from optimized IR/modules when optimization is enabled. **Done via `clang -O*`; replacing this with Rust-owned build plumbing remains preferred.**
 
 7. Add tests for broad optimization properties rather than exact LLVM output.
 
