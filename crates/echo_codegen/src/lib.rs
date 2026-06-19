@@ -6,7 +6,7 @@ use abi::{
 };
 use echo_ast::{
     BinaryOp, BreakStmt, Expr, FunctionDeclStmt, IfStmt, ImportSource, LoopExpr, LoopStmt,
-    ObjectExpr, Program, Stmt, TypedParam,
+    ObjectExpr, Program, Stmt, TypedParam, UnaryOp,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -943,13 +943,19 @@ impl IrModule {
             ))),
             Expr::String(expr) => Ok(RuntimeValue::StaticString(expr.value.clone())),
             Expr::Number(expr) => {
-                let Ok(value) = expr.value.parse::<i64>() else {
-                    return Err(Diagnostic::new(
+                if let Ok(value) = expr.value.parse::<i64>() {
+                    Ok(RuntimeValue::EchoValue(format!("{{ i32 2, i64 {value} }}")))
+                } else if let Ok(value) = expr.value.parse::<f64>() {
+                    Ok(RuntimeValue::EchoValue(format!(
+                        "{{ i32 11, i64 {} }}",
+                        value.to_bits() as i64
+                    )))
+                } else {
+                    Err(Diagnostic::new(
                         "unsupported numeric literal in LLVM codegen",
                         expr.span,
-                    ));
-                };
-                Ok(RuntimeValue::EchoValue(format!("{{ i32 2, i64 {value} }}")))
+                    ))
+                }
             }
             Expr::Variable(expr) => self
                 .locals
@@ -986,9 +992,50 @@ impl IrModule {
             Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
                 self.render_concat_expr(body, &expr.left, &expr.right)
             }
-            Expr::Binary(expr) if expr.op == BinaryOp::Add => {
-                self.render_add_expr(body, &expr.left, &expr.right)
-            }
+            Expr::Binary(expr) if expr.op == BinaryOp::Add => self.render_numeric_binary_expr(
+                body,
+                &expr.left,
+                &expr.right,
+                CoreRuntimeSymbol::ValueAdd,
+            ),
+            Expr::Binary(expr) if expr.op == BinaryOp::Sub => self.render_numeric_binary_expr(
+                body,
+                &expr.left,
+                &expr.right,
+                CoreRuntimeSymbol::ValueSub,
+            ),
+            Expr::Binary(expr) if expr.op == BinaryOp::Mul => self.render_numeric_binary_expr(
+                body,
+                &expr.left,
+                &expr.right,
+                CoreRuntimeSymbol::ValueMul,
+            ),
+            Expr::Binary(expr) if expr.op == BinaryOp::Div => self.render_numeric_binary_expr(
+                body,
+                &expr.left,
+                &expr.right,
+                CoreRuntimeSymbol::ValueDiv,
+            ),
+            Expr::Binary(expr) if expr.op == BinaryOp::Mod => self.render_numeric_binary_expr(
+                body,
+                &expr.left,
+                &expr.right,
+                CoreRuntimeSymbol::ValueMod,
+            ),
+            Expr::Binary(expr) if expr.op == BinaryOp::Pow => self.render_numeric_binary_expr(
+                body,
+                &expr.left,
+                &expr.right,
+                CoreRuntimeSymbol::ValuePow,
+            ),
+            Expr::Unary(expr) => self.render_numeric_unary_expr(
+                body,
+                &expr.expr,
+                match expr.op {
+                    UnaryOp::Plus => CoreRuntimeSymbol::ValueUnaryPlus,
+                    UnaryOp::Minus => CoreRuntimeSymbol::ValueUnaryMinus,
+                },
+            ),
             Expr::Field(expr) => {
                 let object = self.render_expr_as_echo_value(body, &expr.object)?;
                 let field_global = self.string_global(&expr.field);
@@ -1019,13 +1066,6 @@ impl IrModule {
         body: &mut String,
         expr: &echo_ast::ArrayExpr,
     ) -> Result<RuntimeValue, Diagnostic> {
-        if let Some(element) = expr.elements.iter().find(|element| element.key.is_some()) {
-            return Err(Diagnostic::new(
-                "keyed array literals require associative array lowering",
-                element.span,
-            ));
-        }
-
         let call_id = self.next_call_id;
         self.next_call_id += 1;
         let mut array = format!("%runtime_call_{call_id}");
@@ -1039,10 +1079,21 @@ impl IrModule {
             let append_id = self.next_call_id;
             self.next_call_id += 1;
             let appended = format!("%runtime_call_{append_id}");
-            body.push_str(&format!(
-                "  {appended} = call %EchoValue @{}(%EchoValue {array}, {value})\n",
-                CoreRuntimeSymbol::ValueArrayAppend.symbol()
-            ));
+            match &element.key {
+                Some(key) => {
+                    let key = self.render_expr_as_echo_value(body, key)?;
+                    body.push_str(&format!(
+                        "  {appended} = call %EchoValue @{}(%EchoValue {array}, {key}, {value})\n",
+                        CoreRuntimeSymbol::ValueArraySet.symbol()
+                    ));
+                }
+                None => {
+                    body.push_str(&format!(
+                        "  {appended} = call %EchoValue @{}(%EchoValue {array}, {value})\n",
+                        CoreRuntimeSymbol::ValueArrayAppend.symbol()
+                    ));
+                }
+            }
             array = appended;
         }
 
@@ -1108,11 +1159,12 @@ impl IrModule {
         }
     }
 
-    fn render_add_expr(
+    fn render_numeric_binary_expr(
         &mut self,
         body: &mut String,
         left: &Expr,
         right: &Expr,
+        symbol: CoreRuntimeSymbol,
     ) -> Result<RuntimeValue, Diagnostic> {
         let left = self.render_expr_as_echo_value(body, left)?;
         let right = self.render_expr_as_echo_value(body, right)?;
@@ -1122,7 +1174,26 @@ impl IrModule {
 
         body.push_str(&format!(
             "  {name} = call %EchoValue @{}({left}, {right})\n",
-            CoreRuntimeSymbol::ValueAdd.symbol()
+            symbol.symbol()
+        ));
+
+        Ok(RuntimeValue::EchoValue(name))
+    }
+
+    fn render_numeric_unary_expr(
+        &mut self,
+        body: &mut String,
+        expr: &Expr,
+        symbol: CoreRuntimeSymbol,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let value = self.render_expr_as_echo_value(body, expr)?;
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let name = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {name} = call %EchoValue @{}({value})\n",
+            symbol.symbol()
         ));
 
         Ok(RuntimeValue::EchoValue(name))
@@ -2191,6 +2262,32 @@ mod tests {
     }
 
     #[test]
+    fn integer_subtraction_lowers_to_echo_value_sub() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::Binary(Box::new(echo_ast::BinaryExpr {
+                left: Expr::Number(NumberLiteral {
+                    value: "3".to_string(),
+                    span: Span::new(5, 6),
+                }),
+                op: BinaryOp::Sub,
+                right: Expr::Number(NumberLiteral {
+                    value: "5".to_string(),
+                    span: Span::new(7, 8),
+                }),
+                span: Span::new(5, 8),
+            }))],
+            span: Span::new(0, 9),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_value_sub(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(ir.contains("call %EchoValue @echo_value_sub"), "{ir}");
+    }
+
+    #[test]
     fn strlen_lowers_to_php_builtin_with_echo_value_argument() {
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
@@ -2795,8 +2892,8 @@ mod tests {
     }
 
     #[test]
-    fn keyed_array_literals_require_associative_array_lowering() {
-        let diagnostics = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+    fn keyed_array_literals_lower_to_array_set_runtime() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
             exprs: vec![Expr::Array(ArrayExpr {
                 elements: vec![ArrayElement {
                     key: Some(Expr::String(StringLiteral {
@@ -2813,12 +2910,12 @@ mod tests {
             })],
             span: Span::new(0, 12),
         })]))
-        .expect_err("keyed arrays should not lower yet");
+        .expect("keyed array should lower");
 
-        assert_eq!(
-            diagnostics[0].message,
-            "keyed array literals require associative array lowering"
-        );
+        assert!(ir.contains(
+            "declare %EchoValue @echo_value_array_set(%EchoValue, %EchoValue, %EchoValue)"
+        ));
+        assert!(ir.contains("call %EchoValue @echo_value_array_set"));
     }
 
     #[test]

@@ -27,6 +27,7 @@ pub enum TokenKind {
     Minus,
     Star,
     Slash,
+    Percent,
     Dot,
     Pipe,
     Ampersand,
@@ -58,7 +59,7 @@ enum RawToken {
     #[regex(r#""([^"\\]|\\.)*""#, parse_string)]
     String(String),
 
-    #[regex(r"[0-9]+", |lex| lex.slice().to_string())]
+    #[regex(r"[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?", |lex| lex.slice().to_string())]
     Number(String),
 
     #[token(";")]
@@ -93,6 +94,9 @@ enum RawToken {
 
     #[token("/")]
     Slash,
+
+    #[token("%")]
+    Percent,
 
     #[regex(r"//[^\r\n]*", logos::skip)]
     #[regex(r"#[^\r\n]*", logos::skip)]
@@ -186,6 +190,7 @@ impl RawToken {
             RawToken::Minus => TokenKind::Minus,
             RawToken::Star => TokenKind::Star,
             RawToken::Slash => TokenKind::Slash,
+            RawToken::Percent => TokenKind::Percent,
             RawToken::Comment => unreachable!("logos skipped comments"),
             RawToken::Dot => TokenKind::Dot,
             RawToken::Pipe => TokenKind::Pipe,

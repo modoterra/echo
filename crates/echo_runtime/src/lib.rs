@@ -77,12 +77,48 @@ impl EchoList {
 
 #[derive(Debug)]
 pub struct EchoArray {
+    keys: Vec<EchoArrayKey>,
     values: Vec<EchoValue>,
 }
 
 impl EchoArray {
     fn new() -> Self {
-        Self { values: Vec::new() }
+        Self {
+            keys: Vec::new(),
+            values: Vec::new(),
+        }
+    }
+
+    fn from_values(values: Vec<EchoValue>) -> Self {
+        let keys = (0..values.len())
+            .map(|key| EchoArrayKey::Int(key as i64))
+            .collect();
+        Self { keys, values }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum EchoArrayKey {
+    Int(i64),
+    String(Vec<u8>),
+}
+
+impl EchoArrayKey {
+    fn from_value(value: EchoValue) -> Option<Self> {
+        match value.kind {
+            ECHO_VALUE_INT => Some(Self::Int(value.payload as i64)),
+            ECHO_VALUE_FLOAT => Some(Self::Int(f64::from_bits(value.payload) as i64)),
+            ECHO_VALUE_BOOL => Some(Self::Int(if value.payload == 0 { 0 } else { 1 })),
+            ECHO_VALUE_NULL => Some(Self::String(Vec::new())),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
+                match parse_php_array_integer_key(bytes) {
+                    Some(key) => Some(Self::Int(key)),
+                    None => Some(Self::String(bytes.clone())),
+                }
+            },
+            _ => None,
+        }
     }
 }
 
@@ -124,6 +160,7 @@ const ECHO_VALUE_TCP_LISTENER: i32 = 7;
 const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
 const ECHO_VALUE_OBJECT: i32 = 9;
 const ECHO_VALUE_LIST: i32 = 10;
+const ECHO_VALUE_FLOAT: i32 = 11;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
@@ -161,6 +198,13 @@ impl EchoValue {
         }
     }
 
+    pub const fn float(value: f64) -> Self {
+        Self {
+            kind: ECHO_VALUE_FLOAT,
+            payload: value.to_bits(),
+        }
+    }
+
     pub const fn is_null(self) -> bool {
         self.kind == ECHO_VALUE_NULL
     }
@@ -175,6 +219,10 @@ impl EchoValue {
 
     pub const fn is_int(self) -> bool {
         self.kind == ECHO_VALUE_INT
+    }
+
+    pub const fn is_float(self) -> bool {
+        self.kind == ECHO_VALUE_FLOAT
     }
 
     pub fn string(value: *mut EchoString) -> Self {
@@ -244,6 +292,7 @@ impl EchoValue {
                 }
             }
             ECHO_VALUE_INT => Some((self.payload as i64).to_string().into_bytes()),
+            ECHO_VALUE_FLOAT => Some(format_php_float(f64::from_bits(self.payload)).into_bytes()),
             ECHO_VALUE_STRING => unsafe {
                 (self.payload as *const EchoString)
                     .as_ref()
@@ -260,6 +309,7 @@ impl EchoValue {
         match self.kind {
             ECHO_VALUE_BOOL => Some(if self.payload == 0 { 0 } else { 1 }),
             ECHO_VALUE_INT => Some(self.payload as i64),
+            ECHO_VALUE_FLOAT => Some(f64::from_bits(self.payload) as i64),
             ECHO_VALUE_STRING => unsafe {
                 let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
                 let text = std::str::from_utf8(bytes).ok()?.trim_ascii();
@@ -274,6 +324,7 @@ impl EchoValue {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(false),
             ECHO_VALUE_BOOL => Some(self.payload != 0),
             ECHO_VALUE_INT => Some(self.payload as i64 != 0),
+            ECHO_VALUE_FLOAT => Some(f64::from_bits(self.payload) != 0.0),
             ECHO_VALUE_STRING => unsafe {
                 let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
                 Some(!bytes.is_empty() && bytes != b"0")
@@ -290,6 +341,7 @@ impl EchoValue {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0),
             ECHO_VALUE_BOOL => Some(if self.payload == 0 { 0 } else { 1 }),
             ECHO_VALUE_INT => Some(self.payload as i64),
+            ECHO_VALUE_FLOAT => Some(f64::from_bits(self.payload) as i64),
             ECHO_VALUE_STRING => unsafe {
                 let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
                 Some(parse_php_decimal_int(bytes))
@@ -558,6 +610,10 @@ pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
             }
         }
         ECHO_VALUE_INT => echo_write_i64(value.payload as i64),
+        ECHO_VALUE_FLOAT => {
+            let bytes = format_php_float(f64::from_bits(value.payload)).into_bytes();
+            unsafe { echo_write(bytes.as_ptr(), bytes.len()) };
+        }
         ECHO_VALUE_STRING => unsafe { echo_write_string(value.payload as *const EchoString) },
         ECHO_VALUE_ARRAY => unsafe { echo_write(c"Array".as_ptr().cast(), 5) },
         ECHO_VALUE_LIST => unsafe { echo_write(c"List".as_ptr().cast(), 4) },
@@ -848,6 +904,7 @@ pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
         ECHO_VALUE_NULL => b"null".as_slice(),
         ECHO_VALUE_BOOL => b"bool".as_slice(),
         ECHO_VALUE_INT => b"int".as_slice(),
+        ECHO_VALUE_FLOAT => b"float".as_slice(),
         ECHO_VALUE_STRING => b"string".as_slice(),
         ECHO_VALUE_ARRAY => b"array".as_slice(),
         ECHO_VALUE_LIST => b"list".as_slice(),
@@ -924,11 +981,114 @@ pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoVa
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_value_add(left: EchoValue, right: EchoValue) -> EchoValue {
-    if !left.is_int() || !right.is_int() {
+    if left.is_array() || right.is_array() {
+        return php_array_union(left, right);
+    }
+
+    php_numeric_binary(
+        left,
+        right,
+        |left, right| left + right,
+        |left, right| left + right,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_sub(left: EchoValue, right: EchoValue) -> EchoValue {
+    php_numeric_binary(
+        left,
+        right,
+        |left, right| left - right,
+        |left, right| left - right,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_mul(left: EchoValue, right: EchoValue) -> EchoValue {
+    php_numeric_binary(
+        left,
+        right,
+        |left, right| left * right,
+        |left, right| left * right,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_div(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(left) = PhpNumber::coerce(left) else {
+        return EchoValue::error();
+    };
+    let Some(right) = PhpNumber::coerce(right) else {
+        return EchoValue::error();
+    };
+
+    match (left, right) {
+        (_, PhpNumber::Int(0)) | (_, PhpNumber::Float(0.0)) => EchoValue::error(),
+        (PhpNumber::Int(left), PhpNumber::Int(right)) if left % right == 0 => {
+            EchoValue::int(left / right)
+        }
+        _ => EchoValue::float(left.as_float() / right.as_float()),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_mod(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(left) = left.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.php_int_value() else {
+        return EchoValue::error();
+    };
+    if right == 0 {
         return EchoValue::error();
     }
 
-    EchoValue::int((left.payload as i64) + (right.payload as i64))
+    EchoValue::int(left % right)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_pow(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(left) = PhpNumber::coerce(left) else {
+        return EchoValue::error();
+    };
+    let Some(right) = PhpNumber::coerce(right) else {
+        return EchoValue::error();
+    };
+
+    match (left, right) {
+        (PhpNumber::Int(left), PhpNumber::Int(right)) if right >= 0 => {
+            match u32::try_from(right)
+                .ok()
+                .and_then(|right| left.checked_pow(right))
+            {
+                Some(value) => EchoValue::int(value),
+                None => EchoValue::float(pow_f64_int(left as f64, right)),
+            }
+        }
+        (left, PhpNumber::Int(right)) => EchoValue::float(pow_f64_int(left.as_float(), right)),
+        (left, PhpNumber::Float(right)) if right.fract() == 0.0 => {
+            EchoValue::float(pow_f64_int(left.as_float(), right as i64))
+        }
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_unary_plus(value: EchoValue) -> EchoValue {
+    match PhpNumber::coerce(value) {
+        Some(PhpNumber::Int(value)) => EchoValue::int(value),
+        Some(PhpNumber::Float(value)) => EchoValue::float(value),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_unary_minus(value: EchoValue) -> EchoValue {
+    match PhpNumber::coerce(value) {
+        Some(PhpNumber::Int(value)) => EchoValue::int(value.saturating_neg()),
+        Some(PhpNumber::Float(value)) => EchoValue::float(-value),
+        None => EchoValue::error(),
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -965,7 +1125,35 @@ pub extern "C" fn echo_value_array_append(array: EchoValue, value: EchoValue) ->
         return EchoValue::error();
     };
 
+    values.keys.push(next_array_append_key(values));
     values.values.push(value);
+    array
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_array_set(
+    array: EchoValue,
+    key: EchoValue,
+    value: EchoValue,
+) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(key) = EchoArrayKey::from_value(key) else {
+        return EchoValue::error();
+    };
+
+    let Some(values) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    if let Some(index) = values.keys.iter().position(|existing| existing == &key) {
+        values.values[index] = value;
+    } else {
+        values.keys.push(key);
+        values.values.push(value);
+    }
     array
 }
 
@@ -1070,6 +1258,7 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
         ECHO_VALUE_NULL => b"NULL".as_slice(),
         ECHO_VALUE_BOOL => b"boolean".as_slice(),
         ECHO_VALUE_INT => b"integer".as_slice(),
+        ECHO_VALUE_FLOAT => b"double".as_slice(),
         ECHO_VALUE_STRING => b"string".as_slice(),
         ECHO_VALUE_ARRAY => b"array".as_slice(),
         ECHO_VALUE_LIST => b"list".as_slice(),
@@ -1152,7 +1341,19 @@ pub extern "C" fn echo_php_abs(value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_is_list(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_array())
+    if !value.is_array() {
+        return EchoValue::bool(false);
+    }
+    let Some(array) = (unsafe { (value.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    EchoValue::bool(
+        array
+            .keys
+            .iter()
+            .enumerate()
+            .all(|(index, key)| key == &EchoArrayKey::Int(index as i64)),
+    )
 }
 
 #[unsafe(no_mangle)]
@@ -1211,8 +1412,8 @@ pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_float(_value: EchoValue) -> EchoValue {
-    EchoValue::bool(false)
+pub extern "C" fn echo_php_is_float(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_float())
 }
 
 #[unsafe(no_mangle)]
@@ -1592,12 +1793,12 @@ pub extern "C" fn echo_php_explode(
         return EchoValue::error();
     }
 
-    EchoValue::array(Box::into_raw(Box::new(EchoArray {
-        values: explode_bytes(&separator, &string, limit)
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        explode_bytes(&separator, &string, limit)
             .into_iter()
             .map(|bytes| EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))))
             .collect(),
-    })))
+    ))))
 }
 
 fn explode_bytes(separator: &[u8], string: &[u8], limit: i64) -> Vec<Vec<u8>> {
@@ -1978,6 +2179,161 @@ fn parse_php_decimal_int(bytes: &[u8]) -> i64 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PhpNumber {
+    Int(i64),
+    Float(f64),
+}
+
+impl PhpNumber {
+    fn coerce(value: EchoValue) -> Option<Self> {
+        match value.kind {
+            ECHO_VALUE_NULL => Some(Self::Int(0)),
+            ECHO_VALUE_BOOL => Some(Self::Int(if value.payload == 0 { 0 } else { 1 })),
+            ECHO_VALUE_INT => Some(Self::Int(value.payload as i64)),
+            ECHO_VALUE_FLOAT => Some(Self::Float(f64::from_bits(value.payload))),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
+                parse_php_number(bytes)
+            },
+            _ => None,
+        }
+    }
+
+    const fn as_float(self) -> f64 {
+        match self {
+            Self::Int(value) => value as f64,
+            Self::Float(value) => value,
+        }
+    }
+}
+
+fn php_numeric_binary(
+    left: EchoValue,
+    right: EchoValue,
+    int_op: impl FnOnce(i64, i64) -> i64,
+    float_op: impl FnOnce(f64, f64) -> f64,
+) -> EchoValue {
+    let Some(left) = PhpNumber::coerce(left) else {
+        return EchoValue::error();
+    };
+    let Some(right) = PhpNumber::coerce(right) else {
+        return EchoValue::error();
+    };
+
+    match (left, right) {
+        (PhpNumber::Int(left), PhpNumber::Int(right)) => EchoValue::int(int_op(left, right)),
+        _ => EchoValue::float(float_op(left.as_float(), right.as_float())),
+    }
+}
+
+fn php_array_union(left: EchoValue, right: EchoValue) -> EchoValue {
+    if !left.is_array() || !right.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(left) = (unsafe { (left.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let Some(right) = (unsafe { (right.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut keys = left.keys.clone();
+    let mut values = left.values.clone();
+    for (key, value) in right.keys.iter().zip(&right.values) {
+        if !keys.contains(key) {
+            keys.push(key.clone());
+            values.push(*value);
+        }
+    }
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+fn parse_php_number(bytes: &[u8]) -> Option<PhpNumber> {
+    let bytes = trim_ascii(bytes);
+    if bytes.is_empty() {
+        return None;
+    }
+
+    let text = std::str::from_utf8(bytes).ok()?;
+    if text.contains(['.', 'e', 'E']) {
+        text.parse::<f64>().ok().map(PhpNumber::Float)
+    } else {
+        text.parse::<i64>().ok().map(PhpNumber::Int)
+    }
+}
+
+fn next_array_append_key(array: &EchoArray) -> EchoArrayKey {
+    let next = array
+        .keys
+        .iter()
+        .filter_map(|key| match key {
+            EchoArrayKey::Int(value) => Some(*value),
+            EchoArrayKey::String(_) => None,
+        })
+        .filter(|value| *value >= 0)
+        .max()
+        .map(|value| value.saturating_add(1))
+        .unwrap_or(0);
+    EchoArrayKey::Int(next)
+}
+
+fn parse_php_array_integer_key(bytes: &[u8]) -> Option<i64> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    if text == "0" {
+        return Some(0);
+    }
+    if let Some(rest) = text.strip_prefix('-') {
+        if rest.starts_with('0') || rest.is_empty() {
+            return None;
+        }
+    } else if text.starts_with('0') || text.is_empty() {
+        return None;
+    }
+    text.parse::<i64>().ok()
+}
+
+fn format_php_float(value: f64) -> String {
+    if value.is_nan() {
+        return "NAN".to_string();
+    }
+    if value.is_infinite() {
+        return if value.is_sign_negative() {
+            "-INF".to_string()
+        } else {
+            "INF".to_string()
+        };
+    }
+
+    let formatted = format!("{value:.14}");
+    formatted
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
+}
+
+fn pow_f64_int(base: f64, exponent: i64) -> f64 {
+    if exponent == 0 {
+        return 1.0;
+    }
+
+    let negative = exponent < 0;
+    let mut exponent = exponent.unsigned_abs();
+    let mut factor = base;
+    let mut value = 1.0;
+
+    while exponent > 0 {
+        if exponent & 1 == 1 {
+            value *= factor;
+        }
+        exponent >>= 1;
+        factor *= factor;
+    }
+
+    if negative { 1.0 / value } else { value }
+}
+
 fn is_php_numeric_string(bytes: &[u8]) -> bool {
     let bytes = trim_ascii(bytes);
     if bytes.is_empty() {
@@ -2019,6 +2375,7 @@ fn php_float_coercion(value: EchoValue) -> Option<f64> {
         ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0.0),
         ECHO_VALUE_BOOL => Some(if value.payload == 0 { 0.0 } else { 1.0 }),
         ECHO_VALUE_INT => Some(value.payload as i64 as f64),
+        ECHO_VALUE_FLOAT => Some(f64::from_bits(value.payload)),
         ECHO_VALUE_STRING => unsafe {
             let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
             let text = std::str::from_utf8(trim_ascii(bytes)).ok()?;
@@ -2731,7 +3088,7 @@ fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
 
     match left.kind {
         ECHO_VALUE_NULL => true,
-        ECHO_VALUE_BOOL | ECHO_VALUE_INT => left.payload == right.payload,
+        ECHO_VALUE_BOOL | ECHO_VALUE_INT | ECHO_VALUE_FLOAT => left.payload == right.payload,
         ECHO_VALUE_STRING => left.string_bytes() == right.string_bytes(),
         ECHO_VALUE_ARRAY => echo_arrays_equal(left, right),
         ECHO_VALUE_LIST => echo_lists_equal(left, right),
@@ -2776,6 +3133,15 @@ mod tests {
     use super::*;
     use std::thread;
     use std::time::{Duration, Instant};
+
+    fn test_string_value(bytes: &[u8]) -> EchoValue {
+        EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes.to_vec()))))
+    }
+
+    fn assert_float_value(value: EchoValue, expected: f64) {
+        assert_eq!(value.kind, ECHO_VALUE_FLOAT);
+        assert!((f64::from_bits(value.payload) - expected).abs() < 0.000000000001);
+    }
 
     #[test]
     fn writes_to_stdout_without_buffer() {
@@ -2823,6 +3189,104 @@ mod tests {
 
         assert_eq!(CALLBACK_RUNS.load(Ordering::Relaxed), 1);
         assert_eq!(result, EchoValue::int(42));
+    }
+
+    #[test]
+    fn integer_arithmetic_core_abi_adds_and_subtracts() {
+        assert_eq!(
+            echo_value_add(EchoValue::int(3), EchoValue::int(5)),
+            EchoValue::int(8)
+        );
+        assert_eq!(
+            echo_value_sub(EchoValue::int(3), EchoValue::int(5)),
+            EchoValue::int(-2)
+        );
+        assert_eq!(
+            echo_value_sub(EchoValue::int(3), test_string_value(b"not numeric")),
+            EchoValue::error()
+        );
+    }
+
+    #[test]
+    fn php_numeric_arithmetic_coerces_strings_bools_and_null() {
+        assert_float_value(
+            echo_value_add(test_string_value(b"3.2"), test_string_value(b"3.4")),
+            6.6,
+        );
+        assert_eq!(
+            echo_value_add(EchoValue::null(), EchoValue::int(5)),
+            EchoValue::int(5)
+        );
+        assert_eq!(
+            echo_value_add(EchoValue::bool(true), EchoValue::int(2)),
+            EchoValue::int(3)
+        );
+    }
+
+    #[test]
+    fn php_array_add_uses_union_semantics_for_numeric_keys() {
+        let left = EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(vec![
+            EchoValue::int(1),
+            EchoValue::int(2),
+        ]))));
+        let right = EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(vec![
+            EchoValue::int(3),
+            EchoValue::int(4),
+            EchoValue::int(5),
+        ]))));
+
+        let result = echo_value_add(left, right);
+        let array = unsafe { (result.payload as *const EchoArray).as_ref() }.expect("array");
+
+        assert_eq!(
+            array.values,
+            vec![EchoValue::int(1), EchoValue::int(2), EchoValue::int(5)]
+        );
+    }
+
+    #[test]
+    fn php_array_add_uses_union_semantics_for_string_keys() {
+        let left_key = test_string_value(b"a");
+        let duplicate_key = test_string_value(b"a");
+        let new_key = test_string_value(b"b");
+        let left = echo_value_array_set(echo_value_array_new(), left_key, EchoValue::int(1));
+        let right = echo_value_array_set(echo_value_array_new(), duplicate_key, EchoValue::int(2));
+        let right = echo_value_array_set(right, new_key, EchoValue::int(3));
+
+        let result = echo_value_add(left, right);
+        let array = unsafe { (result.payload as *const EchoArray).as_ref() }.expect("array");
+
+        assert_eq!(array.keys.len(), 2);
+        assert_eq!(array.values, vec![EchoValue::int(1), EchoValue::int(3)]);
+        assert_eq!(echo_php_array_is_list(result), EchoValue::bool(false));
+    }
+
+    #[test]
+    fn php_arithmetic_core_abi_handles_remaining_operators() {
+        assert_eq!(
+            echo_value_mul(EchoValue::int(3), EchoValue::int(5)),
+            EchoValue::int(15)
+        );
+        assert_eq!(
+            echo_value_div(EchoValue::int(5), EchoValue::int(2)),
+            EchoValue::float(2.5)
+        );
+        assert_eq!(
+            echo_value_div(EchoValue::int(6), EchoValue::int(3)),
+            EchoValue::int(2)
+        );
+        assert_eq!(
+            echo_value_mod(EchoValue::int(-5), EchoValue::int(3)),
+            EchoValue::int(-2)
+        );
+        assert_eq!(
+            echo_value_pow(EchoValue::int(2), EchoValue::int(3)),
+            EchoValue::int(8)
+        );
+        assert_eq!(
+            echo_value_unary_minus(EchoValue::float(2.5)),
+            EchoValue::float(-2.5)
+        );
     }
 
     #[test]
@@ -5446,9 +5910,7 @@ mod tests {
         let string = Box::into_raw(Box::new(EchoString {
             bytes: b"4.2".to_vec(),
         }));
-        let array = Box::into_raw(Box::new(EchoArray {
-            values: vec![EchoValue::int(1)],
-        }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(vec![EchoValue::int(1)])));
 
         assert_eq!(
             echo_php_is_float(EchoValue::int(42)),
@@ -5481,7 +5943,7 @@ mod tests {
         let non_numeric = Box::into_raw(Box::new(EchoString {
             bytes: b"not numeric".to_vec(),
         }));
-        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(Vec::new())));
 
         assert_eq!(
             echo_php_is_finite(EchoValue::int(42)),
@@ -5531,7 +5993,7 @@ mod tests {
         let non_numeric = Box::into_raw(Box::new(EchoString {
             bytes: b"not numeric".to_vec(),
         }));
-        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(Vec::new())));
 
         assert_eq!(
             echo_php_is_infinite(EchoValue::int(42)),
@@ -5586,7 +6048,7 @@ mod tests {
         let non_numeric = Box::into_raw(Box::new(EchoString {
             bytes: b"not numeric".to_vec(),
         }));
-        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(Vec::new())));
 
         assert_eq!(echo_php_is_nan(EchoValue::int(42)), EchoValue::bool(false));
         assert_eq!(
@@ -5619,7 +6081,7 @@ mod tests {
     #[test]
     fn is_object_reports_only_object_values() {
         let object = Box::into_raw(Box::new(EchoObject { fields: Vec::new() }));
-        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(Vec::new())));
         let list = Box::into_raw(Box::new(EchoList { values: Vec::new() }));
         let string = Box::into_raw(Box::new(EchoString {
             bytes: b"value".to_vec(),
@@ -5666,7 +6128,7 @@ mod tests {
     fn is_resource_reports_runtime_resource_handles() {
         let listener = Box::into_raw(Box::new(net::listen("127.0.0.1:0").expect("listen")));
         let object = Box::into_raw(Box::new(EchoObject { fields: Vec::new() }));
-        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(Vec::new())));
 
         assert_eq!(
             echo_php_is_resource(EchoValue::tcp_listener(listener)),
@@ -5751,9 +6213,10 @@ mod tests {
 
     #[test]
     fn arrays_are_distinct_from_lists() {
-        let array = Box::into_raw(Box::new(EchoArray {
-            values: vec![EchoValue::int(1), EchoValue::int(2)],
-        }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(vec![
+            EchoValue::int(1),
+            EchoValue::int(2),
+        ])));
         let value = EchoValue::array(array);
 
         assert_eq!(value.string_bytes(), Some(b"Array".to_vec()));
@@ -5863,7 +6326,7 @@ mod tests {
             bytes: b"definitely_missing_callable".to_vec(),
         }));
         let non_utf8 = Box::into_raw(Box::new(EchoString { bytes: vec![0xff] }));
-        let array = Box::into_raw(Box::new(EchoArray { values: Vec::new() }));
+        let array = Box::into_raw(Box::new(EchoArray::from_values(Vec::new())));
 
         assert_eq!(
             echo_php_is_callable(EchoValue::string(builtin)),

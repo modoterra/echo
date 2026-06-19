@@ -7,7 +7,7 @@ use echo_ast::{
     IfStmt, ImportSource, ImportStmt, JoinExpr, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodDecl,
     NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program,
     QualifiedName, ReturnStmt, RunExpr, SpawnExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField,
-    TypedParam, UseStmt, VariableExpr, YieldStmt,
+    TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -170,6 +170,7 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
             validate_expr_mode(&expr.left, mode, diagnostics);
             validate_expr_mode(&expr.right, mode, diagnostics);
         }
+        Expr::Unary(expr) => validate_expr_mode(&expr.expr, mode, diagnostics),
         Expr::Field(expr) => validate_expr_mode(&expr.object, mode, diagnostics),
         Expr::Object(expr) => {
             for field in &expr.fields {
@@ -457,9 +458,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let number = just('-')
-            .or_not()
-            .then(text::digits(10))
+        let number = text::digits(10)
+            .then(just('.').then(text::digits(10)).or_not())
+            .then(
+                just('e')
+                    .or(just('E'))
+                    .then(just('-').or(just('+')).or_not())
+                    .then(text::digits(10))
+                    .or_not(),
+            )
             .to_slice()
             .map_with(|value: &str, extra| {
                 let span: SimpleSpan = extra.span();
@@ -661,10 +668,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let parenthesized = expr
+            .clone()
+            .delimited_by(just('(').padded(), just(')').padded());
+
         let atom = run_expr
             .or(fork_expr)
             .or(spawn_expr)
             .or(join_expr)
+            .or(parenthesized)
             .or(structural_object_expr)
             .or(object_expr)
             .or(function_call_expr)
@@ -689,8 +701,56 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             },
         );
 
-        let dotted = fielded.clone().foldl(
-            just('.').padded().ignore_then(fielded.clone()).repeated(),
+        let powered = fielded
+            .clone()
+            .then_ignore(just("**").padded())
+            .repeated()
+            .foldr(fielded.clone(), |left, right| {
+                let span = Span::new(left.span().start, right.span().end);
+
+                Expr::Binary(Box::new(BinaryExpr {
+                    left,
+                    op: BinaryOp::Pow,
+                    right,
+                    span,
+                }))
+            });
+
+        let unary_op = just('+')
+            .to(UnaryOp::Plus)
+            .or(just('-').to(UnaryOp::Minus))
+            .padded();
+
+        let signed = unary_op.repeated().foldr(powered, |op, expr| {
+            let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
+            Expr::Unary(Box::new(UnaryExpr { op, expr, span }))
+        });
+
+        let multiplicative = signed.clone().foldl(
+            just('*')
+                .to(BinaryOp::Mul)
+                .or(just('/').to(BinaryOp::Div))
+                .or(just('%').to(BinaryOp::Mod))
+                .padded()
+                .then(signed)
+                .repeated(),
+            |left, (op, right)| {
+                let span = Span::new(left.span().start, right.span().end);
+
+                Expr::Binary(Box::new(BinaryExpr {
+                    left,
+                    op,
+                    right,
+                    span,
+                }))
+            },
+        );
+
+        let dotted = multiplicative.clone().foldl(
+            just('.')
+                .padded()
+                .ignore_then(multiplicative.clone())
+                .repeated(),
             |left, right| {
                 let span = Span::new(left.span().start, right.span().end);
 
@@ -704,13 +764,18 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         );
 
         let additive = dotted.clone().foldl(
-            just('+').padded().ignore_then(dotted).repeated(),
-            |left, right| {
+            just('+')
+                .to(BinaryOp::Add)
+                .or(just('-').to(BinaryOp::Sub))
+                .padded()
+                .then(dotted)
+                .repeated(),
+            |left, (op, right)| {
                 let span = Span::new(left.span().start, right.span().end);
 
                 Expr::Binary(Box::new(BinaryExpr {
                     left,
-                    op: BinaryOp::Add,
+                    op,
                     right,
                     span,
                 }))
@@ -1842,7 +1907,62 @@ time.sleep(300)
                 if matches!(
                     &statement.exprs[0],
                     Expr::FunctionCall(call)
-                        if matches!(&call.args[2], Expr::Number(number) if number.value == "-2")
+                        if matches!(
+                            &call.args[2],
+                            Expr::Unary(expr)
+                                if expr.op == UnaryOp::Minus
+                                    && matches!(&expr.expr, Expr::Number(number) if number.value == "2")
+                        )
+                )
+        ));
+    }
+
+    #[test]
+    fn parses_subtraction_expression() {
+        let program = parse_with_mode("3-5", SourceMode::Strict).expect("subtraction parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::Binary(expr)
+                        if expr.op == BinaryOp::Sub
+                            && matches!(&expr.left, Expr::Number(number) if number.value == "3")
+                            && matches!(&expr.right, Expr::Number(number) if number.value == "5")
+                )
+        ));
+    }
+
+    #[test]
+    fn parses_php_arithmetic_precedence() {
+        let program = parse_with_mode("2+3*4", SourceMode::Strict).expect("arithmetic parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::Binary(expr)
+                        if expr.op == BinaryOp::Add
+                            && matches!(&expr.right, Expr::Binary(right) if right.op == BinaryOp::Mul)
+                )
+        ));
+    }
+
+    #[test]
+    fn parses_parenthesized_and_unary_arithmetic() {
+        let program =
+            parse_with_mode("-(2+3)", SourceMode::Strict).expect("parenthesized unary parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::Unary(expr)
+                        if expr.op == UnaryOp::Minus
+                            && matches!(&expr.expr, Expr::Binary(binary) if binary.op == BinaryOp::Add)
                 )
         ));
     }

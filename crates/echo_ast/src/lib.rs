@@ -233,6 +233,7 @@ pub enum Expr {
     Spawn(SpawnExpr),
     Join(JoinExpr),
     Loop(LoopExpr),
+    Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
     Field(Box<FieldExpr>),
     Object(ObjectExpr),
@@ -255,6 +256,7 @@ impl Expr {
             Self::Spawn(expr) => expr.span,
             Self::Join(expr) => expr.span,
             Self::Loop(expr) => expr.span,
+            Self::Unary(expr) => expr.span,
             Self::Binary(expr) => expr.span,
             Self::Field(expr) => expr.span,
             Self::Object(expr) => expr.span,
@@ -399,12 +401,27 @@ pub struct BinaryExpr {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnaryExpr {
+    pub op: UnaryOp,
+    pub expr: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOp {
+    Plus,
+    Minus,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
     Add,
     Sub,
     Mul,
     Div,
+    Mod,
+    Pow,
     Concat,
     Is,
     IsNot,

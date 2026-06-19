@@ -16,7 +16,7 @@ fn piped_repl_runs_input_until_quit() {
 
 #[test]
 fn piped_repl_prints_bare_expression_results() {
-    let output = repl_output(b"5\n5+3\n:quit\n");
+    let output = repl_output(b"5\n5+3\n3-5\n\"3.2\" + \"3.4\"\nnull + 5\n-2 ** 2\n:quit\n");
 
     assert!(
         output.status.success(),
@@ -24,7 +24,7 @@ fn piped_repl_prints_bare_expression_results() {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.stdout, b"58");
+    assert_eq!(output.stdout, b"58-26.65-4");
     assert!(
         !String::from_utf8_lossy(&output.stderr).contains("Finished `dev` profile"),
         "repl should not print internal cargo build status"

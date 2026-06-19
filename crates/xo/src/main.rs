@@ -772,11 +772,17 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::Spawn(_) => "spawn expression",
         Expr::Join(_) => "join expression",
         Expr::Loop(_) => "loop expression",
+        Expr::Unary(expr) => match expr.op {
+            echo_ast::UnaryOp::Plus => "numeric identity expression",
+            echo_ast::UnaryOp::Minus => "negate expression",
+        },
         Expr::Binary(expr) => match expr.op {
             BinaryOp::Add => "add expression",
             BinaryOp::Sub => "subtract expression",
             BinaryOp::Mul => "multiply expression",
             BinaryOp::Div => "divide expression",
+            BinaryOp::Mod => "modulo expression",
+            BinaryOp::Pow => "exponent expression",
             BinaryOp::Concat => "concat expression",
             BinaryOp::Is | BinaryOp::IsNot => "null test expression",
         },
@@ -796,8 +802,14 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::List(_) => "list".to_string(),
         Expr::Array(_) => "array".to_string(),
         Expr::Object(_) => "object".to_string(),
+        Expr::Unary(_) => "number".to_string(),
         Expr::Binary(expr) => match expr.op {
-            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => "int".to_string(),
+            BinaryOp::Add
+            | BinaryOp::Sub
+            | BinaryOp::Mul
+            | BinaryOp::Div
+            | BinaryOp::Mod
+            | BinaryOp::Pow => "number".to_string(),
             BinaryOp::Concat => "string".to_string(),
             BinaryOp::Is | BinaryOp::IsNot => "bool".to_string(),
         },
@@ -946,7 +958,28 @@ mod tests {
         };
 
         assert_eq!(info.kind, "add expression");
-        assert_eq!(info.static_type, "int");
+        assert_eq!(info.static_type, "number");
+        assert_eq!(info.span.start, 0);
+        assert_eq!(info.span.end, 3);
+    }
+
+    #[test]
+    fn repl_expression_info_describes_subtraction() {
+        let source = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "3-5".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: false,
+            },
+        );
+        let parsed = try_parse_repl_input(&source).expect("expression should parse");
+        let ReplInput::Expression(info) = parsed.input else {
+            panic!("bare expression should be classified as expression input");
+        };
+
+        assert_eq!(info.kind, "subtract expression");
+        assert_eq!(info.static_type, "number");
         assert_eq!(info.span.start, 0);
         assert_eq!(info.span.end, 3);
     }
