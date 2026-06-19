@@ -173,7 +173,18 @@ impl Analyzer {
                 self.analyze_statements(&statement.body);
             }
             Stmt::Append(statement) => {
-                self.resolve_variable(&statement.target, statement.span);
+                let target_ty = self.resolve_variable(&statement.target, statement.span);
+                if let Some(ty) = target_ty {
+                    if !ty.allows_php_append_syntax() {
+                        self.diagnostics.push(Diagnostic::new(
+                            format!(
+                                "PHP array append syntax requires array target, found {}",
+                                ty.display_name()
+                            ),
+                            statement.span,
+                        ));
+                    }
+                }
                 self.analyze_expr(&statement.value);
             }
         }
@@ -320,9 +331,22 @@ impl Analyzer {
     }
 }
 
+impl Type {
+    fn allows_php_append_syntax(&self) -> bool {
+        match self {
+            Self::Array => true,
+            Self::Named(name) => !name.contains('[') && name.starts_with("array"),
+            _ => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use echo_ast::{ArrayExpr, ExprStmt, LetStmt, NumberLiteral, StringLiteral, VariableExpr};
+    use echo_ast::{
+        AppendStmt, ArrayExpr, ExprStmt, LetStmt, ListExpr, NumberLiteral, StringLiteral,
+        VariableExpr,
+    };
 
     use super::*;
 
@@ -402,5 +426,87 @@ mod tests {
         .expect("program should analyze");
 
         assert_eq!(analysis.expression_type_at(Span::new(0, 3)), Type::Float);
+    }
+
+    #[test]
+    fn allows_php_append_syntax_for_arrays() {
+        analyze(&program(vec![
+            Stmt::Let(LetStmt {
+                name: "a".to_string(),
+                ty: None,
+                value: Expr::Array(ArrayExpr {
+                    elements: vec![],
+                    span: Span::new(9, 11),
+                }),
+                span: Span::new(0, 11),
+            }),
+            Stmt::Append(AppendStmt {
+                target: "a".to_string(),
+                value: Expr::Number(NumberLiteral {
+                    value: "1".to_string(),
+                    span: Span::new(19, 20),
+                }),
+                span: Span::new(12, 21),
+            }),
+        ]))
+        .expect("array append should analyze");
+    }
+
+    #[test]
+    fn rejects_php_append_syntax_for_lists() {
+        let diagnostics = analyze(&program(vec![
+            Stmt::Let(LetStmt {
+                name: "a".to_string(),
+                ty: None,
+                value: Expr::List(ListExpr {
+                    values: vec![],
+                    span: Span::new(9, 11),
+                }),
+                span: Span::new(0, 11),
+            }),
+            Stmt::Append(AppendStmt {
+                target: "a".to_string(),
+                value: Expr::Number(NumberLiteral {
+                    value: "1".to_string(),
+                    span: Span::new(19, 20),
+                }),
+                span: Span::new(12, 21),
+            }),
+        ]))
+        .expect_err("list append should be rejected");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "PHP array append syntax requires array target, found list"
+        );
+    }
+
+    #[test]
+    fn rejects_php_append_syntax_for_fixed_size_arrays() {
+        let diagnostics = analyze(&program(vec![
+            Stmt::Let(LetStmt {
+                name: "a".to_string(),
+                ty: Some("array<int>[3]".to_string()),
+                value: Expr::Array(ArrayExpr {
+                    elements: vec![],
+                    span: Span::new(22, 24),
+                }),
+                span: Span::new(0, 24),
+            }),
+            Stmt::Append(AppendStmt {
+                target: "a".to_string(),
+                value: Expr::Number(NumberLiteral {
+                    value: "1".to_string(),
+                    span: Span::new(32, 33),
+                }),
+                span: Span::new(25, 34),
+            }),
+        ]))
+        .expect_err("fixed-size array append should be rejected");
+
+        assert_eq!(
+            diagnostics[0].message,
+            "PHP array append syntax requires array target, found array<int>[3]"
+        );
     }
 }

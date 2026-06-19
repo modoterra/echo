@@ -27,8 +27,8 @@ Strict mode:
 - Arrays, lists, objects, tuples, and classes are separate concepts.
 - Dot access is for Echo structural objects and extension receiver members.
 - `->` remains for PHP/class member access.
-- `[]` is a PHP-compatible array literal and indexed access delimiter, never a
-  strict Echo append operator.
+- `[]` is a PHP-compatible array literal and indexed access delimiter.
+- `$value[] = item` grows non-fixed arrays only; it is not list append syntax.
 - `{}` is a list literal.
 - `{ field: value }` is a structural object literal.
 - `()` is reserved for tuple values.
@@ -130,10 +130,10 @@ Indexed assignment is replacement only:
 $a[0] = 10;
 ```
 
-PHP-style append syntax is not strict Echo:
+Append is valid for non-fixed arrays:
 
 ```php
-$a[] = 4; // reject in strict Echo
+$a[] = 4;
 ```
 
 Reject indexed assignment as growth:
@@ -149,8 +149,8 @@ Rule:
 
 ```text
 $array[$i] = value is replacement only.
-PHP-style $array[] = value is not strict Echo syntax.
-Strict Echo needs an explicit collection operation for growth.
+$array[] = value appends only when $array has non-fixed array type.
+$list[] = value is invalid because lists are distinct from arrays.
 Indexed assignment never creates a new slot.
 Indexed assignment never creates holes.
 ```
@@ -200,11 +200,10 @@ let array<int> $ids = [1, 2, 3];
 let $ids = [1, 2, 3]; // inferred array<int>
 ```
 
-Dynamic arrays are contiguous. Growth should use a future explicit Echo
-collection operation, not PHP-style append syntax:
+Dynamic arrays are contiguous and can grow by append:
 
 ```php
-$ids[] = 4;  // reject in strict Echo
+$ids[] = 4;  // ok for dynamic array
 $ids[0] = 9; // ok replacement
 $ids[3] = 9; // reject if used as growth
 ```
@@ -274,12 +273,13 @@ let $bad = {
 };
 ```
 
-Lists can use append syntax or receiver functions for mutation:
+Lists use list-specific receiver functions for mutation. PHP array append syntax
+is not list append:
 
 ```php
 let list<int> $xs = {1, 2, 3};
 
-$xs[] = 4;
+$xs[] = 4; // reject: list is not array
 $xs.push(4);
 let ?int $last = $xs.pop();
 ```
@@ -550,7 +550,7 @@ $value.field       // Echo structural object field access
 $value.method()    // Echo receiver function from extend block
 $value->member     // PHP/class property or method access
 $value[index]      // array or tuple index access
-$value[] = item    // PHP append syntax, rejected in strict Echo
+$value[] = item    // non-fixed array append only
 ```
 
 Examples:
@@ -561,7 +561,7 @@ $users.pop();      // Echo receiver function
 $phpUser->save();  // PHP/class method
 $array[0];         // array index
 $tuple[0];         // tuple index
-$array[] = 4;      // reject in strict Echo
+$array[] = 4;      // ok when $array is a non-fixed array
 ```
 
 `->` remains PHP/class-oriented. Dot access is Echo member access for structural object fields and receiver functions from `extend` blocks.

@@ -31,6 +31,8 @@ Collection syntax has distinct meanings and must not be conflated:
 - `{ field: value }` is a strict Echo structural object literal.
 - `()` is reserved for tuples.
 - Fixed-size arrays are distinct from dynamic arrays and lists.
+PHP `$value[] = item` append syntax applies only to non-fixed arrays, not Echo
+lists or fixed-size arrays.
 
 `echo_parser` owns source parsing and source-mode validation.
 

@@ -14,7 +14,7 @@
 - Global domain vocabulary and module ownership are defined in `CONTEXT.md`; read it before changing compiler, runtime, or REPL behavior.
 - REPL examples are language-development inputs. Do not solve them with REPL-only lookup tables, evaluators, type environments, or ad hoc value semantics; implement behavior in the shared language pipeline first.
 - Semantic facts such as variable bindings, expression types, scope rules, and undefined-variable diagnostics belong in `echo_semantics`; `xo`, `echo_codegen`, future VM code, and future LSP code should consume that shared analysis rather than reimplementing it.
-- Keep collection kinds distinct: `[]` is PHP array syntax, `{}` is an Echo list, `{ field: value }` is an Echo structural object, `()` is reserved for tuples, and fixed-size arrays are their own array form. Do not use PHP `$value[] = item` append syntax as strict Echo collection growth.
+- Keep collection kinds distinct: `[]` is PHP array syntax, `{}` is an Echo list, `{ field: value }` is an Echo structural object, `()` is reserved for tuples, and fixed-size arrays are their own array form. PHP `$value[] = item` append syntax may grow non-fixed arrays only; do not use it for Echo lists or fixed-size arrays.
 - Runtime and executable semantics should be owned by Rust code in this workspace. Do not add C/C++ runtime implementations, `libm`/`-lm`, libc math calls, or new non-Rust link dependencies for language behavior. The current `clang` native-link driver is a bootstrap path, not a license to add C runtime semantics; replacing it with a Rust-owned link path is preferred when touching build plumbing.
 
 ## Agent skills

@@ -333,7 +333,7 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({list}, {value})\n",
-                    CoreRuntimeSymbol::ValueListAppend.symbol()
+                    CoreRuntimeSymbol::ValueArrayAppend.symbol()
                 ));
 
                 self.locals.insert(target, RuntimeValue::EchoValue(name));
@@ -2918,6 +2918,34 @@ mod tests {
             "declare %EchoValue @echo_value_array_set(%EchoValue, %EchoValue, %EchoValue)"
         ));
         assert!(ir.contains("call %EchoValue @echo_value_array_set"));
+    }
+
+    #[test]
+    fn append_statement_lowers_to_array_append_runtime() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Let(echo_ast::LetStmt {
+                name: "a".to_string(),
+                ty: None,
+                value: Expr::Array(ArrayExpr {
+                    elements: vec![],
+                    span: Span::new(9, 11),
+                }),
+                span: Span::new(0, 12),
+            }),
+            Stmt::Append(echo_ast::AppendStmt {
+                target: "a".to_string(),
+                value: Expr::Number(NumberLiteral {
+                    value: "2".to_string(),
+                    span: Span::new(20, 21),
+                }),
+                span: Span::new(13, 22),
+            }),
+        ]))
+        .expect("array append should lower");
+
+        assert!(ir.contains("declare %EchoValue @echo_value_array_append(%EchoValue, %EchoValue)"));
+        assert!(ir.contains("call %EchoValue @echo_value_array_append"));
+        assert!(!ir.contains("call %EchoValue @echo_value_list_append"));
     }
 
     #[test]
