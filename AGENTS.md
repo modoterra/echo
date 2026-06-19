@@ -2,7 +2,7 @@
 
 ## Workspace
 - Rust workspace with resolver `2`; all crates use edition `2024`.
-- Crate flow is `echo_source`/`echo_diagnostics` -> `echo_lexer` -> `echo_ast` -> `echo_parser`; `xo` is the CLI entrypoint.
+- Crate flow is `echo_source`/`echo_diagnostics` -> `echo_lexer` -> `echo_ast` -> `echo_parser` -> `echo_semantics` -> `echo_codegen`; `xo` is the CLI entrypoint.
 - `echo_codegen` is a separate LLVM backend stub using `inkwell` with feature `llvm22-1`; clean environments need LLVM 22 available for full workspace builds.
 
 ## Product Direction
@@ -13,6 +13,7 @@
 ## Module Ownership Invariants
 - Global domain vocabulary and module ownership are defined in `CONTEXT.md`; read it before changing compiler, runtime, or REPL behavior.
 - REPL examples are language-development inputs. Do not solve them with REPL-only lookup tables, evaluators, type environments, or ad hoc value semantics; implement behavior in the shared language pipeline first.
+- Semantic facts such as variable bindings, expression types, scope rules, and undefined-variable diagnostics belong in `echo_semantics`; `xo`, `echo_codegen`, future VM code, and future LSP code should consume that shared analysis rather than reimplementing it.
 - Runtime and executable semantics should be owned by Rust code in this workspace. Do not add C/C++ runtime implementations, `libm`/`-lm`, libc math calls, or new non-Rust link dependencies for language behavior. The current `clang` native-link driver is a bootstrap path, not a license to add C runtime semantics; replacing it with a Rust-owned link path is preferred when touching build plumbing.
 
 ## Agent skills

@@ -35,6 +35,8 @@ pub fn smoke_test_module_ir() -> String {
 }
 
 pub fn compile_to_ir(program: &Program) -> Result<String, Vec<Diagnostic>> {
+    echo_semantics::analyze(program)?;
+
     let mut module = IrModule::new();
     let body = module.render_program(program)?;
 

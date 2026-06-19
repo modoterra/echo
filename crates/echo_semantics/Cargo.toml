@@ -1,5 +1,5 @@
 [package]
-name = "echo_codegen"
+name = "echo_semantics"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,8 +7,4 @@ edition = "2024"
 echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
 echo_reflection = { path = "../echo_reflection" }
-echo_runtime = { path = "../echo_runtime" }
-echo_semantics = { path = "../echo_semantics" }
 echo_source = { path = "../echo_source" }
-echo_std = { path = "../echo_std" }
-inkwell = { version = "0.9", features = ["llvm22-1"] }

@@ -216,6 +216,7 @@ dependencies = [
  "echo_diagnostics",
  "echo_reflection",
  "echo_runtime",
+ "echo_semantics",
  "echo_source",
  "echo_std",
  "inkwell",
@@ -265,6 +266,16 @@ dependencies = [
  "http",
  "mio",
  "socket2",
+]
+
+[[package]]
+name = "echo_semantics"
+version = "0.1.0"
+dependencies = [
+ "echo_ast",
+ "echo_diagnostics",
+ "echo_reflection",
+ "echo_source",
 ]
 
 [[package]]
@@ -889,6 +900,7 @@ dependencies = [
  "echo_parser",
  "echo_reflection",
  "echo_runtime",
+ "echo_semantics",
  "echo_source",
  "rustyline",
 ]

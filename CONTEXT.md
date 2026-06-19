@@ -26,8 +26,10 @@ may expose or format behavior, but should not define language semantics locally.
 
 `echo_parser` owns source parsing and source-mode validation.
 
-Semantic and type analysis belongs in a shared compiler layer. It should serve
-both file execution and REPL introspection.
+`echo_semantics` owns semantic and type analysis: variable bindings, expression
+facts, scope rules, symbol resolution, and diagnostics that require meaning
+rather than syntax alone. It should serve file compilation, REPL introspection,
+future VM execution, and future LSP features.
 
 `echo_codegen` owns LLVM lowering.
 

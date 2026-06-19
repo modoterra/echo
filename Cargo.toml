@@ -6,6 +6,7 @@ members = [
   "crates/echo_lexer",
   "crates/echo_ast",
   "crates/echo_parser",
+  "crates/echo_semantics",
   "crates/echo_codegen",
   "crates/echo_reflection",
   "crates/echo_runtime",

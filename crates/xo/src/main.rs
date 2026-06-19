@@ -303,7 +303,7 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
     let file = PathBuf::from("repl.echo");
     let source = source_file_from_text(file.clone(), input.to_string(), mode);
 
-    let parsed = match try_parse_repl_input(&source) {
+    let mut parsed = match try_parse_repl_input(&source) {
         Ok(parsed) => parsed,
         Err(diagnostics) => {
             print_diagnostics(diagnostics);
@@ -316,6 +316,18 @@ fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, in
     let mut statements = session.statements.clone();
     statements.extend(program.statements);
     program.statements = statements;
+
+    let analysis = match echo_semantics::analyze(&program) {
+        Ok(analysis) => analysis,
+        Err(diagnostics) => {
+            if interactive {
+                print_repl_metadata(&parsed.input);
+            }
+            print_diagnostics(diagnostics);
+            return;
+        }
+    };
+    apply_repl_semantics(&mut parsed.input, &analysis);
 
     let ir = match echo_codegen::compile_to_ir(&program) {
         Ok(ir) => ir,
@@ -740,6 +752,12 @@ fn print_repl_metadata(input: &ReplInput) {
     }
 }
 
+fn apply_repl_semantics(input: &mut ReplInput, analysis: &echo_semantics::Analysis) {
+    if let ReplInput::Expression(info) = input {
+        info.static_type = analysis.expression_type_at(info.span).display_name();
+    }
+}
+
 fn print_expression_metadata(info: &ExpressionInfo) {
     println!(
         "{ANSI_DIM}   kind:{ANSI_RESET} {}  {ANSI_DIM}type:{ANSI_RESET} {}  {ANSI_DIM}span:{ANSI_RESET} {}..{}",
@@ -1030,5 +1048,40 @@ mod tests {
             assert_eq!(info.kind, expected_kind);
             assert_eq!(info.static_type, expected_type);
         }
+    }
+
+    #[test]
+    fn repl_expression_info_uses_shared_semantics_for_variables() {
+        let first = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "let $a = [];".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: false,
+            },
+        );
+        let second = source_file_from_text(
+            PathBuf::from("repl.echo"),
+            "$a".to_string(),
+            ModeOverride {
+                strict: false,
+                unsafe_mode: false,
+            },
+        );
+        let first = try_parse_repl_input(&first).expect("let should parse");
+        let mut second = try_parse_repl_input(&second).expect("variable should parse");
+        let mut program = second.program.clone();
+        let mut statements = first.program.statements;
+        statements.extend(program.statements);
+        program.statements = statements;
+        let analysis = echo_semantics::analyze(&program).expect("session should analyze");
+
+        apply_repl_semantics(&mut second.input, &analysis);
+
+        let ReplInput::Expression(info) = second.input else {
+            panic!("bare variable should be expression input");
+        };
+        assert_eq!(info.kind, "variable");
+        assert_eq!(info.static_type, "array");
     }
 }
