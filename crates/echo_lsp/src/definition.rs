@@ -85,6 +85,9 @@ pub fn reference_target_location_at(
             if let Some(location) = index.method_definition(&class_name, &reference.name) {
                 return symbol_location(index, location.file_id, location.selection_range);
             }
+            if let Some(range) = php_method_name_range(&path, &reference.name) {
+                return file_location(index, &path, range);
+            }
             file_location(index, &path, TextRange::new(0, 0))
         }
         ReferenceKind::Method => None,
@@ -196,6 +199,52 @@ fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
     );
     index.update_file(file_id, facts);
     Some(file_id)
+}
+
+fn php_method_name_range(path: &Path, method_name: &str) -> Option<TextRange> {
+    let source = std::fs::read_to_string(path).ok()?;
+    let mut offset = 0;
+    while let Some(relative) = source[offset..].find("function") {
+        let function_start = offset + relative;
+        if !is_php_word_boundary(&source, function_start, "function") {
+            offset = function_start + "function".len();
+            continue;
+        }
+        let mut name_start = function_start + "function".len();
+        name_start += source[name_start..]
+            .chars()
+            .take_while(|ch| ch.is_whitespace())
+            .map(char::len_utf8)
+            .sum::<usize>();
+        if source[name_start..].starts_with('&') {
+            name_start += 1;
+            name_start += source[name_start..]
+                .chars()
+                .take_while(|ch| ch.is_whitespace())
+                .map(char::len_utf8)
+                .sum::<usize>();
+        }
+        if source[name_start..].starts_with(method_name)
+            && is_identifier_boundary(source.as_bytes().get(name_start + method_name.len()))
+        {
+            return Some(TextRange::new(
+                name_start as u32,
+                (name_start + method_name.len()) as u32,
+            ));
+        }
+        offset = function_start + "function".len();
+    }
+    None
+}
+
+fn is_php_word_boundary(source: &str, start: usize, word: &str) -> bool {
+    let bytes = source.as_bytes();
+    is_identifier_boundary(start.checked_sub(1).and_then(|index| bytes.get(index)))
+        && is_identifier_boundary(bytes.get(start + word.len()))
+}
+
+fn is_identifier_boundary(byte: Option<&u8>) -> bool {
+    byte.is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
 }
 
 fn ensure_index_file(index: &mut EchoIndex, path: &Path) -> FileId {
@@ -746,6 +795,77 @@ mod tests {
             )
             .start
         );
+    }
+
+    #[test]
+    fn resolves_static_method_reference_to_source_line_when_target_php_is_not_parseable() {
+        let root =
+            std::env::temp_dir().join(format!("echo-lsp-static-method-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let composer_dir = root.join("vendor/composer");
+        let request_dir = root.join("vendor/laravel/framework/src/Illuminate/Http");
+        std::fs::create_dir_all(&composer_dir).expect("composer dir");
+        std::fs::create_dir_all(&request_dir).expect("request dir");
+        let autoload = root.join("vendor/autoload.php");
+        let request = request_dir.join("Request.php");
+        std::fs::write(&autoload, "<?php\n").expect("autoload");
+        std::fs::write(
+            composer_dir.join("autoload_psr4.php"),
+            "<?php\n$vendorDir = dirname(__DIR__);\n$baseDir = dirname($vendorDir);\nreturn array(\n    'Illuminate\\\\' => array($vendorDir . '/laravel/framework/src/Illuminate'),\n);\n",
+        )
+        .expect("autoload psr4");
+        let request_source = "<?php\nnamespace Illuminate\\Http;\nclass Request\n{\n    use Macroable;\n\n    public static function capture()\n    {\n    }\n}\n";
+        std::fs::write(&request, request_source).expect("request source");
+
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![
+                    DependencyFact {
+                        kind: DependencyKind::ComposerAutoload,
+                        target: autoload.to_string_lossy().to_string(),
+                        alias: None,
+                        range: TextRange::new(0, 20),
+                        target_range: TextRange::new(0, 20),
+                    },
+                    DependencyFact {
+                        kind: DependencyKind::PhpUse,
+                        target: "Illuminate\\Http\\Request".to_string(),
+                        alias: None,
+                        range: TextRange::new(30, 60),
+                        target_range: TextRange::new(34, 58),
+                    },
+                ],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::StaticMethod,
+                    name: "capture".to_string(),
+                    qualifier: Some("Request".to_string()),
+                    range: TextRange::new(89, 96),
+                }],
+            },
+        );
+
+        let location = reference_target_location_at(&mut index, file_id, TextOffset(90))
+            .expect("capture method location");
+
+        assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+        assert_eq!(location.range.start.line, 6);
+        assert_eq!(location.range.start.character, 27);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]
