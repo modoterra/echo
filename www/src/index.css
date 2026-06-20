@@ -113,6 +113,10 @@
     scrollbar-gutter: stable both-edges;
 }
 
+.docs-code-snippet {
+    user-select: none;
+}
+
 .docs-code-snippet .shiki,
 .docs-code-snippet pre {
     margin: 0;
@@ -123,6 +127,7 @@
     display: block;
     min-width: max-content;
     background: transparent;
+    user-select: text;
 }
 
 .docs-code-snippet .rs-line {
@@ -140,6 +145,11 @@
 
 .docs-code-skeleton {
     overflow: hidden;
+    user-select: none;
+}
+
+.docs-code-skeleton * {
+    user-select: none;
 }
 
 .docs-code-skeleton span {

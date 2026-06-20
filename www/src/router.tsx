@@ -1536,12 +1536,12 @@ function CodeSnippet({
   return (
     <div
       ref={snippetRef}
-      className={`${className} group relative rounded-lg bg-[#101218] shadow-sm`}
+      className={`${className} group relative select-none rounded-lg bg-[#101218] shadow-sm`}
       style={{ minHeight }}
     >
       <button
         aria-label={copied ? "Copied code" : "Copy code"}
-        className="absolute right-3 top-3 z-10 inline-flex size-8 items-center justify-center rounded-md text-slate-400 opacity-70 transition hover:bg-white/10 hover:text-slate-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+        className="absolute right-3 top-3 z-10 inline-flex size-8 select-none items-center justify-center rounded-md text-slate-400 opacity-70 transition hover:bg-white/10 hover:text-slate-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
         onClick={copyCode}
         title={copied ? "Copied" : "Copy"}
         type="button"
