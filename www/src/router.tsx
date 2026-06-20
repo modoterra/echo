@@ -13,7 +13,16 @@ import ShikiHighlighter, {
   createHighlighterCore,
   createJavaScriptRegexEngine,
 } from "react-shiki/core";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { HomePage } from "./app";
 
 type DocsNavGroup = {
@@ -34,6 +43,26 @@ type DocsShellProps = {
   headings: string[];
   children: ReactNode;
 };
+
+type DocsPageMeta = Omit<DocsShellProps, "children">;
+
+type DocsLayoutContextValue = {
+  setMeta: (meta: DocsPageMeta) => void;
+};
+
+const defaultDocsPageMeta: DocsPageMeta = {
+  category: "Getting Started",
+  headings: [
+    "Meet Echo",
+    "Installation",
+    "Run a Program",
+    "Compile a Program",
+    "Project Status",
+  ],
+  title: "Installation",
+};
+
+const DocsLayoutContext = createContext<DocsLayoutContextValue | null>(null);
 
 type BuiltinDoc = {
   name: string;
@@ -1660,7 +1689,20 @@ function DocsNavLinkItem({
 }
 
 function DocsShell({ category, title, headings, children }: DocsShellProps) {
+  const docsLayout = useContext(DocsLayoutContext);
+
+  useLayoutEffect(() => {
+    docsLayout?.setMeta({ category, headings, title });
+  }, [category, docsLayout, headings, title]);
+
+  return <>{children}</>;
+}
+
+function DocsLayout() {
   const location = useLocation();
+  const [meta, setMeta] = useState<DocsPageMeta>(defaultDocsPageMeta);
+  const docsLayoutContext = useMemo(() => ({ setMeta }), []);
+  const { category, headings, title } = meta;
   const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
   const activeHeadingIndex = Math.max(0, headings.indexOf(activeHeading));
   const navigation: DocsNavGroup[] = [
@@ -1778,13 +1820,15 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
           </nav>
         </aside>
 
-        <article className="max-w-none">
-          <p className="text-sm font-semibold text-slate-500">{category}</p>
-          <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">
-            {title}
-          </h1>
-          {children}
-        </article>
+        <DocsLayoutContext.Provider value={docsLayoutContext}>
+          <article className="max-w-none">
+            <p className="text-sm font-semibold text-slate-500">{category}</p>
+            <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">
+              {title}
+            </h1>
+            <Outlet />
+          </article>
+        </DocsLayoutContext.Provider>
 
         <aside className="hidden xl:block">
           <nav
@@ -2058,83 +2102,89 @@ const indexRoute = createRoute({
   component: HomePage,
 });
 
-const docsRoute = createRoute({
+const docsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs",
+  component: DocsLayout,
+});
+
+const docsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "/",
   component: DocsPage,
 });
 
 const sourceModesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/source-modes",
+  getParentRoute: () => docsLayoutRoute,
+  path: "source-modes",
   component: SourceModesPage,
 });
 
 const phpBuiltinsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins",
   component: PhpBuiltinsPage,
 });
 
 const phpBuiltinStringsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/strings",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/strings",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />
   ),
 });
 
 const phpBuiltinArraysRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/arrays",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/arrays",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />
   ),
 });
 
 const phpBuiltinTypesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/types",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/types",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />
   ),
 });
 
 const phpBuiltinMathRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/math",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/math",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />
   ),
 });
 
 const phpBuiltinFilesystemRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/filesystem",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/filesystem",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />
   ),
 });
 
 const phpBuiltinReflectionRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/reflection",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/reflection",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />
   ),
 });
 
 const phpBuiltinShellRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/shell",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/shell",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />
   ),
 });
 
 const phpBuiltinOutputBufferingRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/output-buffering",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/output-buffering",
   component: () => (
     <PhpBuiltinFamilyPage
       family={builtinFamilyBySlug.get("output-buffering")!}
@@ -2143,34 +2193,36 @@ const phpBuiltinOutputBufferingRoute = createRoute({
 });
 
 const phpBuiltinCoreRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/php-built-ins/core",
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/core",
   component: () => (
     <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />
   ),
 });
 
 const sourceBuildsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/docs/source-builds",
+  getParentRoute: () => docsLayoutRoute,
+  path: "source-builds",
   component: SourceBuildsPage,
 });
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  docsRoute,
-  sourceModesRoute,
-  phpBuiltinsRoute,
-  phpBuiltinStringsRoute,
-  phpBuiltinArraysRoute,
-  phpBuiltinTypesRoute,
-  phpBuiltinMathRoute,
-  phpBuiltinFilesystemRoute,
-  phpBuiltinReflectionRoute,
-  phpBuiltinShellRoute,
-  phpBuiltinOutputBufferingRoute,
-  phpBuiltinCoreRoute,
-  sourceBuildsRoute,
+  docsLayoutRoute.addChildren([
+    docsRoute,
+    sourceModesRoute,
+    phpBuiltinsRoute,
+    phpBuiltinStringsRoute,
+    phpBuiltinArraysRoute,
+    phpBuiltinTypesRoute,
+    phpBuiltinMathRoute,
+    phpBuiltinFilesystemRoute,
+    phpBuiltinReflectionRoute,
+    phpBuiltinShellRoute,
+    phpBuiltinOutputBufferingRoute,
+    phpBuiltinCoreRoute,
+    sourceBuildsRoute,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });
