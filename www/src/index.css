@@ -172,6 +172,16 @@
     contain: layout;
 }
 
+.docs-primary-nav-train {
+    view-transition-name: docs-primary-nav-train;
+    contain: layout;
+}
+
+:root:active-view-transition-type(route-transition)::view-transition-old(root),
+:root:active-view-transition-type(route-transition)::view-transition-new(root) {
+    animation: none;
+}
+
 ::view-transition-old(docs-on-this-page-links),
 ::view-transition-new(docs-on-this-page-links) {
     animation-duration: 260ms;

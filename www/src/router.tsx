@@ -1666,11 +1666,10 @@ function DocsNavLinkItem({
             className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
           />
           {activeChildIndex >= 0 ? (
-            <motion.span
+            <span
               aria-hidden="true"
-              animate={{ y: activeChildIndex * 36 }}
-              className="absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="docs-primary-nav-train absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400 transition-transform duration-200 ease-out"
+              style={{ transform: `translateY(${activeChildIndex * 36}px)` }}
             />
           ) : null}
           <ul className="space-y-3">
