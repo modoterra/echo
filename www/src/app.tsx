@@ -13,6 +13,17 @@ function App() {
   return (
     <main className="hero flex min-h-screen items-center justify-center bg-white p-6 text-slate-950">
       <GradientBackground />
+      <nav
+        aria-label="Primary navigation"
+        className="absolute left-1/2 top-8 z-10 flex -translate-x-1/2 items-center gap-12 text-sm font-medium text-slate-500 sm:top-12 sm:gap-16"
+      >
+        <a className="transition hover:text-slate-950" href="/">
+          Home
+        </a>
+        <a className="transition hover:text-slate-950" href="/docs">
+          Docs
+        </a>
+      </nav>
       <section className="hero-content relative h-[500px] w-full max-w-[624px] sm:h-[520px]">
         <Logo />
         <div className="absolute left-0 top-[58%] w-[69%] text-left">
