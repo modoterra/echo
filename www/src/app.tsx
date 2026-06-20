@@ -47,7 +47,7 @@ function App() {
       <GradientBackground />
       <nav
         aria-label="Primary navigation"
-        className="absolute left-1/2 top-8 z-10 flex -translate-x-1/2 items-center gap-12 text-sm font-medium text-slate-500 sm:top-12 sm:gap-16"
+        className="absolute left-1/2 top-8 z-10 flex w-full max-w-[624px] -translate-x-1/2 items-center justify-start gap-12 text-sm font-semibold text-slate-500 sm:top-12 sm:gap-16"
       >
         <a className="transition hover:text-slate-950" href="/">
           Home
