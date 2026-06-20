@@ -167,6 +167,53 @@
     }
 }
 
+.docs-on-this-page {
+    view-transition-name: docs-on-this-page;
+    contain: layout;
+}
+
+::view-transition-old(docs-on-this-page),
+::view-transition-new(docs-on-this-page) {
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root:active-view-transition-type(route-transition)::view-transition-old(
+        docs-on-this-page
+    ) {
+    animation-name: docs-on-this-page-out;
+}
+
+:root:active-view-transition-type(route-transition)::view-transition-new(
+        docs-on-this-page
+    ) {
+    animation-name: docs-on-this-page-in;
+}
+
+@keyframes docs-on-this-page-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes docs-on-this-page-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 html {
     scrollbar-width: thin;
     scrollbar-color: --alpha(var(--color-slate-500) / 45%) white;

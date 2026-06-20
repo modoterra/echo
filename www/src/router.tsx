@@ -1833,7 +1833,7 @@ function DocsLayout() {
         <aside className="hidden xl:block">
           <nav
             aria-label="On this page"
-            className="sticky top-32"
+            className="docs-on-this-page sticky top-32"
           >
             <h2 className="text-sm font-semibold text-slate-950">
               On this page
@@ -2225,7 +2225,17 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  defaultViewTransition: {
+    types: ({ fromLocation, toLocation }) => {
+      void fromLocation;
+      void toLocation;
+
+      return ["route-transition"];
+    },
+  },
+  routeTree,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
