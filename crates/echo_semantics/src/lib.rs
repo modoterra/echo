@@ -111,6 +111,7 @@ pub fn index_facts_from_source(
     mode: EchoFileMode,
 ) -> IndexFacts {
     let mut extractor = IndexFactExtractor::new(file_id, mode);
+    extractor.source_text = Some(source.to_string());
     extractor.source_dir.clone_from(&program.source_dir);
     extractor.extract_phpdoc_var_source_facts(source);
     extractor.extract_statements(&program.statements);
@@ -120,6 +121,7 @@ pub fn index_facts_from_source(
 struct IndexFactExtractor {
     file_id: FileId,
     mode: EchoFileMode,
+    source_text: Option<String>,
     source_dir: Option<String>,
     namespace: Vec<SmolStr>,
     declarations: Vec<SymbolFact>,
@@ -132,6 +134,7 @@ impl IndexFactExtractor {
         Self {
             file_id,
             mode,
+            source_text: None,
             source_dir: None,
             namespace: Vec::new(),
             declarations: Vec::new(),
@@ -155,8 +158,14 @@ impl IndexFactExtractor {
                 selection_range: annotation.selection_range,
                 visibility: None,
                 signature: Some(Signature {
-                    text: annotation.ty,
+                    text: annotation.ty.clone(),
                 }),
+            });
+            self.references.push(ReferenceFact {
+                kind: ReferenceKind::ClassLike,
+                name: annotation.ty,
+                qualifier: None,
+                range: annotation.ty_range,
             });
         }
     }
@@ -201,12 +210,15 @@ impl IndexFactExtractor {
                 });
             }
             Stmt::Use(statement) => {
+                let target = statement.name.as_string();
                 self.dependencies.push(DependencyFact {
                     kind: DependencyKind::PhpUse,
-                    target: statement.name.as_string(),
+                    target: target.clone(),
                     alias: statement.alias.clone(),
                     range: span_range(statement.span),
-                    target_range: span_range(statement.span),
+                    target_range: self
+                        .span_range_for_text(statement.span, &target)
+                        .unwrap_or_else(|| span_range(statement.span)),
                 });
             }
             Stmt::Import(statement) => {
@@ -259,7 +271,9 @@ impl IndexFactExtractor {
                         ),
                         kind: SymbolKind::Method,
                         range: span_range(method.span),
-                        selection_range: span_range(method.span),
+                        selection_range: self
+                            .span_range_for_text(method.span, &method.name)
+                            .unwrap_or_else(|| span_range(method.span)),
                         visibility: None,
                         signature: Some(Signature {
                             text: method_signature(&method.params, method.return_type.as_deref()),
@@ -316,6 +330,18 @@ impl IndexFactExtractor {
                 }
             }
             Expr::MethodCall(expr) => {
+                if let Expr::Variable(variable) = &expr.object {
+                    let method_start = expr.object.span().end + 2;
+                    self.references.push(ReferenceFact {
+                        kind: ReferenceKind::Method,
+                        name: expr.method.clone(),
+                        qualifier: Some(variable.name.clone()),
+                        range: TextRange::new(
+                            method_start as u32,
+                            method_start.saturating_add(expr.method.len()) as u32,
+                        ),
+                    });
+                }
                 self.extract_expr_dependencies(&expr.object);
                 for arg in &expr.args {
                     self.extract_expr_dependencies(arg);
@@ -330,6 +356,17 @@ impl IndexFactExtractor {
                         expr.span.start.saturating_add(name.len()) as u32,
                     ),
                     name,
+                    qualifier: None,
+                });
+                let method_start = expr.span.start + expr.class_name.as_string().len() + 2;
+                self.references.push(ReferenceFact {
+                    kind: ReferenceKind::StaticMethod,
+                    name: expr.method.clone(),
+                    qualifier: Some(expr.class_name.as_string()),
+                    range: TextRange::new(
+                        method_start as u32,
+                        method_start.saturating_add(expr.method.len()) as u32,
+                    ),
                 });
                 for arg in &expr.args {
                     self.extract_expr_dependencies(arg);
@@ -368,6 +405,14 @@ impl IndexFactExtractor {
             Expr::Loop(expr) => self.extract_statements(&expr.body),
             Expr::Unary(expr) => self.extract_expr_dependencies(&expr.expr),
             Expr::Binary(expr) => {
+                if let Some(target) = self.const_string_binary(expr) {
+                    self.references.push(ReferenceFact {
+                        kind: ReferenceKind::FilePath,
+                        name: target,
+                        qualifier: None,
+                        range: span_range(expr.span),
+                    });
+                }
                 self.extract_expr_dependencies(&expr.left);
                 self.extract_expr_dependencies(&expr.right);
             }
@@ -409,17 +454,29 @@ impl IndexFactExtractor {
             Expr::MagicConstant(expr) if expr.kind == MagicConstantKind::Dir => {
                 self.source_dir.clone()
             }
-            Expr::Binary(expr) if expr.op == BinaryOp::Concat => {
-                let left = self.const_string_expr(&expr.left)?;
-                let right = self.const_string_expr(&expr.right)?;
-                Some(format!("{left}{right}"))
-            }
+            Expr::Binary(expr) if expr.op == BinaryOp::Concat => self.const_string_binary(expr),
             _ => None,
         }
     }
 
+    fn const_string_binary(&self, expr: &echo_ast::BinaryExpr) -> Option<String> {
+        if expr.op != BinaryOp::Concat {
+            return None;
+        }
+        let left = self.const_string_expr(&expr.left)?;
+        let right = self.const_string_expr(&expr.right)?;
+        Some(format!("{left}{right}"))
+    }
+
     fn fq_name(&self, name: &str) -> FqName {
         FqName::new(self.namespace.clone(), name)
+    }
+
+    fn span_range_for_text(&self, span: Span, needle: &str) -> Option<TextRange> {
+        let source = self.source_text.as_ref()?;
+        let haystack = source.get(span.start..span.end)?;
+        let start = haystack.find(needle)? + span.start;
+        Some(TextRange::new(start as u32, (start + needle.len()) as u32))
     }
 
     fn into_facts(self) -> IndexFacts {
@@ -442,6 +499,7 @@ struct PhpDocVarAnnotation {
     ty: String,
     variable: String,
     range: TextRange,
+    ty_range: TextRange,
     selection_range: TextRange,
 }
 
@@ -518,6 +576,7 @@ fn parse_phpdoc_var_annotation(text: &str, base_offset: usize) -> Option<PhpDocV
         ty: ty.to_string(),
         variable: variable_text[..variable_len].to_string(),
         range: TextRange::new(base_offset as u32, selection_end as u32),
+        ty_range: TextRange::new(base_offset as u32, (base_offset + ty.len()) as u32),
         selection_range: TextRange::new(selection_start as u32, selection_end as u32),
     })
 }
@@ -1501,10 +1560,14 @@ mod tests {
             EchoFileMode::PhpCompat,
         );
 
-        assert_eq!(facts.references.len(), 1);
+        assert_eq!(facts.references.len(), 2);
         assert_eq!(facts.references[0].kind, ReferenceKind::ClassLike);
         assert_eq!(facts.references[0].name, "Request");
         assert_eq!(facts.references[0].range, TextRange::new(31, 38));
+        assert_eq!(facts.references[1].kind, ReferenceKind::StaticMethod);
+        assert_eq!(facts.references[1].name, "capture");
+        assert_eq!(facts.references[1].qualifier.as_deref(), Some("Request"));
+        assert_eq!(facts.references[1].range, TextRange::new(40, 47));
     }
 
     #[test]

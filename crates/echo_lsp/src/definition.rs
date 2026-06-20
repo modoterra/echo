@@ -1,9 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use echo_index::{
-    DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoIndex, FileId,
-    IndexedFile, Symbol, SymbolKind, TextOffset, TextRange,
+    DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex,
+    FileId, IndexedFile, ReferenceKind, ReferenceQuery, Symbol, SymbolKind, TextOffset, TextRange,
 };
+use echo_source::SourceMode;
 use ropey::Rope;
 use tower_lsp_server::ls_types::{Location, Uri};
 
@@ -13,8 +14,8 @@ pub fn method_definition_at(
     index: &EchoIndex,
     text: &Rope,
     offset: TextOffset,
-    symbols: &[&Symbol],
-    dependencies: &[&DependencyFact],
+    symbols: &[Symbol],
+    dependencies: &[DependencyFact],
 ) -> Option<DefinitionLocation> {
     let source = text.to_string();
     let method = method_call_at(&source, offset.0 as usize)?;
@@ -33,10 +34,7 @@ pub fn dependency_target_location_at(
     let dependency = index
         .dependencies(DependencyQuery::in_file(file_id))
         .into_iter()
-        .find(|dependency| {
-            dependency.target_range.contains(offset)
-                || (dependency.kind == DependencyKind::PhpUse && dependency.range.contains(offset))
-        })?
+        .find(|dependency| dependency.target_range.contains(offset))?
         .clone();
 
     match dependency.kind {
@@ -54,6 +52,71 @@ pub fn dependency_target_location_at(
         }
         DependencyKind::EchoStdImport | DependencyKind::EchoFileImport => None,
     }
+}
+
+pub fn reference_target_location_at(
+    index: &mut EchoIndex,
+    file_id: FileId,
+    offset: TextOffset,
+) -> Option<Location> {
+    let reference = index
+        .references(ReferenceQuery::at(file_id, offset))
+        .into_iter()
+        .next()?
+        .clone();
+
+    match reference.kind {
+        ReferenceKind::FilePath => {
+            let path = std::fs::canonicalize(&reference.name).ok()?;
+            file_location(index, &path, TextRange::new(0, 0))
+        }
+        ReferenceKind::ClassLike => {
+            let class_name = resolve_imported_class_name(index, file_id, &reference.name)
+                .unwrap_or(reference.name);
+            let path = composer_class_file(index, &class_name)?;
+            file_location(index, &path, TextRange::new(0, 0))
+        }
+        ReferenceKind::StaticMethod => {
+            let class_name = reference.qualifier.as_deref()?;
+            let class_name = resolve_imported_class_name(index, file_id, class_name)
+                .unwrap_or_else(|| class_name.to_string());
+            let path = composer_class_file(index, &class_name)?;
+            index_php_file(index, &path);
+            if let Some(location) = index.method_definition(&class_name, &reference.name) {
+                return symbol_location(index, location.file_id, location.selection_range);
+            }
+            file_location(index, &path, TextRange::new(0, 0))
+        }
+        ReferenceKind::Method => None,
+    }
+}
+
+pub fn receiver_method_definition_at(
+    index: &mut EchoIndex,
+    file_id: FileId,
+    offset: TextOffset,
+    symbols: &[Symbol],
+    dependencies: &[DependencyFact],
+) -> Option<DefinitionLocation> {
+    let reference = index
+        .references(ReferenceQuery::at(file_id, offset))
+        .into_iter()
+        .find(|reference| reference.kind == ReferenceKind::Method)?
+        .clone();
+    let receiver = reference.qualifier.as_deref()?;
+    let receiver_type = local_variable_type(symbols, receiver)?;
+    let class_name = resolve_imported_type(dependencies, &receiver_type).unwrap_or(receiver_type);
+    if index
+        .method_definition(&class_name, &reference.name)
+        .is_none()
+    {
+        if let Some(path) = composer_class_file(index, &class_name) {
+            index_php_file(index, &path);
+        }
+    }
+    index
+        .method_definition(&class_name, &reference.name)
+        .map(DefinitionLocation::Symbol)
 }
 
 pub fn definition_location_to_lsp(
@@ -96,14 +159,43 @@ pub fn definition_location_to_lsp(
 
 fn file_location(index: &mut EchoIndex, path: &Path, range: TextRange) -> Option<Location> {
     let path = std::fs::canonicalize(path).ok()?;
+    index_php_file(index, &path);
     let file_id = ensure_index_file(index, &path);
+    symbol_location(index, file_id, range)
+}
+
+fn symbol_location(index: &EchoIndex, file_id: FileId, range: TextRange) -> Option<Location> {
     let file = index.file(file_id)?;
     let uri = file.uri.parse::<Uri>().ok()?;
-    let range = std::fs::read_to_string(&path)
-        .ok()
+    let range = file
+        .path
+        .as_ref()
+        .and_then(|path| std::fs::read_to_string(path).ok())
         .map(|source| range_to_lsp_range(&Rope::from_str(&source), range))
         .unwrap_or_default();
     Some(Location { uri, range })
+}
+
+fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
+    let path = std::fs::canonicalize(path).ok()?;
+    if path.extension().and_then(|ext| ext.to_str()) != Some("php") {
+        return Some(ensure_index_file(index, &path));
+    }
+    let file_id = ensure_index_file(index, &path);
+    if !index.document_symbols(file_id).is_empty() {
+        return Some(file_id);
+    }
+    let source = std::fs::read_to_string(&path).ok()?;
+    let mut program = echo_parser::parse_with_mode(&source, SourceMode::Echo).ok()?;
+    program.source_dir = path.parent().map(|path| path.to_string_lossy().to_string());
+    let facts = echo_semantics::index_facts_from_source(
+        &source,
+        &program,
+        file_id,
+        EchoFileMode::PhpCompat,
+    );
+    index.update_file(file_id, facts);
+    Some(file_id)
 }
 
 fn ensure_index_file(index: &mut EchoIndex, path: &Path) -> FileId {
@@ -120,13 +212,13 @@ fn ensure_index_file(index: &mut EchoIndex, path: &Path) -> FileId {
         uri,
         path: Some(path.to_path_buf()),
         version: None,
-        mode: echo_index::EchoFileMode::PhpCompat,
+        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     file_id
 }
 
-fn composer_class_file(index: &EchoIndex, class_name: &str) -> Option<PathBuf> {
+pub(crate) fn composer_class_file(index: &EchoIndex, class_name: &str) -> Option<PathBuf> {
     for dependency in index.dependencies(DependencyQuery::all()) {
         if dependency.kind != DependencyKind::ComposerAutoload {
             continue;
@@ -142,6 +234,22 @@ fn composer_class_file(index: &EchoIndex, class_name: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+fn resolve_imported_class_name(index: &EchoIndex, file_id: FileId, name: &str) -> Option<String> {
+    index
+        .dependencies(DependencyQuery::in_file(file_id))
+        .into_iter()
+        .filter(|dependency| dependency.kind == DependencyKind::PhpUse)
+        .find(|dependency| {
+            dependency.alias.as_deref() == Some(name)
+                || dependency
+                    .target
+                    .rsplit('\\')
+                    .next()
+                    .is_some_and(|target_name| target_name == name)
+        })
+        .map(|dependency| dependency.target.clone())
 }
 
 fn composer_classmap_file(
@@ -271,7 +379,7 @@ fn is_identifier_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_'
 }
 
-fn local_variable_type(symbols: &[&Symbol], name: &str) -> Option<String> {
+fn local_variable_type(symbols: &[Symbol], name: &str) -> Option<String> {
     symbols
         .iter()
         .find(|symbol| symbol.kind == SymbolKind::LocalVariable && symbol.name.text == name)
@@ -283,7 +391,7 @@ fn local_variable_type(symbols: &[&Symbol], name: &str) -> Option<String> {
         })
 }
 
-fn resolve_imported_type(dependencies: &[&DependencyFact], ty: &str) -> Option<String> {
+fn resolve_imported_type(dependencies: &[DependencyFact], ty: &str) -> Option<String> {
     dependencies
         .iter()
         .filter(|dependency| dependency.kind == DependencyKind::PhpUse)
@@ -302,7 +410,8 @@ fn resolve_imported_type(dependencies: &[&DependencyFact], ty: &str) -> Option<S
 mod tests {
     use echo_index::{
         DefinitionLocation, DependencyFact, DependencyKind, EchoFileMode, EchoIndex, FileId,
-        FqName, IndexFacts, IndexedFile, Signature, SymbolFact, SymbolKind, SymbolName, TextRange,
+        FqName, IndexFacts, IndexedFile, ReferenceFact, ReferenceKind, Signature, SymbolFact,
+        SymbolKind, SymbolName, TextRange,
     };
     use tower_lsp_server::ls_types::{Position, Range};
 
@@ -413,8 +522,8 @@ mod tests {
             &index,
             &Rope::from_str("<?php\n$app->handleRequest(Request::capture());\n"),
             TextOffset(13),
-            &[&app],
-            &[&dependency],
+            &[app],
+            &[dependency],
         )
         .expect("method definition");
 
@@ -515,5 +624,253 @@ mod tests {
             .expect("Request target location");
 
         assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+    }
+
+    #[test]
+    fn resolves_class_reference_through_composer_psr4() {
+        let fixture_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/php/112_laravel_bootstrap")
+            .canonicalize()
+            .expect("fixture root");
+        let autoload = fixture_root.join("vendor/autoload.php");
+        let request = fixture_root.join("vendor/laravel/framework/src/Illuminate/Http/Request.php");
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![
+                    DependencyFact {
+                        kind: DependencyKind::ComposerAutoload,
+                        target: autoload.to_string_lossy().to_string(),
+                        alias: None,
+                        range: TextRange::new(0, 20),
+                        target_range: TextRange::new(0, 20),
+                    },
+                    DependencyFact {
+                        kind: DependencyKind::PhpUse,
+                        target: "Illuminate\\Http\\Request".to_string(),
+                        alias: None,
+                        range: TextRange::new(30, 60),
+                        target_range: TextRange::new(34, 58),
+                    },
+                ],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    name: "Request".to_string(),
+                    qualifier: None,
+                    range: TextRange::new(80, 87),
+                }],
+            },
+        );
+
+        let location = reference_target_location_at(&mut index, file_id, TextOffset(82))
+            .expect("Request class location");
+
+        assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+    }
+
+    #[test]
+    fn resolves_static_method_reference_to_composer_class_declaration() {
+        let fixture_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/php/112_laravel_bootstrap")
+            .canonicalize()
+            .expect("fixture root");
+        let autoload = fixture_root.join("vendor/autoload.php");
+        let request = fixture_root.join("vendor/laravel/framework/src/Illuminate/Http/Request.php");
+        let request_source = std::fs::read_to_string(&request).expect("request source");
+        let capture_start = request_source.find("capture").expect("capture method");
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![
+                    DependencyFact {
+                        kind: DependencyKind::ComposerAutoload,
+                        target: autoload.to_string_lossy().to_string(),
+                        alias: None,
+                        range: TextRange::new(0, 20),
+                        target_range: TextRange::new(0, 20),
+                    },
+                    DependencyFact {
+                        kind: DependencyKind::PhpUse,
+                        target: "Illuminate\\Http\\Request".to_string(),
+                        alias: None,
+                        range: TextRange::new(30, 60),
+                        target_range: TextRange::new(34, 58),
+                    },
+                ],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::StaticMethod,
+                    name: "capture".to_string(),
+                    qualifier: Some("Request".to_string()),
+                    range: TextRange::new(89, 96),
+                }],
+            },
+        );
+
+        let location = reference_target_location_at(&mut index, file_id, TextOffset(90))
+            .expect("capture method location");
+
+        assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+        assert_eq!(
+            location.range.start,
+            range_to_lsp_range(
+                &Rope::from_str(&request_source),
+                TextRange::new(capture_start as u32, capture_start as u32)
+            )
+            .start
+        );
+    }
+
+    #[test]
+    fn resolves_phpdoc_receiver_method_through_composer_psr4() {
+        let fixture_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/php/112_laravel_bootstrap")
+            .canonicalize()
+            .expect("fixture root");
+        let autoload = fixture_root.join("vendor/autoload.php");
+        let application =
+            fixture_root.join("vendor/laravel/framework/src/Illuminate/Foundation/Application.php");
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![
+                    DependencyFact {
+                        kind: DependencyKind::ComposerAutoload,
+                        target: autoload.to_string_lossy().to_string(),
+                        alias: None,
+                        range: TextRange::new(0, 20),
+                        target_range: TextRange::new(0, 20),
+                    },
+                    DependencyFact {
+                        kind: DependencyKind::PhpUse,
+                        target: "Illuminate\\Foundation\\Application".to_string(),
+                        alias: None,
+                        range: TextRange::new(30, 75),
+                        target_range: TextRange::new(34, 70),
+                    },
+                ],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::Method,
+                    name: "handleRequest".to_string(),
+                    qualifier: Some("app".to_string()),
+                    range: TextRange::new(90, 103),
+                }],
+            },
+        );
+        let app = echo_index::Symbol {
+            id: echo_index::SymbolId(1),
+            file_id,
+            name: SymbolName::new("app"),
+            fq_name: None,
+            kind: SymbolKind::LocalVariable,
+            range: TextRange::new(80, 84),
+            selection_range: TextRange::new(80, 84),
+            visibility: None,
+            container: None,
+            signature: Some(Signature {
+                text: "Application".to_string(),
+            }),
+        };
+        let dependencies = index
+            .dependencies(DependencyQuery::in_file(file_id))
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let definition = receiver_method_definition_at(
+            &mut index,
+            file_id,
+            TextOffset(95),
+            &[app],
+            &dependencies,
+        )
+        .expect("handleRequest definition");
+
+        let DefinitionLocation::Symbol(location) = definition else {
+            panic!("expected symbol location");
+        };
+        let file = index.file(location.file_id).expect("application file");
+        assert_eq!(file.path.as_deref(), Some(application.as_path()));
+    }
+
+    #[test]
+    fn resolves_file_path_reference_to_target_file() {
+        let fixture_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/php/112_laravel_bootstrap")
+            .canonicalize()
+            .expect("fixture root");
+        let autoload = fixture_root.join("vendor/autoload.php");
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: Vec::new(),
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::FilePath,
+                    name: autoload.to_string_lossy().to_string(),
+                    qualifier: None,
+                    range: TextRange::new(10, 45),
+                }],
+            },
+        );
+
+        let location = reference_target_location_at(&mut index, file_id, TextOffset(20))
+            .expect("autoload path location");
+
+        assert_eq!(location.uri, Uri::from_file_path(&autoload).unwrap());
     }
 }

@@ -51,12 +51,16 @@ pub struct DependencyFact {
 pub struct ReferenceFact {
     pub kind: ReferenceKind,
     pub name: String,
+    pub qualifier: Option<String>,
     pub range: TextRange,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ReferenceKind {
     ClassLike,
+    Method,
+    StaticMethod,
+    FilePath,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -1,5 +1,6 @@
 use echo_index::{
-    DependencyFact, DependencyKind, Symbol, SymbolKind as EchoSymbolKind, TextOffset,
+    DependencyFact, DependencyKind, ReferenceFact, ReferenceKind, Symbol,
+    SymbolKind as EchoSymbolKind, TextOffset,
 };
 use ropey::Rope;
 use tower_lsp_server::ls_types::{Hover, HoverContents, MarkupContent, MarkupKind};
@@ -11,6 +12,7 @@ pub fn hover_at(
     offset: TextOffset,
     symbols: &[&Symbol],
     dependencies: &[&DependencyFact],
+    references: &[&ReferenceFact],
 ) -> Option<Hover> {
     if let Some(symbol) = symbols
         .iter()
@@ -43,15 +45,23 @@ pub fn hover_at(
     dependencies
         .iter()
         .copied()
-        .find(|dependency| {
-            dependency.target_range.contains(offset)
-                || (dependency.kind == DependencyKind::PhpUse && dependency.range.contains(offset))
-        })
+        .find(|dependency| dependency.target_range.contains(offset))
         .map(|dependency| {
             markup_hover(
                 dependency_hover_text(dependency),
                 Some(range_to_lsp_range(text, dependency.target_range)),
             )
+        })
+        .or_else(|| {
+            references
+                .iter()
+                .find(|reference| reference.range.contains(offset))
+                .map(|reference| {
+                    markup_hover(
+                        reference_hover_text(reference),
+                        Some(range_to_lsp_range(text, reference.range)),
+                    )
+                })
         })
 }
 
@@ -136,6 +146,27 @@ fn dependency_hover_text(dependency: &DependencyFact) -> String {
     lines.join("\n\n")
 }
 
+fn reference_hover_text(reference: &ReferenceFact) -> String {
+    match reference.kind {
+        ReferenceKind::ClassLike => format!("class reference `{}`", reference.name),
+        ReferenceKind::Method => {
+            if let Some(receiver) = &reference.qualifier {
+                format!("method reference `${receiver}->{}`", reference.name)
+            } else {
+                format!("method reference `{}`", reference.name)
+            }
+        }
+        ReferenceKind::StaticMethod => {
+            if let Some(class_name) = &reference.qualifier {
+                format!("static method reference `{class_name}::{}`", reference.name)
+            } else {
+                format!("static method reference `{}`", reference.name)
+            }
+        }
+        ReferenceKind::FilePath => format!("file path `{}`", reference.name),
+    }
+}
+
 fn symbol_kind_label(kind: EchoSymbolKind) -> &'static str {
     match kind {
         EchoSymbolKind::Function => "function",
@@ -181,7 +212,7 @@ mod tests {
             }),
         };
 
-        let hover = hover_at(&text, TextOffset(10), &[&symbol], &[]).expect("hover");
+        let hover = hover_at(&text, TextOffset(10), &[&symbol], &[], &[]).expect("hover");
 
         let HoverContents::Markup(markup) = hover.contents else {
             panic!("expected markup hover");
@@ -201,7 +232,7 @@ mod tests {
             target_range: TextRange::new(10, 34),
         };
 
-        let hover = hover_at(&text, TextOffset(10), &[], &[&dependency]).expect("hover");
+        let hover = hover_at(&text, TextOffset(10), &[], &[&dependency], &[]).expect("hover");
 
         let HoverContents::Markup(markup) = hover.contents else {
             panic!("expected markup hover");
@@ -234,7 +265,7 @@ mod tests {
             }),
         };
 
-        let hover = hover_at(&text, TextOffset(30), &[&symbol], &[]).expect("hover");
+        let hover = hover_at(&text, TextOffset(30), &[&symbol], &[], &[]).expect("hover");
 
         let HoverContents::Markup(markup) = hover.contents else {
             panic!("expected markup hover");

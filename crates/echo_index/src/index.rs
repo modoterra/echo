@@ -636,6 +636,7 @@ mod tests {
                 references: vec![ReferenceFact {
                     kind: ReferenceKind::ClassLike,
                     name: "Request".to_string(),
+                    qualifier: None,
                     range: TextRange::new(100, 107),
                 }],
             },
@@ -676,6 +677,7 @@ mod tests {
                 references: vec![ReferenceFact {
                     kind: ReferenceKind::ClassLike,
                     name: "Request".to_string(),
+                    qualifier: None,
                     range: TextRange::new(100, 107),
                 }],
             },

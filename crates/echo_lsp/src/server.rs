@@ -25,6 +25,7 @@ use tower_lsp_server::{Client, LanguageServer, LspService, Server};
 use crate::completion::{completion_items, completion_options};
 use crate::definition::{
     definition_location_to_lsp, dependency_target_location_at, method_definition_at,
+    receiver_method_definition_at, reference_target_location_at,
 };
 use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
@@ -239,6 +240,7 @@ impl LanguageServer for Backend {
                 offset,
                 &index.document_symbols(document.file_id),
                 &index.dependencies(DependencyQuery::in_file(document.file_id)),
+                &index.references(echo_index::ReferenceQuery::in_file(document.file_id)),
             )
         };
 
@@ -274,17 +276,41 @@ impl LanguageServer for Backend {
             let mut index = self.index.lock().expect("echo index mutex poisoned");
             let text_offset = TextOffset(offset as u32);
             if let Some(location) =
+                reference_target_location_at(&mut index, document.file_id, text_offset)
+            {
+                return Ok(Some(GotoDefinitionResponse::Scalar(location)));
+            }
+            if let Some(location) =
                 dependency_target_location_at(&mut index, document.file_id, text_offset)
             {
                 return Ok(Some(GotoDefinitionResponse::Scalar(location)));
             }
-            let definition = method_definition_at(
-                &index,
-                &document.text,
+            let document_symbols = index
+                .document_symbols(document.file_id)
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>();
+            let dependencies = index
+                .dependencies(DependencyQuery::in_file(document.file_id))
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>();
+            let definition = receiver_method_definition_at(
+                &mut index,
+                document.file_id,
                 text_offset,
-                &index.document_symbols(document.file_id),
-                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+                &document_symbols,
+                &dependencies,
             )
+            .or_else(|| {
+                method_definition_at(
+                    &index,
+                    &document.text,
+                    text_offset,
+                    &document_symbols,
+                    &dependencies,
+                )
+            })
             .or_else(|| index.definition_at(document.file_id, text_offset));
             let Some(definition) = definition else {
                 return Ok(None);
@@ -537,7 +563,7 @@ fn index_required_files_inner(
 
 #[cfg(test)]
 mod tests {
-    use echo_index::{DependencyKind, SymbolKind};
+    use echo_index::{DependencyKind, ReferenceKind, SymbolKind, TextRange};
 
     use super::*;
 
@@ -581,8 +607,7 @@ class UserController {
 
     #[test]
     fn laravel_entrypoint_produces_import_and_static_reference_facts() {
-        let facts = parse_index_facts(
-            r#"<?php
+        let source = r#"<?php
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -599,7 +624,9 @@ require __DIR__.'/../vendor/autoload.php';
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
 $app->handleRequest(Request::capture());
-"#,
+"#;
+        let facts = parse_index_facts(
+            source,
             FileId(4),
             EchoFileMode::PhpCompat,
             Some(Path::new("/project/public")),
@@ -610,8 +637,59 @@ $app->handleRequest(Request::capture());
             dependency.kind == DependencyKind::PhpUse
                 && dependency.target == "Illuminate\\Http\\Request"
         }));
+        let use_request_start = source
+            .find("Illuminate\\Http\\Request")
+            .expect("use request");
+        assert!(facts.dependencies.iter().any(|dependency| {
+            dependency.kind == DependencyKind::PhpUse
+                && dependency.target == "Illuminate\\Http\\Request"
+                && dependency.target_range
+                    == TextRange::new(
+                        use_request_start as u32,
+                        (use_request_start + "Illuminate\\Http\\Request".len()) as u32,
+                    )
+        }));
+        let phpdoc_application_start = source.find("@var Application").expect("phpdoc app") + 5;
         assert!(facts.references.iter().any(|reference| {
-            reference.name == "Request" && reference.range.start < reference.range.end
+            reference.kind == ReferenceKind::ClassLike
+                && reference.name == "Application"
+                && reference.range
+                    == TextRange::new(
+                        phpdoc_application_start as u32,
+                        (phpdoc_application_start + "Application".len()) as u32,
+                    )
+        }));
+        let autoload_start = source
+            .find("__DIR__.'/../vendor/autoload.php'")
+            .expect("autoload");
+        assert!(facts.references.iter().any(|reference| {
+            reference.kind == ReferenceKind::FilePath
+                && reference.name == "/project/public/../vendor/autoload.php"
+                && reference.range
+                    == TextRange::new(
+                        autoload_start as u32,
+                        (autoload_start + "__DIR__.'/../vendor/autoload.php'".len()) as u32,
+                    )
+        }));
+        let request_call_start = source.find("Request::capture").expect("static call");
+        assert!(facts.references.iter().any(|reference| {
+            reference.kind == ReferenceKind::ClassLike
+                && reference.name == "Request"
+                && reference.range
+                    == TextRange::new(
+                        request_call_start as u32,
+                        (request_call_start + "Request".len()) as u32,
+                    )
+        }));
+        assert!(facts.references.iter().any(|reference| {
+            reference.kind == ReferenceKind::StaticMethod
+                && reference.name == "capture"
+                && reference.qualifier.as_deref() == Some("Request")
+        }));
+        assert!(facts.references.iter().any(|reference| {
+            reference.kind == ReferenceKind::Method
+                && reference.name == "handleRequest"
+                && reference.qualifier.as_deref() == Some("app")
         }));
         assert!(facts.declarations.iter().any(|symbol| {
             symbol.kind == SymbolKind::LocalVariable
