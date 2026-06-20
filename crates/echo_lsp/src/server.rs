@@ -26,8 +26,8 @@ use tower_lsp_server::{Client, LanguageServer, LspService, Server};
 
 use crate::completion::{completion_items, completion_options};
 use crate::definition::{
-    definition_location_to_lsp, dependency_target_location_at, method_definition_at,
-    receiver_method_definition_at, reference_target_location_at,
+    definition_location_to_lsp, dependency_target_link_at, method_definition_at,
+    receiver_method_definition_at, reference_target_link_at,
 };
 use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
@@ -303,15 +303,15 @@ impl LanguageServer for Backend {
         let location = {
             let mut index = self.index.lock().expect("echo index mutex poisoned");
             let text_offset = TextOffset(offset as u32);
-            if let Some(location) =
-                reference_target_location_at(&mut index, document.file_id, text_offset)
+            if let Some(link) =
+                reference_target_link_at(&mut index, &document.text, document.file_id, text_offset)
             {
-                return Ok(Some(GotoDefinitionResponse::Scalar(location)));
+                return Ok(Some(GotoDefinitionResponse::Link(vec![link])));
             }
-            if let Some(location) =
-                dependency_target_location_at(&mut index, document.file_id, text_offset)
+            if let Some(link) =
+                dependency_target_link_at(&mut index, &document.text, document.file_id, text_offset)
             {
-                return Ok(Some(GotoDefinitionResponse::Scalar(location)));
+                return Ok(Some(GotoDefinitionResponse::Link(vec![link])));
             }
             let document_symbols = index
                 .document_symbols(document.file_id)

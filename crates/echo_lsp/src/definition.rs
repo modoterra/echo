@@ -6,7 +6,7 @@ use echo_index::{
 };
 use echo_source::SourceMode;
 use ropey::Rope;
-use tower_lsp_server::ls_types::{Location, Uri};
+use tower_lsp_server::ls_types::{Location, LocationLink, Uri};
 
 use crate::position::range_to_lsp_range;
 
@@ -26,6 +26,7 @@ pub fn method_definition_at(
         .map(DefinitionLocation::Symbol)
 }
 
+#[cfg(test)]
 pub fn dependency_target_location_at(
     index: &mut EchoIndex,
     file_id: FileId,
@@ -54,6 +55,22 @@ pub fn dependency_target_location_at(
     }
 }
 
+pub fn dependency_target_link_at(
+    index: &mut EchoIndex,
+    text: &Rope,
+    file_id: FileId,
+    offset: TextOffset,
+) -> Option<LocationLink> {
+    let dependency = index
+        .dependencies(DependencyQuery::in_file(file_id))
+        .into_iter()
+        .find(|dependency| dependency.target_range.contains(offset))?
+        .clone();
+    let location = dependency_target_location(index, &dependency)?;
+    Some(location_to_link(text, dependency.target_range, location))
+}
+
+#[cfg(test)]
 pub fn reference_target_location_at(
     index: &mut EchoIndex,
     file_id: FileId,
@@ -65,6 +82,85 @@ pub fn reference_target_location_at(
         .next()?
         .clone();
 
+    match reference.kind {
+        ReferenceKind::FilePath => {
+            let path = std::fs::canonicalize(&reference.name).ok()?;
+            file_location(index, &path, TextRange::new(0, 0))
+        }
+        ReferenceKind::ClassLike => {
+            let class_name = resolve_imported_class_name(index, file_id, &reference.name)
+                .unwrap_or(reference.name);
+            let path = composer_class_file(index, &class_name)?;
+            class_location(index, &path, &class_name)
+        }
+        ReferenceKind::StaticMethod => {
+            let class_name = reference.qualifier.as_deref()?;
+            let class_name = resolve_imported_class_name(index, file_id, class_name)
+                .unwrap_or_else(|| class_name.to_string());
+            let path = composer_class_file(index, &class_name)?;
+            index_php_file(index, &path);
+            if let Some(location) = index.method_definition(&class_name, &reference.name) {
+                return symbol_location(index, location.file_id, location.selection_range);
+            }
+            if let Some(range) = php_method_name_range(&path, &reference.name) {
+                return file_location(index, &path, range);
+            }
+            file_location(index, &path, TextRange::new(0, 0))
+        }
+        ReferenceKind::Method => None,
+    }
+}
+
+pub fn reference_target_link_at(
+    index: &mut EchoIndex,
+    text: &Rope,
+    file_id: FileId,
+    offset: TextOffset,
+) -> Option<LocationLink> {
+    let reference = index
+        .references(ReferenceQuery::at(file_id, offset))
+        .into_iter()
+        .next()?
+        .clone();
+    let location = reference_target_location(index, file_id, reference.clone())?;
+    Some(location_to_link(text, reference.range, location))
+}
+
+fn location_to_link(text: &Rope, origin_range: TextRange, location: Location) -> LocationLink {
+    LocationLink {
+        origin_selection_range: Some(range_to_lsp_range(text, origin_range)),
+        target_uri: location.uri,
+        target_range: location.range,
+        target_selection_range: location.range,
+    }
+}
+
+fn dependency_target_location(
+    index: &mut EchoIndex,
+    dependency: &DependencyFact,
+) -> Option<Location> {
+    match dependency.kind {
+        DependencyKind::PhpUse => {
+            let path = composer_class_file(index, &dependency.target)?;
+            class_location(index, &path, &dependency.target)
+        }
+        DependencyKind::Require
+        | DependencyKind::RequireOnce
+        | DependencyKind::Include
+        | DependencyKind::IncludeOnce
+        | DependencyKind::ComposerAutoload => {
+            let path = std::fs::canonicalize(&dependency.target).ok()?;
+            file_location(index, &path, TextRange::new(0, 0))
+        }
+        DependencyKind::EchoStdImport | DependencyKind::EchoFileImport => None,
+    }
+}
+
+fn reference_target_location(
+    index: &mut EchoIndex,
+    file_id: FileId,
+    reference: echo_index::ReferenceFact,
+) -> Option<Location> {
     match reference.kind {
         ReferenceKind::FilePath => {
             let path = std::fs::canonicalize(&reference.name).ok()?;
@@ -1152,5 +1248,60 @@ mod tests {
             .expect("autoload path location");
 
         assert_eq!(location.uri, Uri::from_file_path(&autoload).unwrap());
+    }
+
+    #[test]
+    fn file_path_reference_link_uses_full_origin_expression() {
+        let fixture_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/php/112_laravel_bootstrap")
+            .canonicalize()
+            .expect("fixture root");
+        let autoload = fixture_root.join("vendor/autoload.php");
+        let source = "<?php\nrequire __DIR__.'/../vendor/autoload.php';\n";
+        let expr = "__DIR__.'/../vendor/autoload.php'";
+        let start = source.find(expr).expect("expr");
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: Vec::new(),
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::FilePath,
+                    name: autoload.to_string_lossy().to_string(),
+                    qualifier: None,
+                    range: TextRange::new(start as u32, (start + expr.len()) as u32),
+                }],
+            },
+        );
+
+        let link = reference_target_link_at(
+            &mut index,
+            &Rope::from_str(source),
+            file_id,
+            TextOffset((start + expr.find("vendor").expect("vendor")) as u32),
+        )
+        .expect("autoload link");
+
+        assert_eq!(link.target_uri, Uri::from_file_path(&autoload).unwrap());
+        assert_eq!(
+            link.origin_selection_range,
+            Some(range_to_lsp_range(
+                &Rope::from_str(source),
+                TextRange::new(start as u32, (start + expr.len()) as u32),
+            ))
+        );
     }
 }
