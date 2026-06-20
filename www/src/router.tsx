@@ -12,7 +12,9 @@ type DocsNavGroup = {
   title: string;
   links: Array<{
     label: string;
-    href?: string;
+    to: string;
+    active?: boolean;
+    disabled?: boolean;
   }>;
 };
 
@@ -118,29 +120,27 @@ function DocsPage() {
     {
       title: "Getting Started",
       links: [
-        { label: "Installation", href: "#installation" },
-        { label: "Run a Program", href: "#run-a-program" },
-        { label: "Compile a Program", href: "#compile-a-program" },
-        { label: "Project Status", href: "#project-status" },
-        { label: "Source Modes", href: "#source-modes" },
+        { label: "Installation", to: "/docs", active: true },
+        { label: "Quickstart", to: "/docs/quickstart", disabled: true },
+        { label: "Source Modes", to: "/docs/source-modes", disabled: true },
       ],
     },
     {
       title: "Language",
       links: [
-        { label: "PHP Built-ins", href: "#php-built-ins" },
-        { label: "PHP Compatibility" },
-        { label: "Strict Mode" },
-        { label: "Imports" },
+        { label: "PHP Built-ins", to: "/docs/php-built-ins", disabled: true },
+        { label: "PHP Compatibility", to: "/docs/php-compatibility", disabled: true },
+        { label: "Strict Mode", to: "/docs/strict-mode", disabled: true },
+        { label: "Imports", to: "/docs/imports", disabled: true },
       ],
     },
     {
       title: "Tooling",
       links: [
-        { label: "Command Line" },
-        { label: "Language Server" },
-        { label: "Testing" },
-        { label: "Source Builds", href: "#source-builds" },
+        { label: "Command Line", to: "/docs/command-line", disabled: true },
+        { label: "Language Server", to: "/docs/language-server", disabled: true },
+        { label: "Testing", to: "/docs/testing", disabled: true },
+        { label: "Source Builds", to: "/docs/source-builds", disabled: true },
       ],
     },
   ];
@@ -167,15 +167,19 @@ function DocsPage() {
                 <ul className="mt-5 space-y-3">
                   {group.links.map((link) => (
                     <li key={link.label}>
-                      {link.href ? (
-                        <a
-                          className="text-sm leading-6 text-slate-500 transition hover:text-slate-950"
-                          href={link.href}
+                      {link.disabled ? (
+                        <span className="text-sm leading-6 text-slate-300">{link.label}</span>
+                      ) : (
+                        <Link
+                          className={
+                            link.active
+                              ? "text-sm font-semibold leading-6 text-slate-950"
+                              : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
+                          }
+                          to={link.to}
                         >
                           {link.label}
-                        </a>
-                      ) : (
-                        <span className="text-sm leading-6 text-slate-300">{link.label}</span>
+                        </Link>
                       )}
                     </li>
                   ))}
@@ -267,7 +271,7 @@ xo build app.php -o app`}</code>
           </section>
 
           <section id="php-built-ins" className="mt-16 scroll-mt-28">
-            <p className="text-sm font-semibold text-slate-500">PHP Compatibility</p>
+            <p className="text-sm font-semibold text-slate-500">Language</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-normal text-slate-950">
               PHP Built-ins
             </h2>
