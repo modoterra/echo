@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use echo_index::{
     DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex,
@@ -47,10 +47,11 @@ pub fn dependency_target_location_at(
         | DependencyKind::RequireOnce
         | DependencyKind::Include
         | DependencyKind::IncludeOnce
-        | DependencyKind::ComposerAutoload => {
-            let path = std::fs::canonicalize(&dependency.target).ok()?;
-            file_location(index, &path, TextRange::new(0, 0))
-        }
+        | DependencyKind::ComposerAutoload => file_location(
+            index,
+            std::path::Path::new(&dependency.target),
+            TextRange::new(0, 0),
+        ),
         DependencyKind::EchoStdImport | DependencyKind::EchoFileImport => None,
     }
 }
@@ -83,10 +84,11 @@ pub fn reference_target_location_at(
         .clone();
 
     match reference.kind {
-        ReferenceKind::FilePath => {
-            let path = std::fs::canonicalize(&reference.name).ok()?;
-            file_location(index, &path, TextRange::new(0, 0))
-        }
+        ReferenceKind::FilePath => file_location(
+            index,
+            std::path::Path::new(&reference.name),
+            TextRange::new(0, 0),
+        ),
         ReferenceKind::ClassLike => {
             let class_name = resolve_imported_class_name(index, file_id, &reference.name)
                 .unwrap_or(reference.name);
@@ -148,10 +150,11 @@ fn dependency_target_location(
         | DependencyKind::RequireOnce
         | DependencyKind::Include
         | DependencyKind::IncludeOnce
-        | DependencyKind::ComposerAutoload => {
-            let path = std::fs::canonicalize(&dependency.target).ok()?;
-            file_location(index, &path, TextRange::new(0, 0))
-        }
+        | DependencyKind::ComposerAutoload => file_location(
+            index,
+            std::path::Path::new(&dependency.target),
+            TextRange::new(0, 0),
+        ),
         DependencyKind::EchoStdImport | DependencyKind::EchoFileImport => None,
     }
 }
@@ -162,10 +165,11 @@ fn reference_target_location(
     reference: echo_index::ReferenceFact,
 ) -> Option<Location> {
     match reference.kind {
-        ReferenceKind::FilePath => {
-            let path = std::fs::canonicalize(&reference.name).ok()?;
-            file_location(index, &path, TextRange::new(0, 0))
-        }
+        ReferenceKind::FilePath => file_location(
+            index,
+            std::path::Path::new(&reference.name),
+            TextRange::new(0, 0),
+        ),
         ReferenceKind::ClassLike => {
             let class_name = resolve_imported_class_name(index, file_id, &reference.name)
                 .unwrap_or(reference.name);
@@ -268,7 +272,7 @@ pub fn definition_location_to_lsp(
 }
 
 fn file_location(index: &mut EchoIndex, path: &Path, range: TextRange) -> Option<Location> {
-    let path = std::fs::canonicalize(path).ok()?;
+    let path = canonical_or_original_path(path);
     index_php_file(index, &path);
     let file_id = ensure_index_file(index, &path);
     symbol_location(index, file_id, range)
@@ -287,7 +291,7 @@ fn symbol_location(index: &EchoIndex, file_id: FileId, range: TextRange) -> Opti
 }
 
 fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
-    let path = std::fs::canonicalize(path).ok()?;
+    let path = canonical_or_original_path(path);
     if path.extension().and_then(|ext| ext.to_str()) != Some("php") {
         return Some(ensure_index_file(index, &path));
     }
@@ -308,6 +312,27 @@ fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
     );
     index.update_file(file_id, facts);
     Some(file_id)
+}
+
+fn canonical_or_original_path(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| lexical_normalize_path(path))
+}
+
+fn lexical_normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if normalized.as_os_str() != "/" && !normalized.pop() {
+                    normalized.push("..");
+                }
+            }
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir | Component::Normal(_) => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
 }
 
 fn php_method_name_range(path: &Path, method_name: &str) -> Option<TextRange> {
@@ -1296,6 +1321,59 @@ mod tests {
         .expect("autoload link");
 
         assert_eq!(link.target_uri, Uri::from_file_path(&autoload).unwrap());
+        assert_eq!(
+            link.origin_selection_range,
+            Some(range_to_lsp_range(
+                &Rope::from_str(source),
+                TextRange::new(start as u32, (start + expr.len()) as u32),
+            ))
+        );
+    }
+
+    #[test]
+    fn file_path_reference_link_allows_missing_dir_target() {
+        let target = "/project/public/../storage/framework/maintenance.php";
+        let source = "<?php\nfile_exists(__DIR__.'/../storage/framework/maintenance.php');\n";
+        let expr = "__DIR__.'/../storage/framework/maintenance.php'";
+        let start = source.find(expr).expect("expr");
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: Vec::new(),
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::FilePath,
+                    name: target.to_string(),
+                    qualifier: None,
+                    range: TextRange::new(start as u32, (start + expr.len()) as u32),
+                }],
+            },
+        );
+
+        let link = reference_target_link_at(
+            &mut index,
+            &Rope::from_str(source),
+            file_id,
+            TextOffset((start + expr.find("storage").expect("storage")) as u32),
+        )
+        .expect("maintenance link");
+
+        assert_eq!(
+            link.target_uri,
+            Uri::from_file_path("/project/storage/framework/maintenance.php").unwrap()
+        );
         assert_eq!(
             link.origin_selection_range,
             Some(range_to_lsp_range(

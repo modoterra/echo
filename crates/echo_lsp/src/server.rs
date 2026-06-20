@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 
 use dashmap::DashMap;
@@ -573,9 +573,8 @@ fn push_document_link(
     if !ranges.insert(range) {
         return;
     }
-    let Ok(path) = std::fs::canonicalize(target) else {
-        return;
-    };
+    let path = std::fs::canonicalize(target)
+        .unwrap_or_else(|_| lexical_normalize_path(&PathBuf::from(target)));
     let Some(uri) = Uri::from_file_path(path) else {
         return;
     };
@@ -585,6 +584,23 @@ fn push_document_link(
         tooltip: Some(target.to_string()),
         data: None,
     });
+}
+
+fn lexical_normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if normalized.as_os_str() != "/" && !normalized.pop() {
+                    normalized.push("..");
+                }
+            }
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir | Component::Normal(_) => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
 }
 
 fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {
@@ -856,6 +872,10 @@ $app->handleRequest(Request::capture());
         let public_source = std::fs::read_to_string(&public_index).expect("public source");
         let autoload_expr = "__DIR__.'/../vendor/autoload.php'";
         let autoload_start = public_source.find(autoload_expr).expect("autoload expr");
+        let maintenance_expr = "__DIR__.'/../storage/framework/maintenance.php'";
+        let maintenance_start = public_source
+            .find(maintenance_expr)
+            .expect("maintenance expr");
         let mut index = EchoIndex::new();
         let file_id = index.alloc_file_id();
         index.insert_file(IndexedFile {
@@ -910,5 +930,22 @@ $app->handleRequest(Request::capture());
             )
         );
         assert_eq!(autoload_target_links.len(), 1);
+
+        let maintenance_target =
+            Uri::from_file_path(fixture_root.join("storage/framework/maintenance.php")).unwrap();
+        let maintenance_link = links
+            .iter()
+            .find(|link| link.target.as_ref() == Some(&maintenance_target))
+            .expect("maintenance document link");
+        assert_eq!(
+            maintenance_link.range,
+            range_to_lsp_range(
+                &Rope::from_str(&public_source),
+                TextRange::new(
+                    maintenance_start as u32,
+                    (maintenance_start + maintenance_expr.len()) as u32,
+                ),
+            )
+        );
     }
 }

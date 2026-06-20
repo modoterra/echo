@@ -378,6 +378,7 @@ impl IndexFactExtractor {
             Expr::Require(expr) => {
                 let target = self
                     .const_string_expr(&expr.path)
+                    .map(|target| self.resolve_source_path(&target))
                     .unwrap_or_else(|| expr_path_label(&expr.path));
                 self.dependencies.push(DependencyFact {
                     kind: require_dependency_kind(expr.kind, &target),
@@ -407,7 +408,7 @@ impl IndexFactExtractor {
             Expr::Loop(expr) => self.extract_statements(&expr.body),
             Expr::Unary(expr) => self.extract_expr_dependencies(&expr.expr),
             Expr::Binary(expr) => {
-                if let Some(target) = self.const_string_binary(expr) {
+                if let Some(target) = self.const_dir_path_binary(expr) {
                     self.references.push(ReferenceFact {
                         kind: ReferenceKind::FilePath,
                         name: target,
@@ -468,6 +469,28 @@ impl IndexFactExtractor {
         let left = self.const_string_expr(&expr.left)?;
         let right = self.const_string_expr(&expr.right)?;
         Some(format!("{left}{right}"))
+    }
+
+    fn const_dir_path_binary(&self, expr: &echo_ast::BinaryExpr) -> Option<String> {
+        if !binary_contains_dir_magic_constant(expr) {
+            return None;
+        }
+        self.const_string_binary(expr)
+    }
+
+    fn resolve_source_path(&self, target: &str) -> String {
+        if std::path::Path::new(target).is_absolute() {
+            return target.to_string();
+        }
+        self.source_dir
+            .as_ref()
+            .map(|source_dir| {
+                std::path::Path::new(source_dir)
+                    .join(target)
+                    .to_string_lossy()
+                    .to_string()
+            })
+            .unwrap_or_else(|| target.to_string())
     }
 
     fn fq_name(&self, name: &str) -> FqName {
@@ -581,6 +604,18 @@ fn parse_phpdoc_var_annotation(text: &str, base_offset: usize) -> Option<PhpDocV
         ty_range: TextRange::new(base_offset as u32, (base_offset + ty.len()) as u32),
         selection_range: TextRange::new(selection_start as u32, selection_end as u32),
     })
+}
+
+fn expr_contains_dir_magic_constant(expr: &Expr) -> bool {
+    match expr {
+        Expr::MagicConstant(expr) => expr.kind == MagicConstantKind::Dir,
+        Expr::Binary(expr) => binary_contains_dir_magic_constant(expr),
+        _ => false,
+    }
+}
+
+fn binary_contains_dir_magic_constant(expr: &echo_ast::BinaryExpr) -> bool {
+    expr_contains_dir_magic_constant(&expr.left) || expr_contains_dir_magic_constant(&expr.right)
 }
 
 fn require_dependency_kind(kind: RequireKind, target: &str) -> DependencyKind {
@@ -1533,6 +1568,16 @@ mod tests {
         );
         assert_eq!(facts.dependencies[1].range, TextRange::new(100, 141));
         assert_eq!(facts.dependencies[1].target_range, TextRange::new(108, 141));
+        assert!(facts.references.iter().any(|reference| {
+            reference.kind == ReferenceKind::FilePath
+                && reference.name == "/project/public/../storage/framework/maintenance.php"
+                && reference.range == TextRange::new(20, 67)
+        }));
+        assert!(facts.references.iter().any(|reference| {
+            reference.kind == ReferenceKind::FilePath
+                && reference.name == "/project/public/../vendor/autoload.php"
+                && reference.range == TextRange::new(108, 141)
+        }));
     }
 
     #[test]
@@ -1570,6 +1615,32 @@ mod tests {
         assert_eq!(facts.references[1].name, "capture");
         assert_eq!(facts.references[1].qualifier.as_deref(), Some("Request"));
         assert_eq!(facts.references[1].range, TextRange::new(40, 47));
+    }
+
+    #[test]
+    fn resolves_plain_require_string_relative_to_source_dir() {
+        let mut source = program(vec![Stmt::Expr(ExprStmt {
+            expr: Expr::Require(Box::new(RequireExpr {
+                kind: RequireKind::RequireOnce,
+                path: Expr::String(StringLiteral {
+                    value: "../bootstrap/app.php".to_string(),
+                    span: Span::new(14, 36),
+                }),
+                span: Span::new(0, 36),
+            })),
+            span: Span::new(0, 37),
+        })]);
+        source.source_dir = Some("/project/public".to_string());
+
+        let facts = index_facts(&source, FileId(13), EchoFileMode::PhpCompat);
+
+        assert_eq!(facts.dependencies.len(), 1);
+        assert_eq!(facts.dependencies[0].kind, DependencyKind::RequireOnce);
+        assert_eq!(
+            facts.dependencies[0].target,
+            "/project/public/../bootstrap/app.php"
+        );
+        assert_eq!(facts.dependencies[0].target_range, TextRange::new(14, 36));
     }
 
     #[test]
