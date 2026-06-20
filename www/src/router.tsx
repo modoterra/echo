@@ -28,50 +28,43 @@ type DocsShellProps = {
 type BuiltinDoc = {
   name: string;
   signature: string;
-  status: string;
-  summary: string;
-  gotcha: string;
-  echo: string;
+  description: string;
   example: string;
-  source: string;
 };
 
 const builtinDocs: BuiltinDoc[] = [
   {
     name: "strlen",
     signature: "strlen(string $string): int",
-    status: "Implemented",
-    summary: "Returns the number of bytes in a string.",
-    gotcha:
-      "Byte length is not character length. A string containing multibyte text can have more bytes than visible characters.",
-    echo: "Echo lowers strlen through the PHP builtin ABI and reflects it as string $string returning int.",
-    example: `echo strlen("hello") . "\\n";
-echo strlen("é") . "\\n";`,
-    source: "https://www.php.net/manual/en/function.strlen.php",
+    description:
+      "Returns the number of bytes in a string. This is byte length, not character length, so multibyte text can be longer than the number of visible characters.",
+    example: `let $word = "hello"
+let $accented = "é"
+
+echo strlen($word) . "\\n"
+echo strlen($accented) . "\\n"`,
   },
   {
     name: "array_is_list",
     signature: "array_is_list(array $array): bool",
-    status: "Implemented",
-    summary: "Returns true when an array's keys are consecutive integers from 0.",
-    gotcha:
-      "Associative keys, missing numeric keys, or reordered keys make the array stop being a list.",
-    echo: "Echo's current PHP arrays are contiguous vectors, so key-gap and associative-key edge cases are still deferred.",
-    example: `echo array_is_list([]) . "\\n";
-echo array_is_list([1, 2, 3]) . "\\n";`,
-    source: "https://www.php.net/manual/en/function.array-is-list.php",
+    description:
+      "Returns true when an array has consecutive integer keys starting at zero. Empty arrays are lists. Associative keys or gaps in numeric keys make an array stop being a list.",
+    example: `let $empty = []
+let $numbers = [1, 2, 3]
+
+echo array_is_list($empty) . "\\n"
+echo array_is_list($numbers) . "\\n"`,
   },
   {
     name: "function_exists",
     signature: "function_exists(string $function): bool",
-    status: "Implemented",
-    summary: "Checks whether a named function is available as a function.",
-    gotcha:
-      "Language constructs are not functions. PHP returns false for names such as echo and include_once.",
-    echo: "Echo recognizes supported internal PHP builtin names case-insensitively; user-defined function registry support is deferred.",
-    example: `echo function_exists("strlen") . "\\n";
-echo function_exists("echo") . "\\n";`,
-    source: "https://www.php.net/manual/en/function.function-exists.php",
+    description:
+      "Returns true when a name resolves to a function. Language constructs are not functions, so names such as echo and include_once return false.",
+    example: `let $callable = "strlen"
+let $construct = "echo"
+
+echo function_exists($callable) . "\\n"
+echo function_exists($construct) . "\\n"`,
   },
 ];
 
@@ -318,51 +311,22 @@ function PhpBuiltinsPage() {
       title="PHP Built-ins"
     >
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        Echo documents PHP built-ins as executable compatibility contracts: signature, behavior,
-        common trap, Echo status, and the fixture-backed edge that matters. The first pass starts
-        with the built-ins already reflected and lowered by Echo.
+        PHP built-ins keep familiar names and signatures. These pages focus on what each function
+        does, the shape of its inputs and output, and small examples that can be pasted into an
+        Echo-compatible file.
       </p>
 
       <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200">
         {builtinDocs.map((builtin) => (
           <section key={builtin.name} className="py-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h3 className="font-mono text-2xl font-semibold text-slate-950">{builtin.name}</h3>
-                <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
-              </div>
-              <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-                {builtin.status}
-              </span>
-            </div>
-
-            <dl className="mt-7 grid gap-6 text-base leading-7 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-semibold text-slate-950">Behavior</dt>
-                <dd className="mt-2 text-slate-600">{builtin.summary}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-semibold text-slate-950">Watch For</dt>
-                <dd className="mt-2 text-slate-600">{builtin.gotcha}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-semibold text-slate-950">Echo Status</dt>
-                <dd className="mt-2 text-slate-600">{builtin.echo}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-semibold text-slate-950">Manual Source</dt>
-                <dd className="mt-2">
-                  <a
-                    className="text-slate-500 underline decoration-slate-300 underline-offset-4 transition hover:text-slate-950"
-                    href={builtin.source}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    php.net
-                  </a>
-                </dd>
-              </div>
-            </dl>
+            <h2
+              className="font-mono text-2xl font-semibold text-slate-950"
+              id={headingId(builtin.name)}
+            >
+              {builtin.name}
+            </h2>
+            <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
+            <p className="mt-7 text-lg leading-8 text-slate-600">{builtin.description}</p>
 
             <pre className="mt-7 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
               <code>{builtin.example}</code>
