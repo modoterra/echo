@@ -1704,7 +1704,9 @@ function DocsLayout() {
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
   const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
-  const activeHeadingIndex = Math.max(0, headings.indexOf(activeHeading));
+  const onThisPageRailRef = useRef<HTMLDivElement | null>(null);
+  const onThisPageItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [onThisPageTrainY, setOnThisPageTrainY] = useState(0);
   const navigation: DocsNavGroup[] = [
     {
       title: "Getting Started",
@@ -1793,6 +1795,50 @@ function DocsLayout() {
     };
   }, [headings]);
 
+  useLayoutEffect(() => {
+    let animationFrame = 0;
+
+    function updateTrainPosition() {
+      const rail = onThisPageRailRef.current;
+      const item = onThisPageItemRefs.current[activeHeading];
+
+      if (!rail || !item) {
+        setOnThisPageTrainY(0);
+        return;
+      }
+
+      const railRect = rail.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      setOnThisPageTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
+    }
+
+    function scheduleUpdate() {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updateTrainPosition);
+    }
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [activeHeading, headings]);
+
+  function scrollToHeading(heading: string) {
+    const id = headingId(heading);
+    const element = document.getElementById(id);
+
+    if (!element) {
+      return;
+    }
+
+    setActiveHeading(heading);
+    window.history.pushState(null, "", `#${id}`);
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 lg:grid-cols-[220px_minmax(0,720px)] xl:grid-cols-[220px_minmax(0,720px)_220px]">
@@ -1838,20 +1884,25 @@ function DocsLayout() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               On this page
             </h2>
-            <div className="relative mt-5 pl-6">
+            <div className="relative mt-5 pl-6" ref={onThisPageRailRef}>
               <span
                 aria-hidden="true"
                 className="absolute bottom-0 left-0 top-0 w-px bg-slate-200"
               />
               <motion.span
                 aria-hidden="true"
-                animate={{ y: activeHeadingIndex * 36 }}
-                className="absolute left-[-1px] top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400"
+                animate={{ y: onThisPageTrainY }}
+                className="absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full bg-orange-400"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               />
               <ul className="docs-on-this-page-links space-y-3">
                 {headings.map((heading) => (
-                  <li key={heading}>
+                  <li
+                    key={heading}
+                    ref={(element) => {
+                      onThisPageItemRefs.current[heading] = element;
+                    }}
+                  >
                     <a
                       className={
                         activeHeading === heading
@@ -1859,6 +1910,19 @@ function DocsLayout() {
                           : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
                       }
                       href={`#${headingId(heading)}`}
+                      onClick={(event) => {
+                        if (
+                          event.altKey ||
+                          event.ctrlKey ||
+                          event.metaKey ||
+                          event.shiftKey
+                        ) {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        scrollToHeading(heading);
+                      }}
                     >
                       {heading}
                     </a>
@@ -2227,9 +2291,10 @@ const routeTree = rootRoute.addChildren([
 
 export const router = createRouter({
   defaultViewTransition: {
-    types: ({ fromLocation, toLocation }) => {
-      void fromLocation;
-      void toLocation;
+    types: ({ pathChanged }) => {
+      if (!pathChanged) {
+        return false;
+      }
 
       return ["route-transition"];
     },
