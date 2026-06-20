@@ -1536,7 +1536,7 @@ function CodeSnippet({
   return (
     <div
       ref={snippetRef}
-      className={`${className} group relative select-none rounded-lg bg-[#101218] shadow-sm`}
+      className={`${className} group relative rounded-lg bg-[#101218] shadow-sm`}
       style={{ minHeight }}
     >
       <button

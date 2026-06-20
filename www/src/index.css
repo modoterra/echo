@@ -113,10 +113,6 @@
     scrollbar-gutter: stable both-edges;
 }
 
-.docs-code-snippet {
-    user-select: none;
-}
-
 .docs-code-snippet .shiki,
 .docs-code-snippet pre {
     margin: 0;
