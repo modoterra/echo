@@ -16,6 +16,56 @@ type DocsNavGroup = {
   }>;
 };
 
+type BuiltinDoc = {
+  name: string;
+  signature: string;
+  status: string;
+  summary: string;
+  gotcha: string;
+  echo: string;
+  example: string;
+  source: string;
+};
+
+const builtinDocs: BuiltinDoc[] = [
+  {
+    name: "strlen",
+    signature: "strlen(string $string): int",
+    status: "Implemented",
+    summary: "Returns the number of bytes in a string.",
+    gotcha:
+      "Byte length is not character length. A string containing multibyte text can have more bytes than visible characters.",
+    echo: "Echo lowers strlen through the PHP builtin ABI and reflects it as string $string returning int.",
+    example: `echo strlen("hello") . "\\n";
+echo strlen("é") . "\\n";`,
+    source: "https://www.php.net/manual/en/function.strlen.php",
+  },
+  {
+    name: "array_is_list",
+    signature: "array_is_list(array $array): bool",
+    status: "Implemented",
+    summary: "Returns true when an array's keys are consecutive integers from 0.",
+    gotcha:
+      "Associative keys, missing numeric keys, or reordered keys make the array stop being a list.",
+    echo: "Echo's current PHP arrays are contiguous vectors, so key-gap and associative-key edge cases are still deferred.",
+    example: `echo array_is_list([]) . "\\n";
+echo array_is_list([1, 2, 3]) . "\\n";`,
+    source: "https://www.php.net/manual/en/function.array-is-list.php",
+  },
+  {
+    name: "function_exists",
+    signature: "function_exists(string $function): bool",
+    status: "Implemented",
+    summary: "Checks whether a named function is available as a function.",
+    gotcha:
+      "Language constructs are not functions. PHP returns false for names such as echo and include_once.",
+    echo: "Echo recognizes supported internal PHP builtin names case-insensitively; user-defined function registry support is deferred.",
+    example: `echo function_exists("strlen") . "\\n";
+echo function_exists("echo") . "\\n";`,
+    source: "https://www.php.net/manual/en/function.function-exists.php",
+  },
+];
+
 function RootLayout() {
   const location = useLocation();
   const isDocs = location.pathname.startsWith("/docs");
@@ -77,7 +127,12 @@ function DocsPage() {
     },
     {
       title: "Language",
-      links: [{ label: "PHP Compatibility" }, { label: "Strict Mode" }, { label: "Imports" }],
+      links: [
+        { label: "PHP Built-ins", href: "#php-built-ins" },
+        { label: "PHP Compatibility" },
+        { label: "Strict Mode" },
+        { label: "Imports" },
+      ],
     },
     {
       title: "Tooling",
@@ -97,6 +152,7 @@ function DocsPage() {
     "Compile a Program",
     "Project Status",
     "Source Modes",
+    "PHP Built-ins",
     "Source Builds",
   ];
 
@@ -208,6 +264,68 @@ xo build app.php -o app`}</code>
               <code className="font-mono text-slate-950">.echo</code> or{" "}
               <code className="font-mono text-slate-950">.xo</code> use strict mode by default.
             </p>
+          </section>
+
+          <section id="php-built-ins" className="mt-16 scroll-mt-28">
+            <p className="text-sm font-semibold text-slate-500">PHP Compatibility</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-normal text-slate-950">
+              PHP Built-ins
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Echo documents PHP built-ins as executable compatibility contracts: signature,
+              behavior, common trap, Echo status, and the fixture-backed edge that matters. The
+              first pass starts with the built-ins already reflected and lowered by Echo.
+            </p>
+
+            <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200">
+              {builtinDocs.map((builtin) => (
+                <section key={builtin.name} className="py-8">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="font-mono text-2xl font-semibold text-slate-950">
+                        {builtin.name}
+                      </h3>
+                      <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
+                    </div>
+                    <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+                      {builtin.status}
+                    </span>
+                  </div>
+
+                  <dl className="mt-7 grid gap-6 text-base leading-7 sm:grid-cols-2">
+                    <div>
+                      <dt className="text-sm font-semibold text-slate-950">Behavior</dt>
+                      <dd className="mt-2 text-slate-600">{builtin.summary}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-semibold text-slate-950">Watch For</dt>
+                      <dd className="mt-2 text-slate-600">{builtin.gotcha}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-semibold text-slate-950">Echo Status</dt>
+                      <dd className="mt-2 text-slate-600">{builtin.echo}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-semibold text-slate-950">Manual Source</dt>
+                      <dd className="mt-2">
+                        <a
+                          className="text-slate-500 underline decoration-slate-300 underline-offset-4 transition hover:text-slate-950"
+                          href={builtin.source}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          php.net
+                        </a>
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <pre className="mt-7 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
+                    <code>{builtin.example}</code>
+                  </pre>
+                </section>
+              ))}
+            </div>
           </section>
 
           <section id="source-builds" className="mt-16 scroll-mt-28">
