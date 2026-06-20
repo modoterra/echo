@@ -1,4 +1,4 @@
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use echo_index::{
     DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex,
@@ -272,7 +272,7 @@ pub fn definition_location_to_lsp(
 }
 
 fn file_location(index: &mut EchoIndex, path: &Path, range: TextRange) -> Option<Location> {
-    let path = canonical_or_original_path(path);
+    let path = std::fs::canonicalize(path).ok()?;
     index_php_file(index, &path);
     let file_id = ensure_index_file(index, &path);
     symbol_location(index, file_id, range)
@@ -291,7 +291,7 @@ fn symbol_location(index: &EchoIndex, file_id: FileId, range: TextRange) -> Opti
 }
 
 fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
-    let path = canonical_or_original_path(path);
+    let path = std::fs::canonicalize(path).ok()?;
     if path.extension().and_then(|ext| ext.to_str()) != Some("php") {
         return Some(ensure_index_file(index, &path));
     }
@@ -312,27 +312,6 @@ fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
     );
     index.update_file(file_id, facts);
     Some(file_id)
-}
-
-fn canonical_or_original_path(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| lexical_normalize_path(path))
-}
-
-fn lexical_normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if normalized.as_os_str() != "/" && !normalized.pop() {
-                    normalized.push("..");
-                }
-            }
-            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
-            Component::RootDir | Component::Normal(_) => normalized.push(component.as_os_str()),
-        }
-    }
-    normalized
 }
 
 fn php_method_name_range(path: &Path, method_name: &str) -> Option<TextRange> {
@@ -1331,7 +1310,7 @@ mod tests {
     }
 
     #[test]
-    fn file_path_reference_link_allows_missing_dir_target() {
+    fn file_path_reference_link_skips_missing_dir_target() {
         let target = "/project/public/../storage/framework/maintenance.php";
         let source = "<?php\nfile_exists(__DIR__.'/../storage/framework/maintenance.php');\n";
         let expr = "__DIR__.'/../storage/framework/maintenance.php'";
@@ -1367,19 +1346,8 @@ mod tests {
             &Rope::from_str(source),
             file_id,
             TextOffset((start + expr.find("storage").expect("storage")) as u32),
-        )
-        .expect("maintenance link");
+        );
 
-        assert_eq!(
-            link.target_uri,
-            Uri::from_file_path("/project/storage/framework/maintenance.php").unwrap()
-        );
-        assert_eq!(
-            link.origin_selection_range,
-            Some(range_to_lsp_range(
-                &Rope::from_str(source),
-                TextRange::new(start as u32, (start + expr.len()) as u32),
-            ))
-        );
+        assert!(link.is_none());
     }
 }

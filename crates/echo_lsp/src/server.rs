@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use dashmap::DashMap;
@@ -573,8 +573,9 @@ fn push_document_link(
     if !ranges.insert(range) {
         return;
     }
-    let path = std::fs::canonicalize(target)
-        .unwrap_or_else(|_| lexical_normalize_path(&PathBuf::from(target)));
+    let Ok(path) = std::fs::canonicalize(target) else {
+        return;
+    };
     let Some(uri) = Uri::from_file_path(path) else {
         return;
     };
@@ -584,23 +585,6 @@ fn push_document_link(
         tooltip: Some(target.to_string()),
         data: None,
     });
-}
-
-fn lexical_normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if normalized.as_os_str() != "/" && !normalized.pop() {
-                    normalized.push("..");
-                }
-            }
-            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
-            Component::RootDir | Component::Normal(_) => normalized.push(component.as_os_str()),
-        }
-    }
-    normalized
 }
 
 fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {
@@ -933,19 +917,20 @@ $app->handleRequest(Request::capture());
 
         let maintenance_target =
             Uri::from_file_path(fixture_root.join("storage/framework/maintenance.php")).unwrap();
-        let maintenance_link = links
-            .iter()
-            .find(|link| link.target.as_ref() == Some(&maintenance_target))
-            .expect("maintenance document link");
-        assert_eq!(
-            maintenance_link.range,
-            range_to_lsp_range(
-                &Rope::from_str(&public_source),
-                TextRange::new(
-                    maintenance_start as u32,
-                    (maintenance_start + maintenance_expr.len()) as u32,
-                ),
-            )
+        assert!(
+            links
+                .iter()
+                .all(|link| link.target.as_ref() != Some(&maintenance_target)),
+            "missing maintenance file should not produce a document link"
         );
+
+        assert!(references.iter().any(|reference| {
+            reference.kind == ReferenceKind::FilePath
+                && reference.range
+                    == TextRange::new(
+                        maintenance_start as u32,
+                        (maintenance_start + maintenance_expr.len()) as u32,
+                    )
+        }));
     }
 }
