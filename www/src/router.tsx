@@ -1835,7 +1835,7 @@ function DocsLayout() {
             aria-label="On this page"
             className="sticky top-32"
           >
-            <h2 className="text-sm font-semibold text-slate-950">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               On this page
             </h2>
             <div className="relative mt-5 pl-6">
