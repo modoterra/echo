@@ -1656,6 +1656,8 @@ function DocsNavLinkItem({
 
 function DocsShell({ category, title, headings, children }: DocsShellProps) {
   const location = useLocation();
+  const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
+  const activeHeadingIndex = Math.max(0, headings.indexOf(activeHeading));
   const navigation: DocsNavGroup[] = [
     {
       title: "Getting Started",
@@ -1710,6 +1712,40 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
     },
   ];
 
+  useEffect(() => {
+    let animationFrame = 0;
+
+    function updateActiveHeading() {
+      const nextActiveHeading =
+        headings.findLast((heading) => {
+          const element = document.getElementById(headingId(heading));
+
+          return element ? element.getBoundingClientRect().top <= 160 : false;
+        }) ??
+        headings.find((heading) => document.getElementById(headingId(heading))) ??
+        headings[0] ??
+        "";
+
+      setActiveHeading(nextActiveHeading);
+    }
+
+    function scheduleUpdate() {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updateActiveHeading);
+    }
+
+    setActiveHeading(headings[0] ?? "");
+    scheduleUpdate();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [headings]);
+
   return (
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 lg:grid-cols-[220px_minmax(0,720px)] xl:grid-cols-[220px_minmax(0,720px)_220px]">
@@ -1748,23 +1784,39 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
         <aside className="hidden xl:block">
           <nav
             aria-label="On this page"
-            className="sticky top-32 border-l border-slate-200 pl-6"
+            className="sticky top-32"
           >
             <h2 className="text-sm font-semibold text-slate-950">
               On this page
             </h2>
-            <ul className="mt-5 space-y-3">
+            <div className="relative mt-5 pl-6">
+              <span
+                aria-hidden="true"
+                className="absolute bottom-0 left-0 top-0 w-px bg-slate-200"
+              />
+              <motion.span
+                aria-hidden="true"
+                animate={{ y: activeHeadingIndex * 36 }}
+                className="absolute left-[-1px] top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400"
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              />
+              <ul className="space-y-3">
               {headings.map((heading) => (
                 <li key={heading}>
                   <a
-                    className="text-sm leading-6 text-slate-500 transition hover:text-slate-950"
+                    className={
+                      activeHeading === heading
+                        ? "text-sm font-semibold leading-6 text-slate-950 transition"
+                        : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
+                    }
                     href={`#${headingId(heading)}`}
                   >
                     {heading}
                   </a>
                 </li>
               ))}
-            </ul>
+              </ul>
+            </div>
           </nav>
         </aside>
       </div>
