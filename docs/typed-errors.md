@@ -19,6 +19,8 @@ EchoError can carry any EchoValue, including EchoValue::Object, through fields
 or generics.
 ```
 
+This invariant is the rule every parser, semantic, runtime, and IDE feature should preserve: error-ness is a value category, not an object flag.
+
 Do not model errors as objects with a mutable error flag. Objects and errors may
 both be record-like, but they are different language categories:
 
@@ -30,6 +32,8 @@ Objects are not errors.
 Errors are not objects.
 Errors can carry objects.
 ```
+
+This category split keeps domain data and failure control flow separate while still allowing errors to include rich structured payloads.
 
 ## Error Declarations
 
@@ -47,6 +51,8 @@ error InvalidConfig {
     message: String
 }
 ```
+
+This declaration form is for nominal failure cases with typed fields, defaults, and stable names recover arms can match.
 
 Rules:
 
@@ -68,6 +74,8 @@ recover {
 }
 ```
 
+This invalid example shows the boundary: object types may carry data, but they cannot be used as typed recover targets.
+
 `User` is an object type, not an error type.
 
 ## Error Values
@@ -80,11 +88,15 @@ let err = error FileNotFound {
 }
 ```
 
+This expression constructs an error value without raising it, which is useful when code needs to store, return, or wrap failures explicitly.
+
 This produces a distinct error value:
 
 ```text
 EchoValue::Error(EchoError { type_id: FileNotFound, fields: ... })
 ```
+
+The runtime category is the key result: the value is represented as an error even though its fields can look record-like.
 
 Rules:
 
@@ -120,6 +132,8 @@ echo.is_object(err)  // false
 echo.is_error(err)   // true
 ```
 
+This example is the practical test for the model: a domain object can be carried by an error, but object and error predicates still report different categories.
+
 A future shared record predicate may treat both objects and errors as
 record-like values:
 
@@ -127,6 +141,8 @@ record-like values:
 echo.is_record(User { id: 1 })                    // true, future feature
 echo.is_record(error FileNotFound { path: "x" })  // true, future feature
 ```
+
+This future predicate would describe field shape only; it must not replace `is_object` or `is_error`.
 
 Do not add this predicate as part of the first typed-error slice unless the
 record model already exists.
@@ -148,6 +164,8 @@ panic err
 panic "bad"
 panic 5
 ```
+
+These forms cover the raising boundary: typed errors can be constructed and raised directly, existing errors can be re-raised, and non-error payloads are wrapped.
 
 Rules:
 
@@ -183,6 +201,8 @@ recover {
 }
 ```
 
+This example demonstrates why panic payloads must be normalized into errors before recovery: the `User` object is carried by `Panic`, not matched as a `User`.
+
 The generic built-in error type should eventually be equivalent to:
 
 ```echo
@@ -192,6 +212,8 @@ error Panic<T> {
 }
 ```
 
+The generic shape preserves the original payload type for code that recovers and inspects generic panic values.
+
 If generic support is not ready, v1 may use a non-generic runtime shape:
 
 ```echo
@@ -200,6 +222,8 @@ error Panic {
     message: String? = null
 }
 ```
+
+The non-generic fallback keeps behavior implementable while still preserving the value that caused panic flow.
 
 ## Recover
 
@@ -221,6 +245,8 @@ let config = recover {
     }
 }
 ```
+
+This recover block is the user-facing handling shape: specific error arms handle known failures and the catch-all arm preserves unhandled panic flow.
 
 Rules:
 
@@ -251,6 +277,8 @@ let config = recover {
 }
 ```
 
+Block arms support logging, fallback construction, and re-panicking without forcing all recovery logic into single expressions.
+
 ## Generics
 
 Errors should be able to carry any `EchoValue`, including objects, through typed
@@ -272,6 +300,8 @@ let err = error ValidationError<UserInput> {
 }
 ```
 
+This pattern lets validation errors carry the exact input shape that failed, which makes recovery code more precise.
+
 Expected behavior:
 
 ```echo
@@ -280,6 +310,8 @@ echo.is_object(err)  // false
 
 err.value.email      // accessible once field/type support exists
 ```
+
+The expected behavior keeps category checks separate from payload access: the error is not an object, but its field can contain one.
 
 Recover matching should eventually support specialized and unspecialized generic
 matches:
@@ -303,11 +335,15 @@ let user = recover {
 }
 ```
 
+This example shows the desired recovery hierarchy: handle a specific payload specialization first, then fall back to the general error family.
+
 Minimum v1 behavior:
 
 ```text
 ValidationError as err matches all ValidationError<T> specializations.
 ```
+
+This minimum rule gives generic errors useful recovery semantics before full specialization matching exists.
 
 Specialized generic matching can be a follow-up if full generic matching is too
 large for the first slice.
@@ -356,6 +392,8 @@ RecoverPattern {
 }
 ```
 
+These AST concepts preserve typed-error syntax without committing to exact Rust names or a REPL-only evaluator.
+
 `panic` may be represented as an expression, a statement, or both, depending on
 the existing AST conventions. The language behavior must be shared; do not add
 REPL-only panic handling.
@@ -371,11 +409,15 @@ error FileNotFound {
 }
 ```
 
+This parser form introduces a nominal error type with typed fields and defaults.
+
 ```echo
 let err = error FileNotFound {
     path: "echo.toml"
 }
 ```
+
+This parser form constructs an error value and should be valid anywhere an expression is accepted.
 
 ```echo
 panic FileNotFound {
@@ -383,11 +425,15 @@ panic FileNotFound {
 }
 ```
 
+This parser form combines construction and panic flow for the common case where the error is raised immediately.
+
 ```echo
 panic err
 panic "bad"
 panic 5
 ```
+
+These payload forms ensure panic syntax works for existing error values and for values that must be wrapped by the built-in panic error.
 
 ```echo
 let value = recover {
@@ -398,12 +444,16 @@ let value = recover {
 }
 ```
 
+This parser form is the core recovery shape: body first, then typed arms and the catch-all `error` arm.
+
 Typed error construction should require braces:
 
 ```echo
 panic EndOfFile {}
 let err = error EndOfFile {}
 ```
+
+The empty-brace form keeps construction unambiguous even for errors without fields.
 
 Do not rely on these ambiguous forms unless the language has a clear
 identifier/type namespace distinction:
@@ -412,6 +462,8 @@ identifier/type namespace distinction:
 panic EndOfFile
 error EndOfFile
 ```
+
+These forms are intentionally deferred because they make it harder for parser and diagnostics to distinguish values from types.
 
 ## Runtime Model
 
@@ -432,6 +484,8 @@ pub enum EchoValue {
 }
 ```
 
+The runtime value enum needs a real error variant so predicates, panic flow, and recovery cannot confuse errors with objects.
+
 Conceptual error shape:
 
 ```rust
@@ -443,6 +497,8 @@ pub struct EchoError {
     pub trace: Option<EchoTrace>,
 }
 ```
+
+This conceptual shape captures the metadata needed for matching, payload fields, causes, and future traces without prescribing memory layout.
 
 Adapt this shape to Echo's actual memory model if values are boxed,
 reference-counted, interned, or arena-allocated elsewhere.
@@ -457,12 +513,16 @@ is_error(EchoValue::Error(_)) == true
 is_error(EchoValue::Object(_)) == false
 ```
 
+These predicates are the runtime acceptance test for keeping object and error categories separate.
+
 Optional future predicate:
 
 ```rust
 is_record(Object) == true
 is_record(Error) == true
 ```
+
+This future predicate can describe field-like access, but it must not participate in panic/recover matching.
 
 ## Control-Flow Model
 
@@ -477,6 +537,8 @@ enum EchoEvalResult {
     Panic(EchoError),
 }
 ```
+
+This result type makes panic flow explicit in an interpreter, VM, MIR, or codegen layer without relying on host-language exceptions.
 
 Rules:
 
@@ -535,6 +597,8 @@ let config = recover {
 echo config
 ```
 
+This example shows the full happy-path/fallback loop: a typed panic is raised, recovered by its nominal type, and the program continues with a replacement value.
+
 Error distinct from object:
 
 ```echo
@@ -560,6 +624,8 @@ echo.is_object(err)  // false
 echo.is_error(err)   // true
 ```
 
+This example is the smallest end-to-end check that errors can carry objects without becoming objects themselves.
+
 Panic with a non-error payload wraps a generic error:
 
 ```echo
@@ -570,6 +636,8 @@ recover {
     error as err => panic err
 }
 ```
+
+This recovery shape shows how non-error panic payloads become recoverable only through a built-in error wrapper.
 
 Generic validation error:
 
@@ -595,6 +663,8 @@ let user = recover {
     }
 }
 ```
+
+This example applies typed generic errors to validation: recovery can inspect the message and return a safe replacement value.
 
 ## Acceptance Criteria
 
@@ -642,6 +712,8 @@ echo.is_object(err)  // false
 echo.is_error(err)   // true
 ```
 
+This validation block proves the runtime category split from user code, not only from internal Rust types.
+
 ```echo
 recover {
     panic MyError { message: "bad" }
@@ -650,6 +722,8 @@ recover {
     error as err => panic err
 }
 ```
+
+This validation block proves recover matching by specific error type and catch-all propagation for unhandled errors.
 
 ## Non-Goals
 
@@ -669,6 +743,8 @@ echo.mark_error(user)
 panic user
 ```
 
+This invalid direction would blur data and control flow by mutating an object into something panicable.
+
 Correct direction:
 
 ```echo
@@ -683,6 +759,8 @@ panic UserError {
 }
 ```
 
+This direction keeps the domain object intact and wraps it in a typed error value before entering panic flow.
+
 Core principle:
 
 ```text
@@ -691,3 +769,5 @@ Errors are failure values.
 Errors can carry data.
 Only errors participate in panic/recover.
 ```
+
+This principle is the final audit rule for the feature: if a design path makes arbitrary objects recoverable as errors, it violates the typed-error model.
