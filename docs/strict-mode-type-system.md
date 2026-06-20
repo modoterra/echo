@@ -41,12 +41,16 @@ File extension defaults:
 .echo/.xo     Strict mode by default
 ```
 
+This table is the user-facing default: PHP files preserve compatibility first, while Echo source files opt into strict safety unless overridden.
+
 CLI overrides:
 
 ```sh
 xo run --strict file.php  # strict safety on a PHP file
 xo run --unsafe file.echo # Echo superset mode on an Echo file
 ```
+
+These commands let a project test strict diagnostics on PHP input or temporarily run Echo source with PHP-compatible unsafe patterns enabled.
 
 `--unsafe` means unsafe PHP compatibility patterns are allowed. It does not disable Echo language features.
 
@@ -71,6 +75,8 @@ Strict Echo separates these families:
 {id: 1, email: "x"}    // object/record literal
 ```
 
+This example shows why strict mode needs separate literal families: the delimiter and keyed/unkeyed shape tell the compiler which value model is intended.
+
 Type families:
 
 ```text
@@ -83,6 +89,8 @@ type T = { } structural object type alias
 ( ... )      tuple value
 ```
 
+The type-family table is the vocabulary for diagnostics and hover text; strict mode should name the collection kind rather than collapsing everything into PHP arrays.
+
 ## Arrays
 
 Strict arrays are contiguous indexed sequences. They are not PHP hash maps.
@@ -90,6 +98,8 @@ Strict arrays are contiguous indexed sequences. They are not PHP hash maps.
 ```php
 let array<int> $a = [1, 2, 3];
 ```
+
+This is the strict dynamic-array shape: a contiguous integer-indexed sequence with a known element type.
 
 This means:
 
@@ -101,6 +111,8 @@ no explicit keys
 no associative behavior
 ```
 
+The expanded meaning is the invariant codegen and diagnostics can rely on when strict mode accepts an array.
+
 Strict mode rejects associative arrays and explicit keys:
 
 ```php
@@ -108,6 +120,8 @@ let $user = ["id" => 1];
 let $bad = [0 => "a", 1 => "b"];
 let $bad = [1 => "a"];
 ```
+
+These examples are rejected because explicit keys would reintroduce PHP hash-map ambiguity into strict arrays.
 
 Use a structural object instead:
 
@@ -118,11 +132,15 @@ let $user = {
 };
 ```
 
+This replacement is the strict-mode modeling path for named data: fields belong to object types, not array keys.
+
 Array reads use indexes:
 
 ```php
 let int $first = $a[0];
 ```
+
+Indexed reads are valid because strict arrays preserve contiguous zero-based positions.
 
 Echo superset mode follows PHP square-bracket array element access:
 https://www.php.net/manual/en/language.types.array.php
@@ -133,11 +151,15 @@ Indexed assignment is replacement only:
 $a[0] = 10;
 ```
 
+This assignment updates an existing slot; it does not change array length.
+
 Append is valid for non-fixed arrays:
 
 ```php
 $a[] = 4;
 ```
+
+Append is the only strict-mode growth operation for dynamic arrays.
 
 Reject indexed assignment as growth:
 
@@ -147,6 +169,8 @@ let $a = [1];
 $a[1] = 3;  // reject
 $a[5] = 9;  // reject
 ```
+
+These assignments would create new slots through indexed replacement syntax, so strict mode rejects them instead of allowing sparse growth.
 
 Rule:
 
@@ -158,6 +182,8 @@ Indexed assignment never creates a new slot.
 Indexed assignment never creates holes.
 ```
 
+This rule gives both diagnostics and runtime lowering one simple distinction: replacement uses an index, growth uses append.
+
 ## Fixed-Size Arrays
 
 Explicit element type:
@@ -166,11 +192,15 @@ Explicit element type:
 let array<int>[3] $a = [1, 2, 3];
 ```
 
+This declaration is for fixed-size storage when both element type and length are part of the type.
+
 Inferred element type:
 
 ```php
 let array[3] $a = [1, 2, 3];
 ```
+
+This form fixes the length while allowing the element type to come from the literal.
 
 Valid:
 
@@ -182,12 +212,16 @@ $rgb[1] = 64;
 $rgb[2] = 255;
 ```
 
+This is the intended mutation model for fixed arrays: every write targets an existing known slot.
+
 Reject:
 
 ```php
 $rgb[] = 255;  // fixed-size array cannot append
 $rgb[3] = 255; // out of bounds
 ```
+
+Both operations would change or exceed fixed capacity, so they should be compile-time errors when the index is known.
 
 Dynamic indexes may be allowed with runtime bounds checks, but they are still replacement-only:
 
@@ -196,12 +230,16 @@ let int $i = getIndex();
 $rgb[$i] = 10;
 ```
 
+This pattern is only safe if lowering preserves a bounds check; even then, it remains replacement rather than growth.
+
 ## Dynamic Arrays
 
 ```php
 let array<int> $ids = [1, 2, 3];
 let $ids = [1, 2, 3]; // inferred array<int>
 ```
+
+These examples show explicit and inferred dynamic arrays; both represent the same growable contiguous collection kind.
 
 Dynamic arrays are contiguous and can grow by append:
 
@@ -211,12 +249,16 @@ $ids[0] = 9; // ok replacement
 $ids[3] = 9; // reject if used as growth
 ```
 
+This block demonstrates the strict distinction between appending and replacing: only `$ids[]` can grow the dynamic array.
+
 Implementation rule:
 
 ```text
 array<T> is a contiguous buffer/vector-like storage primitive.
 array<T>[N] is a fixed-size contiguous storage primitive.
 ```
+
+The storage rule keeps arrays separate from lists at the runtime representation level.
 
 ## Lists
 
@@ -232,6 +274,8 @@ not contiguous memory
 not array storage
 ```
 
+These properties explain why lists do not reuse array append or fixed-array indexing semantics.
+
 List literals use unkeyed brace literals:
 
 ```php
@@ -239,12 +283,16 @@ let list<int> $xs = {1, 2, 3};
 let list<string> $names = {"Chris", "Echo"};
 ```
 
+Brace list literals make linked list construction visually distinct from PHP-compatible arrays.
+
 Empty braces default to an empty list unless expected type context says otherwise:
 
 ```php
 let $xs = {};            // infer empty list
 let list<int> $ids = {}; // empty list<int>
 ```
+
+This default keeps `{}` useful for empty collections while still allowing type context to refine the element type.
 
 With expected object context, `{}` can mean an empty object satisfying that type:
 
@@ -257,6 +305,8 @@ type Options = {
 let Options $opts = {}; // empty object satisfying Options
 ```
 
+This contextual form lets optional-field objects be constructed without inventing a separate empty-object token.
+
 Brace literal disambiguation:
 
 ```text
@@ -267,6 +317,8 @@ Brace literal disambiguation:
 mixed keyed/unkeyed          reject
 ```
 
+The disambiguation table is the parser and diagnostics rule for deciding whether braces mean list or object.
+
 Reject mixed brace literals:
 
 ```php
@@ -275,6 +327,8 @@ let $bad = {
     "loose",
 };
 ```
+
+Mixed literals are rejected because they do not have a single strict-mode value family.
 
 Lists use list-specific receiver functions for mutation. PHP array append syntax
 is not list append:
@@ -287,11 +341,15 @@ $xs.push(4);
 let ?int $last = $xs.pop();
 ```
 
+This example shows the intended list API: list mutation goes through receiver functions, not PHP array growth syntax.
+
 Do not use indexed assignment as list growth:
 
 ```php
 $xs[3] = 4; // reject when this grows the list
 ```
+
+Indexed assignment would imply contiguous array behavior, so growing a linked list this way is rejected.
 
 ## Tuples
 
@@ -302,6 +360,8 @@ let (int, string) $pair = (1, "Echo");
 let $pair = (1, "Echo"); // inferred tuple<int, string>
 ```
 
+Tuples are for small positional products where both length and element order are part of the type.
+
 Access uses bracket indexes:
 
 ```php
@@ -309,11 +369,15 @@ echo $pair[0];
 echo $pair[1];
 ```
 
+Bracket access keeps tuple reads close to array reads while still allowing the compiler to bounds-check literal indexes.
+
 Do not use dot indexes:
 
 ```php
 $pair.0; // reject
 ```
+
+Dot access is reserved for named fields and receiver members, so tuple positions should not use it.
 
 Tuple rules:
 
@@ -325,6 +389,8 @@ Tuples do not support named fields.
 Tuples do not use dot access.
 Tuples are not extendable in v1.
 ```
+
+These rules keep tuple support small and statically checkable in the first strict-mode implementation.
 
 ## Objects And Shapes
 
@@ -340,6 +406,8 @@ type User = {
 }
 ```
 
+This type alias defines named structural data with required, optional, and immutable fields.
+
 Value syntax:
 
 ```php
@@ -349,11 +417,15 @@ let User $user = User {
 }
 ```
 
+The constructor shape makes the intended structural type explicit while keeping field order irrelevant.
+
 Field access:
 
 ```php
 echo $user.email;
 ```
+
+Dot access is the strict-mode path for structural fields and should power IDE definition and hover on object shapes.
 
 Field mutation:
 
@@ -362,12 +434,16 @@ $user.email = "b@example.com";
 $user.displayName = "Chris";
 ```
 
+These writes are valid because the fields are declared and mutable after construction.
+
 Reject unknown fields:
 
 ```php
 $user.unknown = true;
 echo $user.unknown;
 ```
+
+Unknown fields are hard errors so structural objects stay closed and typo-resistant.
 
 Objects are mutable by default. A field is immutable only when declared `const`.
 
@@ -378,6 +454,8 @@ type Person = {
     age?: int
 }
 ```
+
+This declaration illustrates the default: `name` and `age` are mutable, while `id` is construction-only.
 
 Valid:
 
@@ -391,6 +469,8 @@ $p.name = "Echo";
 $p.age = 36;
 ```
 
+The valid writes show mutable required and optional fields being updated after construction.
+
 Reject:
 
 ```php
@@ -398,11 +478,15 @@ $p.id = 2;        // const field
 $p.email = "..."; // non-existing field
 ```
 
+These rejections cover the two main object safety checks: const fields cannot be reassigned and undeclared fields cannot appear.
+
 Optional fields are declared fields, not dynamic fields.
 
 ```php
 age?: int
 ```
+
+The shorthand marks a known field as possibly absent; it does not permit arbitrary dynamic properties.
 
 This means:
 
@@ -411,6 +495,8 @@ The field exists in the type.
 The field may be absent from the initial object literal.
 The field may be assigned later unless it is const.
 ```
+
+The meaning block is the semantic contract for construction checking and later field assignment.
 
 Const optional fields are construction-only:
 
@@ -428,6 +514,8 @@ let Options $empty = {};
 $empty.requestId = "abc"; // reject
 ```
 
+This example shows that optionality controls presence, while `const` still controls whether later assignment is allowed.
+
 ## Types
 
 Nullable shorthand:
@@ -436,11 +524,15 @@ Nullable shorthand:
 let ?User $user = null;
 ```
 
+Nullable shorthand keeps common optional values concise in local declarations, returns, fields, and generics.
+
 Equivalent to:
 
 ```php
 let User|null $user = null;
 ```
+
+The expanded form is the underlying union type the compiler should expose in type facts.
 
 This applies anywhere types are allowed: locals, returns, fields, generics where applicable, and structural object fields.
 
@@ -452,12 +544,16 @@ let ?User $user = findUser($id);
 let $name = "Echo";
 ```
 
+This block shows strict locals can be explicitly typed, nullable, or inferred depending on how much information the code needs to state.
+
 Local constants:
 
 ```php
 const int MaxRetries = 3;
 const string AppName = "Echo";
 ```
+
+Local constants are for values that should not be reassigned after declaration.
 
 Type aliases:
 
@@ -470,6 +566,8 @@ type UserPayload = {
 }
 ```
 
+Aliases let programs name primitive, collection, and structural shapes so signatures and field declarations stay readable.
+
 Do not mirror PHPDoc/Psalm/PHPStan hyphenated pseudo-types as language syntax:
 
 ```php
@@ -479,6 +577,8 @@ numeric-string   // reject as native type syntax
 class-string<T>  // reject as native type syntax
 ```
 
+These are rejected as native syntax so strict mode can define its own type grammar rather than importing docblock pseudo-type names.
+
 Use aliases for now:
 
 ```php
@@ -486,11 +586,15 @@ type Email = string;
 type Port = int;
 ```
 
+Aliases provide a stable naming layer today without promising refinement semantics.
+
 Future refinement types are possible, but not v1:
 
 ```php
 type Port = int where $ >= 1 && $ <= 65535;
 ```
+
+This sketch shows the likely future direction while keeping v1 focused on simpler aliases and structural types.
 
 ## Receiver Functions And `extend`
 
@@ -517,6 +621,8 @@ extend list<T> as $list {
 }
 ```
 
+This is the extension-method shape for collection APIs: the receiver type is extended without converting the value family into a class.
+
 Receiver binding is explicit through `as $name`:
 
 ```php
@@ -526,6 +632,8 @@ extend UserList as $users {
     }
 }
 ```
+
+The explicit receiver name makes method bodies clear and avoids implicit `$this` for non-class values.
 
 Using `$this` is allowed only when explicitly bound:
 
@@ -537,12 +645,16 @@ extend UserList as $this {
 }
 ```
 
+This form supports familiar method-body spelling while still requiring the receiver to be declared.
+
 Rule:
 
 ```text
 The receiver variable is declared by `as $name`.
 No receiver variable exists unless declared.
 ```
+
+The rule keeps extension methods lexically explicit and prevents hidden receiver bindings.
 
 ## Access Model
 
@@ -556,6 +668,8 @@ $value[index]      // array, fixed-size array, or list index access
 $value[] = item    // non-fixed array append only
 ```
 
+This table is the operator contract: each access form maps to one value family instead of overloading PHP arrays and objects for everything.
+
 Examples:
 
 ```php
@@ -566,6 +680,8 @@ $array[0];         // array index
 $tuple[0];         // tuple index
 $array[] = 4;      // ok when $array is a non-fixed array
 ```
+
+The examples show how the access contract reads in real code and where PHP/class access remains separate from Echo structural access.
 
 `->` remains PHP/class-oriented. Dot access is Echo member access for structural object fields and receiver functions from `extend` blocks.
 
@@ -582,6 +698,8 @@ let User $user = new User();
 $user->save();
 ```
 
+Classes keep PHP-style member access for compatibility and to avoid confusing class methods with structural-object fields.
+
 Structural objects use dot:
 
 ```php
@@ -597,6 +715,8 @@ let UserPayload $payload = UserPayload {
 
 echo $payload.email;
 ```
+
+This example is the canonical strict-mode data-transfer shape: construct a structural object, then read named fields through dot access.
 
 ## Implementation Plan
 
@@ -621,6 +741,8 @@ $fixed[3] = 4
 $obj.unknown
 $obj.constField = x
 ```
+
+This rejection list is the minimum strict-mode diagnostic surface for ambiguous PHP array behavior and unsafe structural-object access.
 
 ## Acceptance Criteria
 
@@ -651,6 +773,8 @@ extend list<T> as $list {
     }
 }
 ```
+
+This acceptance block groups the syntax families that must parse together before strict-mode collection and object support is credible.
 
 These reject in strict mode:
 
@@ -686,6 +810,8 @@ $user.id = 2;
 $user.unknown = true;
 ```
 
+This rejection block proves strict mode is enforcing the intended safety boundary rather than accepting PHP's dynamic array/object patterns.
+
 Echo mode still allows PHP associative arrays:
 
 ```php
@@ -696,6 +822,8 @@ $user = [
 
 echo $user["email"];
 ```
+
+This example guards compatibility: the same associative array pattern remains valid when a file is intentionally using Echo superset mode.
 
 Strict mode rejects the same associative array syntax.
 
