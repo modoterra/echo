@@ -16,23 +16,24 @@ Echo should support these optimization levels:
 - `O3`: aggressive LLVM optimization.
 - `Oz`: size-focused LLVM optimization.
 
-Expected CLI shape:
+Build a release-oriented binary by choosing an optimization level and output path:
 
 ```bash
-xo build file.echo
-xo build -O0 file.echo
-xo build -O1 file.echo
-xo build -O2 file.echo
-xo build -O3 file.echo
-xo build -Oz file.echo
+xo build examples/hello.echo -O2 -o /tmp/hello
+/tmp/hello
 ```
 
-IR inspection should also support optimized output:
+This is the applied release-build path: compile a real source file with an optimization level, choose an output path, then run the produced binary.
+
+Inspect optimization by comparing unoptimized and optimized IR:
 
 ```bash
-xo build file.echo --emit-ir
-xo build file.echo --emit-ir -O2
+xo build examples/hello.echo --emit-ir > /tmp/hello.O0.ll
+xo build examples/hello.echo --emit-ir -O2 > /tmp/hello.O2.ll
+diff -u /tmp/hello.O0.ll /tmp/hello.O2.ll
 ```
+
+This comparison keeps optimization work grounded in observable IR changes while still avoiding brittle assertions about exact LLVM output.
 
 The exact flags can follow `xo`'s CLI conventions, but `O0` should remain the default until there is an explicit release mode.
 

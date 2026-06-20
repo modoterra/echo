@@ -73,6 +73,18 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Echo lowers string callback names through `echo_value_string(ptr, len)` and `echo_php_ob_start_value(%EchoValue)` so runtime callable normalization stays centralized.
 - Deferred: callback invocation, `chunk_size`, flags, failure modes, warnings/notices for invalid callbacks.
 
+Typical use:
+
+```echo
+ob_start()
+echo "rendered card"
+let $html = ob_get_clean()
+
+echo "Captured card: " . $html . "\n"
+```
+
+This pattern captures renderer output as data, which lets the caller decide whether to store, modify, or send the result.
+
 ### `flush()`
 
 - Flushes PHP/system/SAPI output buffers only.
@@ -80,12 +92,34 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns no value.
 - Echo implements this as a PHP-callable function that flushes Rust stdout without affecting active user-level output buffers.
 
+Typical use:
+
+```echo
+echo "Starting import...\n"
+flush()
+
+echo "Import complete\n"
+```
+
+This pattern is useful for long-running CLI work where progress text should move to the system output layer before the task finishes.
+
 ### `ob_implicit_flush()`
 
 - Enables or disables implicit system flush after each non-empty output block.
 - Does not affect user-level output buffers and does not implicitly call `ob_flush()`.
 - Returns no value.
 - Echo implements this as a PHP-callable function and stores the implicit flush flag. Current CLI-style output already flushes Rust stdout when bytes reach the system-output layer.
+
+Typical use:
+
+```echo
+ob_implicit_flush(true)
+
+echo "Progress: 50%\n"
+echo "Progress: 100%\n"
+```
+
+This pattern applies when every subsequent output block should be pushed toward the system layer without manually calling `flush()` each time.
 
 ### `ob_flush()`
 
@@ -96,6 +130,18 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - For the outermost buffer, flushed bytes go to stdout.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
 - Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
+
+Typical use:
+
+```echo
+ob_start()
+echo "streamed chunk\n"
+ob_flush()
+
+echo "buffer continues\n"
+```
+
+This pattern streams the current chunk out of the active user buffer while keeping the buffer open for later output.
 
 ### `ob_end_flush()`
 
@@ -108,6 +154,17 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
 - Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
 
+Typical use:
+
+```echo
+ob_start()
+echo "rendered template"
+
+ob_end_flush()
+```
+
+This pattern is for a completed buffer that should be sent onward and then removed from the buffer stack.
+
 ### `ob_clean()`
 
 - Requires an active cleanable output buffer.
@@ -115,6 +172,18 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Does not turn off the active buffer.
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
 - Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
+
+Typical use:
+
+```echo
+ob_start()
+echo "draft response"
+ob_clean()
+
+echo "final response"
+```
+
+This pattern discards speculative output while keeping the same buffer active for the final response.
 
 ### `ob_end_clean()`
 
@@ -125,6 +194,18 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns `true` on success, `false` on failure and PHP emits `E_NOTICE` on failure.
 - Echo returns an observable PHP bool in expression and assignment contexts; diagnostics/notices are deferred.
 
+Typical use:
+
+```echo
+ob_start()
+echo "debug banner"
+ob_end_clean()
+
+echo "clean response"
+```
+
+This pattern removes a buffer whose contents should never be sent to the parent buffer or stdout.
+
 ### `ob_get_contents()`
 
 - Returns a copy of the active buffer contents without clearing or removing it.
@@ -132,6 +213,19 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Copying can increase memory usage because PHP returns a new string.
 - Echo supports string returns as opaque runtime string handles; echoing the no-active-buffer `false` value emits an empty string like PHP.
 - Current IR returns `%EchoValue` for string-producing buffer APIs. String payloads are still opaque runtime handles; a future value representation should make ownership and binary-safe length semantics explicit.
+
+Typical use:
+
+```echo
+ob_start()
+echo "partial page"
+let $preview = ob_get_contents()
+
+echo "Preview bytes: " . strlen($preview) . "\n"
+ob_end_clean()
+```
+
+This pattern inspects buffered output without consuming it, which is useful for measuring or previewing content before cleanup.
 
 ### `ob_get_clean()`
 
@@ -141,6 +235,18 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns `false` if no output buffer is active. PHP notes no `E_NOTICE` for the no-active-buffer case.
 - Echo supports string returns as opaque runtime string handles; echoing the no-active-buffer `false` value emits an empty string like PHP.
 
+Typical use:
+
+```echo
+ob_start()
+echo "welcome email"
+let $body = ob_get_clean()
+
+echo "Captured: " . $body . "\n"
+```
+
+This pattern turns buffered output into a string and closes the buffer without emitting the captured bytes.
+
 ### `ob_get_flush()`
 
 - Returns the active buffer contents.
@@ -149,11 +255,35 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - Returns `false` if no output buffer is active and PHP emits `E_NOTICE` on failure.
 - Echo supports string returns and flushing; echoing the no-active-buffer `false` value emits an empty string like PHP, while the `E_NOTICE` diagnostic is deferred.
 
+Typical use:
+
+```echo
+ob_start()
+echo "template output"
+let $sent = ob_get_flush()
+
+echo "Sent bytes: " . strlen($sent) . "\n"
+```
+
+This pattern is useful when the program needs the rendered bytes as a value while still sending them through the output pipeline.
+
 ### `ob_get_length()`
 
 - Returns the active buffer content length in bytes.
 - Returns `false` if no output buffer is active.
 - Echo represents this as an `int|false` runtime value for supported codegen paths; echoing the no-active-buffer `false` value emits an empty string like PHP.
+
+Typical use:
+
+```echo
+ob_start()
+echo "hello"
+
+echo "Buffered bytes: " . ob_get_length() . "\n"
+ob_end_clean()
+```
+
+This pattern checks buffer size without materializing a copy of the contents.
 
 ### `ob_get_level()`
 
@@ -161,6 +291,19 @@ In CLI, system flushing is output-only. In web SAPIs, flushing may send headers 
 - The first active buffer level is `1`.
 - Returns `0` when output buffering is not active.
 - Echo supports statement-form `echo ob_get_level();` and does not expose the return value to variables yet.
+
+Typical use:
+
+```echo
+ob_start()
+ob_start()
+
+echo "Buffer depth: " . ob_get_level() . "\n"
+ob_end_clean()
+ob_end_clean()
+```
+
+This pattern verifies nesting depth before cleanup code decides how many active buffers need to be closed.
 
 ## Deferred PHP Features
 

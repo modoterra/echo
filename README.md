@@ -83,44 +83,47 @@ This repository is a Rust workspace.
 
 ## Build And Test
 
-Check the Rust workspace.
+Check the Rust workspace before sending a compiler/runtime change.
 
 ```bash
 cargo check --workspace
-```
-
-Run all Rust tests.
-
-```bash
 cargo test --workspace
-```
-
-Check formatting.
-
-```bash
 cargo fmt --all -- --check
 ```
 
-Run the CLI against an example.
+This is the normal pre-commit loop for compiler and runtime edits: typecheck the whole workspace, run tests, then make sure formatting is stable.
+
+Run and compile the same example when validating the CLI path.
 
 ```bash
 cargo run -p xo -- run examples/hello.php
+cargo run -p xo -- build examples/hello.php -o /tmp/hello
+/tmp/hello
 ```
 
-Start a line-oriented REPL.
+This checks both executable paths: interpreted-style `xo run` behavior and the native binary produced by `xo build`.
+
+Use the REPL for quick expression checks before turning behavior into a fixture.
 
 ```bash
 cargo run -p xo -- repl
+5 + 3
+count(["red", "blue"])
 ```
+
+Use the REPL for quick feedback only; once the behavior matters, capture it in a fixture so the shared parser, semantics, codegen, and runtime path stay covered.
 
 Bare expressions such as `5` or `5+3` print their resulting value.
 Interactive sessions support arrow-key history saved in `~/.xo_history`.
 
-Run Echo assertion tests in a file or directory.
+Run Echo assertion tests in a file or directory after changing language behavior.
 
 ```bash
 cargo run -p xo -- test tests/echo/031_reflection_assertions/program.echo
+cargo run -p xo -- test tests/echo
 ```
+
+The single-file command is useful while iterating on one behavior. The directory command checks the same assertion harness across every Echo fixture.
 
 Mode defaults:
 
@@ -129,13 +132,17 @@ Mode defaults:
 - `--strict` forces strict mode.
 - `--unsafe` forces Echo superset mode and still keeps Echo language features enabled.
 
-Build the website.
+Build the website after documentation or UI changes.
 
 ```bash
 cd www
 npm install
+npm run lint
+npm run format
 npm run build
 ```
+
+This mirrors the documentation-site gate: install dependencies, lint, verify formatting, and build the static bundle.
 
 ## PHP Compatibility Fixtures
 
@@ -147,11 +154,14 @@ Each fixture includes these files.
 - `stdin.txt`
 - `stdout.txt`
 
-Generate expected output with system PHP when possible.
+Generate expected output with system PHP when adding a compatibility fixture.
 
 ```bash
 php tests/php/<fixture>/program.php < tests/php/<fixture>/stdin.txt > tests/php/<fixture>/stdout.txt
+cargo test -p xo --test php_fixtures
 ```
+
+The PHP command records the authoritative expected bytes. The fixture test then proves Echo parses, lowers, runs, and builds the same case.
 
 The parser fixtures and CLI fixtures exercise the supported path through `ast`, `ir`, `run`, and `build`.
 

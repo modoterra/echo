@@ -19,8 +19,10 @@ echo_lexer
 `xo` should expose the server with:
 
 ```sh
-xo lsp
+RUST_LOG=info xo lsp 2> /tmp/echo-lsp.log
 ```
+
+This launch form keeps stdout clean for LSP JSON-RPC traffic while preserving server diagnostics in a log file.
 
 The command starts an LSP server over stdio. Stdout is reserved for JSON-RPC
 protocol traffic; logs must go to stderr or through LSP log messages.
@@ -277,8 +279,10 @@ fixture.
 Add an `lsp` subcommand to `xo`:
 
 ```sh
-xo lsp
+cargo run -p xo -- lsp 2> /tmp/echo-lsp.log
 ```
+
+This command exercises the development binary without installing `xo`, while still separating protocol output from diagnostic logs.
 
 If `xo` uses an async main:
 
@@ -304,8 +308,10 @@ Avoid forcing async into non-LSP compiler code.
 The server launch command is:
 
 ```sh
-xo lsp
+xo lsp 2> ~/.cache/echo-lsp.log
 ```
+
+This is the shape an editor integration should run: `xo` owns the stdio protocol and stderr is available for troubleshooting outside the editor UI.
 
 Editor-specific setup should point the editor's Echo or PHP language server
 command to that executable and argument. VS Code and Zed extension packaging can
@@ -347,11 +353,13 @@ Manual editor acceptance:
 First slice commands:
 
 ```sh
-cargo check
+cargo check --workspace
 cargo test -p echo_index
 cargo test -p echo_lsp
 cargo run -p xo -- lsp
 ```
+
+This sequence verifies the workspace, the shared index crate, the LSP crate, and finally the CLI entrypoint that editors will invoke.
 
 Behavioral acceptance:
 

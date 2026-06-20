@@ -29,7 +29,6 @@ type BuiltinDoc = {
   name: string;
   signature: string;
   description: string;
-  example?: string;
 };
 
 type BuiltinFamily = {
@@ -50,11 +49,6 @@ const builtinFamilies: BuiltinFamily[] = [
         signature: "strlen(string $string): int",
         description:
           "Returns the number of bytes in a string. This is byte length, not character length, so multibyte text can be longer than the number of visible characters.",
-        example: `let $word = "hello"
-let $accented = "é"
-
-echo strlen($word) . "\\n"
-echo strlen($accented) . "\\n"`,
       },
       {
         name: "strtoupper",
@@ -279,11 +273,6 @@ echo strlen($accented) . "\\n"`,
         signature: "array_is_list(array $array): bool",
         description:
           "Returns true when an array has consecutive integer keys starting at zero. Empty arrays are lists. Associative keys or gaps in numeric keys make an array stop being a list.",
-        example: `let $empty = []
-let $numbers = [1, 2, 3]
-
-echo array_is_list($empty) . "\\n"
-echo array_is_list($numbers) . "\\n"`,
       },
       {
         name: "count",
@@ -488,11 +477,6 @@ echo array_is_list($numbers) . "\\n"`,
         signature: "function_exists(string $function): bool",
         description:
           "Returns true when a name resolves to a function. Language constructs are not functions, so names such as echo and include_once return false.",
-        example: `let $callable = "strlen"
-let $construct = "echo"
-
-echo function_exists($callable) . "\\n"
-echo function_exists($construct) . "\\n"`,
       },
       {
         name: "is_callable",
@@ -600,7 +584,763 @@ echo function_exists($construct) . "\\n"`,
   },
 ];
 
+const builtinExamples = new Map<string, string>([
+  [
+    "abs",
+    `let $balance = -42
+let $displayBalance = abs($balance)
+
+echo "Balance delta: " . $displayBalance . "\\n"`,
+  ],
+  [
+    "addslashes",
+    `let $title = "Alice's notes"
+let $sqlPreview = "title='" . addslashes($title) . "'"
+
+echo $sqlPreview . "\\n"`,
+  ],
+  [
+    "array_is_list",
+    `let $items = ["draft", "review", "ship"]
+
+if (array_is_list($items)) {
+    echo "Render as ordered steps\\n"
+}`,
+  ],
+  [
+    "base64_decode",
+    `let $encodedToken = "c2lnbmVkOnVzZXItNDI="
+let $token = base64_decode($encodedToken)
+
+echo $token . "\\n"`,
+  ],
+  [
+    "base64_encode",
+    `let $payload = "user:42:active"
+let $header = "X-Session: " . base64_encode($payload)
+
+echo $header . "\\n"`,
+  ],
+  [
+    "basename",
+    `let $path = "/var/www/releases/current/index.php"
+let $file = basename($path, ".php")
+
+echo $file . "\\n"`,
+  ],
+  [
+    "bin2hex",
+    `let $bytes = "OK"
+let $traceId = bin2hex($bytes)
+
+echo "trace-" . $traceId . "\\n"`,
+  ],
+  [
+    "boolval",
+    `let $enabled = "1"
+
+if (boolval($enabled)) {
+    echo "Feature enabled\\n"
+}`,
+  ],
+  [
+    "chr",
+    `let $lineFeed = chr(10)
+
+echo "first line" . $lineFeed
+echo "second line" . $lineFeed`,
+  ],
+  [
+    "count",
+    `let $queue = ["email", "receipt", "webhook"]
+
+echo "Jobs queued: " . count($queue) . "\\n"`,
+  ],
+  [
+    "decbin",
+    `let $permissions = 5
+
+echo "Permission bits: " . decbin($permissions) . "\\n"`,
+  ],
+  [
+    "dechex",
+    `let $statusColor = 65280
+
+echo "#" . dechex($statusColor) . "\\n"`,
+  ],
+  [
+    "decoct",
+    `let $mode = 493
+
+echo "chmod " . decoct($mode) . " storage\\n"`,
+  ],
+  [
+    "define",
+    `define("APP_ENV", "production")
+
+echo "Environment configured\\n"`,
+  ],
+  [
+    "dirname",
+    `let $path = "/var/www/releases/current/index.php"
+let $releaseDir = dirname($path, 1)
+
+echo $releaseDir . "\\n"`,
+  ],
+  [
+    "escapeshellarg",
+    `let $path = "/tmp/report final.txt"
+let $command = "cat " . escapeshellarg($path)
+
+echo $command . "\\n"`,
+  ],
+  [
+    "escapeshellcmd",
+    `let $tool = "deploy; rm -rf /"
+let $safeTool = escapeshellcmd($tool)
+
+echo $safeTool . "\\n"`,
+  ],
+  [
+    "explode",
+    `let $accept = "text/html,application/json"
+let $types = explode(",", $accept, 2)
+
+echo "First accepted type: " . $types[0] . "\\n"`,
+  ],
+  [
+    "file_exists",
+    `let $configPath = "config/app.php"
+
+if (file_exists($configPath)) {
+    echo "Load application config\\n"
+}`,
+  ],
+  [
+    "flush",
+    `echo "Starting import...\\n"
+flush()
+
+echo "Import complete\\n"`,
+  ],
+  [
+    "function_exists",
+    `let $payload = "c2Vzc2lvbjoxMjM="
+
+if (function_exists("base64_decode")) {
+    let $session = base64_decode($payload)
+
+    echo "Decoded session: " . $session . "\\n"
+}`,
+  ],
+  [
+    "gettype",
+    `let $payload = ["name", "email"]
+
+echo "Decoded payload type: " . gettype($payload) . "\\n"`,
+  ],
+  [
+    "hex2bin",
+    `let $hexToken = "4f4b"
+let $token = hex2bin($hexToken)
+
+echo $token . "\\n"`,
+  ],
+  [
+    "intval",
+    `let $limit = "25"
+let $offset = intval($limit) + 10
+
+echo "Next offset: " . $offset . "\\n"`,
+  ],
+  [
+    "is_array",
+    `let $filters = ["active", "verified"]
+
+if (is_array($filters)) {
+    echo "Apply " . count($filters) . " filters\\n"
+}`,
+  ],
+  [
+    "is_bool",
+    `let $published = true
+
+if (is_bool($published)) {
+    echo "Publication flag is valid\\n"
+}`,
+  ],
+  [
+    "is_callable",
+    `let $handler = "strlen"
+
+if (is_callable($handler)) {
+    echo "Handler can inspect payloads\\n"
+}`,
+  ],
+  [
+    "is_countable",
+    `let $batch = ["email", "sms"]
+
+if (is_countable($batch)) {
+    echo "Batch size: " . count($batch) . "\\n"
+}`,
+  ],
+  [
+    "is_dir",
+    `let $cacheDir = "storage/cache"
+
+if (is_dir($cacheDir)) {
+    echo "Cache directory is ready\\n"
+}`,
+  ],
+  [
+    "is_double",
+    `let $ratio = 100
+
+echo "Is floating ratio: " . is_double($ratio) . "\\n"`,
+  ],
+  [
+    "is_file",
+    `let $entrypoint = "public/index.php"
+
+if (is_file($entrypoint)) {
+    echo "Frontend entrypoint found\\n"
+}`,
+  ],
+  [
+    "is_finite",
+    `let $cost = 42
+
+if (is_finite($cost)) {
+    echo "Cost can be displayed\\n"
+}`,
+  ],
+  [
+    "is_float",
+    `let $price = 19
+
+echo "Is decimal price: " . is_float($price) . "\\n"`,
+  ],
+  [
+    "is_infinite",
+    `let $score = 100
+
+echo "Is unbounded score: " . is_infinite($score) . "\\n"`,
+  ],
+  [
+    "is_int",
+    `let $attempts = 3
+
+if (is_int($attempts)) {
+    echo "Retry count accepted\\n"
+}`,
+  ],
+  [
+    "is_integer",
+    `let $page = 2
+
+if (is_integer($page)) {
+    echo "Load page " . $page . "\\n"
+}`,
+  ],
+  [
+    "is_iterable",
+    `let $rows = ["alpha", "beta"]
+
+if (is_iterable($rows)) {
+    echo "Rows can be rendered\\n"
+}`,
+  ],
+  [
+    "is_link",
+    `let $currentRelease = "current"
+
+if (is_link($currentRelease)) {
+    echo "Deployment symlink is active\\n"
+}`,
+  ],
+  [
+    "is_long",
+    `let $invoiceId = 1001
+
+if (is_long($invoiceId)) {
+    echo "Invoice id is numeric\\n"
+}`,
+  ],
+  [
+    "is_nan",
+    `let $rating = 5
+
+echo "Is invalid rating: " . is_nan($rating) . "\\n"`,
+  ],
+  [
+    "is_null",
+    `let $deletedAt = null
+
+if (is_null($deletedAt)) {
+    echo "Record is active\\n"
+}`,
+  ],
+  [
+    "is_numeric",
+    `let $rawLimit = "25"
+
+if (is_numeric($rawLimit)) {
+    echo "Limit: " . intval($rawLimit) . "\\n"
+}`,
+  ],
+  [
+    "is_object",
+    `let $user = { name: "Ava", role: "admin" }
+
+if (is_object($user)) {
+    echo "Render user profile\\n"
+}`,
+  ],
+  [
+    "is_resource",
+    `let $connection = null
+
+echo "Has open connection: " . is_resource($connection) . "\\n"`,
+  ],
+  [
+    "is_scalar",
+    `let $cacheKey = "users:active"
+
+if (is_scalar($cacheKey)) {
+    echo "Cache key accepted\\n"
+}`,
+  ],
+  [
+    "is_string",
+    `let $email = "admin@example.com"
+
+if (is_string($email)) {
+    echo strtolower($email) . "\\n"
+}`,
+  ],
+  [
+    "lcfirst",
+    `let $className = "UserProfile"
+let $propertyName = lcfirst($className)
+
+echo $propertyName . "\\n"`,
+  ],
+  [
+    "ltrim",
+    `let $path = "/admin/settings"
+let $routeKey = ltrim($path)
+
+echo $routeKey . "\\n"`,
+  ],
+  [
+    "microtime",
+    `let $started = microtime(true)
+
+echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "ob_clean",
+    `ob_start()
+echo "draft response"
+ob_clean()
+
+echo "final response"`,
+  ],
+  [
+    "ob_end_clean",
+    `ob_start()
+echo "debug banner"
+ob_end_clean()
+
+echo "clean response"`,
+  ],
+  [
+    "ob_end_flush",
+    `ob_start()
+echo "rendered template"
+
+ob_end_flush()`,
+  ],
+  [
+    "ob_flush",
+    `ob_start()
+echo "streamed chunk\\n"
+ob_flush()
+
+echo "buffer continues\\n"`,
+  ],
+  [
+    "ob_get_clean",
+    `ob_start()
+echo "welcome email"
+let $body = ob_get_clean()
+
+echo "Captured: " . $body . "\\n"`,
+  ],
+  [
+    "ob_get_contents",
+    `ob_start()
+echo "partial page"
+let $preview = ob_get_contents()
+
+echo "Preview bytes: " . strlen($preview) . "\\n"
+ob_end_clean()`,
+  ],
+  [
+    "ob_get_flush",
+    `ob_start()
+echo "template output"
+let $sent = ob_get_flush()
+
+echo "Sent bytes: " . strlen($sent) . "\\n"`,
+  ],
+  [
+    "ob_get_length",
+    `ob_start()
+echo "hello"
+
+echo "Buffered bytes: " . ob_get_length() . "\\n"
+ob_end_clean()`,
+  ],
+  [
+    "ob_get_level",
+    `ob_start()
+ob_start()
+
+echo "Buffer depth: " . ob_get_level() . "\\n"
+ob_end_clean()
+ob_end_clean()`,
+  ],
+  [
+    "ob_implicit_flush",
+    `ob_implicit_flush(true)
+
+echo "Progress: 50%\\n"
+echo "Progress: 100%\\n"`,
+  ],
+  [
+    "ob_start",
+    `ob_start()
+echo "rendered card"
+let $html = ob_get_clean()
+
+echo "Captured card: " . $html . "\\n"`,
+  ],
+  [
+    "ord",
+    `let $prefix = "A-100"
+
+echo "Prefix byte: " . ord($prefix) . "\\n"`,
+  ],
+  [
+    "quotemeta",
+    `let $literal = "user@example.com"
+let $pattern = "/" . quotemeta($literal) . "/"
+
+echo $pattern . "\\n"`,
+  ],
+  [
+    "rtrim",
+    `let $line = "status=ok\\n"
+let $clean = rtrim($line)
+
+echo $clean . "\\n"`,
+  ],
+  [
+    "sizeof",
+    `let $recipients = ["ops@example.com", "dev@example.com"]
+
+echo "Recipients: " . sizeof($recipients) . "\\n"`,
+  ],
+  [
+    "strcasecmp",
+    `let $submitted = "Admin@Example.com"
+let $known = "admin@example.com"
+let $result = strcasecmp($submitted, $known)
+
+echo "Case-insensitive compare: " . $result . "\\n"`,
+  ],
+  [
+    "strcmp",
+    `let $expected = "sha256"
+let $actual = "sha256"
+let $result = strcmp($expected, $actual)
+
+echo "Algorithm compare: " . $result . "\\n"`,
+  ],
+  [
+    "strchr",
+    `let $header = "Content-Type: text/html"
+let $value = strchr($header, ":")
+
+echo $value . "\\n"`,
+  ],
+  [
+    "str_contains",
+    `let $path = "/admin/settings"
+
+if (str_contains($path, "/admin")) {
+    echo "Require admin session\\n"
+}`,
+  ],
+  [
+    "str_ends_with",
+    `let $filename = "report.csv"
+
+if (str_ends_with($filename, ".csv")) {
+    echo "Use CSV importer\\n"
+}`,
+  ],
+  [
+    "str_repeat",
+    `let $label = "section"
+let $divider = str_repeat("-", strlen($label))
+
+echo $label . "\\n" . $divider . "\\n"`,
+  ],
+  [
+    "str_rot13",
+    `let $stored = "uryyb"
+let $decoded = str_rot13($stored)
+
+echo $decoded . "\\n"`,
+  ],
+  [
+    "str_starts_with",
+    `let $command = "deploy:production"
+
+if (str_starts_with($command, "deploy:")) {
+    echo "Deployment command\\n"
+}`,
+  ],
+  [
+    "strcspn",
+    `let $slug = "docs/install#quickstart"
+let $pathLength = strcspn($slug, "#?")
+
+echo substr($slug, 0, $pathLength) . "\\n"`,
+  ],
+  [
+    "stripos",
+    `let $userAgent = "EchoBot/1.0"
+let $offset = stripos($userAgent, "bot")
+
+echo "Bot marker offset: " . $offset . "\\n"`,
+  ],
+  [
+    "stripslashes",
+    `let $stored = "Alice\\\\'s notes"
+let $title = stripslashes($stored)
+
+echo $title . "\\n"`,
+  ],
+  [
+    "stristr",
+    `let $header = "Content-Type: text/html"
+let $value = stristr($header, "content-type")
+
+echo $value . "\\n"`,
+  ],
+  [
+    "strlen",
+    `let $password = "correct horse"
+let $length = strlen($password)
+
+echo "Password bytes: " . $length . "\\n"`,
+  ],
+  [
+    "strncasecmp",
+    `let $submitted = "Bearer token"
+let $result = strncasecmp($submitted, "bearer", 6)
+
+echo "Authorization scheme compare: " . $result . "\\n"`,
+  ],
+  [
+    "strncmp",
+    `let $version = "v1.orders"
+let $result = strncmp($version, "v1.", 3)
+
+echo "API version compare: " . $result . "\\n"`,
+  ],
+  [
+    "strpos",
+    `let $email = "admin@example.com"
+let $domainMarker = strpos($email, "@")
+
+echo "Domain marker offset: " . $domainMarker . "\\n"`,
+  ],
+  [
+    "strpbrk",
+    `let $password = "hunter2!"
+let $symbol = strpbrk($password, "!@#$%")
+
+echo "First punctuation: " . $symbol . "\\n"`,
+  ],
+  [
+    "strrchr",
+    `let $filename = "archive.tar.gz"
+let $extension = strrchr($filename, ".")
+
+echo $extension . "\\n"`,
+  ],
+  [
+    "strrev",
+    `let $token = "abc123"
+let $mirrored = strrev($token)
+
+echo $mirrored . "\\n"`,
+  ],
+  [
+    "strripos",
+    `let $path = "/Assets/Images/logo.PNG"
+let $extensionAt = strripos($path, ".png")
+
+echo "Extension offset: " . $extensionAt . "\\n"`,
+  ],
+  [
+    "strrpos",
+    `let $path = "/var/log/app.log"
+let $slash = strrpos($path, "/")
+
+echo substr($path, $slash + 1) . "\\n"`,
+  ],
+  [
+    "strspn",
+    `let $duration = "120ms"
+let $digits = strspn($duration, "0123456789")
+
+echo substr($duration, 0, $digits) . "\\n"`,
+  ],
+  [
+    "strstr",
+    `let $email = "support@example.com"
+let $domain = strstr($email, "@")
+
+echo $domain . "\\n"`,
+  ],
+  [
+    "strtolower",
+    `let $email = "ADMIN@EXAMPLE.COM"
+let $normalized = strtolower($email)
+
+echo $normalized . "\\n"`,
+  ],
+  [
+    "strtoupper",
+    `let $method = "post"
+let $normalized = strtoupper($method)
+
+echo $normalized . "\\n"`,
+  ],
+  [
+    "strval",
+    `let $invoiceId = 1001
+let $cacheKey = "invoice:" . strval($invoiceId)
+
+echo $cacheKey . "\\n"`,
+  ],
+  [
+    "substr",
+    `let $bearer = "Bearer token-value"
+let $token = substr($bearer, 7)
+
+echo $token . "\\n"`,
+  ],
+  [
+    "substr_compare",
+    `let $path = "/api/users"
+let $result = substr_compare($path, "/api", 0, 4, false)
+
+echo "API prefix compare: " . $result . "\\n"`,
+  ],
+  [
+    "substr_count",
+    `let $route = "/teams/42/projects/9"
+let $depth = substr_count($route, "/")
+
+echo "Route depth: " . $depth . "\\n"`,
+  ],
+  [
+    "trim",
+    `let $rawEmail = " admin@example.com "
+let $email = trim($rawEmail)
+
+echo strtolower($email) . "\\n"`,
+  ],
+  [
+    "ucfirst",
+    `let $status = "pending"
+let $label = ucfirst($status)
+
+echo $label . "\\n"`,
+  ],
+  [
+    "ucwords",
+    `let $title = "release notes"
+let $heading = ucwords($title)
+
+echo $heading . "\\n"`,
+  ],
+]);
+
+const builtinExampleNotes = new Map<string, string>([
+  [
+    "function_exists",
+    "Use this pattern when compatibility code can take a better path if a helper is available, while still leaving a clear place for a fallback when the helper is absent.",
+  ],
+  [
+    "is_callable",
+    "Use this when a string or value comes from configuration and you need to verify it can be used as a callable before dispatching work to it.",
+  ],
+  [
+    "escapeshellarg",
+    "Use this for untrusted path or argument values before composing a shell command; it keeps the value as one argument instead of letting spaces or quotes change the command shape.",
+  ],
+  [
+    "escapeshellcmd",
+    "Use this only for command strings that must be displayed or passed through a shell boundary; prefer escaping individual arguments with escapeshellarg when possible.",
+  ],
+  [
+    "ob_start",
+    "Use this to capture output from rendering code so it can be stored, transformed, or sent later as a single string.",
+  ],
+  [
+    "ob_get_clean",
+    "Use this when the buffer is only an intermediate value and should not leak to stdout before you decide what to do with it.",
+  ],
+  [
+    "ob_get_contents",
+    "Use this when you need to inspect the current buffer while keeping it active for later output or cleanup.",
+  ],
+  [
+    "ob_get_flush",
+    "Use this when the captured content should both be returned to the program and sent onward to the next output layer.",
+  ],
+  [
+    "file_exists",
+    "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing deeper in the workflow.",
+  ],
+]);
+
 const builtinFamilyBySlug = new Map(builtinFamilies.map((family) => [family.slug, family]));
+
+function builtinExample(name: string) {
+  const example = builtinExamples.get(name);
+
+  if (!example) {
+    throw new Error(`Missing documentation example for PHP builtin: ${name}`);
+  }
+
+  return example;
+}
+
+function builtinExampleNote(builtin: BuiltinDoc) {
+  return (
+    builtinExampleNotes.get(builtin.name) ??
+    `This example puts ${builtin.name} in the middle of a small workflow so the return value is immediately used instead of being printed as an isolated probe.`
+  );
+}
 
 function headingId(heading: string) {
   return heading.toLowerCase().replaceAll(" ", "-");
@@ -894,25 +1634,30 @@ function PhpBuiltinFamilyPage({ family }: { family: BuiltinFamily }) {
 
       <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200">
         {family.builtins.map((builtin) => (
-          <section key={builtin.name} className="py-8">
-            <h2
-              className="font-mono text-2xl font-semibold text-slate-950"
-              id={headingId(builtin.name)}
-            >
-              {builtin.name}
-            </h2>
-            <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
-            <p className="mt-7 text-lg leading-8 text-slate-600">{builtin.description}</p>
-
-            {builtin.example ? (
-              <pre className="mt-7 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-                <code>{builtin.example}</code>
-              </pre>
-            ) : null}
-          </section>
+          <BuiltinReference key={builtin.name} builtin={builtin} />
         ))}
       </div>
     </DocsShell>
+  );
+}
+
+function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
+  const example = builtinExample(builtin.name);
+  const exampleNote = builtinExampleNote(builtin);
+
+  return (
+    <section className="py-8">
+      <h2 className="font-mono text-2xl font-semibold text-slate-950" id={headingId(builtin.name)}>
+        {builtin.name}
+      </h2>
+      <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
+      <p className="mt-7 text-lg leading-8 text-slate-600">{builtin.description}</p>
+
+      <pre className="mt-7 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
+        <code>{example}</code>
+      </pre>
+      <p className="mt-5 text-base leading-7 text-slate-600">{exampleNote}</p>
+    </section>
   );
 }
 
