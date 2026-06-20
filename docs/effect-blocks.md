@@ -25,6 +25,8 @@ $result = effect {
 }
 ```
 
+This is the user-facing shape: sequential code can depend on successful prior steps without hand-written unwrap checks between every call.
+
 The block evaluates to a value. The resulting type is inferred from the final
 expression or from an explicit `return`.
 
@@ -37,6 +39,8 @@ $account = effect {
 }
 ```
 
+This example shows the compact form for simple pipelines where the last operation is the value the caller wants.
+
 is equivalent to:
 
 ```echo
@@ -45,6 +49,8 @@ $account = effect {
     return loadAccount($user)
 }
 ```
+
+The explicit `return` form is useful when a block has extra statements and the final value should be made visually obvious.
 
 ## Flattening Semantics
 
@@ -60,6 +66,8 @@ $account = effect {
     return $account
 }
 ```
+
+This workflow shows the compiler-owned short-circuit boundary: each assignment either binds the successful inner value or exits the effect.
 
 For optional values, this behaves like:
 
@@ -85,6 +93,8 @@ if ($account === none) {
 return $account
 ```
 
+The expanded form explains why effect blocks matter: they remove repeated short-circuit boilerplate while preserving the same control-flow meaning.
+
 The surface syntax stays imperative. The compiler owns the unwrapping and
 short-circuiting semantics.
 
@@ -99,6 +109,8 @@ task<T>
 future<T>
 ```
 
+These are the initial generic shapes the compiler must recognize before it can safely unwrap values inside an effect block.
+
 ### Optional
 
 `optional<T>` unwraps to `T` inside the block and short-circuits with `none`.
@@ -109,6 +121,8 @@ $user = effect {
     findUser($id)
 }
 ```
+
+This pattern applies to parse-and-lookup flows where any missing intermediate value should make the whole result absent.
 
 If `parseUserId()` returns `none`, the whole effect returns `none`.
 
@@ -129,11 +143,15 @@ $account = effect {
 }
 ```
 
+This example is a realistic result pipeline: each domain step can fail with its own typed error, but the success path stays direct.
+
 The inferred type is:
 
 ```echo
 result<Account, UserNotFound | ProfileMissing | AccountMissing>
 ```
+
+The inferred type is the important compiler product: callers can see every error the block may produce without manually constructing the union.
 
 ### Task And Future
 
@@ -152,12 +170,16 @@ $user = effect {
 }
 ```
 
+This shows the conservative async boundary: `join` remains explicit, so the reader can see where task completion is observed.
+
 For a task whose joined result is `result<User, LoadUserError>`, the effect
 returns:
 
 ```echo
 result<User, LoadUserError>
 ```
+
+The returned type preserves the task's inner result shape instead of forcing callers to unwrap task and result layers separately.
 
 More complex task chaining stays flat:
 
@@ -173,11 +195,15 @@ $account = effect {
 }
 ```
 
+This pattern keeps asynchronous loading and typed result propagation in one readable sequence.
+
 Open design point: allowing implicit task binding:
 
 ```echo
 $user = $userTask
 ```
+
+This snippet is intentionally questionable: it shows the convenience that must be weighed against hiding task boundaries.
 
 inside `effect {}` is attractive, but it makes task boundaries less visible.
 The first implementation should prefer explicit `join` unless the type system
@@ -194,6 +220,8 @@ task<T>
 future<T>
 ```
 
+These generic forms are the type-system contract for effect lowering; the compiler needs to identify both the outer shape and the success type.
+
 Within the block, a binding sees the unwrapped success type:
 
 ```echo
@@ -204,11 +232,15 @@ $account = effect {
 }
 ```
 
+The comments show what each local variable should type as after compiler unwrapping, which is the key IDE and diagnostics behavior.
+
 The block result preserves the outer effect shape and accumulates failures:
 
 ```echo
 result<Account, UserError | ProfileError | AccountError>
 ```
+
+The resulting type is what downstream code should see in hover, signature help, and type checking.
 
 Mixed effect shapes need a clear unification rule before implementation. For
 example, combining `optional<T>` and `result<U, E>` could either be rejected or
@@ -227,6 +259,8 @@ function loadProfile(User $user): result<Profile, ProfileMissing>
 function loadAccount(Profile $profile): result<Account, AccountMissing>
 ```
 
+These signatures define independent failure sources that the compiler should track through the block.
+
 This:
 
 ```echo
@@ -236,6 +270,8 @@ $account = effect {
     loadAccount($profile)
 }
 ```
+
+This source block is deliberately ordinary imperative code; the error-union work happens in type analysis, not in user syntax.
 
 infers:
 
@@ -247,6 +283,8 @@ result<
     | AccountMissing
 >
 ```
+
+This inferred union is the documentation target for diagnostics and reflection: no runtime list of errors should be needed.
 
 No manual union construction should be required. Error unions are compiler type
 facts, not runtime list values.
@@ -269,6 +307,8 @@ catch ($error) {
     renderError($error)
 }
 ```
+
+This example shows how effect results should compose with application error boundaries, even though the exact `try`/`catch` relationship still needs a decision.
 
 The exact relationship between `result<T, E>` and `try`/`catch` still needs an
 ADR-level decision:
@@ -293,6 +333,8 @@ effect {
 }
 ```
 
+This source-level block is the syntax the compiler should lower; it is not a request for runtime callback chains.
+
 Conceptually, this is:
 
 ```echo
@@ -304,6 +346,8 @@ step1()
             )
     )
 ```
+
+The bind-style view is only a mental model for lowering and type rules; generated code should still be efficient imperative control flow.
 
 Actual generated IR does not need runtime monad objects or a runtime monad
 framework. Prefer compile-time lowering to efficient imperative control flow:
@@ -348,6 +392,8 @@ $account = effect {
     loadAccount($profile)
 }
 ```
+
+This concurrency example demonstrates the intended bridge: task completion is explicit, while result propagation remains flat inside the effect.
 
 This should flatten task completion and typed error propagation without hiding
 where concurrency boundaries occur.

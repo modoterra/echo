@@ -18,6 +18,8 @@ echo_parser
   -> echo_lsp / xo / future tools
 ```
 
+This pipeline shows the ownership boundary: parser and semantics produce facts, while tools consume indexed facts instead of reinterpreting source.
+
 ## Goals
 
 - Track files and source modes.
@@ -43,6 +45,8 @@ pub struct IndexFacts {
 }
 ```
 
+This boundary type is the handoff from semantic analysis to the project index; it keeps AST ownership out of `echo_index`.
+
 This boundary keeps ownership clear:
 
 - `echo_parser` owns syntax.
@@ -59,6 +63,8 @@ Add:
 crates/echo_index/
 ```
 
+This crate boundary keeps project-wide source facts reusable by LSP, CLI, and future refactoring tools.
+
 Suggested initial modules:
 
 ```text
@@ -71,6 +77,8 @@ crates/echo_index/src/
   query.rs
 ```
 
+The module split keeps storage, names, symbols, and query behavior separate enough to grow without pulling in editor protocol types.
+
 Optional dependencies:
 
 ```toml
@@ -78,6 +86,8 @@ Optional dependencies:
 smol_str = "0.3"
 rustc-hash = "2"
 ```
+
+These dependencies are implementation conveniences only; the first slice can still use standard library maps while the data model settles.
 
 Standard `HashMap` is acceptable for the first slice.
 
@@ -93,6 +103,8 @@ pub struct FileId(pub u32);
 pub struct SymbolId(pub u64);
 ```
 
+Stable IDs let the index update files incrementally while giving queries and future references durable handles.
+
 Reuse an existing shared span or text range type if one is already available
 without creating dependency cycles. Otherwise add minimal offset-based types:
 
@@ -107,6 +119,8 @@ pub struct TextRange {
 pub struct TextOffset(pub u32);
 ```
 
+Offset-based ranges are enough for index storage; protocol-specific line and UTF-16 conversion belongs in LSP code.
+
 File mode should match parser/frontend source-mode behavior:
 
 ```rust
@@ -116,6 +130,8 @@ pub enum EchoFileMode {
     PhpCompat,
 }
 ```
+
+Storing mode with the file lets tools answer questions differently for PHP-compatible and Echo source without guessing from URI suffixes later.
 
 `echo_index` may store URIs as `String` to avoid depending on LSP types:
 
@@ -129,6 +145,8 @@ pub struct IndexedFile {
     pub content_hash: Option<u64>,
 }
 ```
+
+This file record is intentionally protocol-neutral, so a filesystem CLI and an editor LSP can share the same index representation.
 
 ## Names
 
@@ -151,17 +169,23 @@ pub struct FqName {
 }
 ```
 
+These name types preserve both local text and qualified namespace structure without assuming a PHP name maps to exactly one declaration.
+
 Lookup maps that use fully qualified names should prefer:
 
 ```rust
 HashMap<FqName, Vec<SymbolId>>
 ```
 
+The vector is intentional: it keeps all candidates available for later resolution policy.
+
 not:
 
 ```rust
 HashMap<FqName, SymbolId>
 ```
+
+The single-symbol map would hide ambiguity that is valid in PHP-compatible programs.
 
 ## Symbols
 
@@ -185,6 +209,8 @@ pub enum SymbolKind {
     Extension,
 }
 ```
+
+This initial enum covers PHP declarations, Echo-specific type/error concepts, and future extension blocks in one symbol vocabulary.
 
 `ErrorType` is included for Echo's first-class error values. `Extension` is
 included for future extension blocks.
@@ -214,6 +240,8 @@ pub struct Symbol {
 }
 ```
 
+This stored symbol shape is what document symbols, workspace symbols, hover, and future navigation queries should consume.
+
 The fact boundary should use the same symbol metadata without assigning IDs:
 
 ```rust
@@ -227,6 +255,8 @@ pub struct SymbolFact {
     pub signature: Option<Signature>,
 }
 ```
+
+Facts omit IDs because ID allocation belongs to the index when it updates a file.
 
 ## Dependency Facts
 
@@ -249,6 +279,8 @@ pub enum DependencyKind {
     ComposerAutoload,
 }
 ```
+
+These dependency kinds record source edges before they are resolved or executed, which keeps indexing separate from runtime include semantics.
 
 Meaning:
 
@@ -299,6 +331,8 @@ impl EchoIndex {
 }
 ```
 
+This API is the first useful query surface: insert/update files, ask for per-document symbols, and search project-wide declarations.
+
 `update_file` must remove old symbols for the file before inserting new facts.
 `remove_file` must remove file metadata, symbols declared in that file, and
 dead symbol IDs from lookup maps.
@@ -315,6 +349,8 @@ Run:
 ```sh
 cargo test -p echo_index
 ```
+
+This focused test command validates the index crate without requiring the full compiler, LSP, or codegen stack.
 
 Required coverage:
 
@@ -353,6 +389,8 @@ pub enum ReferenceKind {
 }
 ```
 
+This future reference model gives navigation and rename features a typed vocabulary before those facts are added to the index.
+
 Current and future queries:
 
 ```rust
@@ -362,6 +400,8 @@ pub fn dependencies(&self, query: DependencyQuery<'_>) -> Vec<&DependencyFact>;
 pub fn references(&self, query: ReferenceQuery) -> Vec<&ReferenceFact>;
 pub fn definition_at(&self, file_id: FileId, offset: TextOffset) -> Option<DefinitionLocation>;
 ```
+
+These queries are the intended consumer surface for LSP features such as symbols, references, dependencies, and go-to definition.
 
 Future cross-file reference-to-symbol queries and relations can later support
 rename, implementation lookup, type hierarchy, and call hierarchy foundations:
@@ -374,6 +414,8 @@ pub struct RelationTable {
     contains: HashMap<SymbolId, Vec<SymbolId>>,
 }
 ```
+
+The relation table is where class/interface/trait structure can live without baking hierarchy behavior into symbol storage.
 
 Stub files should eventually provide declaration-only facts for PHP built-ins
 and Echo runtime APIs instead of hardcoding broad standard-library maps in Rust:
@@ -389,3 +431,5 @@ stubs/
     core.echoi
     runtime.echoi
 ```
+
+These stubs would let the index treat built-ins and runtime APIs like ordinary declarations for completion, hover, and definition lookup.
