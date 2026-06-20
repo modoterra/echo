@@ -269,10 +269,7 @@ impl EchoIndex {
 
         let dependencies = self.dependencies(DependencyQuery::in_file(file_id));
         for dependency in &dependencies {
-            if dependency.target_range.contains(offset)
-                || (dependency.kind == crate::DependencyKind::PhpUse
-                    && dependency.range.contains(offset))
-            {
+            if dependency.target_range.contains(offset) {
                 return Some(DefinitionLocation::Dependency {
                     file_id,
                     range: dependency.range,

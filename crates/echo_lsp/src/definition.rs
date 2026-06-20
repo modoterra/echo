@@ -74,6 +74,13 @@ pub fn reference_target_location_at(
             let class_name = resolve_imported_class_name(index, file_id, &reference.name)
                 .unwrap_or(reference.name);
             let path = composer_class_file(index, &class_name)?;
+            let class_file_id = index_php_file(index, &path)?;
+            if let Some(location) = class_symbol_location(index, class_file_id, &class_name) {
+                return symbol_location(index, location.file_id, location.selection_range);
+            }
+            if let Some(range) = php_class_name_range(&path, &class_name) {
+                return file_location(index, &path, range);
+            }
             file_location(index, &path, TextRange::new(0, 0))
         }
         ReferenceKind::StaticMethod => {
@@ -189,7 +196,9 @@ fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileId> {
         return Some(file_id);
     }
     let source = std::fs::read_to_string(&path).ok()?;
-    let mut program = echo_parser::parse_with_mode(&source, SourceMode::Echo).ok()?;
+    let Ok(mut program) = echo_parser::parse_with_mode(&source, SourceMode::Echo) else {
+        return Some(file_id);
+    };
     program.source_dir = path.parent().map(|path| path.to_string_lossy().to_string());
     let facts = echo_semantics::index_facts_from_source(
         &source,
@@ -235,6 +244,60 @@ fn php_method_name_range(path: &Path, method_name: &str) -> Option<TextRange> {
         offset = function_start + "function".len();
     }
     None
+}
+
+fn php_class_name_range(path: &Path, class_name: &str) -> Option<TextRange> {
+    let short_name = class_name.rsplit('\\').next().unwrap_or(class_name);
+    let source = std::fs::read_to_string(path).ok()?;
+    let mut offset = 0;
+    while let Some(relative) = source[offset..].find("class") {
+        let class_start = offset + relative;
+        if !is_php_word_boundary(&source, class_start, "class") {
+            offset = class_start + "class".len();
+            continue;
+        }
+        let mut name_start = class_start + "class".len();
+        name_start += source[name_start..]
+            .chars()
+            .take_while(|ch| ch.is_whitespace())
+            .map(char::len_utf8)
+            .sum::<usize>();
+        if source[name_start..].starts_with(short_name)
+            && is_identifier_boundary(source.as_bytes().get(name_start + short_name.len()))
+        {
+            return Some(TextRange::new(
+                name_start as u32,
+                (name_start + short_name.len()) as u32,
+            ));
+        }
+        offset = class_start + "class".len();
+    }
+    None
+}
+
+fn class_symbol_location(
+    index: &EchoIndex,
+    file_id: FileId,
+    class_name: &str,
+) -> Option<echo_index::SymbolLocation> {
+    let short_name = class_name.rsplit('\\').next().unwrap_or(class_name);
+    index
+        .document_symbols(file_id)
+        .into_iter()
+        .find(|symbol| {
+            symbol.kind == SymbolKind::Class
+                && (symbol
+                    .fq_name
+                    .as_ref()
+                    .is_some_and(|fq_name| fq_name.as_string() == class_name)
+                    || symbol.name.text == short_name)
+        })
+        .map(|symbol| echo_index::SymbolLocation {
+            file_id: symbol.file_id,
+            symbol_id: symbol.id,
+            range: symbol.range,
+            selection_range: symbol.selection_range,
+        })
 }
 
 fn is_php_word_boundary(source: &str, start: usize, word: &str) -> bool {
@@ -684,6 +747,8 @@ mod tests {
             .expect("fixture root");
         let autoload = fixture_root.join("vendor/autoload.php");
         let request = fixture_root.join("vendor/laravel/framework/src/Illuminate/Http/Request.php");
+        let request_source = std::fs::read_to_string(&request).expect("request source");
+        let class_start = request_source.find("Request").expect("request class");
         let mut index = EchoIndex::new();
         let file_id = FileId(1);
         index.insert_file(IndexedFile {
@@ -729,6 +794,87 @@ mod tests {
             .expect("Request class location");
 
         assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+        assert_eq!(
+            location.range.start,
+            range_to_lsp_range(
+                &Rope::from_str(&request_source),
+                TextRange::new(class_start as u32, class_start as u32)
+            )
+            .start
+        );
+    }
+
+    #[test]
+    fn resolves_class_reference_to_source_line_when_target_php_is_not_parseable() {
+        let root = std::env::temp_dir().join(format!("echo-lsp-class-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let composer_dir = root.join("vendor/composer");
+        let request_dir = root.join("vendor/laravel/framework/src/Illuminate/Http");
+        std::fs::create_dir_all(&composer_dir).expect("composer dir");
+        std::fs::create_dir_all(&request_dir).expect("request dir");
+        let autoload = root.join("vendor/autoload.php");
+        let request = request_dir.join("Request.php");
+        std::fs::write(&autoload, "<?php\n").expect("autoload");
+        std::fs::write(
+            composer_dir.join("autoload_psr4.php"),
+            "<?php\n$vendorDir = dirname(__DIR__);\n$baseDir = dirname($vendorDir);\nreturn array(\n    'Illuminate\\\\' => array($vendorDir . '/laravel/framework/src/Illuminate'),\n);\n",
+        )
+        .expect("autoload psr4");
+        std::fs::write(
+            &request,
+            "<?php\nnamespace Illuminate\\Http;\nfinal class Request\n{\n    use Macroable;\n}\n",
+        )
+        .expect("request source");
+
+        let mut index = EchoIndex::new();
+        let file_id = FileId(1);
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: "file:///project/public/index.php".to_string(),
+            path: None,
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        index.update_file(
+            file_id,
+            IndexFacts {
+                file_id,
+                mode: EchoFileMode::PhpCompat,
+                declarations: Vec::new(),
+                dependencies: vec![
+                    DependencyFact {
+                        kind: DependencyKind::ComposerAutoload,
+                        target: autoload.to_string_lossy().to_string(),
+                        alias: None,
+                        range: TextRange::new(0, 20),
+                        target_range: TextRange::new(0, 20),
+                    },
+                    DependencyFact {
+                        kind: DependencyKind::PhpUse,
+                        target: "Illuminate\\Http\\Request".to_string(),
+                        alias: None,
+                        range: TextRange::new(30, 60),
+                        target_range: TextRange::new(34, 58),
+                    },
+                ],
+                references: vec![ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    name: "Request".to_string(),
+                    qualifier: None,
+                    range: TextRange::new(80, 87),
+                }],
+            },
+        );
+
+        let location = reference_target_location_at(&mut index, file_id, TextOffset(82))
+            .expect("Request class location");
+
+        assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+        assert_eq!(location.range.start.line, 2);
+        assert_eq!(location.range.start.character, 12);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]

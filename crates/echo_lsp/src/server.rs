@@ -5,20 +5,22 @@ use std::sync::Mutex;
 use dashmap::DashMap;
 use echo_diagnostics::Diagnostic as EchoDiagnostic;
 use echo_index::{
-    DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile, TextOffset,
+    DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts,
+    IndexedFile, ReferenceFact, ReferenceKind, ReferenceQuery, TextOffset, TextRange,
 };
 use echo_source::SourceMode;
+use ropey::Rope;
 use tower_lsp_server::jsonrpc::Result;
 use tower_lsp_server::ls_types::{
     CompletionParams, CompletionResponse, Diagnostic, DidChangeTextDocumentParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentSymbolParams,
-    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
-    MessageType, OneOf, PrepareRenameResponse, ReferenceParams, RenameOptions, RenameParams,
-    SemanticTokensParams, SemanticTokensResult, SemanticTokensServerCapabilities,
-    ServerCapabilities, SignatureHelp, SignatureHelpParams, TextDocumentPositionParams,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceEdit,
-    WorkspaceSymbolParams, WorkspaceSymbolResponse,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentLink, DocumentLinkOptions,
+    DocumentLinkParams, DocumentSymbolParams, DocumentSymbolResponse, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability, InitializeParams,
+    InitializeResult, InitializedParams, Location, MessageType, OneOf, PrepareRenameResponse,
+    ReferenceParams, RenameOptions, RenameParams, SemanticTokensParams, SemanticTokensResult,
+    SemanticTokensServerCapabilities, ServerCapabilities, SignatureHelp, SignatureHelpParams,
+    TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
+    WorkDoneProgressOptions, WorkspaceEdit, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 use tower_lsp_server::{Client, LanguageServer, LspService, Server};
 
@@ -30,7 +32,7 @@ use crate::definition::{
 use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
 use crate::hover::hover_at;
-use crate::position::position_to_offset;
+use crate::position::{position_to_offset, range_to_lsp_range};
 use crate::references::reference_locations_to_lsp;
 use crate::rename::{prepare_rename_at, rename_workspace_edit};
 use crate::semantic_tokens::{semantic_tokens_for_source, semantic_tokens_options};
@@ -114,6 +116,12 @@ impl LanguageServer for Backend {
                 completion_provider: Some(completion_options()),
                 document_symbol_provider: Some(OneOf::Left(true)),
                 definition_provider: Some(OneOf::Left(true)),
+                document_link_provider: Some(DocumentLinkOptions {
+                    resolve_provider: Some(false),
+                    work_done_progress_options: WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                }),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 references_provider: Some(OneOf::Left(true)),
                 rename_provider: Some(OneOf::Right(RenameOptions {
@@ -220,6 +228,26 @@ impl LanguageServer for Backend {
         };
 
         Ok(Some(DocumentSymbolResponse::Nested(symbols)))
+    }
+
+    async fn document_link(&self, params: DocumentLinkParams) -> Result<Option<Vec<DocumentLink>>> {
+        let uri = params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(Some(Vec::new()));
+        };
+
+        let links = {
+            let index = self.index.lock().expect("echo index mutex poisoned");
+            document_links_for_paths(
+                &document.text,
+                &index,
+                document.file_id,
+                &index.dependencies(DependencyQuery::in_file(document.file_id)),
+                &index.references(ReferenceQuery::in_file(document.file_id)),
+            )
+        };
+
+        Ok(Some(links))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
@@ -489,6 +517,76 @@ fn document_source_dir(document: &Document) -> Option<PathBuf> {
         .and_then(|path| path.parent().map(Path::to_path_buf))
 }
 
+fn document_links_for_paths(
+    text: &Rope,
+    _index: &EchoIndex,
+    _file_id: FileId,
+    dependencies: &[&DependencyFact],
+    references: &[&ReferenceFact],
+) -> Vec<DocumentLink> {
+    let mut links = Vec::new();
+    let mut ranges = HashSet::new();
+
+    for dependency in dependencies {
+        if !matches!(
+            dependency.kind,
+            DependencyKind::Require
+                | DependencyKind::RequireOnce
+                | DependencyKind::Include
+                | DependencyKind::IncludeOnce
+                | DependencyKind::ComposerAutoload
+        ) {
+            continue;
+        }
+        push_document_link(
+            text,
+            &mut links,
+            &mut ranges,
+            dependency.target_range,
+            &dependency.target,
+        );
+    }
+
+    for reference in references {
+        if reference.kind != ReferenceKind::FilePath {
+            continue;
+        }
+        push_document_link(
+            text,
+            &mut links,
+            &mut ranges,
+            reference.range,
+            &reference.name,
+        );
+    }
+
+    links
+}
+
+fn push_document_link(
+    text: &Rope,
+    links: &mut Vec<DocumentLink>,
+    ranges: &mut HashSet<TextRange>,
+    range: TextRange,
+    target: &str,
+) {
+    if !ranges.insert(range) {
+        return;
+    }
+    let Ok(path) = std::fs::canonicalize(target) else {
+        return;
+    };
+    let Some(uri) = Uri::from_file_path(path) else {
+        return;
+    };
+    links.push(DocumentLink {
+        range: range_to_lsp_range(text, range),
+        target: Some(uri),
+        tooltip: Some(target.to_string()),
+        data: None,
+    });
+}
+
 fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {
     let mut visited = HashSet::new();
     index_required_files_inner(index, root_file_id, &mut visited);
@@ -743,6 +841,65 @@ $app->handleRequest(Request::capture());
                 fixture_root
                     .join("vendor/laravel/framework/src/Illuminate/Foundation/Application.php")
                     .as_path()
+            )
+        );
+    }
+
+    #[test]
+    fn document_links_cover_whole_dir_path_expression() {
+        let fixture_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/php/112_laravel_bootstrap")
+            .canonicalize()
+            .expect("fixture root");
+        let public_index = fixture_root.join("public/index.php");
+        let public_source = std::fs::read_to_string(&public_index).expect("public source");
+        let autoload_expr = "__DIR__.'/../vendor/autoload.php'";
+        let autoload_start = public_source.find(autoload_expr).expect("autoload expr");
+        let mut index = EchoIndex::new();
+        let file_id = index.alloc_file_id();
+        index.insert_file(IndexedFile {
+            file_id,
+            uri: Uri::from_file_path(&public_index).unwrap().to_string(),
+            path: Some(public_index.clone()),
+            version: None,
+            mode: EchoFileMode::PhpCompat,
+            content_hash: None,
+        });
+        let facts = parse_index_facts(
+            &public_source,
+            file_id,
+            EchoFileMode::PhpCompat,
+            public_index.parent(),
+        )
+        .expect("public source parses");
+        index.update_file(file_id, facts);
+
+        let dependencies = index.dependencies(DependencyQuery::in_file(file_id));
+        let references = index.references(ReferenceQuery::in_file(file_id));
+        let links = document_links_for_paths(
+            &Rope::from_str(&public_source),
+            &index,
+            file_id,
+            &dependencies,
+            &references,
+        );
+        let link = links
+            .iter()
+            .find(|link| {
+                link.target.as_ref()
+                    == Some(&Uri::from_file_path(fixture_root.join("vendor/autoload.php")).unwrap())
+            })
+            .expect("autoload document link");
+
+        assert_eq!(
+            link.range,
+            range_to_lsp_range(
+                &Rope::from_str(&public_source),
+                TextRange::new(
+                    autoload_start as u32,
+                    (autoload_start + autoload_expr.len()) as u32,
+                ),
             )
         );
     }

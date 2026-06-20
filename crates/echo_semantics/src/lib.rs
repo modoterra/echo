@@ -257,7 +257,9 @@ impl IndexFactExtractor {
                     fq_name: Some(self.fq_name(&statement.name)),
                     kind: SymbolKind::Class,
                     range: span_range(statement.span),
-                    selection_range: span_range(statement.span),
+                    selection_range: self
+                        .span_range_for_text(statement.span, &statement.name)
+                        .unwrap_or_else(|| span_range(statement.span)),
                     visibility: None,
                     signature: None,
                 });
