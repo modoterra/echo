@@ -1613,6 +1613,7 @@ function DocsNavLinkItem({
 }) {
   const isActive = pathname === link.to;
   const hasActiveChild = link.children?.some((child) => pathname === child.to);
+  const activeChildIndex = link.children?.findIndex((child) => pathname === child.to) ?? -1;
   const shouldShowChildren = Boolean(link.children && (isActive || hasActiveChild));
   const textClass = link.disabled
     ? "text-sm leading-6 text-slate-300"
@@ -1633,12 +1634,16 @@ function DocsNavLinkItem({
         <div className="relative mt-3 pl-3">
           <span
             aria-hidden="true"
-            className={
-              hasActiveChild
-                ? "absolute bottom-0 left-0 top-0 w-[3px] bg-orange-400"
-                : "absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
-            }
+            className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
           />
+          {activeChildIndex >= 0 ? (
+            <motion.span
+              aria-hidden="true"
+              animate={{ y: activeChildIndex * 36 }}
+              className="absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            />
+          ) : null}
           <ul className="space-y-3">
             {link.children?.map((child) => (
               <DocsNavLinkItem
