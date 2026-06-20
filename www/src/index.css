@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "./styles/hero.css";
 
+@theme {
+  --font-mono:
+    "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+
+html {
+  scrollbar-gutter: stable both-edges;
+}
+
 body {
   @apply m-0 bg-white font-sans text-slate-950 antialiased;
   font-family:
