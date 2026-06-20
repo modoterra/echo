@@ -69,8 +69,9 @@ function DocsPage() {
       title: "Getting Started",
       links: [
         { label: "Installation", href: "#installation" },
-        { label: "Project Status", href: "#project-status" },
         { label: "Run a Program", href: "#run-a-program" },
+        { label: "Compile a Program", href: "#compile-a-program" },
+        { label: "Project Status", href: "#project-status" },
         { label: "Source Modes", href: "#source-modes" },
       ],
     },
@@ -80,11 +81,24 @@ function DocsPage() {
     },
     {
       title: "Tooling",
-      links: [{ label: "Command Line" }, { label: "Language Server" }, { label: "Testing" }],
+      links: [
+        { label: "Command Line" },
+        { label: "Language Server" },
+        { label: "Testing" },
+        { label: "Source Builds", href: "#source-builds" },
+      ],
     },
   ];
 
-  const headings = ["Meet Echo", "Installation", "Project Status", "Run a Program", "Source Modes"];
+  const headings = [
+    "Meet Echo",
+    "Installation",
+    "Run a Program",
+    "Compile a Program",
+    "Project Status",
+    "Source Modes",
+    "Source Builds",
+  ];
 
   return (
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
@@ -138,16 +152,40 @@ function DocsPage() {
           <section id="installation" className="mt-16 scroll-mt-28">
             <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Installation</h2>
             <p className="mt-6 text-lg leading-8 text-slate-600">
-              Build Echo from the repository while the language and tooling are still moving.
-              Development builds require Rust, LLVM 22, clang, PHP, Node.js, and npm.
+              Install the <code className="font-mono text-slate-950">xo</code> command and keep it
+              on your path. The public installer flow is still being designed, so current releases
+              are source-built by contributors.
             </p>
             <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-              <code>{`git clone https://github.com/modoterra/echo.git
-cd echo
-cargo test --workspace
-cd www
-npm install
-npm run build`}</code>
+              <code>{`xo --help
+xo run app.php
+xo build app.php -o app`}</code>
+            </pre>
+          </section>
+
+          <section id="run-a-program" className="mt-16 scroll-mt-28">
+            <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Run a Program</h2>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Use <code className="font-mono text-slate-950">xo run</code> to execute an
+              Echo-compatible PHP file directly from the command line.
+            </p>
+            <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
+              <code>{`xo run examples/hello.php`}</code>
+            </pre>
+          </section>
+
+          <section id="compile-a-program" className="mt-16 scroll-mt-28">
+            <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+              Compile a Program
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Use <code className="font-mono text-slate-950">xo build</code> to compile a supported
+              program into a native binary. The current backend lowers through LLVM IR and links
+              through the project build path while Echo's native toolchain matures.
+            </p>
+            <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
+              <code>{`xo build examples/hello.php -o /tmp/hello
+/tmp/hello`}</code>
             </pre>
           </section>
 
@@ -162,20 +200,6 @@ npm run build`}</code>
             </p>
           </section>
 
-          <section id="run-a-program" className="mt-16 scroll-mt-28">
-            <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Run a Program</h2>
-            <p className="mt-6 text-lg leading-8 text-slate-600">
-              Use <code className="font-mono text-slate-950">xo</code> to inspect, run, or build an
-              Echo-compatible PHP file.
-            </p>
-            <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-              <code>{`cargo run -p xo -- ast examples/hello.php
-cargo run -p xo -- ir examples/hello.php
-cargo run -p xo -- run examples/hello.php
-cargo run -p xo -- build examples/hello.php -o /tmp/hello`}</code>
-            </pre>
-          </section>
-
           <section id="source-modes" className="mt-16 scroll-mt-28">
             <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Source Modes</h2>
             <p className="mt-6 text-lg leading-8 text-slate-600">
@@ -184,6 +208,21 @@ cargo run -p xo -- build examples/hello.php -o /tmp/hello`}</code>
               <code className="font-mono text-slate-950">.echo</code> or{" "}
               <code className="font-mono text-slate-950">.xo</code> use strict mode by default.
             </p>
+          </section>
+
+          <section id="source-builds" className="mt-16 scroll-mt-28">
+            <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Source Builds</h2>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Contributors can build the current command line from source. Full workspace builds
+              require Rust, LLVM 22, clang, and PHP for compatibility fixture generation.
+            </p>
+            <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
+              <code>{`git clone https://github.com/modoterra/echo.git
+cd echo
+cargo build -p xo
+cargo test --workspace
+cargo run -p xo -- run examples/hello.php`}</code>
+            </pre>
           </section>
         </article>
 
