@@ -1659,30 +1659,42 @@ function DocsNavLinkItem({
           {link.label}
         </Link>
       )}
-      {shouldShowChildren ? (
-        <div className="relative mt-3 pl-3">
-          <span
-            aria-hidden="true"
-            className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
-          />
-          {activeChildIndex >= 0 ? (
-            <span
-              aria-hidden="true"
-              className="docs-primary-nav-train absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400 transition-transform duration-200 ease-out"
-              style={{ transform: `translateY(${activeChildIndex * 36}px)` }}
-            />
-          ) : null}
-          <ul className="space-y-3">
-            {link.children?.map((child) => (
-              <DocsNavLinkItem
-                key={child.label}
-                link={child}
-                pathname={pathname}
+      <AnimatePresence initial={false}>
+        {shouldShowChildren ? (
+          <motion.div
+            animate={{ height: "auto", opacity: 1 }}
+            className="overflow-hidden"
+            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <div className="relative mt-3 pl-3">
+              <span
+                aria-hidden="true"
+                className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
               />
-            ))}
-          </ul>
-        </div>
-      ) : null}
+              {activeChildIndex >= 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="docs-primary-nav-train absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400 transition-transform duration-200 ease-out"
+                  style={{
+                    transform: `translateY(${activeChildIndex * 36}px)`,
+                  }}
+                />
+              ) : null}
+              <ul className="space-y-3">
+                {link.children?.map((child) => (
+                  <DocsNavLinkItem
+                    key={child.label}
+                    link={child}
+                    pathname={pathname}
+                  />
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </li>
   );
 }
