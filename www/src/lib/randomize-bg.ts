@@ -1,4 +1,3 @@
-// One-time randomization for CSS variables on page load
 let randomizationApplied = false;
 
 export function applyRandomization() {

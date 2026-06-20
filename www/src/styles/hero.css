@@ -1,125 +1,140 @@
 /* Hero container with proper layering */
 .hero {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
 }
 
 /* Animated gradient background layer */
 .echo-gradient-bg {
-  position: absolute;
-  inset: -20%;
-  z-index: -3;
-  opacity: 0.45;
-  pointer-events: none;
-  user-select: none;
+    position: absolute;
+    inset: -20%;
+    z-index: -3;
+    opacity: 0.45;
+    pointer-events: none;
+    user-select: none;
 }
 
 .echo-gradient-bg svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 /* Blob animations */
 .echo-bg-blob-a {
-  transform-origin: 360px 250px;
-  animation: echo-bg-float-a 18s ease-in-out infinite alternate;
+    transform-origin: 360px 250px;
+    animation: echo-bg-float-a 18s ease-in-out infinite alternate;
 }
 
 .echo-bg-blob-b {
-  transform-origin: 760px 320px;
-  animation: echo-bg-float-b 22s ease-in-out infinite alternate;
+    transform-origin: 760px 320px;
+    animation: echo-bg-float-b 22s ease-in-out infinite alternate;
 }
 
 .echo-bg-blob-c {
-  transform-origin: 560px 440px;
-  animation: echo-bg-float-c 26s ease-in-out infinite alternate;
+    transform-origin: 560px 440px;
+    animation: echo-bg-float-c 26s ease-in-out infinite alternate;
 }
 
 @keyframes echo-bg-float-a {
-  from {
-    transform: translate(var(--echo-bg-a-x, -70px), var(--echo-bg-a-y, -20px)) rotate(0deg) scale(1);
-  }
+    from {
+        transform: translate(
+                var(--echo-bg-a-x, -70px),
+                var(--echo-bg-a-y, -20px)
+            )
+            rotate(0deg) scale(1);
+    }
 
-  to {
-    transform: translate(80px, 45px) rotate(12deg) scale(1.18);
-  }
+    to {
+        transform: translate(80px, 45px) rotate(12deg) scale(1.18);
+    }
 }
 
 @keyframes echo-bg-float-b {
-  from {
-    transform: translate(var(--echo-bg-b-x, 90px), var(--echo-bg-b-y, 20px)) rotate(8deg) scale(1.1);
-  }
+    from {
+        transform: translate(var(--echo-bg-b-x, 90px), var(--echo-bg-b-y, 20px))
+            rotate(8deg) scale(1.1);
+    }
 
-  to {
-    transform: translate(-70px, -50px) rotate(-10deg) scale(0.95);
-  }
+    to {
+        transform: translate(-70px, -50px) rotate(-10deg) scale(0.95);
+    }
 }
 
 @keyframes echo-bg-float-c {
-  from {
-    transform: translate(var(--echo-bg-c-x, -20px), var(--echo-bg-c-y, 60px)) rotate(-6deg)
-      scale(0.95);
-  }
+    from {
+        transform: translate(
+                var(--echo-bg-c-x, -20px),
+                var(--echo-bg-c-y, 60px)
+            )
+            rotate(-6deg) scale(0.95);
+    }
 
-  to {
-    transform: translate(50px, -45px) rotate(10deg) scale(1.15);
-  }
+    to {
+        transform: translate(50px, -45px) rotate(10deg) scale(1.15);
+    }
 }
 
 /* Foreground veil for readability */
 .hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background:
-    radial-gradient(circle at 50% 45%, transparent 0%, rgba(255, 255, 255, 0.82) 62%),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 1));
-  pointer-events: none;
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background:
+        radial-gradient(
+            circle at 50% 45%,
+            transparent 0%,
+            rgba(255, 255, 255, 0.94) 52%
+        ),
+        linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.2),
+            rgba(255, 255, 255, 1)
+        );
+    pointer-events: none;
 }
 
 /* Subtle grid pattern overlay */
 .hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: radial-gradient(circle at 50% 45%, black, transparent 68%);
-  pointer-events: none;
-}
-
-/* Hero content above background */
-.hero-content {
-  position: relative;
-  z-index: 1;
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: radial-gradient(circle at 50% 45%, black 24%, transparent 42%);
+    pointer-events: none;
 }
 
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  .echo-bg-blob {
-    animation: none !important;
-  }
+    .echo-bg-blob {
+        animation: none !important;
+    }
 }
 
 /* Dark mode support */
 [data-theme="dark"] .echo-gradient-bg {
-  opacity: 0.55;
+    opacity: 0.55;
 }
 
 [data-theme="dark"] .hero::before {
-  background:
-    radial-gradient(circle at 50% 45%, transparent 0%, rgba(10, 10, 18, 0.76) 66%),
-    linear-gradient(to bottom, rgba(10, 10, 18, 0.1), rgba(10, 10, 18, 1));
+    background:
+        radial-gradient(
+            circle at 50% 45%,
+            transparent 0%,
+            rgba(10, 10, 18, 0.9) 54%
+        ),
+        linear-gradient(to bottom, rgba(10, 10, 18, 0.1), rgba(10, 10, 18, 1));
 }
 
 [data-theme="dark"] .hero::after {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at 50% 45%, black 38%, transparent 58%);
 }

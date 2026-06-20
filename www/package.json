@@ -11,14 +11,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.8",
+    "@fontsource/geist-mono": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
-    "@fontsource/roboto-mono": "^5.2.9",
     "@fontsource/space-grotesk": "^5.2.10",
     "@remixicon/react": "^4.9.0",
+    "@shikijs/langs": "^4.2.0",
+    "@shikijs/themes": "^4.2.0",
     "@tanstack/react-router": "^1.170.16",
     "motion": "^12.40.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "react-shiki": "^0.10.1",
+    "shiki": "^4.2.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
