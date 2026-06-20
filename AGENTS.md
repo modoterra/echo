@@ -10,6 +10,11 @@
 - When changing syntax, parsing, diagnostics, or runtime behavior, preserve PHP compatibility unless the task explicitly says otherwise.
 - Output buffering semantics are tracked in `docs/output-buffering.md`; consult it before changing `echo_runtime` or `ob_*` codegen.
 
+## Documentation Quality
+- Documentation for code behavior, built-ins, APIs, CLI commands, or terminal workflows must include at least one useful snippet when a snippet can make the behavior concrete.
+- Snippets should be bounded in a realistic use case and show why the feature is useful, not only prove that the function or command exists. Avoid toy probes such as assigning a function name to a variable and printing `function_exists`; prefer examples that validate input, transform real data, handle an edge case, or fit into a small workflow.
+- Echo code snippets should use current Echo style: rely on inference with `let`, avoid invalid typed variable declarations, and omit semicolons unless the documented mode specifically requires PHP syntax.
+
 ## Module Ownership Invariants
 - Global domain vocabulary and module ownership are defined in `CONTEXT.md`; read it before changing compiler, runtime, or REPL behavior.
 - REPL examples are language-development inputs. Do not solve them with REPL-only lookup tables, evaluators, type environments, or ad hoc value semantics; implement behavior in the shared language pipeline first.
