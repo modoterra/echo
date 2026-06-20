@@ -44,6 +44,8 @@ compiler resolver    imports std symbols and validates intrinsic bindings
 codegen              lowers resolved intrinsic calls to approved ABI symbols
 ```
 
+This layout separates public Echo source, packaged std metadata, Rust runtime implementation, resolver validation, and final ABI lowering.
+
 Pure value APIs should be written in Echo source:
 
 ```php
@@ -64,6 +66,8 @@ function text(string $body): Response {
 }
 ```
 
+This example is the preferred shape for pure stdlib helpers: public Echo types and functions express behavior without needing a runtime intrinsic.
+
 Resource and syscall APIs should be declared in trusted stdlib Echo source as intrinsics and implemented by Rust runtime primitives:
 
 ```php
@@ -81,6 +85,8 @@ class TcpConnection {
 }
 ```
 
+This example keeps the user-facing socket API in Echo source while routing the actual I/O work through trusted Rust runtime primitives.
+
 Lowercase stdlib modules may also expose module-style intrinsic functions for value-like APIs:
 
 ```php
@@ -94,6 +100,8 @@ intrinsic function write(TcpConnection $connection, bytes|string $data): int
 intrinsic function close(TcpConnection $connection): void
 ```
 
+This module-style surface supports imported calls such as `net.listen(...)` when a class-oriented API would add friction.
+
 Tests can use the tiny assertion stdlib module:
 
 ```php
@@ -102,6 +110,8 @@ namespace std assert
 intrinsic function ok(bool $condition): bool
 intrinsic function equals(mixed $actual, mixed $expected): bool
 ```
+
+These assertions let Echo tests run through ordinary compiled programs while still reporting failures through the runtime.
 
 Assertion failures are reported on stderr and make the process exit nonzero at
 shutdown, so `xo test` can run Echo tests through the normal compiler/runtime
@@ -119,6 +129,8 @@ intrinsic function params(string $name): string
 intrinsic function returnType(string $name): string
 intrinsic function typeOf(mixed $value): string
 ```
+
+This reflection surface gives Echo strict-mode code an Echo-owned way to inspect function metadata without importing PHP reflection APIs.
 
 `params()` returns the supported PHP parameter list as a string and
 `returnType()` returns the supported PHP return type string. Unknown names
@@ -139,11 +151,15 @@ This distinction is intentional:
 namespace std net
 ```
 
+This declaration names trusted module identity for the compiler and is valid only in packaged stdlib source.
+
 declares trusted stdlib module `std.net`, while:
 
 ```php
 namespace std\Net
 ```
+
+This declaration remains ordinary PHP namespace syntax and should not be captured by Echo's stdlib resolver.
 
 declares an ordinary PHP namespace named `std\Net`.
 
@@ -178,6 +194,8 @@ std.net.TcpConnection#write(bytes|string): int
   abi: echo_std_net_tcp_connection_write
 ```
 
+The registry concept ties a trusted Echo declaration to one approved runtime ABI symbol, preventing user code from inventing arbitrary Rust calls.
+
 Instance intrinsic methods pass the receiver as the first runtime argument. Static intrinsic methods do not.
 
 ```text
@@ -191,6 +209,8 @@ $conn.write($bytes)
   -> echo_std_net_tcp_connection_write($conn, $bytes)
 ```
 
+This lowering model explains where the receiver goes at the ABI boundary and why static and instance methods differ.
+
 Intrinsic resource values should be opaque Echo values, not exposed integer handles or pointers. The runtime should reject using a `TcpConnection` where a `TcpServer` is required.
 
 ## Compiler Pipeline
@@ -200,6 +220,8 @@ For a user import:
 ```php
 from std use net\TcpServer
 ```
+
+This import is the compiler pipeline's input: a user asks for a stdlib item without naming an ABI symbol.
 
 The compiler should:
 
@@ -299,6 +321,8 @@ loop {
     }
 }
 ```
+
+This target program shows the intended end-to-end standard library role: Echo code owns the server shape, while stdlib modules provide networking and HTTP primitives.
 
 The standard library should provide the HTTP API. The runtime should provide lower-level networking and scheduling primitives.
 

@@ -38,6 +38,8 @@ echo "hello";
 ob_flush();
 ```
 
+This source-level example uses a statically named PHP builtin, so codegen can route it directly through the PHP builtin ABI.
+
 Expected shape:
 
 ```llvm
@@ -45,6 +47,8 @@ call i1 @echo_php_ob_start()
 call void @echo_write(ptr @echo_str_0, i64 5)
 call i1 @echo_php_ob_flush()
 ```
+
+The expected IR shape shows the ABI split: `ob_*` calls use `echo_php_*`, while `echo` syntax stays on the core output ABI.
 
 `echo` remains syntax, not a PHP function call, so it uses the core output ABI rather than an `echo_php_echo` builtin.
 
@@ -59,11 +63,15 @@ $fn = "ob_start";
 $fn();
 ```
 
+This source uses PHP's variable-function behavior, so it must remain a runtime dispatch even when the variable currently contains a builtin name.
+
 Expected shape:
 
 ```llvm
 call %EchoValue @echo_call_function(ptr @echo_str_0, i64 8)
 ```
+
+The expected IR shape preserves PHP dynamism by sending the callable name to the runtime dispatcher rather than baking in a static builtin symbol.
 
 The runtime dispatcher resolves the string and may fail at runtime if the callable is undefined or invalid. This preserves PHP-compatible behavior for `.php` inputs.
 
@@ -110,12 +118,16 @@ from std use net\TcpServer
 let $server = TcpServer::listen("127.0.0.1:8080")
 ```
 
+This is the user-facing stdlib call shape: code imports a trusted std type and calls a method without seeing Rust symbol names.
+
 Expected intrinsic binding shape:
 
 ```text
 std.net.TcpServer::listen(string): TcpServer
   -> echo_std_net_tcp_server_listen
 ```
+
+The binding shape is compiler-owned metadata that connects the trusted declaration to a specific `echo_std_*` ABI symbol.
 
 `echo_std_*` symbols are not looked up from arbitrary user source. User code cannot name Rust symbols, and non-stdlib files cannot declare `intrinsic` bindings.
 
@@ -137,6 +149,8 @@ xo run --strict file.php
 xo run --unsafe file.echo
 ```
 
+These commands show how CLI mode policy overrides extension defaults without changing the ABI namespace used by generated calls.
+
 `--strict` forces strict mode. `--unsafe` forces Echo superset mode, allowing PHP compatibility patterns. `--unsafe` does not disable Echo features; it only disables strict-mode safety rejections. The important design point is that compatibility and safety are policy inputs to semantic analysis, not ABI naming rules.
 
 In strict mode, Echo may diagnose cases such as:
@@ -145,6 +159,8 @@ In strict mode, Echo may diagnose cases such as:
 $fn = "ob__start";
 $fn();
 ```
+
+In strict mode, this pattern can become a compile-time diagnostic because the compiler can see the literal target and prove it is misspelled.
 
 when the compiler can prove the target is a literal and no known builtin or userland function exists in the compilation unit. In Echo mode, this remains a runtime call and should fail only if executed.
 
@@ -166,6 +182,8 @@ declare %EchoValue @echo_php_ob_get_length()
 declare %EchoValue @echo_php_ob_get_level()
 ```
 
+This declaration group is the current PHP-facing output-buffering ABI surface; adding an `ob_*` builtin should extend this layer, not core `echo_*`.
+
 Current Echo stdlib PHP reflection intrinsics use unary `%EchoValue` calls:
 
 ```llvm
@@ -174,6 +192,8 @@ declare %EchoValue @echo_std_reflect_params(%EchoValue)
 declare %EchoValue @echo_std_reflect_return_type(%EchoValue)
 declare %EchoValue @echo_std_reflect_type_of(%EchoValue)
 ```
+
+These declarations are Echo stdlib intrinsics, so they use `echo_std_*` even though they expose reflection information about PHP builtins.
 
 Current PHP-facing string builtins use unary `%EchoValue` calls so PHP scalar coercion
 stays centralized in the runtime value layer:
@@ -237,6 +257,8 @@ declare %EchoValue @echo_php_strncmp(%EchoValue, %EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strncasecmp(%EchoValue, %EchoValue, %EchoValue)
 ```
 
+This declaration group documents the value-ABI pattern for PHP builtins: runtime coercion and PHP-compatible return values stay centralized behind `%EchoValue`.
+
 Core output behavior remains under `echo_*`:
 
 ```llvm
@@ -245,3 +267,5 @@ declare void @echo_write_value(%EchoValue)
 declare void @echo_shutdown()
 declare %EchoValue @echo_call_function(ptr, i64)
 ```
+
+These symbols are core language/runtime ABI, so codegen may use them for syntax and dynamic dispatch without treating them as PHP builtins.

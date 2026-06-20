@@ -14,6 +14,8 @@ source text
   -> AOT/native build or LLVM JIT
 ```
 
+This pipeline is the architectural boundary for parser-mode work: the parser records source facts, and later compiler stages own semantic lowering and execution.
+
 This document describes the parser-mode foundation and the required long-term
 compiler stages. It is not a request to implement HIR, MIR, or JIT in the
 parser-mode slice.
@@ -46,6 +48,8 @@ pub struct ParserConfig {
 }
 ```
 
+This shape keeps source-mode decisions explicit and passable through shared parser APIs instead of spreading extension checks across call sites.
+
 Recommended constructors:
 
 ```rust
@@ -68,6 +72,8 @@ impl ParserConfig {
 }
 ```
 
+The constructors make the two policy bundles obvious: PHP mode requires PHP compatibility constraints, while Echo mode enables Echo extensions.
+
 `SourceKind` should live where shared syntax data can use it without creating
 dependency cycles. If `Program` stores the mode, `echo_ast` is the preferred
 home.
@@ -80,6 +86,8 @@ The parser should expose a config-aware entrypoint:
 pub fn parse_source(source: &str, config: ParserConfig) -> Result<Program, Vec<Diagnostic>>;
 ```
 
+This entrypoint forces every parser caller to state its mode instead of relying on filename guesses inside the parser.
+
 Convenience wrappers may preserve simpler call sites:
 
 ```rust
@@ -91,6 +99,8 @@ pub fn parse_php_source(source: &str) -> Result<Program, Vec<Diagnostic>> {
     parse_source(source, ParserConfig::php())
 }
 ```
+
+The wrappers are useful at edges such as tests and CLI commands, while still preserving one parser implementation underneath.
 
 There must still be one parser implementation. PHP and Echo behavior should
 branch from configuration flags at validation points and extension grammar
@@ -114,6 +124,8 @@ pub struct OpeningTag {
     pub span: Span,
 }
 ```
+
+This AST shape lets downstream tools explain whether a file was parsed as PHP or Echo and whether the opening tag was present in the original source.
 
 `OpeningTag` can stay minimal until the parser needs to distinguish forms such
 as `<?php`, `<?=`, or surrounding trivia.
@@ -142,6 +154,8 @@ The CLI should choose mode from the input file extension:
 *.echo -> ParserConfig::echo()
 ```
 
+This mapping is the minimum user-visible rule: extension selection feeds parser configuration, and the chosen mode should be visible in diagnostics and AST output.
+
 Unknown extensions should follow the current CLI/source-file convention, but the
 choice must be explicit in code. Today `echo_source::SourceFile::new` treats
 `.echo` and `.xo` as strict-mode source and other extensions as Echo superset
@@ -165,6 +179,8 @@ Existing examples should keep working:
 cargo run -p xo -- ast examples/hello.echo
 cargo run -p xo -- ast examples/hello.php
 ```
+
+These commands compare both extension defaults through the same `xo ast` surface, which is the quickest manual check for parser-mode drift.
 
 ## Implementation Notes
 
@@ -190,6 +206,8 @@ cargo run -p xo -- ast examples/hello.echo
 cargo run -p xo -- ast examples/hello.php
 ```
 
+This validation sequence combines formatting, typechecking, tests, and both parser-mode smoke checks before the slice is considered complete.
+
 ## LLVM-First Execution Model
 
 Parser modes and HIR are separate concerns.
@@ -204,6 +222,8 @@ Echo's primary compiler path is intentionally linear:
 Source -> AST -> HIR -> MIR -> LLVM IR
 ```
 
+This compact pipeline names ownership boundaries: AST remains syntax, HIR/MIR own resolved meaning, and LLVM IR is the current backend target.
+
 From LLVM IR, Echo can support multiple execution modes without introducing a
 second language engine:
 
@@ -211,6 +231,8 @@ second language engine:
 LLVM IR -> AOT/native build
 LLVM IR -> JIT/in-process execution
 ```
+
+Both execution modes consume the same generated LLVM IR, which keeps `xo run`, `xo build`, and embedding from becoming separate language implementations.
 
 `xo build` uses the AOT path and links generated code with `echo_runtime`.
 
@@ -238,6 +260,8 @@ HIR:
   Write(ConvertToPrintable(ReadLocal(name)))
 ```
 
+This example shows where semantic lowering belongs: string and variable syntax become write operations after parsing, not inside the parser.
+
 HIR should be built by a lowering or semantic layer, not by another parser. The
 HIR layer could live in:
 
@@ -245,11 +269,15 @@ HIR layer could live in:
 crates/echo_hir
 ```
 
+The crate boundary gives HIR a home without coupling parser internals to backend-specific lowering.
+
 With an entrypoint like:
 
 ```rust
 pub fn lower_program(program: &echo_ast::Program) -> Result<HirProgram, Vec<Diagnostic>>;
 ```
+
+This API shape lets callers feed parsed AST into semantic lowering and receive diagnostics without introducing another source parser.
 
 MIR should be built from HIR as the compiler-owned representation that makes
 LLVM lowering regular and testable. It is required, but it is not an execution
@@ -295,6 +323,8 @@ echo_throw
 echo_shutdown
 ```
 
+This list is illustrative runtime ABI vocabulary: generated LLVM should call stable runtime operations instead of reimplementing language behavior.
+
 AOT and JIT both use the same runtime contract:
 
 ```text
@@ -304,6 +334,8 @@ AOT:
 JIT:
   LLVM IR -> in-process execution -> registered echo_runtime symbols
 ```
+
+The contract keeps AOT and JIT execution honest by making both paths call the same Rust-owned runtime symbols.
 
 This keeps executable behavior in one Rust-owned runtime layer.
 
@@ -315,17 +347,23 @@ Current:
 AST -> LLVM IR -> temp native binary
 ```
 
+This is the present implementation checkpoint and explains why parser-mode changes currently need to keep direct AST-to-LLVM behavior working.
+
 Next:
 
 ```text
 AST -> HIR -> MIR -> LLVM IR -> native binary
 ```
 
+This next step introduces resolved compiler IR without changing the backend target.
+
 Then:
 
 ```text
 AST -> HIR -> MIR -> LLVM IR -> JIT
 ```
+
+This later step adds faster embedded execution without creating a second semantic engine.
 
 ## Constraints
 
@@ -341,6 +379,8 @@ The central decision is:
 ```text
 multiple parser configurations, not multiple parsers
 ```
+
+This is the core rule for future parser work: add mode-aware checks to the shared parser rather than forking PHP and Echo grammars.
 
 Echo should evolve as a shared PHP-compatible grammar with Echo extensions
 enabled only in Echo mode.
