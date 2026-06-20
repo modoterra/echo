@@ -1,4 +1,11 @@
-import { createRootRoute, createRoute, createRouter, Link, Outlet } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Link,
+  Outlet,
+  useLocation,
+} from "@tanstack/react-router";
 import { HomePage } from "./app";
 
 type DocsNavGroup = {
@@ -10,19 +17,47 @@ type DocsNavGroup = {
 };
 
 function RootLayout() {
+  const location = useLocation();
+  const isDocs = location.pathname.startsWith("/docs");
+
   return (
     <>
-      <nav
-        aria-label="Primary navigation"
-        className="absolute left-1/2 top-8 z-20 flex w-full max-w-[624px] -translate-x-1/2 items-center justify-start gap-8 px-6 text-sm font-semibold text-slate-500 sm:top-12 sm:px-0"
+      <header
+        className={
+          isDocs
+            ? "fixed inset-x-0 top-0 z-30 border-b border-slate-200/70 bg-white/85 px-6 backdrop-blur"
+            : "absolute inset-x-0 top-8 z-20 px-6 sm:top-12"
+        }
       >
-        <Link className="transition hover:text-slate-950" to="/">
-          Home
-        </Link>
-        <Link className="transition hover:text-slate-950" to="/docs">
-          Docs
-        </Link>
-      </nav>
+        <div
+          className={
+            isDocs
+              ? "mx-auto flex h-20 w-full max-w-7xl items-center"
+              : "mx-auto flex w-full max-w-[624px] items-center"
+          }
+        >
+          {isDocs ? (
+            <Link
+              aria-label="Echo home"
+              className="mr-10 block w-16 transition opacity-90 hover:opacity-100 lg:mr-[214px] lg:w-20"
+              to="/"
+            >
+              <img alt="Echo" className="h-auto w-full" src="/logo.svg" />
+            </Link>
+          ) : null}
+          <nav
+            aria-label="Primary navigation"
+            className="flex items-center justify-start gap-8 text-sm font-semibold text-slate-500"
+          >
+            <Link className="transition hover:text-slate-950" to="/">
+              Home
+            </Link>
+            <Link className="transition hover:text-slate-950" to="/docs">
+              Docs
+            </Link>
+          </nav>
+        </div>
+      </header>
       <Outlet />
     </>
   );
