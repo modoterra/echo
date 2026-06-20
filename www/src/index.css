@@ -2,23 +2,256 @@
 @import "./styles/hero.css";
 
 @theme {
-  --font-mono:
-    "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    --font-sans:
+        Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    --font-mono:
+        "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+}
+
+@utility scrollbar-nice {
+    scrollbar-width: thin;
+    scrollbar-color: --alpha(var(--color-slate-500) / 45%) white;
+
+    &::-webkit-scrollbar {
+        width: 14px;
+        height: 14px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: white;
+    }
+
+    &::-webkit-scrollbar-button {
+        -webkit-appearance: none;
+        appearance: none;
+        display: none;
+        width: 0;
+        height: 0;
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-button:single-button,
+    &::-webkit-scrollbar-button:vertical:decrement,
+    &::-webkit-scrollbar-button:vertical:increment,
+    &::-webkit-scrollbar-button:horizontal:decrement,
+    &::-webkit-scrollbar-button:horizontal:increment {
+        -webkit-appearance: none;
+        appearance: none;
+        display: none;
+        width: 0;
+        height: 0;
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: --alpha(var(--color-slate-500) / 35%);
+        border: 2px solid white;
+        border-inline-width: 4px;
+        border-radius: 9999px;
+        background-clip: content-box;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background-color: --alpha(var(--color-slate-500) / 60%);
+    }
+
+    &::-webkit-scrollbar-corner {
+        background: white;
+    }
+}
+
+@utility scrollbar-nice-dark {
+    scrollbar-color: --alpha(var(--color-slate-300) / 35%) transparent;
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-button {
+        -webkit-appearance: none;
+        appearance: none;
+        display: none;
+        width: 0;
+        height: 0;
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-button:single-button,
+    &::-webkit-scrollbar-button:vertical:decrement,
+    &::-webkit-scrollbar-button:vertical:increment,
+    &::-webkit-scrollbar-button:horizontal:decrement,
+    &::-webkit-scrollbar-button:horizontal:increment {
+        -webkit-appearance: none;
+        appearance: none;
+        display: none;
+        width: 0;
+        height: 0;
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: --alpha(var(--color-slate-300) / 25%);
+        border-color: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background-color: --alpha(var(--color-slate-300) / 45%);
+    }
+
+    &::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+}
+
+@utility scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+}
+
+@utility scrollbar-gutter-both {
+    scrollbar-gutter: stable both-edges;
+}
+
+.docs-code-snippet .shiki,
+.docs-code-snippet pre {
+    margin: 0;
+    background: transparent !important;
+}
+
+.docs-code-snippet code {
+    display: block;
+    min-width: max-content;
+    background: transparent;
+}
+
+.docs-code-snippet .rs-line {
+    display: block;
+}
+
+.docs-code-snippet .rs-line-number {
+    display: inline-block;
+    width: 2.5ch;
+    padding-right: 1.5ch;
+    color: rgb(148 163 184 / 0.55);
+    text-align: right;
+    user-select: none;
+}
+
+.docs-code-skeleton {
+    overflow: hidden;
+}
+
+.docs-code-skeleton span {
+    position: relative;
+    overflow: hidden;
+}
+
+.docs-code-skeleton span::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgb(148 163 184 / 0.22),
+        transparent
+    );
+    animation: code-skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+@keyframes code-skeleton-shimmer {
+    to {
+        transform: translateX(100%);
+    }
 }
 
 html {
-  scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    scrollbar-color: --alpha(var(--color-slate-500) / 45%) white;
+    scrollbar-gutter: stable both-edges;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+    background: white;
+}
+
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+html::-webkit-scrollbar-button:single-button,
+html::-webkit-scrollbar-button:vertical:decrement,
+html::-webkit-scrollbar-button:vertical:increment,
+html::-webkit-scrollbar-button:horizontal:decrement,
+html::-webkit-scrollbar-button:horizontal:increment,
+body::-webkit-scrollbar-button:single-button,
+body::-webkit-scrollbar-button:vertical:decrement,
+body::-webkit-scrollbar-button:vertical:increment,
+body::-webkit-scrollbar-button:horizontal:decrement,
+body::-webkit-scrollbar-button:horizontal:increment {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+    background-color: --alpha(var(--color-slate-500) / 35%);
+    border: 2px solid white;
+    border-inline-width: 4px;
+    border-radius: 9999px;
+    background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+    background-color: --alpha(var(--color-slate-500) / 60%);
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+    background: white;
 }
 
 body {
-  @apply m-0 bg-white font-sans text-slate-950 antialiased;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  text-rendering: optimizeLegibility;
+    background: transparent;
+    text-rendering: optimizeLegibility;
+}
+
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    width: 1px;
+    background: rgb(209 213 219 / 1);
+    pointer-events: none;
+}
+
+body::before {
+    left: 0;
+}
+
+body::after {
+    right: 0;
 }

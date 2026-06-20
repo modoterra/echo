@@ -6,7 +6,14 @@ import {
   Outlet,
   useLocation,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { RiCheckLine, RiFileCopyLine } from "@remixicon/react";
+import { layout, prepare } from "@chenglou/pretext";
+import { AnimatePresence, motion } from "motion/react";
+import ShikiHighlighter, {
+  createHighlighterCore,
+  createJavaScriptRegexEngine,
+} from "react-shiki/core";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { HomePage } from "./app";
 
 type DocsNavGroup = {
@@ -42,7 +49,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "strings",
     title: "Strings",
-    description: "String functions inspect, transform, encode, split, search, and compare text.",
+    description:
+      "String functions inspect, transform, encode, split, search, and compare text.",
     builtins: [
       {
         name: "strlen",
@@ -53,17 +61,20 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "strtoupper",
         signature: "strtoupper(string $string): string",
-        description: "Returns the string with alphabetic characters converted to uppercase.",
+        description:
+          "Returns the string with alphabetic characters converted to uppercase.",
       },
       {
         name: "strtolower",
         signature: "strtolower(string $string): string",
-        description: "Returns the string with alphabetic characters converted to lowercase.",
+        description:
+          "Returns the string with alphabetic characters converted to lowercase.",
       },
       {
         name: "ucwords",
         signature: "ucwords(string $string): string",
-        description: "Uppercases the first character of each word in the string.",
+        description:
+          "Uppercases the first character of each word in the string.",
       },
       {
         name: "ucfirst",
@@ -88,7 +99,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "ord",
         signature: "ord(string $character): int",
-        description: "Returns the byte value of the first character in the string.",
+        description:
+          "Returns the byte value of the first character in the string.",
       },
       {
         name: "chr",
@@ -133,7 +145,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "addslashes",
         signature: "addslashes(string $string): string",
-        description: "Escapes characters that need backslashes in quoted PHP strings.",
+        description:
+          "Escapes characters that need backslashes in quoted PHP strings.",
       },
       {
         name: "stripslashes",
@@ -143,7 +156,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "quotemeta",
         signature: "quotemeta(string $string): string",
-        description: "Quotes regular expression metacharacters with backslashes.",
+        description:
+          "Quotes regular expression metacharacters with backslashes.",
       },
       {
         name: "str_contains",
@@ -178,7 +192,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "stripos",
         signature: "stripos(string $haystack, string $needle): int|false",
-        description: "Finds the first occurrence of a string case-insensitively.",
+        description:
+          "Finds the first occurrence of a string case-insensitively.",
       },
       {
         name: "strrpos",
@@ -188,7 +203,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "strripos",
         signature: "strripos(string $haystack, string $needle): int|false",
-        description: "Finds the last occurrence of a string case-insensitively.",
+        description:
+          "Finds the last occurrence of a string case-insensitively.",
       },
       {
         name: "strstr",
@@ -208,22 +224,26 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "strrchr",
         signature: "strrchr(string $haystack, string $needle): string|false",
-        description: "Finds the last occurrence of a character and returns the matching tail.",
+        description:
+          "Finds the last occurrence of a character and returns the matching tail.",
       },
       {
         name: "strpbrk",
         signature: "strpbrk(string $string, string $characters): string|false",
-        description: "Searches a string for any character from a character set.",
+        description:
+          "Searches a string for any character from a character set.",
       },
       {
         name: "strspn",
         signature: "strspn(string $string, string $characters): int",
-        description: "Counts the initial span containing only characters from a character set.",
+        description:
+          "Counts the initial span containing only characters from a character set.",
       },
       {
         name: "strcspn",
         signature: "strcspn(string $string, string $characters): int",
-        description: "Counts the initial span containing no characters from a character set.",
+        description:
+          "Counts the initial span containing no characters from a character set.",
       },
       {
         name: "substr_count",
@@ -248,17 +268,21 @@ const builtinFamilies: BuiltinFamily[] = [
       },
       {
         name: "strncmp",
-        signature: "strncmp(string $string1, string $string2, int $length): int",
+        signature:
+          "strncmp(string $string1, string $string2, int $length): int",
         description: "Binary-safe string comparison up to a fixed length.",
       },
       {
         name: "strncasecmp",
-        signature: "strncasecmp(string $string1, string $string2, int $length): int",
-        description: "Binary-safe case-insensitive string comparison up to a fixed length.",
+        signature:
+          "strncasecmp(string $string1, string $string2, int $length): int",
+        description:
+          "Binary-safe case-insensitive string comparison up to a fixed length.",
       },
       {
         name: "explode",
-        signature: "explode(string $separator, string $string, int $limit): array",
+        signature:
+          "explode(string $separator, string $string, int $limit): array",
         description: "Splits a string into an array using a separator.",
       },
     ],
@@ -266,7 +290,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "arrays",
     title: "Arrays",
-    description: "Array functions count values and inspect whether arrays behave like lists.",
+    description:
+      "Array functions count values and inspect whether arrays behave like lists.",
     builtins: [
       {
         name: "array_is_list",
@@ -277,7 +302,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "count",
         signature: "count(Countable|array $value): int",
-        description: "Counts the number of elements in an array or countable value.",
+        description:
+          "Counts the number of elements in an array or countable value.",
       },
       {
         name: "sizeof",
@@ -289,7 +315,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "types",
     title: "Types",
-    description: "Type functions inspect current values and convert them to scalar forms.",
+    description:
+      "Type functions inspect current values and convert them to scalar forms.",
     builtins: [
       {
         name: "gettype",
@@ -314,7 +341,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "is_numeric",
         signature: "is_numeric(mixed $value): bool",
-        description: "Returns true when a value is numeric or a numeric string.",
+        description:
+          "Returns true when a value is numeric or a numeric string.",
       },
       {
         name: "is_null",
@@ -406,7 +434,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "math",
     title: "Math and Bases",
-    description: "Numeric functions calculate simple values and convert integers to base strings.",
+    description:
+      "Numeric functions calculate simple values and convert integers to base strings.",
     builtins: [
       {
         name: "abs",
@@ -433,7 +462,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "filesystem",
     title: "Filesystem",
-    description: "Filesystem functions inspect local paths and derive path components.",
+    description:
+      "Filesystem functions inspect local paths and derive path components.",
     builtins: [
       {
         name: "file_exists",
@@ -443,17 +473,20 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "is_dir",
         signature: "is_dir(string $filename): bool",
-        description: "Returns true when a local path exists and is a directory.",
+        description:
+          "Returns true when a local path exists and is a directory.",
       },
       {
         name: "is_file",
         signature: "is_file(string $filename): bool",
-        description: "Returns true when a local path exists and is a regular file.",
+        description:
+          "Returns true when a local path exists and is a regular file.",
       },
       {
         name: "is_link",
         signature: "is_link(string $filename): bool",
-        description: "Returns true when a local path exists and is a symbolic link.",
+        description:
+          "Returns true when a local path exists and is a symbolic link.",
       },
       {
         name: "basename",
@@ -470,7 +503,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "reflection",
     title: "Reflection",
-    description: "Reflection functions ask questions about functions and callable values.",
+    description:
+      "Reflection functions ask questions about functions and callable values.",
     builtins: [
       {
         name: "function_exists",
@@ -488,7 +522,8 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "shell",
     title: "Shell",
-    description: "Shell functions quote or escape strings for command-line usage.",
+    description:
+      "Shell functions quote or escape strings for command-line usage.",
     builtins: [
       {
         name: "escapeshellarg",
@@ -505,9 +540,14 @@ const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "output-buffering",
     title: "Output Buffering",
-    description: "Output buffering functions control PHP-style buffered output.",
+    description:
+      "Output buffering functions control PHP-style buffered output.",
     builtins: [
-      { name: "flush", signature: "flush(): void", description: "Flushes system output buffers." },
+      {
+        name: "flush",
+        signature: "flush(): void",
+        description: "Flushes system output buffers.",
+      },
       {
         name: "ob_start",
         signature: "ob_start(): bool",
@@ -536,7 +576,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "ob_get_clean",
         signature: "ob_get_clean(): string|false",
-        description: "Gets the active output buffer contents and closes the buffer.",
+        description:
+          "Gets the active output buffer contents and closes the buffer.",
       },
       {
         name: "ob_get_contents",
@@ -561,7 +602,8 @@ const builtinFamilies: BuiltinFamily[] = [
       {
         name: "ob_implicit_flush",
         signature: "ob_implicit_flush(bool $enable): void",
-        description: "Enables or disables implicit flushing after output calls.",
+        description:
+          "Enables or disables implicit flushing after output calls.",
       },
     ],
   },
@@ -1325,7 +1367,9 @@ const builtinExampleNotes = new Map<string, string>([
   ],
 ]);
 
-const builtinFamilyBySlug = new Map(builtinFamilies.map((family) => [family.slug, family]));
+const builtinFamilyBySlug = new Map(
+  builtinFamilies.map((family) => [family.slug, family]),
+);
 
 function builtinExample(name: string) {
   const example = builtinExamples.get(name);
@@ -1348,48 +1392,210 @@ function headingId(heading: string) {
   return heading.toLowerCase().replaceAll(" ", "-");
 }
 
-function RootLayout() {
-  const location = useLocation();
-  const isDocs = location.pathname.startsWith("/docs");
+let phpHighlighterPromise: Promise<PhpHighlighter> | null = null;
+
+type PhpHighlighter = Awaited<ReturnType<typeof createHighlighterCore>>;
+
+const codeSnippetFont = '14px "Geist Mono"';
+const codeSnippetLineHeight = 28;
+const codeSnippetBlockPadding = 48;
+const codeSnippetSkeletonMinDelay = 320;
+const codeSnippetSkeletonMaxDelay = 680;
+const codeSnippetLoadRootMargin = "0px";
+
+function loadPhpHighlighter() {
+  phpHighlighterPromise ??= Promise.all([
+    import("@shikijs/langs/php"),
+    import("@shikijs/themes/github-dark"),
+  ]).then(([php, githubDark]) =>
+    createHighlighterCore({
+      engine: createJavaScriptRegexEngine({ forgiving: true }),
+      langs: [php.default],
+      themes: [githubDark.default],
+    }),
+  );
+
+  return phpHighlighterPromise;
+}
+
+function randomCodeSnippetSkeletonDelay() {
+  const range = codeSnippetSkeletonMaxDelay - codeSnippetSkeletonMinDelay;
+
+  return codeSnippetSkeletonMinDelay + Math.round(Math.random() * range);
+}
+
+function CodeSnippet({
+  children,
+  className = "mt-8",
+}: {
+  children: string;
+  className?: string;
+}) {
+  const snippetRef = useRef<HTMLDivElement | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [highlighter, setHighlighter] = useState<PhpHighlighter | null>(null);
+  const [shouldLoadHighlighter, setShouldLoadHighlighter] = useState(false);
+  const code = children.trim();
+  const minHeight = useMemo(() => {
+    const prepared = prepare(code, codeSnippetFont, { whiteSpace: "pre-wrap" });
+    const measured = layout(prepared, 100_000, codeSnippetLineHeight);
+
+    return measured.height + codeSnippetBlockPadding;
+  }, [code]);
+
+  useEffect(() => {
+    const snippet = snippetRef.current;
+
+    if (!snippet) {
+      return;
+    }
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoadHighlighter(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setShouldLoadHighlighter(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: codeSnippetLoadRootMargin },
+    );
+
+    observer.observe(snippet);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shouldLoadHighlighter) {
+      return;
+    }
+
+    let active = true;
+    let delayTimeout: number | undefined;
+    const delay = new Promise((resolve) => {
+      delayTimeout = window.setTimeout(resolve, randomCodeSnippetSkeletonDelay());
+    });
+
+    void Promise.all([loadPhpHighlighter(), delay]).then(([loadedHighlighter]) => {
+      if (active) {
+        setHighlighter(loadedHighlighter);
+      }
+    });
+
+    return () => {
+      active = false;
+      window.clearTimeout(delayTimeout);
+    };
+  }, [shouldLoadHighlighter]);
+
+  async function copyCode() {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
 
   return (
-    <>
-      <header
-        className={
-          isDocs
-            ? "fixed inset-x-0 top-0 z-30 border-b border-slate-200/70 bg-white/85 px-6 backdrop-blur"
-            : "absolute inset-x-0 top-8 z-20 px-6 sm:top-12"
-        }
+    <div
+      ref={snippetRef}
+      className={`${className} group relative rounded-lg bg-[#101218] shadow-sm`}
+      style={{ minHeight }}
+    >
+      <button
+        aria-label={copied ? "Copied code" : "Copy code"}
+        className="absolute right-3 top-3 z-10 inline-flex size-8 items-center justify-center rounded-md text-slate-400 opacity-70 transition hover:bg-white/10 hover:text-slate-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+        onClick={copyCode}
+        title={copied ? "Copied" : "Copy"}
+        type="button"
       >
-        <div
-          className={
-            isDocs
-              ? "mx-auto flex h-20 w-full max-w-7xl items-center"
-              : "mx-auto flex w-full max-w-[624px] items-center"
-          }
-        >
-          {isDocs ? (
-            <Link
-              aria-label="Echo home"
-              className="mr-10 block w-16 transition opacity-90 hover:opacity-100 lg:mr-[214px] lg:w-20"
-              to="/"
-            >
-              <img alt="Echo" className="h-auto w-full" src="/logo.svg" />
-            </Link>
-          ) : null}
-          <nav
-            aria-label="Primary navigation"
-            className="flex items-center justify-start gap-8 text-sm font-semibold text-slate-500"
+        {copied ? <RiCheckLine size={18} /> : <RiFileCopyLine size={18} />}
+      </button>
+      <AnimatePresence initial={false} mode="wait">
+        {highlighter ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: 4 }}
+            key="highlighted"
+            transition={{ duration: 0.22, ease: "easeOut" }}
           >
-            <Link className="transition hover:text-slate-950" to="/">
-              Home
-            </Link>
-            <Link className="transition hover:text-slate-950" to="/docs">
-              Docs
-            </Link>
-          </nav>
-        </div>
-      </header>
+            <ShikiHighlighter
+              addDefaultStyles={false}
+              className="docs-code-snippet overflow-x-auto rounded-lg p-6 pr-14 font-mono text-sm leading-7 scrollbar-thin scrollbar-nice-dark"
+              highlighter={highlighter}
+              language="php"
+              showLanguage={false}
+              showLineNumbers
+              theme="github-dark"
+            >
+              {code}
+            </ShikiHighlighter>
+          </motion.div>
+        ) : (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            aria-label="Loading highlighted code"
+            className="docs-code-skeleton p-6 pr-14"
+            exit={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: 4 }}
+            key="skeleton"
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            {code.split("\n").map((line, index) => (
+              <div className="flex h-7 items-center gap-5" key={index}>
+                <span className="h-3 w-5 shrink-0 rounded-full bg-slate-700/45" />
+                <span
+                  className="h-3 rounded-full bg-slate-700/55"
+                  style={{
+                    width: `${Math.min(92, Math.max(24, line.length * 1.8))}%`,
+                  }}
+                />
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Topbar() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-30 border-b border-slate-200/70 bg-white/85 px-6 backdrop-blur shadow-2xs">
+      <div className="mx-auto grid h-20 w-full max-w-7xl grid-cols-[auto_1fr] items-center gap-10 lg:grid-cols-[220px_minmax(0,720px)] lg:gap-12 xl:grid-cols-[220px_minmax(0,720px)_220px]">
+        <Link
+          aria-label="Echo home"
+          className="block w-16 transition opacity-90 hover:opacity-100 lg:w-20"
+          to="/"
+        >
+          <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
+        </Link>
+        <nav
+          aria-label="Primary navigation"
+          className="flex translate-x-0.5 items-center justify-start gap-8 text-sm font-semibold text-slate-500 lg:translate-x-0.5"
+        >
+          <Link className="transition hover:text-slate-950" to="/">
+            Home
+          </Link>
+          <Link className="transition hover:text-slate-950" to="/docs">
+            Docs
+          </Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function RootLayout() {
+  return (
+    <>
+      <Topbar />
       <Outlet />
     </>
   );
@@ -1417,9 +1623,16 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
         { label: "Filesystem", to: "/docs/php-built-ins/filesystem" },
         { label: "Reflection", to: "/docs/php-built-ins/reflection" },
         { label: "Shell", to: "/docs/php-built-ins/shell" },
-        { label: "Output Buffering", to: "/docs/php-built-ins/output-buffering" },
+        {
+          label: "Output Buffering",
+          to: "/docs/php-built-ins/output-buffering",
+        },
         { label: "Core", to: "/docs/php-built-ins/core" },
-        { label: "PHP Compatibility", to: "/docs/php-compatibility", disabled: true },
+        {
+          label: "PHP Compatibility",
+          to: "/docs/php-compatibility",
+          disabled: true,
+        },
         { label: "Strict Mode", to: "/docs/strict-mode", disabled: true },
         { label: "Imports", to: "/docs/imports", disabled: true },
       ],
@@ -1428,7 +1641,11 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
       title: "Tooling",
       links: [
         { label: "Command Line", to: "/docs/command-line", disabled: true },
-        { label: "Language Server", to: "/docs/language-server", disabled: true },
+        {
+          label: "Language Server",
+          to: "/docs/language-server",
+          disabled: true,
+        },
         { label: "Testing", to: "/docs/testing", disabled: true },
         { label: "Source Builds", to: "/docs/source-builds" },
       ],
@@ -1439,15 +1656,22 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 lg:grid-cols-[220px_minmax(0,720px)] xl:grid-cols-[220px_minmax(0,720px)_220px]">
         <aside className="hidden lg:block">
-          <nav aria-label="Documentation sections" className="sticky top-32 space-y-10">
+          <nav
+            aria-label="Documentation sections"
+            className="sticky top-32 space-y-10"
+          >
             {navigation.map((group) => (
               <section key={group.title}>
-                <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
+                <h2 className="text-sm font-semibold text-slate-950">
+                  {group.title}
+                </h2>
                 <ul className="mt-5 space-y-3">
                   {group.links.map((link) => (
                     <li key={link.label}>
                       {link.disabled ? (
-                        <span className="text-sm leading-6 text-slate-300">{link.label}</span>
+                        <span className="text-sm leading-6 text-slate-300">
+                          {link.label}
+                        </span>
                       ) : (
                         <Link
                           className={
@@ -1470,13 +1694,20 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
 
         <article className="max-w-none">
           <p className="text-sm font-semibold text-slate-500">{category}</p>
-          <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">{title}</h1>
+          <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">
+            {title}
+          </h1>
           {children}
         </article>
 
         <aside className="hidden xl:block">
-          <nav aria-label="On this page" className="sticky top-32 border-l border-slate-200 pl-6">
-            <h2 className="text-sm font-semibold text-slate-950">On this page</h2>
+          <nav
+            aria-label="On this page"
+            className="sticky top-32 border-l border-slate-200 pl-6"
+          >
+            <h2 className="text-sm font-semibold text-slate-950">
+              On this page
+            </h2>
             <ul className="mt-5 space-y-3">
               {headings.map((heading) => (
                 <li key={heading}>
@@ -1510,63 +1741,71 @@ function DocsPage() {
       title="Installation"
     >
       <section id="meet-echo" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Meet Echo</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Meet Echo
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Echo is a Rust implementation of a PHP superset. Existing PHP should stay familiar, while
-          Echo adds compiler tooling, native concurrency, parallel execution, and a path toward
-          compiled binaries with predictable performance gains.
+          Echo is a Rust implementation of a PHP superset. Existing PHP should
+          stay familiar, while Echo adds compiler tooling, native concurrency,
+          parallel execution, and a path toward compiled binaries with
+          predictable performance gains.
         </p>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          The command line entrypoint is <code className="font-mono text-slate-950">xo</code>. Echo
-          is early-stage software, so unsupported PHP behavior should fail explicitly rather than
-          silently approximate semantics.
+          The command line entrypoint is{" "}
+          <code className="font-mono text-slate-950">xo</code>. Echo is
+          early-stage software, so unsupported PHP behavior should fail
+          explicitly rather than silently approximate semantics.
         </p>
       </section>
 
       <section id="installation" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Installation</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Installation
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Install the <code className="font-mono text-slate-950">xo</code> command and keep it on
-          your path. The public installer flow is still being designed, so current releases are
-          source-built by contributors.
+          Install the <code className="font-mono text-slate-950">xo</code>{" "}
+          command and keep it on your path. The public installer flow is still
+          being designed, so current releases are source-built by contributors.
         </p>
-        <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-          <code>{`xo --help
+        <CodeSnippet>{`xo --help
 xo run app.php
-xo build app.php -o app`}</code>
-        </pre>
+xo build app.php -o app`}</CodeSnippet>
       </section>
 
       <section id="run-a-program" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Run a Program</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Run a Program
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Use <code className="font-mono text-slate-950">xo run</code> to execute an Echo-compatible
-          PHP file directly from the command line.
+          Use <code className="font-mono text-slate-950">xo run</code> to
+          execute an Echo-compatible PHP file directly from the command line.
         </p>
-        <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-          <code>{`xo run examples/hello.php`}</code>
-        </pre>
+        <CodeSnippet>{`xo run examples/hello.php`}</CodeSnippet>
       </section>
 
       <section id="compile-a-program" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Compile a Program</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Compile a Program
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Use <code className="font-mono text-slate-950">xo build</code> to compile a supported
-          program into a native binary. The current backend lowers through LLVM IR and links through
-          the project build path while Echo's native toolchain matures.
+          Use <code className="font-mono text-slate-950">xo build</code> to
+          compile a supported program into a native binary. The current backend
+          lowers through LLVM IR and links through the project build path while
+          Echo's native toolchain matures.
         </p>
-        <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-          <code>{`xo build examples/hello.php -o /tmp/hello
-/tmp/hello`}</code>
-        </pre>
+        <CodeSnippet>{`xo build examples/hello.php -o /tmp/hello
+/tmp/hello`}</CodeSnippet>
       </section>
 
       <section id="project-status" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Project Status</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Project Status
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Echo currently supports a small but growing PHP-compatible slice across parsing, AST
-          generation, LLVM IR codegen, runtime behavior, and CLI execution. The docs should make
-          that boundary visible as the language grows.
+          Echo currently supports a small but growing PHP-compatible slice
+          across parsing, AST generation, LLVM IR codegen, runtime behavior, and
+          CLI execution. The docs should make that boundary visible as the
+          language grows.
         </p>
       </section>
     </DocsShell>
@@ -1575,13 +1814,21 @@ xo build app.php -o app`}</code>
 
 function SourceModesPage() {
   return (
-    <DocsShell category="Getting Started" headings={["Source Modes"]} title="Source Modes">
+    <DocsShell
+      category="Getting Started"
+      headings={["Source Modes"]}
+      title="Source Modes"
+    >
       <section id="source-modes" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Source Modes</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Source Modes
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Files ending in <code className="font-mono text-slate-950">.php</code> use Echo superset
-          mode by default. Files ending in <code className="font-mono text-slate-950">.echo</code>{" "}
-          or <code className="font-mono text-slate-950">.xo</code> use strict mode by default.
+          Files ending in <code className="font-mono text-slate-950">.php</code>{" "}
+          use Echo superset mode by default. Files ending in{" "}
+          <code className="font-mono text-slate-950">.echo</code> or{" "}
+          <code className="font-mono text-slate-950">.xo</code> use strict mode
+          by default.
         </p>
       </section>
     </DocsShell>
@@ -1596,9 +1843,10 @@ function PhpBuiltinsPage() {
       title="PHP Built-ins"
     >
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        PHP built-ins keep familiar names and signatures. They are grouped by family so each page
-        can stay focused: strings, arrays, types, math, filesystem, reflection, shell integration,
-        output buffering, and core runtime helpers.
+        PHP built-ins keep familiar names and signatures. They are grouped by
+        family so each page can stay focused: strings, arrays, types, math,
+        filesystem, reflection, shell integration, output buffering, and core
+        runtime helpers.
       </p>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
@@ -1611,7 +1859,9 @@ function PhpBuiltinsPage() {
             <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
               {family.title}
             </h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">{family.description}</p>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              {family.description}
+            </p>
             <a
               className="mt-5 inline-flex text-sm font-semibold text-slate-500 transition hover:text-slate-950"
               href={`/docs/php-built-ins/${family.slug}`}
@@ -1632,7 +1882,9 @@ function PhpBuiltinFamilyPage({ family }: { family: BuiltinFamily }) {
       headings={family.builtins.map((builtin) => builtin.name)}
       title={family.title}
     >
-      <p className="mt-6 text-lg leading-8 text-slate-600">{family.description}</p>
+      <p className="mt-6 text-lg leading-8 text-slate-600">
+        {family.description}
+      </p>
 
       <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200">
         {family.builtins.map((builtin) => (
@@ -1649,15 +1901,20 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
 
   return (
     <section className="py-8">
-      <h2 className="font-mono text-2xl font-semibold text-slate-950" id={headingId(builtin.name)}>
+      <h2
+        className="font-mono text-2xl font-semibold text-slate-950"
+        id={headingId(builtin.name)}
+      >
         {builtin.name}
       </h2>
-      <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
-      <p className="mt-7 text-lg leading-8 text-slate-600">{builtin.description}</p>
+      <p className="mt-3 font-mono text-sm text-slate-500">
+        {builtin.signature}
+      </p>
+      <p className="mt-7 text-lg leading-8 text-slate-600">
+        {builtin.description}
+      </p>
 
-      <pre className="mt-7 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-        <code>{example}</code>
-      </pre>
+      <CodeSnippet className="mt-7">{example}</CodeSnippet>
       <p className="mt-5 text-base leading-7 text-slate-600">{exampleNote}</p>
     </section>
   );
@@ -1665,20 +1922,25 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
 
 function SourceBuildsPage() {
   return (
-    <DocsShell category="Tooling" headings={["Source Builds"]} title="Source Builds">
+    <DocsShell
+      category="Tooling"
+      headings={["Source Builds"]}
+      title="Source Builds"
+    >
       <section id="source-builds" className="mt-16 scroll-mt-28">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Source Builds</h2>
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Source Builds
+        </h2>
         <p className="mt-6 text-lg leading-8 text-slate-600">
-          Contributors can build the current command line from source. Full workspace builds require
-          Rust, LLVM 22, clang, and PHP for compatibility fixture generation.
+          Contributors can build the current command line from source. Full
+          workspace builds require Rust, LLVM 22, clang, and PHP for
+          compatibility fixture generation.
         </p>
-        <pre className="mt-8 overflow-x-auto rounded-lg bg-[#101218] p-6 text-sm leading-7 text-slate-100 shadow-sm">
-          <code>{`git clone https://github.com/modoterra/echo.git
+        <CodeSnippet>{`git clone https://github.com/modoterra/echo.git
 cd echo
 cargo build -p xo
 cargo test --workspace
-cargo run -p xo -- run examples/hello.php`}</code>
-        </pre>
+cargo run -p xo -- run examples/hello.php`}</CodeSnippet>
       </section>
     </DocsShell>
   );
@@ -1715,55 +1977,75 @@ const phpBuiltinsRoute = createRoute({
 const phpBuiltinStringsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/strings",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />
+  ),
 });
 
 const phpBuiltinArraysRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/arrays",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />
+  ),
 });
 
 const phpBuiltinTypesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/types",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />
+  ),
 });
 
 const phpBuiltinMathRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/math",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />
+  ),
 });
 
 const phpBuiltinFilesystemRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/filesystem",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />
+  ),
 });
 
 const phpBuiltinReflectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/reflection",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />
+  ),
 });
 
 const phpBuiltinShellRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/shell",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />
+  ),
 });
 
 const phpBuiltinOutputBufferingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/output-buffering",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("output-buffering")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage
+      family={builtinFamilyBySlug.get("output-buffering")!}
+    />
+  ),
 });
 
 const phpBuiltinCoreRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/php-built-ins/core",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />
+  ),
 });
 
 const sourceBuildsRoute = createRoute({
