@@ -18,11 +18,14 @@ import { HomePage } from "./app";
 
 type DocsNavGroup = {
   title: string;
-  links: Array<{
-    label: string;
-    to: string;
-    disabled?: boolean;
-  }>;
+  links: DocsNavLink[];
+};
+
+type DocsNavLink = {
+  label: string;
+  to: string;
+  disabled?: boolean;
+  children?: DocsNavLink[];
 };
 
 type DocsShellProps = {
@@ -1601,6 +1604,51 @@ function RootLayout() {
   );
 }
 
+function DocsNavLinkItem({
+  link,
+  pathname,
+}: {
+  link: DocsNavLink;
+  pathname: string;
+}) {
+  const isActive = pathname === link.to;
+  const hasActiveChild = link.children?.some((child) => pathname === child.to);
+  const textClass = link.disabled
+    ? "text-sm leading-6 text-slate-300"
+    : isActive
+      ? "text-sm font-semibold leading-6 text-slate-950"
+      : "text-sm leading-6 text-slate-500 transition hover:text-slate-950";
+
+  return (
+    <li>
+      {link.disabled ? (
+        <span className={textClass}>{link.label}</span>
+      ) : (
+        <Link className={textClass} to={link.to}>
+          {link.label}
+        </Link>
+      )}
+      {link.children ? (
+        <ul
+          className={
+            hasActiveChild
+              ? "mt-3 space-y-3 border-l-3 border-orange-400 pl-3"
+              : "mt-3 space-y-3 border-l border-slate-200 pl-3"
+          }
+        >
+          {link.children.map((child) => (
+            <DocsNavLinkItem
+              key={child.label}
+              link={child}
+              pathname={pathname}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
 function DocsShell({ category, title, headings, children }: DocsShellProps) {
   const location = useLocation();
   const navigation: DocsNavGroup[] = [
@@ -1615,19 +1663,24 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
     {
       title: "Language",
       links: [
-        { label: "PHP Built-ins", to: "/docs/php-built-ins" },
-        { label: "Strings", to: "/docs/php-built-ins/strings" },
-        { label: "Arrays", to: "/docs/php-built-ins/arrays" },
-        { label: "Types", to: "/docs/php-built-ins/types" },
-        { label: "Math and Bases", to: "/docs/php-built-ins/math" },
-        { label: "Filesystem", to: "/docs/php-built-ins/filesystem" },
-        { label: "Reflection", to: "/docs/php-built-ins/reflection" },
-        { label: "Shell", to: "/docs/php-built-ins/shell" },
         {
-          label: "Output Buffering",
-          to: "/docs/php-built-ins/output-buffering",
+          label: "PHP Built-ins",
+          to: "/docs/php-built-ins",
+          children: [
+            { label: "Strings", to: "/docs/php-built-ins/strings" },
+            { label: "Arrays", to: "/docs/php-built-ins/arrays" },
+            { label: "Types", to: "/docs/php-built-ins/types" },
+            { label: "Math and Bases", to: "/docs/php-built-ins/math" },
+            { label: "Filesystem", to: "/docs/php-built-ins/filesystem" },
+            { label: "Reflection", to: "/docs/php-built-ins/reflection" },
+            { label: "Shell", to: "/docs/php-built-ins/shell" },
+            {
+              label: "Output Buffering",
+              to: "/docs/php-built-ins/output-buffering",
+            },
+            { label: "Core", to: "/docs/php-built-ins/core" },
+          ],
         },
-        { label: "Core", to: "/docs/php-built-ins/core" },
         {
           label: "PHP Compatibility",
           to: "/docs/php-compatibility",
@@ -1667,24 +1720,11 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
                 </h2>
                 <ul className="mt-5 space-y-3">
                   {group.links.map((link) => (
-                    <li key={link.label}>
-                      {link.disabled ? (
-                        <span className="text-sm leading-6 text-slate-300">
-                          {link.label}
-                        </span>
-                      ) : (
-                        <Link
-                          className={
-                            location.pathname === link.to
-                              ? "text-sm font-semibold leading-6 text-slate-950"
-                              : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
-                          }
-                          to={link.to}
-                        >
-                          {link.label}
-                        </Link>
-                      )}
-                    </li>
+                    <DocsNavLinkItem
+                      key={link.label}
+                      link={link}
+                      pathname={location.pathname}
+                    />
                   ))}
                 </ul>
               </section>
