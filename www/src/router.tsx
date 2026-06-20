@@ -1833,7 +1833,7 @@ function DocsLayout() {
         <aside className="hidden xl:block">
           <nav
             aria-label="On this page"
-            className="docs-on-this-page sticky top-32"
+            className="sticky top-32"
           >
             <h2 className="text-sm font-semibold text-slate-950">
               On this page
@@ -1849,21 +1849,21 @@ function DocsLayout() {
                 className="absolute left-[-1px] top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               />
-              <ul className="space-y-3">
-              {headings.map((heading) => (
-                <li key={heading}>
-                  <a
-                    className={
-                      activeHeading === heading
-                        ? "text-sm font-semibold leading-6 text-slate-950 transition"
-                        : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
-                    }
-                    href={`#${headingId(heading)}`}
-                  >
-                    {heading}
-                  </a>
-                </li>
-              ))}
+              <ul className="docs-on-this-page-links space-y-3">
+                {headings.map((heading) => (
+                  <li key={heading}>
+                    <a
+                      className={
+                        activeHeading === heading
+                          ? "text-sm font-semibold leading-6 text-slate-950 transition"
+                          : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
+                      }
+                      href={`#${headingId(heading)}`}
+                    >
+                      {heading}
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
           </nav>

@@ -167,30 +167,30 @@
     }
 }
 
-.docs-on-this-page {
-    view-transition-name: docs-on-this-page;
+.docs-on-this-page-links {
+    view-transition-name: docs-on-this-page-links;
     contain: layout;
 }
 
-::view-transition-old(docs-on-this-page),
-::view-transition-new(docs-on-this-page) {
+::view-transition-old(docs-on-this-page-links),
+::view-transition-new(docs-on-this-page-links) {
     animation-duration: 260ms;
     animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 :root:active-view-transition-type(route-transition)::view-transition-old(
-        docs-on-this-page
+        docs-on-this-page-links
     ) {
-    animation-name: docs-on-this-page-out;
+    animation-name: docs-on-this-page-links-out;
 }
 
 :root:active-view-transition-type(route-transition)::view-transition-new(
-        docs-on-this-page
+        docs-on-this-page-links
     ) {
-    animation-name: docs-on-this-page-in;
+    animation-name: docs-on-this-page-links-in;
 }
 
-@keyframes docs-on-this-page-out {
+@keyframes docs-on-this-page-links-out {
     from {
         opacity: 1;
         clip-path: inset(0 0 0 0);
@@ -202,10 +202,10 @@
     }
 }
 
-@keyframes docs-on-this-page-in {
+@keyframes docs-on-this-page-links-in {
     from {
         opacity: 0;
-        clip-path: inset(100% 0 0 0);
+        clip-path: inset(0 0 100% 0);
     }
 
     to {
