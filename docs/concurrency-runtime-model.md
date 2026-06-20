@@ -23,6 +23,8 @@ Mio wakes sockets.
 Echo wakes tasks.
 ```
 
+Use this boundary when choosing where behavior belongs: readiness and OS polling stay in `echo_runtime`; task state and scheduling stay in Echo-owned runtime concepts.
+
 Mio, Crossbeam, Parking Lot, Slab, and similar crates are implementation details inside `echo_runtime`. Echo AST, parser, codegen, and user-facing APIs must not expose those crates or Rust `Future` concepts.
 
 ## Runtime Concepts
@@ -54,6 +56,8 @@ loop {
 }
 ```
 
+This form is for server and stream loops where the body owns the stop condition. The header stays unconditional, and the body decides whether to break, return, or keep serving work.
+
 Meaning:
 
 - Repeats until the body exits with `break`, `return`, a thrown error, cancellation, or another terminating construct.
@@ -72,6 +76,8 @@ fn waitForConnection($server): TcpConnection {
     }
 }
 ```
+
+This example shows why `loop` may become expression-valued: the loop can keep polling until it has the value the caller needs, then return that value through `break`.
 
 ### `fn` and `gen fn`
 
@@ -95,6 +101,8 @@ gen fn connections($server): TcpConnection {
 }
 ```
 
+Use `fn` for ordinary functions and `gen fn` only when callers should consume yielded values. The yielded item type remains visible at the source level instead of being hidden behind runtime machinery.
+
 Meaning:
 
 - `fn name(...) { ... }` declares an Echo function.
@@ -113,6 +121,8 @@ $task = defer {
     return fetch_user($id)
 }
 ```
+
+This is the scheduling primitive for work that should be described now and started later. It is useful when a caller needs to collect work before deciding how much to run.
 
 Meaning:
 
@@ -133,6 +143,8 @@ $task = run {
 $user = join $task
 ```
 
+This is the normal lightweight concurrency pattern: start I/O-oriented work, keep the handle, and join where the result is actually needed.
+
 Meaning:
 
 - Returns an `EchoTask<T>` handle.
@@ -151,6 +163,8 @@ run $task
 $user = join $task
 ```
 
+This separates task construction from task start. Use it when retry, batching, or admission control needs to happen before work becomes runnable.
+
 If the task is already running, finished, or failed, the runtime should report a clear error.
 
 ### Task Groups
@@ -163,6 +177,8 @@ A future task-group expression should start multiple lightweight tasks concurren
     fetch_posts($id)
 }
 ```
+
+This shape is for independent requests whose results are consumed together. Source order controls result order, even though execution order remains unspecified.
 
 Meaning:
 
@@ -186,6 +202,8 @@ echo_task_group_add(group, task_b)
 results = echo_task_group_run_and_join(group)
 ```
 
+The lowering keeps task groups as runtime-owned handles. The compiler can preserve ordering without exposing queues, pollers, or worker internals to source programs.
+
 ### `fork`
 
 `fork { ... }` starts OS-thread-backed parallel work.
@@ -197,6 +215,8 @@ $worker = fork {
 
 $image = join $worker
 ```
+
+Use `fork` when the work should actually run in parallel or may block an OS thread. Lightweight Echo tasks should stay on `run`.
 
 Meaning:
 
@@ -215,6 +235,8 @@ $proc = spawn "worker --queue=emails"
 $status = join $proc
 ```
 
+This is the process boundary. It should be used for external executables, not for Echo task scheduling or thread-backed parallel work.
+
 Meaning:
 
 - Starts a child process.
@@ -231,6 +253,8 @@ $value = join $task
 $result = join $thread
 $status = join $proc
 ```
+
+`join` is intentionally shared across handle kinds, but the runtime behavior depends on the handle. Joining an Echo task should suspend cooperatively when already inside the scheduler.
 
 Meaning:
 
@@ -296,6 +320,8 @@ pub struct JoinExpr {
 }
 ```
 
+These AST nodes keep concurrency constructs explicit after parsing. Later compiler stages should not recover `run`, `fork`, or `join` behavior from generic calls or ad hoc strings.
+
 Parser support should be careful with PHP compatibility, but Echo features are always available. In Echo mode, valid PHP stays valid while `run`, `fork`, `spawn`, and `join` can also be used as Echo syntax where unambiguous. Strict mode may reject unsafe PHP patterns, but it must not be the only way to use Echo concurrency features.
 
 The first parser slices support `run $task`, `fork $worker`, `spawn "cmd"`, `join $task`, and assignment block forms such as `$task = defer { ... };`, `$task = run { ... };`, and `$worker = fork { ... };`. General block expressions in every expression position still need a broader parser refactor.
@@ -308,10 +334,14 @@ run $task;
 $user = join $task;
 ```
 
+This output should identify a deferred task that is started later by `run $task`.
+
 ```php
 $task = run { return fetch_user($id); };
 $user = join $task;
 ```
+
+This output should identify a task that starts immediately from a block expression.
 
 ```php
 [$user, $posts] = run [
@@ -320,15 +350,21 @@ $user = join $task;
 ];
 ```
 
+This output should preserve grouped entries in source order so later lowering can return ordered results.
+
 ```php
 $worker = fork { return cpu_work(); };
 $result = join $worker;
 ```
 
+This output should distinguish OS-thread-backed work from lightweight Echo tasks.
+
 ```php
 $proc = spawn "worker --queue=emails";
 $status = join $proc;
 ```
+
+This output should distinguish child-process execution from both task and thread execution.
 
 ## Task State Model
 
@@ -354,6 +390,8 @@ pub enum WaitReason {
 }
 ```
 
+The single `Waiting(WaitReason)` shape keeps the scheduler state machine compact. New wait sources should usually add a `WaitReason`, not a new top-level task state.
+
 Do not add top-level states such as `WaitingIo`, `Sleeping`, `WaitingThread`, or `WaitingProcess`.
 
 Lifecycle examples:
@@ -375,6 +413,8 @@ Scheduler invariant:
 ```text
 An EchoTask is always Deferred, Runnable, Running, Waiting, Finished, or Failed.
 ```
+
+Use this invariant as the quick check for scheduler changes. A task should never need an implicit or side-channel state to explain what the worker may do next.
 
 ## Runtime ABI Direction
 
@@ -406,6 +446,8 @@ EchoProcess *echo_process_spawn(const uint8_t *cmd, uint64_t cmd_len);
 EchoValue echo_process_join(EchoProcess *process);
 ```
 
+This ABI keeps generated LLVM talking to opaque Echo runtime handles. It leaves Mio, queues, fiber storage, and process internals behind the Rust runtime boundary.
+
 Potential LLVM declaration shape:
 
 ```llvm
@@ -425,6 +467,8 @@ declare ptr @echo_process_spawn(ptr, i64)
 declare %EchoValue @echo_process_join(ptr)
 ```
 
+These declarations are the compiler-facing version of the ABI. They should stay narrow enough that codegen can emit calls without knowing the runtime implementation strategy.
+
 ## Lowering Direction
 
 `defer { ... }`:
@@ -434,6 +478,8 @@ declare %EchoValue @echo_process_join(ptr)
 %task = call ptr @echo_task_defer(ptr %closure)
 ```
 
+Lower `defer` to a closure plus a non-started task handle. No scheduling should happen from this sequence.
+
 `run { ... }`:
 
 ```llvm
@@ -441,17 +487,23 @@ declare %EchoValue @echo_process_join(ptr)
 %task = call ptr @echo_task_run(ptr %closure)
 ```
 
+Lower `run` blocks to immediate scheduling through the runtime. The returned value remains a handle, not the task result.
+
 `run $task`:
 
 ```llvm
 %started = call ptr @echo_task_start(ptr %task)
 ```
 
+Lower `run $task` as a state transition on an existing deferred handle. Runtime validation should reject handles that are not startable.
+
 `join $task`:
 
 ```llvm
 %result = call %EchoValue @echo_task_join(ptr %task)
 ```
+
+Lower `join` to the handle-specific runtime wait point. If called from an Echo task, the runtime can suspend that task instead of blocking the worker.
 
 Task group expression:
 
@@ -468,6 +520,8 @@ call void @echo_task_group_add(ptr %group, ptr %task_b)
 
 %results = call %EchoValue @echo_task_group_run_and_join(ptr %group)
 ```
+
+Lower task groups by adding deferred tasks in source order, then let the runtime start and join them together. This keeps ordering semantics in one place.
 
 If closure/callable lowering is not ready, parser/AST support can land first and codegen can emit explicit unsupported diagnostics.
 
@@ -491,6 +545,8 @@ net
 time
 ```
 
+This layout documents ownership boundaries inside `echo_runtime`. New scheduler, I/O, and process behavior should land in these runtime modules rather than leaking into parser or codegen structures.
+
 Do not add `job.rs`.
 
 Recommended dependency lock-in for `echo_runtime`:
@@ -511,6 +567,8 @@ libc = "0.2"
 httparse = "1"
 http = "1"
 ```
+
+These dependencies are runtime implementation tools. They should remain contained in `echo_runtime` and should not become source-language concepts or compiler API types.
 
 Dependency purposes:
 
@@ -559,6 +617,8 @@ pub struct Worker {
 }
 ```
 
+This worker state is the minimal scheduler inventory: runnable tasks, timers, readiness polling, task storage, and shutdown state.
+
 Minimal resume result:
 
 ```rust
@@ -569,6 +629,8 @@ pub enum FiberResult {
     Failed(EchoError),
 }
 ```
+
+This result tells the worker exactly how to update a task after resuming it. The worker should not infer completion or waiting state from unrelated side effects.
 
 Event-loop structure:
 
@@ -582,6 +644,8 @@ while not shutting down:
   convert readiness into runnable tasks
   stop when no work remains
 ```
+
+This loop shows the intended fairness model: advance timers, run bounded task work, poll I/O, then wake tasks from readiness.
 
 Run a bounded number of tasks per tick so a large runnable queue does not starve sockets/timers. If tasks remain runnable, do a non-blocking I/O poll. If no tasks are runnable, block until the next timer or I/O event.
 
@@ -607,6 +671,8 @@ Long CPU-heavy work belongs in fork.
 Echo-aware I/O must suspend instead of blocking the OS thread.
 ```
 
+Use this rule when deciding whether an operation belongs in `run` or `fork`. Work that cannot yield cooperatively should not occupy the lightweight task scheduler.
+
 A task waiting on I/O, timer, task, thread, or process completion becomes runnable when ready. It resumes after earlier runnable tasks get a chance to run. A task that never yields can block its worker.
 
 Future improvement: compiler/runtime safepoints in loops or function prologues.
@@ -617,6 +683,8 @@ loop:
   ; loop body
   br label %loop
 ```
+
+This is the future compiler hook for cooperative preemption. It should wait until the runtime state model is stable enough to make safepoints predictable.
 
 Do not implement safepoints until the scheduler/fiber model is stable.
 
@@ -630,6 +698,8 @@ Rule:
 All asynchronous callbacks run as EchoTasks.
 ```
 
+This keeps callbacks inside the same scheduling model as user-created tasks. There should not be a second callback runner with separate lifetime rules.
+
 Future behavior:
 
 ```text
@@ -638,6 +708,8 @@ Runtime finds callback.
 Runtime creates EchoTask for callback.
 Scheduler runs that task.
 ```
+
+This sequence converts readiness into normal Echo work. It prevents I/O callbacks from bypassing task state, diagnostics, and cancellation policy later.
 
 This keeps one executable unit: `EchoTask`.
 
@@ -668,6 +740,8 @@ pub struct IoToken(pub usize);
 pub struct CallbackId(pub usize);
 ```
 
+These IDs are internal handles for runtime tables. Source programs and compiler AST nodes should not depend on their concrete representation.
+
 Minimal task table:
 
 ```rust
@@ -685,6 +759,8 @@ pub struct Task {
 }
 ```
 
+The task table centralizes task storage and later fiber/callable/result bookkeeping. Scheduler code should pass stable IDs rather than borrowing task internals across waits.
+
 Minimal Mio wrapper:
 
 ```rust
@@ -698,6 +774,8 @@ impl MioPoller {
     pub fn poll(&mut self, timeout: Option<Duration>) -> RuntimeResult<Vec<ReadyEvent>>;
 }
 ```
+
+This wrapper isolates Mio from the rest of the runtime. Other modules should consume readiness events, not Mio-specific types.
 
 ## First Implementation Slices
 
