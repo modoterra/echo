@@ -5,7 +5,7 @@ import { Logo } from "./components/logo";
 import { GradientBackground } from "./components/gradient-background";
 import { applyRandomization } from "./lib/randomize-bg";
 
-function App() {
+export function HomePage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
@@ -45,17 +45,6 @@ function App() {
   return (
     <main className="hero flex min-h-screen items-center justify-center bg-white p-6 text-slate-950">
       <GradientBackground />
-      <nav
-        aria-label="Primary navigation"
-        className="absolute left-1/2 top-8 z-10 flex w-full max-w-[624px] -translate-x-1/2 items-center justify-start gap-8 text-sm font-semibold text-slate-500 sm:top-12"
-      >
-        <a className="transition hover:text-slate-950" href="/">
-          Home
-        </a>
-        <a className="transition hover:text-slate-950" href="/docs">
-          Docs
-        </a>
-      </nav>
       <section className="hero-content relative h-[500px] w-full max-w-[624px] sm:h-[520px]">
         <motion.div
           initial={false}
@@ -88,4 +77,4 @@ function App() {
   );
 }
 
-export default App;
+export default HomePage;
