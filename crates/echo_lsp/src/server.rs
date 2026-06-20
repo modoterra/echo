@@ -891,6 +891,13 @@ $app->handleRequest(Request::capture());
                     == Some(&Uri::from_file_path(fixture_root.join("vendor/autoload.php")).unwrap())
             })
             .expect("autoload document link");
+        let autoload_target_links = links
+            .iter()
+            .filter(|link| {
+                link.target.as_ref()
+                    == Some(&Uri::from_file_path(fixture_root.join("vendor/autoload.php")).unwrap())
+            })
+            .collect::<Vec<_>>();
 
         assert_eq!(
             link.range,
@@ -902,5 +909,6 @@ $app->handleRequest(Request::capture());
                 ),
             )
         );
+        assert_eq!(autoload_target_links.len(), 1);
     }
 }

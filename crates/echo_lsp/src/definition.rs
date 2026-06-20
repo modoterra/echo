@@ -40,7 +40,7 @@ pub fn dependency_target_location_at(
     match dependency.kind {
         DependencyKind::PhpUse => {
             let path = composer_class_file(index, &dependency.target)?;
-            file_location(index, &path, TextRange::new(0, 0))
+            class_location(index, &path, &dependency.target)
         }
         DependencyKind::Require
         | DependencyKind::RequireOnce
@@ -74,14 +74,7 @@ pub fn reference_target_location_at(
             let class_name = resolve_imported_class_name(index, file_id, &reference.name)
                 .unwrap_or(reference.name);
             let path = composer_class_file(index, &class_name)?;
-            let class_file_id = index_php_file(index, &path)?;
-            if let Some(location) = class_symbol_location(index, class_file_id, &class_name) {
-                return symbol_location(index, location.file_id, location.selection_range);
-            }
-            if let Some(range) = php_class_name_range(&path, &class_name) {
-                return file_location(index, &path, range);
-            }
-            file_location(index, &path, TextRange::new(0, 0))
+            class_location(index, &path, &class_name)
         }
         ReferenceKind::StaticMethod => {
             let class_name = reference.qualifier.as_deref()?;
@@ -99,6 +92,17 @@ pub fn reference_target_location_at(
         }
         ReferenceKind::Method => None,
     }
+}
+
+fn class_location(index: &mut EchoIndex, path: &Path, class_name: &str) -> Option<Location> {
+    let class_file_id = index_php_file(index, path)?;
+    if let Some(location) = class_symbol_location(index, class_file_id, class_name) {
+        return symbol_location(index, location.file_id, location.selection_range);
+    }
+    if let Some(range) = php_class_name_range(path, class_name) {
+        return file_location(index, path, range);
+    }
+    file_location(index, path, TextRange::new(0, 0))
 }
 
 pub fn receiver_method_definition_at(
@@ -696,6 +700,8 @@ mod tests {
             .expect("fixture root");
         let autoload = fixture_root.join("vendor/autoload.php");
         let request = fixture_root.join("vendor/laravel/framework/src/Illuminate/Http/Request.php");
+        let request_source = std::fs::read_to_string(&request).expect("request source");
+        let class_start = request_source.find("Request").expect("request class");
         let mut index = EchoIndex::new();
         let file_id = FileId(1);
         index.insert_file(IndexedFile {
@@ -736,6 +742,14 @@ mod tests {
             .expect("Request target location");
 
         assert_eq!(location.uri, Uri::from_file_path(&request).unwrap());
+        assert_eq!(
+            location.range.start,
+            range_to_lsp_range(
+                &Rope::from_str(&request_source),
+                TextRange::new(class_start as u32, class_start as u32)
+            )
+            .start
+        );
     }
 
     #[test]
