@@ -174,7 +174,7 @@
 
 ::view-transition-old(docs-on-this-page),
 ::view-transition-new(docs-on-this-page) {
-    animation-duration: 220ms;
+    animation-duration: 260ms;
     animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -193,24 +193,24 @@
 @keyframes docs-on-this-page-out {
     from {
         opacity: 1;
-        transform: translateY(0);
+        clip-path: inset(0 0 0 0);
     }
 
     to {
         opacity: 0;
-        transform: translateY(-6px);
+        clip-path: inset(0 0 100% 0);
     }
 }
 
 @keyframes docs-on-this-page-in {
     from {
         opacity: 0;
-        transform: translateY(6px);
+        clip-path: inset(100% 0 0 0);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+        clip-path: inset(0 0 0 0);
     }
 }
 
