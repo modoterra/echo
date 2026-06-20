@@ -103,6 +103,8 @@ tokio::task::spawn_blocking(move || {
 .await
 ```
 
+Use this only at the LSP boundary if parsing needs to move off the async worker. Parser APIs should stay synchronous and reusable by the CLI, tests, and future tools.
+
 ## File Modes
 
 The LSP must select source mode from the URI and pass it into the shared parser
@@ -225,6 +227,8 @@ Warning     -> DiagnosticSeverity::WARNING
 Information -> DiagnosticSeverity::INFORMATION
 Hint        -> DiagnosticSeverity::HINT
 ```
+
+This mapping keeps internal diagnostic vocabulary stable while translating to the severity values expected by editors.
 
 ## Capabilities
 

@@ -146,6 +146,8 @@ pub enum OptimizationLevel {
 }
 ```
 
+This enum should be the shared boundary between CLI parsing and build behavior, so optimization mode handling does not drift between `xo build`, IR emission, and native linking.
+
 2. Parse optimization flags on `xo build`, defaulting to `O0`. **Done.**
 
 3. Verify LLVM modules after IR generation and before optimization/linking. **Done through external `opt -passes=verify`.**

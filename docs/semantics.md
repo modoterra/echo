@@ -15,6 +15,8 @@ echo_parser -> echo_ast -> echo_semantics -> echo_codegen
                                       +-> future echo_lsp
 ```
 
+Use this flow when adding language facts: parser output should stay syntactic, and shared semantic analysis should feed every execution or presentation surface.
+
 `xo repl` must not maintain a private type environment. It may keep an open
 program session as source/AST state, but display metadata should come from
 `echo_semantics` over that accumulated program. File compilation uses the same

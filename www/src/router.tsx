@@ -725,12 +725,14 @@ echo "Import complete\\n"`,
   ],
   [
     "function_exists",
-    `let $payload = "c2Vzc2lvbjoxMjM="
+    `let $storedSession = "c2Vzc2lvbjoxMjM="
 
 if (function_exists("base64_decode")) {
-    let $session = base64_decode($payload)
+    let $session = base64_decode($storedSession)
 
     echo "Decoded session: " . $session . "\\n"
+} else {
+    echo "Session is still encoded\\n"
 }`,
   ],
   [

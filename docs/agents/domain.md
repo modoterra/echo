@@ -22,6 +22,8 @@ Single-context repo:
 └── crates/
 ```
 
+This layout keeps shared vocabulary in one root context while ADRs capture decisions that are specific enough to need historical context.
+
 ## Use the glossary's vocabulary
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
@@ -33,3 +35,5 @@ If the concept you need isn't in the glossary yet, that's a signal: either you'r
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
 > _Contradicts ADR-0007 (event-sourced orders) but worth reopening because..._
+
+Use this form when a proposed change is plausible but conflicts with a recorded decision, so the conflict is visible before implementation work starts.
