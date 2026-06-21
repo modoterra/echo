@@ -1123,15 +1123,16 @@ function SiteFooter() {
         >
           <defs>
             <pattern
-              height="14"
+              height="10"
               id="footer-echo-pixels"
+              patternTransform="translate(0 2)"
               patternUnits="userSpaceOnUse"
-              width="14"
+              width="10"
             >
               <rect
                 fill="url(#footer-echo-fade)"
-                height="11"
-                width="11"
+                height="8.5"
+                width="8.5"
                 x="0"
                 y="0"
               />
