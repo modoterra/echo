@@ -952,6 +952,38 @@ function RootLayout() {
   );
 }
 
+function NotFoundPage() {
+  return (
+    <main className="bg-white px-6 py-28 text-slate-950">
+      <section className="mx-auto max-w-3xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+          404
+        </p>
+        <h1 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
+          Page not found
+        </h1>
+        <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
+          The requested Echo docs page does not exist or has moved.
+        </p>
+        <div className="mt-9 flex flex-wrap gap-3">
+          <Link
+            className="inline-flex items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+            to="/docs"
+          >
+            Open docs
+          </Link>
+          <Link
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+            to="/"
+          >
+            Go home
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 type FooterLink =
   | { label: string; href: string; disabled?: false }
   | { label: string; disabled: true };
@@ -1587,6 +1619,7 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
 
 const rootRoute = createRootRoute({
   component: RootLayout,
+  notFoundComponent: NotFoundPage,
 });
 
 const indexRoute = createRoute({
@@ -1615,37 +1648,37 @@ const sourceModesRoute = createRoute({
 
 const standardLibraryRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "standard-library",
+  path: "std",
   component: () => <DocsContentPage page={docsPages[2]} />,
 });
 
 const standardLibraryNetRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "standard-library/net",
+  path: "std/net",
   component: () => <DocsContentPage page={docsPages[3]} />,
 });
 
 const standardLibraryHttpRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "standard-library/http",
+  path: "std/http",
   component: () => <DocsContentPage page={docsPages[4]} />,
 });
 
 const standardLibraryTimeRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "standard-library/time",
+  path: "std/time",
   component: () => <DocsContentPage page={docsPages[5]} />,
 });
 
 const standardLibraryReflectRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "standard-library/reflect",
+  path: "std/reflect",
   component: () => <DocsContentPage page={docsPages[6]} />,
 });
 
 const standardLibraryAssertRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "standard-library/assert",
+  path: "std/assert",
   component: () => <DocsContentPage page={docsPages[7]} />,
 });
 

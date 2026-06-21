@@ -3052,7 +3052,7 @@ export const docsPages: DocsPage[] = [
   },
   {
     id: "standard-library",
-    path: "/docs/standard-library",
+    path: "/docs/std",
     navGroup: "Language",
     category: "Language",
     title: "Standard Library",
@@ -3215,7 +3215,7 @@ export const docsPages: DocsPage[] = [
   },
   {
     id: "standard-library-net",
-    path: "/docs/standard-library/net",
+    path: "/docs/std/net",
     navGroup: "Language",
     category: "Standard Library",
     title: "net",
@@ -3224,33 +3224,169 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.net", "networking", "tcp server", "tcp connection"],
     sections: [
       {
-        title: "listen, connect, read, write",
-        tags: ["tcp", "network", "listen", "connect"],
-        aliases: ["networking", "tcp server", "tcp connection"],
+        title: "listen",
+        tags: ["tcp", "network", "listen", "server"],
+        aliases: ["tcp server", "listener"],
         blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "listen(string $address): TcpServer" }],
+          },
           {
             kind: "paragraph",
             text: [
               { code: "listen()" },
-              " opens a TCP listener, ",
-              { code: "connect()" },
-              " opens an outbound TCP connection, and ",
-              { code: "read()" },
-              ", ",
-              { code: "write()" },
-              ", and ",
-              { code: "close()" },
-              " move bytes across the connection and release it when the exchange is finished.",
+              " opens a TCP listener bound to an address and returns a server handle that can accept inbound connections.",
             ],
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, \"received \" . strlen($request) . \" bytes\\n\")\nnet.close($connection)",
+            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\necho \"Listening on 127.0.0.1:8080\\n\"",
           },
           {
             kind: "paragraph",
             text: [
-              "This pattern keeps the listener, accepted connection, read buffer, response write, and close operation in one workflow. Prefer it for low-level TCP services where the program needs direct control over connection lifetime.",
+              "Use this when the Echo program owns the socket server. Keep the bound address explicit so local development and deployed listeners are easy to audit.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "connect",
+        tags: ["tcp", "network", "connect", "client"],
+        aliases: ["tcp client", "connection"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "connect(string $address): TcpConnection" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "connect()" },
+              " opens an outbound TCP connection to an address and returns a connection handle for reads and writes.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nnet.write($connection, \"ping\\n\")\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this for clients that speak directly to another TCP service. Close the connection when the exchange is complete so resources are released predictably.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "accept",
+        tags: ["tcp", "network", "accept", "server"],
+        aliases: ["accept connection", "inbound connection"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "accept(TcpServer $server): TcpConnection" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "accept()" },
+              " waits for the next inbound connection on a server handle and returns a connection handle for that client.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nnet.write($connection, \"hello\\n\")\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this after creating a listener when the program is ready to handle one client connection. Pair accepted connections with explicit writes, reads, and close calls.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "read",
+        tags: ["tcp", "network", "read", "bytes"],
+        aliases: ["read bytes", "connection read"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "read(TcpConnection $connection, int $maxBytes): bytes" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "read()" },
+              " reads up to the requested number of bytes from a connection and returns the bytes received.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $chunk = net.read($connection, 4096)\necho \"Read \" . strlen($chunk) . \" bytes\\n\"\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use a bounded read size that fits the protocol or framing layer you expect. The returned bytes can then feed parsing, logging, or response decisions.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "write",
+        tags: ["tcp", "network", "write", "bytes"],
+        aliases: ["write bytes", "connection write"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "write(TcpConnection $connection, bytes|string $data): int" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "write()" },
+              " sends bytes or a string to a connection and returns the number of bytes written.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $written = net.write($connection, \"status=ready\\n\")\necho \"Wrote \" . $written . \" bytes\\n\"\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use the returned byte count when a protocol needs to confirm that a complete message was sent or record how much data left the process.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "close",
+        tags: ["tcp", "network", "close", "connection"],
+        aliases: ["close connection", "release socket"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "close(TcpConnection $connection): void" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "close()" },
+              " closes a TCP connection and releases the underlying runtime resource.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nnet.write($connection, \"done\\n\")\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Close connections at the end of each exchange so long-running programs do not keep sockets open after their work is finished.",
             ],
           },
         ],
@@ -3259,7 +3395,7 @@ export const docsPages: DocsPage[] = [
   },
   {
     id: "standard-library-http",
-    path: "/docs/standard-library/http",
+    path: "/docs/std/http",
     navGroup: "Language",
     category: "Standard Library",
     title: "http",
@@ -3272,6 +3408,10 @@ export const docsPages: DocsPage[] = [
         tags: ["http", "response", "request"],
         aliases: ["http response", "http request"],
         blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "responseText(string $body): bytes" }],
+          },
           {
             kind: "paragraph",
             text: [
@@ -3293,11 +3433,39 @@ export const docsPages: DocsPage[] = [
           },
         ],
       },
+      {
+        title: "readRequest",
+        tags: ["http", "request", "read"],
+        aliases: ["http request", "read request"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "readRequest(TcpConnection $connection): Request" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "readRequest()" },
+              " reads and parses an HTTP request from an open TCP connection.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std http\nuse std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nlet $request = http.readRequest($connection)\n\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this at the server boundary when request parsing should happen before routing, validation, or response generation.",
+            ],
+          },
+        ],
+      },
     ],
   },
   {
     id: "standard-library-time",
-    path: "/docs/standard-library/time",
+    path: "/docs/std/time",
     navGroup: "Language",
     category: "Standard Library",
     title: "time",
@@ -3310,6 +3478,10 @@ export const docsPages: DocsPage[] = [
         tags: ["sleep", "time", "scheduling"],
         aliases: ["sleep", "delay", "timer"],
         blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "sleep(int $millis): void" }],
+          },
           {
             kind: "paragraph",
             text: [
@@ -3333,7 +3505,7 @@ export const docsPages: DocsPage[] = [
   },
   {
     id: "standard-library-reflect",
-    path: "/docs/standard-library/reflect",
+    path: "/docs/std/reflect",
     navGroup: "Language",
     category: "Standard Library",
     title: "reflect",
@@ -3342,21 +3514,75 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.reflect", "introspection", "function metadata"],
     sections: [
       {
-        title: "exists, params, returnType, typeOf",
-        tags: ["reflection", "type", "metadata"],
-        aliases: ["introspection", "function metadata"],
+        title: "exists",
+        tags: ["reflection", "exists", "metadata"],
+        aliases: ["symbol exists", "function exists"],
         blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "exists(string $name): bool" }],
+          },
           {
             kind: "paragraph",
             text: [
               { code: "exists()" },
-              " checks whether a symbol is known, ",
+              " checks whether a symbol is known to Echo reflection.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" is available\\n\"\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this before reporting or calling optional functionality so diagnostics can distinguish a missing symbol from a later runtime failure.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "params",
+        tags: ["reflection", "params", "signature", "metadata"],
+        aliases: ["function parameters", "parameter metadata"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "params(string $name): string" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
               { code: "params()" },
-              " and ",
+              " returns a string description of a function's parameters.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" params: \" . reflect.params($name) . \"\\n\"\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this for documentation and debugging tools that need to display how a reflected function should be called.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "returnType",
+        tags: ["reflection", "return type", "signature", "metadata"],
+        aliases: ["function return type", "return metadata"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "returnType(string $name): string" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
               { code: "returnType()" },
-              " describe function signatures, and ",
-              { code: "typeOf()" },
-              " reports the runtime type of a value.",
+              " returns a string description of a function's return type.",
             ],
           },
           {
@@ -3366,7 +3592,35 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Use reflection for diagnostics, documentation tooling, and compatibility checks that need to explain what the runtime knows about a symbol before calling it.",
+              "Use this when a diagnostic, generated reference, or compatibility check needs to explain what a function returns.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "typeOf",
+        tags: ["reflection", "type", "value"],
+        aliases: ["runtime type", "value type"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "typeOf(mixed $value): string" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "typeOf()" },
+              " reports the runtime type of a value.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std reflect\n\nlet $value = \"signed:user-42\"\necho \"Value type: \" . reflect.typeOf($value) . \"\\n\"",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this when an example or diagnostic needs to show the type Echo sees at runtime instead of relying on a source-level guess.",
             ],
           },
         ],
@@ -3375,7 +3629,7 @@ export const docsPages: DocsPage[] = [
   },
   {
     id: "standard-library-assert",
-    path: "/docs/standard-library/assert",
+    path: "/docs/std/assert",
     navGroup: "Language",
     category: "Standard Library",
     title: "assert",
@@ -3384,27 +3638,57 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.assert", "assertions", "test helpers"],
     sections: [
       {
-        title: "ok and equals",
-        tags: ["assert", "testing", "validation"],
-        aliases: ["assertions", "test helpers"],
+        title: "ok",
+        tags: ["assert", "testing", "validation", "ok"],
+        aliases: ["assert condition", "assert true"],
         blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "ok(bool $condition): bool" }],
+          },
           {
             kind: "paragraph",
             text: [
               { code: "ok()" },
-              " asserts that a condition is true, and ",
+              " asserts that a condition is true and fails clearly when the condition is false.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nassert.ok(str_contains($payload, \":\"))",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this for invariant checks where the exact value matters less than whether a condition holds before later code depends on it.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "equals",
+        tags: ["assert", "testing", "validation", "equals"],
+        aliases: ["assert equals", "expected value"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "equals(mixed $actual, mixed $expected): bool" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
               { code: "equals()" },
               " asserts that an actual value matches the expected value.",
             ],
           },
           {
             kind: "code",
-            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nlet $parts = explode(\":\", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == \"signed\")",
+            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nlet $parts = explode(\":\", $payload)\n\nassert.equals(count($parts), 2)\nassert.equals($parts[0], \"signed\")",
           },
           {
             kind: "paragraph",
             text: [
-              "Assertions are useful at the edge of examples and fixtures where a program should fail clearly if a parsed or transformed value no longer matches the expected shape.",
+              "Use this when the expected value is concrete and a mismatch should stop the example, fixture, or check at the point of failure.",
             ],
           },
         ],
@@ -3464,13 +3748,13 @@ export const docsNavigation: DocsNavGroup[] = [
       },
       {
         label: "Standard Library",
-        to: "/docs/standard-library",
+        to: "/docs/std",
         children: [
-          { label: "net", to: "/docs/standard-library/net" },
-          { label: "http", to: "/docs/standard-library/http" },
-          { label: "time", to: "/docs/standard-library/time" },
-          { label: "reflect", to: "/docs/standard-library/reflect" },
-          { label: "assert", to: "/docs/standard-library/assert" },
+          { label: "net", to: "/docs/std/net" },
+          { label: "http", to: "/docs/std/http" },
+          { label: "time", to: "/docs/std/time" },
+          { label: "reflect", to: "/docs/std/reflect" },
+          { label: "assert", to: "/docs/std/assert" },
         ],
       },
       { label: "PHP Compatibility", to: "/docs/php-compatibility", disabled: true },
