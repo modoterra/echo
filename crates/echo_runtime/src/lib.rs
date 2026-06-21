@@ -1718,6 +1718,53 @@ pub extern "C" fn echo_php_array_keys(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_fill(
+    start_index: EchoValue,
+    count: EchoValue,
+    value: EchoValue,
+) -> EchoValue {
+    let Some(start_index) = start_index.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(count) = count.php_int_value() else {
+        return EchoValue::error();
+    };
+    if !(0..=i32::MAX as i64).contains(&count) {
+        return EchoValue::error();
+    }
+
+    let mut keys = Vec::with_capacity(count as usize);
+    let mut values = Vec::with_capacity(count as usize);
+    for offset in 0..count {
+        let Some(key) = start_index.checked_add(offset) else {
+            return EchoValue::error();
+        };
+        keys.push(EchoArrayKey::Int(key));
+        values.push(value);
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_fill_keys(keys: EchoValue, value: EchoValue) -> EchoValue {
+    if !keys.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(keys_array) = (unsafe { (keys.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut result = echo_value_array_new();
+    for key_value in &keys_array.values {
+        result = echo_value_array_set(result, *key_value, value);
+    }
+
+    result
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_key_exists(key: EchoValue, array: EchoValue) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
@@ -5316,6 +5363,61 @@ mod tests {
         assert_eq!(
             echo_php_array_product(echo_value_array_new()),
             EchoValue::int(1)
+        );
+    }
+
+    #[test]
+    fn array_fill_builtins_preserve_php_key_construction_behavior() {
+        let fill = echo_php_array_fill(
+            EchoValue::int(-2),
+            EchoValue::int(4),
+            test_string_value(b"pear"),
+        );
+        let fill_ref = unsafe { (fill.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            fill_ref.keys,
+            vec![
+                EchoArrayKey::Int(-2),
+                EchoArrayKey::Int(-1),
+                EchoArrayKey::Int(0),
+                EchoArrayKey::Int(1)
+            ]
+        );
+        assert!(
+            fill_ref
+                .values
+                .iter()
+                .all(|value| value.string_bytes() == Some(b"pear".to_vec()))
+        );
+        assert_eq!(
+            echo_php_array_fill(EchoValue::int(0), EchoValue::int(-1), EchoValue::null()).kind,
+            ECHO_VALUE_ERROR
+        );
+
+        let mut keys = echo_value_array_new();
+        keys = echo_value_array_append(keys, test_string_value(b"sku"));
+        keys = echo_value_array_append(keys, test_string_value(b"2"));
+        keys = echo_value_array_append(keys, EchoValue::int(5));
+        keys = echo_value_array_append(keys, EchoValue::bool(true));
+        keys = echo_value_array_append(keys, EchoValue::null());
+        keys = echo_value_array_append(keys, test_string_value(b"sku"));
+        let keyed = echo_php_array_fill_keys(keys, test_string_value(b"todo"));
+        let keyed_ref = unsafe { (keyed.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            keyed_ref.keys,
+            vec![
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::Int(2),
+                EchoArrayKey::Int(5),
+                EchoArrayKey::Int(1),
+                EchoArrayKey::String(Vec::new())
+            ]
+        );
+        assert!(
+            keyed_ref
+                .values
+                .iter()
+                .all(|value| value.string_bytes() == Some(b"todo".to_vec()))
         );
     }
 

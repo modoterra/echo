@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 149 | 458 |
-| Loaded local PHP internals, including extensions | 1516 | 149 | 1367 |
+| Baseline (`Core` + `standard`) | 607 | 151 | 456 |
+| Loaded local PHP internals, including extensions | 1516 | 151 | 1365 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (124/545)
+### standard (126/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -136,8 +136,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_diff_key` | missing |  |
 | `array_diff_uassoc` | missing |  |
 | `array_diff_ukey` | missing |  |
-| `array_fill` | missing |  |
-| `array_fill_keys` | missing |  |
+| `array_fill` | implemented | Creates arrays with repeated values and sequential integer keys starting at the requested index, including PHP 8 negative-key increment behavior; out-of-range counts surface as runtime errors. Source: https://www.php.net/manual/en/function.array-fill.php |
+| `array_fill_keys` | implemented | Uses the input values as keys with PHP array-key coercion and fills every key with the requested value. Source: https://www.php.net/manual/en/function.array-fill-keys.php |
 | `array_filter` | missing |  |
 | `array_find` | missing |  |
 | `array_find_key` | missing |  |

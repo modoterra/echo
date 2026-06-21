@@ -571,6 +571,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ArrayKeys,
     },
     PhpBuiltin {
+        php_name: "array_fill",
+        symbol: "echo_php_array_fill",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "array_fill_keys",
+        symbol: "echo_php_array_fill_keys",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_key_exists",
         symbol: "echo_php_array_key_exists",
         helper_symbol: None,

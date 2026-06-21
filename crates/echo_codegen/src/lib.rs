@@ -579,6 +579,23 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_array_fill",
+            echo_runtime::echo_php_array_fill
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_array_fill_keys",
+            echo_runtime::echo_php_array_fill_keys
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_array_key_exists",
             echo_runtime::echo_php_array_key_exists
                 as extern "C" fn(
@@ -4741,6 +4758,40 @@ mod tests {
             "{ir}"
         );
         assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
+    }
+
+    #[test]
+    fn array_fill_lowers_to_three_echo_value_arguments() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_fill".to_string(),
+                args: vec![
+                    Expr::Number(NumberLiteral {
+                        value: "-2".to_string(),
+                        span: Span::new(11, 13),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "3".to_string(),
+                        span: Span::new(15, 16),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "x".to_string(),
+                        span: Span::new(18, 21),
+                    }),
+                ],
+                span: Span::new(0, 22),
+            })],
+            span: Span::new(0, 23),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_fill(%EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+        assert!(ir.contains("call %EchoValue @echo_php_array_fill("), "{ir}");
     }
 
     #[test]
