@@ -620,6 +620,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "array_count_values",
+        symbol: "echo_php_array_count_values",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_key_exists",
         symbol: "echo_php_array_key_exists",
         helper_symbol: None,
@@ -654,6 +662,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "in_array",
         symbol: "echo_php_in_array",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::InArray,
+    },
+    PhpBuiltin {
+        php_name: "array_search",
+        symbol: "echo_php_array_search",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,

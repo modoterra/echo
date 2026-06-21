@@ -240,7 +240,7 @@ Examples:
 - `echo_write(ptr, len)` is core runtime ABI because `echo` syntax needs output semantics.
 - `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
 - `echo_php_count(...)` is PHP builtin ABI because `count()` is a PHP compatibility function.
-- `echo_php_array_values(...)`, `echo_php_array_keys(...)`, `echo_php_array_fill(...)`, `echo_php_array_fill_keys(...)`, `echo_php_array_combine(...)`, `echo_php_array_pad(...)`, `echo_php_array_reverse(...)`, `echo_php_array_flip(...)`, `echo_php_array_key_exists(...)`, `echo_php_array_key_first(...)`, `echo_php_array_key_last(...)`, `echo_php_in_array(...)`, `echo_php_array_sum(...)`, and `echo_php_array_product(...)` are PHP builtin ABI because PHP exposes helpers for reading array keys, constructing repeated arrays, combining parallel arrays, padding rows to a target width, changing array order, building value-to-key lookups, checking membership, reindexing values, and aggregating numeric array contents.
+- `echo_php_array_values(...)`, `echo_php_array_keys(...)`, `echo_php_array_fill(...)`, `echo_php_array_fill_keys(...)`, `echo_php_array_combine(...)`, `echo_php_array_pad(...)`, `echo_php_array_reverse(...)`, `echo_php_array_flip(...)`, `echo_php_array_count_values(...)`, `echo_php_array_key_exists(...)`, `echo_php_array_key_first(...)`, `echo_php_array_key_last(...)`, `echo_php_in_array(...)`, `echo_php_array_search(...)`, `echo_php_array_sum(...)`, and `echo_php_array_product(...)` are PHP builtin ABI because PHP exposes helpers for reading array keys, constructing repeated arrays, combining parallel arrays, padding rows to a target width, changing array order, building value-to-key lookups, counting repeated values, checking membership, finding the first matching key, reindexing values, and aggregating numeric array contents.
 - `echo_php_function_exists(...)` is PHP builtin ABI because `function_exists()` is a PHP compatibility function.
 - `echo_php_gettype(...)` is PHP builtin ABI because `gettype()` is a PHP compatibility function.
 - `echo_php_is_array(...)` is PHP builtin ABI because `is_array()` is a PHP compatibility function.
@@ -300,7 +300,7 @@ chdir($start)
 ```
 
 Use `chdir()` when a group of operations naturally belongs under one directory, such as reading several fixture files, importing generated reports, or matching a legacy PHP script that expects relative paths. Capture `getcwd()` first so the original directory can be restored after the localized work; that keeps later relative paths from accidentally resolving against the temporary directory.
-`basename(getcwd())` is useful when a script needs a short human-facing location label after moving into a working directory. For example, a batch import can log `data` or `reports` in progress output while keeping the full build, fixture, or deployment path out of user-visible messages.
+`basename(getcwd())` is useful when full paths are operational details but the user only needs to know which workspace is active. A batch import, fixture runner, or deployment step can log `data` or `reports` in progress output, build status lines, or error messages without exposing the full build directory or host-specific path.
 
 Array key and lookup helpers are useful when a keyed row needs to be validated, normalized for display, or reduced to totals:
 
@@ -318,6 +318,8 @@ let $columns = array_keys($row);
 let $values = array_values($row);
 let $displayColumns = array_reverse($columns);
 let $columnOffsets = array_flip($columns);
+let $statusColumn = array_search("status", $columns, true);
+let $statusSummary = array_count_values([$row["status"], "paused", $row["status"]]);
 let $lineTotal = array_product([$row["price"], $row["quantity"]]);
 
 echo "first:" . array_key_first($row) . "\n";
@@ -333,10 +335,12 @@ echo "columns:" . implode(",", $columns) . "\n";
 echo "values:" . implode("|", $values) . "\n";
 echo "display-columns:" . implode(",", $displayColumns) . "\n";
 echo "status-column:" . $columnOffsets["status"] . "\n";
+echo "status-search:" . $statusColumn . "\n";
+echo "active-count:" . $statusSummary["active"] . "\n";
 echo "total:" . $lineTotal . "\n";
 ```
 
-Use `array_fill_keys()` to turn an allow-list into a keyed lookup or counter map, such as initializing every supported status to zero before counting imported rows. Use `array_fill()` when a fixed-width import or export row needs placeholder values without spelling out the same empty field repeatedly. `array_pad()` is useful when an imported row has fewer fields than the header and needs explicit empty trailing fields before validation. `array_combine()` can then turn the header list and normalized values into a keyed row, so downstream code reads `$importFields["quantity"]` instead of relying on a fragile numeric column offset. `array_key_exists()` is the right guard before reading required fields because it still succeeds when a present field intentionally contains `null`. `array_key_first()` and `array_key_last()` let a caller inspect the shape of an ordered row without allocating the full key list. Use `in_array(..., true)` for allow-lists such as statuses or required columns so strings like `"0"` are not treated as the same value as `0`. `array_keys()` is still useful when a caller needs every label, `array_values()` prepares keyed rows for numeric-index consumers, and `array_reverse()` can derive a display order such as showing the last column first without mutating the original row. `array_flip()` is useful when an ordered header list needs fast name-to-position lookup, such as finding the `status` column in imported CSV data; duplicate labels keep the latest original key, matching PHP. `array_sum()` or `array_product()` handle small numeric reductions such as totals, weights, or price times quantity.
+Use `array_fill_keys()` to turn an allow-list into a keyed lookup or counter map, such as initializing every supported status to zero before counting imported rows. Use `array_fill()` when a fixed-width import or export row needs placeholder values without spelling out the same empty field repeatedly. `array_pad()` is useful when an imported row has fewer fields than the header and needs explicit empty trailing fields before validation. `array_combine()` can then turn the header list and normalized values into a keyed row, so downstream code reads `$importFields["quantity"]` instead of relying on a fragile numeric column offset. `array_key_exists()` is the right guard before reading required fields because it still succeeds when a present field intentionally contains `null`. `array_key_first()` and `array_key_last()` let a caller inspect the shape of an ordered row without allocating the full key list. Use `in_array(..., true)` for allow-lists such as statuses or required columns so strings like `"0"` are not treated as the same value as `0`. `array_search(..., true)` is useful when a workflow needs the first position of a required header, while keeping the `false` miss case distinct from a real key such as `0`. `array_count_values()` turns a cleaned list of status strings into a frequency table for summaries or import validation. `array_keys()` is still useful when a caller needs every label, `array_values()` prepares keyed rows for numeric-index consumers, and `array_reverse()` can derive a display order such as showing the last column first without mutating the original row. `array_flip()` is useful when an ordered header list needs fast name-to-position lookup, such as finding the `status` column in imported CSV data; duplicate labels keep the latest original key, matching PHP. `array_sum()` or `array_product()` handle small numeric reductions such as totals, weights, or price times quantity.
 
 Filesystem metadata helpers can be combined to validate a user-provided path before using it in a generated response:
 
@@ -348,7 +352,7 @@ echo "readable:" . is_readable($report) . "\n"
 echo "bytes:" . filesize($report) . "\n"
 ```
 
-This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to turn the validated path into the file name a user should see. That is the common job for `basename()`: keep server paths such as `/srv/app/data/report.csv` internal while deriving a download label, audit-log value, or `Content-Disposition` filename such as `report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
+This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to derive the public-facing file name from the validated path. That is the common job for `basename()`: keep server paths such as `/srv/app/data/report.csv` internal while deriving a download label, audit-log value, import summary entry, or `Content-Disposition` filename such as `report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
 
 URL encoding helpers are split by the part of the URL being built:
 

@@ -181,6 +181,11 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("array_flip", &[("array", Some("array"))], Some("array")),
         php_builtin_reflection(
+            "array_count_values",
+            &[("array", Some("array"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_key_exists",
             &[("key", Some("mixed")), ("array", Some("array"))],
             Some("bool"),
@@ -208,6 +213,15 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
                 ("strict", Some("bool")),
             ],
             Some("bool"),
+        ),
+        php_builtin_reflection(
+            "array_search",
+            &[
+                ("needle", Some("mixed")),
+                ("haystack", Some("array")),
+                ("strict", Some("bool")),
+            ],
+            Some("int|string|false"),
         ),
         php_builtin_reflection("array_sum", &[("array", Some("array"))], Some("int|float")),
         php_builtin_reflection(

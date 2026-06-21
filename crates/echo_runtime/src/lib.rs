@@ -1919,6 +1919,37 @@ pub extern "C" fn echo_php_array_flip(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_count_values(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut keys: Vec<EchoArrayKey> = Vec::new();
+    let mut values: Vec<EchoValue> = Vec::new();
+    for value in &array.values {
+        if !matches!(value.kind, ECHO_VALUE_INT | ECHO_VALUE_STRING) {
+            continue;
+        }
+        let Some(key) = EchoArrayKey::from_value(*value) else {
+            continue;
+        };
+        match keys.iter().position(|existing| existing == &key) {
+            Some(index) => values[index] = EchoValue::int(values[index].payload as i64 + 1),
+            None => {
+                keys.push(key);
+                values.push(EchoValue::int(1));
+            }
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_key_exists(key: EchoValue, array: EchoValue) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
@@ -1988,6 +2019,35 @@ pub extern "C" fn echo_php_in_array(
             php_values_equal(needle, *value)
         }
     }))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_search(
+    needle: EchoValue,
+    haystack: EchoValue,
+    strict: EchoValue,
+) -> EchoValue {
+    if !haystack.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(haystack) = (unsafe { (haystack.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let strict = strict.bool_value().unwrap_or(false);
+
+    for (key, value) in haystack.keys.iter().zip(&haystack.values) {
+        let matches = if strict {
+            echo_values_equal(needle, *value)
+        } else {
+            php_values_equal(needle, *value)
+        };
+        if matches {
+            return key.to_value();
+        }
+    }
+
+    EchoValue::bool(false)
 }
 
 #[unsafe(no_mangle)]
@@ -5732,6 +5792,64 @@ mod tests {
         );
         assert_eq!(flipped_ref.values[2].string_bytes(), Some(b"num".to_vec()));
         assert_eq!(flipped_ref.values[3].string_bytes(), Some(b"int".to_vec()));
+    }
+
+    #[test]
+    fn array_search_and_count_values_preserve_php_value_behavior() {
+        let mut row = echo_value_array_new();
+        row = echo_value_array_set(row, test_string_value(b"sku"), test_string_value(b"A-42"));
+        row = echo_value_array_set(row, EchoValue::int(7), test_string_value(b"A-42"));
+        row = echo_value_array_set(row, test_string_value(b"qty"), EchoValue::int(4));
+        row = echo_value_array_set(row, test_string_value(b"flag"), EchoValue::bool(true));
+        row = echo_value_array_set(row, test_string_value(b"code"), test_string_value(b"4"));
+
+        assert_eq!(
+            echo_php_array_search(EchoValue::int(4), row, EchoValue::bool(false)).string_bytes(),
+            Some(b"qty".to_vec())
+        );
+        assert_eq!(
+            echo_php_array_search(EchoValue::int(4), row, EchoValue::bool(true)).string_bytes(),
+            Some(b"qty".to_vec())
+        );
+        assert_eq!(
+            echo_php_array_search(test_string_value(b"A-42"), row, EchoValue::bool(true))
+                .string_bytes(),
+            Some(b"sku".to_vec())
+        );
+        assert_eq!(
+            echo_php_array_search(test_string_value(b"missing"), row, EchoValue::bool(true)),
+            EchoValue::bool(false)
+        );
+
+        let mut values = echo_value_array_new();
+        values = echo_value_array_append(values, test_string_value(b"new"));
+        values = echo_value_array_append(values, test_string_value(b"new"));
+        values = echo_value_array_append(values, test_string_value(b"done"));
+        values = echo_value_array_append(values, EchoValue::int(2));
+        values = echo_value_array_append(values, test_string_value(b"2"));
+        values = echo_value_array_append(values, EchoValue::int(3));
+        values = echo_value_array_append(values, EchoValue::bool(true));
+
+        let counts = echo_php_array_count_values(values);
+        let counts_ref = unsafe { (counts.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            counts_ref.keys,
+            vec![
+                EchoArrayKey::String(b"new".to_vec()),
+                EchoArrayKey::String(b"done".to_vec()),
+                EchoArrayKey::Int(2),
+                EchoArrayKey::Int(3),
+            ]
+        );
+        assert_eq!(
+            counts_ref.values,
+            vec![
+                EchoValue::int(2),
+                EchoValue::int(1),
+                EchoValue::int(2),
+                EchoValue::int(1)
+            ]
+        );
     }
 
     #[test]

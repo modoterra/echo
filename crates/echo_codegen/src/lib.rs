@@ -627,6 +627,12 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_array_count_values",
+            echo_runtime::echo_php_array_count_values
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_array_key_exists",
             echo_runtime::echo_php_array_key_exists
                 as extern "C" fn(
@@ -649,6 +655,15 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
         (
             "echo_php_in_array",
             echo_runtime::echo_php_in_array
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_array_search",
+            echo_runtime::echo_php_array_search
                 as extern "C" fn(
                     echo_runtime::EchoValue,
                     echo_runtime::EchoValue,
@@ -4962,6 +4977,75 @@ mod tests {
             "{ir}"
         );
         assert!(ir.contains("call %EchoValue @echo_php_array_pad("), "{ir}");
+    }
+
+    #[test]
+    fn array_search_and_count_values_lower_to_runtime_calls() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_search".to_string(),
+                    args: vec![
+                        Expr::String(StringLiteral {
+                            value: "active".to_string(),
+                            span: Span::new(13, 21),
+                        }),
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: None,
+                                value: Expr::String(StringLiteral {
+                                    value: "active".to_string(),
+                                    span: Span::new(24, 32),
+                                }),
+                                span: Span::new(24, 32),
+                            }],
+                            span: Span::new(23, 33),
+                        }),
+                    ],
+                    span: Span::new(0, 34),
+                })],
+                span: Span::new(0, 35),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_count_values".to_string(),
+                    args: vec![Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "active".to_string(),
+                                span: Span::new(58, 66),
+                            }),
+                            span: Span::new(58, 66),
+                        }],
+                        span: Span::new(57, 67),
+                    })],
+                    span: Span::new(37, 68),
+                })],
+                span: Span::new(37, 69),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_search(%EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_array_count_values(%EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_search("),
+            "{ir}"
+        );
+        assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_count_values("),
+            "{ir}"
+        );
     }
 
     #[test]

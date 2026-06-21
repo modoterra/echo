@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 155 | 452 |
-| Loaded local PHP internals, including extensions | 1516 | 155 | 1361 |
+| Baseline (`Core` + `standard`) | 607 | 157 | 450 |
+| Loaded local PHP internals, including extensions | 1516 | 157 | 1359 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (130/545)
+### standard (132/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -130,7 +130,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_chunk` | missing |  |
 | `array_column` | missing |  |
 | `array_combine` | implemented | Creates an array from one array of keys and one array of values, using PHP array-key coercion; duplicate keys keep the latest value, and mismatched input lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-combine.php |
-| `array_count_values` | missing |  |
+| `array_count_values` | implemented | Counts occurrences of int/string values using PHP array-key coercion; unsupported value types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-count-values.php |
 | `array_diff` | missing |  |
 | `array_diff_assoc` | missing |  |
 | `array_diff_key` | missing |  |
@@ -167,7 +167,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_replace` | missing |  |
 | `array_replace_recursive` | missing |  |
 | `array_reverse` | implemented | Returns elements in reverse order, reindexing numeric keys by default and preserving string keys; optional `preserve_keys` keeps numeric keys too. Source: https://www.php.net/manual/en/function.array-reverse.php |
-| `array_search` | missing |  |
+| `array_search` | implemented | Returns the first key for a matching value using loose comparison by default, optional strict comparison, and `false` on misses. Source: https://www.php.net/manual/en/function.array-search.php |
 | `array_shift` | missing |  |
 | `array_slice` | missing |  |
 | `array_splice` | missing |  |
