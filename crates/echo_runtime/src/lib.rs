@@ -2280,6 +2280,54 @@ pub extern "C" fn echo_php_atan2(y: EchoValue, x: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sinh(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_sinh(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_cosh(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_cosh(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_tanh(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_tanh(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_asinh(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_asinh(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_acosh(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_acosh(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_atanh(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_atanh(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ceil(value: EchoValue) -> EchoValue {
     match php_float_coercion(value) {
         Some(value) => EchoValue::float(echo_math_ceil(value)),
@@ -2410,6 +2458,180 @@ fn echo_math_atan_kernel(value: f64) -> f64 {
                         + x2 * (1.0 / 9.0
                             + x2 * (-1.0 / 11.0
                                 + x2 * (1.0 / 13.0 + x2 * (-1.0 / 15.0 + x2 / 17.0))))))))
+}
+
+fn echo_math_sinh(value: f64) -> f64 {
+    if value.is_nan() {
+        return f64::NAN;
+    }
+    if value.is_infinite() {
+        return value;
+    }
+
+    let abs = value.abs();
+    let result = if abs < 0.00000001 {
+        value
+    } else {
+        let exp = echo_math_exp(abs);
+        0.5 * (exp - 1.0 / exp)
+    };
+    result.copysign(value)
+}
+
+fn echo_math_cosh(value: f64) -> f64 {
+    if value.is_nan() {
+        return f64::NAN;
+    }
+    if value.is_infinite() {
+        return f64::INFINITY;
+    }
+
+    let exp = echo_math_exp(value.abs());
+    0.5 * (exp + 1.0 / exp)
+}
+
+fn echo_math_tanh(value: f64) -> f64 {
+    if value.is_nan() {
+        return f64::NAN;
+    }
+    if value == 0.0 {
+        return value;
+    }
+    if value.is_infinite() {
+        return value.signum();
+    }
+
+    let exp2 = echo_math_exp(2.0 * value.abs());
+    let result = (exp2 - 1.0) / (exp2 + 1.0);
+    result.copysign(value)
+}
+
+fn echo_math_asinh(value: f64) -> f64 {
+    if value.is_nan() || value.is_infinite() {
+        return value;
+    }
+    let abs = value.abs();
+    let result = echo_math_ln(abs + echo_math_sqrt(abs * abs + 1.0));
+    result.copysign(value)
+}
+
+fn echo_math_acosh(value: f64) -> f64 {
+    if value < 1.0 || value.is_nan() {
+        return f64::NAN;
+    }
+    if value.is_infinite() {
+        return f64::INFINITY;
+    }
+
+    echo_math_ln(value + echo_math_sqrt(value - 1.0) * echo_math_sqrt(value + 1.0))
+}
+
+fn echo_math_atanh(value: f64) -> f64 {
+    if value.is_nan() || value < -1.0 || value > 1.0 {
+        return f64::NAN;
+    }
+    if value == 1.0 {
+        return f64::INFINITY;
+    }
+    if value == -1.0 {
+        return f64::NEG_INFINITY;
+    }
+
+    0.5 * echo_math_ln((1.0 + value) / (1.0 - value))
+}
+
+fn echo_math_exp(value: f64) -> f64 {
+    const LN_2: f64 = std::f64::consts::LN_2;
+    const MAX_EXP_INPUT: f64 = 709.782712893384;
+    const MIN_EXP_INPUT: f64 = -745.1332191019411;
+
+    if value.is_nan() {
+        return f64::NAN;
+    }
+    if value > MAX_EXP_INPUT {
+        return f64::INFINITY;
+    }
+    if value < MIN_EXP_INPUT {
+        return 0.0;
+    }
+    if value == 0.0 {
+        return 1.0;
+    }
+
+    let scaled = value / LN_2;
+    let k = if scaled >= 0.0 {
+        (scaled + 0.5) as i32
+    } else {
+        (scaled - 0.5) as i32
+    };
+    let r = value - (k as f64) * LN_2;
+    echo_math_pow2(k) * echo_math_exp_kernel(r)
+}
+
+fn echo_math_exp_kernel(value: f64) -> f64 {
+    let mut term = 1.0;
+    let mut sum = 1.0;
+    for n in 1..=24 {
+        term *= value / n as f64;
+        sum += term;
+    }
+    sum
+}
+
+fn echo_math_pow2(exp: i32) -> f64 {
+    if exp > 1023 {
+        return f64::INFINITY;
+    }
+    if exp < -1074 {
+        return 0.0;
+    }
+    if exp >= -1022 {
+        return f64::from_bits(((exp + 1023) as u64) << 52);
+    }
+    f64::from_bits(1_u64 << (exp + 1074))
+}
+
+fn echo_math_ln(value: f64) -> f64 {
+    const LN_2: f64 = std::f64::consts::LN_2;
+
+    if value.is_nan() || value < 0.0 {
+        return f64::NAN;
+    }
+    if value == 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    if value.is_infinite() {
+        return f64::INFINITY;
+    }
+
+    let (mantissa, exponent) = echo_math_frexp(value);
+    let y = (mantissa - 1.0) / (mantissa + 1.0);
+    let y2 = y * y;
+    let mut term = y;
+    let mut sum = 0.0;
+    let mut denominator = 1.0;
+
+    for _ in 0..48 {
+        sum += term / denominator;
+        term *= y2;
+        denominator += 2.0;
+    }
+
+    2.0 * sum + (exponent as f64) * LN_2
+}
+
+fn echo_math_frexp(value: f64) -> (f64, i32) {
+    let bits = value.to_bits();
+    let exponent_bits = ((bits >> 52) & 0x7ff) as i32;
+    let fraction_bits = bits & 0x000f_ffff_ffff_ffff;
+
+    if exponent_bits == 0 {
+        let (mantissa, exponent) = echo_math_frexp(value * echo_math_pow2(52));
+        return (mantissa, exponent - 52);
+    }
+
+    let mantissa_bits = (1023_u64 << 52) | fraction_bits;
+    (f64::from_bits(mantissa_bits), exponent_bits - 1023)
 }
 
 fn echo_math_sqrt(value: f64) -> f64 {
@@ -6091,6 +6313,21 @@ mod tests {
         assert_float_value(echo_php_sin(test_string_value(b"0.5")), 0.479425538604203);
         assert_float_value(echo_php_cos(EchoValue::bool(true)), 0.5403023058681398);
         assert!(f64::from_bits(echo_php_acos(EchoValue::int(2)).payload).is_nan());
+    }
+
+    #[test]
+    fn hyperbolic_builtins_preserve_php_float_behavior() {
+        assert_float_value(echo_php_sinh(EchoValue::int(0)), 0.0);
+        assert_float_value(echo_php_sinh(EchoValue::int(1)), 1.1752011936438014);
+        assert_float_value(echo_php_cosh(EchoValue::int(0)), 1.0);
+        assert_float_value(echo_php_cosh(EchoValue::int(1)), 1.5430806348152437);
+        assert_float_value(echo_php_tanh(EchoValue::int(1)), 0.7615941559557649);
+        assert_float_value(echo_php_asinh(EchoValue::int(1)), 0.881373587019543);
+        assert_float_value(echo_php_acosh(EchoValue::int(1)), 0.0);
+        assert_float_value(echo_php_atanh(EchoValue::float(0.5)), 0.5493061443340548);
+        assert_float_value(echo_php_cosh(test_string_value(b"2.5")), 6.132289479663687);
+        assert!(f64::from_bits(echo_php_acosh(EchoValue::int(0)).payload).is_nan());
+        assert!(f64::from_bits(echo_php_atanh(EchoValue::int(2)).payload).is_nan());
     }
 
     #[test]

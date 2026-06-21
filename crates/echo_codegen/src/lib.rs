@@ -937,6 +937,42 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_sinh",
+            echo_runtime::echo_php_sinh
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_cosh",
+            echo_runtime::echo_php_cosh
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_tanh",
+            echo_runtime::echo_php_tanh
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_asinh",
+            echo_runtime::echo_php_asinh
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_acosh",
+            echo_runtime::echo_php_acosh
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_atanh",
+            echo_runtime::echo_php_atanh
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_basename",
             echo_runtime::echo_php_basename
                 as extern "C" fn(
@@ -3969,6 +4005,12 @@ mod tests {
             ("asin", "echo_php_asin"),
             ("acos", "echo_php_acos"),
             ("atan", "echo_php_atan"),
+            ("sinh", "echo_php_sinh"),
+            ("cosh", "echo_php_cosh"),
+            ("tanh", "echo_php_tanh"),
+            ("asinh", "echo_php_asinh"),
+            ("acosh", "echo_php_acosh"),
+            ("atanh", "echo_php_atanh"),
             ("ceil", "echo_php_ceil"),
             ("floor", "echo_php_floor"),
             ("sqrt", "echo_php_sqrt"),

@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 125 | 482 |
-| Loaded local PHP internals, including extensions | 1516 | 125 | 1391 |
+| Baseline (`Core` + `standard`) | 607 | 131 | 476 |
+| Loaded local PHP internals, including extensions | 1516 | 131 | 1385 |
 
 ## Baseline Functions
 
@@ -121,7 +121,7 @@ Related baseline functions tracked below: `get_included_files`,
 | --- | --- | --- |
 | `abs` | implemented | Supports current Echo integer values; float payloads are deferred. Source: https://www.php.net/manual/en/function.abs.php |
 | `acos` | implemented | Returns the arc cosine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.acos.php |
-| `acosh` | missing |  |
+| `acosh` | implemented | Returns inverse hyperbolic cosine as a float with PHP-compatible numeric coercion and `NAN` outside the domain. Source: https://www.php.net/manual/en/function.acosh.php |
 | `addcslashes` | missing |  |
 | `addslashes` | implemented |  |
 | `array_all` | missing |  |
@@ -185,13 +185,13 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_walk_recursive` | missing |  |
 | `arsort` | missing |  |
 | `asin` | implemented | Returns the arc sine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.asin.php |
-| `asinh` | missing |  |
+| `asinh` | implemented | Returns inverse hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.asinh.php |
 | `asort` | missing |  |
 | `assert` | missing |  |
 | `assert_options` | missing |  |
 | `atan` | implemented | Returns the arc tangent in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan.php |
 | `atan2` | implemented | Returns the quadrant-aware arc tangent of y/x in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan2.php |
-| `atanh` | missing |  |
+| `atanh` | implemented | Returns inverse hyperbolic tangent as a float with PHP-compatible numeric coercion and `NAN` outside the domain. Source: https://www.php.net/manual/en/function.atanh.php |
 | `base64_decode` | implemented |  |
 | `base64_encode` | implemented |  |
 | `base_convert` | implemented | Converts strings between bases 2 through 36, ignoring characters outside the source base for current supported values. Source: https://www.php.net/manual/en/function.base-convert.php |
@@ -224,7 +224,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `convert_uuencode` | missing |  |
 | `copy` | missing |  |
 | `cos` | implemented | Returns the cosine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.cos.php |
-| `cosh` | missing |  |
+| `cosh` | implemented | Returns hyperbolic cosine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.cosh.php |
 | `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
 | `count_chars` | missing |  |
 | `crc32` | missing |  |
@@ -529,7 +529,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `shuffle` | missing |  |
 | `similar_text` | missing |  |
 | `sin` | implemented | Returns the sine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sin.php |
-| `sinh` | missing |  |
+| `sinh` | implemented | Returns hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.sinh.php |
 | `sizeof` | implemented | Alias of `count()`. Source: https://www.php.net/manual/en/function.sizeof.php |
 | `sleep` | missing |  |
 | `socket_get_status` | missing |  |
@@ -635,7 +635,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `syslog` | missing |  |
 | `system` | missing |  |
 | `tan` | implemented | Returns the tangent of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.tan.php |
-| `tanh` | missing |  |
+| `tanh` | implemented | Returns hyperbolic tangent as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.tanh.php |
 | `tempnam` | missing |  |
 | `time_nanosleep` | missing |  |
 | `time_sleep_until` | missing |  |

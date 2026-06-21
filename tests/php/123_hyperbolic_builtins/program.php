@@ -1,0 +1,22 @@
+<?php
+// Hyperbolic math helpers map scalar values to floats.
+// Sources:
+// - https://www.php.net/manual/en/function.sinh.php
+// - https://www.php.net/manual/en/function.cosh.php
+// - https://www.php.net/manual/en/function.tanh.php
+// - https://www.php.net/manual/en/function.asinh.php
+// - https://www.php.net/manual/en/function.acosh.php
+// - https://www.php.net/manual/en/function.atanh.php
+echo "sinh-zero:[" . gettype(sinh(0)) . ":" . sinh(0) . "]\n";
+echo "sinh-one-ms:[" . intval(sinh(1) * 1000) . "]\n";
+echo "cosh-zero:[" . gettype(cosh(0)) . ":" . cosh(0) . "]\n";
+echo "cosh-one-ms:[" . intval(cosh(1) * 1000) . "]\n";
+echo "tanh-zero:[" . gettype(tanh(0)) . ":" . tanh(0) . "]\n";
+echo "tanh-one-ms:[" . intval(tanh(1) * 1000) . "]\n";
+echo "asinh-one-ms:[" . intval(asinh(1) * 1000) . "]\n";
+echo "acosh-one:[" . gettype(acosh(1)) . ":" . acosh(1) . "]\n";
+echo "acosh-domain:[" . gettype(acosh(0)) . ":" . is_nan(acosh(0)) . "]\n";
+echo "atanh-half-ms:[" . intval(atanh(0.5) * 1000) . "]\n";
+echo "atanh-domain:[" . gettype(atanh(2)) . ":" . is_nan(atanh(2)) . "]\n";
+echo "string-coerce:[" . intval(cosh("2.5") * 1000) . "]\n";
+echo "exists:[" . function_exists("sinh") . function_exists("cosh") . function_exists("tanh") . function_exists("asinh") . function_exists("acosh") . function_exists("atanh") . "]\n";

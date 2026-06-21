@@ -259,6 +259,7 @@ Examples:
 - `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
+- `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are PHP builtin ABI because PHP exposes hyperbolic math helpers as compatibility functions.
 - `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
 - `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
@@ -307,7 +308,7 @@ echo "readable:" . is_readable($report) . "\n"
 echo "bytes:" . filesize($report) . "\n"
 ```
 
-This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to turn the canonical path into a file label that can safely appear outside the server. That makes `basename()` useful when building download names, audit log entries, `Content-Disposition` headers, or UI messages where callers need `report.csv` but should not see `/srv/app/data/report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
+This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to derive the short file name from the validated path. That makes `basename()` useful when a script needs a user-facing label, download name, audit log entry, or `Content-Disposition` filename such as `report.csv` without exposing the server directory `/srv/app/data/report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
 
 URL encoding helpers are split by the part of the URL being built:
 
@@ -357,6 +358,19 @@ echo "bearing:" . $bearing . "\n"
 ```
 
 Use `sin()`, `cos()`, and `tan()` for forward calculations from an angle in radians, such as deriving vector components or slopes for movement, layout, or mapping code. Use `asin()`, `acos()`, `atan()`, and `atan2()` when measured ratios or coordinates need to become an angle again; `atan2()` is preferable for coordinates because it uses both signs to preserve the quadrant.
+
+Hyperbolic helpers are useful when a formula describes smooth saturation or catenary-like curves instead of circular angles:
+
+```php
+let $input = floatval("0.75")
+let $normalized = tanh($input)
+let $restored = atanh($normalized)
+
+echo "normalized:" . intval($normalized * 1000) . "\n"
+echo "restored:" . intval($restored * 1000) . "\n"
+```
+
+Use `sinh()`, `cosh()`, and `tanh()` when modelling growth, easing, or curve formulas that use hyperbolic functions directly. Use `asinh()`, `acosh()`, and `atanh()` when a stored or measured hyperbolic value needs to be converted back to the original input scale; callers should still guard domains for `acosh()` and `atanh()` when values may come from untrusted input.
 
 Rounding and magnitude helpers turn fractional measurements into the counts or distances an application actually needs:
 
