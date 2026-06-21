@@ -33,6 +33,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { HomePage } from "./app";
 import {
   builtinExample,
@@ -332,6 +333,15 @@ function DocsSearch() {
     setIsOpen(false);
   }
 
+  const statusItems = [
+    isLoadingIndex ? "Loading index..." : null,
+    semanticAsset
+      ? isLoadingModel
+        ? "Loading semantic model..."
+        : "Semantic reranking ready"
+      : null,
+  ].filter(Boolean);
+
   return (
     <>
       <button
@@ -347,11 +357,12 @@ function DocsSearch() {
           /
         </span>
       </button>
-      <AnimatePresence>
-        {isOpen ? (
+      {createPortal(
+        <AnimatePresence>
+          {isOpen ? (
           <motion.div
             animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/20 px-4 pt-28 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/25 px-4 pt-28 backdrop-blur-sm"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0 }}
             onMouseDown={closeSearch}
@@ -387,20 +398,35 @@ function DocsSearch() {
                     <RiCloseLine size={20} />
                   </button>
                 ) : null}
-                <span className="hidden rounded border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-400 sm:inline">
+                <button
+                  aria-label="Close search"
+                  className="hidden rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 sm:inline"
+                  onClick={closeSearch}
+                  type="button"
+                >
                   Esc
-                </span>
+                </button>
               </div>
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                <span>
-                  {isLoadingIndex
-                    ? "Loading index..."
-                    : isLoadingModel
-                      ? "Loading semantic model..."
-                      : semanticAsset
-                        ? "Semantic reranking ready"
-                        : "Keyword and fuzzy search"}
-                </span>
+              <div className="flex min-h-10 items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <div className="flex items-center gap-2">
+                  {statusItems.length > 0 ? (
+                    statusItems.map((item) => (
+                      <span
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1"
+                        key={item}
+                      >
+                        {item?.startsWith("Loading") ? (
+                          <span className="size-1.5 rounded-full bg-orange-400 motion-safe:animate-pulse" />
+                        ) : (
+                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                        )}
+                        {item}
+                      </span>
+                    ))
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
+                </div>
                 <span className="hidden text-slate-300 sm:inline">
                   <span className="font-mono">↑↓</span> Select ·{" "}
                   <span className="font-mono">Enter</span> Open
@@ -458,8 +484,10 @@ function DocsSearch() {
               </div>
             </motion.div>
           </motion.div>
-        ) : null}
-      </AnimatePresence>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }
