@@ -870,6 +870,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "base_convert",
+        symbol: "echo_php_base_convert",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
         php_name: "deg2rad",
         symbol: "echo_php_deg2rad",
         helper_symbol: None,

@@ -786,6 +786,15 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_base_convert",
+            echo_runtime::echo_php_base_convert
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_deg2rad",
             echo_runtime::echo_php_deg2rad
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -4028,6 +4037,37 @@ mod tests {
             ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_")
                 && ir.contains(", i64 0)")
         );
+    }
+
+    #[test]
+    fn base_convert_lowers_to_three_echo_value_arguments() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "base_convert".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "a37334".to_string(),
+                        span: Span::new(13, 21),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "16".to_string(),
+                        span: Span::new(23, 25),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "2".to_string(),
+                        span: Span::new(27, 28),
+                    }),
+                ],
+                span: Span::new(0, 29),
+            })],
+            span: Span::new(0, 30),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains(
+            "declare %EchoValue @echo_php_base_convert(%EchoValue, %EchoValue, %EchoValue)"
+        ));
+        assert!(ir.contains("call %EchoValue @echo_php_base_convert("));
     }
 
     #[test]

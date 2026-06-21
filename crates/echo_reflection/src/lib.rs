@@ -192,6 +192,15 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("octal_string", Some("string"))],
             Some("int|float"),
         ),
+        php_builtin_reflection(
+            "base_convert",
+            &[
+                ("num", Some("string")),
+                ("from_base", Some("int")),
+                ("to_base", Some("int")),
+            ],
+            Some("string"),
+        ),
         php_builtin_reflection("deg2rad", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection("rad2deg", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),

@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 105 | 502 |
-| Loaded local PHP internals, including extensions | 1516 | 105 | 1411 |
+| Baseline (`Core` + `standard`) | 607 | 106 | 501 |
+| Loaded local PHP internals, including extensions | 1516 | 106 | 1410 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (93/545)
+### standard (94/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -194,7 +194,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `atanh` | missing |  |
 | `base64_decode` | implemented |  |
 | `base64_encode` | implemented |  |
-| `base_convert` | missing |  |
+| `base_convert` | implemented | Converts strings between bases 2 through 36, ignoring characters outside the source base for current supported values. Source: https://www.php.net/manual/en/function.base-convert.php |
 | `basename` | implemented | Supports Unix-style `/` separators and optional suffix stripping; Windows `\` separator behavior is deferred. Source: https://www.php.net/manual/en/function.basename.php |
 | `bin2hex` | implemented |  |
 | `bindec` | implemented | Converts binary strings to unsigned decimal int or float values while ignoring non-binary characters. Source: https://www.php.net/manual/en/function.bindec.php |

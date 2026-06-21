@@ -1,0 +1,7 @@
+hex-to-bin:[101000110111001100110100]
+dirty-hex-to-dec:[65296]
+negative-ignored:[12]
+float-coerce:[314]
+base36:[1295]
+empty:[0]
+exists:[1]

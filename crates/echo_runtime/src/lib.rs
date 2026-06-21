@@ -2086,6 +2086,34 @@ pub extern "C" fn echo_php_octdec(value: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_base_convert(
+    value: EchoValue,
+    from_base: EchoValue,
+    to_base: EchoValue,
+) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(from_base) = from_base.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(to_base) = to_base.php_int_value() else {
+        return EchoValue::error();
+    };
+    if !(2..=36).contains(&from_base) || !(2..=36).contains(&to_base) {
+        return EchoValue::error();
+    }
+
+    let Some(value) = php_unsigned_base_to_u128(&bytes, from_base as u32) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        u128_to_base_bytes(value, to_base as u32),
+    ))))
+}
+
 fn php_unsigned_base_to_decimal(bytes: &[u8], base: u32) -> EchoValue {
     let mut integer = 0u64;
     let mut float = 0.0;
@@ -2124,11 +2152,48 @@ fn php_unsigned_base_to_decimal(bytes: &[u8], base: u32) -> EchoValue {
     }
 }
 
+fn php_unsigned_base_to_u128(bytes: &[u8], base: u32) -> Option<u128> {
+    let mut value = 0u128;
+    for digit in bytes
+        .iter()
+        .copied()
+        .filter_map(|byte| ascii_digit_value(byte))
+    {
+        if digit >= base {
+            continue;
+        }
+
+        value = value
+            .checked_mul(base as u128)?
+            .checked_add(digit as u128)?;
+    }
+
+    Some(value)
+}
+
+fn u128_to_base_bytes(mut value: u128, base: u32) -> Vec<u8> {
+    if value == 0 {
+        return b"0".to_vec();
+    }
+
+    let mut bytes = Vec::new();
+    while value > 0 {
+        let digit = (value % base as u128) as u8;
+        bytes.push(match digit {
+            0..=9 => b'0' + digit,
+            _ => b'a' + (digit - 10),
+        });
+        value /= base as u128;
+    }
+    bytes.reverse();
+    bytes
+}
+
 fn ascii_digit_value(byte: u8) -> Option<u32> {
     match byte {
         b'0'..=b'9' => Some((byte - b'0') as u32),
-        b'a'..=b'f' => Some((byte - b'a' + 10) as u32),
-        b'A'..=b'F' => Some((byte - b'A' + 10) as u32),
+        b'a'..=b'z' => Some((byte - b'a' + 10) as u32),
+        b'A'..=b'Z' => Some((byte - b'A' + 10) as u32),
         _ => None,
     }
 }
@@ -4921,6 +4986,41 @@ mod tests {
         assert_float_value(
             echo_php_hexdec(test_string_value(b"FFFFFFFFFFFFFFFF")),
             u64::MAX as f64,
+        );
+        assert_eq!(
+            echo_php_base_convert(
+                test_string_value(b"a37334"),
+                EchoValue::int(16),
+                EchoValue::int(2)
+            )
+            .string_bytes(),
+            Some("101000110111001100110100".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base_convert(
+                test_string_value(b"ffzz10"),
+                EchoValue::int(16),
+                EchoValue::int(10)
+            )
+            .string_bytes(),
+            Some("65296".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base_convert(
+                EchoValue::float(3.14),
+                EchoValue::int(10),
+                EchoValue::int(10)
+            )
+            .string_bytes(),
+            Some("314".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_base_convert(
+                test_string_value(b"10"),
+                EchoValue::int(1),
+                EchoValue::int(10)
+            ),
+            EchoValue::error()
         );
     }
 
