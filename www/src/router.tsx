@@ -207,6 +207,8 @@ function DocsSearch() {
   const [isSemanticModelReady, setIsSemanticModelReady] = useState(false);
   const [semanticUnavailable, setSemanticUnavailable] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchResultsRef = useRef<HTMLDivElement | null>(null);
+  const searchResultRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const miniSearch = useMemo(
     () => (asset ? loadDocsMiniSearch(asset) : null),
     [asset],
@@ -279,6 +281,21 @@ function DocsSearch() {
   useEffect(() => {
     setActiveResultIndex(0);
   }, [query]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !activeResult) {
+      return;
+    }
+
+    const container = searchResultsRef.current;
+    const item = searchResultRefs.current[activeResult.id];
+
+    if (!container || !item) {
+      return;
+    }
+
+    scrollElementIntoContainerView(container, item, "smooth");
+  }, [activeResult, isOpen]);
 
   useEffect(() => {
     if (!isOpen || semanticAsset || semanticUnavailable) {
@@ -380,7 +397,7 @@ function DocsSearch() {
   useEffect(() => {
     function handlePaletteKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setIsOpen(false);
+        closeSearch();
         return;
       }
 
@@ -400,7 +417,7 @@ function DocsSearch() {
 
       if (event.key === "Enter" && activeResult) {
         void navigate({ to: activeResult.path });
-        setIsOpen(false);
+        closeSearch();
       }
     }
 
@@ -415,6 +432,10 @@ function DocsSearch() {
 
   function closeSearch() {
     setIsOpen(false);
+    setQuery("");
+    setActiveResultIndex(0);
+    setQueryEmbedding(null);
+    searchResultsRef.current?.scrollTo({ top: 0 });
   }
 
   const isSemanticReady = Boolean(semanticAsset) && isSemanticModelReady;
@@ -508,7 +529,10 @@ function DocsSearch() {
                     <span className="font-mono">Enter</span> Open
                   </span>
                 </div>
-                <div className="max-h-[28rem] overflow-auto p-3 scrollbar-thin scrollbar-nice">
+                <div
+                  className="max-h-[28rem] overflow-auto p-3 scrollbar-thin scrollbar-nice"
+                  ref={searchResultsRef}
+                >
                   {!query.trim() ? (
                     <p className="px-3 py-10 text-center text-sm text-slate-500">
                       Search built-ins, examples, commands, and docs.
@@ -524,7 +548,12 @@ function DocsSearch() {
                       const isActive = index === activeResultIndex;
 
                       return (
-                        <li key={result.id}>
+                        <li
+                          key={result.id}
+                          ref={(element) => {
+                            searchResultRefs.current[result.id] = element;
+                          }}
+                        >
                           <Link
                             className={
                               isActive
@@ -603,6 +632,26 @@ async function fetchDocsIndex<T>(path: string) {
   }
 
   return (await response.json()) as T;
+}
+
+function scrollElementIntoContainerView(
+  container: HTMLElement,
+  element: HTMLElement,
+  behavior: ScrollBehavior,
+) {
+  const containerRect = container.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+  const topOverflow = elementRect.top - containerRect.top;
+  const bottomOverflow = elementRect.bottom - containerRect.bottom;
+
+  if (topOverflow < 0) {
+    container.scrollBy({ behavior, top: topOverflow - 8 });
+    return;
+  }
+
+  if (bottomOverflow > 0) {
+    container.scrollBy({ behavior, top: bottomOverflow + 8 });
+  }
 }
 
 let queryEmbedderPromise: Promise<{
@@ -914,6 +963,9 @@ function DocsLayout() {
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
   const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
+  const pendingScrollHeadingRef = useRef<string | null>(null);
+  const pendingScrollTimeoutRef = useRef<number | undefined>(undefined);
+  const onThisPageViewportRef = useRef<HTMLDivElement | null>(null);
   const onThisPageRailRef = useRef<HTMLDivElement | null>(null);
   const onThisPageItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const [onThisPageTrainY, setOnThisPageTrainY] = useState(0);
@@ -921,6 +973,23 @@ function DocsLayout() {
     let animationFrame = 0;
 
     function updateActiveHeading() {
+      const pendingHeading = pendingScrollHeadingRef.current;
+
+      if (pendingHeading) {
+        const pendingElement = document.getElementById(headingId(pendingHeading));
+
+        if (
+          pendingElement &&
+          Math.abs(pendingElement.getBoundingClientRect().top - 112) > 8
+        ) {
+          setActiveHeading(pendingHeading);
+          return;
+        }
+
+        pendingScrollHeadingRef.current = null;
+        window.clearTimeout(pendingScrollTimeoutRef.current);
+      }
+
       const nextActiveHeading =
         headings.findLast((heading) => {
           const element = document.getElementById(headingId(heading));
@@ -948,6 +1017,7 @@ function DocsLayout() {
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(pendingScrollTimeoutRef.current);
       window.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
     };
@@ -986,6 +1056,17 @@ function DocsLayout() {
     };
   }, [activeHeading, headings]);
 
+  useLayoutEffect(() => {
+    const container = onThisPageViewportRef.current;
+    const item = onThisPageItemRefs.current[activeHeading];
+
+    if (!container || !item) {
+      return;
+    }
+
+    scrollElementIntoContainerView(container, item, "smooth");
+  }, [activeHeading]);
+
   function scrollToHeading(heading: string) {
     const id = headingId(heading);
     const element = document.getElementById(id);
@@ -994,6 +1075,11 @@ function DocsLayout() {
       return;
     }
 
+    pendingScrollHeadingRef.current = heading;
+    window.clearTimeout(pendingScrollTimeoutRef.current);
+    pendingScrollTimeoutRef.current = window.setTimeout(() => {
+      pendingScrollHeadingRef.current = null;
+    }, 900);
     setActiveHeading(heading);
     window.history.pushState(null, "", `#${id}`);
     window.scrollTo({
@@ -1044,51 +1130,56 @@ function DocsLayout() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               On this page
             </h2>
-            <div className="relative mt-5 pl-6" ref={onThisPageRailRef}>
-              <span
-                aria-hidden="true"
-                className="absolute bottom-0 left-0 top-0 w-px bg-slate-200"
-              />
-              <motion.span
-                aria-hidden="true"
-                animate={{ y: onThisPageTrainY }}
-                className="docs-on-this-page-train absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full bg-orange-400"
-                transition={{ duration: 0.22, ease: "easeOut" }}
-              />
-              <ul className="docs-on-this-page-links space-y-3">
-                {headings.map((heading) => (
-                  <li
-                    key={heading}
-                    ref={(element) => {
-                      onThisPageItemRefs.current[heading] = element;
-                    }}
-                  >
-                    <a
-                      className={
-                        activeHeading === heading
-                          ? "text-sm font-semibold leading-6 text-slate-950 transition"
-                          : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
-                      }
-                      href={`#${headingId(heading)}`}
-                      onClick={(event) => {
-                        if (
-                          event.altKey ||
-                          event.ctrlKey ||
-                          event.metaKey ||
-                          event.shiftKey
-                        ) {
-                          return;
-                        }
-
-                        event.preventDefault();
-                        scrollToHeading(heading);
+            <div
+              className="mt-5 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 scrollbar-thin scrollbar-nice"
+              ref={onThisPageViewportRef}
+            >
+              <div className="relative pl-6" ref={onThisPageRailRef}>
+                <span
+                  aria-hidden="true"
+                  className="absolute bottom-0 left-0 top-0 w-px bg-slate-200"
+                />
+                <motion.span
+                  aria-hidden="true"
+                  animate={{ y: onThisPageTrainY }}
+                  className="docs-on-this-page-train absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full bg-orange-400"
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                />
+                <ul className="docs-on-this-page-links space-y-3">
+                  {headings.map((heading) => (
+                    <li
+                      key={heading}
+                      ref={(element) => {
+                        onThisPageItemRefs.current[heading] = element;
                       }}
                     >
-                      {heading}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+                      <a
+                        className={
+                          activeHeading === heading
+                            ? "text-sm font-semibold leading-6 text-slate-950 transition"
+                            : "text-sm leading-6 text-slate-500 transition hover:text-slate-950"
+                        }
+                        href={`#${headingId(heading)}`}
+                        onClick={(event) => {
+                          if (
+                            event.altKey ||
+                            event.ctrlKey ||
+                            event.metaKey ||
+                            event.shiftKey
+                          ) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          scrollToHeading(heading);
+                        }}
+                      >
+                        {heading}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </nav>
         </aside>
