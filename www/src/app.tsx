@@ -107,9 +107,6 @@ export function HomePage() {
             <RiGithubFill aria-hidden="true" className="size-5" />
             GitHub
           </a>
-          <p className="mt-4 text-sm text-slate-400">
-            &copy; 2026 Modoterra Corporation
-          </p>
         </div>
       </section>
     </main>

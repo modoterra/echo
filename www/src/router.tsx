@@ -879,28 +879,43 @@ function RootLayout() {
   );
 }
 
-const footerLinkGroups = [
+type FooterLink =
+  | { label: string; href: string; disabled?: false }
+  | { label: string; disabled: true };
+
+type FooterLinkGroup = {
+  title: string;
+  links: FooterLink[];
+};
+
+const footerLinkGroups: FooterLinkGroup[] = [
   {
-    title: "Docs",
+    title: "Links",
     links: [
+      { label: "Home", href: "/" },
+      { label: "Getting Started", href: "/docs" },
       { label: "Installation", href: "/docs" },
-      { label: "Source Modes", href: "/docs/source-modes" },
-      { label: "PHP Built-ins", href: "/docs/php-built-ins" },
+      { label: "Docs", href: "/docs" },
+      { label: "Roadmap", disabled: true },
     ],
   },
   {
-    title: "Language",
-    links: builtinFamilies.slice(0, 6).map((family) => ({
-      label: family.title,
-      href: `/docs/php-built-ins/${family.slug}`,
-    })),
+    title: "Explore",
+    links: [
+      { label: "Source Modes", href: "/docs/source-modes" },
+      { label: "PHP Built-ins", href: "/docs/php-built-ins" },
+      { label: "Compatibility", disabled: true },
+      { label: "Examples", disabled: true },
+      { label: "Benchmarks", disabled: true },
+    ],
   },
   {
     title: "Tooling",
     links: [
       { label: "Source Builds", href: "/docs/source-builds" },
-      { label: "Command Line", href: "/docs/command-line" },
-      { label: "Testing", href: "/docs/testing" },
+      { label: "Command Line", disabled: true },
+      { label: "Language Server", disabled: true },
+      { label: "Testing", disabled: true },
     ],
   },
   {
@@ -948,8 +963,12 @@ function SiteFooter() {
               </h2>
               <ul className="mt-6 space-y-4">
                 {group.links.map((link) => (
-                  <li key={link.href}>
-                    {link.href.startsWith("http") ? (
+                  <li key={link.label}>
+                    {link.disabled ? (
+                      <span className="text-sm text-slate-300">
+                        {link.label}
+                      </span>
+                    ) : link.href.startsWith("http") ? (
                       <a
                         className="text-sm text-slate-500 transition hover:text-slate-950"
                         href={link.href}
@@ -976,7 +995,7 @@ function SiteFooter() {
 
       <div className="mx-auto mt-24 flex w-full max-w-7xl items-end justify-between gap-8 border-t border-slate-200 pt-8">
         <p className="pb-8 text-sm text-slate-400">
-          © 2026 Echo. Built in Rust.
+          © 2026 Modoterra Corporation
         </p>
         <p
           aria-hidden="true"
