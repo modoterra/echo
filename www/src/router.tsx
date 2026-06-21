@@ -941,6 +941,9 @@ function SiteFooter() {
             Echo is an early-stage Rust implementation of a PHP superset with
             compiler tooling and native execution as the direction of travel.
           </p>
+          <p className="mt-10 text-sm text-slate-400">
+            © 2026 Modoterra Corporation
+          </p>
         </section>
 
         <nav
@@ -984,10 +987,7 @@ function SiteFooter() {
         </nav>
       </div>
 
-      <div className="mx-auto mt-96 flex w-full max-w-7xl items-end justify-between gap-8">
-        <p className="self-start text-sm text-slate-400">
-          © 2026 Modoterra Corporation
-        </p>
+      <div className="mx-auto mt-96 flex w-full max-w-7xl justify-end">
         <svg
           aria-hidden="true"
           className="footer-echo-mark h-auto w-[min(72vw,58rem)] shrink-0 select-none"
@@ -1398,7 +1398,7 @@ function PhpBuiltinsPage() {
         runtime helpers.
       </p>
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-2">
+      <div className="mt-10 grid gap-6">
         {builtinFamilies.map((family) => (
           <section
             key={family.slug}
