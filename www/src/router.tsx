@@ -153,6 +153,10 @@ const docsSearchLexicalCandidateLimit = 24;
 const docsSearchSemanticCandidateLimit = 24;
 const docsSearchLexicalWeight = 0.6;
 const docsSearchSemanticWeight = 0.4;
+const instantSearchHashScroll = {
+  behavior: "auto",
+  block: "start",
+} as const satisfies ScrollIntoViewOptions;
 
 let docsSearchAssetPromise: Promise<DocsSearchAsset> | null = null;
 let docsSemanticAssetPromise: Promise<DocsSemanticAsset> | null = null;
@@ -440,7 +444,11 @@ function DocsSearch() {
       }
 
       if (event.key === "Enter" && activeResult) {
-        void navigate({ to: activeResult.path });
+        void navigate({
+          hashScrollIntoView: instantSearchHashScroll,
+          to: activeResult.path,
+          viewTransition: false,
+        });
         closeSearch();
       }
     }
@@ -586,7 +594,9 @@ function DocsSearch() {
                             }
                             onClick={closeSearch}
                             onMouseEnter={() => setActiveResultIndex(index)}
+                            hashScrollIntoView={instantSearchHashScroll}
                             to={result.path}
+                            viewTransition={false}
                           >
                             <span className="mt-1 text-slate-400">
                               <SearchResultIcon result={result} />

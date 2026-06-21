@@ -266,7 +266,6 @@
 }
 
 html {
-    scroll-behavior: smooth;
     scrollbar-width: thin;
     scrollbar-color: --alpha(var(--color-slate-500) / 45%) white;
     scrollbar-gutter: stable both-edges;
