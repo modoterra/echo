@@ -273,6 +273,16 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             ],
             Some("array"),
         ),
+        php_builtin_reflection(
+            "implode",
+            &[("separator", Some("string")), ("array", Some("array"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "join",
+            &[("separator", Some("string")), ("array", Some("array"))],
+            Some("string"),
+        ),
         php_builtin_reflection("file_exists", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("is_dir", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("is_file", &[("filename", Some("string"))], Some("bool")),

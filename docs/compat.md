@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 121 | 486 |
-| Loaded local PHP internals, including extensions | 1516 | 121 | 1395 |
+| Baseline (`Core` + `standard`) | 607 | 123 | 484 |
+| Loaded local PHP internals, including extensions | 1516 | 123 | 1393 |
 
 ## Baseline Functions
 
@@ -355,7 +355,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ignore_user_abort` | missing |  |
 | `image_type_to_extension` | missing |  |
 | `image_type_to_mime_type` | missing |  |
-| `implode` | missing |  |
+| `implode` | implemented | Joins PHP array values in order, supports the optional empty-string separator form, and uses PHP string coercion for scalar elements. Source: https://www.php.net/manual/en/function.implode.php |
 | `in_array` | missing |  |
 | `inet_ntop` | missing |  |
 | `inet_pton` | missing |  |
@@ -397,7 +397,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_uploaded_file` | missing |  |
 | `is_writable` | implemented | Checks local filesystem paths by probing append access or temporary creation inside directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `is_writeable` | implemented | Alias of `is_writable()`. Source: https://www.php.net/manual/en/function.is-writable.php |
-| `join` | missing |  |
+| `join` | implemented | Alias of `implode()`. Source: https://www.php.net/manual/en/function.join.php |
 | `key` | missing |  |
 | `key_exists` | missing |  |
 | `krsort` | missing |  |

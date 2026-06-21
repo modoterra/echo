@@ -373,6 +373,7 @@ pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {
 pub enum BuiltinCodegen {
     Basename,
     Dirname,
+    Implode,
     ObStart,
     VoidStatement,
     VoidUnaryStatement,
@@ -1116,6 +1117,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::Explode,
+    },
+    PhpBuiltin {
+        php_name: "implode",
+        symbol: "echo_php_implode",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Implode,
+    },
+    PhpBuiltin {
+        php_name: "join",
+        symbol: "echo_php_implode",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Implode,
     },
     PhpBuiltin {
         php_name: "file_exists",

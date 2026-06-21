@@ -1,0 +1,8 @@
+header:[lastname,email,phone]
+row:[Doe,d@example.com,555-0100]
+default:[lastnameemailphone]
+mixed:[a|2|1|||3.5]
+empty:[]
+assoc:[one,two,3]
+exists-implode:[1]
+exists-join:[1]

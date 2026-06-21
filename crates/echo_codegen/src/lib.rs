@@ -980,6 +980,14 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_implode",
+            echo_runtime::echo_php_implode
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_file_exists",
             echo_runtime::echo_php_file_exists
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -2256,6 +2264,7 @@ impl IrModule {
             }
             BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
+            | BuiltinCodegen::Implode
             | BuiltinCodegen::ValueTernaryExpression
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
@@ -3166,6 +3175,42 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({separator}, {string}, {limit})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Implode => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let (separator, array) = match call.args.as_slice() {
+                    [array] => (
+                        self.runtime_value_as_echo_value(
+                            body,
+                            RuntimeValue::StaticString(String::new()),
+                        ),
+                        self.render_mir_expr_as_echo_value(body, array)?,
+                    ),
+                    [separator, array] => (
+                        self.render_mir_expr_as_echo_value(body, separator)?,
+                        self.render_mir_expr_as_echo_value(body, array)?,
+                    ),
+                    _ => unreachable!("argument count checked above"),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({separator}, {array})\n",
                     builtin.symbol
                 ));
 
@@ -4106,6 +4151,36 @@ mod tests {
             ),
             "{ir}"
         );
+    }
+
+    #[test]
+    fn implode_lowers_optional_separator_to_empty_string() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "implode".to_string(),
+                args: vec![Expr::Array(ArrayExpr {
+                    elements: vec![ArrayElement {
+                        key: None,
+                        value: Expr::String(StringLiteral {
+                            value: "a".to_string(),
+                            span: Span::new(9, 12),
+                        }),
+                        span: Span::new(9, 12),
+                    }],
+                    span: Span::new(8, 13),
+                })],
+                span: Span::new(0, 14),
+            })],
+            span: Span::new(0, 15),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_php_implode(%EchoValue, %EchoValue)"));
+        assert!(
+            ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_")
+                && ir.contains(", i64 0)")
+        );
+        assert!(ir.contains("call %EchoValue @echo_php_implode("), "{ir}");
     }
 
     #[test]

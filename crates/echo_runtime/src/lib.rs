@@ -2782,6 +2782,32 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_implode(separator: EchoValue, array: EchoValue) -> EchoValue {
+    let Some(separator) = separator.string_bytes() else {
+        return EchoValue::error();
+    };
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut joined = Vec::new();
+    for (index, value) in array.values.iter().enumerate() {
+        if index > 0 {
+            joined.extend_from_slice(&separator);
+        }
+        let Some(bytes) = value.string_bytes() else {
+            return EchoValue::error();
+        };
+        joined.extend_from_slice(&bytes);
+    }
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(joined))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
     match filename.string_bytes() {
         Some(bytes) => EchoValue::bool(path_exists(&bytes)),
@@ -5512,6 +5538,40 @@ mod tests {
                 string_value(b"a,b"),
                 EchoValue::int(i64::MAX)
             ),
+            EchoValue::error()
+        );
+    }
+
+    #[test]
+    fn implode_joins_array_values_with_php_string_coercion() {
+        let array = EchoValue::array(Box::into_raw(Box::new(EchoArray {
+            keys: vec![
+                EchoArrayKey::String(b"first".to_vec()),
+                EchoArrayKey::Int(0),
+                EchoArrayKey::String(b"third".to_vec()),
+                EchoArrayKey::Int(1),
+                EchoArrayKey::Int(2),
+            ],
+            values: vec![
+                test_string_value(b"one"),
+                EchoValue::int(2),
+                EchoValue::bool(true),
+                EchoValue::bool(false),
+                EchoValue::null(),
+            ],
+        })));
+        let empty = EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(Vec::new()))));
+
+        assert_eq!(
+            echo_php_implode(test_string_value(b"|"), array).string_bytes(),
+            Some(b"one|2|1||".to_vec())
+        );
+        assert_eq!(
+            echo_php_implode(test_string_value(b"hello"), empty).string_bytes(),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            echo_php_implode(test_string_value(b","), test_string_value(b"not-array")),
             EchoValue::error()
         );
     }

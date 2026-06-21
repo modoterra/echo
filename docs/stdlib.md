@@ -255,6 +255,7 @@ Examples:
 - `echo_php_chr(...)`, `echo_php_bin2hex(...)`, and `echo_php_hex2bin(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, and `hex2bin()` are PHP compatibility functions.
 - `echo_php_bindec(...)`, `echo_php_hexdec(...)`, `echo_php_octdec(...)`, and `echo_php_base_convert(...)` are PHP builtin ABI because PHP exposes explicit binary, hexadecimal, octal, and arbitrary-base conversion functions.
 - `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
+- `echo_php_implode(...)` is PHP builtin ABI because `implode()` and its `join()` alias are PHP compatibility functions for joining array values into a string.
 - `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
@@ -292,7 +293,7 @@ echo "readable:" . is_readable($report) . "\n"
 echo "bytes:" . filesize($report) . "\n"
 ```
 
-This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` when only the final filename should leave the server boundary. That is useful for generated download names, audit log labels, or UI messages where callers need `report.csv` but should not see the full canonical path. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
+This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to turn the canonical path into a file label that can safely appear outside the server. That makes `basename()` useful when building download names, audit log entries, `Content-Disposition` headers, or UI messages where callers need `report.csv` but should not see `/srv/app/data/report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
 
 URL encoding helpers are split by the part of the URL being built:
 
@@ -304,6 +305,18 @@ echo "/teams/" . $department . "?" . $query . "\n"
 ```
 
 Use `rawurlencode()` for path segments so spaces become `%20` and embedded slashes are protected as `%2F`. Use `urlencode()` for form-style query values where spaces are conventionally written as `+`; decoding mirrors that distinction with `rawurldecode()` preserving literal plus signs and `urldecode()` turning them back into spaces.
+
+Array joining helpers turn normalized values into delimited text at an output boundary:
+
+```php
+let $columns = ["lastname", "email", "phone"]
+let $record = ["Doe", "d@example.com", "555-0100"]
+
+echo implode(",", $columns) . "\n"
+echo join(",", $record) . "\n"
+```
+
+Use `implode()` when code has already validated or escaped each element and now needs a compact string format such as a CSV line, log label, cache key, or HTTP header value. `join()` is the same operation under PHP's alias name, so existing PHP code can keep whichever spelling it already uses; the separator controls the output format while array values keep their stored order.
 
 Angle conversion helpers let code accept human-readable degree settings while passing radians to lower-level math or geometry code:
 

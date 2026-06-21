@@ -1,0 +1,13 @@
+let $columns = ["lastname", "email", "phone"]
+let $record = ["Doe", "d@example.com", "555-0100"]
+let $mixed = ["a", 2, true, false, null, 3.5]
+let $values = ["one", "two", 3]
+
+echo "header:[" . implode(",", $columns) . "]\n"
+echo "row:[" . join(",", $record) . "]\n"
+echo "default:[" . implode($columns) . "]\n"
+echo "mixed:[" . join("|", $mixed) . "]\n"
+echo "empty:[" . implode("hello", []) . "]\n"
+echo "values:[" . implode(",", $values) . "]\n"
+echo "exists-implode:[" . function_exists("implode") . "]\n"
+echo "exists-join:[" . function_exists("join") . "]\n"
