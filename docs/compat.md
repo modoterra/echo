@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 144 | 463 |
-| Loaded local PHP internals, including extensions | 1516 | 144 | 1372 |
+| Baseline (`Core` + `standard`) | 607 | 149 | 458 |
+| Loaded local PHP internals, including extensions | 1516 | 149 | 1367 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (119/545)
+### standard (124/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -149,9 +149,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_intersect_uassoc` | missing |  |
 | `array_intersect_ukey` | missing |  |
 | `array_is_list` | implemented | Echo PHP arrays are currently contiguous vectors; associative/key-gap arrays are deferred. Source: https://www.php.net/manual/en/function.array-is-list.php |
-| `array_key_exists` | missing |  |
-| `array_key_first` | missing |  |
-| `array_key_last` | missing |  |
+| `array_key_exists` | implemented | Checks first-dimension keys, including keys whose value is `null`, with PHP array-key coercion for supported scalar keys. Source: https://www.php.net/manual/en/function.array-key-exists.php |
+| `array_key_first` | implemented | Returns the first insertion-order key as `int|string`, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-key-first.php |
+| `array_key_last` | implemented | Returns the last insertion-order key as `int|string`, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-key-last.php |
 | `array_keys` | implemented | Returns numeric and string keys, with optional loose or strict value filtering. Source: https://www.php.net/manual/en/function.array-keys.php |
 | `array_last` | missing |  |
 | `array_map` | missing |  |
@@ -356,7 +356,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `image_type_to_extension` | missing |  |
 | `image_type_to_mime_type` | missing |  |
 | `implode` | implemented | Joins PHP array values in order, supports the optional empty-string separator form, and uses PHP string coercion for scalar elements. Source: https://www.php.net/manual/en/function.implode.php |
-| `in_array` | missing |  |
+| `in_array` | implemented | Searches array values with loose comparison by default and strict same-type comparison when the third argument is true. Source: https://www.php.net/manual/en/function.in-array.php |
 | `inet_ntop` | missing |  |
 | `inet_pton` | missing |  |
 | `ini_alter` | missing |  |
@@ -399,7 +399,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_writeable` | implemented | Alias of `is_writable()`. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `join` | implemented | Alias of `implode()`. Source: https://www.php.net/manual/en/function.join.php |
 | `key` | missing |  |
-| `key_exists` | missing |  |
+| `key_exists` | implemented | Alias of `array_key_exists()`. Source: https://www.php.net/manual/en/function.key-exists.php |
 | `krsort` | missing |  |
 | `ksort` | missing |  |
 | `lcfirst` | implemented |  |

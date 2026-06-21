@@ -146,6 +146,35 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             ],
             Some("array"),
         ),
+        php_builtin_reflection(
+            "array_key_exists",
+            &[("key", Some("mixed")), ("array", Some("array"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "key_exists",
+            &[("key", Some("mixed")), ("array", Some("array"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "array_key_first",
+            &[("array", Some("array"))],
+            Some("int|string|null"),
+        ),
+        php_builtin_reflection(
+            "array_key_last",
+            &[("array", Some("array"))],
+            Some("int|string|null"),
+        ),
+        php_builtin_reflection(
+            "in_array",
+            &[
+                ("needle", Some("mixed")),
+                ("haystack", Some("array")),
+                ("strict", Some("bool")),
+            ],
+            Some("bool"),
+        ),
         php_builtin_reflection("array_sum", &[("array", Some("array"))], Some("int|float")),
         php_builtin_reflection(
             "array_product",

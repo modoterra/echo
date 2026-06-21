@@ -1718,6 +1718,78 @@ pub extern "C" fn echo_php_array_keys(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_key_exists(key: EchoValue, array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(key) = EchoArrayKey::from_value(key) else {
+        return EchoValue::error();
+    };
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::bool(array.keys.contains(&key))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_key_first(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    match array.keys.first() {
+        Some(key) => key.to_value(),
+        None => EchoValue::null(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_key_last(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    match array.keys.last() {
+        Some(key) => key.to_value(),
+        None => EchoValue::null(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_in_array(
+    needle: EchoValue,
+    haystack: EchoValue,
+    strict: EchoValue,
+) -> EchoValue {
+    if !haystack.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(haystack) = (unsafe { (haystack.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let strict = strict.bool_value().unwrap_or(false);
+
+    EchoValue::bool(haystack.values.iter().any(|value| {
+        if strict {
+            echo_values_equal(needle, *value)
+        } else {
+            php_values_equal(needle, *value)
+        }
+    }))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_sum(array: EchoValue) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
@@ -5244,6 +5316,61 @@ mod tests {
         assert_eq!(
             echo_php_array_product(echo_value_array_new()),
             EchoValue::int(1)
+        );
+    }
+
+    #[test]
+    fn array_lookup_builtins_preserve_php_key_and_value_behavior() {
+        let id = test_string_value(b"id");
+        let qty = test_string_value(b"qty");
+        let string_two = test_string_value(b"2");
+        let zero = test_string_value(b"0");
+        let mut array = echo_value_array_new();
+        array = echo_value_array_set(array, id, EchoValue::int(10));
+        array = echo_value_array_set(array, qty, string_two);
+        array = echo_value_array_set(array, EchoValue::int(5), EchoValue::null());
+        array = echo_value_array_set(array, zero, test_string_value(b"zero"));
+
+        assert_eq!(
+            echo_php_array_key_exists(test_string_value(b"id"), array),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_array_key_exists(EchoValue::int(5), array),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_array_key_exists(test_string_value(b"missing"), array),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_array_key_exists(EchoValue::bool(false), array),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_array_key_first(array).string_bytes(),
+            Some(b"id".to_vec())
+        );
+        assert_eq!(echo_php_array_key_last(array), EchoValue::int(0));
+        assert_eq!(
+            echo_php_array_key_first(echo_value_array_new()),
+            EchoValue::null()
+        );
+        assert_eq!(
+            echo_php_array_key_last(echo_value_array_new()),
+            EchoValue::null()
+        );
+        assert_eq!(
+            echo_php_in_array(EchoValue::int(2), array, EchoValue::bool(false)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(
+            echo_php_in_array(EchoValue::int(2), array, EchoValue::bool(true)),
+            EchoValue::bool(false)
+        );
+        assert_eq!(
+            echo_php_in_array(string_two, array, EchoValue::bool(true)),
+            EchoValue::bool(true)
         );
     }
 

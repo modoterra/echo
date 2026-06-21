@@ -1,0 +1,13 @@
+let $row = [10, "2", null, "zero"]
+
+echo "exists-zero:[" . array_key_exists(0, $row) . "]\n"
+echo "exists-null:[" . array_key_exists(2, $row) . "]\n"
+echo "exists-missing:[" . array_key_exists(9, $row) . "]\n"
+echo "first:[" . array_key_first($row) . "]\n"
+echo "last:[" . array_key_last($row) . "]\n"
+echo "first-empty:[" . is_null(array_key_first([])) . "]\n"
+echo "last-empty:[" . is_null(array_key_last([])) . "]\n"
+echo "in-loose:[" . in_array(2, $row) . "]\n"
+echo "in-strict:[" . in_array(2, $row, true) . "]\n"
+echo "in-string-strict:[" . in_array("2", $row, true) . "]\n"
+echo "exists:[" . function_exists("array_key_exists") . function_exists("key_exists") . function_exists("array_key_first") . function_exists("array_key_last") . function_exists("in_array") . "]\n"

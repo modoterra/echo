@@ -195,14 +195,18 @@ declare %EchoValue @echo_std_reflect_type_of(%EchoValue)
 
 These declarations are Echo stdlib intrinsics, so they use `echo_std_*` even though they expose reflection information about PHP builtins.
 
-Current PHP-facing string builtins use unary `%EchoValue` calls so PHP scalar coercion
-stays centralized in the runtime value layer:
+Current PHP-facing builtins use `%EchoValue` calls so PHP scalar coercion and
+array behavior stay centralized in the runtime value layer:
 
 ```llvm
 declare %EchoValue @echo_php_strlen(%EchoValue)
 declare %EchoValue @echo_php_count(%EchoValue)
 declare %EchoValue @echo_php_array_values(%EchoValue)
 declare %EchoValue @echo_php_array_keys(%EchoValue, %EchoValue, %EchoValue)
+declare %EchoValue @echo_php_array_key_exists(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_array_key_first(%EchoValue)
+declare %EchoValue @echo_php_array_key_last(%EchoValue)
+declare %EchoValue @echo_php_in_array(%EchoValue, %EchoValue, %EchoValue)
 declare %EchoValue @echo_php_array_sum(%EchoValue)
 declare %EchoValue @echo_php_array_product(%EchoValue)
 declare %EchoValue @echo_php_function_exists(%EchoValue)
