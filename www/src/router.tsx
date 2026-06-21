@@ -120,12 +120,6 @@ type DocsSearchResult = Pick<
   semanticScore?: number;
 };
 
-type DocsSearchStatusItem = {
-  badge?: string;
-  label: string;
-  type: "loading" | "ready";
-};
-
 const docsSearchResultLimit = 8;
 const docsSearchLexicalCandidateLimit = 24;
 const docsSearchSemanticCandidateLimit = 24;
@@ -414,19 +408,7 @@ function DocsSearch() {
     setIsOpen(false);
   }
 
-  const statusItems: DocsSearchStatusItem[] = [];
-
-  if (isLoadingIndex) {
-    statusItems.push({ label: "Loading index...", type: "loading" });
-  }
-
-  if (semanticAsset) {
-    statusItems.push({
-      badge: "Semantic",
-      label: isLoadingModel ? "Loading model..." : "Reranking ready",
-      type: isLoadingModel ? "loading" : "ready",
-    });
-  }
+  const isSemanticReady = Boolean(semanticAsset) && !isLoadingModel;
 
   return (
     <>
@@ -495,28 +477,22 @@ function DocsSearch() {
                 </div>
                 <div className="flex min-h-10 items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                   <div className="flex items-center gap-2">
-                    {statusItems.length > 0 ? (
-                      statusItems.map((item) => (
-                        <span
-                          className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1"
-                          key={item.label}
-                        >
-                          {item.type === "loading" ? (
-                            <span className="size-1.5 rounded-full bg-orange-400 motion-safe:animate-pulse" />
-                          ) : (
-                            <span className="size-1.5 rounded-full bg-emerald-500" />
-                          )}
-                          {item.badge ? (
-                            <span className="rounded bg-sky-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-normal text-sky-700">
-                              [{item.badge}]
-                            </span>
-                          ) : null}
-                          {item.label}
-                        </span>
-                      ))
-                    ) : (
-                      <span aria-hidden="true" />
-                    )}
+                    <span
+                      className={
+                        isSemanticReady
+                          ? "inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-sky-700"
+                          : "inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-400"
+                      }
+                    >
+                      <span
+                        className={
+                          isSemanticReady
+                            ? "size-1.5 rounded-full bg-sky-500"
+                            : "size-1.5 rounded-full bg-slate-300"
+                        }
+                      />
+                      Semantic
+                    </span>
                   </div>
                   <span className="hidden text-slate-300 sm:inline">
                     <span className="font-mono">↑↓</span> Select ·{" "}
