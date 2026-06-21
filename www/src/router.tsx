@@ -1619,6 +1619,36 @@ const standardLibraryRoute = createRoute({
   component: () => <DocsContentPage page={docsPages[2]} />,
 });
 
+const standardLibraryNetRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "standard-library/net",
+  component: () => <DocsContentPage page={docsPages[3]} />,
+});
+
+const standardLibraryHttpRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "standard-library/http",
+  component: () => <DocsContentPage page={docsPages[4]} />,
+});
+
+const standardLibraryTimeRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "standard-library/time",
+  component: () => <DocsContentPage page={docsPages[5]} />,
+});
+
+const standardLibraryReflectRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "standard-library/reflect",
+  component: () => <DocsContentPage page={docsPages[6]} />,
+});
+
+const standardLibraryAssertRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "standard-library/assert",
+  component: () => <DocsContentPage page={docsPages[7]} />,
+});
+
 const phpBuiltinsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins",
@@ -1726,7 +1756,7 @@ const phpBuiltinCoreRoute = createRoute({
 const sourceBuildsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "source-builds",
-  component: () => <DocsContentPage page={docsPages[3]} />,
+  component: () => <DocsContentPage page={docsPages[8]} />,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -1735,6 +1765,11 @@ const routeTree = rootRoute.addChildren([
     docsRoute,
     sourceModesRoute,
     standardLibraryRoute,
+    standardLibraryNetRoute,
+    standardLibraryHttpRoute,
+    standardLibraryTimeRoute,
+    standardLibraryReflectRoute,
+    standardLibraryAssertRoute,
     phpBuiltinsRoute,
     phpBuiltinStringsRoute,
     phpBuiltinArraysRoute,

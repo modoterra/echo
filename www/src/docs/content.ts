@@ -3214,6 +3214,190 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "standard-library-net",
+    path: "/docs/standard-library/net",
+    navGroup: "Language",
+    category: "Standard Library",
+    title: "net",
+    summary: "Use std.net for TCP listeners, connections, reads, writes, and closes.",
+    tags: ["standard library", "stdlib", "std", "net", "tcp", "network"],
+    aliases: ["std.net", "networking", "tcp server", "tcp connection"],
+    sections: [
+      {
+        title: "std.net",
+        tags: ["tcp", "network", "listen", "connect"],
+        aliases: ["networking", "tcp server", "tcp connection"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.net" },
+              " exposes TCP listener and connection APIs. Use it when an Echo program owns socket IO instead of shelling out to another process.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, \"received \" . strlen($request) . \" bytes\\n\")\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This pattern keeps the listener, accepted connection, read buffer, response write, and close operation in one workflow. Prefer it for low-level TCP services where the program needs direct control over connection lifetime.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "standard-library-http",
+    path: "/docs/standard-library/http",
+    navGroup: "Language",
+    category: "Standard Library",
+    title: "http",
+    summary: "Use std.http for HTTP helpers built on Echo runtime types.",
+    tags: ["standard library", "stdlib", "std", "http", "response", "request"],
+    aliases: ["std.http", "http response", "http request"],
+    sections: [
+      {
+        title: "std.http",
+        tags: ["http", "response", "request"],
+        aliases: ["http response", "http request"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.http" },
+              " contains HTTP helpers built on Echo runtime types. The first supported surface formats plain text responses and reads requests from ",
+              { code: "std.net" },
+              " connections.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std http\nuse std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $response = http.responseText(\"ok\\n\")\n\nnet.write($connection, $response)\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "http.responseText()" },
+              " when a small service needs correctly framed response bytes without hand-building the HTTP status line and headers for every endpoint.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "standard-library-time",
+    path: "/docs/standard-library/time",
+    navGroup: "Language",
+    category: "Standard Library",
+    title: "time",
+    summary: "Use std.time for runtime scheduling helpers such as millisecond sleep.",
+    tags: ["standard library", "stdlib", "std", "time", "sleep", "scheduling"],
+    aliases: ["std.time", "sleep", "delay", "timer"],
+    sections: [
+      {
+        title: "std.time",
+        tags: ["sleep", "time", "scheduling"],
+        aliases: ["sleep", "delay", "timer"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.time" },
+              " provides scheduling helpers such as millisecond sleep. Use it to express runtime delays in Echo code instead of busy waiting.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std time\n\nlet $attempt = 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The delay is explicit at the point where retry behavior happens, so the polling loop stays readable and avoids consuming CPU while waiting for external work.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "standard-library-reflect",
+    path: "/docs/standard-library/reflect",
+    navGroup: "Language",
+    category: "Standard Library",
+    title: "reflect",
+    summary: "Use std.reflect to inspect Echo-visible functions and values.",
+    tags: ["standard library", "stdlib", "std", "reflect", "reflection", "metadata"],
+    aliases: ["std.reflect", "introspection", "function metadata"],
+    sections: [
+      {
+        title: "std.reflect",
+        tags: ["reflection", "type", "metadata"],
+        aliases: ["introspection", "function metadata"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.reflect" },
+              " inspects Echo-visible functions and values. It can see Echo standard library and userland metadata in addition to PHP compatibility functions.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" returns \" . reflect.returnType($name) . \"\\n\"\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use reflection for diagnostics, documentation tooling, and compatibility checks that need to explain what the runtime knows about a symbol before calling it.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "standard-library-assert",
+    path: "/docs/standard-library/assert",
+    navGroup: "Language",
+    category: "Standard Library",
+    title: "assert",
+    summary: "Use std.assert for assertions in Echo examples, fixtures, and checks.",
+    tags: ["standard library", "stdlib", "std", "assert", "testing", "validation"],
+    aliases: ["std.assert", "assertions", "test helpers"],
+    sections: [
+      {
+        title: "std.assert",
+        tags: ["assert", "testing", "validation"],
+        aliases: ["assertions", "test helpers"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.assert" },
+              " provides assertion helpers for Echo test-style programs and small runtime checks.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nlet $parts = explode(\":\", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == \"signed\")",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Assertions are useful at the edge of examples and fixtures where a program should fail clearly if a parsed or transformed value no longer matches the expected shape.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "source-builds",
     path: "/docs/source-builds",
     navGroup: "Tooling",
@@ -3268,11 +3452,11 @@ export const docsNavigation: DocsNavGroup[] = [
         label: "Standard Library",
         to: "/docs/standard-library",
         children: [
-          { label: "net", to: "/docs/standard-library#std.net" },
-          { label: "http", to: "/docs/standard-library#std.http" },
-          { label: "time", to: "/docs/standard-library#std.time" },
-          { label: "reflect", to: "/docs/standard-library#std.reflect" },
-          { label: "assert", to: "/docs/standard-library#std.assert" },
+          { label: "net", to: "/docs/standard-library/net" },
+          { label: "http", to: "/docs/standard-library/http" },
+          { label: "time", to: "/docs/standard-library/time" },
+          { label: "reflect", to: "/docs/standard-library/reflect" },
+          { label: "assert", to: "/docs/standard-library/assert" },
         ],
       },
       { label: "PHP Compatibility", to: "/docs/php-compatibility", disabled: true },
