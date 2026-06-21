@@ -963,8 +963,6 @@ function DocsLayout() {
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
   const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
-  const pendingScrollHeadingRef = useRef<string | null>(null);
-  const pendingScrollTimeoutRef = useRef<number | undefined>(undefined);
   const onThisPageViewportRef = useRef<HTMLDivElement | null>(null);
   const onThisPageRailRef = useRef<HTMLDivElement | null>(null);
   const onThisPageItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
@@ -973,23 +971,6 @@ function DocsLayout() {
     let animationFrame = 0;
 
     function updateActiveHeading() {
-      const pendingHeading = pendingScrollHeadingRef.current;
-
-      if (pendingHeading) {
-        const pendingElement = document.getElementById(headingId(pendingHeading));
-
-        if (
-          pendingElement &&
-          Math.abs(pendingElement.getBoundingClientRect().top - 112) > 8
-        ) {
-          setActiveHeading(pendingHeading);
-          return;
-        }
-
-        pendingScrollHeadingRef.current = null;
-        window.clearTimeout(pendingScrollTimeoutRef.current);
-      }
-
       const nextActiveHeading =
         headings.findLast((heading) => {
           const element = document.getElementById(headingId(heading));
@@ -1017,7 +998,6 @@ function DocsLayout() {
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
-      window.clearTimeout(pendingScrollTimeoutRef.current);
       window.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
     };
@@ -1075,12 +1055,6 @@ function DocsLayout() {
       return;
     }
 
-    pendingScrollHeadingRef.current = heading;
-    window.clearTimeout(pendingScrollTimeoutRef.current);
-    pendingScrollTimeoutRef.current = window.setTimeout(() => {
-      pendingScrollHeadingRef.current = null;
-    }, 900);
-    setActiveHeading(heading);
     window.history.pushState(null, "", `#${id}`);
     window.scrollTo({
       behavior: "smooth",
@@ -1094,24 +1068,26 @@ function DocsLayout() {
         <aside className="hidden lg:block">
           <nav
             aria-label="Documentation sections"
-            className="sticky top-32 space-y-10"
+            className="sticky top-32 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 scrollbar-thin scrollbar-nice"
           >
-            {docsNavigation.map((group) => (
-              <section key={group.title}>
-                <h2 className="text-sm font-semibold text-slate-950">
-                  {group.title}
-                </h2>
-                <ul className="mt-5 space-y-3">
-                  {group.links.map((link) => (
-                    <DocsNavLinkItem
-                      key={link.label}
-                      link={link}
-                      pathname={location.pathname}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
+            <div className="space-y-10">
+              {docsNavigation.map((group) => (
+                <section key={group.title}>
+                  <h2 className="text-sm font-semibold text-slate-950">
+                    {group.title}
+                  </h2>
+                  <ul className="mt-5 space-y-3">
+                    {group.links.map((link) => (
+                      <DocsNavLinkItem
+                        key={link.label}
+                        link={link}
+                        pathname={location.pathname}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </nav>
         </aside>
 
