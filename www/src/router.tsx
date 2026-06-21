@@ -921,6 +921,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
   {
     title: "Project",
     links: [
+      { label: "Modoterra", href: "https://modoterra.xyz" },
       { label: "GitHub", href: "https://github.com/modoterra/echo" },
       { label: "Issues", href: "https://github.com/modoterra/echo/issues" },
       { label: "Releases", href: "https://github.com/modoterra/echo/releases" },
@@ -986,13 +987,13 @@ function SiteFooter() {
         </nav>
       </div>
 
-      <div className="mx-auto mt-80 flex w-full max-w-7xl items-end justify-between gap-8">
-        <p className="pb-20 text-sm text-slate-400">
+      <div className="mx-auto mt-96 flex w-full max-w-7xl items-end justify-between gap-8">
+        <p className="pb-24 text-sm text-slate-400">
           © 2026 Modoterra Corporation
         </p>
         <p
           aria-hidden="true"
-          className="select-none font-sans text-[clamp(8rem,26vw,26rem)] font-semibold leading-[0.72] tracking-normal text-slate-950/[0.045]"
+          className="select-none font-sans text-[clamp(9rem,28vw,28rem)] font-semibold leading-[0.72] tracking-normal text-slate-950/[0.045]"
         >
           Echo
         </p>

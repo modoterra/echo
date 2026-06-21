@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { RiGithubFill, RiPhpLine } from "@remixicon/react";
+import {
+  RiDiscordFill,
+  RiGithubFill,
+  RiPhpLine,
+  RiTwitterXFill,
+} from "@remixicon/react";
 import { GradientBackground } from "./components/gradient-background";
 import { applyRandomization } from "./lib/randomize-bg";
 
@@ -120,6 +125,50 @@ export function HomePage() {
             className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
           >
             <RiPhpLine aria-hidden="true" className="size-11" />
+          </a>
+          <a
+            href="https://www.rust-lang.org/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Rust"
+            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
+          >
+            <span
+              aria-hidden="true"
+              className="font-mono text-xl font-semibold tracking-normal"
+            >
+              Rust
+            </span>
+          </a>
+          <a
+            href="https://llvm.org/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="LLVM"
+            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
+          >
+            <span
+              aria-hidden="true"
+              className="font-mono text-xl font-semibold tracking-normal"
+            >
+              LLVM
+            </span>
+          </a>
+          <span
+            aria-label="Discord coming later"
+            className="inline-flex size-12 cursor-not-allowed items-center justify-center text-slate-300"
+            role="img"
+          >
+            <RiDiscordFill aria-hidden="true" className="size-9" />
+          </span>
+          <a
+            href="https://x.com/hicsfh"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Hicsfh on X"
+            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
+          >
+            <RiTwitterXFill aria-hidden="true" className="size-8" />
           </a>
         </nav>
       </section>
