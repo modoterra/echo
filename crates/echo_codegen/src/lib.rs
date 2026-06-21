@@ -596,6 +596,20 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_array_reverse",
+            echo_runtime::echo_php_array_reverse
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_array_flip",
+            echo_runtime::echo_php_array_flip
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_array_key_exists",
             echo_runtime::echo_php_array_key_exists
                 as extern "C" fn(
@@ -2449,6 +2463,7 @@ impl IrModule {
                 ));
             }
             BuiltinCodegen::ArrayKeys
+            | BuiltinCodegen::ArrayReverse
             | BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::ChunkSplit
@@ -3345,6 +3360,33 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({array}, {filter_value}, {strict})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ArrayReverse => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let array = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let preserve_keys = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({array}, {preserve_keys})\n",
                     builtin.symbol
                 ));
 
@@ -4792,6 +4834,35 @@ mod tests {
             "{ir}"
         );
         assert!(ir.contains("call %EchoValue @echo_php_array_fill("), "{ir}");
+    }
+
+    #[test]
+    fn array_reverse_lowers_optional_preserve_keys_default() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_reverse".to_string(),
+                args: vec![Expr::Array(ArrayExpr {
+                    elements: vec![ArrayElement {
+                        key: None,
+                        value: Expr::String(StringLiteral {
+                            value: "x".to_string(),
+                            span: Span::new(15, 18),
+                        }),
+                        span: Span::new(15, 18),
+                    }],
+                    span: Span::new(14, 19),
+                })],
+                span: Span::new(0, 20),
+            })],
+            span: Span::new(0, 21),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_array_reverse(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
     }
 
     #[test]

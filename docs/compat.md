@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 151 | 456 |
-| Loaded local PHP internals, including extensions | 1516 | 151 | 1365 |
+| Baseline (`Core` + `standard`) | 607 | 153 | 454 |
+| Loaded local PHP internals, including extensions | 1516 | 153 | 1363 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (126/545)
+### standard (128/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -142,7 +142,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_find` | missing |  |
 | `array_find_key` | missing |  |
 | `array_first` | missing |  |
-| `array_flip` | missing |  |
+| `array_flip` | implemented | Exchanges int/string values with their original keys; duplicate values keep the latest key, while unsupported value-key types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-flip.php |
 | `array_intersect` | missing |  |
 | `array_intersect_assoc` | missing |  |
 | `array_intersect_key` | missing |  |
@@ -166,7 +166,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_reduce` | missing |  |
 | `array_replace` | missing |  |
 | `array_replace_recursive` | missing |  |
-| `array_reverse` | missing |  |
+| `array_reverse` | implemented | Returns elements in reverse order, reindexing numeric keys by default and preserving string keys; optional `preserve_keys` keeps numeric keys too. Source: https://www.php.net/manual/en/function.array-reverse.php |
 | `array_search` | missing |  |
 | `array_shift` | missing |  |
 | `array_slice` | missing |  |
