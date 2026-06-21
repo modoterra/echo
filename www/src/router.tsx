@@ -34,6 +34,10 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  docsSearchIndexUrl,
+  docsSemanticIndexUrl,
+} from "virtual:docs-search-indices";
 import { HomePage } from "./app";
 import {
   builtinExample,
@@ -125,8 +129,6 @@ const docsSearchLexicalCandidateLimit = 24;
 const docsSearchSemanticCandidateLimit = 24;
 const docsSearchLexicalWeight = 0.6;
 const docsSearchSemanticWeight = 0.4;
-const docsSearchIndexPath = "/indices/search.json";
-const docsSemanticIndexPath = "/indices/semantic.json";
 
 let docsSearchAssetPromise: Promise<DocsSearchAsset> | null = null;
 let docsSemanticAssetPromise: Promise<DocsSemanticAsset> | null = null;
@@ -526,8 +528,8 @@ function DocsSearch() {
                           <Link
                             className={
                               isActive
-                                ? "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md bg-slate-100 px-3 py-3 text-slate-950"
-                                : "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md px-3 py-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                                ? "grid grid-cols-[2rem_minmax(0,1fr)_1.25rem] gap-3 rounded-md bg-slate-100 px-3 py-3 text-slate-950"
+                                : "grid grid-cols-[2rem_minmax(0,1fr)_1.25rem] gap-3 rounded-md px-3 py-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                             }
                             onClick={closeSearch}
                             onMouseEnter={() => setActiveResultIndex(index)}
@@ -547,7 +549,7 @@ function DocsSearch() {
                                 {result.excerpt}
                               </span>
                             </span>
-                            <span className="self-center text-slate-400">
+                            <span className="flex size-5 items-center justify-center self-center text-slate-400">
                               {isActive ? <RiArrowRightLine size={18} /> : null}
                             </span>
                           </Link>
@@ -580,14 +582,14 @@ function SearchResultIcon({ kind }: { kind: DocsSearchResult["kind"] }) {
 
 function loadDocsSearchAsset() {
   docsSearchAssetPromise ??=
-    fetchDocsIndex<DocsSearchAsset>(docsSearchIndexPath);
+    fetchDocsIndex<DocsSearchAsset>(docsSearchIndexUrl);
 
   return docsSearchAssetPromise;
 }
 
 function loadDocsSemanticAsset() {
   docsSemanticAssetPromise ??=
-    fetchDocsIndex<DocsSemanticAsset>(docsSemanticIndexPath);
+    fetchDocsIndex<DocsSemanticAsset>(docsSemanticIndexUrl);
 
   return docsSemanticAssetPromise;
 }

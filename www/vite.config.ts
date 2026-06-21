@@ -9,30 +9,47 @@ import {
   type DocsSemanticAsset,
 } from "./src/docs/search";
 
-const docsSearchIndexFileName = "indices/search.json";
-const docsSemanticIndexFileName = "indices/semantic.json";
+const docsSearchIndexDevFileName = "indices/search.json";
+const docsSemanticIndexDevFileName = "indices/semantic.json";
+const docsSearchIndicesVirtualModuleId = "virtual:docs-search-indices";
+const resolvedDocsSearchIndicesVirtualModuleId = `\0${docsSearchIndicesVirtualModuleId}`;
 const shouldBuildSemanticIndex = process.env.DOCS_EMBEDDINGS === "true";
 
 function docsSearchIndexPlugin(): Plugin {
-  let devSemanticAsset: Promise<DocsSemanticAsset> | null = null;
+  let isDevServer = false;
+  let searchAsset: DocsSearchAsset | null = null;
+  let semanticAsset: Promise<DocsSemanticAsset> | null = null;
+  let searchIndexFileName = "";
+  let semanticIndexFileName = "";
 
   return {
     name: "docs-search-index",
+    configResolved(config) {
+      isDevServer = config.command === "serve";
+    },
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
-        if (request.url === `/${docsSearchIndexFileName}`) {
+        if (
+          request.url === `/${docsSearchIndexDevFileName}` ||
+          request.url === `/${searchIndexFileName}`
+        ) {
+          const asset = getDocsSearchAsset();
           response.setHeader("Content-Type", "application/json");
-          response.end(JSON.stringify(buildChecksummedDocsSearchAsset()));
+          response.end(JSON.stringify(asset));
           return;
         }
 
-        if (request.url === `/${docsSemanticIndexFileName}`) {
+        if (
+          request.url === `/${docsSemanticIndexDevFileName}` ||
+          request.url === `/${semanticIndexFileName}`
+        ) {
           try {
-            devSemanticAsset ??= buildDocsSemanticAsset();
+            semanticAsset ??= buildDocsSemanticAsset();
+            const asset = await semanticAsset;
             response.setHeader("Content-Type", "application/json");
-            response.end(JSON.stringify(await devSemanticAsset));
+            response.end(JSON.stringify(asset));
           } catch (error) {
-            devSemanticAsset = null;
+            semanticAsset = null;
             response.statusCode = 500;
             response.setHeader("Content-Type", "application/json");
             response.end(
@@ -50,22 +67,88 @@ function docsSearchIndexPlugin(): Plugin {
         next();
       });
     },
+    resolveId(id) {
+      if (id === docsSearchIndicesVirtualModuleId) {
+        return resolvedDocsSearchIndicesVirtualModuleId;
+      }
+
+      return null;
+    },
+    async load(id) {
+      if (id !== resolvedDocsSearchIndicesVirtualModuleId) {
+        return null;
+      }
+
+      getDocsSearchAsset();
+
+      if (isDevServer || shouldBuildSemanticIndex) {
+        semanticAsset ??= buildDocsSemanticAsset();
+        const loadedSemanticAsset = await semanticAsset;
+        semanticIndexFileName ||= docsIndexFileName(
+          "semantic",
+          loadedSemanticAsset.checksum,
+        );
+      }
+
+      return [
+        `export const docsSearchIndexUrl = ${JSON.stringify(
+          searchIndexFileName
+            ? `/${searchIndexFileName}`
+            : `/${docsSearchIndexDevFileName}`,
+        )};`,
+        `export const docsSemanticIndexUrl = ${JSON.stringify(
+          semanticIndexFileName
+            ? `/${semanticIndexFileName}`
+            : `/${docsSemanticIndexDevFileName}`,
+        )};`,
+      ].join("\n");
+    },
+    buildStart() {
+      getDocsSearchAsset();
+
+      if (shouldBuildSemanticIndex) {
+        semanticAsset = buildDocsSemanticAsset().then((asset) => {
+          semanticIndexFileName = docsIndexFileName(
+            "semantic",
+            asset.checksum,
+          );
+
+          return asset;
+        });
+      }
+    },
     async generateBundle() {
+      const loadedSearchAsset = getDocsSearchAsset();
+
       this.emitFile({
         type: "asset",
-        fileName: docsSearchIndexFileName,
-        source: JSON.stringify(buildChecksummedDocsSearchAsset()),
+        fileName: searchIndexFileName,
+        source: JSON.stringify(loadedSearchAsset),
       });
 
       if (shouldBuildSemanticIndex) {
+        semanticAsset ??= buildDocsSemanticAsset();
+        const loadedSemanticAsset = await semanticAsset;
+        semanticIndexFileName ||= docsIndexFileName(
+          "semantic",
+          loadedSemanticAsset.checksum,
+        );
+
         this.emitFile({
           type: "asset",
-          fileName: docsSemanticIndexFileName,
-          source: JSON.stringify(await buildDocsSemanticAsset()),
+          fileName: semanticIndexFileName,
+          source: JSON.stringify(loadedSemanticAsset),
         });
       }
     },
   };
+
+  function getDocsSearchAsset() {
+    searchAsset ??= buildChecksummedDocsSearchAsset();
+    searchIndexFileName ||= docsIndexFileName("search", searchAsset.checksum);
+
+    return searchAsset;
+  }
 }
 
 function buildChecksummedDocsSearchAsset(): DocsSearchAsset {
@@ -131,6 +214,10 @@ function checksumAsset(asset: object) {
     .update(JSON.stringify(assetWithoutChecksum))
     .digest("hex")
     .slice(0, 16);
+}
+
+function docsIndexFileName(name: "search" | "semantic", checksum: string) {
+  return `indices/${name}.${checksum}.json`;
 }
 
 // https://vite.dev/config/
