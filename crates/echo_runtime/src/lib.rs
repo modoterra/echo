@@ -2063,6 +2063,22 @@ pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_deg2rad(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(value.to_radians()),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rad2deg(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(value.to_degrees()),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
     const HEX: &[u8; 16] = b"0123456789abcdef";
 
@@ -5342,6 +5358,25 @@ mod tests {
         assert_eq!(
             echo_php_rawurlencode(string_value(&[0xc3, 0x84])).string_bytes(),
             Some(b"%C3%84".to_vec())
+        );
+    }
+
+    #[test]
+    fn angle_conversion_builtins_preserve_php_float_coercion() {
+        assert_float_value(echo_php_deg2rad(EchoValue::int(180)), std::f64::consts::PI);
+        assert_float_value(
+            echo_php_rad2deg(EchoValue::float(std::f64::consts::PI)),
+            180.0,
+        );
+        assert_float_value(
+            echo_php_deg2rad(test_string_value(b"-90")),
+            -std::f64::consts::FRAC_PI_2,
+        );
+        assert_float_value(echo_php_rad2deg(EchoValue::bool(true)), 57.29577951308232);
+        assert_float_value(echo_php_deg2rad(EchoValue::null()), 0.0);
+        assert_eq!(
+            echo_php_deg2rad(test_string_value(b"not numeric")),
+            EchoValue::error()
         );
     }
 

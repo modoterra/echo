@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 100 | 507 |
-| Loaded local PHP internals, including extensions | 1516 | 100 | 1416 |
+| Baseline (`Core` + `standard`) | 607 | 102 | 505 |
+| Loaded local PHP internals, including extensions | 1516 | 102 | 1414 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (88/545)
+### standard (90/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -234,7 +234,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `decbin` | implemented | Converts integers to unsigned binary strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.decbin.php |
 | `dechex` | implemented | Converts integers to lowercase unsigned hexadecimal strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.dechex.php |
 | `decoct` | implemented | Converts integers to unsigned octal strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.decoct.php |
-| `deg2rad` | missing |  |
+| `deg2rad` | implemented | Converts degrees to radians using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.deg2rad.php |
 | `dir` | missing |  |
 | `dirname` | implemented | Supports Unix-style `/` separators and positive `levels`; Windows `\` separator behavior and direct PHP ValueError diagnostics are deferred. Source: https://www.php.net/manual/en/function.dirname.php |
 | `disk_free_space` | missing |  |
@@ -491,7 +491,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `quoted_printable_decode` | missing |  |
 | `quoted_printable_encode` | missing |  |
 | `quotemeta` | implemented |  |
-| `rad2deg` | missing |  |
+| `rad2deg` | implemented | Converts radians to degrees using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.rad2deg.php |
 | `range` | missing |  |
 | `rawurldecode` | implemented | Decodes `%XX` byte escapes without converting `+` to a space. Source: https://www.php.net/manual/en/function.rawurldecode.php |
 | `rawurlencode` | implemented | Encodes bytes according to RFC 3986, preserving alphanumerics and `-_.~`. Source: https://www.php.net/manual/en/function.rawurlencode.php |

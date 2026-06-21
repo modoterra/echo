@@ -177,6 +177,8 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("decbin", &[("num", Some("int"))], Some("string")),
         php_builtin_reflection("dechex", &[("num", Some("int"))], Some("string")),
         php_builtin_reflection("decoct", &[("num", Some("int"))], Some("string")),
+        php_builtin_reflection("deg2rad", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("rad2deg", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "base64_encode",
