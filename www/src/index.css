@@ -136,11 +136,25 @@
 
 .docs-code-snippet .rs-line-number {
     display: inline-block;
-    width: 2.5ch;
-    padding-right: 1.5ch;
-    color: rgb(148 163 184 / 0.55);
-    text-align: right;
     user-select: none;
+}
+
+.docs-code-snippet .rs-line-number::before {
+    min-width: 2.5ch;
+    margin-right: 1.5ch;
+    padding-right: 0;
+    color: rgb(148 163 184 / 0.55);
+    user-select: none;
+}
+
+.docs-code-snippet ::selection {
+    background: rgb(37 99 235 / 0.72);
+    color: white;
+}
+
+.docs-code-snippet .rs-line-number::selection {
+    background: transparent;
+    color: rgb(148 163 184 / 0.55);
 }
 
 .docs-code-skeleton {
