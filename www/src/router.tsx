@@ -116,8 +116,75 @@ type DocsSearchResult = Pick<
   "id" | "path" | "title" | "category" | "kind" | "excerpt"
 > & {
   score: number;
+  lexicalScore?: number;
   semanticScore?: number;
 };
+
+const docsSearchResultLimit = 8;
+const docsSearchLexicalCandidateLimit = 24;
+const docsSearchSemanticCandidateLimit = 24;
+const docsSearchLexicalWeight = 0.6;
+const docsSearchSemanticWeight = 0.4;
+
+function mergeHybridSearchResults({
+  lexicalResults,
+  recordById,
+  semanticResults,
+}: {
+  lexicalResults: DocsSearchResult[];
+  recordById: Map<string, DocsSearchRecord>;
+  semanticResults: { id: string; score: number }[];
+}) {
+  const maxLexicalScore = Math.max(
+    1,
+    ...lexicalResults.map((result) => result.score),
+  );
+  const maxSemanticScore = Math.max(
+    0.0001,
+    ...semanticResults.map((result) => result.score),
+  );
+  const merged = new Map<string, DocsSearchResult>();
+
+  for (const result of lexicalResults) {
+    merged.set(result.id, {
+      ...result,
+      lexicalScore: result.score / maxLexicalScore,
+      score: (result.score / maxLexicalScore) * docsSearchLexicalWeight,
+    });
+  }
+
+  for (const semanticResult of semanticResults) {
+    const normalizedSemanticScore = semanticResult.score / maxSemanticScore;
+    const existing = merged.get(semanticResult.id);
+
+    if (existing) {
+      existing.semanticScore = normalizedSemanticScore;
+      existing.score += normalizedSemanticScore * docsSearchSemanticWeight;
+      continue;
+    }
+
+    const record = recordById.get(semanticResult.id);
+
+    if (!record) {
+      continue;
+    }
+
+    merged.set(record.id, {
+      id: record.id,
+      path: record.path,
+      title: record.title,
+      category: record.category,
+      kind: record.kind,
+      excerpt: record.excerpt,
+      score: normalizedSemanticScore * docsSearchSemanticWeight,
+      semanticScore: normalizedSemanticScore,
+    });
+  }
+
+  return Array.from(merged.values())
+    .sort((left, right) => right.score - left.score)
+    .slice(0, docsSearchResultLimit);
+}
 
 function DocsSearch() {
   const navigate = useNavigate();
@@ -125,13 +192,18 @@ function DocsSearch() {
   const [query, setQuery] = useState("");
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [asset, setAsset] = useState<DocsSearchAsset | null>(null);
-  const [semanticAsset, setSemanticAsset] = useState<DocsSemanticAsset | null>(null);
+  const [semanticAsset, setSemanticAsset] = useState<DocsSemanticAsset | null>(
+    null,
+  );
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
   const [isLoadingIndex, setIsLoadingIndex] = useState(false);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [semanticUnavailable, setSemanticUnavailable] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const miniSearch = useMemo(() => (asset ? loadDocsMiniSearch(asset) : null), [asset]);
+  const miniSearch = useMemo(
+    () => (asset ? loadDocsMiniSearch(asset) : null),
+    [asset],
+  );
   const results = useMemo(() => {
     const trimmedQuery = query.trim();
 
@@ -139,32 +211,29 @@ function DocsSearch() {
       return [];
     }
 
-    const lexicalResults = miniSearch.search(trimmedQuery) as unknown as DocsSearchResult[];
+    const lexicalResults = miniSearch.search(
+      trimmedQuery,
+    ) as unknown as DocsSearchResult[];
 
-    if (!semanticAsset || !queryEmbedding) {
-      return lexicalResults.slice(0, 8);
+    if (!asset || !semanticAsset || !queryEmbedding) {
+      return lexicalResults.slice(0, docsSearchResultLimit);
     }
 
-    const semanticById = new Map(
-      semanticAsset.records.map((record) => [
-        record.id,
-        cosineSimilarity(queryEmbedding, record.embedding),
-      ]),
-    );
-
-    return lexicalResults
-      .map((result) => {
-        const semanticScore = semanticById.get(result.id) ?? 0;
-
-        return {
-          ...result,
-          score: result.score * 0.65 + semanticScore * 0.35,
-          semanticScore,
-        };
-      })
+    const recordById = new Map(asset.records.map((record) => [record.id, record]));
+    const semanticResults = semanticAsset.records
+      .map((record) => ({
+        id: record.id,
+        score: cosineSimilarity(queryEmbedding, record.embedding),
+      }))
       .sort((left, right) => right.score - left.score)
-      .slice(0, 8);
-  }, [miniSearch, query, queryEmbedding, semanticAsset]);
+      .slice(0, docsSearchSemanticCandidateLimit);
+
+    return mergeHybridSearchResults({
+      lexicalResults: lexicalResults.slice(0, docsSearchLexicalCandidateLimit),
+      recordById,
+      semanticResults,
+    });
+  }, [asset, miniSearch, query, queryEmbedding, semanticAsset]);
   const activeResult = results[activeResultIndex];
 
   useEffect(() => {
@@ -275,14 +344,16 @@ function DocsSearch() {
       const target = event.target;
       const isEditableTarget =
         target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.matches("input, textarea, select"));
+        (target.isContentEditable || target.matches("input, textarea, select"));
 
       if (isEditableTarget) {
         return;
       }
 
-      if (event.key === "/" || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) {
+      if (
+        event.key === "/" ||
+        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")
+      ) {
         event.preventDefault();
         setIsOpen(true);
       }
@@ -304,7 +375,9 @@ function DocsSearch() {
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setActiveResultIndex((index) => Math.min(index + 1, results.length - 1));
+        setActiveResultIndex((index) =>
+          Math.min(index + 1, results.length - 1),
+        );
         return;
       }
 
@@ -360,130 +433,130 @@ function DocsSearch() {
       {createPortal(
         <AnimatePresence>
           {isOpen ? (
-          <motion.div
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/25 px-4 pt-28 backdrop-blur-sm"
-            exit={{ opacity: 0 }}
-            initial={{ opacity: 0 }}
-            onMouseDown={closeSearch}
-            transition={{ duration: 0.16, ease: "easeOut" }}
-          >
             <motion.div
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="w-full max-w-2xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl"
-              exit={{ opacity: 0, scale: 0.98, y: -6 }}
-              initial={{ opacity: 0, scale: 0.98, y: -6 }}
-              onMouseDown={(event) => event.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Search documentation"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/05 px-4 pt-28 backdrop-blur-xs"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onMouseDown={closeSearch}
+              transition={{ duration: 0.16, ease: "easeOut" }}
             >
-              <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-                <RiSearchLine className="shrink-0 text-slate-400" size={22} />
-                <input
-                  className="h-full min-w-0 flex-1 bg-transparent text-lg text-slate-950 outline-none placeholder:text-slate-400"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search docs"
-                  ref={searchInputRef}
-                  value={query}
-                />
-                {query ? (
+              <motion.div
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="w-full max-w-2xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl"
+                exit={{ opacity: 0, scale: 0.98, y: -6 }}
+                initial={{ opacity: 0, scale: 0.98, y: -6 }}
+                onMouseDown={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Search documentation"
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
+                  <RiSearchLine className="shrink-0 text-slate-400" size={22} />
+                  <input
+                    className="h-full min-w-0 flex-1 bg-transparent text-lg text-slate-950 outline-none placeholder:text-slate-400"
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search docs"
+                    ref={searchInputRef}
+                    value={query}
+                  />
+                  {query ? (
+                    <button
+                      aria-label="Clear search"
+                      className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-950"
+                      onClick={() => setQuery("")}
+                      type="button"
+                    >
+                      <RiCloseLine size={20} />
+                    </button>
+                  ) : null}
                   <button
-                    aria-label="Clear search"
-                    className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-950"
-                    onClick={() => setQuery("")}
+                    aria-label="Close search"
+                    className="hidden rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 sm:inline"
+                    onClick={closeSearch}
                     type="button"
                   >
-                    <RiCloseLine size={20} />
+                    Esc
                   </button>
-                ) : null}
-                <button
-                  aria-label="Close search"
-                  className="hidden rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 sm:inline"
-                  onClick={closeSearch}
-                  type="button"
-                >
-                  Esc
-                </button>
-              </div>
-              <div className="flex min-h-10 items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                <div className="flex items-center gap-2">
-                  {statusItems.length > 0 ? (
-                    statusItems.map((item) => (
-                      <span
-                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1"
-                        key={item}
-                      >
-                        {item?.startsWith("Loading") ? (
-                          <span className="size-1.5 rounded-full bg-orange-400 motion-safe:animate-pulse" />
-                        ) : (
-                          <span className="size-1.5 rounded-full bg-emerald-500" />
-                        )}
-                        {item}
-                      </span>
-                    ))
-                  ) : (
-                    <span aria-hidden="true" />
-                  )}
                 </div>
-                <span className="hidden text-slate-300 sm:inline">
-                  <span className="font-mono">↑↓</span> Select ·{" "}
-                  <span className="font-mono">Enter</span> Open
-                </span>
-              </div>
-              <div className="max-h-[28rem] overflow-auto p-3 scrollbar-thin scrollbar-nice">
-                {!query.trim() ? (
-                  <p className="px-3 py-10 text-center text-sm text-slate-500">
-                    Search built-ins, examples, commands, and docs.
-                  </p>
-                ) : null}
-                {query.trim() && !isLoadingIndex && results.length === 0 ? (
-                  <p className="px-3 py-10 text-center text-sm text-slate-500">
-                    No results found.
-                  </p>
-                ) : null}
-                <ul className="space-y-1">
-                  {results.map((result, index) => {
-                    const isActive = index === activeResultIndex;
-
-                    return (
-                      <li key={result.id}>
-                        <Link
-                          className={
-                            isActive
-                              ? "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md bg-slate-100 px-3 py-3 text-slate-950"
-                              : "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md px-3 py-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-                          }
-                          onClick={closeSearch}
-                          onMouseEnter={() => setActiveResultIndex(index)}
-                          to={result.path}
+                <div className="flex min-h-10 items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <div className="flex items-center gap-2">
+                    {statusItems.length > 0 ? (
+                      statusItems.map((item) => (
+                        <span
+                          className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1"
+                          key={item}
                         >
-                          <span className="mt-1 text-slate-400">
-                            <SearchResultIcon kind={result.kind} />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold">
-                              {result.title}
+                          {item?.startsWith("Loading") ? (
+                            <span className="size-1.5 rounded-full bg-orange-400 motion-safe:animate-pulse" />
+                          ) : (
+                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                          )}
+                          {item}
+                        </span>
+                      ))
+                    ) : (
+                      <span aria-hidden="true" />
+                    )}
+                  </div>
+                  <span className="hidden text-slate-300 sm:inline">
+                    <span className="font-mono">↑↓</span> Select ·{" "}
+                    <span className="font-mono">Enter</span> Open
+                  </span>
+                </div>
+                <div className="max-h-[28rem] overflow-auto p-3 scrollbar-thin scrollbar-nice">
+                  {!query.trim() ? (
+                    <p className="px-3 py-10 text-center text-sm text-slate-500">
+                      Search built-ins, examples, commands, and docs.
+                    </p>
+                  ) : null}
+                  {query.trim() && !isLoadingIndex && results.length === 0 ? (
+                    <p className="px-3 py-10 text-center text-sm text-slate-500">
+                      No results found.
+                    </p>
+                  ) : null}
+                  <ul className="space-y-1">
+                    {results.map((result, index) => {
+                      const isActive = index === activeResultIndex;
+
+                      return (
+                        <li key={result.id}>
+                          <Link
+                            className={
+                              isActive
+                                ? "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md bg-slate-100 px-3 py-3 text-slate-950"
+                                : "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md px-3 py-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                            }
+                            onClick={closeSearch}
+                            onMouseEnter={() => setActiveResultIndex(index)}
+                            to={result.path}
+                          >
+                            <span className="mt-1 text-slate-400">
+                              <SearchResultIcon kind={result.kind} />
                             </span>
-                            <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                              {result.category} · {result.kind}
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-semibold">
+                                {result.title}
+                              </span>
+                              <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                {result.category} · {result.kind}
+                              </span>
+                              <span className="mt-1 line-clamp-2 block text-sm leading-6 text-slate-500">
+                                {result.excerpt}
+                              </span>
                             </span>
-                            <span className="mt-1 line-clamp-2 block text-sm leading-6 text-slate-500">
-                              {result.excerpt}
+                            <span className="self-center text-slate-400">
+                              {isActive ? <RiArrowRightLine size={18} /> : null}
                             </span>
-                          </span>
-                          <span className="self-center text-slate-400">
-                            {isActive ? <RiArrowRightLine size={18} /> : null}
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
           ) : null}
         </AnimatePresence>,
         document.body,
@@ -514,22 +587,24 @@ let queryEmbedderPromise: Promise<{
 }> | null = null;
 
 async function embedSearchQuery(query: string) {
-  queryEmbedderPromise ??= import("@huggingface/transformers").then(async ({ env, pipeline }) => {
-    env.localModelPath = "/models/";
-    env.allowLocalModels = true;
-    env.allowRemoteModels = false;
+  queryEmbedderPromise ??= import("@huggingface/transformers").then(
+    async ({ env, pipeline }) => {
+      env.localModelPath = "/models/";
+      env.allowLocalModels = true;
+      env.allowRemoteModels = false;
 
-    return pipeline("feature-extraction", "xmlml6v2", {
-      dtype: "q8",
-    }) as unknown as {
-      (
-        query: string,
-        options: { pooling: "mean"; normalize: true },
-      ): Promise<{
-        data: ArrayLike<number>;
-      }>;
-    };
-  });
+      return pipeline("feature-extraction", "xmlml6v2", {
+        dtype: "q8",
+      }) as unknown as {
+        (
+          query: string,
+          options: { pooling: "mean"; normalize: true },
+        ): Promise<{
+          data: ArrayLike<number>;
+        }>;
+      };
+    },
+  );
 
   const embedder = await queryEmbedderPromise;
   const output = await embedder(query, { pooling: "mean", normalize: true });
@@ -537,7 +612,13 @@ async function embedSearchQuery(query: string) {
   return Array.from(output.data);
 }
 
-function CodeSnippet({ children, className = "mt-8" }: { children: string; className?: string }) {
+function CodeSnippet({
+  children,
+  className = "mt-8",
+}: {
+  children: string;
+  className?: string;
+}) {
   const snippetRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [highlighter, setHighlighter] = useState<PhpHighlighter | null>(null);
@@ -587,14 +668,19 @@ function CodeSnippet({ children, className = "mt-8" }: { children: string; class
     let active = true;
     let delayTimeout: number | undefined;
     const delay = new Promise((resolve) => {
-      delayTimeout = window.setTimeout(resolve, randomCodeSnippetSkeletonDelay());
+      delayTimeout = window.setTimeout(
+        resolve,
+        randomCodeSnippetSkeletonDelay(),
+      );
     });
 
-    void Promise.all([loadPhpHighlighter(), delay]).then(([loadedHighlighter]) => {
-      if (active) {
-        setHighlighter(loadedHighlighter);
-      }
-    });
+    void Promise.all([loadPhpHighlighter(), delay]).then(
+      ([loadedHighlighter]) => {
+        if (active) {
+          setHighlighter(loadedHighlighter);
+        }
+      },
+    );
 
     return () => {
       active = false;
@@ -711,11 +797,20 @@ function RootLayout() {
   );
 }
 
-function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: string }) {
+function DocsNavLinkItem({
+  link,
+  pathname,
+}: {
+  link: DocsNavLink;
+  pathname: string;
+}) {
   const isActive = pathname === link.to;
   const hasActiveChild = link.children?.some((child) => pathname === child.to);
-  const activeChildIndex = link.children?.findIndex((child) => pathname === child.to) ?? -1;
-  const shouldShowChildren = Boolean(link.children && (isActive || hasActiveChild));
+  const activeChildIndex =
+    link.children?.findIndex((child) => pathname === child.to) ?? -1;
+  const shouldShowChildren = Boolean(
+    link.children && (isActive || hasActiveChild),
+  );
   const textClass = link.disabled
     ? "text-sm leading-6 text-slate-300"
     : isActive
@@ -756,7 +851,11 @@ function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: stri
               ) : null}
               <ul className="space-y-3">
                 {link.children?.map((child) => (
-                  <DocsNavLinkItem key={child.label} link={child} pathname={pathname} />
+                  <DocsNavLinkItem
+                    key={child.label}
+                    link={child}
+                    pathname={pathname}
+                  />
                 ))}
               </ul>
             </div>
@@ -796,7 +895,9 @@ function DocsLayout() {
 
           return element ? element.getBoundingClientRect().top <= 160 : false;
         }) ??
-        headings.find((heading) => document.getElementById(headingId(heading))) ??
+        headings.find((heading) =>
+          document.getElementById(headingId(heading)),
+        ) ??
         headings[0] ??
         "";
 
@@ -834,7 +935,9 @@ function DocsLayout() {
 
       const railRect = rail.getBoundingClientRect();
       const itemRect = item.getBoundingClientRect();
-      setOnThisPageTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
+      setOnThisPageTrainY(
+        itemRect.top - railRect.top + itemRect.height / 2 - 9,
+      );
     }
 
     function scheduleUpdate() {
@@ -868,13 +971,22 @@ function DocsLayout() {
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 lg:grid-cols-[220px_minmax(0,720px)] xl:grid-cols-[220px_minmax(0,720px)_220px]">
         <aside className="hidden lg:block">
-          <nav aria-label="Documentation sections" className="sticky top-32 space-y-10">
+          <nav
+            aria-label="Documentation sections"
+            className="sticky top-32 space-y-10"
+          >
             {docsNavigation.map((group) => (
               <section key={group.title}>
-                <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
+                <h2 className="text-sm font-semibold text-slate-950">
+                  {group.title}
+                </h2>
                 <ul className="mt-5 space-y-3">
                   {group.links.map((link) => (
-                    <DocsNavLinkItem key={link.label} link={link} pathname={location.pathname} />
+                    <DocsNavLinkItem
+                      key={link.label}
+                      link={link}
+                      pathname={location.pathname}
+                    />
                   ))}
                 </ul>
               </section>
@@ -885,7 +997,9 @@ function DocsLayout() {
         <DocsLayoutContext.Provider value={docsLayoutContext}>
           <article className="max-w-none">
             <p className="text-sm font-semibold text-slate-500">{category}</p>
-            <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">{title}</h1>
+            <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">
+              {title}
+            </h1>
             <Outlet />
           </article>
         </DocsLayoutContext.Provider>
@@ -922,7 +1036,12 @@ function DocsLayout() {
                       }
                       href={`#${headingId(heading)}`}
                       onClick={(event) => {
-                        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+                        if (
+                          event.altKey ||
+                          event.ctrlKey ||
+                          event.metaKey ||
+                          event.shiftKey
+                        ) {
                           return;
                         }
 
@@ -960,7 +1079,11 @@ function DocsBlockView({ block }: { block: DocsBlock }) {
     return <CodeSnippet>{block.code}</CodeSnippet>;
   }
 
-  return <p className="mt-6 text-lg leading-8 text-slate-600">{block.text.map(renderTextPart)}</p>;
+  return (
+    <p className="mt-6 text-lg leading-8 text-slate-600">
+      {block.text.map(renderTextPart)}
+    </p>
+  );
 }
 
 function DocsContentPage({ page }: { page: DocsPageData }) {
@@ -971,8 +1094,14 @@ function DocsContentPage({ page }: { page: DocsPageData }) {
       title={page.title}
     >
       {page.sections.map((section) => (
-        <section className="mt-16 scroll-mt-28" id={headingId(section.title)} key={section.title}>
-          <h2 className="text-3xl font-semibold tracking-normal text-slate-950">{section.title}</h2>
+        <section
+          className="mt-16 scroll-mt-28"
+          id={headingId(section.title)}
+          key={section.title}
+        >
+          <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+            {section.title}
+          </h2>
           {section.blocks.map((block, index) => (
             <DocsBlockView block={block} key={index} />
           ))}
@@ -990,9 +1119,10 @@ function PhpBuiltinsPage() {
       title="PHP Built-ins"
     >
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        PHP built-ins keep familiar names and signatures. They are grouped by family so each page
-        can stay focused: strings, arrays, types, math, filesystem, reflection, shell integration,
-        output buffering, and core runtime helpers.
+        PHP built-ins keep familiar names and signatures. They are grouped by
+        family so each page can stay focused: strings, arrays, types, math,
+        filesystem, reflection, shell integration, output buffering, and core
+        runtime helpers.
       </p>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
@@ -1005,7 +1135,9 @@ function PhpBuiltinsPage() {
             <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
               {family.title}
             </h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">{family.description}</p>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              {family.description}
+            </p>
             <a
               className="mt-5 inline-flex text-sm font-semibold text-slate-500 transition hover:text-slate-950"
               href={`/docs/php-built-ins/${family.slug}`}
@@ -1026,7 +1158,9 @@ function PhpBuiltinFamilyPage({ family }: { family: BuiltinFamily }) {
       headings={family.builtins.map((builtin) => builtin.name)}
       title={family.title}
     >
-      <p className="mt-6 text-lg leading-8 text-slate-600">{family.description}</p>
+      <p className="mt-6 text-lg leading-8 text-slate-600">
+        {family.description}
+      </p>
 
       <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200">
         {family.builtins.map((builtin) => (
@@ -1043,11 +1177,18 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
 
   return (
     <section className="py-8">
-      <h2 className="font-mono text-2xl font-semibold text-slate-950" id={headingId(builtin.name)}>
+      <h2
+        className="font-mono text-2xl font-semibold text-slate-950"
+        id={headingId(builtin.name)}
+      >
         {builtin.name}
       </h2>
-      <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
-      <p className="mt-7 text-lg leading-8 text-slate-600">{builtin.description}</p>
+      <p className="mt-3 font-mono text-sm text-slate-500">
+        {builtin.signature}
+      </p>
+      <p className="mt-7 text-lg leading-8 text-slate-600">
+        {builtin.description}
+      </p>
 
       <CodeSnippet className="mt-7">{example}</CodeSnippet>
       <p className="mt-5 text-base leading-7 text-slate-600">{exampleNote}</p>
@@ -1092,55 +1233,75 @@ const phpBuiltinsRoute = createRoute({
 const phpBuiltinStringsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/strings",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />
+  ),
 });
 
 const phpBuiltinArraysRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/arrays",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />
+  ),
 });
 
 const phpBuiltinTypesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/types",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />
+  ),
 });
 
 const phpBuiltinMathRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/math",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />
+  ),
 });
 
 const phpBuiltinFilesystemRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/filesystem",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />
+  ),
 });
 
 const phpBuiltinReflectionRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/reflection",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />
+  ),
 });
 
 const phpBuiltinShellRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/shell",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />
+  ),
 });
 
 const phpBuiltinOutputBufferingRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/output-buffering",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("output-buffering")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage
+      family={builtinFamilyBySlug.get("output-buffering")!}
+    />
+  ),
 });
 
 const phpBuiltinCoreRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/core",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />,
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />
+  ),
 });
 
 const sourceBuildsRoute = createRoute({
