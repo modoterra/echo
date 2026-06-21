@@ -119,11 +119,15 @@
     background: transparent !important;
 }
 
+.docs-code-snippet,
+.docs-code-snippet * {
+    user-select: text;
+}
+
 .docs-code-snippet code {
     display: block;
     min-width: max-content;
     background: transparent;
-    user-select: text;
 }
 
 .docs-code-snippet .rs-line {
