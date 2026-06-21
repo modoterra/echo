@@ -128,10 +128,12 @@
     display: block;
     min-width: max-content;
     background: transparent;
+    white-space: pre;
 }
 
 .docs-code-snippet .rs-line {
     display: block;
+    white-space: pre;
 }
 
 .docs-code-snippet .rs-line-number {
