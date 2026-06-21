@@ -75,8 +75,8 @@ let phpHighlighterPromise: Promise<PhpHighlighter> | null = null;
 const codeSnippetFont = '14px "Geist Mono"';
 const codeSnippetLineHeight = 28;
 const codeSnippetBlockPadding = 48;
-const codeSnippetSkeletonMinDelay = 320;
-const codeSnippetSkeletonMaxDelay = 680;
+const codeSnippetSkeletonMinDelay = 120;
+const codeSnippetSkeletonMaxDelay = 280;
 const codeSnippetLoadRootMargin = "0px";
 
 function loadPhpHighlighter() {
@@ -154,7 +154,7 @@ function DocsSearch() {
   }, [miniSearch, query, queryEmbedding, semanticAsset]);
 
   useEffect(() => {
-    if (!isOpen || asset || isLoadingIndex) {
+    if (!isOpen || asset) {
       return;
     }
 
@@ -183,7 +183,7 @@ function DocsSearch() {
     return () => {
       active = false;
     };
-  }, [asset, isLoadingIndex, isOpen]);
+  }, [asset, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -306,7 +306,7 @@ function DocsSearch() {
                     : "Keyword and fuzzy search"}
             </div>
             <div className="mt-2 max-h-96 overflow-auto scrollbar-thin scrollbar-nice">
-              {query.trim() && results.length === 0 ? (
+              {query.trim() && !isLoadingIndex && results.length === 0 ? (
                 <p className="px-2 py-6 text-sm text-slate-500">No results found.</p>
               ) : null}
               <ul className="space-y-1">
@@ -460,9 +460,9 @@ function CodeSnippet({ children, className = "mt-8" }: { children: string; class
       <AnimatePresence initial={false} mode="wait">
         {highlighter ? (
           <motion.div
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
             key="highlighted"
             transition={{ duration: 0.22, ease: "easeOut" }}
           >
@@ -480,11 +480,11 @@ function CodeSnippet({ children, className = "mt-8" }: { children: string; class
           </motion.div>
         ) : (
           <motion.div
-            animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1 }}
             aria-label="Loading highlighted code"
             className="docs-code-skeleton p-6 pr-14"
-            exit={{ opacity: 0, y: -4 }}
-            initial={{ opacity: 0, y: 4 }}
+            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
             key="skeleton"
             transition={{ duration: 0.18, ease: "easeOut" }}
           >
