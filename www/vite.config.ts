@@ -52,6 +52,7 @@ async function buildDocsSemanticAsset(): Promise<DocsSemanticAsset> {
   const extractor = (await pipeline(
     "feature-extraction",
     "Xenova/all-MiniLM-L6-v2",
+    { dtype: "q8" },
   )) as unknown as {
     (
       text: string,

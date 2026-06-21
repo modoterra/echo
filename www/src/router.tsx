@@ -353,7 +353,9 @@ async function embedSearchQuery(query: string) {
     env.allowLocalModels = true;
     env.allowRemoteModels = false;
 
-    return pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2") as unknown as {
+    return pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+      dtype: "q8",
+    }) as unknown as {
       (
         query: string,
         options: { pooling: "mean"; normalize: true },
