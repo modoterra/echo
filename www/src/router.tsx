@@ -874,7 +874,118 @@ function RootLayout() {
     <>
       <Topbar />
       <Outlet />
+      <SiteFooter />
     </>
+  );
+}
+
+const footerLinkGroups = [
+  {
+    title: "Docs",
+    links: [
+      { label: "Installation", href: "/docs" },
+      { label: "Source Modes", href: "/docs/source-modes" },
+      { label: "PHP Built-ins", href: "/docs/php-built-ins" },
+    ],
+  },
+  {
+    title: "Language",
+    links: builtinFamilies.slice(0, 6).map((family) => ({
+      label: family.title,
+      href: `/docs/php-built-ins/${family.slug}`,
+    })),
+  },
+  {
+    title: "Tooling",
+    links: [
+      { label: "Source Builds", href: "/docs/source-builds" },
+      { label: "Command Line", href: "/docs/command-line" },
+      { label: "Testing", href: "/docs/testing" },
+    ],
+  },
+  {
+    title: "Project",
+    links: [
+      { label: "GitHub", href: "https://github.com/modoterra/echo" },
+      { label: "Issues", href: "https://github.com/modoterra/echo/issues" },
+      { label: "Releases", href: "https://github.com/modoterra/echo/releases" },
+    ],
+  },
+];
+
+function SiteFooter() {
+  return (
+    <footer className="overflow-hidden border-t border-slate-200 bg-white px-6 pt-24 text-slate-600">
+      <div className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[minmax(0,360px)_1fr]">
+        <section>
+          <Link
+            aria-label="Echo home"
+            className="block w-20 opacity-90 transition hover:opacity-100"
+            to="/"
+          >
+            <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
+          </Link>
+          <p className="mt-8 max-w-sm text-xl font-semibold leading-8 text-slate-950">
+            PHP-compatible source today, native binaries tomorrow.
+          </p>
+          <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
+            Echo is an early-stage Rust implementation of a PHP superset with
+            compiler tooling and native execution as the direction of travel.
+          </p>
+          <div className="mt-8 inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-500">
+            xo --help
+          </div>
+        </section>
+
+        <nav
+          aria-label="Footer navigation"
+          className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {footerLinkGroups.map((group) => (
+            <section key={group.title}>
+              <h2 className="text-sm font-semibold text-slate-950">
+                {group.title}
+              </h2>
+              <ul className="mt-6 space-y-4">
+                {group.links.map((link) => (
+                  <li key={link.href}>
+                    {link.href.startsWith("http") ? (
+                      <a
+                        className="text-sm text-slate-500 transition hover:text-slate-950"
+                        href={link.href}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        className="text-sm text-slate-500 transition hover:text-slate-950"
+                        to={link.href}
+                      >
+                        {link.label}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </nav>
+      </div>
+
+      <div className="mx-auto mt-24 flex w-full max-w-7xl items-end justify-between gap-8 border-t border-slate-200 pt-8">
+        <p className="pb-8 text-sm text-slate-400">
+          © 2026 Echo. Built in Rust.
+        </p>
+        <p
+          aria-hidden="true"
+          className="select-none font-sans text-[clamp(7rem,22vw,20rem)] font-semibold leading-[0.72] tracking-normal text-slate-950/[0.045]"
+        >
+          Echo
+        </p>
+      </div>
+    </footer>
   );
 }
 
