@@ -256,6 +256,7 @@ Examples:
 - `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
 - `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
+- `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
@@ -311,6 +312,21 @@ echo "heading:" . intval(rad2deg($radians)) . "\n"
 ```
 
 Use `deg2rad()` at input boundaries when configuration, UI controls, or map headings are written in degrees but the next calculation expects radians. Use `rad2deg()` when reporting a computed angle back to people or storing it in degree-based settings; the conversion keeps those boundary choices explicit instead of mixing units in intermediate code.
+
+Trigonometric helpers keep angle math in radians while allowing degree-facing inputs and outputs at the edges:
+
+```php
+let $heading = deg2rad(30)
+let $east = intval(sin($heading) * 1000 + 0.5)
+let $north = intval(cos($heading) * 1000 + 0.5)
+let $bearing = intval(rad2deg(atan2($north, $east)) + 0.5)
+
+echo "east:" . $east . "\n"
+echo "north:" . $north . "\n"
+echo "bearing:" . $bearing . "\n"
+```
+
+Use `sin()`, `cos()`, and `tan()` for forward calculations from an angle in radians, such as deriving vector components or slopes for movement, layout, or mapping code. Use `asin()`, `acos()`, `atan()`, and `atan2()` when measured ratios or coordinates need to become an angle again; `atan2()` is preferable for coordinates because it uses both signs to preserve the quadrant.
 
 Base conversion helpers are useful when importing identifiers, permissions, or protocol fields that arrive as text in a fixed base:
 

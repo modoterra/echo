@@ -807,6 +807,50 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_sin",
+            echo_runtime::echo_php_sin
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_cos",
+            echo_runtime::echo_php_cos
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_tan",
+            echo_runtime::echo_php_tan
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_asin",
+            echo_runtime::echo_php_asin
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_acos",
+            echo_runtime::echo_php_acos
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_atan",
+            echo_runtime::echo_php_atan
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_atan2",
+            echo_runtime::echo_php_atan2
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_bin2hex",
             echo_runtime::echo_php_bin2hex
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -3778,6 +3822,12 @@ mod tests {
             ("octdec", "echo_php_octdec"),
             ("deg2rad", "echo_php_deg2rad"),
             ("rad2deg", "echo_php_rad2deg"),
+            ("sin", "echo_php_sin"),
+            ("cos", "echo_php_cos"),
+            ("tan", "echo_php_tan"),
+            ("asin", "echo_php_asin"),
+            ("acos", "echo_php_acos"),
+            ("atan", "echo_php_atan"),
             ("bin2hex", "echo_php_bin2hex"),
             ("base64_encode", "echo_php_base64_encode"),
             ("base64_decode", "echo_php_base64_decode"),
@@ -3857,6 +3907,7 @@ mod tests {
             ("substr_count", "echo_php_substr_count"),
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
+            ("atan2", "echo_php_atan2"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

@@ -203,6 +203,17 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("deg2rad", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection("rad2deg", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("sin", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("cos", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("tan", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("asin", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("acos", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection("atan", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection(
+            "atan2",
+            &[("y", Some("float")), ("x", Some("float"))],
+            Some("float"),
+        ),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "base64_encode",

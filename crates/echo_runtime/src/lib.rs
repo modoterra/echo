@@ -2215,6 +2215,182 @@ pub extern "C" fn echo_php_rad2deg(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sin(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_sin(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_cos(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_cos(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_tan(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_sin(value) / echo_math_cos(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_asin(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_asin(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_acos(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_acos(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_atan(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_atan(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_atan2(y: EchoValue, x: EchoValue) -> EchoValue {
+    match (php_float_coercion(y), php_float_coercion(x)) {
+        (Some(y), Some(x)) => EchoValue::float(echo_math_atan2(y, x)),
+        _ => EchoValue::error(),
+    }
+}
+
+fn echo_math_sin(value: f64) -> f64 {
+    if !value.is_finite() {
+        return f64::NAN;
+    }
+
+    let (x, sign) = reduce_to_half_pi(value);
+    let x2 = x * x;
+    sign * x
+        * (1.0
+            + x2 * (-1.0 / 6.0
+                + x2 * (1.0 / 120.0
+                    + x2 * (-1.0 / 5040.0
+                        + x2 * (1.0 / 362880.0 + x2 * (-1.0 / 39916800.0 + x2 / 6227020800.0))))))
+}
+
+fn echo_math_cos(value: f64) -> f64 {
+    echo_math_sin(std::f64::consts::FRAC_PI_2 - value)
+}
+
+fn echo_math_asin(value: f64) -> f64 {
+    if !(-1.0..=1.0).contains(&value) {
+        return f64::NAN;
+    }
+    echo_math_atan2(value, echo_math_sqrt(1.0 - value * value))
+}
+
+fn echo_math_acos(value: f64) -> f64 {
+    if !(-1.0..=1.0).contains(&value) {
+        return f64::NAN;
+    }
+    echo_math_atan2(echo_math_sqrt(1.0 - value * value), value)
+}
+
+fn echo_math_atan(value: f64) -> f64 {
+    if value.is_nan() {
+        return f64::NAN;
+    }
+    if value.is_infinite() {
+        return value.signum() * std::f64::consts::FRAC_PI_2;
+    }
+
+    let sign = if value < 0.0 { -1.0 } else { 1.0 };
+    sign * echo_math_atan_positive(value.abs())
+}
+
+fn echo_math_atan2(y: f64, x: f64) -> f64 {
+    if y.is_nan() || x.is_nan() {
+        return f64::NAN;
+    }
+
+    if x > 0.0 {
+        echo_math_atan(y / x)
+    } else if x < 0.0 && y >= 0.0 {
+        echo_math_atan(y / x) + std::f64::consts::PI
+    } else if x < 0.0 {
+        echo_math_atan(y / x) - std::f64::consts::PI
+    } else if y > 0.0 {
+        std::f64::consts::FRAC_PI_2
+    } else if y < 0.0 {
+        -std::f64::consts::FRAC_PI_2
+    } else {
+        0.0
+    }
+}
+
+fn echo_math_atan_positive(value: f64) -> f64 {
+    if value > 1.0 {
+        return std::f64::consts::FRAC_PI_2 - echo_math_atan_positive(1.0 / value);
+    }
+    if value > 0.41421356237309503 {
+        return std::f64::consts::FRAC_PI_4 + echo_math_atan_kernel((value - 1.0) / (value + 1.0));
+    }
+
+    echo_math_atan_kernel(value)
+}
+
+fn echo_math_atan_kernel(value: f64) -> f64 {
+    let x2 = value * value;
+    value
+        * (1.0
+            + x2 * (-1.0 / 3.0
+                + x2 * (1.0 / 5.0
+                    + x2 * (-1.0 / 7.0
+                        + x2 * (1.0 / 9.0
+                            + x2 * (-1.0 / 11.0
+                                + x2 * (1.0 / 13.0 + x2 * (-1.0 / 15.0 + x2 / 17.0))))))))
+}
+
+fn echo_math_sqrt(value: f64) -> f64 {
+    if value < 0.0 {
+        return f64::NAN;
+    }
+    if value == 0.0 || value.is_infinite() {
+        return value;
+    }
+
+    let mut estimate = if value >= 1.0 { value } else { 1.0 };
+    for _ in 0..24 {
+        estimate = 0.5 * (estimate + value / estimate);
+    }
+    estimate
+}
+
+fn reduce_to_half_pi(value: f64) -> (f64, f64) {
+    let mut x = value - (value / std::f64::consts::TAU) as i64 as f64 * std::f64::consts::TAU;
+    if x > std::f64::consts::PI {
+        x -= std::f64::consts::TAU;
+    } else if x < -std::f64::consts::PI {
+        x += std::f64::consts::TAU;
+    }
+
+    if x > std::f64::consts::FRAC_PI_2 {
+        (std::f64::consts::PI - x, 1.0)
+    } else if x < -std::f64::consts::FRAC_PI_2 {
+        (-std::f64::consts::PI - x, -1.0)
+    } else {
+        (x, 1.0)
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
     const HEX: &[u8; 16] = b"0123456789abcdef";
 
@@ -5580,6 +5756,41 @@ mod tests {
             echo_php_deg2rad(test_string_value(b"not numeric")),
             EchoValue::error()
         );
+    }
+
+    #[test]
+    fn trigonometric_builtins_preserve_php_float_coercion() {
+        assert_float_value(
+            echo_php_sin(EchoValue::float(std::f64::consts::FRAC_PI_6)),
+            0.5,
+        );
+        assert_float_value(
+            echo_php_cos(EchoValue::float(std::f64::consts::FRAC_PI_3)),
+            0.5,
+        );
+        assert_float_value(
+            echo_php_tan(EchoValue::float(std::f64::consts::FRAC_PI_4)),
+            1.0,
+        );
+        assert_float_value(
+            echo_php_asin(EchoValue::float(0.5)),
+            std::f64::consts::FRAC_PI_6,
+        );
+        assert_float_value(
+            echo_php_acos(EchoValue::float(0.5)),
+            std::f64::consts::FRAC_PI_3,
+        );
+        assert_float_value(
+            echo_php_atan(EchoValue::float(1.0)),
+            std::f64::consts::FRAC_PI_4,
+        );
+        assert_float_value(
+            echo_php_atan2(EchoValue::float(3.0), EchoValue::float(-3.0)),
+            2.356194490192345,
+        );
+        assert_float_value(echo_php_sin(test_string_value(b"0.5")), 0.479425538604203);
+        assert_float_value(echo_php_cos(EchoValue::bool(true)), 0.5403023058681398);
+        assert!(f64::from_bits(echo_php_acos(EchoValue::int(2)).payload).is_nan());
     }
 
     #[test]

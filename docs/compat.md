@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 106 | 501 |
-| Loaded local PHP internals, including extensions | 1516 | 106 | 1410 |
+| Baseline (`Core` + `standard`) | 607 | 113 | 494 |
+| Loaded local PHP internals, including extensions | 1516 | 113 | 1403 |
 
 ## Baseline Functions
 
@@ -115,12 +115,12 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (94/545)
+### standard (101/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
 | `abs` | implemented | Supports current Echo integer values; float payloads are deferred. Source: https://www.php.net/manual/en/function.abs.php |
-| `acos` | missing |  |
+| `acos` | implemented | Returns the arc cosine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.acos.php |
 | `acosh` | missing |  |
 | `addcslashes` | missing |  |
 | `addslashes` | implemented |  |
@@ -184,13 +184,13 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_walk` | missing |  |
 | `array_walk_recursive` | missing |  |
 | `arsort` | missing |  |
-| `asin` | missing |  |
+| `asin` | implemented | Returns the arc sine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.asin.php |
 | `asinh` | missing |  |
 | `asort` | missing |  |
 | `assert` | missing |  |
 | `assert_options` | missing |  |
-| `atan` | missing |  |
-| `atan2` | missing |  |
+| `atan` | implemented | Returns the arc tangent in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan.php |
+| `atan2` | implemented | Returns the quadrant-aware arc tangent of y/x in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan2.php |
 | `atanh` | missing |  |
 | `base64_decode` | implemented |  |
 | `base64_encode` | implemented |  |
@@ -223,7 +223,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `convert_uudecode` | missing |  |
 | `convert_uuencode` | missing |  |
 | `copy` | missing |  |
-| `cos` | missing |  |
+| `cos` | implemented | Returns the cosine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.cos.php |
 | `cosh` | missing |  |
 | `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
 | `count_chars` | missing |  |
@@ -528,7 +528,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `show_source` | missing |  |
 | `shuffle` | missing |  |
 | `similar_text` | missing |  |
-| `sin` | missing |  |
+| `sin` | implemented | Returns the sine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sin.php |
 | `sinh` | missing |  |
 | `sizeof` | implemented | Alias of `count()`. Source: https://www.php.net/manual/en/function.sizeof.php |
 | `sleep` | missing |  |
@@ -634,7 +634,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `sys_getloadavg` | missing |  |
 | `syslog` | missing |  |
 | `system` | missing |  |
-| `tan` | missing |  |
+| `tan` | implemented | Returns the tangent of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.tan.php |
 | `tanh` | missing |  |
 | `tempnam` | missing |  |
 | `time_nanosleep` | missing |  |
