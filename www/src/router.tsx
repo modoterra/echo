@@ -1535,6 +1535,14 @@ const phpBuiltinMathRoute = createRoute({
   ),
 });
 
+const phpBuiltinHashesRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/hashes",
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />
+  ),
+});
+
 const phpBuiltinFilesystemRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/filesystem",
@@ -1593,6 +1601,7 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinArraysRoute,
     phpBuiltinTypesRoute,
     phpBuiltinMathRoute,
+    phpBuiltinHashesRoute,
     phpBuiltinFilesystemRoute,
     phpBuiltinReflectionRoute,
     phpBuiltinShellRoute,
