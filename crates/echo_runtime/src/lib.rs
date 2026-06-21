@@ -3921,6 +3921,86 @@ pub extern "C" fn echo_php_filesize(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fileatime(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_fileatime(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_filectime(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_filectime(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_filemtime(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_filemtime(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fileinode(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_fileinode(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fileowner(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_fileowner(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_filegroup(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_filegroup(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fileperms(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_fileperms(&bytes)
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_filetype(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_filetype(&bytes)
+            .map(echo_runtime_string)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_realpath(path: EchoValue) -> EchoValue {
     match path.string_bytes() {
         Some(bytes) => path_realpath(&bytes)
@@ -4152,6 +4232,166 @@ fn path_filesize(bytes: &[u8]) -> Option<u64> {
         .ok()
         .and_then(|path| std::fs::metadata(Path::new(path)).ok())
         .map(|metadata| metadata.len())
+}
+
+#[cfg(unix)]
+fn path_fileatime(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.atime())
+}
+
+#[cfg(not(unix))]
+fn path_fileatime(bytes: &[u8]) -> Option<i64> {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|path| std::fs::metadata(Path::new(path)).ok())
+        .and_then(|metadata| metadata.accessed().ok())
+        .and_then(system_time_unix_timestamp)
+}
+
+#[cfg(unix)]
+fn path_filectime(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.ctime())
+}
+
+#[cfg(not(unix))]
+fn path_filectime(bytes: &[u8]) -> Option<i64> {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|path| std::fs::metadata(Path::new(path)).ok())
+        .and_then(|metadata| metadata.created().ok())
+        .and_then(system_time_unix_timestamp)
+}
+
+#[cfg(unix)]
+fn path_filemtime(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.mtime())
+}
+
+#[cfg(not(unix))]
+fn path_filemtime(bytes: &[u8]) -> Option<i64> {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|path| std::fs::metadata(Path::new(path)).ok())
+        .and_then(|metadata| metadata.modified().ok())
+        .and_then(system_time_unix_timestamp)
+}
+
+#[cfg(unix)]
+fn path_fileinode(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .and_then(|metadata| i64::try_from(metadata.ino()).ok())
+}
+
+#[cfg(not(unix))]
+fn path_fileinode(_bytes: &[u8]) -> Option<i64> {
+    None
+}
+
+#[cfg(unix)]
+fn path_fileowner(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.uid() as i64)
+}
+
+#[cfg(not(unix))]
+fn path_fileowner(_bytes: &[u8]) -> Option<i64> {
+    None
+}
+
+#[cfg(unix)]
+fn path_filegroup(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.gid() as i64)
+}
+
+#[cfg(not(unix))]
+fn path_filegroup(_bytes: &[u8]) -> Option<i64> {
+    None
+}
+
+#[cfg(unix)]
+fn path_fileperms(bytes: &[u8]) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.mode() as i64)
+}
+
+#[cfg(not(unix))]
+fn path_fileperms(_bytes: &[u8]) -> Option<i64> {
+    None
+}
+
+#[cfg(unix)]
+fn path_filetype(bytes: &[u8]) -> Option<Vec<u8>> {
+    use std::os::unix::fs::FileTypeExt;
+
+    let file_type = std::fs::symlink_metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()?
+        .file_type();
+    let name = if file_type.is_symlink() {
+        "link"
+    } else if file_type.is_dir() {
+        "dir"
+    } else if file_type.is_file() {
+        "file"
+    } else if file_type.is_fifo() {
+        "fifo"
+    } else if file_type.is_char_device() {
+        "char"
+    } else if file_type.is_block_device() {
+        "block"
+    } else if file_type.is_socket() {
+        "socket"
+    } else {
+        "unknown"
+    };
+    Some(name.as_bytes().to_vec())
+}
+
+#[cfg(not(unix))]
+fn path_filetype(bytes: &[u8]) -> Option<Vec<u8>> {
+    let path = std::str::from_utf8(bytes).ok()?;
+    let file_type = std::fs::symlink_metadata(Path::new(path)).ok()?.file_type();
+    let name = if file_type.is_symlink() {
+        "link"
+    } else if file_type.is_dir() {
+        "dir"
+    } else if file_type.is_file() {
+        "file"
+    } else {
+        "unknown"
+    };
+    Some(name.as_bytes().to_vec())
+}
+
+#[cfg(not(unix))]
+fn system_time_unix_timestamp(time: SystemTime) -> Option<i64> {
+    time.duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
 }
 
 #[cfg(unix)]
@@ -7651,6 +7891,7 @@ mod tests {
 
         let file = path_value(&file_path);
         let script = path_value(&script_path);
+        let dir = path_value(&temp_dir);
         let missing = path_value(&missing_path);
         let parent_lookup = EchoValue::string(Box::into_raw(Box::new(EchoString {
             bytes: temp_dir
@@ -7670,6 +7911,23 @@ mod tests {
         assert_eq!(echo_php_is_writable(missing), EchoValue::bool(false));
         assert_eq!(echo_php_filesize(file), EchoValue::int(10));
         assert_eq!(echo_php_filesize(missing), EchoValue::bool(false));
+        assert_eq!(
+            echo_php_filetype(file).string_bytes(),
+            Some(b"file".to_vec())
+        );
+        assert_eq!(echo_php_filetype(dir).string_bytes(), Some(b"dir".to_vec()));
+        assert!(echo_php_fileatime(file).is_int());
+        assert!(echo_php_filectime(file).is_int());
+        assert!(echo_php_filemtime(file).is_int());
+        assert_eq!(echo_php_fileatime(missing), EchoValue::bool(false));
+        assert_eq!(echo_php_filetype(missing), EchoValue::bool(false));
+        #[cfg(unix)]
+        {
+            assert!(echo_php_fileinode(file).is_int());
+            assert!(echo_php_fileowner(file).is_int());
+            assert!(echo_php_filegroup(file).is_int());
+            assert!(echo_php_fileperms(file).is_int());
+        }
         assert_eq!(echo_php_realpath(missing), EchoValue::bool(false));
         assert_eq!(
             echo_php_realpath(parent_lookup).string_bytes(),

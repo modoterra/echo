@@ -443,6 +443,31 @@ export const builtinFamilies: BuiltinFamily[] = [
     ],
   },
   {
+    slug: "hashes",
+    title: "Hashes and Checksums",
+    description: "Hash and checksum functions create compact identifiers for compatibility workflows.",
+    builtins: [
+      {
+        name: "crc32",
+        signature: "crc32(string $string): int",
+        description:
+          "Calculates a CRC32 checksum over the string bytes. Use it for compact compatibility fingerprints and corruption checks, not for security decisions.",
+      },
+      {
+        name: "md5",
+        signature: "md5(string $string, bool $binary): string",
+        description:
+          "Returns an MD5 digest as lowercase hex by default, or raw bytes when the binary flag is true. Keep it for legacy cache keys and protocol interop rather than password storage.",
+      },
+      {
+        name: "sha1",
+        signature: "sha1(string $string, bool $binary): string",
+        description:
+          "Returns a SHA-1 digest as lowercase hex by default, or raw bytes when the binary flag is true. Use it when existing manifests or protocols require SHA-1, not for new security-sensitive checks.",
+      },
+    ],
+  },
+  {
     slug: "filesystem",
     title: "Filesystem",
     description: "Filesystem functions inspect local paths and derive path components.",
@@ -468,6 +493,66 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns true when a local path exists and is a symbolic link.",
       },
       {
+        name: "is_readable",
+        signature: "is_readable(string $filename): bool",
+        description: "Returns true when a local path can be read by the current process.",
+      },
+      {
+        name: "is_writable",
+        signature: "is_writable(string $filename): bool",
+        description: "Returns true when a local path can be written by the current process.",
+      },
+      {
+        name: "is_executable",
+        signature: "is_executable(string $filename): bool",
+        description: "Returns true when a local file can be executed by the current process.",
+      },
+      {
+        name: "filesize",
+        signature: "filesize(string $filename): int|false",
+        description: "Returns the size of a local file in bytes, or false when metadata cannot be read.",
+      },
+      {
+        name: "fileatime",
+        signature: "fileatime(string $filename): int|false",
+        description: "Returns the last access time of a local file as a Unix timestamp, or false when metadata cannot be read.",
+      },
+      {
+        name: "filectime",
+        signature: "filectime(string $filename): int|false",
+        description: "Returns the inode change time of a local file as a Unix timestamp, or false when metadata cannot be read.",
+      },
+      {
+        name: "filemtime",
+        signature: "filemtime(string $filename): int|false",
+        description: "Returns the last content modification time of a local file as a Unix timestamp, or false when metadata cannot be read.",
+      },
+      {
+        name: "fileinode",
+        signature: "fileinode(string $filename): int|false",
+        description: "Returns the inode number for a local file, or false when metadata cannot be read.",
+      },
+      {
+        name: "fileowner",
+        signature: "fileowner(string $filename): int|false",
+        description: "Returns the numeric owner ID for a local file, or false when metadata cannot be read.",
+      },
+      {
+        name: "filegroup",
+        signature: "filegroup(string $filename): int|false",
+        description: "Returns the numeric group ID for a local file, or false when metadata cannot be read.",
+      },
+      {
+        name: "fileperms",
+        signature: "fileperms(string $filename): int|false",
+        description: "Returns the numeric mode bits for a local file, or false when metadata cannot be read.",
+      },
+      {
+        name: "filetype",
+        signature: "filetype(string $filename): string|false",
+        description: "Returns the local file type, such as file, dir, link, socket, fifo, block, char, or unknown.",
+      },
+      {
         name: "basename",
         signature: "basename(string $path, string $suffix): string",
         description: "Returns the trailing name component of a path.",
@@ -476,6 +561,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "dirname",
         signature: "dirname(string $path, int $levels): string",
         description: "Returns the parent directory portion of a path.",
+      },
+      {
+        name: "realpath",
+        signature: "realpath(string $path): string|false",
+        description: "Resolves an existing local path to its canonical absolute path, or false when the path cannot be resolved.",
       },
     ],
   },
@@ -673,6 +763,13 @@ echo "second line" . $lineFeed`,
 echo "Jobs queued: " . count($queue) . "\\n"`,
   ],
   [
+    "crc32",
+    `let $payload = "invoice:1001:paid"
+let $checksum = dechex(crc32($payload))
+
+echo "Export checksum: " . $checksum . "\\n"`,
+  ],
+  [
     "decbin",
     `let $permissions = 5
 
@@ -730,6 +827,87 @@ echo "First accepted type: " . $types[0] . "\\n"`,
 
 if (file_exists($configPath)) {
     echo "Load application config\\n"
+}`,
+  ],
+  [
+    "fileatime",
+    `let $report = "storage/report.csv"
+let $lastRead = fileatime($report)
+
+if (is_int($lastRead)) {
+    echo "Report was read at " . $lastRead . "\\n"
+}`,
+  ],
+  [
+    "filectime",
+    `let $report = "storage/report.csv"
+let $changedAt = filectime($report)
+
+if (is_int($changedAt)) {
+    echo "Metadata changed at " . $changedAt . "\\n"
+}`,
+  ],
+  [
+    "filegroup",
+    `let $report = "storage/report.csv"
+let $groupId = filegroup($report)
+
+if (is_int($groupId)) {
+    echo "Group id: " . $groupId . "\\n"
+}`,
+  ],
+  [
+    "fileinode",
+    `let $report = "storage/report.csv"
+let $inode = fileinode($report)
+
+if (is_int($inode)) {
+    echo "Stable inode: " . $inode . "\\n"
+}`,
+  ],
+  [
+    "filemtime",
+    `let $asset = "public/app.css"
+let $version = filemtime($asset)
+
+if (is_int($version)) {
+    echo "/app.css?v=" . $version . "\\n"
+}`,
+  ],
+  [
+    "fileowner",
+    `let $report = "storage/report.csv"
+let $ownerId = fileowner($report)
+
+if (is_int($ownerId)) {
+    echo "Owner id: " . $ownerId . "\\n"
+}`,
+  ],
+  [
+    "fileperms",
+    `let $script = "bin/deploy"
+let $mode = fileperms($script)
+
+if (is_int($mode)) {
+    echo "Mode: " . decoct($mode) . "\\n"
+}`,
+  ],
+  [
+    "filesize",
+    `let $upload = "storage/import.csv"
+let $bytes = filesize($upload)
+
+if (is_int($bytes)) {
+    echo "Upload size: " . $bytes . "\\n"
+}`,
+  ],
+  [
+    "filetype",
+    `let $target = "storage/current"
+let $kind = filetype($target)
+
+if (is_string($kind)) {
+    echo "Target kind: " . $kind . "\\n"
 }`,
   ],
   [
@@ -826,6 +1004,14 @@ if (is_file($entrypoint)) {
 }`,
   ],
   [
+    "is_executable",
+    `let $tool = "bin/deploy"
+
+if (is_executable($tool)) {
+    echo "Deployment tool is runnable\\n"
+}`,
+  ],
+  [
     "is_finite",
     `let $cost = 42
 
@@ -875,6 +1061,22 @@ if (is_iterable($rows)) {
 
 if (is_link($currentRelease)) {
     echo "Deployment symlink is active\\n"
+}`,
+  ],
+  [
+    "is_readable",
+    `let $source = "storage/import.csv"
+
+if (is_readable($source)) {
+    echo "Import can start\\n"
+}`,
+  ],
+  [
+    "is_writable",
+    `let $cacheDir = "storage/cache"
+
+if (is_writable($cacheDir)) {
+    echo "Cache can be refreshed\\n"
 }`,
   ],
   [
@@ -956,6 +1158,20 @@ echo $routeKey . "\\n"`,
     `let $started = microtime(true)
 
 echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "md5",
+    `let $payload = "user:42:settings"
+let $cacheKey = "settings:" . md5($payload)
+
+echo $cacheKey . "\\n"`,
+  ],
+  [
+    "sha1",
+    `let $manifest = "asset:app.css:42"
+let $digest = sha1($manifest)
+
+echo "Manifest digest: " . substr($digest, 0, 12) . "\\n"`,
   ],
   [
     "ob_clean",
@@ -1057,6 +1273,14 @@ echo "Prefix byte: " . ord($prefix) . "\\n"`,
 let $pattern = "/" . quotemeta($literal) . "/"
 
 echo $pattern . "\\n"`,
+  ],
+  [
+    "realpath",
+    `let $report = realpath("storage/../storage/report.csv")
+
+if (is_string($report)) {
+    echo "Serving " . basename($report) . "\\n"
+}`,
   ],
   [
     "rtrim",
@@ -1304,6 +1528,10 @@ echo $heading . "\\n"`,
 
 export const builtinExampleNotes = new Map<string, string>([
   [
+    "basename",
+    "Use `basename()` when you need the public-facing name from a full path, such as a download filename, import label, or audit-log entry, while keeping server directories out of the output.",
+  ],
+  [
     "function_exists",
     "Use this pattern when compatibility code can take a better path if a helper is available, while still leaving a clear place for a fallback when the helper is absent.",
   ],
@@ -1338,6 +1566,70 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "file_exists",
     "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing deeper in the workflow.",
+  ],
+  [
+    "crc32",
+    "Use `crc32()` when an existing PHP workflow expects a compact checksum for duplicate detection, export validation, or quick corruption checks. It is intentionally small and fast, so keep it out of security-sensitive decisions.",
+  ],
+  [
+    "md5",
+    "Use `md5()` for legacy cache keys, fixture identifiers, or protocol fields that already require MD5. The example scopes it to a cache key, which is a safer fit than passwords or trust decisions.",
+  ],
+  [
+    "sha1",
+    "Use `sha1()` when interoperating with an existing manifest, checksum field, or API that names SHA-1. Truncating it for display is fine for labels, but do not treat it as a new security primitive.",
+  ],
+  [
+    "is_readable",
+    "Use `is_readable()` before starting an import or report job so the program can fail with a domain-specific message instead of discovering the unreadable path during parsing.",
+  ],
+  [
+    "is_writable",
+    "Use `is_writable()` before refreshing caches, writing exports, or creating generated files so setup problems are reported before work is performed.",
+  ],
+  [
+    "is_executable",
+    "Use `is_executable()` before dispatching a local tool from a deployment or maintenance script, especially when the path comes from configuration.",
+  ],
+  [
+    "filesize",
+    "Use `filesize()` to enforce upload limits, show import sizes, or decide whether a file is large enough to stream instead of loading all at once.",
+  ],
+  [
+    "fileatime",
+    "Use `fileatime()` for maintenance tasks that care when a local artifact was last read, such as pruning old reports. Some filesystems disable access-time updates, so treat it as operational metadata.",
+  ],
+  [
+    "filectime",
+    "Use `filectime()` when permission, owner, or other inode metadata changes matter to an audit or cache invalidation workflow. It is not a portable creation timestamp.",
+  ],
+  [
+    "filemtime",
+    "Use `filemtime()` for stale-cache checks and asset version strings, where changing file contents should produce a new timestamp-backed URL or rebuild decision.",
+  ],
+  [
+    "fileinode",
+    "Use `fileinode()` when compatibility code needs to compare filesystem entries at the metadata level, such as detecting whether two paths refer to the same local file on Unix-like systems.",
+  ],
+  [
+    "fileowner",
+    "Use `fileowner()` in diagnostics or deployment checks where a numeric owner ID is enough to explain why a generated file cannot be updated.",
+  ],
+  [
+    "filegroup",
+    "Use `filegroup()` beside `fileowner()` when deployment or shared-directory scripts need to report the group that controls a file.",
+  ],
+  [
+    "fileperms",
+    "Use `fileperms()` when scripts need to display or validate mode bits, such as showing why a deployment helper is not executable.",
+  ],
+  [
+    "filetype",
+    "Use `filetype()` before choosing a path-handling branch, such as treating directories, regular files, and symlinks differently in a cleanup or deployment script.",
+  ],
+  [
+    "realpath",
+    "Use `realpath()` to collapse relative segments before logging, serving, or comparing paths. The example keeps internal directory traversal out of the final display name by pairing it with `basename()`.",
   ],
 ]);
 

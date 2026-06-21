@@ -467,6 +467,46 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("int|false"),
         ),
         php_builtin_reflection(
+            "fileatime",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "filectime",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "filemtime",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "fileinode",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "fileowner",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "filegroup",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "fileperms",
+            &[("filename", Some("string"))],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "filetype",
+            &[("filename", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "realpath",
             &[("path", Some("string"))],
             Some("string|false"),

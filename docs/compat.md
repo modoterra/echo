@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 164 | 443 |
-| Loaded local PHP internals, including extensions | 1516 | 164 | 1352 |
+| Baseline (`Core` + `standard`) | 607 | 172 | 435 |
+| Loaded local PHP internals, including extensions | 1516 | 172 | 1344 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (139/542)
+### standard (147/534)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -268,15 +268,15 @@ Related baseline functions tracked below: `get_included_files`,
 | `file_exists` | implemented | Checks local filesystem paths for files or directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-exists.php |
 | `file_get_contents` | missing |  |
 | `file_put_contents` | missing |  |
-| `fileatime` | missing |  |
-| `filectime` | missing |  |
-| `filegroup` | missing |  |
-| `fileinode` | missing |  |
-| `filemtime` | missing |  |
-| `fileowner` | missing |  |
-| `fileperms` | missing |  |
+| `fileatime` | implemented | Returns the local file's last access time as a Unix timestamp and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.fileatime.php |
+| `filectime` | implemented | Returns the local file's inode change time as a Unix timestamp and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filectime.php |
+| `filegroup` | implemented | Returns the local file's numeric group ID and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filegroup.php |
+| `fileinode` | implemented | Returns the local file's inode number and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.fileinode.php |
+| `filemtime` | implemented | Returns the local file's content modification time as a Unix timestamp and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filemtime.php |
+| `fileowner` | implemented | Returns the local file's numeric owner ID and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.fileowner.php |
+| `fileperms` | implemented | Returns the local file's numeric mode bits and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.fileperms.php |
 | `filesize` | implemented | Returns the local file size as an integer and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filesize.php |
-| `filetype` | missing |  |
+| `filetype` | implemented | Returns local file type strings such as `file`, `dir`, and `link`, or `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filetype.php |
 | `floatval` | implemented | Gets the float value of current scalar values, including numeric-prefix string parsing. Source: https://www.php.net/manual/en/function.floatval.php |
 | `flock` | missing |  |
 | `floor` | implemented | Rounds numeric values down while returning a float, using PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.floor.php |

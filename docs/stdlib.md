@@ -286,7 +286,7 @@ Examples:
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
 - `echo_php_chdir(...)` and `echo_php_getcwd(...)` are PHP builtin ABI because `chdir()` and `getcwd()` are PHP compatibility functions for process working-directory state.
-- `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding filesystem metadata functions are PHP compatibility functions.
+- `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding filesystem metadata functions are PHP compatibility functions.
 
 Working-directory helpers let a script run a small relative-path workflow from a known directory and then restore the caller's location:
 

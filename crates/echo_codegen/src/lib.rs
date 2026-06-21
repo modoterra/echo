@@ -1294,6 +1294,54 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_fileatime",
+            echo_runtime::echo_php_fileatime
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_filectime",
+            echo_runtime::echo_php_filectime
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_filemtime",
+            echo_runtime::echo_php_filemtime
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_fileinode",
+            echo_runtime::echo_php_fileinode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_fileowner",
+            echo_runtime::echo_php_fileowner
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_filegroup",
+            echo_runtime::echo_php_filegroup
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_fileperms",
+            echo_runtime::echo_php_fileperms
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_filetype",
+            echo_runtime::echo_php_filetype
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_realpath",
             echo_runtime::echo_php_realpath
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -4685,6 +4733,14 @@ mod tests {
             ("is_writeable", "echo_php_is_writable"),
             ("is_executable", "echo_php_is_executable"),
             ("filesize", "echo_php_filesize"),
+            ("fileatime", "echo_php_fileatime"),
+            ("filectime", "echo_php_filectime"),
+            ("filemtime", "echo_php_filemtime"),
+            ("fileinode", "echo_php_fileinode"),
+            ("fileowner", "echo_php_fileowner"),
+            ("filegroup", "echo_php_filegroup"),
+            ("fileperms", "echo_php_fileperms"),
+            ("filetype", "echo_php_filetype"),
             ("realpath", "echo_php_realpath"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
