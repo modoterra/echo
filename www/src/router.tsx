@@ -1613,6 +1613,12 @@ const sourceModesRoute = createRoute({
   component: () => <DocsContentPage page={docsPages[1]} />,
 });
 
+const standardLibraryRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "standard-library",
+  component: () => <DocsContentPage page={docsPages[2]} />,
+});
+
 const phpBuiltinsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins",
@@ -1720,7 +1726,7 @@ const phpBuiltinCoreRoute = createRoute({
 const sourceBuildsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "source-builds",
-  component: () => <DocsContentPage page={docsPages[2]} />,
+  component: () => <DocsContentPage page={docsPages[3]} />,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -1728,6 +1734,7 @@ const routeTree = rootRoute.addChildren([
   docsLayoutRoute.addChildren([
     docsRoute,
     sourceModesRoute,
+    standardLibraryRoute,
     phpBuiltinsRoute,
     phpBuiltinStringsRoute,
     phpBuiltinArraysRoute,

@@ -14,6 +14,7 @@
 - Documentation for code behavior, built-ins, APIs, CLI commands, or terminal workflows must include at least one useful snippet when a snippet can make the behavior concrete.
 - Snippets should be bounded in a realistic use case and show why the feature is useful, not only prove that the function or command exists. Avoid toy probes such as assigning a function name to a variable and printing `function_exists`; prefer examples that validate input, transform real data, handle an edge case, or fit into a small workflow.
 - In website content source files, each user-facing code snippet should be followed by short commentary explaining the purpose of the example and how the code can be applied. Keep factual API behavior above the snippet; use the commentary after the snippet for applied guidance and tradeoffs. This commentary rule does not apply to every code block in every Markdown document.
+- Website documentation for Echo standard library packages belongs under Language -> Standard Library. Add or update that page when introducing or changing public `std.*` packages, and document each package with the same useful-snippet-plus-commentary standard used for PHP built-ins.
 - Echo code snippets should use current Echo style: rely on inference with `let`, avoid invalid typed variable declarations, and omit semicolons unless the documented mode specifically requires PHP syntax.
 
 ## Module Ownership Invariants

@@ -3051,6 +3051,169 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "standard-library",
+    path: "/docs/standard-library",
+    navGroup: "Language",
+    category: "Language",
+    title: "Standard Library",
+    summary:
+      "Use Echo's packaged standard library modules for networking, HTTP responses, timing, reflection, and assertions.",
+    tags: ["standard library", "stdlib", "std", "net", "http", "time", "reflect", "assert"],
+    aliases: ["stdlib", "std packages", "standard packages", "echo standard library"],
+    sections: [
+      {
+        title: "Standard Library Imports",
+        tags: ["imports", "namespace", "std"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo packages standard library modules under the ",
+              { code: "std" },
+              " namespace. Import a package when program behavior should come from Echo's runtime-owned APIs rather than from PHP compatibility built-ins.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std time\n\nlet $started = microtime(true)\ntime.sleep(25)\nlet $elapsed = microtime(true) - $started\n\necho \"Elapsed seconds: \" . $elapsed . \"\\n\"",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. PHP built-ins remain available for compatibility workflows, while ",
+              { code: "std" },
+              " modules mark code that intentionally targets Echo's runtime surface.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "std.net",
+        tags: ["tcp", "network", "listen", "connect"],
+        aliases: ["networking", "tcp server", "tcp connection"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.net" },
+              " exposes TCP listener and connection APIs. Use it when an Echo program owns socket IO instead of shelling out to another process.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, \"received \" . strlen($request) . \" bytes\\n\")\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This pattern keeps the listener, accepted connection, read buffer, response write, and close operation in one workflow. Prefer it for low-level TCP services where the program needs direct control over connection lifetime.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "std.http",
+        tags: ["http", "response", "request"],
+        aliases: ["http response", "http request"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.http" },
+              " contains HTTP helpers built on Echo runtime types. The first supported surface formats plain text responses and reads requests from ",
+              { code: "std.net" },
+              " connections.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std http\nuse std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $response = http.responseText(\"ok\\n\")\n\nnet.write($connection, $response)\nnet.close($connection)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "http.responseText()" },
+              " when a small service needs correctly framed response bytes without hand-building the HTTP status line and headers for every endpoint.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "std.time",
+        tags: ["sleep", "time", "scheduling"],
+        aliases: ["sleep", "delay", "timer"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.time" },
+              " provides scheduling helpers such as millisecond sleep. Use it to express runtime delays in Echo code instead of busy waiting.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std time\n\nlet $attempt = 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The delay is explicit at the point where retry behavior happens, so the polling loop stays readable and avoids consuming CPU while waiting for external work.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "std.reflect",
+        tags: ["reflection", "type", "metadata"],
+        aliases: ["introspection", "function metadata"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.reflect" },
+              " inspects Echo-visible functions and values. It can see Echo standard library and userland metadata in addition to PHP compatibility functions.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" returns \" . reflect.returnType($name) . \"\\n\"\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use reflection for diagnostics, documentation tooling, and compatibility checks that need to explain what the runtime knows about a symbol before calling it.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "std.assert",
+        tags: ["assert", "testing", "validation"],
+        aliases: ["assertions", "test helpers"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std.assert" },
+              " provides assertion helpers for Echo test-style programs and small runtime checks.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nlet $parts = explode(\":\", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == \"signed\")",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Assertions are useful at the edge of examples and fixtures where a program should fail clearly if a parsed or transformed value no longer matches the expected shape.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "source-builds",
     path: "/docs/source-builds",
     navGroup: "Tooling",
@@ -3100,6 +3263,17 @@ export const docsNavigation: DocsNavGroup[] = [
           label: family.title,
           to: "/docs/php-built-ins/" + family.slug,
         })),
+      },
+      {
+        label: "Standard Library",
+        to: "/docs/standard-library",
+        children: [
+          { label: "std.net", to: "/docs/standard-library#std.net" },
+          { label: "std.http", to: "/docs/standard-library#std.http" },
+          { label: "std.time", to: "/docs/standard-library#std.time" },
+          { label: "std.reflect", to: "/docs/standard-library#std.reflect" },
+          { label: "std.assert", to: "/docs/standard-library#std.assert" },
+        ],
       },
       { label: "PHP Compatibility", to: "/docs/php-compatibility", disabled: true },
       { label: "Strict Mode", to: "/docs/strict-mode", disabled: true },
