@@ -141,7 +141,7 @@ function randomCodeSnippetSkeletonDelay() {
 
 type DocsSearchResult = Pick<
   DocsSearchRecord,
-  "id" | "path" | "title" | "category" | "kind" | "excerpt"
+  "id" | "path" | "title" | "category" | "kind" | "excerpt" | "signature"
 > & {
   score: number;
   lexicalScore?: number;
@@ -529,7 +529,7 @@ function DocsSearch() {
                     Esc
                   </button>
                 </div>
-                <div className="flex min-h-10 items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <div className="flex min-h-10 items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold text-slate-400">
                   <div className="flex items-center gap-2">
                     <span
                       className={
@@ -549,7 +549,7 @@ function DocsSearch() {
                     </span>
                   </div>
                   <span className="hidden text-slate-300 sm:inline">
-                    <span className="font-mono">↑↓</span> Select ·{" "}
+                    <span className="font-mono">↑↓</span> Select{" "}
                     <span className="font-mono">Enter</span> Open
                   </span>
                 </div>
@@ -595,9 +595,14 @@ function DocsSearch() {
                               <span className="block truncate text-sm font-semibold">
                                 {result.title}
                               </span>
-                              <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                {result.category} · {result.kind}
+                              <span className="mt-1 block text-xs font-semibold text-slate-400">
+                                {searchResultMeta(result)}
                               </span>
+                              {result.signature ? (
+                                <span className="mt-2 block truncate font-mono text-sm text-slate-600">
+                                  {result.signature}
+                                </span>
+                              ) : null}
                               <span className="mt-1 line-clamp-2 block text-sm leading-6 text-slate-500">
                                 {result.excerpt}
                               </span>
@@ -627,9 +632,17 @@ function SearchResultIcon({ result }: { result: DocsSearchResult }) {
   return <Icon size={20} />;
 }
 
+function searchResultMeta(result: DocsSearchResult) {
+  return `${result.category} ${result.kind}`;
+}
+
 function searchResultIcon(result: DocsSearchResult): RemixiconComponentType {
   if (result.kind === "code") {
     return RiCodeBoxLine;
+  }
+
+  if (result.kind === "function") {
+    return RiFunctionLine;
   }
 
   if (result.kind === "builtin") {

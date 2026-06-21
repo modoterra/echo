@@ -12,7 +12,7 @@ import {
   type DocsTextPart,
 } from "./content";
 
-export type DocsSearchKind = "page" | "section" | "builtin" | "code";
+export type DocsSearchKind = "page" | "section" | "builtin" | "function" | "code";
 
 export type DocsSearchRecord = {
   id: string;
@@ -26,6 +26,7 @@ export type DocsSearchRecord = {
   tags: string;
   aliases: string;
   excerpt: string;
+  signature?: string;
 };
 
 export type DocsSearchAsset = {
@@ -49,7 +50,7 @@ export type DocsSemanticAsset = {
 export const docsSearchOptions: Options<DocsSearchRecord> = {
   fields: ["title", "summary", "body", "code", "tags", "aliases"],
   idField: "id",
-  storeFields: ["id", "path", "title", "category", "kind", "excerpt"],
+  storeFields: ["id", "path", "title", "category", "kind", "excerpt", "signature"],
   searchOptions: {
     boost: {
       title: 8,
@@ -131,6 +132,24 @@ export function cosineSimilarity(a: number[], b: number[]) {
 }
 
 function pageRecords(page: DocsPage): DocsSearchRecord[] {
+  if (page.id === "standard-library") {
+    return [
+      {
+        id: `page:${page.id}`,
+        path: page.path,
+        title: page.title,
+        category: page.category,
+        kind: "page",
+        summary: page.summary,
+        body: page.sections.map(sectionText).join(" "),
+        code: page.sections.map(sectionCode).join("\n\n"),
+        tags: joinTerms(page.tags),
+        aliases: joinTerms(page.aliases),
+        excerpt: page.summary,
+      },
+    ];
+  }
+
   return [
     {
       id: `page:${page.id}`,
@@ -153,20 +172,36 @@ function sectionRecords(page: DocsPage, section: DocsSection): DocsSearchRecord[
   const path = `${page.path}#${headingId(section.title)}`;
   const text = sectionText(section);
   const code = sectionCode(section);
+  const stdFunctionSignature =
+    page.category === "Standard Library" ? sectionSignature(section) : undefined;
+  const stdPackage = page.title;
 
   return [
     {
       id: `section:${page.id}:${headingId(section.title)}`,
       path,
-      title: section.title,
+      title: stdFunctionSignature ? `${stdPackage}.${section.title}` : section.title,
       category: page.category,
-      kind: "section",
+      kind: stdFunctionSignature ? "function" : "section",
       summary: page.summary,
       body: text,
       code,
       tags: joinTerms([...(page.tags ?? []), ...(section.tags ?? [])]),
-      aliases: joinTerms([...(page.aliases ?? []), ...(section.aliases ?? [])]),
-      excerpt: firstSentence(text) || page.summary,
+      aliases: joinTerms([
+        ...(page.aliases ?? []),
+        ...(section.aliases ?? []),
+        ...(stdFunctionSignature
+          ? [
+              `${stdPackage}.${section.title}`,
+              `std.${stdPackage}.${section.title}`,
+              `${section.title} function`,
+            ]
+          : []),
+      ]),
+      excerpt: stdFunctionSignature
+        ? firstSentence(textWithoutSignature(section)) || page.summary
+        : firstSentence(text) || page.summary,
+      signature: stdFunctionSignature,
     },
     ...section.blocks
       .filter((block): block is Extract<DocsBlock, { kind: "code" }> => block.kind === "code")
@@ -243,6 +278,32 @@ function sectionText(section: DocsSection) {
     )
     .map((block) => block.text.map(textPartText).join(""))
     .join(" ");
+}
+
+function textWithoutSignature(section: DocsSection) {
+  return section.blocks
+    .filter(
+      (block): block is Extract<DocsBlock, { kind: "paragraph" }> => block.kind === "paragraph",
+    )
+    .filter((block) => block.text.length !== 1 || typeof block.text[0] === "string")
+    .map((block) => block.text.map(textPartText).join(""))
+    .join(" ");
+}
+
+function sectionSignature(section: DocsSection) {
+  const firstBlock = section.blocks[0];
+
+  if (
+    firstBlock?.kind !== "paragraph" ||
+    firstBlock.text.length !== 1 ||
+    typeof firstBlock.text[0] === "string"
+  ) {
+    return undefined;
+  }
+
+  const signature = firstBlock.text[0].code;
+
+  return signature.includes("(") && signature.includes("):") ? signature : undefined;
 }
 
 function sectionCode(section: DocsSection) {
