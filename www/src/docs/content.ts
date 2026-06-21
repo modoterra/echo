@@ -802,6 +802,28 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current Unix timestamp with microseconds.",
       },
       {
+        name: "getenv",
+        signature: "getenv(?string $name, bool $local_only): string|array|false",
+        description:
+          "Reads one environment variable, all environment variables, or false when a named variable is not present.",
+      },
+      {
+        name: "putenv",
+        signature: "putenv(string $assignment): bool",
+        description:
+          "Sets or removes an environment variable for the current process.",
+      },
+      {
+        name: "gethostname",
+        signature: "gethostname(): string|false",
+        description: "Returns the local machine hostname when it is available.",
+      },
+      {
+        name: "getmypid",
+        signature: "getmypid(): int|false",
+        description: "Returns the current process ID.",
+      },
+      {
         name: "uniqid",
         signature: "uniqid(string $prefix, bool $more_entropy): string",
         description:
@@ -1425,6 +1447,40 @@ echo $routeKey . "\\n"`,
 echo "Request started at " . $started . "\\n"`,
   ],
   [
+    "getenv",
+    `let $mode = getenv("APP_ENV")
+
+if (!$mode) {
+    $mode = "local"
+}
+
+echo "Booting " . $mode . " configuration\\n"`,
+  ],
+  [
+    "putenv",
+    `putenv("ECHO_WORKER_MODE=batch")
+
+let $mode = getenv("ECHO_WORKER_MODE")
+echo "Worker mode: " . $mode . "\\n"`,
+  ],
+  [
+    "gethostname",
+    `let $host = gethostname()
+
+if (!$host) {
+    $host = "unknown-host"
+}
+
+echo "Processing import on " . $host . "\\n"`,
+  ],
+  [
+    "getmypid",
+    `let $pid = getmypid()
+let $statusPath = sys_get_temp_dir() . "/echo-worker-" . $pid . ".status"
+
+echo "Status file: " . $statusPath . "\\n"`,
+  ],
+  [
     "nl2br",
     `let $plain = "first line\\nsecond line"
 let $html = nl2br($plain, false)
@@ -2028,6 +2084,22 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "mkdir",
     "Use `mkdir()` before writing generated output into a new directory tree. Recursive creation is useful for cache, export, and upload paths derived from dates or tenants.",
+  ],
+  [
+    "getenv",
+    "Use `getenv()` for process configuration that should come from deployment settings, such as choosing a local, staging, or production mode without editing source files.",
+  ],
+  [
+    "putenv",
+    "Use `putenv()` when a current process needs to pass a derived setting to later environment-aware work. It changes process environment state, so keep the assignment close to the workflow that needs it.",
+  ],
+  [
+    "gethostname",
+    "Use `gethostname()` to add host context to logs, diagnostics, or generated status records. Keep a fallback because some hosts may not report a name.",
+  ],
+  [
+    "getmypid",
+    "Use `getmypid()` for operational labels such as status-file names or logs tied to a running worker. Do not use process IDs as secret tokens or security entropy.",
   ],
   [
     "rmdir",

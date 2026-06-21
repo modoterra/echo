@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 196 | 411 |
-| Loaded local PHP internals, including extensions | 1516 | 196 | 1320 |
+| Baseline (`Core` + `standard`) | 607 | 200 | 407 |
+| Loaded local PHP internals, including extensions | 1516 | 200 | 1316 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (171/528)
+### standard (175/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -310,18 +310,18 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_include_path` | missing |  |
 | `get_meta_tags` | missing |  |
 | `getcwd` | implemented | Returns the current working directory as a string or `false` if the host cannot report it. Source: https://www.php.net/manual/en/function.getcwd.php |
-| `getenv` | missing |  |
+| `getenv` | implemented | Returns a named environment value, all environment variables as an associative array when omitted/null, or `false` for a missing name; SAPI-local distinctions are not modeled. Source: https://www.php.net/manual/en/function.getenv.php |
 | `gethostbyaddr` | missing |  |
 | `gethostbyname` | missing |  |
 | `gethostbynamel` | missing |  |
-| `gethostname` | missing |  |
+| `gethostname` | implemented | Returns the local host name as a string when the host can report one, otherwise `false`. Source: https://www.php.net/manual/en/function.gethostname.php |
 | `getimagesize` | missing |  |
 | `getimagesizefromstring` | missing |  |
 | `getlastmod` | missing |  |
 | `getmxrr` | missing |  |
 | `getmygid` | missing |  |
 | `getmyinode` | missing |  |
-| `getmypid` | missing |  |
+| `getmypid` | implemented | Returns the current process ID as an integer; like PHP, this is process metadata and not a secure entropy source. Source: https://www.php.net/manual/en/function.getmypid.php |
 | `getmyuid` | missing |  |
 | `getopt` | missing |  |
 | `getprotobyname` | missing |  |
@@ -487,7 +487,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `proc_nice` | missing |  |
 | `proc_open` | missing |  |
 | `proc_terminate` | missing |  |
-| `putenv` | missing |  |
+| `putenv` | implemented | Sets `NAME=value` entries in the current process environment and removes a variable when passed a bare name; request-lifetime restoration is deferred to process lifetime. Source: https://www.php.net/manual/en/function.putenv.php |
 | `quoted_printable_decode` | implemented | Decodes quoted-printable `=XX` byte escapes and soft line breaks according to the scalar string path. Source: https://www.php.net/manual/en/function.quoted-printable-decode.php |
 | `quoted_printable_encode` | implemented | Encodes bytes outside the printable quoted-printable range as uppercase `=XX`; RFC line wrapping and trailing-space line handling are deferred. Source: https://www.php.net/manual/en/function.quoted-printable-encode.php |
 | `quotemeta` | implemented |  |

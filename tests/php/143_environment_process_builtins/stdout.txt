@@ -1,0 +1,6 @@
+env:staging
+env-empty:[]
+env-cleared:[1]
+env-array:[1]
+host-string:[1]
+pid-int:[1]

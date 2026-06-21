@@ -116,6 +116,14 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string|float"),
         ),
         php_builtin_reflection(
+            "getenv",
+            &[("name", Some("?string")), ("local_only", Some("bool"))],
+            Some("string|array|false"),
+        ),
+        php_builtin_reflection("gethostname", &[], Some("string|false")),
+        php_builtin_reflection("getmypid", &[], Some("int|false")),
+        php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),
+        php_builtin_reflection(
             "ob_implicit_flush",
             &[("enable", Some("bool"))],
             Some("void"),

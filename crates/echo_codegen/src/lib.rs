@@ -558,6 +558,29 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_getenv",
+            echo_runtime::echo_php_getenv
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_gethostname",
+            echo_runtime::echo_php_gethostname as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_getmypid",
+            echo_runtime::echo_php_getmypid as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_putenv",
+            echo_runtime::echo_php_putenv
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_count",
             echo_runtime::echo_php_count
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -2792,6 +2815,7 @@ impl IrModule {
             | BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::ChunkSplit
+            | BuiltinCodegen::Getenv
             | BuiltinCodegen::InArray
             | BuiltinCodegen::Implode
             | BuiltinCodegen::Log
@@ -3611,6 +3635,38 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({arg})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Getenv => {
+                if call.args.len() > 2 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let name_arg = if let Some(arg) = call.args.first() {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 0, i64 0 }".to_string()
+                };
+                let local_only_arg = if let Some(arg) = call.args.get(1) {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 1, i64 0 }".to_string()
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({name_arg}, {local_only_arg})\n",
                     builtin.symbol
                 ));
 
@@ -5227,6 +5283,107 @@ mod tests {
         assert!(
             ir.contains("call void @echo_write_value(%EchoValue %runtime_call_0)"),
             "{ir}"
+        );
+    }
+
+    #[test]
+    fn environment_process_builtins_lower_to_php_runtime_calls() {
+        let getenv_ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "getenv".to_string(),
+                    args: vec![],
+                    span: Span::new(0, 8),
+                })],
+                span: Span::new(0, 9),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "getenv".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "APP_ENV".to_string(),
+                        span: Span::new(18, 27),
+                    })],
+                    span: Span::new(10, 28),
+                })],
+                span: Span::new(10, 29),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "getenv".to_string(),
+                    args: vec![
+                        Expr::String(StringLiteral {
+                            value: "APP_ENV".to_string(),
+                            span: Span::new(38, 47),
+                        }),
+                        Expr::Bool(BoolLiteral {
+                            value: true,
+                            span: Span::new(49, 53),
+                        }),
+                    ],
+                    span: Span::new(30, 54),
+                })],
+                span: Span::new(30, 55),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            getenv_ir.contains("declare %EchoValue @echo_php_getenv(%EchoValue, %EchoValue)"),
+            "{getenv_ir}"
+        );
+        assert!(
+            getenv_ir.contains("call %EchoValue @echo_php_getenv(%EchoValue { i32 0, i64 0 }, %EchoValue { i32 1, i64 0 })"),
+            "{getenv_ir}"
+        );
+        assert!(
+            getenv_ir.contains("call %EchoValue @echo_php_getenv(%EchoValue %runtime_call_1, %EchoValue { i32 1, i64 0 })"),
+            "{getenv_ir}"
+        );
+        assert!(
+            getenv_ir.contains("call %EchoValue @echo_php_getenv(%EchoValue %runtime_call_3, %EchoValue { i32 1, i64 1 })"),
+            "{getenv_ir}"
+        );
+
+        for name in ["gethostname", "getmypid"] {
+            let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: name.to_string(),
+                    args: vec![],
+                    span: Span::new(0, name.len()),
+                })],
+                span: Span::new(0, name.len() + 1),
+            })]))
+            .expect("IR");
+            let symbol = format!("echo_php_{name}");
+
+            assert!(
+                ir.contains(&format!("declare %EchoValue @{symbol}()")),
+                "{ir}"
+            );
+            assert!(ir.contains(&format!("call %EchoValue @{symbol}()")), "{ir}");
+        }
+
+        let putenv_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "putenv".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "APP_ENV=local".to_string(),
+                    span: Span::new(7, 22),
+                })],
+                span: Span::new(0, 23),
+            })],
+            span: Span::new(0, 24),
+        })]))
+        .expect("IR");
+
+        assert!(
+            putenv_ir.contains("declare %EchoValue @echo_php_putenv(%EchoValue)"),
+            "{putenv_ir}"
+        );
+        assert!(
+            putenv_ir.contains("call %EchoValue @echo_php_putenv(%EchoValue %runtime_call_0)"),
+            "{putenv_ir}"
         );
     }
 
