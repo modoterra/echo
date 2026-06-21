@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 184 | 423 |
-| Loaded local PHP internals, including extensions | 1516 | 184 | 1332 |
+| Baseline (`Core` + `standard`) | 607 | 187 | 420 |
+| Loaded local PHP internals, including extensions | 1516 | 187 | 1329 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (159/528)
+### standard (162/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -630,13 +630,13 @@ Related baseline functions tracked below: `get_included_files`,
 | `substr_count` | implemented |  |
 | `substr_replace` | missing |  |
 | `symlink` | implemented | Creates local symbolic links and returns a bool success value; Windows-specific target-type behavior, privilege differences, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.symlink.php |
-| `sys_get_temp_dir` | missing |  |
+| `sys_get_temp_dir` | implemented | Returns the host process temporary directory path; PHP INI overrides and virtual-host/open_basedir behavior are deferred. Source: https://www.php.net/manual/en/function.sys-get-temp-dir.php |
 | `sys_getloadavg` | missing |  |
 | `syslog` | missing |  |
 | `system` | missing |  |
 | `tan` | implemented | Returns the tangent of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.tan.php |
 | `tanh` | implemented | Returns hyperbolic tangent as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.tanh.php |
-| `tempnam` | missing |  |
+| `tempnam` | implemented | Creates a local temporary file with a unique name and requested prefix, falling back to the host temp directory when the requested directory cannot be used; PHP notices and Windows prefix truncation are deferred. Source: https://www.php.net/manual/en/function.tempnam.php |
 | `time_nanosleep` | missing |  |
 | `time_sleep_until` | missing |  |
 | `tmpfile` | missing |  |
@@ -647,7 +647,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ucwords` | implemented |  |
 | `uksort` | missing |  |
 | `umask` | missing |  |
-| `uniqid` | missing |  |
+| `uniqid` | implemented | Generates a PHP-shaped time-based identifier with optional prefix and entropy suffix; it is not cryptographically secure and does not guarantee uniqueness. Source: https://www.php.net/manual/en/function.uniqid.php |
 | `unlink` | implemented | Deletes local file names or symlinks and returns a bool success value; stream contexts and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.unlink.php |
 | `unpack` | missing |  |
 | `unregister_tick_function` | missing |  |

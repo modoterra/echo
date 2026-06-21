@@ -1,0 +1,8 @@
+temp-dir-is-dir:[1]
+mkdir:[1]
+tempnam-string:[1]
+tempnam-file:[1]
+tempnam-prefix:[1]
+uniqid-prefix:[1]
+uniqid-length:[13]
+uniqid-entropy-length:[27]

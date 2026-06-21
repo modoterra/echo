@@ -551,6 +551,17 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("target", Some("string")), ("link", Some("string"))],
             Some("bool"),
         ),
+        php_builtin_reflection("sys_get_temp_dir", &[], Some("string")),
+        php_builtin_reflection(
+            "tempnam",
+            &[("directory", Some("string")), ("prefix", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "uniqid",
+            &[("prefix", Some("string")), ("more_entropy", Some("bool"))],
+            Some("string"),
+        ),
         php_builtin_reflection(
             "touch",
             &[

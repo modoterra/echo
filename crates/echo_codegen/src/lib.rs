@@ -1394,6 +1394,27 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_sys_get_temp_dir",
+            echo_runtime::echo_php_sys_get_temp_dir as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_tempnam",
+            echo_runtime::echo_php_tempnam
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_uniqid",
+            echo_runtime::echo_php_uniqid
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_touch",
             echo_runtime::echo_php_touch
                 as extern "C" fn(
@@ -2722,6 +2743,7 @@ impl IrModule {
             | BuiltinCodegen::FilePutContents
             | BuiltinCodegen::Mkdir
             | BuiltinCodegen::Touch
+            | BuiltinCodegen::Uniqid
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
                 unreachable!("expression builtin used as statement call")
@@ -3790,6 +3812,39 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({filename}, {data}, {flags}, {context})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Uniqid => {
+                if call.args.len() > 2 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let prefix = match call.args.first() {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => self.runtime_value_as_echo_value(
+                        body,
+                        RuntimeValue::StaticString(String::new()),
+                    ),
+                };
+                let more_entropy = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({prefix}, {more_entropy})\n",
                     builtin.symbol
                 ));
 
@@ -5081,6 +5136,104 @@ mod tests {
         assert!(
             ir.contains("call void @echo_write_value(%EchoValue %runtime_call_0)"),
             "{ir}"
+        );
+    }
+
+    #[test]
+    fn temporary_name_builtins_lower_to_php_runtime_calls() {
+        let sys_temp_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "sys_get_temp_dir".to_string(),
+                args: vec![],
+                span: Span::new(0, 18),
+            })],
+            span: Span::new(0, 19),
+        })]))
+        .expect("IR");
+
+        assert!(
+            sys_temp_ir.contains("declare %EchoValue @echo_php_sys_get_temp_dir()"),
+            "{sys_temp_ir}"
+        );
+        assert!(
+            sys_temp_ir.contains("call %EchoValue @echo_php_sys_get_temp_dir()"),
+            "{sys_temp_ir}"
+        );
+
+        let tempnam_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "tempnam".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "/tmp".to_string(),
+                        span: Span::new(8, 14),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "exo".to_string(),
+                        span: Span::new(16, 21),
+                    }),
+                ],
+                span: Span::new(0, 22),
+            })],
+            span: Span::new(0, 23),
+        })]))
+        .expect("IR");
+
+        assert!(
+            tempnam_ir.contains("declare %EchoValue @echo_php_tempnam(%EchoValue, %EchoValue)"),
+            "{tempnam_ir}"
+        );
+        assert!(
+            tempnam_ir.contains(
+                "call %EchoValue @echo_php_tempnam(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1)"
+            ),
+            "{tempnam_ir}"
+        );
+
+        let uniqid_ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "uniqid".to_string(),
+                    args: vec![],
+                    span: Span::new(0, 8),
+                })],
+                span: Span::new(0, 9),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "uniqid".to_string(),
+                    args: vec![
+                        Expr::String(StringLiteral {
+                            value: "job_".to_string(),
+                            span: Span::new(17, 23),
+                        }),
+                        Expr::Bool(BoolLiteral {
+                            value: true,
+                            span: Span::new(25, 29),
+                        }),
+                    ],
+                    span: Span::new(10, 30),
+                })],
+                span: Span::new(10, 31),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            uniqid_ir.contains("declare %EchoValue @echo_php_uniqid(%EchoValue, %EchoValue)"),
+            "{uniqid_ir}"
+        );
+        assert!(
+            uniqid_ir.contains(
+                "call %EchoValue @echo_php_uniqid(%EchoValue %runtime_call_0, %EchoValue { i32 1, i64 0 })"
+            ),
+            "{uniqid_ir}"
+        );
+        assert!(
+            uniqid_ir.contains(
+                "call %EchoValue @echo_php_uniqid(%EchoValue %runtime_call_2, %EchoValue { i32 1, i64 1 })"
+            ),
+            "{uniqid_ir}"
         );
     }
 

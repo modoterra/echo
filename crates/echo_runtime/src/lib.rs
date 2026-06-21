@@ -189,6 +189,7 @@ const ECHO_VALUE_TASK_GROUP: i32 = 14;
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_PROCESS_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(1);
+static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
 
@@ -4096,6 +4097,33 @@ pub extern "C" fn echo_php_symlink(target: EchoValue, link: EchoValue) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sys_get_temp_dir() -> EchoValue {
+    path_bytes(env::temp_dir())
+        .map(echo_runtime_string)
+        .unwrap_or_else(|| EchoValue::string(Box::into_raw(Box::new(EchoString::new(Vec::new())))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_tempnam(directory: EchoValue, prefix: EchoValue) -> EchoValue {
+    match (directory.string_bytes(), prefix.string_bytes()) {
+        (Some(directory), Some(prefix)) => path_tempnam(&directory, &prefix)
+            .map(echo_runtime_string)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_uniqid(prefix: EchoValue, more_entropy: EchoValue) -> EchoValue {
+    let Some(prefix) = prefix.string_bytes() else {
+        return EchoValue::error();
+    };
+    let more_entropy = more_entropy.bool_value().unwrap_or(false);
+
+    echo_runtime_string(php_uniqid(&prefix, more_entropy))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_touch(
     filename: EchoValue,
     mtime: EchoValue,
@@ -4641,6 +4669,98 @@ fn path_symlink(target: &[u8], link: &[u8]) -> bool {
 #[cfg(all(not(unix), not(windows)))]
 fn path_symlink(_target: &[u8], _link: &[u8]) -> bool {
     false
+}
+
+#[cfg(unix)]
+fn path_bytes(path: PathBuf) -> Option<Vec<u8>> {
+    use std::os::unix::ffi::OsStringExt;
+
+    Some(path.into_os_string().into_vec())
+}
+
+#[cfg(not(unix))]
+fn path_bytes(path: PathBuf) -> Option<Vec<u8>> {
+    path.into_os_string()
+        .into_string()
+        .ok()
+        .map(String::into_bytes)
+}
+
+fn path_tempnam(directory: &[u8], prefix: &[u8]) -> Option<Vec<u8>> {
+    let requested = path_buf_from_bytes(directory)?;
+    let fallback = env::temp_dir();
+    create_temp_file_in(&requested, prefix).or_else(|| create_temp_file_in(&fallback, prefix))
+}
+
+fn create_temp_file_in(directory: &Path, prefix: &[u8]) -> Option<Vec<u8>> {
+    if !directory.is_dir() {
+        return None;
+    }
+
+    let prefix = &prefix[..prefix.len().min(63)];
+    for _ in 0..128 {
+        let mut name = Vec::with_capacity(prefix.len() + 16);
+        name.extend_from_slice(prefix);
+        let unique = php_uniqid(b"", false);
+        name.extend_from_slice(&unique);
+
+        let mut path = directory.to_path_buf();
+        push_path_component_from_bytes(&mut path, &name)?;
+        if create_temp_file(&path) {
+            return path_bytes(path);
+        }
+    }
+
+    None
+}
+
+#[cfg(unix)]
+fn push_path_component_from_bytes(path: &mut PathBuf, component: &[u8]) -> Option<()> {
+    path.push(OsStr::from_bytes(component));
+    Some(())
+}
+
+#[cfg(not(unix))]
+fn push_path_component_from_bytes(path: &mut PathBuf, component: &[u8]) -> Option<()> {
+    path.push(std::str::from_utf8(component).ok()?);
+    Some(())
+}
+
+fn create_temp_file(path: &Path) -> bool {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    configure_temp_file_mode(&mut options);
+    options.open(path).is_ok()
+}
+
+#[cfg(unix)]
+fn configure_temp_file_mode(options: &mut OpenOptions) {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    options.mode(0o600);
+}
+
+#[cfg(not(unix))]
+fn configure_temp_file_mode(_options: &mut OpenOptions) {}
+
+fn php_uniqid(prefix: &[u8], more_entropy: bool) -> Vec<u8> {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let seconds = duration.as_secs() as u32;
+    let micros = duration.subsec_micros();
+    let counter = NEXT_UNIQID_COUNTER.fetch_add(1, Ordering::Relaxed) as u32;
+    let micros = (micros.wrapping_add(counter)) % 0x100000;
+
+    let mut id = prefix.to_vec();
+    id.extend_from_slice(format!("{seconds:08x}{micros:05x}").as_bytes());
+    if more_entropy {
+        let entropy = ((duration.subsec_nanos() as u64)
+            ^ ((counter as u64).wrapping_mul(1_103_515_245)))
+            % 1_000_000_000;
+        id.extend_from_slice(format!(".{entropy:09}").as_bytes());
+    }
+    id
 }
 
 #[cfg(unix)]
@@ -8248,6 +8368,52 @@ mod tests {
         assert_eq!(echo_php_file_exists(hard_link), EchoValue::bool(true));
         assert_eq!(echo_php_readlink(missing), EchoValue::bool(false));
 
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[test]
+    fn temporary_name_builtins_create_files_and_identifiers() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "echo-runtime-temporary-names-{}",
+            std::process::id()
+        ));
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+
+        fn string_value(bytes: &[u8]) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: bytes.to_vec(),
+            })))
+        }
+
+        let sys_temp = echo_php_sys_get_temp_dir();
+        let sys_temp_bytes = sys_temp.string_bytes().expect("temp dir string");
+        assert!(path_is_dir(&sys_temp_bytes));
+
+        let temp_file = echo_php_tempnam(
+            string_value(temp_dir.to_string_lossy().as_bytes()),
+            string_value(b"exo"),
+        );
+        let temp_file_bytes = temp_file.string_bytes().expect("tempnam string");
+        assert!(path_is_file(&temp_file_bytes));
+        assert!(
+            path_buf_from_bytes(&temp_file_bytes)
+                .and_then(|path| path.file_name().map(|name| name.to_owned()))
+                .and_then(|name| name.into_string().ok())
+                .is_some_and(|name| name.starts_with("exo"))
+        );
+
+        let plain = echo_php_uniqid(EchoValue::null(), EchoValue::bool(false))
+            .string_bytes()
+            .expect("uniqid string");
+        let prefixed = echo_php_uniqid(string_value(b"job_"), EchoValue::bool(true))
+            .string_bytes()
+            .expect("prefixed uniqid string");
+        assert_eq!(plain.len(), 13);
+        assert_eq!(prefixed.len(), 27);
+        assert!(prefixed.starts_with(b"job_"));
+
+        std::fs::remove_file(path_buf_from_bytes(&temp_file_bytes).expect("tempnam path")).ok();
         std::fs::remove_dir_all(&temp_dir).ok();
     }
 

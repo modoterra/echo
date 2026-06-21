@@ -406,6 +406,7 @@ pub enum BuiltinCodegen {
     FilePutContents,
     Mkdir,
     Touch,
+    Uniqid,
     Explode,
     SubstrCompare,
 }
@@ -1645,6 +1646,30 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "sys_get_temp_dir",
+        symbol: "echo_php_sys_get_temp_dir",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueNoArgs,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueExpression,
+    },
+    PhpBuiltin {
+        php_name: "tempnam",
+        symbol: "echo_php_tempnam",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "uniqid",
+        symbol: "echo_php_uniqid",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Uniqid,
     },
     PhpBuiltin {
         php_name: "touch",

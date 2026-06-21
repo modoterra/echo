@@ -568,6 +568,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Writes a local file to the current output stream and returns the number of bytes read.",
       },
       {
+        name: "sys_get_temp_dir",
+        signature: "sys_get_temp_dir(): string",
+        description: "Returns the directory path used for temporary files.",
+      },
+      {
+        name: "tempnam",
+        signature: "tempnam(string $directory, string $prefix): string|false",
+        description: "Creates a local temporary file with a unique name and returns its path.",
+      },
+      {
         name: "readlink",
         signature: "readlink(string $path): string|false",
         description: "Returns the stored target of a local symbolic link, or false when it cannot be read.",
@@ -745,6 +755,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "microtime",
         signature: "microtime(bool $as_float): string|float",
         description: "Returns the current Unix timestamp with microseconds.",
+      },
+      {
+        name: "uniqid",
+        signature: "uniqid(string $prefix, bool $more_entropy): string",
+        description:
+          "Returns a time-based string identifier. It is useful for compatibility labels, but not for secrets or guaranteed uniqueness.",
       },
     ],
   },
@@ -994,6 +1010,25 @@ if (is_int($bytes)) {
 
 if (is_readable($download)) {
     readfile($download)
+}`,
+  ],
+  [
+    "sys_get_temp_dir",
+    `let $scratchDir = sys_get_temp_dir() . "/echo-import"
+
+if (!is_dir($scratchDir)) {
+    mkdir($scratchDir, 0755, true)
+}
+
+echo "Scratch directory: " . $scratchDir . "\\n"`,
+  ],
+  [
+    "tempnam",
+    `let $staged = tempnam(sys_get_temp_dir(), "export-")
+
+if (is_string($staged)) {
+    file_put_contents($staged, "id,status\\n1001,ready\\n")
+    rename($staged, "storage/exports/latest.csv")
 }`,
   ],
   [
@@ -1674,6 +1709,13 @@ let $email = trim($rawEmail)
 echo strtolower($email) . "\\n"`,
   ],
   [
+    "uniqid",
+    `let $jobId = uniqid("import_", true)
+let $logPath = "storage/jobs/" . $jobId . ".log"
+
+echo "Job log: " . $logPath . "\\n"`,
+  ],
+  [
     "ucfirst",
     `let $status = "pending"
 let $label = ucfirst($status)
@@ -1803,6 +1845,14 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `readfile()` when the useful action is sending file bytes to the current output stream, such as returning a generated export after checking that the local path is readable.",
   ],
   [
+    "sys_get_temp_dir",
+    "Use `sys_get_temp_dir()` when a workflow needs a scratch location without hard-coding `/tmp`, such as staging uploads, exports, or generated reports before moving them into application storage.",
+  ],
+  [
+    "tempnam",
+    "Use `tempnam()` when multiple workers might stage files in the same directory and each needs a distinct path before an atomic `rename()` publishes the finished artifact.",
+  ],
+  [
     "readlink",
     "Use `readlink()` when a deployment, cache, or storage workflow represents the active version as a symbolic link and needs to report or validate the stored target.",
   ],
@@ -1837,6 +1887,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "rmdir",
     "Use `rmdir()` when cleanup should remove only an empty directory, leaving non-empty directories intact so accidental recursive deletion is avoided.",
+  ],
+  [
+    "uniqid",
+    "Use `uniqid()` for compatibility labels such as job IDs, temp names, or log filenames where the value only needs to be convenient and time-based. It is not a secret token or a uniqueness guarantee.",
   ],
   [
     "realpath",

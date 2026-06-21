@@ -1411,17 +1411,44 @@ function PhpBuiltinsPage() {
             <p className="mt-4 text-base leading-7 text-slate-600">
               {family.description}
             </p>
-            <a
+            <Link
               className="mt-5 inline-flex text-sm font-semibold text-slate-500 transition hover:text-slate-950"
-              href={`/docs/php-built-ins/${family.slug}`}
+              to={phpBuiltinFamilyPath(family.slug)}
             >
               {family.builtins.length} functions
-            </a>
+            </Link>
           </section>
         ))}
       </div>
     </DocsShell>
   );
+}
+
+function phpBuiltinFamilyPath(slug: string) {
+  switch (slug) {
+    case "strings":
+      return "/docs/php-built-ins/strings";
+    case "arrays":
+      return "/docs/php-built-ins/arrays";
+    case "types":
+      return "/docs/php-built-ins/types";
+    case "math":
+      return "/docs/php-built-ins/math";
+    case "hashes":
+      return "/docs/php-built-ins/hashes";
+    case "filesystem":
+      return "/docs/php-built-ins/filesystem";
+    case "reflection":
+      return "/docs/php-built-ins/reflection";
+    case "shell":
+      return "/docs/php-built-ins/shell";
+    case "output-buffering":
+      return "/docs/php-built-ins/output-buffering";
+    case "core":
+      return "/docs/php-built-ins/core";
+    default:
+      return "/docs/php-built-ins";
+  }
 }
 
 function PhpBuiltinFamilyPage({ family }: { family: BuiltinFamily }) {
