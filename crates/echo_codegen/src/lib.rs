@@ -994,6 +994,16 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_chdir",
+            echo_runtime::echo_php_chdir
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_getcwd",
+            echo_runtime::echo_php_getcwd as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_is_dir",
             echo_runtime::echo_php_is_dir
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -3909,6 +3919,26 @@ mod tests {
     }
 
     #[test]
+    fn getcwd_lowers_to_php_builtin_with_no_arguments() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "getcwd".to_string(),
+                args: vec![],
+                span: Span::new(5, 13),
+            })],
+            span: Span::new(0, 14),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_php_getcwd()"), "{ir}");
+        assert!(ir.contains("call %EchoValue @echo_php_getcwd()"), "{ir}");
+        assert!(
+            ir.contains("call void @echo_write_value(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
     fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         for (php_name, symbol) in [
             ("strval", "echo_php_strval"),
@@ -3953,6 +3983,7 @@ mod tests {
             ("escapeshellarg", "echo_php_escapeshellarg"),
             ("escapeshellcmd", "echo_php_escapeshellcmd"),
             ("file_exists", "echo_php_file_exists"),
+            ("chdir", "echo_php_chdir"),
             ("is_dir", "echo_php_is_dir"),
             ("is_file", "echo_php_is_file"),
             ("is_link", "echo_php_is_link"),

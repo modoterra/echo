@@ -1143,6 +1143,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "chdir",
+        symbol: "echo_php_chdir",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "getcwd",
+        symbol: "echo_php_getcwd",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueNoArgs,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueExpression,
+    },
+    PhpBuiltin {
         php_name: "is_dir",
         symbol: "echo_php_is_dir",
         helper_symbol: None,

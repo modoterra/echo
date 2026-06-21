@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 123 | 484 |
-| Loaded local PHP internals, including extensions | 1516 | 123 | 1393 |
+| Baseline (`Core` + `standard`) | 607 | 125 | 482 |
+| Loaded local PHP internals, including extensions | 1516 | 125 | 1391 |
 
 ## Baseline Functions
 
@@ -202,7 +202,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `call_user_func` | missing |  |
 | `call_user_func_array` | missing |  |
 | `ceil` | implemented | Rounds numeric values up while returning a float, including PHP-compatible scalar coercion and negative zero behavior. Source: https://www.php.net/manual/en/function.ceil.php |
-| `chdir` | missing |  |
+| `chdir` | implemented | Changes the process current working directory and returns a bool success value; PHP warning emission on failure is deferred. Source: https://www.php.net/manual/en/function.chdir.php |
 | `checkdnsrr` | missing |  |
 | `chgrp` | missing |  |
 | `chmod` | missing |  |
@@ -309,7 +309,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_html_translation_table` | missing |  |
 | `get_include_path` | missing |  |
 | `get_meta_tags` | missing |  |
-| `getcwd` | missing |  |
+| `getcwd` | implemented | Returns the current working directory as a string or `false` if the host cannot report it. Source: https://www.php.net/manual/en/function.getcwd.php |
 | `getenv` | missing |  |
 | `gethostbyaddr` | missing |  |
 | `gethostbyname` | missing |  |

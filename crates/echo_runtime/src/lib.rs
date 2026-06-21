@@ -13,6 +13,7 @@ pub mod time;
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::HashSet;
+use std::env;
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io::{self as std_io, Write};
@@ -2816,6 +2817,21 @@ pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_chdir(directory: EchoValue) -> EchoValue {
+    match directory.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_chdir(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getcwd() -> EchoValue {
+    path_getcwd()
+        .map(echo_runtime_string)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoValue {
     match name.string_bytes() {
         Some(bytes) if !bytes.is_empty() => EchoValue::bool(true),
@@ -2941,6 +2957,18 @@ fn path_exists(bytes: &[u8]) -> bool {
 }
 
 #[cfg(unix)]
+fn path_chdir(bytes: &[u8]) -> bool {
+    env::set_current_dir(Path::new(OsStr::from_bytes(bytes))).is_ok()
+}
+
+#[cfg(unix)]
+fn path_getcwd() -> Option<Vec<u8>> {
+    env::current_dir()
+        .ok()
+        .map(|path| path.into_os_string().as_bytes().to_vec())
+}
+
+#[cfg(unix)]
 fn require_path(bytes: &[u8]) -> EchoValue {
     let path = Path::new(OsStr::from_bytes(bytes));
     if path.exists() {
@@ -2968,6 +2996,21 @@ fn path_exists(bytes: &[u8]) -> bool {
     std::str::from_utf8(bytes)
         .map(|path| Path::new(path).exists())
         .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn path_chdir(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .map(Path::new)
+        .map(|path| env::set_current_dir(path).is_ok())
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn path_getcwd() -> Option<Vec<u8>> {
+    env::current_dir()
+        .ok()
+        .map(|path| path.to_string_lossy().as_bytes().to_vec())
 }
 
 #[cfg(not(unix))]
@@ -5616,6 +5659,25 @@ mod tests {
             drop(Box::from_raw(missing));
             drop(Box::from_raw(empty));
         }
+    }
+
+    #[test]
+    fn chdir_and_getcwd_preserve_php_working_directory_behavior() {
+        let original = env::current_dir().expect("current dir");
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let missing = manifest_dir.join("definitely_missing_echo_directory");
+        let original_bytes = original.to_string_lossy().as_bytes().to_vec();
+        let missing_bytes = missing.to_string_lossy().as_bytes().to_vec();
+
+        assert_eq!(
+            echo_php_chdir(test_string_value(&original_bytes)),
+            EchoValue::bool(true)
+        );
+        assert_eq!(echo_php_getcwd().string_bytes(), path_getcwd());
+        assert_eq!(
+            echo_php_chdir(test_string_value(&missing_bytes)),
+            EchoValue::bool(false)
+        );
     }
 
     #[test]

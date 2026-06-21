@@ -281,7 +281,21 @@ Examples:
 - `echo_php_substr_compare(...)` is PHP builtin ABI because `substr_compare()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
+- `echo_php_chdir(...)` and `echo_php_getcwd(...)` are PHP builtin ABI because `chdir()` and `getcwd()` are PHP compatibility functions for process working-directory state.
 - `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding filesystem metadata functions are PHP compatibility functions.
+
+Working-directory helpers let a script run a small relative-path workflow from a known directory and then restore the caller's location:
+
+```php
+let $start = getcwd()
+
+chdir(__DIR__ . "/data")
+echo "bytes:" . filesize("report.csv") . "\n"
+echo "cwd:" . basename(getcwd()) . "\n"
+chdir($start)
+```
+
+Use `chdir()` when a group of operations naturally belongs under one directory, such as reading several fixture files, importing generated reports, or matching a legacy PHP script that expects relative paths. Capture `getcwd()` first so the original directory can be restored after the localized work; that keeps later relative paths from accidentally resolving against the temporary directory.
 
 Filesystem metadata helpers can be combined to validate a user-provided path before using it in a generated response:
 

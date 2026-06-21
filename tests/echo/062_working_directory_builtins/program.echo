@@ -1,0 +1,9 @@
+let $start = getcwd()
+
+echo "start-ok:[" . is_string($start) . "]\n"
+echo "enter:[" . chdir(__DIR__) . "]\n"
+echo "after:[" . basename(getcwd()) . "]\n"
+echo "local-file:[" . file_exists("program.echo") . "]\n"
+echo "restore:[" . chdir($start) . "]\n"
+echo "restored-ok:[" . is_string(getcwd()) . "]\n"
+echo "exists:[" . function_exists("chdir") . function_exists("getcwd") . "]\n"
