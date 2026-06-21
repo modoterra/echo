@@ -1342,6 +1342,36 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_file_get_contents",
+            echo_runtime::echo_php_file_get_contents
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_file_put_contents",
+            echo_runtime::echo_php_file_put_contents
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_readfile",
+            echo_runtime::echo_php_readfile
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_touch",
             echo_runtime::echo_php_touch
                 as extern "C" fn(
@@ -2664,7 +2694,10 @@ impl IrModule {
             | BuiltinCodegen::ValueUnaryOptionalContextExpression
             | BuiltinCodegen::ValueBinaryOptionalContextExpression
             | BuiltinCodegen::ValueUnaryOptionalBoolExpression
+            | BuiltinCodegen::ValueUnaryOptionalBoolContextExpression
             | BuiltinCodegen::ValueTernaryExpression
+            | BuiltinCodegen::FileGetContents
+            | BuiltinCodegen::FilePutContents
             | BuiltinCodegen::Mkdir
             | BuiltinCodegen::Touch
             | BuiltinCodegen::Explode
@@ -3583,6 +3616,37 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::ValueUnaryOptionalBoolContextExpression => {
+                if !(1..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let flag = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let context = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {flag}, {context})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::ValueUnaryOptionalContextExpression => {
                 if !(1..=2).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
@@ -3633,6 +3697,77 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({left}, {right}, {context})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::FileGetContents => {
+                if !(1..=5).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let filename = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let use_include_path = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let context = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let offset = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 0 }".to_string(),
+                };
+                let length = match call.args.get(4) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({filename}, {use_include_path}, {context}, {offset}, {length})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::FilePutContents => {
+                if !(2..=4).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let filename = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let data = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let flags = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 0 }".to_string(),
+                };
+                let context = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({filename}, {data}, {flags}, {context})\n",
                     builtin.symbol
                 ));
 
@@ -4827,6 +4962,83 @@ mod tests {
                 "call %EchoValue @echo_php_sha1(%EchoValue %runtime_call_2, %EchoValue { i32 1, i64 1 })"
             ),
             "{ir}"
+        );
+    }
+
+    #[test]
+    fn filesystem_content_builtins_lower_optional_arguments() {
+        let file_get_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "file_get_contents".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "report.txt".to_string(),
+                    span: Span::new(18, 30),
+                })],
+                span: Span::new(0, 31),
+            })],
+            span: Span::new(0, 32),
+        })]))
+        .expect("IR");
+
+        assert!(
+            file_get_ir.contains("declare %EchoValue @echo_php_file_get_contents(%EchoValue, %EchoValue, %EchoValue, %EchoValue, %EchoValue)"),
+            "{file_get_ir}"
+        );
+        assert!(
+            file_get_ir.contains("call %EchoValue @echo_php_file_get_contents(%EchoValue %runtime_call_0, %EchoValue { i32 1, i64 0 }, %EchoValue { i32 0, i64 0 }, %EchoValue { i32 2, i64 0 }, %EchoValue { i32 0, i64 0 })"),
+            "{file_get_ir}"
+        );
+
+        let file_put_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "file_put_contents".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "report.txt".to_string(),
+                        span: Span::new(18, 30),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "ready".to_string(),
+                        span: Span::new(32, 39),
+                    }),
+                ],
+                span: Span::new(0, 40),
+            })],
+            span: Span::new(0, 41),
+        })]))
+        .expect("IR");
+
+        assert!(
+            file_put_ir.contains("declare %EchoValue @echo_php_file_put_contents(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"),
+            "{file_put_ir}"
+        );
+        assert!(
+            file_put_ir.contains("call %EchoValue @echo_php_file_put_contents(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 2, i64 0 }, %EchoValue { i32 0, i64 0 })"),
+            "{file_put_ir}"
+        );
+
+        let readfile_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "readfile".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "report.txt".to_string(),
+                    span: Span::new(9, 21),
+                })],
+                span: Span::new(0, 22),
+            })],
+            span: Span::new(0, 23),
+        })]))
+        .expect("IR");
+
+        assert!(
+            readfile_ir.contains(
+                "declare %EchoValue @echo_php_readfile(%EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{readfile_ir}"
+        );
+        assert!(
+            readfile_ir.contains("call %EchoValue @echo_php_readfile(%EchoValue %runtime_call_0, %EchoValue { i32 1, i64 0 }, %EchoValue { i32 0, i64 0 })"),
+            "{readfile_ir}"
         );
     }
 

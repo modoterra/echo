@@ -4002,6 +4002,74 @@ pub extern "C" fn echo_php_filetype(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_file_get_contents(
+    filename: EchoValue,
+    _use_include_path: EchoValue,
+    _context: EchoValue,
+    offset: EchoValue,
+    length: EchoValue,
+) -> EchoValue {
+    let Some(filename) = filename.string_bytes() else {
+        return EchoValue::error();
+    };
+    let offset = offset.php_int_value().unwrap_or(0);
+    let length = if length.is_null() {
+        None
+    } else {
+        match length.php_int_value() {
+            Some(value) if value >= 0 => Some(value as usize),
+            Some(_) => return EchoValue::bool(false),
+            None => None,
+        }
+    };
+
+    path_file_get_contents(&filename, offset, length)
+        .map(echo_runtime_string)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_file_put_contents(
+    filename: EchoValue,
+    data: EchoValue,
+    flags: EchoValue,
+    _context: EchoValue,
+) -> EchoValue {
+    let Some(filename) = filename.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(data) = data.string_bytes() else {
+        return EchoValue::error();
+    };
+    let flags = flags.php_int_value().unwrap_or(0);
+
+    path_file_put_contents(&filename, &data, flags)
+        .and_then(|written| i64::try_from(written).ok())
+        .map(EchoValue::int)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_readfile(
+    filename: EchoValue,
+    _use_include_path: EchoValue,
+    _context: EchoValue,
+) -> EchoValue {
+    let Some(filename) = filename.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Some(bytes) = path_file_get_contents(&filename, 0, None) else {
+        return EchoValue::bool(false);
+    };
+    write_runtime_output(&bytes);
+
+    i64::try_from(bytes.len())
+        .map(EchoValue::int)
+        .unwrap_or_else(|_| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_touch(
     filename: EchoValue,
     mtime: EchoValue,
@@ -4461,6 +4529,43 @@ fn path_filetype(bytes: &[u8]) -> Option<Vec<u8>> {
         "unknown"
     };
     Some(name.as_bytes().to_vec())
+}
+
+fn path_file_get_contents(bytes: &[u8], offset: i64, length: Option<usize>) -> Option<Vec<u8>> {
+    let path = path_buf_from_bytes(bytes)?;
+    let data = std::fs::read(path).ok()?;
+    let start = if offset >= 0 {
+        usize::try_from(offset).ok()?
+    } else {
+        let from_end = usize::try_from(offset.unsigned_abs()).ok()?;
+        data.len().checked_sub(from_end)?
+    };
+    if start > data.len() {
+        return None;
+    }
+
+    let end = length
+        .and_then(|length| start.checked_add(length))
+        .map(|end| end.min(data.len()))
+        .unwrap_or(data.len());
+    Some(data[start..end].to_vec())
+}
+
+const PHP_FILE_APPEND: i64 = 8;
+
+fn path_file_put_contents(bytes: &[u8], data: &[u8], flags: i64) -> Option<usize> {
+    let path = path_buf_from_bytes(bytes)?;
+    let append = flags & PHP_FILE_APPEND != 0;
+    let mut options = OpenOptions::new();
+    options.create(true).write(true);
+    if append {
+        options.append(true);
+    } else {
+        options.truncate(true);
+    }
+    let mut file = options.open(path).ok()?;
+    file.write_all(data).ok()?;
+    Some(data.len())
 }
 
 #[cfg(unix)]
@@ -5969,6 +6074,14 @@ fn write_stdout(bytes: &[u8]) {
         .write_all(bytes)
         .expect("failed to write Echo runtime output");
     stdout.flush().expect("failed to flush Echo runtime output");
+}
+
+fn write_runtime_output(bytes: &[u8]) {
+    OUTPUT.with(|runtime| {
+        let mut stdout = Vec::new();
+        runtime.borrow_mut().write(bytes, &mut stdout);
+        write_stdout(&stdout);
+    });
 }
 
 fn record_assertion(passed: bool, message: &str) {
@@ -8099,6 +8212,92 @@ mod tests {
             echo_php_realpath(parent_lookup).string_bytes(),
             path_realpath(file_path.to_string_lossy().as_bytes())
         );
+
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[test]
+    fn filesystem_content_builtins_read_write_append_and_stream_output() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "echo-runtime-filesystem-content-{}",
+            std::process::id()
+        ));
+        let file_path = temp_dir.join("report.txt");
+        let missing_path = temp_dir.join("missing.txt");
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+
+        fn path_value(path: &Path) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: path.to_string_lossy().as_bytes().to_vec(),
+            })))
+        }
+
+        fn string_value(bytes: &[u8]) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: bytes.to_vec(),
+            })))
+        }
+
+        let file = path_value(&file_path);
+        let missing = path_value(&missing_path);
+
+        assert_eq!(
+            echo_php_file_put_contents(
+                file,
+                string_value(b"alpha\nbeta\ngamma\n"),
+                EchoValue::int(0),
+                EchoValue::null()
+            ),
+            EchoValue::int(17)
+        );
+        assert_eq!(
+            echo_php_file_put_contents(
+                file,
+                string_value(b"delta\n"),
+                EchoValue::int(PHP_FILE_APPEND),
+                EchoValue::null()
+            ),
+            EchoValue::int(6)
+        );
+        assert_eq!(
+            echo_php_file_get_contents(
+                file,
+                EchoValue::bool(false),
+                EchoValue::null(),
+                EchoValue::int(6),
+                EchoValue::int(4)
+            )
+            .string_bytes(),
+            Some(b"beta".to_vec())
+        );
+        assert_eq!(
+            echo_php_file_get_contents(
+                file,
+                EchoValue::bool(false),
+                EchoValue::null(),
+                EchoValue::int(-6),
+                EchoValue::null()
+            )
+            .string_bytes(),
+            Some(b"delta\n".to_vec())
+        );
+        assert_eq!(
+            echo_php_file_get_contents(
+                missing,
+                EchoValue::bool(false),
+                EchoValue::null(),
+                EchoValue::int(0),
+                EchoValue::null()
+            ),
+            EchoValue::bool(false)
+        );
+
+        let (bytes_read, stdout) = capture_stdout(false, || {
+            echo_php_readfile(file, EchoValue::bool(false), EchoValue::null())
+        });
+        assert_eq!(bytes_read, EchoValue::int(23));
+        assert_eq!(stdout, b"alpha\nbeta\ngamma\ndelta\n");
 
         std::fs::remove_dir_all(&temp_dir).ok();
     }

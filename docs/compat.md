@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 178 | 429 |
-| Loaded local PHP internals, including extensions | 1516 | 178 | 1338 |
+| Baseline (`Core` + `standard`) | 607 | 181 | 426 |
+| Loaded local PHP internals, including extensions | 1516 | 181 | 1335 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (153/528)
+### standard (156/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -266,8 +266,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `fgets` | missing |  |
 | `file` | missing |  |
 | `file_exists` | implemented | Checks local filesystem paths for files or directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-exists.php |
-| `file_get_contents` | missing |  |
-| `file_put_contents` | missing |  |
+| `file_get_contents` | implemented | Reads local files into byte strings with offset and nullable length support, including negative offsets; include path lookup, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-get-contents.php |
+| `file_put_contents` | implemented | Writes local files and returns byte counts, with append flag support; array data, stream resources, `LOCK_EX`, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-put-contents.php |
 | `fileatime` | implemented | Returns the local file's last access time as a Unix timestamp and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.fileatime.php |
 | `filectime` | implemented | Returns the local file's inode change time as a Unix timestamp and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filectime.php |
 | `filegroup` | implemented | Returns the local file's numeric group ID and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filegroup.php |
@@ -496,7 +496,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rawurldecode` | implemented | Decodes `%XX` byte escapes without converting `+` to a space. Source: https://www.php.net/manual/en/function.rawurldecode.php |
 | `rawurlencode` | implemented | Encodes bytes according to RFC 3986, preserving alphanumerics and `-_.~`. Source: https://www.php.net/manual/en/function.rawurlencode.php |
 | `readdir` | missing |  |
-| `readfile` | missing |  |
+| `readfile` | implemented | Streams a local file through Echo's output buffer and returns the byte count; include path lookup, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.readfile.php |
 | `readlink` | missing |  |
 | `realpath` | implemented | Resolves existing local paths through OS canonicalization and returns `false` for missing paths; realpath cache APIs and URL wrappers are deferred. Source: https://www.php.net/manual/en/function.realpath.php |
 | `realpath_cache_get` | missing |  |

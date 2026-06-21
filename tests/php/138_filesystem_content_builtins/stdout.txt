@@ -1,0 +1,11 @@
+mkdir:[1]
+write-first:[17]
+append:[6]
+part:[beta]
+tail:[delta]
+stream:[alpha
+beta
+gamma
+delta
+]
+readfile-bytes:[23]

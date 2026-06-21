@@ -1,0 +1,15 @@
+let $base = "filesystem-content-work"
+let $report = $base . "/report.txt"
+
+echo "mkdir:[" . mkdir($base) . "]\n"
+echo "write-first:[" . file_put_contents($report, "alpha\nbeta\ngamma\n") . "]\n"
+echo "append:[" . file_put_contents($report, "delta\n", 8) . "]\n"
+echo "part:[" . file_get_contents($report, false, null, 6, 4) . "]\n"
+echo "tail:[" . file_get_contents($report, false, null, -6, 5) . "]\n"
+echo "stream:["
+let $bytes = readfile($report)
+echo "]\n"
+echo "readfile-bytes:[" . $bytes . "]\n"
+
+let $cleanupReport = unlink($report)
+let $cleanupBase = rmdir($base)

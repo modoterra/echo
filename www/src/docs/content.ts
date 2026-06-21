@@ -553,6 +553,21 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the local file type, such as file, dir, link, socket, fifo, block, char, or unknown.",
       },
       {
+        name: "file_get_contents",
+        signature: "file_get_contents(string $filename, bool $use_include_path, ?resource $context, int $offset, ?int $length): string|false",
+        description: "Reads a local file into a string, optionally starting at an offset and limiting the number of bytes returned.",
+      },
+      {
+        name: "file_put_contents",
+        signature: "file_put_contents(string $filename, mixed $data, int $flags, ?resource $context): int|false",
+        description: "Writes data to a local file and returns the number of bytes written, or false on failure.",
+      },
+      {
+        name: "readfile",
+        signature: "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
+        description: "Writes a local file to the current output stream and returns the number of bytes read.",
+      },
+      {
         name: "touch",
         signature: "touch(string $filename, ?int $mtime, ?int $atime): bool",
         description: "Creates a local file if needed and sets its modification and access timestamps.",
@@ -938,6 +953,32 @@ let $kind = filetype($target)
 
 if (is_string($kind)) {
     echo "Target kind: " . $kind . "\\n"
+}`,
+  ],
+  [
+    "file_get_contents",
+    `let $report = "storage/reports/latest.csv"
+let $header = file_get_contents($report, false, null, 0, 64)
+
+if (is_string($header)) {
+    echo "Report header preview: " . $header . "\\n"
+}`,
+  ],
+  [
+    "file_put_contents",
+    `let $summary = "storage/reports/summary.txt"
+let $bytes = file_put_contents($summary, "rows=125\\nstatus=ready\\n")
+
+if (is_int($bytes)) {
+    echo "Summary bytes written: " . $bytes . "\\n"
+}`,
+  ],
+  [
+    "readfile",
+    `let $download = "storage/exports/report.csv"
+
+if (is_readable($download)) {
+    readfile($download)
 }`,
   ],
   [
@@ -1706,6 +1747,18 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "filetype",
     "Use `filetype()` before choosing a path-handling branch, such as treating directories, regular files, and symlinks differently in a cleanup or deployment script.",
+  ],
+  [
+    "file_get_contents",
+    "Use `file_get_contents()` when a workflow needs the whole local file or a bounded slice in memory, such as previewing a report header, loading a small JSON config, or checking the tail of a log.",
+  ],
+  [
+    "file_put_contents",
+    "Use `file_put_contents()` for simple generated files where opening a stream would add ceremony, such as writing a cache artifact, summary report, or small export manifest.",
+  ],
+  [
+    "readfile",
+    "Use `readfile()` when the useful action is sending file bytes to the current output stream, such as returning a generated export after checking that the local path is readable.",
   ],
   [
     "touch",

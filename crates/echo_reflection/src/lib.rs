@@ -507,6 +507,36 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string|false"),
         ),
         php_builtin_reflection(
+            "file_get_contents",
+            &[
+                ("filename", Some("string")),
+                ("use_include_path", Some("bool")),
+                ("context", Some("?resource")),
+                ("offset", Some("int")),
+                ("length", Some("?int")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "file_put_contents",
+            &[
+                ("filename", Some("string")),
+                ("data", Some("mixed")),
+                ("flags", Some("int")),
+                ("context", Some("?resource")),
+            ],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "readfile",
+            &[
+                ("filename", Some("string")),
+                ("use_include_path", Some("bool")),
+                ("context", Some("?resource")),
+            ],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
             "touch",
             &[
                 ("filename", Some("string")),
