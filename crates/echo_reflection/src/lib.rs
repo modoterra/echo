@@ -175,6 +175,25 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "array_slice",
+            &[
+                ("array", Some("array")),
+                ("offset", Some("int")),
+                ("length", Some("?int")),
+                ("preserve_keys", Some("bool")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
+            "array_chunk",
+            &[
+                ("array", Some("array")),
+                ("length", Some("int")),
+                ("preserve_keys", Some("bool")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_reverse",
             &[("array", Some("array")), ("preserve_keys", Some("bool"))],
             Some("array"),

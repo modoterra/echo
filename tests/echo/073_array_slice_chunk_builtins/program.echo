@@ -1,0 +1,20 @@
+// array_slice() extracts positional windows from an array.
+// Source: https://www.php.net/manual/en/function.array-slice.php
+// array_chunk() splits arrays into fixed-size groups.
+// Source: https://www.php.net/manual/en/function.array-chunk.php
+let $row = [101, "A-42", "warehouse", "active", "late", "maya"]
+let $slice = array_slice($row, 1, -1)
+let $keep = array_slice($row, -4, 3, true)
+let $chunks = array_chunk($row, 2)
+let $chunksKeep = array_chunk($row, 2, true)
+
+echo "slice-keys:[" . implode(",", array_keys($slice)) . "]\n"
+echo "slice-values:[" . implode("|", array_values($slice)) . "]\n"
+echo "keep-keys:[" . implode(",", array_keys($keep)) . "]\n"
+echo "keep-values:[" . implode("|", array_values($keep)) . "]\n"
+echo "chunk-count:[" . count($chunks) . "]\n"
+echo "chunk0-keys:[" . implode(",", array_keys($chunks[0])) . "]\n"
+echo "chunk1-values:[" . implode("|", array_values($chunks[1])) . "]\n"
+echo "keep-chunk1-keys:[" . implode(",", array_keys($chunksKeep[1])) . "]\n"
+echo "keep-chunk2-values:[" . implode("|", array_values($chunksKeep[2])) . "]\n"
+echo "exists:[" . function_exists("array_slice") . function_exists("array_chunk") . "]\n"

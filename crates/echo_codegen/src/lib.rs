@@ -621,6 +621,25 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_array_slice",
+            echo_runtime::echo_php_array_slice
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_array_chunk",
+            echo_runtime::echo_php_array_chunk
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_array_flip",
             echo_runtime::echo_php_array_flip
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -2496,6 +2515,7 @@ impl IrModule {
             }
             BuiltinCodegen::ArrayKeys
             | BuiltinCodegen::ArrayReverse
+            | BuiltinCodegen::ArraySlice
             | BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::ChunkSplit
@@ -3419,6 +3439,38 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({array}, {preserve_keys})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ArraySlice => {
+                if !(2..=4).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let array = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let offset = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let length = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let preserve_keys = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({array}, {offset}, {length}, {preserve_keys})\n",
                     builtin.symbol
                 ));
 
@@ -4977,6 +5029,84 @@ mod tests {
             "{ir}"
         );
         assert!(ir.contains("call %EchoValue @echo_php_array_pad("), "{ir}");
+    }
+
+    #[test]
+    fn array_slice_and_chunk_lower_optional_arguments_to_runtime_calls() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_slice".to_string(),
+                    args: vec![
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: None,
+                                value: Expr::String(StringLiteral {
+                                    value: "active".to_string(),
+                                    span: Span::new(13, 21),
+                                }),
+                                span: Span::new(13, 21),
+                            }],
+                            span: Span::new(12, 22),
+                        }),
+                        Expr::Number(NumberLiteral {
+                            value: "1".to_string(),
+                            span: Span::new(24, 25),
+                        }),
+                    ],
+                    span: Span::new(0, 26),
+                })],
+                span: Span::new(0, 27),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_chunk".to_string(),
+                    args: vec![
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: None,
+                                value: Expr::String(StringLiteral {
+                                    value: "active".to_string(),
+                                    span: Span::new(41, 49),
+                                }),
+                                span: Span::new(41, 49),
+                            }],
+                            span: Span::new(40, 50),
+                        }),
+                        Expr::Number(NumberLiteral {
+                            value: "2".to_string(),
+                            span: Span::new(52, 53),
+                        }),
+                    ],
+                    span: Span::new(28, 54),
+                })],
+                span: Span::new(28, 55),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_slice(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_chunk(%EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_slice(")
+                && ir.contains("%EchoValue { i32 0, i64 0 }, %EchoValue { i32 1, i64 0 })"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_chunk(")
+                && ir.contains("%EchoValue { i32 1, i64 0 })"),
+            "{ir}"
+        );
     }
 
     #[test]

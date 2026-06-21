@@ -379,6 +379,7 @@ pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {
 pub enum BuiltinCodegen {
     ArrayKeys,
     ArrayReverse,
+    ArraySlice,
     Basename,
     Dirname,
     ChunkSplit,
@@ -602,6 +603,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "array_slice",
+        symbol: "echo_php_array_slice",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ArraySlice,
+    },
+    PhpBuiltin {
+        php_name: "array_chunk",
+        symbol: "echo_php_array_chunk",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::InArray,
     },
     PhpBuiltin {
         php_name: "array_reverse",

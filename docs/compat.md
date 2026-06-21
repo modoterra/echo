@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 157 | 450 |
-| Loaded local PHP internals, including extensions | 1516 | 157 | 1359 |
+| Baseline (`Core` + `standard`) | 607 | 159 | 448 |
+| Loaded local PHP internals, including extensions | 1516 | 159 | 1357 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (132/545)
+### standard (134/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -127,7 +127,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_all` | missing |  |
 | `array_any` | missing |  |
 | `array_change_key_case` | missing |  |
-| `array_chunk` | missing |  |
+| `array_chunk` | implemented | Splits arrays into numerically indexed chunks, optionally preserving original keys inside each chunk; invalid chunk lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-chunk.php |
 | `array_column` | missing |  |
 | `array_combine` | implemented | Creates an array from one array of keys and one array of values, using PHP array-key coercion; duplicate keys keep the latest value, and mismatched input lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-combine.php |
 | `array_count_values` | implemented | Counts occurrences of int/string values using PHP array-key coercion; unsupported value types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-count-values.php |
@@ -169,7 +169,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_reverse` | implemented | Returns elements in reverse order, reindexing numeric keys by default and preserving string keys; optional `preserve_keys` keeps numeric keys too. Source: https://www.php.net/manual/en/function.array-reverse.php |
 | `array_search` | implemented | Returns the first key for a matching value using loose comparison by default, optional strict comparison, and `false` on misses. Source: https://www.php.net/manual/en/function.array-search.php |
 | `array_shift` | missing |  |
-| `array_slice` | missing |  |
+| `array_slice` | implemented | Extracts offset/length windows by array position, reindexing integer keys by default while always preserving string keys. Source: https://www.php.net/manual/en/function.array-slice.php |
 | `array_splice` | missing |  |
 | `array_sum` | implemented | Sums array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `0`. Source: https://www.php.net/manual/en/function.array-sum.php |
 | `array_udiff` | missing |  |
