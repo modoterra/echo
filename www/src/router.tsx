@@ -120,6 +120,12 @@ type DocsSearchResult = Pick<
   semanticScore?: number;
 };
 
+type DocsSearchStatusItem = {
+  badge?: string;
+  label: string;
+  type: "loading" | "ready";
+};
+
 const docsSearchResultLimit = 8;
 const docsSearchLexicalCandidateLimit = 24;
 const docsSearchSemanticCandidateLimit = 24;
@@ -406,14 +412,19 @@ function DocsSearch() {
     setIsOpen(false);
   }
 
-  const statusItems = [
-    isLoadingIndex ? "Loading index..." : null,
-    semanticAsset
-      ? isLoadingModel
-        ? "Loading semantic model..."
-        : "Semantic reranking ready"
-      : null,
-  ].filter(Boolean);
+  const statusItems: DocsSearchStatusItem[] = [];
+
+  if (isLoadingIndex) {
+    statusItems.push({ label: "Loading index...", type: "loading" });
+  }
+
+  if (semanticAsset) {
+    statusItems.push({
+      badge: "Semantic",
+      label: isLoadingModel ? "Loading model..." : "Reranking ready",
+      type: isLoadingModel ? "loading" : "ready",
+    });
+  }
 
   return (
     <>
@@ -486,14 +497,19 @@ function DocsSearch() {
                       statusItems.map((item) => (
                         <span
                           className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1"
-                          key={item}
+                          key={item.label}
                         >
-                          {item?.startsWith("Loading") ? (
+                          {item.type === "loading" ? (
                             <span className="size-1.5 rounded-full bg-orange-400 motion-safe:animate-pulse" />
                           ) : (
                             <span className="size-1.5 rounded-full bg-emerald-500" />
                           )}
-                          {item}
+                          {item.badge ? (
+                            <span className="rounded bg-sky-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-normal text-sky-700">
+                              [{item.badge}]
+                            </span>
+                          ) : null}
+                          {item.label}
                         </span>
                       ))
                     ) : (
