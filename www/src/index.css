@@ -188,6 +188,16 @@
     contain: layout;
 }
 
+.docs-logo-gradient-rail {
+    background-image: linear-gradient(
+        180deg,
+        #a855f7 0%,
+        #6366f1 38%,
+        #0ea5e9 68%,
+        #06b6d4 100%
+    );
+}
+
 :root:active-view-transition-type(route-transition)::view-transition-old(root),
 :root:active-view-transition-type(route-transition)::view-transition-new(root) {
     animation: none;

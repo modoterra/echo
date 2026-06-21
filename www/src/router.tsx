@@ -924,7 +924,7 @@ function DocsNavLinkItem({
               {activeChildIndex >= 0 ? (
                 <span
                   aria-hidden="true"
-                  className="docs-primary-nav-train absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full bg-orange-400 transition-transform duration-200 ease-out"
+                  className="docs-primary-nav-train docs-logo-gradient-rail absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full transition-transform duration-200 ease-out"
                   style={{
                     transform: `translateY(${activeChildIndex * 36}px)`,
                   }}
@@ -1118,7 +1118,7 @@ function DocsLayout() {
                 <motion.span
                   aria-hidden="true"
                   animate={{ y: onThisPageTrainY }}
-                  className="docs-on-this-page-train absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full bg-orange-400"
+                  className="docs-on-this-page-train docs-logo-gradient-rail absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full"
                   transition={{ duration: 0.16, ease: "easeOut" }}
                 />
                 <ul className="docs-on-this-page-links space-y-3">
