@@ -9,13 +9,28 @@ import {
 } from "@tanstack/react-router";
 import {
   RiArrowRightLine,
+  RiBookOpenLine,
+  RiBracketsLine,
   RiCheckLine,
   RiCloseLine,
+  RiCodeBoxLine,
   RiCodeLine,
   RiFileCopyLine,
+  RiFileSearchLine,
   RiFileTextLine,
+  RiFingerprintLine,
+  RiFolderOpenLine,
   RiFunctionLine,
+  RiNumbersLine,
+  RiPhpLine,
+  RiRocketLine,
   RiSearchLine,
+  RiSearchEyeLine,
+  RiSettingsLine,
+  RiShieldUserLine,
+  RiStackLine,
+  RiTerminalBoxLine,
+  type RemixiconComponentType,
 } from "@remixicon/react";
 import { layout, prepare } from "@chenglou/pretext";
 import { AnimatePresence, motion } from "motion/react";
@@ -574,7 +589,7 @@ function DocsSearch() {
                             to={result.path}
                           >
                             <span className="mt-1 text-slate-400">
-                              <SearchResultIcon kind={result.kind} />
+                              <SearchResultIcon result={result} />
                             </span>
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-semibold">
@@ -606,16 +621,60 @@ function DocsSearch() {
   );
 }
 
-function SearchResultIcon({ kind }: { kind: DocsSearchResult["kind"] }) {
-  if (kind === "builtin") {
-    return <RiFunctionLine size={20} />;
+function SearchResultIcon({ result }: { result: DocsSearchResult }) {
+  const Icon = searchResultIcon(result);
+
+  return <Icon size={20} />;
+}
+
+function searchResultIcon(result: DocsSearchResult): RemixiconComponentType {
+  if (result.kind === "code") {
+    return RiCodeBoxLine;
   }
 
-  if (kind === "code") {
-    return <RiCodeLine size={20} />;
+  if (result.kind === "builtin") {
+    return builtinCategoryIcon(result.category);
   }
 
-  return <RiFileTextLine size={20} />;
+  switch (result.category) {
+    case "Getting Started":
+      return RiRocketLine;
+    case "Tooling":
+      return RiTerminalBoxLine;
+    case "Language":
+      return RiBookOpenLine;
+    case "PHP Built-ins":
+      return RiPhpLine;
+    default:
+      return result.kind === "section" ? RiFileSearchLine : RiFileTextLine;
+  }
+}
+
+function builtinCategoryIcon(category: string): RemixiconComponentType {
+  switch (category) {
+    case "Strings":
+      return RiCodeLine;
+    case "Arrays":
+      return RiBracketsLine;
+    case "Types":
+      return RiShieldUserLine;
+    case "Math":
+      return RiNumbersLine;
+    case "Hashes":
+      return RiFingerprintLine;
+    case "Filesystem":
+      return RiFolderOpenLine;
+    case "Reflection":
+      return RiSearchEyeLine;
+    case "Shell":
+      return RiTerminalBoxLine;
+    case "Output Buffering":
+      return RiStackLine;
+    case "Core":
+      return RiSettingsLine;
+    default:
+      return RiFunctionLine;
+  }
 }
 
 function loadDocsSearchAsset() {
