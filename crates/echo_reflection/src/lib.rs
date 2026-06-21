@@ -222,6 +222,14 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("x", Some("float")), ("y", Some("float"))],
             Some("float"),
         ),
+        php_builtin_reflection("pi", &[], Some("float")),
+        php_builtin_reflection(
+            "fmod",
+            &[("num1", Some("float")), ("num2", Some("float"))],
+            Some("float"),
+        ),
+        php_builtin_reflection("floatval", &[("value", Some("mixed"))], Some("float")),
+        php_builtin_reflection("doubleval", &[("value", Some("mixed"))], Some("float")),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "base64_encode",

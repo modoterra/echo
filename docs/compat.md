@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 117 | 490 |
-| Loaded local PHP internals, including extensions | 1516 | 117 | 1399 |
+| Baseline (`Core` + `standard`) | 607 | 121 | 486 |
+| Loaded local PHP internals, including extensions | 1516 | 121 | 1395 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (105/545)
+### standard (109/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -244,7 +244,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `dns_check_record` | missing |  |
 | `dns_get_mx` | missing |  |
 | `dns_get_record` | missing |  |
-| `doubleval` | missing |  |
+| `doubleval` | implemented | Alias of `floatval()`. Source: https://www.php.net/manual/en/function.doubleval.php |
 | `end` | missing |  |
 | `error_clear_last` | missing |  |
 | `error_get_last` | missing |  |
@@ -277,11 +277,11 @@ Related baseline functions tracked below: `get_included_files`,
 | `fileperms` | missing |  |
 | `filesize` | implemented | Returns the local file size as an integer and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filesize.php |
 | `filetype` | missing |  |
-| `floatval` | missing |  |
+| `floatval` | implemented | Gets the float value of current scalar values, including numeric-prefix string parsing. Source: https://www.php.net/manual/en/function.floatval.php |
 | `flock` | missing |  |
 | `floor` | implemented | Rounds numeric values down while returning a float, using PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.floor.php |
 | `flush` | missing |  |
-| `fmod` | missing |  |
+| `fmod` | implemented | Returns a floating-point remainder with the dividend sign and `NAN` for zero divisors. Source: https://www.php.net/manual/en/function.fmod.php |
 | `fnmatch` | missing |  |
 | `fopen` | missing |  |
 | `forward_static_call` | missing |  |
@@ -475,7 +475,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `phpcredits` | missing |  |
 | `phpinfo` | missing |  |
 | `phpversion` | missing |  |
-| `pi` | missing |  |
+| `pi` | implemented | Returns an approximation of pi as a float. Source: https://www.php.net/manual/en/function.pi.php |
 | `popen` | missing |  |
 | `pos` | missing |  |
 | `pow` | missing |  |

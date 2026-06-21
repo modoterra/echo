@@ -1918,6 +1918,14 @@ pub extern "C" fn echo_php_intval(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_floatval(value: EchoValue) -> EchoValue {
+    match php_float_cast(value) {
+        Some(value) => EchoValue::float(value),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(mut bytes) => {
@@ -2298,6 +2306,19 @@ pub extern "C" fn echo_php_sqrt(value: EchoValue) -> EchoValue {
 pub extern "C" fn echo_php_hypot(x: EchoValue, y: EchoValue) -> EchoValue {
     match (php_float_coercion(x), php_float_coercion(y)) {
         (Some(x), Some(y)) => EchoValue::float(echo_math_sqrt(x * x + y * y)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_pi() -> EchoValue {
+    EchoValue::float(std::f64::consts::PI)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fmod(num1: EchoValue, num2: EchoValue) -> EchoValue {
+    match (php_float_coercion(num1), php_float_coercion(num2)) {
+        (Some(num1), Some(num2)) => EchoValue::float(num1 % num2),
         _ => EchoValue::error(),
     }
 }
@@ -3561,6 +3582,59 @@ fn php_float_coercion(value: EchoValue) -> Option<f64> {
         },
         _ => None,
     }
+}
+
+fn php_float_cast(value: EchoValue) -> Option<f64> {
+    match value.kind {
+        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0.0),
+        ECHO_VALUE_BOOL => Some(if value.payload == 0 { 0.0 } else { 1.0 }),
+        ECHO_VALUE_INT => Some(value.payload as i64 as f64),
+        ECHO_VALUE_FLOAT => Some(f64::from_bits(value.payload)),
+        ECHO_VALUE_STRING => unsafe {
+            let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
+            Some(parse_php_decimal_float_prefix(bytes))
+        },
+        _ => None,
+    }
+}
+
+fn parse_php_decimal_float_prefix(bytes: &[u8]) -> f64 {
+    let bytes = trim_ascii_start(bytes);
+    let mut index = match bytes.first().copied() {
+        Some(b'-' | b'+') => 1,
+        _ => 0,
+    };
+
+    let integer_digits = consume_ascii_digits(bytes, &mut index);
+    let fraction_digits = if bytes.get(index) == Some(&b'.') {
+        index += 1;
+        consume_ascii_digits(bytes, &mut index)
+    } else {
+        0
+    };
+
+    if integer_digits + fraction_digits == 0 {
+        return 0.0;
+    }
+
+    let mut end = index;
+    if matches!(bytes.get(index), Some(b'e' | b'E')) {
+        let exponent_start = index;
+        index += 1;
+        if matches!(bytes.get(index), Some(b'-' | b'+')) {
+            index += 1;
+        }
+        if consume_ascii_digits(bytes, &mut index) > 0 {
+            end = index;
+        } else {
+            end = exponent_start;
+        }
+    }
+
+    std::str::from_utf8(&bytes[..end])
+        .ok()
+        .and_then(|text| text.parse::<f64>().ok())
+        .unwrap_or(0.0)
 }
 
 fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
@@ -5048,6 +5122,50 @@ mod tests {
             drop(Box::from_raw(spaced));
             drop(Box::from_raw(negative));
             drop(Box::from_raw(non_numeric));
+        }
+    }
+
+    #[test]
+    fn float_scalar_math_builtins_preserve_php_scalar_behavior() {
+        assert_float_value(echo_php_floatval(EchoValue::null()), 0.0);
+        assert_float_value(echo_php_floatval(EchoValue::bool(true)), 1.0);
+        assert_float_value(echo_php_floatval(EchoValue::int(42)), 42.0);
+
+        let prefixed = Box::into_raw(Box::new(EchoString {
+            bytes: b"122.34343The".to_vec(),
+        }));
+        let invalid = Box::into_raw(Box::new(EchoString {
+            bytes: b"The122.34343".to_vec(),
+        }));
+        let offset = Box::into_raw(Box::new(EchoString {
+            bytes: b"  -12.5px".to_vec(),
+        }));
+        let exponent = Box::into_raw(Box::new(EchoString {
+            bytes: b"1e2x".to_vec(),
+        }));
+
+        assert_float_value(echo_php_floatval(EchoValue::string(prefixed)), 122.34343);
+        assert_float_value(echo_php_floatval(EchoValue::string(invalid)), 0.0);
+        assert_float_value(echo_php_floatval(EchoValue::string(offset)), -12.5);
+        assert_float_value(echo_php_floatval(EchoValue::string(exponent)), 100.0);
+        assert_float_value(echo_php_pi(), std::f64::consts::PI);
+        assert_float_value(
+            echo_php_fmod(EchoValue::float(5.7), EchoValue::float(1.3)),
+            0.5,
+        );
+        assert_float_value(
+            echo_php_fmod(EchoValue::float(-5.7), EchoValue::float(1.3)),
+            -0.5,
+        );
+        assert!(
+            f64::from_bits(echo_php_fmod(EchoValue::int(5), EchoValue::int(0)).payload).is_nan()
+        );
+
+        unsafe {
+            drop(Box::from_raw(prefixed));
+            drop(Box::from_raw(invalid));
+            drop(Box::from_raw(offset));
+            drop(Box::from_raw(exponent));
         }
     }
 

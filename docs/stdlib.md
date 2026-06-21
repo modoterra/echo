@@ -247,6 +247,7 @@ Examples:
 - `echo_php_strval(...)` is PHP builtin ABI because `strval()` is a PHP compatibility function.
 - `echo_php_boolval(...)` is PHP builtin ABI because `boolval()` is a PHP compatibility function.
 - `echo_php_intval(...)` is PHP builtin ABI because `intval()` is a PHP compatibility function.
+- `echo_php_floatval(...)` is PHP builtin ABI because `floatval()` and its `doubleval()` alias are PHP compatibility functions.
 - `echo_php_strtoupper(...)` and `echo_php_strtolower(...)` are PHP builtin ABI because `strtoupper()` and `strtolower()` are PHP compatibility functions.
 - `echo_php_ucwords(...)` is PHP builtin ABI because `ucwords()` is a PHP compatibility function.
 - `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are PHP builtin ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
@@ -258,6 +259,7 @@ Examples:
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
 - `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
+- `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
@@ -344,6 +346,21 @@ echo "diagonal:" . $diagonal . "\n"
 ```
 
 Use `ceil()` when a partial unit still needs a whole allocation, such as enough tiles, pages, or batches to cover all input. Use `floor()` when extra fractional capacity should be ignored, and use `sqrt()` or `hypot()` for geometry, distance checks, and vector lengths without open-coding the square-root calculation.
+
+Float conversion and remainder helpers make user-provided scalar settings usable in recurring numeric workflows:
+
+```php
+let $interval = floatval("2.5 seconds")
+let $elapsed = 8.75
+let $phase = fmod($elapsed, $interval)
+let $circle = pi() * 2
+
+echo "interval:" . $interval . "\n"
+echo "phase-ms:" . intval($phase * 1000) . "\n"
+echo "turn:" . intval($circle * 1000) . "\n"
+```
+
+Use `floatval()` when a configuration or request value may have units or labels after the numeric prefix but the calculation only needs the leading number. Use `fmod()` for wraparound calculations such as timers, animation phases, or ring-buffer positions where a fractional remainder should keep the sign and precision of the original value.
 
 Base conversion helpers are useful when importing identifiers, permissions, or protocol fields that arrive as text in a fixed base:
 

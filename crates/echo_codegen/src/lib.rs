@@ -696,6 +696,12 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_floatval",
+            echo_runtime::echo_php_floatval
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_strtoupper",
             echo_runtime::echo_php_strtoupper
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -871,6 +877,18 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
         (
             "echo_php_hypot",
             echo_runtime::echo_php_hypot
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_pi",
+            echo_runtime::echo_php_pi as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_fmod",
+            echo_runtime::echo_php_fmod
                 as extern "C" fn(
                     echo_runtime::EchoValue,
                     echo_runtime::EchoValue,
@@ -3826,11 +3844,33 @@ mod tests {
     }
 
     #[test]
+    fn pi_lowers_to_php_builtin_with_no_arguments() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "pi".to_string(),
+                args: vec![],
+                span: Span::new(5, 9),
+            })],
+            span: Span::new(0, 10),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_php_pi()"), "{ir}");
+        assert!(ir.contains("call %EchoValue @echo_php_pi()"), "{ir}");
+        assert!(
+            ir.contains("call void @echo_write_value(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
     fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         for (php_name, symbol) in [
             ("strval", "echo_php_strval"),
             ("boolval", "echo_php_boolval"),
             ("intval", "echo_php_intval"),
+            ("floatval", "echo_php_floatval"),
+            ("doubleval", "echo_php_floatval"),
             ("strtoupper", "echo_php_strtoupper"),
             ("strtolower", "echo_php_strtolower"),
             ("ucwords", "echo_php_ucwords"),
@@ -3938,6 +3978,7 @@ mod tests {
             ("strcasecmp", "echo_php_strcasecmp"),
             ("atan2", "echo_php_atan2"),
             ("hypot", "echo_php_hypot"),
+            ("fmod", "echo_php_fmod"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {
