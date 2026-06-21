@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 159 | 448 |
-| Loaded local PHP internals, including extensions | 1516 | 159 | 1357 |
+| Baseline (`Core` + `standard`) | 607 | 161 | 446 |
+| Loaded local PHP internals, including extensions | 1516 | 161 | 1355 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (134/545)
+### standard (136/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -155,7 +155,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_keys` | implemented | Returns numeric and string keys, with optional loose or strict value filtering. Source: https://www.php.net/manual/en/function.array-keys.php |
 | `array_last` | missing |  |
 | `array_map` | missing |  |
-| `array_merge` | missing |  |
+| `array_merge` | implemented | Merges any number of arrays, overwriting duplicate string keys while appending and renumbering numeric keys from zero; zero arguments return an empty array. Source: https://www.php.net/manual/en/function.array-merge.php |
 | `array_merge_recursive` | missing |  |
 | `array_multisort` | missing |  |
 | `array_pad` | implemented | Pads copies of arrays to positive lengths on the right or negative lengths on the left; numeric keys are reindexed when padding occurs, while no-op pads preserve keys. Source: https://www.php.net/manual/en/function.array-pad.php |
@@ -164,7 +164,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_push` | missing |  |
 | `array_rand` | missing |  |
 | `array_reduce` | missing |  |
-| `array_replace` | missing |  |
+| `array_replace` | implemented | Returns a copy of the first array with right-most replacement values assigned by key, preserving numeric and string keys. Source: https://www.php.net/manual/en/function.array-replace.php |
 | `array_replace_recursive` | missing |  |
 | `array_reverse` | implemented | Returns elements in reverse order, reindexing numeric keys by default and preserving string keys; optional `preserve_keys` keeps numeric keys too. Source: https://www.php.net/manual/en/function.array-reverse.php |
 | `array_search` | implemented | Returns the first key for a matching value using loose comparison by default, optional strict comparison, and `false` on misses. Source: https://www.php.net/manual/en/function.array-search.php |

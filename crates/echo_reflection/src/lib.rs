@@ -49,6 +49,13 @@ impl FunctionReflection {
 
 impl ParamReflection {
     pub fn signature(&self) -> String {
+        if let Some(name) = self.name.strip_prefix("...") {
+            return match &self.ty {
+                Some(ty) => format!("{ty} ...${name}"),
+                None => format!("...${name}"),
+            };
+        }
+
         match &self.ty {
             Some(ty) => format!("{ty} ${}", self.name),
             None => format!("${}", self.name),
@@ -191,6 +198,16 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
                 ("length", Some("int")),
                 ("preserve_keys", Some("bool")),
             ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
+            "array_merge",
+            &[("...arrays", Some("array"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
+            "array_replace",
+            &[("array", Some("array")), ("...replacements", Some("array"))],
             Some("array"),
         ),
         php_builtin_reflection(

@@ -640,6 +640,18 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_array_merge",
+            echo_runtime::echo_php_array_merge
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_array_replace",
+            echo_runtime::echo_php_array_replace
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_array_flip",
             echo_runtime::echo_php_array_flip
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -2514,6 +2526,8 @@ impl IrModule {
                 ));
             }
             BuiltinCodegen::ArrayKeys
+            | BuiltinCodegen::ArrayMerge
+            | BuiltinCodegen::ArrayReplace
             | BuiltinCodegen::ArrayReverse
             | BuiltinCodegen::ArraySlice
             | BuiltinCodegen::Basename
@@ -2758,6 +2772,34 @@ impl IrModule {
         }
 
         Ok(RuntimeValue::EchoValue(array))
+    }
+
+    fn render_mir_call_args_as_array(
+        &mut self,
+        body: &mut String,
+        args: &[echo_mir::MirExpr],
+    ) -> Result<String, Diagnostic> {
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let mut array = format!("%runtime_call_{call_id}");
+        body.push_str(&format!(
+            "  {array} = call %EchoValue @{}()\n",
+            CoreRuntimeSymbol::ValueArrayNew.symbol()
+        ));
+
+        for arg in args {
+            let value = self.render_mir_expr_as_echo_value(body, arg)?;
+            let append_id = self.next_call_id;
+            self.next_call_id += 1;
+            let appended = format!("%runtime_call_{append_id}");
+            body.push_str(&format!(
+                "  {appended} = call %EchoValue @{}(%EchoValue {array}, {value})\n",
+                CoreRuntimeSymbol::ValueArrayAppend.symbol()
+            ));
+            array = appended;
+        }
+
+        Ok(array)
     }
 
     fn render_mir_list_values(
@@ -3471,6 +3513,26 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({array}, {offset}, {length}, {preserve_keys})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ArrayMerge | BuiltinCodegen::ArrayReplace => {
+                if builtin.codegen == BuiltinCodegen::ArrayReplace && call.args.is_empty() {
+                    return Err(Diagnostic::new(
+                        "unsupported argument count for builtin `array_replace` in LLVM codegen",
+                        call.span,
+                    ));
+                }
+
+                let arrays = self.render_mir_call_args_as_array(body, &call.args)?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}(%EchoValue {arrays})\n",
                     builtin.symbol
                 ));
 
@@ -5105,6 +5167,77 @@ mod tests {
         assert!(
             ir.contains("call %EchoValue @echo_php_array_chunk(")
                 && ir.contains("%EchoValue { i32 1, i64 0 })"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn array_merge_and_replace_pack_variadic_arguments_for_runtime_calls() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_merge".to_string(),
+                    args: vec![],
+                    span: Span::new(0, 13),
+                })],
+                span: Span::new(0, 14),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_replace".to_string(),
+                    args: vec![
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: Some(Expr::String(StringLiteral {
+                                    value: "sku".to_string(),
+                                    span: Span::new(30, 35),
+                                })),
+                                value: Expr::String(StringLiteral {
+                                    value: "A-42".to_string(),
+                                    span: Span::new(39, 45),
+                                }),
+                                span: Span::new(30, 45),
+                            }],
+                            span: Span::new(29, 46),
+                        }),
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: Some(Expr::String(StringLiteral {
+                                    value: "sku".to_string(),
+                                    span: Span::new(49, 54),
+                                })),
+                                value: Expr::String(StringLiteral {
+                                    value: "A-43".to_string(),
+                                    span: Span::new(58, 64),
+                                }),
+                                span: Span::new(49, 64),
+                            }],
+                            span: Span::new(48, 65),
+                        }),
+                    ],
+                    span: Span::new(15, 66),
+                })],
+                span: Span::new(15, 67),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(ir.contains("declare %EchoValue @echo_php_array_merge(%EchoValue)"));
+        assert!(ir.contains("declare %EchoValue @echo_php_array_replace(%EchoValue)"));
+        assert!(
+            ir.contains("call %EchoValue @echo_value_array_new()"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_value_array_append("),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_merge("),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_replace("),
             "{ir}"
         );
     }

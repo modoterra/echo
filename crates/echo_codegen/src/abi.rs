@@ -378,6 +378,8 @@ pub fn std_intrinsic(name: &str) -> Option<StdIntrinsic> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltinCodegen {
     ArrayKeys,
+    ArrayMerge,
+    ArrayReplace,
     ArrayReverse,
     ArraySlice,
     Basename,
@@ -619,6 +621,22 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::InArray,
+    },
+    PhpBuiltin {
+        php_name: "array_merge",
+        symbol: "echo_php_array_merge",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ArrayMerge,
+    },
+    PhpBuiltin {
+        php_name: "array_replace",
+        symbol: "echo_php_array_replace",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ArrayReplace,
     },
     PhpBuiltin {
         php_name: "array_reverse",

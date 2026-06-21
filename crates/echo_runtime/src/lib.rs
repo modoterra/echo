@@ -2009,6 +2009,82 @@ pub extern "C" fn echo_php_array_chunk(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_merge(arrays: EchoValue) -> EchoValue {
+    if !arrays.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(arrays) = (unsafe { (arrays.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut keys = Vec::new();
+    let mut values = Vec::new();
+    let mut next_index = 0_i64;
+
+    for array_value in &arrays.values {
+        if !array_value.is_array() {
+            return EchoValue::error();
+        }
+        let Some(array) = (unsafe { (array_value.payload as *const EchoArray).as_ref() }) else {
+            return EchoValue::error();
+        };
+
+        for (key, value) in array.keys.iter().zip(&array.values) {
+            match key {
+                EchoArrayKey::Int(_) => {
+                    keys.push(EchoArrayKey::Int(next_index));
+                    values.push(*value);
+                    next_index += 1;
+                }
+                EchoArrayKey::String(bytes) => {
+                    let key = EchoArrayKey::String(bytes.clone());
+                    match keys.iter().position(|existing| existing == &key) {
+                        Some(index) => values[index] = *value,
+                        None => {
+                            keys.push(key);
+                            values.push(*value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_replace(arrays: EchoValue) -> EchoValue {
+    if !arrays.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(arrays) = (unsafe { (arrays.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    if arrays.values.is_empty() {
+        return EchoValue::error();
+    }
+
+    let mut result = echo_value_array_new();
+    for array_value in &arrays.values {
+        if !array_value.is_array() {
+            return EchoValue::error();
+        }
+        let Some(array) = (unsafe { (array_value.payload as *const EchoArray).as_ref() }) else {
+            return EchoValue::error();
+        };
+
+        for (key, value) in array.keys.iter().zip(&array.values) {
+            result = echo_value_array_set(result, key.to_value(), *value);
+        }
+    }
+
+    result
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_flip(array: EchoValue) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
@@ -5937,6 +6013,108 @@ mod tests {
 
         assert_eq!(
             echo_php_array_chunk(row, EchoValue::int(0), EchoValue::bool(false)).kind,
+            ECHO_VALUE_ERROR
+        );
+    }
+
+    #[test]
+    fn array_merge_and_replace_builtins_preserve_php_key_behavior() {
+        let mut base = echo_value_array_new();
+        base = echo_value_array_set(base, test_string_value(b"sku"), test_string_value(b"A-42"));
+        base = echo_value_array_set(base, EchoValue::int(7), test_string_value(b"old-bin"));
+        base = echo_value_array_set(
+            base,
+            test_string_value(b"status"),
+            test_string_value(b"draft"),
+        );
+
+        let mut override_row = echo_value_array_new();
+        override_row = echo_value_array_set(
+            override_row,
+            test_string_value(b"status"),
+            test_string_value(b"active"),
+        );
+        override_row = echo_value_array_set(
+            override_row,
+            EchoValue::int(4),
+            test_string_value(b"new-bin"),
+        );
+        override_row = echo_value_array_set(
+            override_row,
+            test_string_value(b"owner"),
+            test_string_value(b"maya"),
+        );
+
+        let mut extra = echo_value_array_new();
+        extra = echo_value_array_set(extra, test_string_value(b"sku"), test_string_value(b"A-43"));
+        extra = echo_value_array_set(extra, EchoValue::int(9), test_string_value(b"late"));
+
+        let mut args = echo_value_array_new();
+        args = echo_value_array_append(args, base);
+        args = echo_value_array_append(args, override_row);
+        args = echo_value_array_append(args, extra);
+
+        let merged = echo_php_array_merge(args);
+        let merged_ref = unsafe { (merged.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            merged_ref.keys,
+            vec![
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::Int(0),
+                EchoArrayKey::String(b"status".to_vec()),
+                EchoArrayKey::Int(1),
+                EchoArrayKey::String(b"owner".to_vec()),
+                EchoArrayKey::Int(2),
+            ]
+        );
+        assert_eq!(merged_ref.values[0].string_bytes(), Some(b"A-43".to_vec()));
+        assert_eq!(
+            merged_ref.values[1].string_bytes(),
+            Some(b"old-bin".to_vec())
+        );
+        assert_eq!(
+            merged_ref.values[2].string_bytes(),
+            Some(b"active".to_vec())
+        );
+        assert_eq!(
+            merged_ref.values[3].string_bytes(),
+            Some(b"new-bin".to_vec())
+        );
+        assert_eq!(merged_ref.values[4].string_bytes(), Some(b"maya".to_vec()));
+        assert_eq!(merged_ref.values[5].string_bytes(), Some(b"late".to_vec()));
+
+        let replaced = echo_php_array_replace(args);
+        let replaced_ref =
+            unsafe { (replaced.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            replaced_ref.keys,
+            vec![
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::Int(7),
+                EchoArrayKey::String(b"status".to_vec()),
+                EchoArrayKey::Int(4),
+                EchoArrayKey::String(b"owner".to_vec()),
+                EchoArrayKey::Int(9),
+            ]
+        );
+        assert_eq!(
+            replaced_ref.values[0].string_bytes(),
+            Some(b"A-43".to_vec())
+        );
+        assert_eq!(
+            replaced_ref.values[1].string_bytes(),
+            Some(b"old-bin".to_vec())
+        );
+        assert_eq!(
+            replaced_ref.values[2].string_bytes(),
+            Some(b"active".to_vec())
+        );
+
+        let empty = echo_php_array_merge(echo_value_array_new());
+        let empty_ref = unsafe { (empty.payload as *const EchoArray).as_ref() }.expect("array");
+        assert!(empty_ref.keys.is_empty());
+        assert_eq!(
+            echo_php_array_replace(echo_value_array_new()).kind,
             ECHO_VALUE_ERROR
         );
     }
