@@ -1570,6 +1570,22 @@ const phpBuiltinHashesRoute = createRoute({
   ),
 });
 
+const phpBuiltinHashRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/hash",
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />
+  ),
+});
+
+const phpBuiltinHashesAndChecksumsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/hashes-and-checksums",
+  component: () => (
+    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />
+  ),
+});
+
 const phpBuiltinFilesystemRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/filesystem",
@@ -1629,6 +1645,8 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinTypesRoute,
     phpBuiltinMathRoute,
     phpBuiltinHashesRoute,
+    phpBuiltinHashRoute,
+    phpBuiltinHashesAndChecksumsRoute,
     phpBuiltinFilesystemRoute,
     phpBuiltinReflectionRoute,
     phpBuiltinShellRoute,
