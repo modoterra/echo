@@ -12,17 +12,40 @@ const docsSemanticIndexFileName = "docs-semantic-index.json";
 const shouldBuildSemanticIndex = process.env.DOCS_EMBEDDINGS === "true";
 
 function docsSearchIndexPlugin(): Plugin {
+  let devSemanticAsset: Promise<DocsSemanticAsset> | null = null;
+
   return {
     name: "docs-search-index",
     configureServer(server) {
-      server.middlewares.use((request, response, next) => {
-        if (request.url !== `/${docsSearchIndexFileName}`) {
-          next();
+      server.middlewares.use(async (request, response, next) => {
+        if (request.url === `/${docsSearchIndexFileName}`) {
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify(buildDocsSearchAsset()));
           return;
         }
 
-        response.setHeader("Content-Type", "application/json");
-        response.end(JSON.stringify(buildDocsSearchAsset()));
+        if (request.url === `/${docsSemanticIndexFileName}`) {
+          try {
+            devSemanticAsset ??= buildDocsSemanticAsset();
+            response.setHeader("Content-Type", "application/json");
+            response.end(JSON.stringify(await devSemanticAsset));
+          } catch (error) {
+            devSemanticAsset = null;
+            response.statusCode = 500;
+            response.setHeader("Content-Type", "application/json");
+            response.end(
+              JSON.stringify({
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Semantic index failed to build",
+              }),
+            );
+          }
+          return;
+        }
+
+        next();
       });
     },
     async generateBundle() {

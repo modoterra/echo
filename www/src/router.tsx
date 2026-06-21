@@ -295,7 +295,9 @@ function DocsSearch() {
 
     void fetch("/docs-semantic-index.json")
       .then((response) => {
-        if (!response.ok) {
+        const contentType = response.headers.get("Content-Type") ?? "";
+
+        if (!response.ok || !contentType.includes("application/json")) {
           throw new Error("Semantic index is not available");
         }
 
