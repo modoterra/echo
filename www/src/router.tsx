@@ -4,9 +4,19 @@ import {
   createRouter,
   Link,
   Outlet,
+  useNavigate,
   useLocation,
 } from "@tanstack/react-router";
-import { RiCheckLine, RiFileCopyLine, RiSearchLine } from "@remixicon/react";
+import {
+  RiArrowRightLine,
+  RiCheckLine,
+  RiCloseLine,
+  RiCodeLine,
+  RiFileCopyLine,
+  RiFileTextLine,
+  RiFunctionLine,
+  RiSearchLine,
+} from "@remixicon/react";
 import { layout, prepare } from "@chenglou/pretext";
 import { AnimatePresence, motion } from "motion/react";
 import ShikiHighlighter, {
@@ -109,8 +119,10 @@ type DocsSearchResult = Pick<
 };
 
 function DocsSearch() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [asset, setAsset] = useState<DocsSearchAsset | null>(null);
   const [semanticAsset, setSemanticAsset] = useState<DocsSemanticAsset | null>(null);
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
@@ -152,6 +164,7 @@ function DocsSearch() {
       .sort((left, right) => right.score - left.score)
       .slice(0, 8);
   }, [miniSearch, query, queryEmbedding, semanticAsset]);
+  const activeResult = results[activeResultIndex];
 
   useEffect(() => {
     if (!isOpen || asset) {
@@ -192,6 +205,10 @@ function DocsSearch() {
 
     window.setTimeout(() => searchInputRef.current?.focus(), 0);
   }, [isOpen]);
+
+  useEffect(() => {
+    setActiveResultIndex(0);
+  }, [query]);
 
   useEffect(() => {
     if (!isOpen || semanticAsset || semanticUnavailable || isLoadingModel) {
@@ -253,89 +270,210 @@ function DocsSearch() {
   }, [query, semanticAsset]);
 
   useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) {
+    function handleGlobalSearchKey(event: KeyboardEvent) {
+      const target = event.target;
+      const isEditableTarget =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.matches("input, textarea, select"));
+
+      if (isEditableTarget) {
+        return;
+      }
+
+      if (event.key === "/" || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalSearchKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleGlobalSearchKey);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handlePaletteKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        setIsOpen(false);
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveResultIndex((index) => Math.min(index + 1, results.length - 1));
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveResultIndex((index) => Math.max(index - 1, 0));
+        return;
+      }
+
+      if (event.key === "Enter" && activeResult) {
+        void navigate({ to: activeResult.path });
         setIsOpen(false);
       }
     }
 
     if (isOpen) {
-      window.addEventListener("keydown", closeOnEscape);
+      window.addEventListener("keydown", handlePaletteKey);
     }
 
     return () => {
-      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("keydown", handlePaletteKey);
     };
-  }, [isOpen]);
+  }, [activeResult, isOpen, navigate, results.length]);
+
+  function closeSearch() {
+    setIsOpen(false);
+  }
 
   return (
-    <div className="relative">
+    <>
       <button
         aria-expanded={isOpen}
         aria-label="Search documentation"
         className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => setIsOpen(true)}
         type="button"
       >
         <RiSearchLine size={16} />
         <span className="hidden sm:inline">Search</span>
+        <span className="hidden rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 lg:inline">
+          /
+        </span>
       </button>
       <AnimatePresence>
         {isOpen ? (
           <motion.div
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute right-0 top-12 z-40 w-[min(28rem,calc(100vw-3rem))] rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
-            exit={{ opacity: 0, y: -4 }}
-            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/20 px-4 pt-28 backdrop-blur-sm"
+            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            onMouseDown={closeSearch}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <input
-              className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search docs"
-              ref={searchInputRef}
-              value={query}
-            />
-            <div className="mt-3 min-h-6 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {isLoadingIndex
-                ? "Loading index..."
-                : isLoadingModel
-                  ? "Loading model..."
-                  : semanticAsset
-                    ? "Semantic search ready"
-                    : "Keyword and fuzzy search"}
-            </div>
-            <div className="mt-2 max-h-96 overflow-auto scrollbar-thin scrollbar-nice">
-              {query.trim() && !isLoadingIndex && results.length === 0 ? (
-                <p className="px-2 py-6 text-sm text-slate-500">No results found.</p>
-              ) : null}
-              <ul className="space-y-1">
-                {results.map((result) => (
-                  <li key={result.id}>
-                    <Link
-                      className="block rounded-md px-2 py-2 transition hover:bg-slate-50"
-                      onClick={() => setIsOpen(false)}
-                      to={result.path}
-                    >
-                      <span className="block text-sm font-semibold text-slate-950">
-                        {result.title}
-                      </span>
-                      <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        {result.category} · {result.kind}
-                      </span>
-                      <span className="mt-1 line-clamp-2 block text-sm leading-6 text-slate-500">
-                        {result.excerpt}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="w-full max-w-2xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl"
+              exit={{ opacity: 0, scale: 0.98, y: -6 }}
+              initial={{ opacity: 0, scale: 0.98, y: -6 }}
+              onMouseDown={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Search documentation"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
+                <RiSearchLine className="shrink-0 text-slate-400" size={22} />
+                <input
+                  className="h-full min-w-0 flex-1 bg-transparent text-lg text-slate-950 outline-none placeholder:text-slate-400"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search docs"
+                  ref={searchInputRef}
+                  value={query}
+                />
+                {query ? (
+                  <button
+                    aria-label="Clear search"
+                    className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-950"
+                    onClick={() => setQuery("")}
+                    type="button"
+                  >
+                    <RiCloseLine size={20} />
+                  </button>
+                ) : null}
+                <span className="hidden rounded border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-400 sm:inline">
+                  Esc
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <span>
+                  {isLoadingIndex
+                    ? "Loading index..."
+                    : isLoadingModel
+                      ? "Loading semantic model..."
+                      : semanticAsset
+                        ? "Semantic reranking ready"
+                        : "Keyword and fuzzy search"}
+                </span>
+                <span className="hidden text-slate-300 sm:inline">
+                  <span className="font-mono">↑↓</span> Select ·{" "}
+                  <span className="font-mono">Enter</span> Open
+                </span>
+              </div>
+              <div className="max-h-[28rem] overflow-auto p-3 scrollbar-thin scrollbar-nice">
+                {!query.trim() ? (
+                  <p className="px-3 py-10 text-center text-sm text-slate-500">
+                    Search built-ins, examples, commands, and docs.
+                  </p>
+                ) : null}
+                {query.trim() && !isLoadingIndex && results.length === 0 ? (
+                  <p className="px-3 py-10 text-center text-sm text-slate-500">
+                    No results found.
+                  </p>
+                ) : null}
+                <ul className="space-y-1">
+                  {results.map((result, index) => {
+                    const isActive = index === activeResultIndex;
+
+                    return (
+                      <li key={result.id}>
+                        <Link
+                          className={
+                            isActive
+                              ? "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md bg-slate-100 px-3 py-3 text-slate-950"
+                              : "grid grid-cols-[2rem_1fr_auto] gap-3 rounded-md px-3 py-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                          }
+                          onClick={closeSearch}
+                          onMouseEnter={() => setActiveResultIndex(index)}
+                          to={result.path}
+                        >
+                          <span className="mt-1 text-slate-400">
+                            <SearchResultIcon kind={result.kind} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">
+                              {result.title}
+                            </span>
+                            <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              {result.category} · {result.kind}
+                            </span>
+                            <span className="mt-1 line-clamp-2 block text-sm leading-6 text-slate-500">
+                              {result.excerpt}
+                            </span>
+                          </span>
+                          <span className="self-center text-slate-400">
+                            {isActive ? <RiArrowRightLine size={18} /> : null}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </div>
+    </>
   );
+}
+
+function SearchResultIcon({ kind }: { kind: DocsSearchResult["kind"] }) {
+  if (kind === "builtin") {
+    return <RiFunctionLine size={20} />;
+  }
+
+  if (kind === "code") {
+    return <RiCodeLine size={20} />;
+  }
+
+  return <RiFileTextLine size={20} />;
 }
 
 let queryEmbedderPromise: Promise<{
