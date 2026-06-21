@@ -1122,21 +1122,19 @@ function SiteFooter() {
           viewBox="0 0 980 300"
         >
           <defs>
-            <pattern
-              height="18"
-              id="footer-echo-pixels"
-              patternUnits="userSpaceOnUse"
-              width="18"
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id="footer-echo-gradient"
+              x1="0"
+              x2="0"
+              y1="14"
+              y2="286"
             >
-              <rect
-                fill="rgb(15 23 42)"
-                fillOpacity="0.045"
-                height="14"
-                width="14"
-                x="0"
-                y="0"
-              />
-            </pattern>
+              <stop offset="0%" stopColor="#A855F7" />
+              <stop offset="38%" stopColor="#6366F1" />
+              <stop offset="68%" stopColor="#0EA5E9" />
+              <stop offset="100%" stopColor="#06B6D4" />
+            </linearGradient>
             <linearGradient
               gradientUnits="userSpaceOnUse"
               id="footer-echo-fade"
@@ -1164,7 +1162,7 @@ function SiteFooter() {
             </mask>
           </defs>
           <rect
-            fill="url(#footer-echo-pixels)"
+            fill="url(#footer-echo-gradient)"
             height="300"
             mask="url(#footer-echo-text-mask)"
             width="980"
