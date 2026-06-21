@@ -19,10 +19,6 @@ import {
 } from "@remixicon/react";
 import { layout, prepare } from "@chenglou/pretext";
 import { AnimatePresence, motion } from "motion/react";
-import ShikiHighlighter, {
-  createHighlighterCore,
-  createJavaScriptRegexEngine,
-} from "react-shiki/core";
 import {
   createContext,
   useContext,
@@ -83,9 +79,16 @@ const defaultDocsPageMeta: DocsPageMeta = {
 
 const DocsLayoutContext = createContext<DocsLayoutContextValue | null>(null);
 
-type PhpHighlighter = Awaited<ReturnType<typeof createHighlighterCore>>;
+type ShikiCoreModule = typeof import("react-shiki/core");
+type PhpHighlighter = Awaited<
+  ReturnType<ShikiCoreModule["createHighlighterCore"]>
+>;
+type ShikiHighlighterComponent = ShikiCoreModule["default"];
 
-let phpHighlighterPromise: Promise<PhpHighlighter> | null = null;
+let phpHighlighterPromise: Promise<{
+  highlighter: PhpHighlighter;
+  ShikiHighlighter: ShikiHighlighterComponent;
+}> | null = null;
 
 const codeSnippetFont = '14px "Geist Mono"';
 const codeSnippetLineHeight = 28;
@@ -96,15 +99,21 @@ const codeSnippetLoadRootMargin = "0px";
 
 function loadPhpHighlighter() {
   phpHighlighterPromise ??= Promise.all([
+    import("react-shiki/core"),
     import("@shikijs/langs/php"),
     import("@shikijs/themes/github-dark"),
-  ]).then(([php, githubDark]) =>
-    createHighlighterCore({
-      engine: createJavaScriptRegexEngine({ forgiving: true }),
+  ]).then(async ([shikiCore, php, githubDark]) => {
+    const highlighter = await shikiCore.createHighlighterCore({
+      engine: shikiCore.createJavaScriptRegexEngine({ forgiving: true }),
       langs: [php.default],
       themes: [githubDark.default],
-    }),
-  );
+    });
+
+    return {
+      highlighter,
+      ShikiHighlighter: shikiCore.default,
+    };
+  });
 
   return phpHighlighterPromise;
 }
@@ -702,7 +711,10 @@ function CodeSnippet({
 }) {
   const snippetRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
-  const [highlighter, setHighlighter] = useState<PhpHighlighter | null>(null);
+  const [shiki, setShiki] = useState<{
+    highlighter: PhpHighlighter;
+    ShikiHighlighter: ShikiHighlighterComponent;
+  } | null>(null);
   const [shouldLoadHighlighter, setShouldLoadHighlighter] = useState(false);
   const code = children.trim();
   const minHeight = useMemo(() => {
@@ -756,9 +768,9 @@ function CodeSnippet({
     });
 
     void Promise.all([loadPhpHighlighter(), delay]).then(
-      ([loadedHighlighter]) => {
+      ([loadedShiki]) => {
         if (active) {
-          setHighlighter(loadedHighlighter);
+          setShiki(loadedShiki);
         }
       },
     );
@@ -774,6 +786,8 @@ function CodeSnippet({
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   }
+
+  const ShikiHighlighter = shiki?.ShikiHighlighter;
 
   return (
     <div
@@ -791,7 +805,7 @@ function CodeSnippet({
         {copied ? <RiCheckLine size={18} /> : <RiFileCopyLine size={18} />}
       </button>
       <AnimatePresence initial={false} mode="wait">
-        {highlighter ? (
+        {shiki && ShikiHighlighter ? (
           <motion.div
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -802,7 +816,7 @@ function CodeSnippet({
             <ShikiHighlighter
               addDefaultStyles={false}
               className="docs-code-snippet overflow-x-auto rounded-lg p-6 pr-14 font-mono text-sm leading-7 scrollbar-thin scrollbar-nice-dark"
-              highlighter={highlighter}
+              highlighter={shiki.highlighter}
               language="php"
               showLanguage={false}
               showLineNumbers

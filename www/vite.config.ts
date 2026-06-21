@@ -228,5 +228,53 @@ function docsIndexFileName(name: "search" | "semantic", checksum: string) {
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("/node_modules/")) {
+            return undefined;
+          }
+
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/")
+          ) {
+            return "vendor-react";
+          }
+
+          if (id.includes("/node_modules/@tanstack/react-router/")) {
+            return "vendor-router";
+          }
+
+          if (id.includes("/node_modules/motion/")) {
+            return "vendor-motion";
+          }
+
+          if (
+            id.includes("/node_modules/@shikijs/") ||
+            id.includes("/node_modules/react-shiki/") ||
+            id.includes("/node_modules/shiki/")
+          ) {
+            return "vendor-shiki";
+          }
+
+          if (
+            id.includes("/node_modules/@huggingface/transformers/") ||
+            id.includes("/node_modules/onnxruntime-web/")
+          ) {
+            return "vendor-transformers";
+          }
+
+          if (id.includes("/node_modules/minisearch/")) {
+            return "vendor-search";
+          }
+
+          return "vendor";
+        },
+      },
+    },
+  },
   plugins: [docsSearchIndexPlugin(), react(), tailwindcss()],
 });
