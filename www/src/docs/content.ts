@@ -3219,7 +3219,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "net",
-    summary: "Use std.net for TCP listeners, connections, reads, writes, and closes.",
+    summary: "Open TCP listeners and connections, exchange bytes, and close sockets.",
     tags: ["standard library", "stdlib", "std", "net", "tcp", "network"],
     aliases: ["std.net", "networking", "tcp server", "tcp connection"],
     sections: [
@@ -3231,8 +3231,16 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.net" },
-              " exposes TCP listener and connection APIs. Use it when an Echo program owns socket IO instead of shelling out to another process.",
+              { code: "listen()" },
+              " opens a TCP listener, ",
+              { code: "connect()" },
+              " opens an outbound TCP connection, and ",
+              { code: "read()" },
+              ", ",
+              { code: "write()" },
+              ", and ",
+              { code: "close()" },
+              " move bytes across the connection and release it when the exchange is finished.",
             ],
           },
           {
@@ -3255,7 +3263,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "http",
-    summary: "Use std.http for HTTP helpers built on Echo runtime types.",
+    summary: "Format HTTP response bytes for small services.",
     tags: ["standard library", "stdlib", "std", "http", "response", "request"],
     aliases: ["std.http", "http response", "http request"],
     sections: [
@@ -3267,10 +3275,8 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.http" },
-              " contains HTTP helpers built on Echo runtime types. The first supported surface formats plain text responses and reads requests from ",
-              { code: "std.net" },
-              " connections.",
+              { code: "responseText()" },
+              " wraps a string body in a plain HTTP response, including the status line and headers needed before writing the bytes to a connection.",
             ],
           },
           {
@@ -3295,7 +3301,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "time",
-    summary: "Use std.time for runtime scheduling helpers such as millisecond sleep.",
+    summary: "Pause execution for a fixed number of milliseconds.",
     tags: ["standard library", "stdlib", "std", "time", "sleep", "scheduling"],
     aliases: ["std.time", "sleep", "delay", "timer"],
     sections: [
@@ -3307,8 +3313,8 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.time" },
-              " provides scheduling helpers such as millisecond sleep. Use it to express runtime delays in Echo code instead of busy waiting.",
+              { code: "sleep()" },
+              " pauses the current task for the requested number of milliseconds before continuing execution.",
             ],
           },
           {
@@ -3331,7 +3337,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "reflect",
-    summary: "Use std.reflect to inspect Echo-visible functions and values.",
+    summary: "Inspect available symbols, function signatures, return types, and runtime value types.",
     tags: ["standard library", "stdlib", "std", "reflect", "reflection", "metadata"],
     aliases: ["std.reflect", "introspection", "function metadata"],
     sections: [
@@ -3343,8 +3349,14 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.reflect" },
-              " inspects Echo-visible functions and values. It can see Echo standard library and userland metadata in addition to PHP compatibility functions.",
+              { code: "exists()" },
+              " checks whether a symbol is known, ",
+              { code: "params()" },
+              " and ",
+              { code: "returnType()" },
+              " describe function signatures, and ",
+              { code: "typeOf()" },
+              " reports the runtime type of a value.",
             ],
           },
           {
@@ -3367,7 +3379,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "assert",
-    summary: "Use std.assert for assertions in Echo examples, fixtures, and checks.",
+    summary: "Fail clearly when a condition or expected value does not hold.",
     tags: ["standard library", "stdlib", "std", "assert", "testing", "validation"],
     aliases: ["std.assert", "assertions", "test helpers"],
     sections: [
@@ -3379,8 +3391,10 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.assert" },
-              " provides assertion helpers for Echo test-style programs and small runtime checks.",
+              { code: "ok()" },
+              " asserts that a condition is true, and ",
+              { code: "equals()" },
+              " asserts that an actual value matches the expected value.",
             ],
           },
           {
