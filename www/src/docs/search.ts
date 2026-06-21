@@ -39,7 +39,7 @@ export type DocsSemanticRecord = {
 };
 
 export type DocsSemanticAsset = {
-  model: "Xenova/all-MiniLM-L6-v2";
+  model: "xmlml6v2";
   dimensions: 384;
   records: DocsSemanticRecord[];
 };
