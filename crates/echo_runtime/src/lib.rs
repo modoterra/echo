@@ -1448,7 +1448,7 @@ pub extern "C" fn echo_value_pow(left: EchoValue, right: EchoValue) -> EchoValue
         (left, PhpNumber::Float(right)) if right.fract() == 0.0 => {
             EchoValue::float(pow_f64_int(left.as_float(), right as i64))
         }
-        _ => EchoValue::error(),
+        (left, PhpNumber::Float(right)) => EchoValue::float(echo_math_pow(left.as_float(), right)),
     }
 }
 
@@ -2352,6 +2352,54 @@ pub extern "C" fn echo_php_sqrt(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_exp(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_exp(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_expm1(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_expm1(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_log(value: EchoValue, base: EchoValue) -> EchoValue {
+    match (php_float_coercion(value), php_float_coercion(base)) {
+        (Some(value), Some(base)) if base > 0.0 => {
+            EchoValue::float(echo_math_ln(value) / echo_math_ln(base))
+        }
+        (Some(_), Some(_)) => EchoValue::error(),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_log10(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_ln(value) / std::f64::consts::LN_10),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_log1p(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_log1p(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_pow(base: EchoValue, exponent: EchoValue) -> EchoValue {
+    echo_value_pow(base, exponent)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hypot(x: EchoValue, y: EchoValue) -> EchoValue {
     match (php_float_coercion(x), php_float_coercion(y)) {
         (Some(x), Some(y)) => EchoValue::float(echo_math_sqrt(x * x + y * y)),
@@ -2568,6 +2616,26 @@ fn echo_math_exp(value: f64) -> f64 {
     echo_math_pow2(k) * echo_math_exp_kernel(r)
 }
 
+fn echo_math_expm1(value: f64) -> f64 {
+    if value.is_nan() {
+        return f64::NAN;
+    }
+    if value == 0.0 {
+        return value;
+    }
+    if value.abs() >= 0.000001 {
+        return echo_math_exp(value) - 1.0;
+    }
+
+    let mut term = value;
+    let mut sum = value;
+    for n in 2..=24 {
+        term *= value / n as f64;
+        sum += term;
+    }
+    sum
+}
+
 fn echo_math_exp_kernel(value: f64) -> f64 {
     let mut term = 1.0;
     let mut sum = 1.0;
@@ -2618,6 +2686,26 @@ fn echo_math_ln(value: f64) -> f64 {
     }
 
     2.0 * sum + (exponent as f64) * LN_2
+}
+
+fn echo_math_log1p(value: f64) -> f64 {
+    if value.is_nan() || value < -1.0 {
+        return f64::NAN;
+    }
+    if value == -1.0 {
+        return f64::NEG_INFINITY;
+    }
+    if value.abs() >= 0.000001 {
+        return echo_math_ln(1.0 + value);
+    }
+
+    let mut term = value;
+    let mut sum = value;
+    for n in 2..=48 {
+        term *= -value;
+        sum += term / n as f64;
+    }
+    sum
 }
 
 fn echo_math_frexp(value: f64) -> (f64, i32) {
@@ -3819,6 +3907,34 @@ fn pow_f64_int(base: f64, exponent: i64) -> f64 {
     }
 
     if negative { 1.0 / value } else { value }
+}
+
+fn echo_math_pow(base: f64, exponent: f64) -> f64 {
+    if exponent == 0.0 {
+        return 1.0;
+    }
+    if base == 0.0 {
+        return if exponent.is_sign_negative() {
+            f64::INFINITY
+        } else {
+            0.0
+        };
+    }
+    if base < 0.0 {
+        return f64::NAN;
+    }
+    if base.is_nan() || exponent.is_nan() {
+        return f64::NAN;
+    }
+    if base.is_infinite() {
+        return if exponent.is_sign_negative() {
+            0.0
+        } else {
+            f64::INFINITY
+        };
+    }
+
+    echo_math_exp(echo_math_ln(base) * exponent)
 }
 
 fn is_php_numeric_string(bytes: &[u8]) -> bool {
@@ -6477,6 +6593,45 @@ mod tests {
         assert_float_value(
             echo_php_hypot(test_string_value(b"5"), test_string_value(b"12")),
             13.0,
+        );
+    }
+
+    #[test]
+    fn exponential_and_logarithm_builtins_preserve_php_float_behavior() {
+        assert_float_value(echo_php_exp(EchoValue::int(0)), 1.0);
+        assert_float_value(echo_php_expm1(EchoValue::int(0)), 0.0);
+        assert_float_value(echo_php_log(EchoValue::int(8), EchoValue::int(2)), 3.0);
+        assert_float_value(echo_php_log10(EchoValue::int(1000)), 3.0);
+        assert_float_value(echo_php_log1p(EchoValue::int(0)), 0.0);
+        assert_eq!(
+            f64::from_bits(
+                echo_php_log(EchoValue::int(0), EchoValue::float(std::f64::consts::E)).payload
+            ),
+            f64::NEG_INFINITY
+        );
+        assert!(
+            f64::from_bits(
+                echo_php_log(EchoValue::int(-1), EchoValue::float(std::f64::consts::E)).payload
+            )
+            .is_nan()
+        );
+        assert!(f64::from_bits(echo_php_log1p(EchoValue::int(-2)).payload).is_nan());
+        assert_eq!(
+            echo_php_log(EchoValue::int(8), EchoValue::int(0)),
+            EchoValue::error()
+        );
+        assert_eq!(
+            echo_php_pow(EchoValue::int(2), EchoValue::int(8)),
+            EchoValue::int(256)
+        );
+        assert_float_value(echo_php_pow(EchoValue::int(10), EchoValue::int(-1)), 0.1);
+        assert!(
+            f64::from_bits(echo_php_pow(EchoValue::int(-1), EchoValue::float(5.5)).payload)
+                .is_nan()
+        );
+        assert_eq!(
+            f64::from_bits(echo_php_pow(EchoValue::int(0), EchoValue::int(-1)).payload),
+            f64::INFINITY
         );
     }
 

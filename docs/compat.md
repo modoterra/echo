@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 134 | 473 |
-| Loaded local PHP internals, including extensions | 1516 | 134 | 1382 |
+| Baseline (`Core` + `standard`) | 607 | 140 | 467 |
+| Loaded local PHP internals, including extensions | 1516 | 140 | 1376 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (109/545)
+### standard (115/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -252,9 +252,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `escapeshellarg` | implemented | Supports Unix/POSIX single-quote wrapping and embedded single-quote escaping; Windows-specific quoting behavior is deferred. Source: https://www.php.net/manual/en/function.escapeshellarg.php |
 | `escapeshellcmd` | implemented | Supports Unix/POSIX backslash escaping for shell metacharacters and unpaired quotes; Windows caret escaping is deferred. Source: https://www.php.net/manual/en/function.escapeshellcmd.php |
 | `exec` | missing |  |
-| `exp` | missing |  |
+| `exp` | implemented | Calculates e raised to a numeric power with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.exp.php |
 | `explode` | implemented | Splits byte strings into PHP arrays with default, positive, zero, and negative limit behavior; empty-separator `ValueError` is currently surfaced as a runtime error. Source: https://www.php.net/manual/en/function.explode.php |
-| `expm1` | missing |  |
+| `expm1` | implemented | Calculates exp(num) - 1 with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.expm1.php |
 | `extract` | missing |  |
 | `fclose` | missing |  |
 | `fdatasync` | missing |  |
@@ -409,9 +409,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `link` | missing |  |
 | `linkinfo` | missing |  |
 | `localeconv` | missing |  |
-| `log` | missing |  |
-| `log10` | missing |  |
-| `log1p` | missing |  |
+| `log` | implemented | Calculates natural logarithms by default and supports an optional positive base; non-positive bases are surfaced as runtime errors for now. Source: https://www.php.net/manual/en/function.log.php |
+| `log10` | implemented | Calculates base-10 logarithms with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.log10.php |
+| `log1p` | implemented | Calculates log(1 + num) with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.log1p.php |
 | `long2ip` | missing |  |
 | `lstat` | missing |  |
 | `ltrim` | implemented |  |
@@ -478,7 +478,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `pi` | implemented | Returns an approximation of pi as a float. Source: https://www.php.net/manual/en/function.pi.php |
 | `popen` | missing |  |
 | `pos` | missing |  |
-| `pow` | missing |  |
+| `pow` | implemented | Raises a numeric base to a numeric exponent, returning int for representable non-negative integer powers and float otherwise. Source: https://www.php.net/manual/en/function.pow.php |
 | `prev` | missing |  |
 | `print_r` | missing |  |
 | `printf` | missing |  |

@@ -261,6 +261,7 @@ Examples:
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
 - `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are PHP builtin ABI because PHP exposes hyperbolic math helpers as compatibility functions.
 - `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
+- `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, and `echo_php_pow(...)` are PHP builtin ABI because PHP exposes exponential and logarithmic helpers as compatibility functions.
 - `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
@@ -431,6 +432,24 @@ echo $label . "\n"
 ```
 
 Use `str_pad()` when a value needs a predictable display or protocol width, such as invoice numbers, log prefixes, batch labels, or aligned command output. Left-padding with zeroes keeps numeric-looking identifiers stable after PHP has parsed them as ordinary numbers; right and both-side padding are useful for table output or fixed-width file formats.
+
+Exponential and logarithmic helpers are useful when code needs to apply a growth rate, recover the elapsed rate from a ratio, or keep precision around very small changes:
+
+```php
+let $principal = 1000
+let $annualRate = 0.05
+let $years = 2
+
+let $continuous = $principal * exp($annualRate * $years)
+let $doublingYears = log(2) / $annualRate
+let $smallDelta = expm1(0.000001)
+
+echo "balance:" . $continuous . "\n"
+echo "doubling:" . $doublingYears . "\n"
+echo "delta:" . $smallDelta . "\n"
+```
+
+Use `exp()` and `pow()` to project values forward, such as continuous or discrete growth. Use `log()`, `log10()`, and `log1p()` to recover rates, compare orders of magnitude, or handle ratios near one; `expm1()` and `log1p()` avoid precision loss when the input is close to zero.
 
 Chunking helpers are useful when a protocol or display format limits how many bytes belong on one line:
 

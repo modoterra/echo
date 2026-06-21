@@ -875,6 +875,46 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_exp",
+            echo_runtime::echo_php_exp
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_expm1",
+            echo_runtime::echo_php_expm1
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_log",
+            echo_runtime::echo_php_log
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_log10",
+            echo_runtime::echo_php_log10
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_log1p",
+            echo_runtime::echo_php_log1p
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_pow",
+            echo_runtime::echo_php_pow
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_hypot",
             echo_runtime::echo_php_hypot
                 as extern "C" fn(
@@ -2339,6 +2379,7 @@ impl IrModule {
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::ChunkSplit
             | BuiltinCodegen::Implode
+            | BuiltinCodegen::Log
             | BuiltinCodegen::StrPad
             | BuiltinCodegen::StrSplit
             | BuiltinCodegen::ValueTernaryExpression
@@ -3198,6 +3239,36 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({left}, {right})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Log => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let base = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => format!(
+                        "%EchoValue {{ i32 11, i64 {} }}",
+                        std::f64::consts::E.to_bits() as i64
+                    ),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {base})\n",
                     builtin.symbol
                 ));
 
@@ -4076,6 +4147,31 @@ mod tests {
         assert!(ir.contains("call %EchoValue @echo_php_pi()"), "{ir}");
         assert!(
             ir.contains("call void @echo_write_value(%EchoValue %runtime_call_0)"),
+            "{ir}"
+        );
+    }
+
+    #[test]
+    fn logarithm_builtins_lower_optional_base_to_e() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "log".to_string(),
+                args: vec![Expr::Number(NumberLiteral {
+                    value: "8".to_string(),
+                    span: Span::new(4, 5),
+                })],
+                span: Span::new(0, 6),
+            })],
+            span: Span::new(0, 7),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_log(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_log(%EchoValue { i32 2, i64 8 }, %EchoValue { i32 11, i64 4613303445314885481 })"),
             "{ir}"
         );
     }
