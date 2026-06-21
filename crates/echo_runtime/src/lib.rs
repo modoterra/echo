@@ -5520,6 +5520,123 @@ pub extern "C" fn echo_php_stripslashes(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_quoted_printable_encode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            quoted_printable_encode_bytes(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_quoted_printable_decode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            quoted_printable_decode_bytes(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+fn quoted_printable_encode_bytes(bytes: &[u8]) -> Vec<u8> {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+
+    let mut encoded = Vec::with_capacity(bytes.len());
+    for byte in bytes.iter().copied() {
+        if matches!(byte, b'!'..=b'<' | b'>'..=b'~' | b' ' | b'\t') {
+            encoded.push(byte);
+        } else {
+            encoded.push(b'=');
+            encoded.push(HEX[(byte >> 4) as usize]);
+            encoded.push(HEX[(byte & 0x0f) as usize]);
+        }
+    }
+    encoded
+}
+
+fn quoted_printable_decode_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] != b'=' {
+            decoded.push(bytes[index]);
+            index += 1;
+            continue;
+        }
+
+        if bytes.get(index + 1) == Some(&b'\r') && bytes.get(index + 2) == Some(&b'\n') {
+            index += 3;
+            continue;
+        }
+        if bytes.get(index + 1) == Some(&b'\n') {
+            index += 2;
+            continue;
+        }
+
+        if index + 2 < bytes.len() {
+            if let (Some(high), Some(low)) =
+                (hex_nibble(bytes[index + 1]), hex_nibble(bytes[index + 2]))
+            {
+                decoded.push((high << 4) | low);
+                index += 3;
+                continue;
+            }
+        }
+
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+
+    decoded
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_nl2br(value: EchoValue, use_xhtml: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let use_xhtml = use_xhtml.bool_value().unwrap_or(true);
+    let marker: &[u8] = if use_xhtml { b"<br />" } else { b"<br>" };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_nl2br(
+        &bytes, marker,
+    )))))
+}
+
+fn php_nl2br(bytes: &[u8], marker: &[u8]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\r' if bytes.get(index + 1) == Some(&b'\n') => {
+                result.extend_from_slice(marker);
+                result.extend_from_slice(b"\r\n");
+                index += 2;
+            }
+            b'\n' => {
+                result.extend_from_slice(marker);
+                result.push(b'\n');
+                index += 1;
+            }
+            b'\r' => {
+                result.extend_from_slice(marker);
+                result.push(b'\r');
+                index += 1;
+            }
+            other => {
+                result.push(other);
+                index += 1;
+            }
+        }
+    }
+
+    result
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_quotemeta(value: EchoValue) -> EchoValue {
     const META_BYTES: &[u8] = b".\\+*?[^]($)";
 
@@ -5561,6 +5678,107 @@ pub extern "C" fn echo_php_str_ends_with(haystack: EchoValue, needle: EchoValue)
         (Some(haystack), Some(needle)) => EchoValue::bool(haystack.ends_with(&needle)),
         _ => EchoValue::error(),
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_replace(
+    search: EchoValue,
+    replace: EchoValue,
+    subject: EchoValue,
+) -> EchoValue {
+    let Some(search) = search.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(replace) = replace.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(subject) = subject.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(replace_bytes(
+        &subject, &search, &replace, false,
+    )))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_ireplace(
+    search: EchoValue,
+    replace: EchoValue,
+    subject: EchoValue,
+) -> EchoValue {
+    let Some(search) = search.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(replace) = replace.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(subject) = subject.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(replace_bytes(
+        &subject, &search, &replace, true,
+    )))))
+}
+
+fn replace_bytes(subject: &[u8], search: &[u8], replace: &[u8], case_insensitive: bool) -> Vec<u8> {
+    if search.is_empty() {
+        return subject.to_vec();
+    }
+
+    let mut result = Vec::with_capacity(subject.len());
+    let mut index = 0;
+
+    while index < subject.len() {
+        let remaining = &subject[index..];
+        let matches = remaining.len() >= search.len()
+            && if case_insensitive {
+                bytes_eq_ascii_case_insensitive(&remaining[..search.len()], search)
+            } else {
+                &remaining[..search.len()] == search
+            };
+
+        if matches {
+            result.extend_from_slice(replace);
+            index += search.len();
+        } else {
+            result.push(subject[index]);
+            index += 1;
+        }
+    }
+
+    result
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strtr(value: EchoValue, from: EchoValue, to: EchoValue) -> EchoValue {
+    let Some(value) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(from) = from.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(to) = to.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_strtr(
+        &value, &from, &to,
+    )))))
+}
+
+fn php_strtr(value: &[u8], from: &[u8], to: &[u8]) -> Vec<u8> {
+    let mut table = [None; 256];
+    for (source, target) in from.iter().copied().zip(to.iter().copied()) {
+        table[source as usize] = Some(target);
+    }
+
+    value
+        .iter()
+        .copied()
+        .map(|byte| table[byte as usize].unwrap_or(byte))
+        .collect()
 }
 
 fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
@@ -10598,6 +10816,109 @@ mod tests {
             drop(Box::from_raw(ltrim));
             drop(Box::from_raw(rtrim));
             drop(Box::from_raw(non_ascii));
+        }
+    }
+
+    #[test]
+    fn string_rewrite_builtins_preserve_php_byte_behavior() {
+        let chop = Box::into_raw(Box::new(EchoString {
+            bytes: b"invoice:1001\n".to_vec(),
+        }));
+        let quoted = Box::into_raw(Box::new(EchoString {
+            bytes: b"a=b\nnext".to_vec(),
+        }));
+        let quoted_decode = Box::into_raw(Box::new(EchoString {
+            bytes: b"a=3Db=0Anext".to_vec(),
+        }));
+        let nl2br = Box::into_raw(Box::new(EchoString {
+            bytes: b"line1\nline2".to_vec(),
+        }));
+        let search = Box::into_raw(Box::new(EchoString {
+            bytes: b"{{name}}".to_vec(),
+        }));
+        let replace = Box::into_raw(Box::new(EchoString {
+            bytes: b"Ada".to_vec(),
+        }));
+        let subject = Box::into_raw(Box::new(EchoString {
+            bytes: b"Hello {{name}}".to_vec(),
+        }));
+        let isearch = Box::into_raw(Box::new(EchoString {
+            bytes: b"TOKEN".to_vec(),
+        }));
+        let ireplace = Box::into_raw(Box::new(EchoString {
+            bytes: b"redacted".to_vec(),
+        }));
+        let isubject = Box::into_raw(Box::new(EchoString {
+            bytes: b"token TOKEN".to_vec(),
+        }));
+        let tr_value = Box::into_raw(Box::new(EchoString {
+            bytes: b"abc-123".to_vec(),
+        }));
+        let tr_from = Box::into_raw(Box::new(EchoString {
+            bytes: b"abc123".to_vec(),
+        }));
+        let tr_to = Box::into_raw(Box::new(EchoString {
+            bytes: b"xyz789".to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_rtrim(EchoValue::string(chop)).string_bytes(),
+            Some(b"invoice:1001".to_vec())
+        );
+        assert_eq!(
+            echo_php_quoted_printable_encode(EchoValue::string(quoted)).string_bytes(),
+            Some(b"a=3Db=0Anext".to_vec())
+        );
+        assert_eq!(
+            echo_php_quoted_printable_decode(EchoValue::string(quoted_decode)).string_bytes(),
+            Some(b"a=b\nnext".to_vec())
+        );
+        assert_eq!(
+            echo_php_nl2br(EchoValue::string(nl2br), EchoValue::bool(false)).string_bytes(),
+            Some(b"line1<br>\nline2".to_vec())
+        );
+        assert_eq!(
+            echo_php_str_replace(
+                EchoValue::string(search),
+                EchoValue::string(replace),
+                EchoValue::string(subject),
+            )
+            .string_bytes(),
+            Some(b"Hello Ada".to_vec())
+        );
+        assert_eq!(
+            echo_php_str_ireplace(
+                EchoValue::string(isearch),
+                EchoValue::string(ireplace),
+                EchoValue::string(isubject),
+            )
+            .string_bytes(),
+            Some(b"redacted redacted".to_vec())
+        );
+        assert_eq!(
+            echo_php_strtr(
+                EchoValue::string(tr_value),
+                EchoValue::string(tr_from),
+                EchoValue::string(tr_to),
+            )
+            .string_bytes(),
+            Some(b"xyz-789".to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(chop));
+            drop(Box::from_raw(quoted));
+            drop(Box::from_raw(quoted_decode));
+            drop(Box::from_raw(nl2br));
+            drop(Box::from_raw(search));
+            drop(Box::from_raw(replace));
+            drop(Box::from_raw(subject));
+            drop(Box::from_raw(isearch));
+            drop(Box::from_raw(ireplace));
+            drop(Box::from_raw(isubject));
+            drop(Box::from_raw(tr_value));
+            drop(Box::from_raw(tr_from));
+            drop(Box::from_raw(tr_to));
         }
     }
 

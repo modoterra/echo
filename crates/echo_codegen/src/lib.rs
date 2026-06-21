@@ -1504,6 +1504,26 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_quoted_printable_encode",
+            echo_runtime::echo_php_quoted_printable_encode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_quoted_printable_decode",
+            echo_runtime::echo_php_quoted_printable_decode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_nl2br",
+            echo_runtime::echo_php_nl2br
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_quotemeta",
             echo_runtime::echo_php_quotemeta
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -1529,6 +1549,33 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
             "echo_php_str_ends_with",
             echo_runtime::echo_php_str_ends_with
                 as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_str_replace",
+            echo_runtime::echo_php_str_replace
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_str_ireplace",
+            echo_runtime::echo_php_str_ireplace
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strtr",
+            echo_runtime::echo_php_strtr
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
                     echo_runtime::EchoValue,
                     echo_runtime::EchoValue,
                 ) -> echo_runtime::EchoValue as usize,
@@ -2732,6 +2779,7 @@ impl IrModule {
             | BuiltinCodegen::InArray
             | BuiltinCodegen::Implode
             | BuiltinCodegen::Log
+            | BuiltinCodegen::Nl2br
             | BuiltinCodegen::StrPad
             | BuiltinCodegen::StrSplit
             | BuiltinCodegen::ValueUnaryOptionalContextExpression
@@ -3655,6 +3703,33 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({value}, {flag})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Nl2br => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let use_xhtml = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 1 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {use_xhtml})\n",
                     builtin.symbol
                 ));
 
@@ -5311,8 +5386,17 @@ mod tests {
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
             ("rtrim", "echo_php_rtrim"),
+            ("chop", "echo_php_rtrim"),
             ("addslashes", "echo_php_addslashes"),
             ("stripslashes", "echo_php_stripslashes"),
+            (
+                "quoted_printable_encode",
+                "echo_php_quoted_printable_encode",
+            ),
+            (
+                "quoted_printable_decode",
+                "echo_php_quoted_printable_decode",
+            ),
             ("quotemeta", "echo_php_quotemeta"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
@@ -5343,6 +5427,33 @@ mod tests {
                 "{ir}"
             );
         }
+    }
+
+    #[test]
+    fn nl2br_lowers_optional_xhtml_flag_to_true() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "nl2br".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "line\nnext".to_string(),
+                    span: Span::new(7, 19),
+                })],
+                span: Span::new(0, 20),
+            })],
+            span: Span::new(0, 21),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_nl2br(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains(
+                "call %EchoValue @echo_php_nl2br(%EchoValue %runtime_call_0, %EchoValue { i32 1, i64 1 })"
+            ),
+            "{ir}"
+        );
     }
 
     #[test]
@@ -5631,6 +5742,9 @@ mod tests {
         for (php_name, symbol) in [
             ("strncmp", "echo_php_strncmp"),
             ("strncasecmp", "echo_php_strncasecmp"),
+            ("str_replace", "echo_php_str_replace"),
+            ("str_ireplace", "echo_php_str_ireplace"),
+            ("strtr", "echo_php_strtr"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

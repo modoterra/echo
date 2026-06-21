@@ -143,6 +143,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Removes whitespace from the end of a string.",
       },
       {
+        name: "chop",
+        signature: "chop(string $string): string",
+        description: "Alias of rtrim; removes whitespace from the end of a string.",
+      },
+      {
         name: "addslashes",
         signature: "addslashes(string $string): string",
         description: "Escapes characters that need backslashes in quoted PHP strings.",
@@ -151,6 +156,21 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "stripslashes",
         signature: "stripslashes(string $string): string",
         description: "Unquotes a string quoted with backslashes.",
+      },
+      {
+        name: "quoted_printable_encode",
+        signature: "quoted_printable_encode(string $string): string",
+        description: "Encodes bytes using quoted-printable transfer encoding.",
+      },
+      {
+        name: "quoted_printable_decode",
+        signature: "quoted_printable_decode(string $string): string",
+        description: "Decodes quoted-printable transfer encoding back to bytes.",
+      },
+      {
+        name: "nl2br",
+        signature: "nl2br(string $string, bool $use_xhtml): string",
+        description: "Inserts HTML line break tags before newline bytes.",
       },
       {
         name: "quotemeta",
@@ -171,6 +191,21 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "str_ends_with",
         signature: "str_ends_with(string $haystack, string $needle): bool",
         description: "Returns true when a string ends with another string.",
+      },
+      {
+        name: "str_replace",
+        signature: "str_replace(array|string $search, array|string $replace, string|array $subject): string|array",
+        description: "Replaces fixed string occurrences in another string.",
+      },
+      {
+        name: "str_ireplace",
+        signature: "str_ireplace(array|string $search, array|string $replace, string|array $subject): string|array",
+        description: "Replaces fixed string occurrences case-insensitively.",
+      },
+      {
+        name: "strtr",
+        signature: "strtr(string $string, string $from, string $to): string",
+        description: "Translates bytes from one character set to another.",
       },
       {
         name: "str_repeat",
@@ -833,6 +868,13 @@ echo "first line" . $lineFeed
 echo "second line" . $lineFeed`,
   ],
   [
+    "chop",
+    `let $line = "invoice:1001\\n"
+let $id = chop($line)
+
+echo "Import id: " . $id . "\\n"`,
+  ],
+  [
     "count",
     `let $queue = ["email", "receipt", "webhook"]
 
@@ -1358,6 +1400,13 @@ echo $routeKey . "\\n"`,
 echo "Request started at " . $started . "\\n"`,
   ],
   [
+    "nl2br",
+    `let $plain = "first line\\nsecond line"
+let $html = nl2br($plain, false)
+
+echo str_replace("\\n", "", $html) . "\\n"`,
+  ],
+  [
     "md5",
     `let $payload = "user:42:settings"
 let $cacheKey = "settings:" . md5($payload)
@@ -1473,6 +1522,20 @@ let $pattern = "/" . quotemeta($literal) . "/"
 echo $pattern . "\\n"`,
   ],
   [
+    "quoted_printable_encode",
+    `let $body = "token=a=b\\nnext"
+let $encoded = quoted_printable_encode($body)
+
+echo "Mail body: " . $encoded . "\\n"`,
+  ],
+  [
+    "quoted_printable_decode",
+    `let $stored = "token=3Da=3Db=0Anext"
+let $body = quoted_printable_decode($stored)
+
+echo $body . "\\n"`,
+  ],
+  [
     "realpath",
     `let $report = realpath("storage/../storage/report.csv")
 
@@ -1531,6 +1594,20 @@ if (str_contains($path, "/admin")) {
 if (str_ends_with($filename, ".csv")) {
     echo "Use CSV importer\\n"
 }`,
+  ],
+  [
+    "str_ireplace",
+    `let $message = "Token TOKEN"
+let $safe = str_ireplace("token", "redacted", $message)
+
+echo $safe . "\\n"`,
+  ],
+  [
+    "str_replace",
+    `let $template = "Hello {{name}}, status: pending"
+let $message = str_replace("{{name}}", "Ada", $template)
+
+echo str_replace("pending", "ready", $message) . "\\n"`,
   ],
   [
     "str_repeat",
@@ -1667,6 +1744,13 @@ let $normalized = strtolower($email)
 echo $normalized . "\\n"`,
   ],
   [
+    "strtr",
+    `let $source = "abc-123"
+let $label = strtr($source, "abc123", "xyz789")
+
+echo $label . "\\n"`,
+  ],
+  [
     "strtoupper",
     `let $method = "post"
 let $normalized = strtoupper($method)
@@ -1767,6 +1851,34 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ob_get_flush",
     "Use this when the captured content should both be returned to the program and sent onward to the next output layer.",
+  ],
+  [
+    "chop",
+    "Use `chop()` as the PHP alias for `rtrim()` when importing line-oriented data where trailing newlines should be removed before IDs, statuses, or codes are compared.",
+  ],
+  [
+    "quoted_printable_encode",
+    "Use `quoted_printable_encode()` when a mail or MIME workflow needs mostly readable text while still escaping bytes such as `=` and line breaks for transfer.",
+  ],
+  [
+    "quoted_printable_decode",
+    "Use `quoted_printable_decode()` at the input boundary for stored mail parts or MIME payloads so the rest of the workflow sees the original byte string.",
+  ],
+  [
+    "nl2br",
+    "Use `nl2br()` when plain-text notes, comments, or logs need an HTML preview while preserving where the original newline boundaries were.",
+  ],
+  [
+    "str_replace",
+    "Use `str_replace()` for fixed-token rewrites such as filling template placeholders, normalizing status labels, or replacing known separators without invoking pattern matching.",
+  ],
+  [
+    "str_ireplace",
+    "Use `str_ireplace()` for case-insensitive fixed-token rewrites such as redacting headers or user-provided labels where capitalization is not meaningful.",
+  ],
+  [
+    "strtr",
+    "Use the three-argument `strtr()` form for byte-for-byte translation tables, such as compact label encodings or legacy character maps where each source byte maps to one target byte.",
   ],
   [
     "file_exists",

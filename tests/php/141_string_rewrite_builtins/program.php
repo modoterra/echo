@@ -1,0 +1,14 @@
+<?php
+$line = "invoice:1001\n";
+$encoded = quoted_printable_encode("a=b\nnext");
+$breaks = nl2br("line1\nline2", false);
+$template = "Hello {{name}}, status: pending";
+$message = str_replace("{{name}}", "Ada", $template);
+
+echo "chop:[" . chop($line) . "]\n";
+echo "qp:[" . $encoded . "]\n";
+echo "qp-decode:[" . quoted_printable_decode($encoded) . "]\n";
+echo "breaks:[" . str_replace("\n", "|", $breaks) . "]\n";
+echo "replace:[" . str_replace("pending", "ready", $message) . "]\n";
+echo "ireplace:[" . str_ireplace("TOKEN", "redacted", "token TOKEN") . "]\n";
+echo "strtr:[" . strtr("abc-123", "abc123", "xyz789") . "]\n";

@@ -1,0 +1,8 @@
+chop:[invoice:1001]
+qp:[a=3Db=0Anext]
+qp-decode:[a=b
+next]
+breaks:[line1<br>|line2]
+replace:[Hello Ada, status: ready]
+ireplace:[redacted redacted]
+strtr:[xyz-789]

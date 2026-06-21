@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 187 | 420 |
-| Loaded local PHP internals, including extensions | 1516 | 187 | 1329 |
+| Baseline (`Core` + `standard`) | 607 | 194 | 413 |
+| Loaded local PHP internals, including extensions | 1516 | 194 | 1322 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (162/528)
+### standard (169/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -206,7 +206,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `checkdnsrr` | missing |  |
 | `chgrp` | missing |  |
 | `chmod` | missing |  |
-| `chop` | missing |  |
+| `chop` | implemented | Alias of `rtrim()` for default trailing whitespace stripping; optional character mask support is deferred with `rtrim()`. Source: https://www.php.net/manual/en/function.chop.php |
 | `chown` | missing |  |
 | `chr` | implemented |  |
 | `chroot` | missing |  |
@@ -431,7 +431,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `natsort` | missing |  |
 | `net_get_interfaces` | missing |  |
 | `next` | missing |  |
-| `nl2br` | missing |  |
+| `nl2br` | implemented | Inserts `<br />` or `<br>` before newline sequences while preserving the original newline bytes. Source: https://www.php.net/manual/en/function.nl2br.php |
 | `nl_langinfo` | missing |  |
 | `number_format` | missing |  |
 | `ob_clean` | implemented |  |
@@ -488,8 +488,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `proc_open` | missing |  |
 | `proc_terminate` | missing |  |
 | `putenv` | missing |  |
-| `quoted_printable_decode` | missing |  |
-| `quoted_printable_encode` | missing |  |
+| `quoted_printable_decode` | implemented | Decodes quoted-printable `=XX` byte escapes and soft line breaks according to the scalar string path. Source: https://www.php.net/manual/en/function.quoted-printable-decode.php |
+| `quoted_printable_encode` | implemented | Encodes bytes outside the printable quoted-printable range as uppercase `=XX`; RFC line wrapping and trailing-space line handling are deferred. Source: https://www.php.net/manual/en/function.quoted-printable-encode.php |
 | `quotemeta` | implemented |  |
 | `rad2deg` | implemented | Converts radians to degrees using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.rad2deg.php |
 | `range` | missing |  |
@@ -546,10 +546,10 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_ends_with` | implemented |  |
 | `str_getcsv` | missing |  |
 | `str_increment` | missing |  |
-| `str_ireplace` | missing |  |
+| `str_ireplace` | implemented | Performs ASCII case-insensitive scalar string search and replacement; array operands and by-reference count reporting are deferred. Source: https://www.php.net/manual/en/function.str-ireplace.php |
 | `str_pad` | implemented | Pads byte strings on the left, right, or both sides with PHP's default right padding and pad-string truncation behavior. Source: https://www.php.net/manual/en/function.str-pad.php |
 | `str_repeat` | implemented |  |
-| `str_replace` | missing |  |
+| `str_replace` | implemented | Performs scalar string search and replacement, including empty-search no-op behavior; array operands and by-reference count reporting are deferred. Source: https://www.php.net/manual/en/function.str-replace.php |
 | `str_rot13` | implemented |  |
 | `str_shuffle` | missing |  |
 | `str_split` | implemented | Splits byte strings into an array of fixed-size chunks, with a default chunk length of one byte. Source: https://www.php.net/manual/en/function.str-split.php |
@@ -623,7 +623,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `strtok` | missing |  |
 | `strtolower` | implemented |  |
 | `strtoupper` | implemented |  |
-| `strtr` | missing |  |
+| `strtr` | implemented | Supports the three-argument byte translation form and ignores extra bytes in longer `from` or `to` strings; two-argument array replacement is deferred. Source: https://www.php.net/manual/en/function.strtr.php |
 | `strval` | implemented |  |
 | `substr` | implemented |  |
 | `substr_compare` | implemented |  |

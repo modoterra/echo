@@ -620,10 +620,26 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("trim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("ltrim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("rtrim", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("chop", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("addslashes", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "stripslashes",
             &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "quoted_printable_encode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "quoted_printable_decode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "nl2br",
+            &[("string", Some("string")), ("use_xhtml", Some("bool"))],
             Some("string"),
         ),
         php_builtin_reflection("quotemeta", &[("string", Some("string"))], Some("string")),
@@ -641,6 +657,35 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             "str_ends_with",
             &[("haystack", Some("string")), ("needle", Some("string"))],
             Some("bool"),
+        ),
+        php_builtin_reflection(
+            "str_replace",
+            &[
+                ("search", Some("array|string")),
+                ("replace", Some("array|string")),
+                ("subject", Some("string|array")),
+                ("count", Some("int")),
+            ],
+            Some("string|array"),
+        ),
+        php_builtin_reflection(
+            "str_ireplace",
+            &[
+                ("search", Some("array|string")),
+                ("replace", Some("array|string")),
+                ("subject", Some("string|array")),
+                ("count", Some("int")),
+            ],
+            Some("string|array"),
+        ),
+        php_builtin_reflection(
+            "strtr",
+            &[
+                ("string", Some("string")),
+                ("from", Some("string")),
+                ("to", Some("string")),
+            ],
+            Some("string"),
         ),
         php_builtin_reflection(
             "str_repeat",
