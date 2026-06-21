@@ -273,6 +273,19 @@ Examples:
 - `echo_php_substr_compare(...)` is PHP builtin ABI because `substr_compare()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
+- `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding filesystem metadata functions are PHP compatibility functions.
+
+Filesystem metadata helpers can be combined to validate a user-provided path before using it in a generated response:
+
+```php
+let report = realpath(__DIR__ . "/../data/report.csv")
+
+echo "download:" . basename(report) . "\n"
+echo "readable:" . is_readable(report) . "\n"
+echo "bytes:" . filesize(report) . "\n"
+```
+
+This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to turn the canonical path into a stable user-facing label such as a download name. `is_readable()` and `filesize()` provide the metadata a caller would normally use before linking or serving the file, without leaking the full server path.
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.
 - A future image-processing package could use `echo_ext_*` if it is not part of the standard library.

@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 90 | 517 |
-| Loaded local PHP internals, including extensions | 1516 | 90 | 1426 |
+| Baseline (`Core` + `standard`) | 607 | 96 | 511 |
+| Loaded local PHP internals, including extensions | 1516 | 96 | 1420 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (78/545)
+### standard (84/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -275,7 +275,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `filemtime` | missing |  |
 | `fileowner` | missing |  |
 | `fileperms` | missing |  |
-| `filesize` | missing |  |
+| `filesize` | implemented | Returns the local file size as an integer and `false` when metadata cannot be read; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.filesize.php |
 | `filetype` | missing |  |
 | `floatval` | missing |  |
 | `flock` | missing |  |
@@ -376,7 +376,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_countable` | implemented | Supports arrays; Countable objects deferred. Source: https://www.php.net/manual/en/function.is-countable.php |
 | `is_dir` | implemented | Checks local filesystem paths and returns true only for existing directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-dir.php |
 | `is_double` | implemented | Alias of `is_float()`. Source: https://www.php.net/manual/en/function.is-float.php |
-| `is_executable` | missing |  |
+| `is_executable` | implemented | Checks local filesystem paths for executable files; Unix mode-bit behavior is supported and Windows extension behavior is approximate. Source: https://www.php.net/manual/en/function.is-executable.php |
 | `is_file` | implemented | Checks local filesystem paths and returns true only for existing regular files; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-file.php |
 | `is_finite` | implemented | Supports current numeric scalar values; Echo float payloads are deferred. Source: https://www.php.net/manual/en/function.is-finite.php |
 | `is_float` | implemented | Echo has no float values yet, so this is false for all currently representable values. Source: https://www.php.net/manual/en/function.is-float.php |
@@ -390,13 +390,13 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_null` | implemented | Source: https://www.php.net/manual/en/function.is-null.php |
 | `is_numeric` | implemented | Supports Echo integers and PHP numeric strings, including decimal/exponent forms and ASCII edge whitespace. Source: https://www.php.net/manual/en/function.is-numeric.php |
 | `is_object` | implemented | Supports Echo structural object values. Source: https://www.php.net/manual/en/function.is-object.php |
-| `is_readable` | missing |  |
+| `is_readable` | implemented | Checks local filesystem paths by probing file open or directory listing access; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-readable.php |
 | `is_resource` | implemented | Reports Echo runtime resource handles such as TCP listeners/connections. Source: https://www.php.net/manual/en/function.is-resource.php |
 | `is_scalar` | implemented | Supports current scalar values: bool, int, string. Source: https://www.php.net/manual/en/function.is-scalar.php |
 | `is_string` | implemented | Source: https://www.php.net/manual/en/function.is-string.php |
 | `is_uploaded_file` | missing |  |
-| `is_writable` | missing |  |
-| `is_writeable` | missing |  |
+| `is_writable` | implemented | Checks local filesystem paths by probing append access or temporary creation inside directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-writable.php |
+| `is_writeable` | implemented | Alias of `is_writable()`. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `join` | missing |  |
 | `key` | missing |  |
 | `key_exists` | missing |  |
@@ -498,7 +498,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `readdir` | missing |  |
 | `readfile` | missing |  |
 | `readlink` | missing |  |
-| `realpath` | missing |  |
+| `realpath` | implemented | Resolves existing local paths through OS canonicalization and returns `false` for missing paths; realpath cache APIs and URL wrappers are deferred. Source: https://www.php.net/manual/en/function.realpath.php |
 | `realpath_cache_get` | missing |  |
 | `realpath_cache_size` | missing |  |
 | `register_shutdown_function` | missing |  |

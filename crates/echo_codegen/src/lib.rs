@@ -853,6 +853,36 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_is_readable",
+            echo_runtime::echo_php_is_readable
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_writable",
+            echo_runtime::echo_php_is_writable
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_is_executable",
+            echo_runtime::echo_php_is_executable
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_filesize",
+            echo_runtime::echo_php_filesize
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_realpath",
+            echo_runtime::echo_php_realpath
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_trim",
             echo_runtime::echo_php_trim
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -3690,6 +3720,12 @@ mod tests {
             ("is_dir", "echo_php_is_dir"),
             ("is_file", "echo_php_is_file"),
             ("is_link", "echo_php_is_link"),
+            ("is_readable", "echo_php_is_readable"),
+            ("is_writable", "echo_php_is_writable"),
+            ("is_writeable", "echo_php_is_writable"),
+            ("is_executable", "echo_php_is_executable"),
+            ("filesize", "echo_php_filesize"),
+            ("realpath", "echo_php_realpath"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
             ("rtrim", "echo_php_rtrim"),

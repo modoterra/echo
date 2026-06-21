@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::HashSet;
 use std::ffi::OsStr;
+use std::fs::OpenOptions;
 use std::io::{self as std_io, Write};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
@@ -2363,6 +2364,51 @@ pub extern "C" fn echo_php_is_link(filename: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_readable(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_is_readable(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_writable(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_is_writable(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_executable(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => EchoValue::bool(path_is_executable(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_filesize(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_filesize(&bytes)
+            .and_then(|size| i64::try_from(size).ok())
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_realpath(path: EchoValue) -> EchoValue {
+    match path.string_bytes() {
+        Some(bytes) => path_realpath(&bytes)
+            .map(echo_runtime_string)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
 #[cfg(unix)]
 fn path_exists(bytes: &[u8]) -> bool {
     Path::new(OsStr::from_bytes(bytes)).exists()
@@ -2461,6 +2507,128 @@ fn path_is_link(bytes: &[u8]) -> bool {
         .and_then(|path| std::fs::symlink_metadata(Path::new(path)).ok())
         .map(|metadata| metadata.file_type().is_symlink())
         .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn path_is_readable(bytes: &[u8]) -> bool {
+    let path = Path::new(OsStr::from_bytes(bytes));
+    if path.is_dir() {
+        return std::fs::read_dir(path).is_ok();
+    }
+    std::fs::File::open(path).is_ok()
+}
+
+#[cfg(not(unix))]
+fn path_is_readable(bytes: &[u8]) -> bool {
+    let Ok(path) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let path = Path::new(path);
+    if path.is_dir() {
+        return std::fs::read_dir(path).is_ok();
+    }
+    std::fs::File::open(path).is_ok()
+}
+
+#[cfg(unix)]
+fn path_is_writable(bytes: &[u8]) -> bool {
+    let path = Path::new(OsStr::from_bytes(bytes));
+    path_is_writable_path(path)
+}
+
+#[cfg(not(unix))]
+fn path_is_writable(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .map(Path::new)
+        .map(path_is_writable_path)
+        .unwrap_or(false)
+}
+
+fn path_is_writable_path(path: &Path) -> bool {
+    if path.is_dir() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        let probe = path.join(format!(".echo_writable_probe_{nanos}"));
+        return OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&probe)
+            .map(|_| {
+                let _ = std::fs::remove_file(&probe);
+                true
+            })
+            .unwrap_or(false);
+    }
+
+    OpenOptions::new().append(true).open(path).is_ok()
+}
+
+#[cfg(unix)]
+fn path_is_executable(bytes: &[u8]) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .map(|metadata| metadata.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn path_is_executable(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .ok()
+        .map(Path::new)
+        .filter(|path| path.is_file())
+        .and_then(|path| path.extension())
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "exe" | "bat" | "cmd" | "com"
+            )
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn path_filesize(bytes: &[u8]) -> Option<u64> {
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| metadata.len())
+}
+
+#[cfg(not(unix))]
+fn path_filesize(bytes: &[u8]) -> Option<u64> {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|path| std::fs::metadata(Path::new(path)).ok())
+        .map(|metadata| metadata.len())
+}
+
+#[cfg(unix)]
+fn path_realpath(bytes: &[u8]) -> Option<Vec<u8>> {
+    let path = if bytes.is_empty() {
+        Path::new(".")
+    } else {
+        Path::new(OsStr::from_bytes(bytes))
+    };
+    std::fs::canonicalize(path)
+        .ok()
+        .map(|path| path.as_os_str().as_bytes().to_vec())
+}
+
+#[cfg(not(unix))]
+fn path_realpath(bytes: &[u8]) -> Option<Vec<u8>> {
+    let path = if bytes.is_empty() {
+        "."
+    } else {
+        std::str::from_utf8(bytes).ok()?
+    };
+    std::fs::canonicalize(path)
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .map(String::into_bytes)
 }
 
 #[unsafe(no_mangle)]
@@ -4861,6 +5029,66 @@ mod tests {
             drop(Box::from_raw(missing));
             drop(Box::from_raw(empty));
         }
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[test]
+    fn filesystem_metadata_builtins_report_paths_and_false_failures() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "echo-runtime-filesystem-metadata-{}",
+            std::process::id()
+        ));
+        let file_path = temp_dir.join("sample.txt");
+        let script_path = temp_dir.join("run.sh");
+        let missing_path = temp_dir.join("missing.txt");
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+        std::fs::write(&file_path, b"Echo file\n").expect("write sample file");
+        std::fs::write(&script_path, b"#!/bin/sh\nexit 0\n").expect("write script file");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = std::fs::metadata(&script_path)
+                .expect("stat script")
+                .permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&script_path, permissions).expect("chmod script");
+        }
+
+        fn path_value(path: &Path) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: path.to_string_lossy().as_bytes().to_vec(),
+            })))
+        }
+
+        let file = path_value(&file_path);
+        let script = path_value(&script_path);
+        let missing = path_value(&missing_path);
+        let parent_lookup = EchoValue::string(Box::into_raw(Box::new(EchoString {
+            bytes: temp_dir
+                .join("..")
+                .join(temp_dir.file_name().expect("temp dir name"))
+                .join("sample.txt")
+                .to_string_lossy()
+                .as_bytes()
+                .to_vec(),
+        })));
+
+        assert_eq!(echo_php_is_readable(file), EchoValue::bool(true));
+        assert_eq!(echo_php_is_writable(file), EchoValue::bool(true));
+        assert_eq!(echo_php_is_executable(file), EchoValue::bool(false));
+        assert_eq!(echo_php_is_executable(script), EchoValue::bool(cfg!(unix)));
+        assert_eq!(echo_php_is_readable(missing), EchoValue::bool(false));
+        assert_eq!(echo_php_is_writable(missing), EchoValue::bool(false));
+        assert_eq!(echo_php_filesize(file), EchoValue::int(10));
+        assert_eq!(echo_php_filesize(missing), EchoValue::bool(false));
+        assert_eq!(echo_php_realpath(missing), EchoValue::bool(false));
+        assert_eq!(
+            echo_php_realpath(parent_lookup).string_bytes(),
+            path_realpath(file_path.to_string_lossy().as_bytes())
+        );
+
         std::fs::remove_dir_all(&temp_dir).ok();
     }
 
