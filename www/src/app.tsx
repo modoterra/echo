@@ -86,7 +86,7 @@ export function HomePage() {
             <span className="text-amber-700">$withEcho</span>
           </code>
         </pre>
-        <div className="mx-auto mt-16 max-w-2xl text-left">
+        <div className="mt-16 max-w-2xl text-left">
           <h1 className="text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
             Familiar syntax. Native future.
           </h1>
@@ -101,25 +101,25 @@ export function HomePage() {
         </div>
         <nav
           aria-label="Project links"
-          className="mx-auto mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-5 text-lg font-semibold text-slate-500"
+          className="mt-20 flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-slate-400"
         >
           <a
             href="https://github.com/modoterra/echo"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-3 transition hover:text-slate-950"
+            aria-label="Echo on GitHub"
+            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
           >
-            <RiGithubFill aria-hidden="true" className="size-6" />
-            GitHub
+            <RiGithubFill aria-hidden="true" className="size-9" />
           </a>
           <a
             href="https://www.php.net/"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-3 transition hover:text-slate-950"
+            aria-label="PHP.net"
+            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
           >
-            <RiPhpLine aria-hidden="true" className="size-7" />
-            PHP.net
+            <RiPhpLine aria-hidden="true" className="size-11" />
           </a>
         </nav>
       </section>

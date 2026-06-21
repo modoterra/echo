@@ -930,7 +930,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
 
 function SiteFooter() {
   return (
-    <footer className="overflow-hidden border-t border-slate-200 bg-white px-6 pt-24 text-slate-600">
+    <footer className="overflow-hidden border-t border-slate-200 bg-white px-6 pt-32 text-slate-600">
       <div className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[minmax(0,360px)_1fr]">
         <section>
           <p className="max-w-sm text-xl font-semibold leading-8 text-slate-950">
@@ -986,13 +986,13 @@ function SiteFooter() {
         </nav>
       </div>
 
-      <div className="mx-auto mt-24 flex w-full max-w-7xl items-end justify-between gap-8 border-t border-slate-200 pt-8">
-        <p className="pb-8 text-sm text-slate-400">
+      <div className="mx-auto mt-40 flex w-full max-w-7xl items-end justify-between gap-8">
+        <p className="pb-16 text-sm text-slate-400">
           © 2026 Modoterra Corporation
         </p>
         <p
           aria-hidden="true"
-          className="select-none font-sans text-[clamp(7rem,22vw,20rem)] font-semibold leading-[0.72] tracking-normal text-slate-950/[0.045]"
+          className="select-none font-sans text-[clamp(8rem,25vw,24rem)] font-semibold leading-[0.72] tracking-normal text-slate-950/[0.045]"
         >
           Echo
         </p>
