@@ -253,6 +253,7 @@ Examples:
 - `echo_php_ord(...)` and `echo_php_str_rot13(...)` are PHP builtin ABI because `ord()` and `str_rot13()` are PHP compatibility functions.
 - `echo_php_chr(...)`, `echo_php_bin2hex(...)`, and `echo_php_hex2bin(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, and `hex2bin()` are PHP compatibility functions.
 - `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
+- `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
@@ -278,14 +279,25 @@ Examples:
 Filesystem metadata helpers can be combined to validate a user-provided path before using it in a generated response:
 
 ```php
-let report = realpath(__DIR__ . "/../data/report.csv")
+let $report = realpath(__DIR__ . "/../data/report.csv")
 
-echo "download:" . basename(report) . "\n"
-echo "readable:" . is_readable(report) . "\n"
-echo "bytes:" . filesize(report) . "\n"
+echo "download:" . basename($report) . "\n"
+echo "readable:" . is_readable($report) . "\n"
+echo "bytes:" . filesize($report) . "\n"
 ```
 
 This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to turn the canonical path into a stable user-facing label such as a download name. `is_readable()` and `filesize()` provide the metadata a caller would normally use before linking or serving the file, without leaking the full server path.
+
+URL encoding helpers are split by the part of the URL being built:
+
+```php
+let $department = rawurlencode("sales and marketing/Miami")
+let $query = "department=" . urlencode("sales and marketing/Miami")
+
+echo "/teams/" . $department . "?" . $query . "\n"
+```
+
+Use `rawurlencode()` for path segments so spaces become `%20` and embedded slashes are protected as `%2F`. Use `urlencode()` for form-style query values where spaces are conventionally written as `+`; decoding mirrors that distinction with `rawurldecode()` preserving literal plus signs and `urldecode()` turning them back into spaces.
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.
 - A future image-processing package could use `echo_ext_*` if it is not part of the standard library.

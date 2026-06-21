@@ -1,0 +1,6 @@
+echo "raw-path:[" . rawurlencode("sales and marketing/Miami~") . "]\n"
+echo "form-query:[" . urlencode("Data123!@-_ +~") . "]\n"
+echo "raw-decode:[" . rawurldecode("foo%20bar%40baz+plus%ZZ") . "]\n"
+echo "form-decode:[" . urldecode("green+and+red%2Bblue%ZZ") . "]\n"
+echo "roundtrip:[" . rawurldecode(rawurlencode("a/b c+~")) . "]\n"
+echo "exists:[" . function_exists("rawurlencode") . function_exists("urldecode") . "]\n"

@@ -786,6 +786,30 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_rawurlencode",
+            echo_runtime::echo_php_rawurlencode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_rawurldecode",
+            echo_runtime::echo_php_rawurldecode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_urlencode",
+            echo_runtime::echo_php_urlencode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_urldecode",
+            echo_runtime::echo_php_urldecode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_basename",
             echo_runtime::echo_php_basename
                 as extern "C" fn(
@@ -3713,6 +3737,10 @@ mod tests {
             ("bin2hex", "echo_php_bin2hex"),
             ("base64_encode", "echo_php_base64_encode"),
             ("base64_decode", "echo_php_base64_decode"),
+            ("rawurlencode", "echo_php_rawurlencode"),
+            ("rawurldecode", "echo_php_rawurldecode"),
+            ("urlencode", "echo_php_urlencode"),
+            ("urldecode", "echo_php_urldecode"),
             ("hex2bin", "echo_php_hex2bin"),
             ("escapeshellarg", "echo_php_escapeshellarg"),
             ("escapeshellcmd", "echo_php_escapeshellcmd"),

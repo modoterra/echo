@@ -2128,6 +2128,97 @@ pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rawurlencode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => echo_runtime_string(percent_encode(&bytes, PercentEncodingMode::RawUrl)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_urlencode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => echo_runtime_string(percent_encode(&bytes, PercentEncodingMode::FormUrl)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rawurldecode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => echo_runtime_string(percent_decode(&bytes, false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_urldecode(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => echo_runtime_string(percent_decode(&bytes, true)),
+        None => EchoValue::error(),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PercentEncodingMode {
+    RawUrl,
+    FormUrl,
+}
+
+fn percent_encode(bytes: &[u8], mode: PercentEncodingMode) -> Vec<u8> {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+
+    let mut encoded = Vec::with_capacity(bytes.len());
+    for byte in bytes {
+        if percent_encode_keeps_byte(*byte, mode) {
+            encoded.push(*byte);
+        } else if mode == PercentEncodingMode::FormUrl && *byte == b' ' {
+            encoded.push(b'+');
+        } else {
+            encoded.push(b'%');
+            encoded.push(HEX[(byte >> 4) as usize]);
+            encoded.push(HEX[(byte & 0x0f) as usize]);
+        }
+    }
+
+    encoded
+}
+
+fn percent_encode_keeps_byte(byte: u8, mode: PercentEncodingMode) -> bool {
+    byte.is_ascii_alphanumeric()
+        || matches!(byte, b'-' | b'_' | b'.')
+        || (mode == PercentEncodingMode::RawUrl && byte == b'~')
+}
+
+fn percent_decode(bytes: &[u8], decode_plus: bool) -> Vec<u8> {
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if decode_plus && bytes[index] == b'+' {
+            decoded.push(b' ');
+            index += 1;
+            continue;
+        }
+
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let (Some(high), Some(low)) =
+                (hex_nibble(bytes[index + 1]), hex_nibble(bytes[index + 2]))
+            {
+                decoded.push((high << 4) | low);
+                index += 3;
+                continue;
+            }
+        }
+
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+
+    decoded
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_escapeshellarg(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
@@ -5218,6 +5309,40 @@ mod tests {
             drop(Box::from_raw(ignored));
             drop(Box::from_raw(invalid));
         }
+    }
+
+    #[test]
+    fn url_encoding_builtins_preserve_php_byte_behavior() {
+        fn string_value(bytes: &[u8]) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: bytes.to_vec(),
+            })))
+        }
+
+        assert_eq!(
+            echo_php_rawurlencode(string_value(b"sales and marketing/Miami~")).string_bytes(),
+            Some(b"sales%20and%20marketing%2FMiami~".to_vec())
+        );
+        assert_eq!(
+            echo_php_urlencode(string_value(b"Data123!@-_ +~")).string_bytes(),
+            Some(b"Data123%21%40-_+%2B%7E".to_vec())
+        );
+        assert_eq!(
+            echo_php_rawurldecode(string_value(b"foo%20bar%40baz+plus%ZZ")).string_bytes(),
+            Some(b"foo bar@baz+plus%ZZ".to_vec())
+        );
+        assert_eq!(
+            echo_php_urldecode(string_value(b"green+and+red%2Bblue%ZZ")).string_bytes(),
+            Some(b"green and red+blue%ZZ".to_vec())
+        );
+        assert_eq!(
+            echo_php_rawurldecode(echo_php_rawurlencode(string_value(b"a/b c+~"))).string_bytes(),
+            Some(b"a/b c+~".to_vec())
+        );
+        assert_eq!(
+            echo_php_rawurlencode(string_value(&[0xc3, 0x84])).string_bytes(),
+            Some(b"%C3%84".to_vec())
+        );
     }
 
     #[test]

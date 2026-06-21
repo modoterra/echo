@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 96 | 511 |
-| Loaded local PHP internals, including extensions | 1516 | 96 | 1420 |
+| Baseline (`Core` + `standard`) | 607 | 100 | 507 |
+| Loaded local PHP internals, including extensions | 1516 | 100 | 1416 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (84/545)
+### standard (88/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -493,8 +493,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `quotemeta` | implemented |  |
 | `rad2deg` | missing |  |
 | `range` | missing |  |
-| `rawurldecode` | missing |  |
-| `rawurlencode` | missing |  |
+| `rawurldecode` | implemented | Decodes `%XX` byte escapes without converting `+` to a space. Source: https://www.php.net/manual/en/function.rawurldecode.php |
+| `rawurlencode` | implemented | Encodes bytes according to RFC 3986, preserving alphanumerics and `-_.~`. Source: https://www.php.net/manual/en/function.rawurlencode.php |
 | `readdir` | missing |  |
 | `readfile` | missing |  |
 | `readlink` | missing |  |
@@ -652,8 +652,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `unpack` | missing |  |
 | `unregister_tick_function` | missing |  |
 | `unserialize` | missing |  |
-| `urldecode` | missing |  |
-| `urlencode` | missing |  |
+| `urldecode` | implemented | Decodes `%XX` byte escapes and converts `+` to a space for form/query strings. Source: https://www.php.net/manual/en/function.urldecode.php |
+| `urlencode` | implemented | Encodes form/query strings with spaces as `+` and non-alphanumerics except `-_.` as `%XX`. Source: https://www.php.net/manual/en/function.urlencode.php |
 | `usleep` | missing |  |
 | `usort` | missing |  |
 | `utf8_decode` | missing |  |

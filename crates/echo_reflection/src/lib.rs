@@ -189,6 +189,18 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string|false"),
         ),
         php_builtin_reflection(
+            "rawurlencode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "rawurldecode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection("urlencode", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection("urldecode", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
             "hex2bin",
             &[("string", Some("string"))],
             Some("string|false"),
