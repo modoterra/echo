@@ -933,22 +933,15 @@ function SiteFooter() {
     <footer className="overflow-hidden border-t border-slate-200 bg-white px-6 pt-24 text-slate-600">
       <div className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[minmax(0,360px)_1fr]">
         <section>
-          <Link
-            aria-label="Echo home"
-            className="block w-20 opacity-90 transition hover:opacity-100"
-            to="/"
-          >
-            <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
-          </Link>
-          <p className="mt-8 max-w-sm text-xl font-semibold leading-8 text-slate-950">
+          <p className="max-w-sm text-xl font-semibold leading-8 text-slate-950">
             PHP-compatible source today, native binaries tomorrow.
           </p>
           <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
             Echo is an early-stage Rust implementation of a PHP superset with
             compiler tooling and native execution as the direction of travel.
           </p>
-          <div className="mt-8 inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-500">
-            xo --help
+          <div className="mt-8 inline-flex whitespace-pre rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-500">
+            {"xo --help"}
           </div>
         </section>
 

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { RiGithubFill } from "@remixicon/react";
+import { RiGithubFill, RiPhpLine } from "@remixicon/react";
 import { GradientBackground } from "./components/gradient-background";
 import { applyRandomization } from "./lib/randomize-bg";
 
@@ -86,7 +86,7 @@ export function HomePage() {
             <span className="text-amber-700">$withEcho</span>
           </code>
         </pre>
-        <div className="mt-16 max-w-2xl text-left">
+        <div className="mx-auto mt-16 max-w-2xl text-left">
           <h1 className="text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
             Familiar syntax. Native future.
           </h1>
@@ -98,16 +98,30 @@ export function HomePage() {
             nods to Echo by sound rather than spelling, folding /ˈɛkoʊ/ toward a
             compact /ɛk oʊ/ for a small command shaped for the terminal.
           </p>
+        </div>
+        <nav
+          aria-label="Project links"
+          className="mx-auto mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-5 text-lg font-semibold text-slate-500"
+        >
           <a
             href="https://github.com/modoterra/echo"
             target="_blank"
             rel="noreferrer"
-            className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-950"
+            className="inline-flex items-center gap-3 transition hover:text-slate-950"
           >
-            <RiGithubFill aria-hidden="true" className="size-5" />
+            <RiGithubFill aria-hidden="true" className="size-6" />
             GitHub
           </a>
-        </div>
+          <a
+            href="https://www.php.net/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-3 transition hover:text-slate-950"
+          >
+            <RiPhpLine aria-hidden="true" className="size-7" />
+            PHP.net
+          </a>
+        </nav>
       </section>
     </main>
   );
