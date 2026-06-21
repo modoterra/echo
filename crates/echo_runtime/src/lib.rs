@@ -4070,6 +4070,32 @@ pub extern "C" fn echo_php_readfile(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_readlink(path: EchoValue) -> EchoValue {
+    match path.string_bytes() {
+        Some(bytes) => path_readlink(&bytes)
+            .map(echo_runtime_string)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_link(target: EchoValue, link: EchoValue) -> EchoValue {
+    match (target.string_bytes(), link.string_bytes()) {
+        (Some(target), Some(link)) => EchoValue::bool(path_link(&target, &link)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_symlink(target: EchoValue, link: EchoValue) -> EchoValue {
+    match (target.string_bytes(), link.string_bytes()) {
+        (Some(target), Some(link)) => EchoValue::bool(path_symlink(&target, &link)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_touch(
     filename: EchoValue,
     mtime: EchoValue,
@@ -4566,6 +4592,55 @@ fn path_file_put_contents(bytes: &[u8], data: &[u8], flags: i64) -> Option<usize
     let mut file = options.open(path).ok()?;
     file.write_all(data).ok()?;
     Some(data.len())
+}
+
+#[cfg(unix)]
+fn path_readlink(bytes: &[u8]) -> Option<Vec<u8>> {
+    use std::os::unix::ffi::OsStringExt;
+
+    std::fs::read_link(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|path| path.into_os_string().into_vec())
+}
+
+#[cfg(not(unix))]
+fn path_readlink(bytes: &[u8]) -> Option<Vec<u8>> {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|path| std::fs::read_link(Path::new(path)).ok())
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .map(String::into_bytes)
+}
+
+fn path_link(target: &[u8], link: &[u8]) -> bool {
+    match (path_buf_from_bytes(target), path_buf_from_bytes(link)) {
+        (Some(target), Some(link)) => std::fs::hard_link(target, link).is_ok(),
+        _ => false,
+    }
+}
+
+#[cfg(unix)]
+fn path_symlink(target: &[u8], link: &[u8]) -> bool {
+    std::os::unix::fs::symlink(OsStr::from_bytes(target), OsStr::from_bytes(link)).is_ok()
+}
+
+#[cfg(windows)]
+fn path_symlink(target: &[u8], link: &[u8]) -> bool {
+    match (path_buf_from_bytes(target), path_buf_from_bytes(link)) {
+        (Some(target), Some(link)) => {
+            if target.is_dir() {
+                std::os::windows::fs::symlink_dir(target, link).is_ok()
+            } else {
+                std::os::windows::fs::symlink_file(target, link).is_ok()
+            }
+        }
+        _ => false,
+    }
+}
+
+#[cfg(all(not(unix), not(windows)))]
+fn path_symlink(_target: &[u8], _link: &[u8]) -> bool {
+    false
 }
 
 #[cfg(unix)]
@@ -8135,6 +8210,44 @@ mod tests {
             drop(Box::from_raw(missing));
             drop(Box::from_raw(empty));
         }
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn filesystem_link_builtins_create_and_read_links() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("echo-runtime-link-{}", std::process::id()));
+        let target_path = temp_dir.join("target.txt");
+        let symlink_path = temp_dir.join("target-link.txt");
+        let hard_link_path = temp_dir.join("target-hard.txt");
+        let missing_path = temp_dir.join("missing-link.txt");
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+        std::fs::write(&target_path, b"target").expect("write link target");
+
+        fn path_value(path: &Path) -> EchoValue {
+            EchoValue::string(Box::into_raw(Box::new(EchoString {
+                bytes: path.to_string_lossy().as_bytes().to_vec(),
+            })))
+        }
+
+        let target = path_value(&target_path);
+        let symlink = path_value(&symlink_path);
+        let hard_link = path_value(&hard_link_path);
+        let missing = path_value(&missing_path);
+
+        assert_eq!(echo_php_symlink(target, symlink), EchoValue::bool(true));
+        assert_eq!(echo_php_is_link(symlink), EchoValue::bool(true));
+        assert_eq!(
+            echo_php_readlink(symlink).string_bytes(),
+            Some(target_path.to_string_lossy().as_bytes().to_vec())
+        );
+        assert_eq!(echo_php_link(target, hard_link), EchoValue::bool(true));
+        assert_eq!(echo_php_is_link(hard_link), EchoValue::bool(false));
+        assert_eq!(echo_php_file_exists(hard_link), EchoValue::bool(true));
+        assert_eq!(echo_php_readlink(missing), EchoValue::bool(false));
+
         std::fs::remove_dir_all(&temp_dir).ok();
     }
 

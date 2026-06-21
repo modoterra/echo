@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 181 | 426 |
-| Loaded local PHP internals, including extensions | 1516 | 181 | 1335 |
+| Baseline (`Core` + `standard`) | 607 | 184 | 423 |
+| Loaded local PHP internals, including extensions | 1516 | 184 | 1332 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (156/528)
+### standard (159/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -406,7 +406,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `lchgrp` | missing |  |
 | `lchown` | missing |  |
 | `levenshtein` | missing |  |
-| `link` | missing |  |
+| `link` | implemented | Creates local hard links and returns a bool success value; PHP warning emission and platform-specific filesystem edge cases are deferred. Source: https://www.php.net/manual/en/function.link.php |
 | `linkinfo` | missing |  |
 | `localeconv` | missing |  |
 | `log` | implemented | Calculates natural logarithms by default and supports an optional positive base; non-positive bases are surfaced as runtime errors for now. Source: https://www.php.net/manual/en/function.log.php |
@@ -497,7 +497,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rawurlencode` | implemented | Encodes bytes according to RFC 3986, preserving alphanumerics and `-_.~`. Source: https://www.php.net/manual/en/function.rawurlencode.php |
 | `readdir` | missing |  |
 | `readfile` | implemented | Streams a local file through Echo's output buffer and returns the byte count; include path lookup, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.readfile.php |
-| `readlink` | missing |  |
+| `readlink` | implemented | Reads the stored target of a local symbolic link and returns `false` when it cannot be read; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.readlink.php |
 | `realpath` | implemented | Resolves existing local paths through OS canonicalization and returns `false` for missing paths; realpath cache APIs and URL wrappers are deferred. Source: https://www.php.net/manual/en/function.realpath.php |
 | `realpath_cache_get` | missing |  |
 | `realpath_cache_size` | missing |  |
@@ -629,7 +629,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `substr_compare` | implemented |  |
 | `substr_count` | implemented |  |
 | `substr_replace` | missing |  |
-| `symlink` | missing |  |
+| `symlink` | implemented | Creates local symbolic links and returns a bool success value; Windows-specific target-type behavior, privilege differences, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.symlink.php |
 | `sys_get_temp_dir` | missing |  |
 | `sys_getloadavg` | missing |  |
 | `syslog` | missing |  |

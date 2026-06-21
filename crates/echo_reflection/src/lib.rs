@@ -537,6 +537,21 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("int|false"),
         ),
         php_builtin_reflection(
+            "readlink",
+            &[("path", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "link",
+            &[("target", Some("string")), ("link", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "symlink",
+            &[("target", Some("string")), ("link", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "touch",
             &[
                 ("filename", Some("string")),

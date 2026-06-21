@@ -568,6 +568,21 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Writes a local file to the current output stream and returns the number of bytes read.",
       },
       {
+        name: "readlink",
+        signature: "readlink(string $path): string|false",
+        description: "Returns the stored target of a local symbolic link, or false when it cannot be read.",
+      },
+      {
+        name: "link",
+        signature: "link(string $target, string $link): bool",
+        description: "Creates a local hard link to an existing target path.",
+      },
+      {
+        name: "symlink",
+        signature: "symlink(string $target, string $link): bool",
+        description: "Creates a local symbolic link that points at a target path.",
+      },
+      {
         name: "touch",
         signature: "touch(string $filename, ?int $mtime, ?int $atime): bool",
         description: "Creates a local file if needed and sets its modification and access timestamps.",
@@ -979,6 +994,33 @@ if (is_int($bytes)) {
 
 if (is_readable($download)) {
     readfile($download)
+}`,
+  ],
+  [
+    "readlink",
+    `let $current = "releases/current"
+let $target = readlink($current)
+
+if (is_string($target)) {
+    echo "Current release: " . $target . "\\n"
+}`,
+  ],
+  [
+    "link",
+    `let $artifact = "storage/releases/app.phar"
+let $backup = "storage/releases/app.phar.previous"
+
+if (link($artifact, $backup)) {
+    echo "Release backup linked\\n"
+}`,
+  ],
+  [
+    "symlink",
+    `let $release = "2026-06-21"
+let $current = "releases/current"
+
+if (symlink($release, $current)) {
+    echo "Current release updated\\n"
 }`,
   ],
   [
@@ -1759,6 +1801,18 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "readfile",
     "Use `readfile()` when the useful action is sending file bytes to the current output stream, such as returning a generated export after checking that the local path is readable.",
+  ],
+  [
+    "readlink",
+    "Use `readlink()` when a deployment, cache, or storage workflow represents the active version as a symbolic link and needs to report or validate the stored target.",
+  ],
+  [
+    "link",
+    "Use `link()` when two directory entries should refer to the same local file contents, such as keeping a previous artifact name without copying the bytes again.",
+  ],
+  [
+    "symlink",
+    "Use `symlink()` for lightweight pointers such as `current` release directories, shared asset locations, or generated aliases that should move independently from the target.",
   ],
   [
     "touch",

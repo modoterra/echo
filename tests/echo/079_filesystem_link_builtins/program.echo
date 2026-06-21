@@ -1,0 +1,36 @@
+let $base = "filesystem-link-work"
+let $targetName = "target.txt"
+let $target = $base . "/" . $targetName
+let $current = $base . "/current.txt"
+let $backup = $base . "/backup.txt"
+
+if (is_link($current)) {
+    let $cleanupCurrent = unlink($current)
+}
+if (is_file($current)) {
+    let $cleanupCurrentFile = unlink($current)
+}
+if (is_file($backup)) {
+    let $cleanupBackup = unlink($backup)
+}
+if (is_file($target)) {
+    let $cleanupTarget = unlink($target)
+}
+if (is_dir($base)) {
+    let $cleanupBase = rmdir($base)
+}
+
+echo "mkdir:[" . mkdir($base) . "]\n"
+echo "write-target:[" . file_put_contents($target, "release=2026\n") . "]\n"
+echo "symlink-created:[" . symlink($targetName, $current) . "]\n"
+echo "is-symlink:[" . is_link($current) . "]\n"
+echo "readlink:[" . readlink($current) . "]\n"
+echo "hardlink-created:[" . link($target, $backup) . "]\n"
+echo "hardlink-is-link:[" . is_link($backup) . "]\n"
+echo "hardlink-exists:[" . file_exists($backup) . "]\n"
+echo "backup-content:[" . file_get_contents($backup) . "]\n"
+
+let $cleanupCurrent = unlink($current)
+let $cleanupBackup = unlink($backup)
+let $cleanupTarget = unlink($target)
+let $cleanupBase = rmdir($base)

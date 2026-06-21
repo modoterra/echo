@@ -1372,6 +1372,28 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_readlink",
+            echo_runtime::echo_php_readlink
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_link",
+            echo_runtime::echo_php_link
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_symlink",
+            echo_runtime::echo_php_symlink
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_touch",
             echo_runtime::echo_php_touch
                 as extern "C" fn(
@@ -5131,6 +5153,7 @@ mod tests {
             ("filegroup", "echo_php_filegroup"),
             ("fileperms", "echo_php_fileperms"),
             ("filetype", "echo_php_filetype"),
+            ("readlink", "echo_php_readlink"),
             ("realpath", "echo_php_realpath"),
             ("trim", "echo_php_trim"),
             ("ltrim", "echo_php_ltrim"),
@@ -5194,6 +5217,8 @@ mod tests {
             ("atan2", "echo_php_atan2"),
             ("hypot", "echo_php_hypot"),
             ("fmod", "echo_php_fmod"),
+            ("link", "echo_php_link"),
+            ("symlink", "echo_php_symlink"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

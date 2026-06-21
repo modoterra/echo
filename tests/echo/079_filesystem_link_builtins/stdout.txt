@@ -1,0 +1,10 @@
+mkdir:[1]
+write-target:[13]
+symlink-created:[1]
+is-symlink:[1]
+readlink:[target.txt]
+hardlink-created:[1]
+hardlink-is-link:[]
+hardlink-exists:[1]
+backup-content:[release=2026
+]
