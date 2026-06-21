@@ -1071,6 +1071,22 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_fdiv",
+            echo_runtime::echo_php_fdiv
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_fpow",
+            echo_runtime::echo_php_fpow
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_hypot",
             echo_runtime::echo_php_hypot
                 as extern "C" fn(
@@ -5479,6 +5495,8 @@ mod tests {
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
             ("atan2", "echo_php_atan2"),
+            ("fdiv", "echo_php_fdiv"),
+            ("fpow", "echo_php_fpow"),
             ("hypot", "echo_php_hypot"),
             ("fmod", "echo_php_fmod"),
             ("link", "echo_php_link"),

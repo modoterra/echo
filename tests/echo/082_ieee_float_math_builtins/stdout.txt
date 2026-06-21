@@ -1,0 +1,4 @@
+fdiv-rate:1.25
+fdiv-zero:INF
+fpow-growth:1.1025
+fpow-zero:INF

@@ -3023,6 +3023,22 @@ pub extern "C" fn echo_php_pow(base: EchoValue, exponent: EchoValue) -> EchoValu
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fdiv(num1: EchoValue, num2: EchoValue) -> EchoValue {
+    match (php_float_coercion(num1), php_float_coercion(num2)) {
+        (Some(num1), Some(num2)) => EchoValue::float(num1 / num2),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fpow(base: EchoValue, exponent: EchoValue) -> EchoValue {
+    match (php_float_coercion(base), php_float_coercion(exponent)) {
+        (Some(base), Some(exponent)) => EchoValue::float(echo_math_pow_float(base, exponent)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hypot(x: EchoValue, y: EchoValue) -> EchoValue {
     match (php_float_coercion(x), php_float_coercion(y)) {
         (Some(x), Some(y)) => EchoValue::float(echo_math_sqrt(x * x + y * y)),
@@ -3329,6 +3345,31 @@ fn echo_math_log1p(value: f64) -> f64 {
         sum += term / n as f64;
     }
     sum
+}
+
+fn echo_math_pow_float(base: f64, exponent: f64) -> f64 {
+    if base.is_nan() || exponent.is_nan() {
+        return f64::NAN;
+    }
+    if exponent == 0.0 {
+        return 1.0;
+    }
+    if base == 0.0 && exponent < 0.0 {
+        return f64::INFINITY;
+    }
+    if base < 0.0 && exponent.fract() != 0.0 {
+        return f64::NAN;
+    }
+    if base == 0.0 {
+        return 0.0;
+    }
+
+    let magnitude = echo_math_exp(echo_math_ln(base.abs()) * exponent);
+    if base < 0.0 && (exponent as i64) % 2 != 0 {
+        -magnitude
+    } else {
+        magnitude
+    }
 }
 
 fn echo_math_frexp(value: f64) -> (f64, i32) {
@@ -9168,6 +9209,26 @@ mod tests {
             EchoValue::int(256)
         );
         assert_float_value(echo_php_pow(EchoValue::int(10), EchoValue::int(-1)), 0.1);
+        assert_float_value(
+            echo_php_fdiv(EchoValue::int(125), EchoValue::int(100)),
+            1.25,
+        );
+        assert_eq!(
+            f64::from_bits(echo_php_fdiv(EchoValue::int(1), EchoValue::int(0)).payload),
+            f64::INFINITY
+        );
+        assert_float_value(
+            echo_php_fpow(EchoValue::float(1.05), EchoValue::int(2)),
+            1.1025,
+        );
+        assert_eq!(
+            f64::from_bits(echo_php_fpow(EchoValue::int(0), EchoValue::int(-2)).payload),
+            f64::INFINITY
+        );
+        assert!(
+            f64::from_bits(echo_php_fpow(EchoValue::int(-1), EchoValue::float(5.5)).payload)
+                .is_nan()
+        );
         assert!(
             f64::from_bits(echo_php_pow(EchoValue::int(-1), EchoValue::float(5.5)).payload)
                 .is_nan()

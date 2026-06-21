@@ -262,7 +262,7 @@ Examples:
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
 - `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are PHP builtin ABI because PHP exposes hyperbolic math helpers as compatibility functions.
 - `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
-- `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, and `echo_php_pow(...)` are PHP builtin ABI because PHP exposes exponential and logarithmic helpers as compatibility functions.
+- `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, `echo_php_pow(...)`, `echo_php_fdiv(...)`, and `echo_php_fpow(...)` are PHP builtin ABI because PHP exposes exponential, logarithmic, IEEE division, and IEEE power helpers as compatibility functions.
 - `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.

@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 194 | 413 |
-| Loaded local PHP internals, including extensions | 1516 | 194 | 1322 |
+| Baseline (`Core` + `standard`) | 607 | 196 | 411 |
+| Loaded local PHP internals, including extensions | 1516 | 196 | 1320 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (169/528)
+### standard (171/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -258,7 +258,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `extract` | missing |  |
 | `fclose` | missing |  |
 | `fdatasync` | missing |  |
-| `fdiv` | missing |  |
+| `fdiv` | implemented | Divides two numeric values as IEEE 754 floats, returning `INF`, `-INF`, or `NAN` for zero-divisor cases instead of raising division errors. Source: https://www.php.net/manual/en/function.fdiv.php |
 | `feof` | missing |  |
 | `fflush` | missing |  |
 | `fgetc` | missing |  |
@@ -287,7 +287,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `forward_static_call` | missing |  |
 | `forward_static_call_array` | missing |  |
 | `fpassthru` | missing |  |
-| `fpow` | missing |  |
+| `fpow` | implemented | Raises a numeric base to a numeric exponent and always returns a float, including `INF` for zero raised to a negative exponent and `NAN` for unsupported negative fractional powers. Source: https://www.php.net/manual/en/function.fpow.php |
 | `fprintf` | missing |  |
 | `fputcsv` | missing |  |
 | `fputs` | missing |  |

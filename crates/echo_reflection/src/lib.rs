@@ -301,6 +301,16 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("num", Some("mixed")), ("exponent", Some("mixed"))],
             Some("int|float|object"),
         ),
+        php_builtin_reflection(
+            "fdiv",
+            &[("num1", Some("float")), ("num2", Some("float"))],
+            Some("float"),
+        ),
+        php_builtin_reflection(
+            "fpow",
+            &[("num", Some("float")), ("exponent", Some("float"))],
+            Some("float"),
+        ),
         php_builtin_reflection("is_object", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_resource", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_string", &[("value", Some("mixed"))], Some("bool")),

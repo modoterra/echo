@@ -1,0 +1,9 @@
+<?php
+$used = 125;
+$capacity = 100;
+$monthlyGrowth = 1.05;
+
+echo "fdiv-rate:" . fdiv($used, $capacity) . "\n";
+echo "fdiv-zero:" . fdiv(1, 0) . "\n";
+echo "fpow-growth:" . fpow($monthlyGrowth, 2) . "\n";
+echo "fpow-zero:" . fpow(0, -2) . "\n";

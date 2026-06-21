@@ -475,6 +475,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         signature: "decoct(int $num): string",
         description: "Converts an integer to an octal string.",
       },
+      {
+        name: "fdiv",
+        signature: "fdiv(float $num1, float $num2): float",
+        description: "Divides two numbers using IEEE 754 floating-point rules.",
+      },
+      {
+        name: "fpow",
+        signature: "fpow(float $num, float $exponent): float",
+        description: "Raises a number to a power and returns a float.",
+      },
     ],
   },
   {
@@ -1027,6 +1037,21 @@ let $kind = filetype($target)
 if (is_string($kind)) {
     echo "Target kind: " . $kind . "\\n"
 }`,
+  ],
+  [
+    "fdiv",
+    `let $used = 125
+let $capacity = 100
+let $load = fdiv($used, $capacity)
+
+echo "Capacity load: " . $load . "\\n"`,
+  ],
+  [
+    "fpow",
+    `let $monthlyGrowth = 1.05
+let $projected = fpow($monthlyGrowth, 2)
+
+echo "Two-month growth: " . $projected . "\\n"`,
   ],
   [
     "file_get_contents",
@@ -1943,6 +1968,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "filetype",
     "Use `filetype()` before choosing a path-handling branch, such as treating directories, regular files, and symlinks differently in a cleanup or deployment script.",
+  ],
+  [
+    "fdiv",
+    "Use `fdiv()` when a metric should keep IEEE floating-point behavior at boundary values, such as reporting `INF` for a saturated ratio instead of throwing away the rest of a reporting workflow.",
+  ],
+  [
+    "fpow",
+    "Use `fpow()` for projections or scaling formulas that should always stay in floating-point space, even when the inputs happen to be whole numbers.",
   ],
   [
     "file_get_contents",
