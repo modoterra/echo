@@ -16,6 +16,7 @@ const LINUX_CLK_TCK: f64 = 100.0;
 fn benchmark_php_fixtures_against_php() {
     assert_tool_exists("php");
 
+    let _run_artifacts = RunArtifacts::new(workspace_root().join("test-results/php/.runs"));
     let iterations = benchmark_iterations();
     let fixtures = fixture_dirs();
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
@@ -606,6 +607,47 @@ fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
         .join("test-results/php/.runs")
         .join(std::process::id().to_string())
         .join(name)
+}
+
+struct RunArtifacts {
+    current_run_dir: PathBuf,
+}
+
+impl RunArtifacts {
+    fn new(root: PathBuf) -> Self {
+        fs::create_dir_all(&root)
+            .unwrap_or_else(|err| panic!("failed to create {}: {err}", root.display()));
+        remove_stale_run_dirs(&root);
+        let current_run_dir = root.join(std::process::id().to_string());
+        fs::create_dir_all(&current_run_dir)
+            .unwrap_or_else(|err| panic!("failed to create {}: {err}", current_run_dir.display()));
+
+        Self { current_run_dir }
+    }
+}
+
+impl Drop for RunArtifacts {
+    fn drop(&mut self) {
+        if self.current_run_dir.exists() {
+            fs::remove_dir_all(&self.current_run_dir).unwrap_or_else(|err| {
+                panic!("failed to remove {}: {err}", self.current_run_dir.display())
+            });
+        }
+    }
+}
+
+fn remove_stale_run_dirs(root: &Path) {
+    let current_pid = std::process::id().to_string();
+    for entry in
+        fs::read_dir(root).unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
+    {
+        let path = entry.expect("failed to read run artifact entry").path();
+        let is_current = path.file_name().and_then(|name| name.to_str()) == Some(&current_pid);
+        if path.is_dir() && !is_current {
+            fs::remove_dir_all(&path)
+                .unwrap_or_else(|err| panic!("failed to remove {}: {err}", path.display()));
+        }
+    }
 }
 
 fn workspace_root() -> PathBuf {

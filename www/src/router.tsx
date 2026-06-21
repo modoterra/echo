@@ -985,15 +985,65 @@ function SiteFooter() {
       </div>
 
       <div className="mx-auto mt-96 flex w-full max-w-7xl items-end justify-between gap-8">
-        <p className="pb-24 text-sm text-slate-400">
+        <p className="self-start text-sm text-slate-400">
           © 2026 Modoterra Corporation
         </p>
-        <p
+        <svg
           aria-hidden="true"
-          className="select-none font-sans text-[clamp(9rem,28vw,28rem)] font-semibold leading-[0.72] tracking-normal text-slate-950/[0.045]"
+          className="footer-echo-mark h-auto w-[min(72vw,58rem)] shrink-0 select-none"
+          viewBox="0 0 980 300"
         >
-          Echo
-        </p>
+          <defs>
+            <pattern
+              height="18"
+              id="footer-echo-pixels"
+              patternUnits="userSpaceOnUse"
+              width="18"
+            >
+              <rect
+                fill="rgb(15 23 42)"
+                fillOpacity="0.045"
+                height="14"
+                width="14"
+                x="0"
+                y="0"
+              />
+            </pattern>
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id="footer-echo-fade"
+              x1="0"
+              x2="0"
+              y1="0"
+              y2="300"
+            >
+              <stop offset="0" stopColor="white" stopOpacity="0.18" />
+              <stop offset="0.55" stopColor="white" stopOpacity="0.82" />
+              <stop offset="1" stopColor="white" stopOpacity="1" />
+            </linearGradient>
+            <mask id="footer-echo-text-mask">
+              <text
+                fill="url(#footer-echo-fade)"
+                fontFamily="Inter, system-ui, sans-serif"
+                fontSize="290"
+                fontWeight="650"
+                letterSpacing="-6"
+                x="0"
+                y="287"
+              >
+                Echo
+              </text>
+            </mask>
+          </defs>
+          <rect
+            fill="url(#footer-echo-pixels)"
+            height="300"
+            mask="url(#footer-echo-text-mask)"
+            width="980"
+            x="0"
+            y="0"
+          />
+        </svg>
       </div>
     </footer>
   );

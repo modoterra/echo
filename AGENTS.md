@@ -13,7 +13,7 @@
 ## Documentation Quality
 - Documentation for code behavior, built-ins, APIs, CLI commands, or terminal workflows must include at least one useful snippet when a snippet can make the behavior concrete.
 - Snippets should be bounded in a realistic use case and show why the feature is useful, not only prove that the function or command exists. Avoid toy probes such as assigning a function name to a variable and printing `function_exists`; prefer examples that validate input, transform real data, handle an edge case, or fit into a small workflow.
-- Each snippet should be followed by short commentary explaining the purpose of the example and how the code can be applied. Keep factual API behavior above the snippet; use the commentary after the snippet for applied guidance and tradeoffs.
+- In website content source files, each user-facing code snippet should be followed by short commentary explaining the purpose of the example and how the code can be applied. Keep factual API behavior above the snippet; use the commentary after the snippet for applied guidance and tradeoffs. This commentary rule does not apply to every code block in every Markdown document.
 - Echo code snippets should use current Echo style: rely on inference with `let`, avoid invalid typed variable declarations, and omit semicolons unless the documented mode specifically requires PHP syntax.
 
 ## Module Ownership Invariants
@@ -54,7 +54,7 @@ This repo uses a single-context domain documentation layout. See `docs/agents/do
 - `crates/echo_parser/tests/php_fixtures.rs` checks every fixture is well-formed and parseable.
 - `crates/xo/tests/php_fixtures.rs` exercises `ast`, `ir`, `run`, and `build`; `run` and the built binary must match `stdout.txt` with `stdin.txt` piped in.
 - The `xo` fixture test overwrites latest stable artifacts in `test-results/php/<fixture>/`: `ast.txt`, `ir.ll`, `run.stdout`, `run.stderr`, `binary.stdout`, and `binary.stderr`.
-- Built executables use per-process paths under `test-results/php/.runs/<pid>/<fixture>/` to avoid concurrent test runs touching the same binary; stable stdout/stderr/IR artifacts still live under `test-results/php/<fixture>/`.
+- Built executables use temporary per-process paths under `test-results/php/.runs/<pid>/<fixture>/` to avoid concurrent test runs touching the same binary; fixture and benchmark harnesses should clean `.runs` automatically, while stable stdout/stderr/IR artifacts still live under `test-results/php/<fixture>/`.
 - The ignored `crates/xo/tests/php_bench.rs` benchmark requires `php` on `PATH`, builds each fixture, compares PHP/Echo stdout, prints timing, and writes `benchmark.txt` under the same artifact directory.
 - The ignored `crates/xo/tests/echo_bench.rs` benchmark requires `clang` on `PATH`, covers both `tests/php` and `tests/echo`, skips fixtures with `unsupported.txt`, validates built Echo binary stdout, prints binary timing, and writes reports under `test-results/echo/`.
 

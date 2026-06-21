@@ -29,9 +29,11 @@ function docsSearchIndexPlugin(): Plugin {
     },
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
+        const requestPath = request.url?.split("?", 1)[0] ?? "";
+
         if (
-          request.url === `/${docsSearchIndexDevFileName}` ||
-          request.url === `/${searchIndexFileName}`
+          requestPath === `/${docsSearchIndexDevFileName}` ||
+          matchesBuiltIndexFile(requestPath, searchIndexFileName)
         ) {
           const asset = getDocsSearchAsset();
           response.setHeader("Content-Type", "application/json");
@@ -40,8 +42,8 @@ function docsSearchIndexPlugin(): Plugin {
         }
 
         if (
-          request.url === `/${docsSemanticIndexDevFileName}` ||
-          request.url === `/${semanticIndexFileName}`
+          requestPath === `/${docsSemanticIndexDevFileName}` ||
+          matchesBuiltIndexFile(requestPath, semanticIndexFileName)
         ) {
           try {
             semanticAsset ??= buildDocsSemanticAsset();
@@ -149,6 +151,10 @@ function docsSearchIndexPlugin(): Plugin {
 
     return searchAsset;
   }
+}
+
+function matchesBuiltIndexFile(requestPath: string, fileName: string) {
+  return fileName !== "" && requestPath === `/${fileName}`;
 }
 
 function buildChecksummedDocsSearchAsset(): DocsSearchAsset {

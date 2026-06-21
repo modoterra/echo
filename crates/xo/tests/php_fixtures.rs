@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 
 #[test]
 fn php_fixtures_work_end_to_end() {
+    let _run_artifacts = RunArtifacts::new(workspace_root().join("test-results/php/.runs"));
     let fixtures = fixture_dirs("tests/php");
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
 
@@ -83,6 +84,7 @@ fn php_fixtures_work_end_to_end() {
 
 #[test]
 fn echo_fixtures_are_exercised() {
+    let _run_artifacts = RunArtifacts::new(workspace_root().join("test-results/echo/.runs"));
     let fixtures = fixture_dirs("tests/echo");
     assert!(!fixtures.is_empty(), "expected at least one Echo fixture");
 
@@ -275,6 +277,47 @@ fn reset_dir(path: &Path) {
 fn write_artifact(path: &Path, bytes: &[u8]) {
     fs::write(path, bytes)
         .unwrap_or_else(|err| panic!("failed to write {}: {err}", path.display()));
+}
+
+struct RunArtifacts {
+    current_run_dir: PathBuf,
+}
+
+impl RunArtifacts {
+    fn new(root: PathBuf) -> Self {
+        fs::create_dir_all(&root)
+            .unwrap_or_else(|err| panic!("failed to create {}: {err}", root.display()));
+        remove_stale_run_dirs(&root);
+        let current_run_dir = root.join(std::process::id().to_string());
+        fs::create_dir_all(&current_run_dir)
+            .unwrap_or_else(|err| panic!("failed to create {}: {err}", current_run_dir.display()));
+
+        Self { current_run_dir }
+    }
+}
+
+impl Drop for RunArtifacts {
+    fn drop(&mut self) {
+        if self.current_run_dir.exists() {
+            fs::remove_dir_all(&self.current_run_dir).unwrap_or_else(|err| {
+                panic!("failed to remove {}: {err}", self.current_run_dir.display())
+            });
+        }
+    }
+}
+
+fn remove_stale_run_dirs(root: &Path) {
+    let current_pid = std::process::id().to_string();
+    for entry in
+        fs::read_dir(root).unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
+    {
+        let path = entry.expect("failed to read run artifact entry").path();
+        let is_current = path.file_name().and_then(|name| name.to_str()) == Some(&current_pid);
+        if path.is_dir() && !is_current {
+            fs::remove_dir_all(&path)
+                .unwrap_or_else(|err| panic!("failed to remove {}: {err}", path.display()));
+        }
+    }
 }
 
 fn workspace_root() -> PathBuf {
