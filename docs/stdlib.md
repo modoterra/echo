@@ -265,7 +265,7 @@ Examples:
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
-- `echo_php_str_repeat(...)` is PHP builtin ABI because `str_repeat()` is a PHP compatibility function.
+- `echo_php_str_repeat(...)` and `echo_php_str_pad(...)` are PHP builtin ABI because `str_repeat()` and `str_pad()` are PHP compatibility functions for constructing strings with repeated bytes.
 - `echo_php_substr(...)` is PHP builtin ABI because `substr()` is a PHP compatibility function.
 - `echo_php_strpos(...)` is PHP builtin ABI because `strpos()` is a PHP compatibility function.
 - `echo_php_stripos(...)` is PHP builtin ABI because `stripos()` is a PHP compatibility function.
@@ -418,6 +418,18 @@ echo "binary-id:" . $binary_id . "\n"
 ```
 
 Use `bindec()` for bit flags serialized as binary text, `hexdec()` for compact identifiers such as color or protocol fields, and `octdec()` for Unix-style permission strings. Use `base_convert()` when a value needs to stay textual but move between bases, such as storing a hexadecimal upstream identifier as binary text for a lower-level protocol. These helpers keep the parsing or rewriting step at the input boundary so later code can work with the representation it actually needs.
+
+Padding helpers are useful when an external system expects fixed-width text identifiers:
+
+```php
+let $batch = "7"
+let $sequence = "42"
+let $label = "job-" . str_pad($batch, 3, "0", 0) . "-" . str_pad($sequence, 5, "0", 0)
+
+echo $label . "\n"
+```
+
+Use `str_pad()` when a value needs a predictable display or protocol width, such as invoice numbers, log prefixes, batch labels, or aligned command output. Left-padding with zeroes keeps numeric-looking identifiers stable after PHP has parsed them as ordinary numbers; right and both-side padding are useful for table output or fixed-width file formats.
 
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.

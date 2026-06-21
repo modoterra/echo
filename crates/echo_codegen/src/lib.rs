@@ -1156,6 +1156,16 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_str_pad",
+            echo_runtime::echo_php_str_pad
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_substr",
             echo_runtime::echo_php_substr
                 as extern "C" fn(
@@ -2311,6 +2321,7 @@ impl IrModule {
             BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::Implode
+            | BuiltinCodegen::StrPad
             | BuiltinCodegen::ValueTernaryExpression
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
@@ -3168,6 +3179,41 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({left}, {right})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::StrPad => {
+                if !(2..=4).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let string = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let length = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let pad_string = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => self.runtime_value_as_echo_value(
+                        body,
+                        RuntimeValue::StaticString(" ".to_string()),
+                    ),
+                };
+                let pad_type = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 1 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({string}, {length}, {pad_string}, {pad_type})\n",
                     builtin.symbol
                 ));
 
@@ -4141,6 +4187,36 @@ mod tests {
         let declarations = runtime_declarations();
 
         assert_eq!(declarations.matches("@echo_php_strstr(").count(), 1);
+    }
+
+    #[test]
+    fn str_pad_lowers_optional_arguments_to_php_defaults() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "str_pad".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "ID".to_string(),
+                        span: Span::new(8, 12),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "6".to_string(),
+                        span: Span::new(14, 15),
+                    }),
+                ],
+                span: Span::new(0, 16),
+            })],
+            span: Span::new(0, 17),
+        })]))
+        .expect("IR");
+
+        assert!(ir.contains(
+            "declare %EchoValue @echo_php_str_pad(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+        ));
+        assert!(ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_"));
+        assert!(ir.contains(", i64 1)"));
+        assert!(ir.contains("call %EchoValue @echo_php_str_pad("), "{ir}");
+        assert!(ir.contains("%EchoValue { i32 2, i64 1 }"));
     }
 
     #[test]

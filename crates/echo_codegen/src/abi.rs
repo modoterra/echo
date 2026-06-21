@@ -212,6 +212,7 @@ pub enum RuntimeSignature {
     EchoValueEchoValuePtrI64,
     EchoValueEchoValueEchoValue,
     EchoValueEchoValueEchoValueEchoValue,
+    EchoValueEchoValueEchoValueEchoValueEchoValue,
     EchoValueEchoValueEchoValueEchoValueEchoValueEchoValue,
     EchoValueEchoValuePtrI64EchoValue,
 }
@@ -241,6 +242,11 @@ impl RuntimeSignature {
             }
             Self::EchoValueEchoValueEchoValueEchoValue => {
                 format!("declare %EchoValue @{symbol}(%EchoValue, %EchoValue, %EchoValue)")
+            }
+            Self::EchoValueEchoValueEchoValueEchoValueEchoValue => {
+                format!(
+                    "declare %EchoValue @{symbol}(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+                )
             }
             Self::EchoValueEchoValueEchoValueEchoValueEchoValueEchoValue => {
                 format!(
@@ -375,6 +381,7 @@ pub enum BuiltinCodegen {
     Dirname,
     Implode,
     ObStart,
+    StrPad,
     VoidStatement,
     VoidUnaryStatement,
     BoolStatement,
@@ -1357,6 +1364,14 @@ pub const PHP_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "str_pad",
+        symbol: "echo_php_str_pad",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::StrPad,
     },
     PhpBuiltin {
         php_name: "substr",

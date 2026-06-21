@@ -348,6 +348,16 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection(
+            "str_pad",
+            &[
+                ("string", Some("string")),
+                ("length", Some("int")),
+                ("pad_string", Some("string")),
+                ("pad_type", Some("int")),
+            ],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "substr",
             &[("string", Some("string")), ("offset", Some("int"))],
             Some("string"),

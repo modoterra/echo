@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 131 | 476 |
-| Loaded local PHP internals, including extensions | 1516 | 131 | 1385 |
+| Baseline (`Core` + `standard`) | 607 | 132 | 475 |
+| Loaded local PHP internals, including extensions | 1516 | 132 | 1384 |
 
 ## Baseline Functions
 
@@ -547,7 +547,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_getcsv` | missing |  |
 | `str_increment` | missing |  |
 | `str_ireplace` | missing |  |
-| `str_pad` | missing |  |
+| `str_pad` | implemented | Pads byte strings on the left, right, or both sides with PHP's default right padding and pad-string truncation behavior. Source: https://www.php.net/manual/en/function.str-pad.php |
 | `str_repeat` | implemented |  |
 | `str_replace` | missing |  |
 | `str_rot13` | implemented |  |

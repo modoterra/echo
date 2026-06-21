@@ -1,0 +1,5 @@
+label:[job-007-00042]
+right:[ID0000]
+both:[--tag---]
+multi-both:[abgoaba]
+exists:[1]

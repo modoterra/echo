@@ -1,0 +1,9 @@
+let $batch = "7"
+let $sequence = "42"
+let $label = "job-" . str_pad($batch, 3, "0", 0) . "-" . str_pad($sequence, 5, "0", 0)
+
+echo "label:[" . $label . "]\n"
+echo "right:[" . str_pad("ID", 6, "0") . "]\n"
+echo "both:[" . str_pad("tag", 8, "-", 2) . "]\n"
+echo "multi-both:[" . str_pad("go", 7, "ab", 2) . "]\n"
+echo "exists:[" . function_exists("str_pad") . "]\n"

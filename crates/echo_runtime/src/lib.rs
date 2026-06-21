@@ -4070,6 +4070,71 @@ pub extern "C" fn echo_php_str_repeat(value: EchoValue, times: EchoValue) -> Ech
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_pad(
+    value: EchoValue,
+    length: EchoValue,
+    pad_string: EchoValue,
+    pad_type: EchoValue,
+) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(pad_string) = pad_string.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(pad_type) = pad_type.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))));
+    };
+    if pad_string.is_empty() {
+        return EchoValue::error();
+    }
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_str_pad(
+        &bytes,
+        length,
+        &pad_string,
+        pad_type,
+    )))))
+}
+
+fn php_str_pad(bytes: &[u8], length: usize, pad_string: &[u8], pad_type: i64) -> Vec<u8> {
+    let missing = length.saturating_sub(bytes.len());
+    if missing == 0 {
+        return bytes.to_vec();
+    }
+
+    let (left, right) = match pad_type {
+        0 => (missing, 0),
+        2 => (missing / 2, missing - (missing / 2)),
+        _ => (0, missing),
+    };
+
+    let mut result = Vec::with_capacity(length);
+    append_repeated_pad(&mut result, pad_string, left);
+    result.extend_from_slice(bytes);
+    let current_len = result.len();
+    append_repeated_pad(&mut result, pad_string, current_len + right);
+    result
+}
+
+fn append_repeated_pad(result: &mut Vec<u8>, pad_string: &[u8], target_len: usize) {
+    while result.len() < target_len {
+        let remaining = target_len - result.len();
+        if remaining >= pad_string.len() {
+            result.extend_from_slice(pad_string);
+        } else {
+            result.extend_from_slice(&pad_string[..remaining]);
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_substr(value: EchoValue, offset: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::error();
@@ -6513,6 +6578,110 @@ mod tests {
             drop(Box::from_raw(invalid_hex));
             drop(Box::from_raw(repeated));
             drop(Box::from_raw(empty_repeat));
+        }
+    }
+
+    #[test]
+    fn str_pad_preserves_php_byte_behavior() {
+        let right = Box::into_raw(Box::new(EchoString {
+            bytes: "ID".as_bytes().to_vec(),
+        }));
+        let left = Box::into_raw(Box::new(EchoString {
+            bytes: "42".as_bytes().to_vec(),
+        }));
+        let both = Box::into_raw(Box::new(EchoString {
+            bytes: "tag".as_bytes().to_vec(),
+        }));
+        let multi_left = Box::into_raw(Box::new(EchoString {
+            bytes: "42".as_bytes().to_vec(),
+        }));
+        let multi_both = Box::into_raw(Box::new(EchoString {
+            bytes: "go".as_bytes().to_vec(),
+        }));
+        let shorter = Box::into_raw(Box::new(EchoString {
+            bytes: "already".as_bytes().to_vec(),
+        }));
+        let zero = Box::into_raw(Box::new(EchoString {
+            bytes: "0".as_bytes().to_vec(),
+        }));
+        let dash = Box::into_raw(Box::new(EchoString {
+            bytes: "-".as_bytes().to_vec(),
+        }));
+        let ab = Box::into_raw(Box::new(EchoString {
+            bytes: "ab".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_str_pad(
+                EchoValue::string(right),
+                EchoValue::int(6),
+                EchoValue::string(zero),
+                EchoValue::int(1),
+            )
+            .string_bytes(),
+            Some("ID0000".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_str_pad(
+                EchoValue::string(left),
+                EchoValue::int(5),
+                EchoValue::string(zero),
+                EchoValue::int(0),
+            )
+            .string_bytes(),
+            Some("00042".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_str_pad(
+                EchoValue::string(both),
+                EchoValue::int(8),
+                EchoValue::string(dash),
+                EchoValue::int(2),
+            )
+            .string_bytes(),
+            Some("--tag---".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_str_pad(
+                EchoValue::string(multi_left),
+                EchoValue::int(7),
+                EchoValue::string(ab),
+                EchoValue::int(0),
+            )
+            .string_bytes(),
+            Some("ababa42".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_str_pad(
+                EchoValue::string(multi_both),
+                EchoValue::int(7),
+                EchoValue::string(ab),
+                EchoValue::int(2),
+            )
+            .string_bytes(),
+            Some("abgoaba".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_str_pad(
+                EchoValue::string(shorter),
+                EchoValue::int(3),
+                EchoValue::string(zero),
+                EchoValue::int(0),
+            )
+            .string_bytes(),
+            Some("already".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(right));
+            drop(Box::from_raw(left));
+            drop(Box::from_raw(both));
+            drop(Box::from_raw(multi_left));
+            drop(Box::from_raw(multi_both));
+            drop(Box::from_raw(shorter));
+            drop(Box::from_raw(zero));
+            drop(Box::from_raw(dash));
+            drop(Box::from_raw(ab));
         }
     }
 
