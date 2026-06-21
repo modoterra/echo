@@ -1765,6 +1765,104 @@ pub extern "C" fn echo_php_array_fill_keys(keys: EchoValue, value: EchoValue) ->
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_combine(keys: EchoValue, values: EchoValue) -> EchoValue {
+    if !keys.is_array() || !values.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(keys_array) = (unsafe { (keys.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let Some(values_array) = (unsafe { (values.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    if keys_array.values.len() != values_array.values.len() {
+        return EchoValue::error();
+    }
+
+    let mut result = echo_value_array_new();
+    for (key, value) in keys_array.values.iter().zip(&values_array.values) {
+        result = echo_value_array_set(result, *key, *value);
+    }
+
+    result
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_pad(
+    array: EchoValue,
+    length: EchoValue,
+    value: EchoValue,
+) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let current_len = array.values.len() as i64;
+    let target_len = length.checked_abs().unwrap_or(i64::MAX);
+
+    if target_len > i32::MAX as i64 {
+        return EchoValue::error();
+    }
+
+    if target_len <= current_len {
+        return EchoValue::array(Box::into_raw(Box::new(EchoArray {
+            keys: array.keys.clone(),
+            values: array.values.clone(),
+        })));
+    }
+
+    let pad_count = (target_len - current_len) as usize;
+    let mut keys = Vec::with_capacity(target_len as usize);
+    let mut values = Vec::with_capacity(target_len as usize);
+    let mut next_index = 0_i64;
+
+    if length < 0 {
+        for _ in 0..pad_count {
+            keys.push(EchoArrayKey::Int(next_index));
+            values.push(value);
+            next_index += 1;
+        }
+    }
+
+    append_array_pad_values(array, &mut keys, &mut values, &mut next_index);
+
+    if length > 0 {
+        for _ in 0..pad_count {
+            keys.push(EchoArrayKey::Int(next_index));
+            values.push(value);
+            next_index += 1;
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+fn append_array_pad_values(
+    array: &EchoArray,
+    keys: &mut Vec<EchoArrayKey>,
+    values: &mut Vec<EchoValue>,
+    next_index: &mut i64,
+) {
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        match key {
+            EchoArrayKey::Int(_) => {
+                keys.push(EchoArrayKey::Int(*next_index));
+                *next_index += 1;
+            }
+            EchoArrayKey::String(bytes) => keys.push(EchoArrayKey::String(bytes.clone())),
+        }
+        values.push(*value);
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_reverse(array: EchoValue, preserve_keys: EchoValue) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
@@ -5474,6 +5572,85 @@ mod tests {
                 .values
                 .iter()
                 .all(|value| value.string_bytes() == Some(b"todo".to_vec()))
+        );
+    }
+
+    #[test]
+    fn array_combine_and_pad_builtins_preserve_php_key_behavior() {
+        let mut keys = echo_value_array_new();
+        keys = echo_value_array_append(keys, test_string_value(b"sku"));
+        keys = echo_value_array_append(keys, test_string_value(b"qty"));
+        keys = echo_value_array_append(keys, test_string_value(b"qty"));
+        keys = echo_value_array_append(keys, test_string_value(b"2"));
+
+        let mut values = echo_value_array_new();
+        values = echo_value_array_append(values, test_string_value(b"A-42"));
+        values = echo_value_array_append(values, EchoValue::int(3));
+        values = echo_value_array_append(values, EchoValue::int(4));
+        values = echo_value_array_append(values, test_string_value(b"numeric"));
+
+        let combined = echo_php_array_combine(keys, values);
+        let combined_ref =
+            unsafe { (combined.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            combined_ref.keys,
+            vec![
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::String(b"qty".to_vec()),
+                EchoArrayKey::Int(2),
+            ]
+        );
+        assert_eq!(
+            combined_ref.values[0].string_bytes(),
+            Some(b"A-42".to_vec())
+        );
+        assert_eq!(combined_ref.values[1], EchoValue::int(4));
+        assert_eq!(
+            combined_ref.values[2].string_bytes(),
+            Some(b"numeric".to_vec())
+        );
+
+        let mut row = echo_value_array_new();
+        row = echo_value_array_set(row, test_string_value(b"sku"), test_string_value(b"A-42"));
+        row = echo_value_array_set(row, EchoValue::int(7), test_string_value(b"seven"));
+        row = echo_value_array_set(row, test_string_value(b"qty"), EchoValue::int(4));
+
+        let right = echo_php_array_pad(row, EchoValue::int(5), test_string_value(b"missing"));
+        let right_ref = unsafe { (right.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            right_ref.keys,
+            vec![
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::Int(0),
+                EchoArrayKey::String(b"qty".to_vec()),
+                EchoArrayKey::Int(1),
+                EchoArrayKey::Int(2),
+            ]
+        );
+
+        let left = echo_php_array_pad(row, EchoValue::int(-5), test_string_value(b"missing"));
+        let left_ref = unsafe { (left.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            left_ref.keys,
+            vec![
+                EchoArrayKey::Int(0),
+                EchoArrayKey::Int(1),
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::Int(2),
+                EchoArrayKey::String(b"qty".to_vec()),
+            ]
+        );
+
+        let unchanged = echo_php_array_pad(row, EchoValue::int(2), test_string_value(b"noop"));
+        let unchanged_ref =
+            unsafe { (unchanged.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            unchanged_ref.keys,
+            vec![
+                EchoArrayKey::String(b"sku".to_vec()),
+                EchoArrayKey::Int(7),
+                EchoArrayKey::String(b"qty".to_vec()),
+            ]
         );
     }
 

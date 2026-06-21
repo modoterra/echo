@@ -161,6 +161,20 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "array_combine",
+            &[("keys", Some("array")), ("values", Some("array"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
+            "array_pad",
+            &[
+                ("array", Some("array")),
+                ("length", Some("int")),
+                ("value", Some("mixed")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_reverse",
             &[("array", Some("array")), ("preserve_keys", Some("bool"))],
             Some("array"),

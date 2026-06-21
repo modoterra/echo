@@ -596,6 +596,23 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_array_combine",
+            echo_runtime::echo_php_array_combine
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_array_pad",
+            echo_runtime::echo_php_array_pad
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_array_reverse",
             echo_runtime::echo_php_array_reverse
                 as extern "C" fn(
@@ -4863,6 +4880,88 @@ mod tests {
             "{ir}"
         );
         assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
+    }
+
+    #[test]
+    fn array_combine_and_pad_lower_to_runtime_calls() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_combine".to_string(),
+                    args: vec![
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: None,
+                                value: Expr::String(StringLiteral {
+                                    value: "sku".to_string(),
+                                    span: Span::new(15, 20),
+                                }),
+                                span: Span::new(15, 20),
+                            }],
+                            span: Span::new(14, 21),
+                        }),
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: None,
+                                value: Expr::String(StringLiteral {
+                                    value: "A-42".to_string(),
+                                    span: Span::new(24, 30),
+                                }),
+                                span: Span::new(24, 30),
+                            }],
+                            span: Span::new(23, 31),
+                        }),
+                    ],
+                    span: Span::new(0, 32),
+                })],
+                span: Span::new(0, 33),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "array_pad".to_string(),
+                    args: vec![
+                        Expr::Array(ArrayExpr {
+                            elements: vec![ArrayElement {
+                                key: None,
+                                value: Expr::String(StringLiteral {
+                                    value: "x".to_string(),
+                                    span: Span::new(50, 53),
+                                }),
+                                span: Span::new(50, 53),
+                            }],
+                            span: Span::new(49, 54),
+                        }),
+                        Expr::Number(NumberLiteral {
+                            value: "3".to_string(),
+                            span: Span::new(56, 57),
+                        }),
+                        Expr::String(StringLiteral {
+                            value: "missing".to_string(),
+                            span: Span::new(59, 68),
+                        }),
+                    ],
+                    span: Span::new(35, 69),
+                })],
+                span: Span::new(35, 70),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_array_combine(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_pad(%EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("call %EchoValue @echo_php_array_combine("),
+            "{ir}"
+        );
+        assert!(ir.contains("call %EchoValue @echo_php_array_pad("), "{ir}");
     }
 
     #[test]

@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 153 | 454 |
-| Loaded local PHP internals, including extensions | 1516 | 153 | 1363 |
+| Baseline (`Core` + `standard`) | 607 | 155 | 452 |
+| Loaded local PHP internals, including extensions | 1516 | 155 | 1361 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (128/545)
+### standard (130/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -129,7 +129,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_change_key_case` | missing |  |
 | `array_chunk` | missing |  |
 | `array_column` | missing |  |
-| `array_combine` | missing |  |
+| `array_combine` | implemented | Creates an array from one array of keys and one array of values, using PHP array-key coercion; duplicate keys keep the latest value, and mismatched input lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-combine.php |
 | `array_count_values` | missing |  |
 | `array_diff` | missing |  |
 | `array_diff_assoc` | missing |  |
@@ -158,7 +158,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_merge` | missing |  |
 | `array_merge_recursive` | missing |  |
 | `array_multisort` | missing |  |
-| `array_pad` | missing |  |
+| `array_pad` | implemented | Pads copies of arrays to positive lengths on the right or negative lengths on the left; numeric keys are reindexed when padding occurs, while no-op pads preserve keys. Source: https://www.php.net/manual/en/function.array-pad.php |
 | `array_pop` | missing |  |
 | `array_product` | implemented | Multiplies array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `1`. Source: https://www.php.net/manual/en/function.array-product.php |
 | `array_push` | missing |  |
