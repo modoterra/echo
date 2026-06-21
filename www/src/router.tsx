@@ -941,9 +941,6 @@ function SiteFooter() {
             Echo is an early-stage Rust implementation of a PHP superset with
             compiler tooling and native execution as the direction of travel.
           </p>
-          <div className="mt-8 inline-flex whitespace-pre rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-500">
-            {"xo --help"}
-          </div>
         </section>
 
         <nav
