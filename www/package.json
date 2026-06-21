@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:semantic": "DOCS_EMBEDDINGS=true npm run build",
     "format": "oxfmt --check .",
     "lint": "oxlint .",
     "preview": "vite preview"
@@ -15,10 +16,12 @@
     "@fontsource/geist-mono": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
+    "@huggingface/transformers": "^4.2.0",
     "@remixicon/react": "^4.9.0",
     "@shikijs/langs": "^4.2.0",
     "@shikijs/themes": "^4.2.0",
     "@tanstack/react-router": "^1.170.16",
+    "minisearch": "^7.2.0",
     "motion": "^12.40.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
