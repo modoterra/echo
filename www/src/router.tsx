@@ -1347,6 +1347,20 @@ function renderTextPart(part: DocsTextPart, index: number) {
   );
 }
 
+function renderInlineCodeText(text: string) {
+  return text.split(/(`[^`]+`)/g).map((part, index) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code className="font-mono text-slate-950" key={index}>
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+
+    return part;
+  });
+}
+
 function DocsBlockView({ block }: { block: DocsBlock }) {
   if (block.kind === "code") {
     return <CodeSnippet>{block.code}</CodeSnippet>;
@@ -1491,7 +1505,9 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
       </p>
 
       <CodeSnippet className="mt-7">{example}</CodeSnippet>
-      <p className="mt-5 text-base leading-7 text-slate-600">{exampleNote}</p>
+      <p className="mt-5 text-base leading-7 text-slate-600">
+        {renderInlineCodeText(exampleNote)}
+      </p>
     </section>
   );
 }
