@@ -1,0 +1,5 @@
+pairs:[ab-cd-ef-12-34-56]
+wrapped:[abcd|ef12|3456|]
+default:[E|c|h|o]
+empty:[|]
+exists:[11]

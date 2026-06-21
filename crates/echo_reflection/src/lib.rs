@@ -358,6 +358,20 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection(
+            "str_split",
+            &[("string", Some("string")), ("length", Some("int"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
+            "chunk_split",
+            &[
+                ("string", Some("string")),
+                ("length", Some("int")),
+                ("separator", Some("string")),
+            ],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "substr",
             &[("string", Some("string")), ("offset", Some("int"))],
             Some("string"),

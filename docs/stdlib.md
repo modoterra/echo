@@ -266,6 +266,7 @@ Examples:
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
 - `echo_php_str_repeat(...)` and `echo_php_str_pad(...)` are PHP builtin ABI because `str_repeat()` and `str_pad()` are PHP compatibility functions for constructing strings with repeated bytes.
+- `echo_php_str_split(...)` and `echo_php_chunk_split(...)` are PHP builtin ABI because `str_split()` and `chunk_split()` are PHP compatibility functions for fixed-width byte chunks.
 - `echo_php_substr(...)` is PHP builtin ABI because `substr()` is a PHP compatibility function.
 - `echo_php_strpos(...)` is PHP builtin ABI because `strpos()` is a PHP compatibility function.
 - `echo_php_stripos(...)` is PHP builtin ABI because `stripos()` is a PHP compatibility function.
@@ -308,7 +309,7 @@ echo "readable:" . is_readable($report) . "\n"
 echo "bytes:" . filesize($report) . "\n"
 ```
 
-This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to derive the short file name from the validated path. That makes `basename()` useful when a script needs a user-facing label, download name, audit log entry, or `Content-Disposition` filename such as `report.csv` without exposing the server directory `/srv/app/data/report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
+This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to turn the validated path into the file name a user should see. That is the common job for `basename()`: keep server paths such as `/srv/app/data/report.csv` internal while deriving a download label, audit-log value, or `Content-Disposition` filename such as `report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
 
 URL encoding helpers are split by the part of the URL being built:
 
@@ -430,6 +431,19 @@ echo $label . "\n"
 ```
 
 Use `str_pad()` when a value needs a predictable display or protocol width, such as invoice numbers, log prefixes, batch labels, or aligned command output. Left-padding with zeroes keeps numeric-looking identifiers stable after PHP has parsed them as ordinary numbers; right and both-side padding are useful for table output or fixed-width file formats.
+
+Chunking helpers are useful when a protocol or display format limits how many bytes belong on one line:
+
+```php
+let $token = "abcdef123456"
+let $pairs = str_split($token, 2)
+let $wrapped = chunk_split($token, 4, "\n")
+
+echo "pairs:" . implode("-", $pairs) . "\n"
+echo $wrapped
+```
+
+Use `str_split()` when later code needs to inspect, join, or index each chunk, such as formatting a token as byte pairs. Use `chunk_split()` when the output is still one string but must be wrapped for transport, logs, or fixed-width text displays; the separator is appended after every chunk, so callers should choose a separator that is valid at the end of the formatted value.
 
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.

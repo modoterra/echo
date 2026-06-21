@@ -1166,6 +1166,23 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_str_split",
+            echo_runtime::echo_php_str_split
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_chunk_split",
+            echo_runtime::echo_php_chunk_split
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_substr",
             echo_runtime::echo_php_substr
                 as extern "C" fn(
@@ -2320,8 +2337,10 @@ impl IrModule {
             }
             BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
+            | BuiltinCodegen::ChunkSplit
             | BuiltinCodegen::Implode
             | BuiltinCodegen::StrPad
+            | BuiltinCodegen::StrSplit
             | BuiltinCodegen::ValueTernaryExpression
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
@@ -3184,6 +3203,40 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::ChunkSplit => {
+                if !(1..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let string = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let length = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 76 }".to_string(),
+                };
+                let separator = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => self.runtime_value_as_echo_value(
+                        body,
+                        RuntimeValue::StaticString("\r\n".to_string()),
+                    ),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({string}, {length}, {separator})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::StrPad => {
                 if !(2..=4).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
@@ -3214,6 +3267,33 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({string}, {length}, {pad_string}, {pad_type})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::StrSplit => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let string = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let length = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 1 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({string}, {length})\n",
                     builtin.symbol
                 ));
 
@@ -4217,6 +4297,50 @@ mod tests {
         assert!(ir.contains(", i64 1)"));
         assert!(ir.contains("call %EchoValue @echo_php_str_pad("), "{ir}");
         assert!(ir.contains("%EchoValue { i32 2, i64 1 }"));
+    }
+
+    #[test]
+    fn string_chunk_builtins_lower_optional_arguments_to_php_defaults() {
+        let split_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "str_split".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "Echo".to_string(),
+                    span: Span::new(10, 16),
+                })],
+                span: Span::new(0, 17),
+            })],
+            span: Span::new(0, 18),
+        })]))
+        .expect("IR");
+
+        assert!(
+            split_ir.contains("declare %EchoValue @echo_php_str_split(%EchoValue, %EchoValue)")
+        );
+        assert!(split_ir.contains(
+            "call %EchoValue @echo_php_str_split(%EchoValue %runtime_call_0, %EchoValue { i32 2, i64 1 })"
+        ));
+
+        let chunk_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "chunk_split".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "Echo".to_string(),
+                    span: Span::new(12, 18),
+                })],
+                span: Span::new(0, 19),
+            })],
+            span: Span::new(0, 20),
+        })]))
+        .expect("IR");
+
+        assert!(chunk_ir.contains(
+            "declare %EchoValue @echo_php_chunk_split(%EchoValue, %EchoValue, %EchoValue)"
+        ));
+        assert!(chunk_ir.contains("%EchoValue { i32 2, i64 76 }"));
+        assert!(chunk_ir.contains("call %EchoValue @echo_value_string(ptr @echo_str_"));
+        assert!(chunk_ir.contains(", i64 2)"));
+        assert!(chunk_ir.contains("call %EchoValue @echo_php_chunk_split("));
     }
 
     #[test]

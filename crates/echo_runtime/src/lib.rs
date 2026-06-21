@@ -4135,6 +4135,70 @@ fn append_repeated_pad(result: &mut Vec<u8>, pad_string: &[u8], target_len: usiz
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_split(value: EchoValue, length: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::error();
+    };
+    if length == 0 {
+        return EchoValue::error();
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        bytes
+            .chunks(length)
+            .map(|chunk| {
+                EchoValue::string(Box::into_raw(Box::new(EchoString::new(chunk.to_vec()))))
+            })
+            .collect(),
+    ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_chunk_split(
+    value: EchoValue,
+    length: EchoValue,
+    separator: EchoValue,
+) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(separator) = separator.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::error();
+    };
+    if length == 0 {
+        return EchoValue::error();
+    }
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_chunk_split(
+        &bytes, length, &separator,
+    )))))
+}
+
+fn php_chunk_split(bytes: &[u8], length: usize, separator: &[u8]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(bytes.len() + separator.len());
+    for chunk in bytes.chunks(length) {
+        result.extend_from_slice(chunk);
+        result.extend_from_slice(separator);
+    }
+    if bytes.is_empty() {
+        result.extend_from_slice(separator);
+    }
+    result
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_substr(value: EchoValue, offset: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::error();
@@ -6682,6 +6746,79 @@ mod tests {
             drop(Box::from_raw(zero));
             drop(Box::from_raw(dash));
             drop(Box::from_raw(ab));
+        }
+    }
+
+    #[test]
+    fn string_chunk_builtins_preserve_php_byte_behavior() {
+        let split = Box::into_raw(Box::new(EchoString {
+            bytes: "abcde".as_bytes().to_vec(),
+        }));
+        let empty_split = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let chunk = Box::into_raw(Box::new(EchoString {
+            bytes: "abcde".as_bytes().to_vec(),
+        }));
+        let empty_chunk = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+        let pipe = Box::into_raw(Box::new(EchoString {
+            bytes: "|".as_bytes().to_vec(),
+        }));
+        let crlf = Box::into_raw(Box::new(EchoString {
+            bytes: "\r\n".as_bytes().to_vec(),
+        }));
+
+        assert_eq!(
+            echo_php_implode(
+                EchoValue::string(pipe),
+                echo_php_str_split(EchoValue::string(split), EchoValue::int(2)),
+            )
+            .string_bytes(),
+            Some("ab|cd|e".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_implode(
+                EchoValue::string(pipe),
+                echo_php_str_split(EchoValue::string(empty_split), EchoValue::int(1)),
+            )
+            .string_bytes(),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            echo_php_chunk_split(
+                EchoValue::string(chunk),
+                EchoValue::int(2),
+                EchoValue::string(pipe)
+            )
+            .string_bytes(),
+            Some("ab|cd|e|".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_chunk_split(
+                EchoValue::string(empty_chunk),
+                EchoValue::int(2),
+                EchoValue::string(pipe),
+            )
+            .string_bytes(),
+            Some("|".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_chunk_split(
+                EchoValue::int(12345),
+                EchoValue::string(Box::into_raw(Box::new(EchoString {
+                    bytes: "2".as_bytes().to_vec(),
+                }))),
+                EchoValue::string(crlf),
+            )
+            .string_bytes(),
+            Some("12\r\n34\r\n5\r\n".as_bytes().to_vec())
+        );
+
+        unsafe {
+            drop(Box::from_raw(split));
+            drop(Box::from_raw(empty_split));
+            drop(Box::from_raw(chunk));
+            drop(Box::from_raw(empty_chunk));
+            drop(Box::from_raw(pipe));
+            drop(Box::from_raw(crlf));
         }
     }
 

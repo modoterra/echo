@@ -1,0 +1,9 @@
+let $token = "abcdef123456"
+let $pairs = str_split($token, 2)
+let $wrapped = chunk_split($token, 4, "|")
+
+echo "pairs:[" . implode("-", $pairs) . "]\n"
+echo "wrapped:[" . $wrapped . "]\n"
+echo "default:[" . implode("|", str_split("Echo")) . "]\n"
+echo "empty:[" . chunk_split("", 2, "|") . "]\n"
+echo "exists:[" . function_exists("str_split") . function_exists("chunk_split") . "]\n"

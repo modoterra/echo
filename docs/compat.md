@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 132 | 475 |
-| Loaded local PHP internals, including extensions | 1516 | 132 | 1384 |
+| Baseline (`Core` + `standard`) | 607 | 134 | 473 |
+| Loaded local PHP internals, including extensions | 1516 | 134 | 1382 |
 
 ## Baseline Functions
 
@@ -210,7 +210,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `chown` | missing |  |
 | `chr` | implemented |  |
 | `chroot` | missing |  |
-| `chunk_split` | missing |  |
+| `chunk_split` | implemented | Splits byte strings into fixed-size chunks and appends the requested separator after every chunk, including empty input. Source: https://www.php.net/manual/en/function.chunk-split.php |
 | `clearstatcache` | missing |  |
 | `cli_get_process_title` | missing |  |
 | `cli_set_process_title` | missing |  |
@@ -552,7 +552,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_replace` | missing |  |
 | `str_rot13` | implemented |  |
 | `str_shuffle` | missing |  |
-| `str_split` | missing |  |
+| `str_split` | implemented | Splits byte strings into an array of fixed-size chunks, with a default chunk length of one byte. Source: https://www.php.net/manual/en/function.str-split.php |
 | `str_starts_with` | implemented |  |
 | `str_word_count` | missing |  |
 | `strchr` | implemented | Alias of `strstr`. |
