@@ -768,6 +768,24 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_bindec",
+            echo_runtime::echo_php_bindec
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_hexdec",
+            echo_runtime::echo_php_hexdec
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_octdec",
+            echo_runtime::echo_php_octdec
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_deg2rad",
             echo_runtime::echo_php_deg2rad
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -3746,6 +3764,9 @@ mod tests {
             ("decbin", "echo_php_decbin"),
             ("dechex", "echo_php_dechex"),
             ("decoct", "echo_php_decoct"),
+            ("bindec", "echo_php_bindec"),
+            ("hexdec", "echo_php_hexdec"),
+            ("octdec", "echo_php_octdec"),
             ("deg2rad", "echo_php_deg2rad"),
             ("rad2deg", "echo_php_rad2deg"),
             ("bin2hex", "echo_php_bin2hex"),

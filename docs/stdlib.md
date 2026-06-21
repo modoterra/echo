@@ -252,6 +252,7 @@ Examples:
 - `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are PHP builtin ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
 - `echo_php_ord(...)` and `echo_php_str_rot13(...)` are PHP builtin ABI because `ord()` and `str_rot13()` are PHP compatibility functions.
 - `echo_php_chr(...)`, `echo_php_bin2hex(...)`, and `echo_php_hex2bin(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, and `hex2bin()` are PHP compatibility functions.
+- `echo_php_bindec(...)`, `echo_php_hexdec(...)`, and `echo_php_octdec(...)` are PHP builtin ABI because PHP exposes explicit binary, hexadecimal, and octal string-to-decimal conversion functions.
 - `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
 - `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
@@ -310,6 +311,20 @@ echo "heading:" . intval(rad2deg($radians)) . "\n"
 ```
 
 Use `deg2rad()` at input boundaries when configuration, UI controls, or map headings are written in degrees but the next calculation expects radians. Use `rad2deg()` when reporting a computed angle back to people or storing it in degree-based settings; the conversion keeps those boundary choices explicit instead of mixing units in intermediate code.
+
+Base conversion helpers are useful when importing identifiers, permissions, or protocol fields that arrive as text in a fixed base:
+
+```php
+let $packet_flags = bindec("1101")
+let $color = hexdec("ff8800")
+let $mode = octdec("0755")
+
+echo "flags:" . $packet_flags . "\n"
+echo "color-id:" . $color . "\n"
+echo "mode:" . $mode . "\n"
+```
+
+Use `bindec()` for bit flags serialized as binary text, `hexdec()` for compact identifiers such as color or protocol fields, and `octdec()` for Unix-style permission strings. These helpers keep the parsing step at the input boundary so later code can work with ordinary decimal numbers.
 
 - `std.http.Response::text(...)` belongs in Echo stdlib source because it is an Echo standard library API.
 - Low-level socket polling belongs inside `echo_runtime`, with Mio hidden as an implementation detail.

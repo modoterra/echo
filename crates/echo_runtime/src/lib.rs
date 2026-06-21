@@ -2063,6 +2063,77 @@ pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_bindec(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => php_unsigned_base_to_decimal(&bytes, 2),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_hexdec(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => php_unsigned_base_to_decimal(&bytes, 16),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_octdec(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => php_unsigned_base_to_decimal(&bytes, 8),
+        None => EchoValue::error(),
+    }
+}
+
+fn php_unsigned_base_to_decimal(bytes: &[u8], base: u32) -> EchoValue {
+    let mut integer = 0u64;
+    let mut float = 0.0;
+    let mut overflowed = false;
+
+    for digit in bytes
+        .iter()
+        .copied()
+        .filter_map(|byte| ascii_digit_value(byte))
+    {
+        if digit >= base {
+            continue;
+        }
+
+        if overflowed {
+            float = float * base as f64 + digit as f64;
+            continue;
+        }
+
+        match integer
+            .checked_mul(base as u64)
+            .and_then(|value| value.checked_add(digit as u64))
+        {
+            Some(value) => integer = value,
+            None => {
+                overflowed = true;
+                float = integer as f64 * base as f64 + digit as f64;
+            }
+        }
+    }
+
+    if overflowed || integer > i64::MAX as u64 {
+        EchoValue::float(if overflowed { float } else { integer as f64 })
+    } else {
+        EchoValue::int(integer as i64)
+    }
+}
+
+fn ascii_digit_value(byte: u8) -> Option<u32> {
+    match byte {
+        b'0'..=b'9' => Some((byte - b'0') as u32),
+        b'a'..=b'f' => Some((byte - b'a' + 10) as u32),
+        b'A'..=b'F' => Some((byte - b'A' + 10) as u32),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_deg2rad(value: EchoValue) -> EchoValue {
     match php_float_coercion(value) {
         Some(value) => EchoValue::float(value.to_radians()),
@@ -4820,6 +4891,37 @@ mod tests {
             drop(Box::from_raw(text));
             drop(Box::from_raw(non_ascii));
         }
+    }
+
+    #[test]
+    fn base_to_decimal_builtins_preserve_php_unsigned_string_behavior() {
+        assert_eq!(
+            echo_php_bindec(test_string_value(b"1010")),
+            EchoValue::int(10)
+        );
+        assert_eq!(
+            echo_php_bindec(test_string_value(b"0b10xx11")),
+            EchoValue::int(11)
+        );
+        assert_eq!(
+            echo_php_hexdec(test_string_value(b"0xff")),
+            EchoValue::int(255)
+        );
+        assert_eq!(
+            echo_php_hexdec(test_string_value(b"ffzz10")),
+            EchoValue::int(65296)
+        );
+        assert_eq!(
+            echo_php_octdec(test_string_value(b"0789")),
+            EchoValue::int(7)
+        );
+        assert_eq!(echo_php_bindec(EchoValue::int(10)), EchoValue::int(2));
+        assert_eq!(echo_php_hexdec(EchoValue::float(10.7)), EchoValue::int(263));
+        assert_eq!(echo_php_octdec(EchoValue::null()), EchoValue::int(0));
+        assert_float_value(
+            echo_php_hexdec(test_string_value(b"FFFFFFFFFFFFFFFF")),
+            u64::MAX as f64,
+        );
     }
 
     #[test]

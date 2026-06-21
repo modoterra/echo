@@ -1,0 +1,12 @@
+let $flags = "0b10xx11"
+let $color = "ffzz10"
+let $mode = "0789"
+
+echo "flags:[" . bindec($flags) . "]\n"
+echo "color:[" . hexdec($color) . "]\n"
+echo "mode:[" . octdec($mode) . "]\n"
+echo "int-coerce:[" . bindec(10) . ":" . hexdec(10) . ":" . octdec(10) . "]\n"
+echo "float-coerce:[" . hexdec(10.7) . "]\n"
+echo "empty:[" . bindec("") . ":" . hexdec("") . ":" . octdec("") . "]\n"
+echo "large-type:[" . gettype(hexdec("FFFFFFFFFFFFFFFF")) . "]\n"
+echo "exists:[" . function_exists("bindec") . function_exists("hexdec") . function_exists("octdec") . "]\n"

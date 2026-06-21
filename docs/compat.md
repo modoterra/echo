@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 102 | 505 |
-| Loaded local PHP internals, including extensions | 1516 | 102 | 1414 |
+| Baseline (`Core` + `standard`) | 607 | 105 | 502 |
+| Loaded local PHP internals, including extensions | 1516 | 105 | 1411 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (90/545)
+### standard (93/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -197,7 +197,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `base_convert` | missing |  |
 | `basename` | implemented | Supports Unix-style `/` separators and optional suffix stripping; Windows `\` separator behavior is deferred. Source: https://www.php.net/manual/en/function.basename.php |
 | `bin2hex` | implemented |  |
-| `bindec` | missing |  |
+| `bindec` | implemented | Converts binary strings to unsigned decimal int or float values while ignoring non-binary characters. Source: https://www.php.net/manual/en/function.bindec.php |
 | `boolval` | implemented |  |
 | `call_user_func` | missing |  |
 | `call_user_func_array` | missing |  |
@@ -339,7 +339,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `headers_sent` | missing |  |
 | `hebrev` | missing |  |
 | `hex2bin` | implemented |  |
-| `hexdec` | missing |  |
+| `hexdec` | implemented | Converts hexadecimal strings to unsigned decimal int or float values while ignoring non-hexadecimal characters. Source: https://www.php.net/manual/en/function.hexdec.php |
 | `highlight_file` | missing |  |
 | `highlight_string` | missing |  |
 | `hrtime` | missing |  |
@@ -447,7 +447,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ob_implicit_flush` | missing |  |
 | `ob_list_handlers` | missing |  |
 | `ob_start` | implemented |  |
-| `octdec` | missing |  |
+| `octdec` | implemented | Converts octal strings to unsigned decimal int or float values while ignoring non-octal characters. Source: https://www.php.net/manual/en/function.octdec.php |
 | `opendir` | missing |  |
 | `openlog` | missing |  |
 | `ord` | implemented |  |
