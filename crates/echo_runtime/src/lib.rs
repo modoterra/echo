@@ -10,6 +10,9 @@ pub mod task_group;
 pub mod thread;
 pub mod time;
 
+use crc32fast::Hasher as Crc32Hasher;
+use md5_digest::{Digest as _, Md5};
+use sha1::Sha1;
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::HashSet;
@@ -3402,16 +3405,64 @@ fn reduce_to_half_pi(value: f64) -> (f64, f64) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            lowercase_hex_bytes(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+fn lowercase_hex_bytes(bytes: &[u8]) -> Vec<u8> {
     const HEX: &[u8; 16] = b"0123456789abcdef";
 
+    let mut encoded = Vec::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize]);
+        encoded.push(HEX[(byte & 0x0f) as usize]);
+    }
+    encoded
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => {
-            let mut encoded = Vec::with_capacity(bytes.len() * 2);
-            for byte in bytes {
-                encoded.push(HEX[(byte >> 4) as usize]);
-                encoded.push(HEX[(byte & 0x0f) as usize]);
-            }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(encoded))))
+            let mut hasher = Crc32Hasher::new();
+            hasher.update(&bytes);
+            EchoValue::int(hasher.finalize() as i64)
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_md5(value: EchoValue, binary: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let digest = Md5::digest(&bytes);
+            let bytes = if binary.bool_value().unwrap_or(false) {
+                digest.to_vec()
+            } else {
+                lowercase_hex_bytes(&digest)
+            };
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sha1(value: EchoValue, binary: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let digest = Sha1::digest(&bytes);
+            let bytes = if binary.bool_value().unwrap_or(false) {
+                digest.to_vec()
+            } else {
+                lowercase_hex_bytes(&digest)
+            };
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
         }
         None => EchoValue::error(),
     }
@@ -7089,6 +7140,36 @@ mod tests {
         assert_eq!(
             echo_php_bin2hex(EchoValue::string(non_ascii)).string_bytes(),
             Some("c384".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_crc32(test_string_value(b"Echo\nPHP")),
+            EchoValue::int(286159390)
+        );
+        assert_eq!(
+            echo_php_md5(test_string_value(b"Echo\nPHP"), EchoValue::bool(false)).string_bytes(),
+            Some("d4f2cb8de8248adb1e54f021bcd5e8c2".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_md5(test_string_value(b"Echo\nPHP"), EchoValue::bool(true)).string_bytes(),
+            Some(vec![
+                0xd4, 0xf2, 0xcb, 0x8d, 0xe8, 0x24, 0x8a, 0xdb, 0x1e, 0x54, 0xf0, 0x21, 0xbc, 0xd5,
+                0xe8, 0xc2,
+            ])
+        );
+        assert_eq!(
+            echo_php_sha1(test_string_value(b"Echo\nPHP"), EchoValue::bool(false)).string_bytes(),
+            Some(
+                "2ac003b31b44befef7f0c8b7e0154e3118689876"
+                    .as_bytes()
+                    .to_vec()
+            )
+        );
+        assert_eq!(
+            echo_php_sha1(test_string_value(b"Echo\nPHP"), EchoValue::bool(true)).string_bytes(),
+            Some(vec![
+                0x2a, 0xc0, 0x03, 0xb3, 0x1b, 0x44, 0xbe, 0xfe, 0xf7, 0xf0, 0xc8, 0xb7, 0xe0, 0x15,
+                0x4e, 0x31, 0x18, 0x68, 0x98, 0x76,
+            ])
         );
         assert_eq!(
             echo_php_escapeshellarg(EchoValue::string(text)).string_bytes(),

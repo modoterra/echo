@@ -924,6 +924,12 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_crc32",
+            echo_runtime::echo_php_crc32
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_bindec",
             echo_runtime::echo_php_bindec
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -1089,6 +1095,22 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_bin2hex
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
                 as usize,
+        ),
+        (
+            "echo_php_md5",
+            echo_runtime::echo_php_md5
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_sha1",
+            echo_runtime::echo_php_sha1
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
         ),
         (
             "echo_php_base64_encode",
@@ -2538,6 +2560,7 @@ impl IrModule {
             | BuiltinCodegen::Log
             | BuiltinCodegen::StrPad
             | BuiltinCodegen::StrSplit
+            | BuiltinCodegen::ValueUnaryOptionalBoolExpression
             | BuiltinCodegen::ValueTernaryExpression
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
@@ -3428,6 +3451,33 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::ValueUnaryOptionalBoolExpression => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let flag = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {flag})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::ArrayKeys => {
                 if !(1..=3).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
@@ -4000,9 +4050,9 @@ fn llvm_string_literal(value: &str) -> String {
 mod tests {
     use super::*;
     use echo_ast::{
-        ArrayElement, ArrayExpr, AssignStmt, DeferExpr, EchoStmt, Expr, FunctionCallExpr,
-        FunctionCallStmt, FunctionDeclStmt, ImportStmt, NullLiteral, NumberLiteral, QualifiedName,
-        ReturnStmt, StringLiteral, TypedParam,
+        ArrayElement, ArrayExpr, AssignStmt, BoolLiteral, DeferExpr, EchoStmt, Expr,
+        FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, ImportStmt, NullLiteral,
+        NumberLiteral, QualifiedName, ReturnStmt, StringLiteral, TypedParam,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -4499,6 +4549,62 @@ mod tests {
     }
 
     #[test]
+    fn digest_builtins_lower_optional_binary_flag_to_false() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "md5".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "Echo".to_string(),
+                        span: Span::new(4, 10),
+                    })],
+                    span: Span::new(0, 11),
+                })],
+                span: Span::new(0, 12),
+            }),
+            Stmt::Echo(EchoStmt {
+                exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                    name: "sha1".to_string(),
+                    args: vec![
+                        Expr::String(StringLiteral {
+                            value: "Echo".to_string(),
+                            span: Span::new(17, 23),
+                        }),
+                        Expr::Bool(BoolLiteral {
+                            value: true,
+                            span: Span::new(25, 29),
+                        }),
+                    ],
+                    span: Span::new(12, 30),
+                })],
+                span: Span::new(12, 31),
+            }),
+        ]))
+        .expect("IR");
+
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_md5(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("declare %EchoValue @echo_php_sha1(%EchoValue, %EchoValue)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains(
+                "call %EchoValue @echo_php_md5(%EchoValue %runtime_call_0, %EchoValue { i32 1, i64 0 })"
+            ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains(
+                "call %EchoValue @echo_php_sha1(%EchoValue %runtime_call_2, %EchoValue { i32 1, i64 1 })"
+            ),
+            "{ir}"
+        );
+    }
+
+    #[test]
     fn getcwd_lowers_to_php_builtin_with_no_arguments() {
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
@@ -4538,6 +4644,7 @@ mod tests {
             ("decbin", "echo_php_decbin"),
             ("dechex", "echo_php_dechex"),
             ("decoct", "echo_php_decoct"),
+            ("crc32", "echo_php_crc32"),
             ("bindec", "echo_php_bindec"),
             ("hexdec", "echo_php_hexdec"),
             ("octdec", "echo_php_octdec"),

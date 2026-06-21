@@ -320,6 +320,7 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("decbin", &[("num", Some("int"))], Some("string")),
         php_builtin_reflection("dechex", &[("num", Some("int"))], Some("string")),
         php_builtin_reflection("decoct", &[("num", Some("int"))], Some("string")),
+        php_builtin_reflection("crc32", &[("string", Some("string"))], Some("int")),
         php_builtin_reflection(
             "bindec",
             &[("binary_string", Some("string"))],
@@ -380,6 +381,16 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("floatval", &[("value", Some("mixed"))], Some("float")),
         php_builtin_reflection("doubleval", &[("value", Some("mixed"))], Some("float")),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "md5",
+            &[("string", Some("string")), ("binary", Some("bool"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
+            "sha1",
+            &[("string", Some("string")), ("binary", Some("bool"))],
+            Some("string"),
+        ),
         php_builtin_reflection(
             "base64_encode",
             &[("string", Some("string"))],

@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 161 | 446 |
-| Loaded local PHP internals, including extensions | 1516 | 161 | 1355 |
+| Baseline (`Core` + `standard`) | 607 | 164 | 443 |
+| Loaded local PHP internals, including extensions | 1516 | 164 | 1352 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (136/545)
+### standard (139/542)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -227,7 +227,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `cosh` | implemented | Returns hyperbolic cosine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.cosh.php |
 | `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
 | `count_chars` | missing |  |
-| `crc32` | missing |  |
+| `crc32` | implemented | Calculates a CRC32 checksum over the string bytes and returns the positive integer result used by 64-bit PHP. Source: https://www.php.net/manual/en/function.crc32.php |
 | `crypt` | missing |  |
 | `current` | missing |  |
 | `debug_zval_dump` | missing |  |
@@ -417,7 +417,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ltrim` | implemented |  |
 | `mail` | missing |  |
 | `max` | missing |  |
-| `md5` | missing |  |
+| `md5` | implemented | Returns a lowercase 32-character MD5 digest by default and raw 16-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.md5.php |
 | `md5_file` | missing |  |
 | `memory_get_peak_usage` | missing |  |
 | `memory_get_usage` | missing |  |
@@ -522,7 +522,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `setlocale` | missing |  |
 | `setrawcookie` | missing |  |
 | `settype` | missing |  |
-| `sha1` | missing |  |
+| `sha1` | implemented | Returns a lowercase 40-character SHA-1 digest by default and raw 20-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.sha1.php |
 | `sha1_file` | missing |  |
 | `shell_exec` | missing |  |
 | `show_source` | missing |  |
