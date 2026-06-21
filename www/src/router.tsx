@@ -1123,15 +1123,15 @@ function SiteFooter() {
         >
           <defs>
             <pattern
-              height="18"
+              height="14"
               id="footer-echo-pixels"
               patternUnits="userSpaceOnUse"
-              width="18"
+              width="14"
             >
               <rect
                 fill="url(#footer-echo-fade)"
-                height="14"
-                width="14"
+                height="11"
+                width="11"
                 x="0"
                 y="0"
               />
@@ -1157,19 +1157,33 @@ function SiteFooter() {
               y1="0"
               y2="300"
             >
-              <stop offset="0" stopColor="white" stopOpacity="0.18" />
-              <stop offset="0.55" stopColor="white" stopOpacity="0.82" />
-              <stop offset="1" stopColor="white" stopOpacity="1" />
+              <stop offset="0" stopColor="white" stopOpacity="0.08" />
+              <stop offset="0.48" stopColor="white" stopOpacity="0.72" />
+              <stop offset="0.9" stopColor="white" stopOpacity="0.82" />
+              <stop offset="1" stopColor="white" stopOpacity="0.46" />
             </linearGradient>
+            <mask id="footer-echo-solid-mask">
+              <text
+                fill="url(#footer-echo-fade)"
+                fontFamily="Inter, system-ui, sans-serif"
+                fontSize="290"
+                fontWeight="650"
+                letterSpacing="-2"
+                x="0"
+                y="275"
+              >
+                Echo
+              </text>
+            </mask>
             <mask id="footer-echo-text-mask">
               <text
                 fill="url(#footer-echo-pixels)"
                 fontFamily="Inter, system-ui, sans-serif"
                 fontSize="290"
                 fontWeight="650"
-                letterSpacing="-6"
+                letterSpacing="-2"
                 x="0"
-                y="287"
+                y="275"
               >
                 Echo
               </text>
@@ -1178,7 +1192,17 @@ function SiteFooter() {
           <rect
             fill="url(#footer-echo-gradient)"
             height="300"
+            mask="url(#footer-echo-solid-mask)"
+            opacity="0.12"
+            width="980"
+            x="0"
+            y="0"
+          />
+          <rect
+            fill="url(#footer-echo-gradient)"
+            height="300"
             mask="url(#footer-echo-text-mask)"
+            opacity="0.65"
             width="980"
             x="0"
             y="0"
