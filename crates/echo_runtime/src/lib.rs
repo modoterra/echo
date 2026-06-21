@@ -2270,6 +2270,38 @@ pub extern "C" fn echo_php_atan2(y: EchoValue, x: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ceil(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_ceil(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_floor(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_floor(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sqrt(value: EchoValue) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(echo_math_sqrt(value)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_hypot(x: EchoValue, y: EchoValue) -> EchoValue {
+    match (php_float_coercion(x), php_float_coercion(y)) {
+        (Some(x), Some(y)) => EchoValue::float(echo_math_sqrt(x * x + y * y)),
+        _ => EchoValue::error(),
+    }
+}
+
 fn echo_math_sin(value: f64) -> f64 {
     if !value.is_finite() {
         return f64::NAN;
@@ -2371,6 +2403,34 @@ fn echo_math_sqrt(value: f64) -> f64 {
         estimate = 0.5 * (estimate + value / estimate);
     }
     estimate
+}
+
+fn echo_math_floor(value: f64) -> f64 {
+    if !value.is_finite() || value.abs() >= i64::MAX as f64 {
+        return value;
+    }
+
+    let truncated = value as i64 as f64;
+    if value < truncated {
+        truncated - 1.0
+    } else {
+        truncated
+    }
+}
+
+fn echo_math_ceil(value: f64) -> f64 {
+    if !value.is_finite() || value.abs() >= i64::MAX as f64 {
+        return value;
+    }
+
+    let truncated = value as i64 as f64;
+    if value < 0.0 && truncated == 0.0 {
+        -0.0
+    } else if value > truncated {
+        truncated + 1.0
+    } else {
+        truncated
+    }
 }
 
 fn reduce_to_half_pi(value: f64) -> (f64, f64) {
@@ -5791,6 +5851,27 @@ mod tests {
         assert_float_value(echo_php_sin(test_string_value(b"0.5")), 0.479425538604203);
         assert_float_value(echo_php_cos(EchoValue::bool(true)), 0.5403023058681398);
         assert!(f64::from_bits(echo_php_acos(EchoValue::int(2)).payload).is_nan());
+    }
+
+    #[test]
+    fn rounding_and_magnitude_builtins_preserve_php_float_behavior() {
+        assert_float_value(echo_php_ceil(EchoValue::float(4.3)), 5.0);
+        assert_float_value(echo_php_floor(EchoValue::float(9.999)), 9.0);
+        assert_float_value(echo_php_floor(EchoValue::float(-3.14)), -4.0);
+        assert_eq!(
+            f64::from_bits(echo_php_ceil(EchoValue::float(-0.1)).payload).to_bits(),
+            (-0.0f64).to_bits()
+        );
+        assert_float_value(echo_php_ceil(test_string_value(b"12.2")), 13.0);
+        assert_float_value(echo_php_floor(EchoValue::bool(true)), 1.0);
+        assert_float_value(echo_php_sqrt(EchoValue::int(9)), 3.0);
+        assert_float_value(echo_php_sqrt(EchoValue::float(10.0)), 3.162277660168379);
+        assert!(f64::from_bits(echo_php_sqrt(EchoValue::int(-1)).payload).is_nan());
+        assert_float_value(echo_php_hypot(EchoValue::int(3), EchoValue::int(4)), 5.0);
+        assert_float_value(
+            echo_php_hypot(test_string_value(b"5"), test_string_value(b"12")),
+            13.0,
+        );
     }
 
     #[test]

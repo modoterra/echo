@@ -214,6 +214,14 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             &[("y", Some("float")), ("x", Some("float"))],
             Some("float"),
         ),
+        php_builtin_reflection("ceil", &[("num", Some("int|float"))], Some("float")),
+        php_builtin_reflection("floor", &[("num", Some("int|float"))], Some("float")),
+        php_builtin_reflection("sqrt", &[("num", Some("float"))], Some("float")),
+        php_builtin_reflection(
+            "hypot",
+            &[("x", Some("float")), ("y", Some("float"))],
+            Some("float"),
+        ),
         php_builtin_reflection("bin2hex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "base64_encode",

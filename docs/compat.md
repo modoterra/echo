@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 113 | 494 |
-| Loaded local PHP internals, including extensions | 1516 | 113 | 1403 |
+| Baseline (`Core` + `standard`) | 607 | 117 | 490 |
+| Loaded local PHP internals, including extensions | 1516 | 117 | 1399 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (101/545)
+### standard (105/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -201,7 +201,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `boolval` | implemented |  |
 | `call_user_func` | missing |  |
 | `call_user_func_array` | missing |  |
-| `ceil` | missing |  |
+| `ceil` | implemented | Rounds numeric values up while returning a float, including PHP-compatible scalar coercion and negative zero behavior. Source: https://www.php.net/manual/en/function.ceil.php |
 | `chdir` | missing |  |
 | `checkdnsrr` | missing |  |
 | `chgrp` | missing |  |
@@ -279,7 +279,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `filetype` | missing |  |
 | `floatval` | missing |  |
 | `flock` | missing |  |
-| `floor` | missing |  |
+| `floor` | implemented | Rounds numeric values down while returning a float, using PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.floor.php |
 | `flush` | missing |  |
 | `fmod` | missing |  |
 | `fnmatch` | missing |  |
@@ -351,7 +351,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `http_clear_last_response_headers` | missing |  |
 | `http_get_last_response_headers` | missing |  |
 | `http_response_code` | missing |  |
-| `hypot` | missing |  |
+| `hypot` | implemented | Returns the Euclidean distance for two numeric values using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.hypot.php |
 | `ignore_user_abort` | missing |  |
 | `image_type_to_extension` | missing |  |
 | `image_type_to_mime_type` | missing |  |
@@ -538,7 +538,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `sort` | missing |  |
 | `soundex` | missing |  |
 | `sprintf` | missing |  |
-| `sqrt` | missing |  |
+| `sqrt` | implemented | Returns a square root as float and `NAN` for negative inputs using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sqrt.php |
 | `sscanf` | missing |  |
 | `stat` | missing |  |
 | `str_contains` | implemented |  |

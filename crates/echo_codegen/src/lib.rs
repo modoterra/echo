@@ -851,6 +851,32 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_ceil",
+            echo_runtime::echo_php_ceil
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_floor",
+            echo_runtime::echo_php_floor
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_sqrt",
+            echo_runtime::echo_php_sqrt
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_hypot",
+            echo_runtime::echo_php_hypot
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_bin2hex",
             echo_runtime::echo_php_bin2hex
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -3828,6 +3854,9 @@ mod tests {
             ("asin", "echo_php_asin"),
             ("acos", "echo_php_acos"),
             ("atan", "echo_php_atan"),
+            ("ceil", "echo_php_ceil"),
+            ("floor", "echo_php_floor"),
+            ("sqrt", "echo_php_sqrt"),
             ("bin2hex", "echo_php_bin2hex"),
             ("base64_encode", "echo_php_base64_encode"),
             ("base64_decode", "echo_php_base64_decode"),
@@ -3908,6 +3937,7 @@ mod tests {
             ("strcmp", "echo_php_strcmp"),
             ("strcasecmp", "echo_php_strcasecmp"),
             ("atan2", "echo_php_atan2"),
+            ("hypot", "echo_php_hypot"),
         ] {
             let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
                 exprs: vec![Expr::FunctionCall(FunctionCallExpr {

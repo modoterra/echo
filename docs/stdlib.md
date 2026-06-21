@@ -257,6 +257,7 @@ Examples:
 - `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
+- `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
 - `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
@@ -327,6 +328,22 @@ echo "bearing:" . $bearing . "\n"
 ```
 
 Use `sin()`, `cos()`, and `tan()` for forward calculations from an angle in radians, such as deriving vector components or slopes for movement, layout, or mapping code. Use `asin()`, `acos()`, `atan()`, and `atan2()` when measured ratios or coordinates need to become an angle again; `atan2()` is preferable for coordinates because it uses both signs to preserve the quadrant.
+
+Rounding and magnitude helpers turn fractional measurements into the counts or distances an application actually needs:
+
+```php
+let $tile_size = 32
+let $width = 257
+let $height = 143
+let $columns = ceil($width / $tile_size)
+let $rows = ceil($height / $tile_size)
+let $diagonal = intval(hypot($width, $height))
+
+echo "tiles:" . $columns . "x" . $rows . "\n"
+echo "diagonal:" . $diagonal . "\n"
+```
+
+Use `ceil()` when a partial unit still needs a whole allocation, such as enough tiles, pages, or batches to cover all input. Use `floor()` when extra fractional capacity should be ignored, and use `sqrt()` or `hypot()` for geometry, distance checks, and vector lengths without open-coding the square-root calculation.
 
 Base conversion helpers are useful when importing identifiers, permissions, or protocol fields that arrive as text in a fixed base:
 
