@@ -3224,7 +3224,7 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.net", "networking", "tcp server", "tcp connection"],
     sections: [
       {
-        title: "std.net",
+        title: "listen, connect, read, write",
         tags: ["tcp", "network", "listen", "connect"],
         aliases: ["networking", "tcp server", "tcp connection"],
         blocks: [
@@ -3260,7 +3260,7 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.http", "http response", "http request"],
     sections: [
       {
-        title: "std.http",
+        title: "responseText",
         tags: ["http", "response", "request"],
         aliases: ["http response", "http request"],
         blocks: [
@@ -3300,7 +3300,7 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.time", "sleep", "delay", "timer"],
     sections: [
       {
-        title: "std.time",
+        title: "sleep",
         tags: ["sleep", "time", "scheduling"],
         aliases: ["sleep", "delay", "timer"],
         blocks: [
@@ -3336,7 +3336,7 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.reflect", "introspection", "function metadata"],
     sections: [
       {
-        title: "std.reflect",
+        title: "exists, params, returnType, typeOf",
         tags: ["reflection", "type", "metadata"],
         aliases: ["introspection", "function metadata"],
         blocks: [
@@ -3372,7 +3372,7 @@ export const docsPages: DocsPage[] = [
     aliases: ["std.assert", "assertions", "test helpers"],
     sections: [
       {
-        title: "std.assert",
+        title: "ok and equals",
         tags: ["assert", "testing", "validation"],
         aliases: ["assertions", "test helpers"],
         blocks: [
