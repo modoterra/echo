@@ -564,6 +564,33 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_array_values",
+            echo_runtime::echo_php_array_values
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_array_keys",
+            echo_runtime::echo_php_array_keys
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_array_sum",
+            echo_runtime::echo_php_array_sum
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_array_product",
+            echo_runtime::echo_php_array_product
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_function_exists",
             echo_runtime::echo_php_function_exists
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -2375,7 +2402,8 @@ impl IrModule {
                     builtin.symbol
                 ));
             }
-            BuiltinCodegen::Basename
+            BuiltinCodegen::ArrayKeys
+            | BuiltinCodegen::Basename
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::ChunkSplit
             | BuiltinCodegen::Implode
@@ -3239,6 +3267,37 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({left}, {right})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ArrayKeys => {
+                if !(1..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let array = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let filter_value = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 6, i64 0 }".to_string(),
+                };
+                let strict = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({array}, {filter_value}, {strict})\n",
                     builtin.symbol
                 ));
 
@@ -4550,6 +4609,43 @@ mod tests {
                 && ir.contains(", i64 0)")
         );
         assert!(ir.contains("call %EchoValue @echo_php_implode("), "{ir}");
+    }
+
+    #[test]
+    fn array_keys_lowers_optional_filter_and_strict_defaults() {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_keys".to_string(),
+                args: vec![Expr::Array(ArrayExpr {
+                    elements: vec![ArrayElement {
+                        key: Some(Expr::String(StringLiteral {
+                            value: "id".to_string(),
+                            span: Span::new(12, 16),
+                        })),
+                        value: Expr::Number(NumberLiteral {
+                            value: "10".to_string(),
+                            span: Span::new(20, 22),
+                        }),
+                        span: Span::new(12, 22),
+                    }],
+                    span: Span::new(11, 23),
+                })],
+                span: Span::new(0, 24),
+            })],
+            span: Span::new(0, 25),
+        })]))
+        .expect("IR");
+
+        assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_keys(%EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+        assert!(
+            ir.contains("%EchoValue { i32 6, i64 0 }, %EchoValue { i32 1, i64 0 })"),
+            "{ir}"
+        );
     }
 
     #[test]

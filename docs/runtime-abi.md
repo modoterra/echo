@@ -201,6 +201,10 @@ stays centralized in the runtime value layer:
 ```llvm
 declare %EchoValue @echo_php_strlen(%EchoValue)
 declare %EchoValue @echo_php_count(%EchoValue)
+declare %EchoValue @echo_php_array_values(%EchoValue)
+declare %EchoValue @echo_php_array_keys(%EchoValue, %EchoValue, %EchoValue)
+declare %EchoValue @echo_php_array_sum(%EchoValue)
+declare %EchoValue @echo_php_array_product(%EchoValue)
 declare %EchoValue @echo_php_function_exists(%EchoValue)
 declare %EchoValue @echo_php_gettype(%EchoValue)
 declare %EchoValue @echo_php_is_array(%EchoValue)

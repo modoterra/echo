@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 140 | 467 |
-| Loaded local PHP internals, including extensions | 1516 | 140 | 1376 |
+| Baseline (`Core` + `standard`) | 607 | 144 | 463 |
+| Loaded local PHP internals, including extensions | 1516 | 144 | 1372 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (115/545)
+### standard (119/545)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -152,7 +152,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_key_exists` | missing |  |
 | `array_key_first` | missing |  |
 | `array_key_last` | missing |  |
-| `array_keys` | missing |  |
+| `array_keys` | implemented | Returns numeric and string keys, with optional loose or strict value filtering. Source: https://www.php.net/manual/en/function.array-keys.php |
 | `array_last` | missing |  |
 | `array_map` | missing |  |
 | `array_merge` | missing |  |
@@ -160,7 +160,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_multisort` | missing |  |
 | `array_pad` | missing |  |
 | `array_pop` | missing |  |
-| `array_product` | missing |  |
+| `array_product` | implemented | Multiplies array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `1`. Source: https://www.php.net/manual/en/function.array-product.php |
 | `array_push` | missing |  |
 | `array_rand` | missing |  |
 | `array_reduce` | missing |  |
@@ -171,7 +171,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_shift` | missing |  |
 | `array_slice` | missing |  |
 | `array_splice` | missing |  |
-| `array_sum` | missing |  |
+| `array_sum` | implemented | Sums array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `0`. Source: https://www.php.net/manual/en/function.array-sum.php |
 | `array_udiff` | missing |  |
 | `array_udiff_assoc` | missing |  |
 | `array_udiff_uassoc` | missing |  |
@@ -180,7 +180,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_uintersect_uassoc` | missing |  |
 | `array_unique` | missing |  |
 | `array_unshift` | missing |  |
-| `array_values` | missing |  |
+| `array_values` | implemented | Returns values in insertion order and reindexes the result numerically. Source: https://www.php.net/manual/en/function.array-values.php |
 | `array_walk` | missing |  |
 | `array_walk_recursive` | missing |  |
 | `arsort` | missing |  |

@@ -136,6 +136,22 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("count", &[("value", Some("Countable|array"))], Some("int")),
         php_builtin_reflection("sizeof", &[("value", Some("Countable|array"))], Some("int")),
+        php_builtin_reflection("array_values", &[("array", Some("array"))], Some("array")),
+        php_builtin_reflection(
+            "array_keys",
+            &[
+                ("array", Some("array")),
+                ("filter_value", Some("mixed")),
+                ("strict", Some("bool")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection("array_sum", &[("array", Some("array"))], Some("int|float")),
+        php_builtin_reflection(
+            "array_product",
+            &[("array", Some("array"))],
+            Some("int|float"),
+        ),
         php_builtin_reflection(
             "function_exists",
             &[("function", Some("string"))],

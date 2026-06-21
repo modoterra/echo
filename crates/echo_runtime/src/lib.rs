@@ -130,6 +130,13 @@ impl EchoArrayKey {
             _ => None,
         }
     }
+
+    fn to_value(&self) -> EchoValue {
+        match self {
+            Self::Int(value) => EchoValue::int(*value),
+            Self::String(bytes) => echo_runtime_string(bytes.clone()),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1659,6 +1666,97 @@ pub extern "C" fn echo_php_count(value: EchoValue) -> EchoValue {
     }
 
     EchoValue::error()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_values(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        array.values.clone(),
+    ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_keys(
+    array: EchoValue,
+    filter_value: EchoValue,
+    strict: EchoValue,
+) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let strict = strict.bool_value().unwrap_or(false);
+    let has_filter = filter_value.kind != ECHO_VALUE_PENDING;
+
+    let mut keys = Vec::new();
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        if has_filter {
+            let matches = if strict {
+                echo_values_equal(*value, filter_value)
+            } else {
+                php_values_equal(*value, filter_value)
+            };
+            if !matches {
+                continue;
+            }
+        }
+        keys.push(key.to_value());
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(keys))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_sum(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut total = PhpNumber::Int(0);
+    for value in &array.values {
+        total = php_number_add(
+            total,
+            PhpNumber::coerce(*value).unwrap_or(PhpNumber::Int(0)),
+        );
+    }
+
+    total.into_echo_value()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_product(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut product = PhpNumber::Int(1);
+    for value in &array.values {
+        product = php_number_mul(
+            product,
+            PhpNumber::coerce(*value).unwrap_or(PhpNumber::Int(0)),
+        );
+    }
+
+    product.into_echo_value()
 }
 
 #[unsafe(no_mangle)]
@@ -3781,6 +3879,33 @@ impl PhpNumber {
             Self::Float(value) => value,
         }
     }
+
+    fn into_echo_value(self) -> EchoValue {
+        match self {
+            Self::Int(value) => EchoValue::int(value),
+            Self::Float(value) => EchoValue::float(value),
+        }
+    }
+}
+
+fn php_number_add(left: PhpNumber, right: PhpNumber) -> PhpNumber {
+    match (left, right) {
+        (PhpNumber::Int(left), PhpNumber::Int(right)) => left
+            .checked_add(right)
+            .map(PhpNumber::Int)
+            .unwrap_or_else(|| PhpNumber::Float(left as f64 + right as f64)),
+        _ => PhpNumber::Float(left.as_float() + right.as_float()),
+    }
+}
+
+fn php_number_mul(left: PhpNumber, right: PhpNumber) -> PhpNumber {
+    match (left, right) {
+        (PhpNumber::Int(left), PhpNumber::Int(right)) => left
+            .checked_mul(right)
+            .map(PhpNumber::Int)
+            .unwrap_or_else(|| PhpNumber::Float(left as f64 * right as f64)),
+        _ => PhpNumber::Float(left.as_float() * right.as_float()),
+    }
 }
 
 fn php_numeric_binary(
@@ -4893,6 +5018,17 @@ fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
     }
 }
 
+fn php_values_equal(left: EchoValue, right: EchoValue) -> bool {
+    if let (Some(left), Some(right)) = (PhpNumber::coerce(left), PhpNumber::coerce(right)) {
+        return left.as_float() == right.as_float();
+    }
+
+    match (left.string_bytes(), right.string_bytes()) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
+}
+
 fn echo_arrays_equal(left: EchoValue, right: EchoValue) -> bool {
     let Some(left) = (unsafe { (left.payload as *const EchoArray).as_ref() }) else {
         return false;
@@ -5056,6 +5192,59 @@ mod tests {
         assert_eq!(array.keys.len(), 2);
         assert_eq!(array.values, vec![EchoValue::int(1), EchoValue::int(3)]);
         assert_eq!(echo_php_array_is_list(result), EchoValue::bool(false));
+    }
+
+    #[test]
+    fn array_key_value_and_aggregate_builtins_preserve_php_array_behavior() {
+        let id = test_string_value(b"id");
+        let qty = test_string_value(b"qty");
+        let string_two = test_string_value(b"2");
+        let mut array = echo_value_array_new();
+        array = echo_value_array_set(array, id, EchoValue::int(10));
+        array = echo_value_array_set(array, qty, string_two);
+        array = echo_value_array_set(array, EchoValue::int(5), EchoValue::int(2));
+
+        let values = echo_php_array_values(array);
+        let values_ref = unsafe { (values.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(
+            values_ref.keys,
+            vec![
+                EchoArrayKey::Int(0),
+                EchoArrayKey::Int(1),
+                EchoArrayKey::Int(2)
+            ]
+        );
+        assert_eq!(
+            values_ref.values,
+            vec![EchoValue::int(10), string_two, EchoValue::int(2)]
+        );
+
+        let keys = echo_php_array_keys(array, EchoValue::pending(), EchoValue::bool(false));
+        let keys_ref = unsafe { (keys.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(keys_ref.values[0].string_bytes(), Some(b"id".to_vec()));
+        assert_eq!(keys_ref.values[1].string_bytes(), Some(b"qty".to_vec()));
+        assert_eq!(keys_ref.values[2], EchoValue::int(5));
+
+        let loose = echo_php_array_keys(array, EchoValue::int(2), EchoValue::bool(false));
+        let loose_ref = unsafe { (loose.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(loose_ref.values.len(), 2);
+        assert_eq!(loose_ref.values[0].string_bytes(), Some(b"qty".to_vec()));
+        assert_eq!(loose_ref.values[1], EchoValue::int(5));
+
+        let strict = echo_php_array_keys(array, EchoValue::int(2), EchoValue::bool(true));
+        let strict_ref = unsafe { (strict.payload as *const EchoArray).as_ref() }.expect("array");
+        assert_eq!(strict_ref.values, vec![EchoValue::int(5)]);
+
+        assert_eq!(echo_php_array_sum(array), EchoValue::int(14));
+        assert_eq!(echo_php_array_product(array), EchoValue::int(40));
+        assert_eq!(
+            echo_php_array_sum(echo_value_array_new()),
+            EchoValue::int(0)
+        );
+        assert_eq!(
+            echo_php_array_product(echo_value_array_new()),
+            EchoValue::int(1)
+        );
     }
 
     #[test]
