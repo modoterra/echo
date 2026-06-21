@@ -125,6 +125,11 @@ const docsSearchLexicalCandidateLimit = 24;
 const docsSearchSemanticCandidateLimit = 24;
 const docsSearchLexicalWeight = 0.6;
 const docsSearchSemanticWeight = 0.4;
+const docsSearchIndexPath = "/indices/search.json";
+const docsSemanticIndexPath = "/indices/semantic.json";
+
+let docsSearchAssetPromise: Promise<DocsSearchAsset> | null = null;
+let docsSemanticAssetPromise: Promise<DocsSemanticAsset> | null = null;
 
 function mergeHybridSearchResults({
   lexicalResults,
@@ -197,7 +202,7 @@ function DocsSearch() {
   );
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
   const [isLoadingIndex, setIsLoadingIndex] = useState(false);
-  const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const [isSemanticModelReady, setIsSemanticModelReady] = useState(false);
   const [semanticUnavailable, setSemanticUnavailable] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const miniSearch = useMemo(
@@ -244,14 +249,7 @@ function DocsSearch() {
     let active = true;
     setIsLoadingIndex(true);
 
-    void fetch("/docs-search-index.json")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Search index failed to load: ${response.status}`);
-        }
-
-        return response.json() as Promise<DocsSearchAsset>;
-      })
+    void loadDocsSearchAsset()
       .then((loadedAsset) => {
         if (active) {
           setAsset(loadedAsset);
@@ -281,22 +279,13 @@ function DocsSearch() {
   }, [query]);
 
   useEffect(() => {
-    if (!isOpen || semanticAsset || semanticUnavailable || isLoadingModel) {
+    if (!isOpen || semanticAsset || semanticUnavailable) {
       return;
     }
 
     let active = true;
 
-    void fetch("/docs-semantic-index.json")
-      .then((response) => {
-        const contentType = response.headers.get("Content-Type") ?? "";
-
-        if (!response.ok || !contentType.includes("application/json")) {
-          throw new Error("Semantic index is not available");
-        }
-
-        return response.json() as Promise<DocsSemanticAsset>;
-      })
+    void loadDocsSemanticAsset()
       .then((loadedSemanticAsset) => {
         if (active) {
           setSemanticAsset(loadedSemanticAsset);
@@ -311,7 +300,31 @@ function DocsSearch() {
     return () => {
       active = false;
     };
-  }, [isLoadingModel, isOpen, semanticAsset, semanticUnavailable]);
+  }, [isOpen, semanticAsset, semanticUnavailable]);
+
+  useEffect(() => {
+    if (!isOpen || !semanticAsset || isSemanticModelReady || semanticUnavailable) {
+      return;
+    }
+
+    let active = true;
+
+    void preloadSearchEmbedder()
+      .then(() => {
+        if (active) {
+          setIsSemanticModelReady(true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSemanticUnavailable(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isSemanticModelReady, semanticAsset, semanticUnavailable]);
 
   useEffect(() => {
     const trimmedQuery = query.trim();
@@ -322,17 +335,11 @@ function DocsSearch() {
     }
 
     let active = true;
-    setIsLoadingModel(true);
 
     void embedSearchQuery(trimmedQuery)
       .then((embedding) => {
         if (active) {
           setQueryEmbedding(embedding);
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setIsLoadingModel(false);
         }
       });
 
@@ -408,7 +415,7 @@ function DocsSearch() {
     setIsOpen(false);
   }
 
-  const isSemanticReady = Boolean(semanticAsset) && !isLoadingModel;
+  const isSemanticReady = Boolean(semanticAsset) && isSemanticModelReady;
 
   return (
     <>
@@ -571,6 +578,31 @@ function SearchResultIcon({ kind }: { kind: DocsSearchResult["kind"] }) {
   return <RiFileTextLine size={20} />;
 }
 
+function loadDocsSearchAsset() {
+  docsSearchAssetPromise ??=
+    fetchDocsIndex<DocsSearchAsset>(docsSearchIndexPath);
+
+  return docsSearchAssetPromise;
+}
+
+function loadDocsSemanticAsset() {
+  docsSemanticAssetPromise ??=
+    fetchDocsIndex<DocsSemanticAsset>(docsSemanticIndexPath);
+
+  return docsSemanticAssetPromise;
+}
+
+async function fetchDocsIndex<T>(path: string) {
+  const response = await fetch(path, { cache: "force-cache" });
+  const contentType = response.headers.get("Content-Type") ?? "";
+
+  if (!response.ok || !contentType.includes("application/json")) {
+    throw new Error(`Docs index is not available: ${path}`);
+  }
+
+  return (await response.json()) as T;
+}
+
 let queryEmbedderPromise: Promise<{
   (
     query: string,
@@ -580,7 +612,7 @@ let queryEmbedderPromise: Promise<{
   }>;
 }> | null = null;
 
-async function embedSearchQuery(query: string) {
+function preloadSearchEmbedder() {
   queryEmbedderPromise ??= import("@huggingface/transformers").then(
     async ({ env, pipeline }) => {
       env.localModelPath = "/models/";
@@ -600,7 +632,11 @@ async function embedSearchQuery(query: string) {
     },
   );
 
-  const embedder = await queryEmbedderPromise;
+  return queryEmbedderPromise;
+}
+
+async function embedSearchQuery(query: string) {
+  const embedder = await preloadSearchEmbedder();
   const output = await embedder(query, { pooling: "mean", normalize: true });
 
   return Array.from(output.data);
@@ -958,7 +994,10 @@ function DocsLayout() {
 
     setActiveHeading(heading);
     window.history.pushState(null, "", `#${id}`);
-    element.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollTo({
+      behavior: "smooth",
+      top: element.getBoundingClientRect().top + window.scrollY - 112,
+    });
   }
 
   return (
@@ -1011,7 +1050,7 @@ function DocsLayout() {
               <motion.span
                 aria-hidden="true"
                 animate={{ y: onThisPageTrainY }}
-                className="absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full bg-orange-400"
+                className="docs-on-this-page-train absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full bg-orange-400"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               />
               <ul className="docs-on-this-page-links space-y-3">
@@ -1123,7 +1162,7 @@ function PhpBuiltinsPage() {
         {builtinFamilies.map((family) => (
           <section
             key={family.slug}
-            className="border-t border-slate-200 pt-6"
+            className="scroll-mt-28 border-t border-slate-200 pt-6"
             id={headingId(family.title)}
           >
             <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
@@ -1172,7 +1211,7 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
   return (
     <section className="py-8">
       <h2
-        className="font-mono text-2xl font-semibold text-slate-950"
+        className="scroll-mt-28 font-mono text-2xl font-semibold text-slate-950"
         id={headingId(builtin.name)}
       >
         {builtin.name}

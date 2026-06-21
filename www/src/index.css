@@ -183,6 +183,11 @@
     contain: layout;
 }
 
+.docs-on-this-page-train {
+    view-transition-name: docs-on-this-page-train;
+    contain: layout;
+}
+
 :root:active-view-transition-type(route-transition)::view-transition-old(root),
 :root:active-view-transition-type(route-transition)::view-transition-new(root) {
     animation: none;
@@ -231,6 +236,7 @@
 }
 
 html {
+    scroll-behavior: smooth;
     scrollbar-width: thin;
     scrollbar-color: --alpha(var(--color-slate-500) / 45%) white;
     scrollbar-gutter: stable both-edges;

@@ -1,14 +1,16 @@
+import { createHash } from "node:crypto";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import {
   buildDocsSearchAsset,
   buildDocsSearchRecords,
+  type DocsSearchAsset,
   type DocsSemanticAsset,
 } from "./src/docs/search";
 
-const docsSearchIndexFileName = "docs-search-index.json";
-const docsSemanticIndexFileName = "docs-semantic-index.json";
+const docsSearchIndexFileName = "indices/search.json";
+const docsSemanticIndexFileName = "indices/semantic.json";
 const shouldBuildSemanticIndex = process.env.DOCS_EMBEDDINGS === "true";
 
 function docsSearchIndexPlugin(): Plugin {
@@ -20,7 +22,7 @@ function docsSearchIndexPlugin(): Plugin {
       server.middlewares.use(async (request, response, next) => {
         if (request.url === `/${docsSearchIndexFileName}`) {
           response.setHeader("Content-Type", "application/json");
-          response.end(JSON.stringify(buildDocsSearchAsset()));
+          response.end(JSON.stringify(buildChecksummedDocsSearchAsset()));
           return;
         }
 
@@ -52,7 +54,7 @@ function docsSearchIndexPlugin(): Plugin {
       this.emitFile({
         type: "asset",
         fileName: docsSearchIndexFileName,
-        source: JSON.stringify(buildDocsSearchAsset()),
+        source: JSON.stringify(buildChecksummedDocsSearchAsset()),
       });
 
       if (shouldBuildSemanticIndex) {
@@ -64,6 +66,10 @@ function docsSearchIndexPlugin(): Plugin {
       }
     },
   };
+}
+
+function buildChecksummedDocsSearchAsset(): DocsSearchAsset {
+  return withChecksum(buildDocsSearchAsset());
 }
 
 async function buildDocsSemanticAsset(): Promise<DocsSemanticAsset> {
@@ -103,11 +109,28 @@ async function buildDocsSemanticAsset(): Promise<DocsSemanticAsset> {
     });
   }
 
-  return {
+  return withChecksum({
     dimensions: 384,
     model: "xmlml6v2",
     records,
+  });
+}
+
+function withChecksum<T extends object>(asset: T): T & { checksum: string } {
+  return {
+    ...asset,
+    checksum: checksumAsset(asset),
   };
+}
+
+function checksumAsset(asset: object) {
+  const assetWithoutChecksum: Record<string, unknown> = { ...asset };
+  delete assetWithoutChecksum.checksum;
+
+  return createHash("sha256")
+    .update(JSON.stringify(assetWithoutChecksum))
+    .digest("hex")
+    .slice(0, 16);
 }
 
 // https://vite.dev/config/

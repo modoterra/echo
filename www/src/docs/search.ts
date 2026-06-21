@@ -29,6 +29,7 @@ export type DocsSearchRecord = {
 };
 
 export type DocsSearchAsset = {
+  checksum: string;
   records: DocsSearchRecord[];
   miniSearchIndex: ReturnType<MiniSearch<DocsSearchRecord>["toJSON"]>;
 };
@@ -39,6 +40,7 @@ export type DocsSemanticRecord = {
 };
 
 export type DocsSemanticAsset = {
+  checksum: string;
   model: "xmlml6v2";
   dimensions: 384;
   records: DocsSemanticRecord[];
@@ -72,6 +74,7 @@ export function buildDocsSearchAsset(): DocsSearchAsset {
   miniSearch.addAll(records);
 
   return {
+    checksum: "",
     records,
     miniSearchIndex: miniSearch.toJSON(),
   };
