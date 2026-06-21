@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 200 | 407 |
-| Loaded local PHP internals, including extensions | 1516 | 200 | 1316 |
+| Baseline (`Core` + `standard`) | 607 | 205 | 402 |
+| Loaded local PHP internals, including extensions | 1516 | 205 | 1311 |
 
 ## Baseline Functions
 
@@ -105,9 +105,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `restore_exception_handler` | missing |  |
 | `set_error_handler` | missing |  |
 | `set_exception_handler` | missing |  |
-| `strcasecmp` | implemented |  |
-| `strcmp` | implemented |  |
-| `strlen` | implemented |  |
+| `strcasecmp` | implemented | Performs binary-safe ASCII case-insensitive string comparison and returns the PHP-style ordering sign. Source: https://www.php.net/manual/en/function.strcasecmp.php |
+| `strcmp` | implemented | Performs binary-safe string comparison and returns the PHP-style ordering sign. Source: https://www.php.net/manual/en/function.strcmp.php |
+| `strlen` | implemented | Returns byte length for strings, matching PHP's byte-oriented string model rather than character count. Source: https://www.php.net/manual/en/function.strlen.php |
 | `strncasecmp` | implemented | Source: https://www.php.net/manual/en/function.strncasecmp.php |
 | `strncmp` | implemented | Source: https://www.php.net/manual/en/function.strncmp.php |
 | `trait_exists` | missing |  |
@@ -123,7 +123,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `acos` | implemented | Returns the arc cosine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.acos.php |
 | `acosh` | implemented | Returns inverse hyperbolic cosine as a float with PHP-compatible numeric coercion and `NAN` outside the domain. Source: https://www.php.net/manual/en/function.acosh.php |
 | `addcslashes` | missing |  |
-| `addslashes` | implemented |  |
+| `addslashes` | implemented | Escapes single quote, double quote, backslash, and NUL bytes for legacy quoted-string compatibility. Source: https://www.php.net/manual/en/function.addslashes.php |
 | `array_all` | missing |  |
 | `array_any` | missing |  |
 | `array_change_key_case` | missing |  |
@@ -192,13 +192,13 @@ Related baseline functions tracked below: `get_included_files`,
 | `atan` | implemented | Returns the arc tangent in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan.php |
 | `atan2` | implemented | Returns the quadrant-aware arc tangent of y/x in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan2.php |
 | `atanh` | implemented | Returns inverse hyperbolic tangent as a float with PHP-compatible numeric coercion and `NAN` outside the domain. Source: https://www.php.net/manual/en/function.atanh.php |
-| `base64_decode` | implemented |  |
-| `base64_encode` | implemented |  |
+| `base64_decode` | implemented | Decodes Base64 strings using PHP's default non-strict path for current scalar strings. Source: https://www.php.net/manual/en/function.base64-decode.php |
+| `base64_encode` | implemented | Encodes string bytes using standard Base64 output. Source: https://www.php.net/manual/en/function.base64-encode.php |
 | `base_convert` | implemented | Converts strings between bases 2 through 36, ignoring characters outside the source base for current supported values. Source: https://www.php.net/manual/en/function.base-convert.php |
 | `basename` | implemented | Supports Unix-style `/` separators and optional suffix stripping; Windows `\` separator behavior is deferred. Source: https://www.php.net/manual/en/function.basename.php |
-| `bin2hex` | implemented |  |
+| `bin2hex` | implemented | Converts each input byte to a two-character lowercase hexadecimal representation. Source: https://www.php.net/manual/en/function.bin2hex.php |
 | `bindec` | implemented | Converts binary strings to unsigned decimal int or float values while ignoring non-binary characters. Source: https://www.php.net/manual/en/function.bindec.php |
-| `boolval` | implemented |  |
+| `boolval` | implemented | Converts current scalar values with PHP truthiness rules, including empty string and `"0"` as false. Source: https://www.php.net/manual/en/function.boolval.php |
 | `call_user_func` | missing |  |
 | `call_user_func_array` | missing |  |
 | `ceil` | implemented | Rounds numeric values up while returning a float, including PHP-compatible scalar coercion and negative zero behavior. Source: https://www.php.net/manual/en/function.ceil.php |
@@ -208,7 +208,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `chmod` | missing |  |
 | `chop` | implemented | Alias of `rtrim()` for default trailing whitespace stripping; optional character mask support is deferred with `rtrim()`. Source: https://www.php.net/manual/en/function.chop.php |
 | `chown` | missing |  |
-| `chr` | implemented |  |
+| `chr` | implemented | Returns a one-byte string from an integer code modulo 256. Source: https://www.php.net/manual/en/function.chr.php |
 | `chroot` | missing |  |
 | `chunk_split` | implemented | Splits byte strings into fixed-size chunks and appends the requested separator after every chunk, including empty input. Source: https://www.php.net/manual/en/function.chunk-split.php |
 | `clearstatcache` | missing |  |
@@ -280,7 +280,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `floatval` | implemented | Gets the float value of current scalar values, including numeric-prefix string parsing. Source: https://www.php.net/manual/en/function.floatval.php |
 | `flock` | missing |  |
 | `floor` | implemented | Rounds numeric values down while returning a float, using PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.floor.php |
-| `flush` | missing |  |
+| `flush` | implemented | Flushes the system output layer without flushing active user-level output buffers. Source: https://www.php.net/manual/en/function.flush.php |
 | `fmod` | implemented | Returns a floating-point remainder with the dividend sign and `NAN` for zero divisors. Source: https://www.php.net/manual/en/function.fmod.php |
 | `fnmatch` | missing |  |
 | `fopen` | missing |  |
@@ -338,7 +338,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `headers_list` | missing |  |
 | `headers_sent` | missing |  |
 | `hebrev` | missing |  |
-| `hex2bin` | implemented |  |
+| `hex2bin` | implemented | Converts even-length hexadecimal strings to raw bytes and returns `false` for invalid hex input. Source: https://www.php.net/manual/en/function.hex2bin.php |
 | `hexdec` | implemented | Converts hexadecimal strings to unsigned decimal int or float values while ignoring non-hexadecimal characters. Source: https://www.php.net/manual/en/function.hexdec.php |
 | `highlight_file` | missing |  |
 | `highlight_string` | missing |  |
@@ -366,7 +366,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ini_restore` | missing |  |
 | `ini_set` | missing |  |
 | `intdiv` | missing |  |
-| `intval` | implemented |  |
+| `intval` | implemented | Converts current scalar values to integers using PHP-style bool, null, float, and numeric-string coercion. Source: https://www.php.net/manual/en/function.intval.php |
 | `ip2long` | missing |  |
 | `iptcembed` | missing |  |
 | `iptcparse` | missing |  |
@@ -402,7 +402,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `key_exists` | implemented | Alias of `array_key_exists()`. Source: https://www.php.net/manual/en/function.key-exists.php |
 | `krsort` | missing |  |
 | `ksort` | missing |  |
-| `lcfirst` | implemented |  |
+| `lcfirst` | implemented | Lowercases the first ASCII alphabetic byte of a string and leaves the rest unchanged. Source: https://www.php.net/manual/en/function.lcfirst.php |
 | `lchgrp` | missing |  |
 | `lchown` | missing |  |
 | `levenshtein` | missing |  |
@@ -414,7 +414,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `log1p` | implemented | Calculates log(1 + num) with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.log1p.php |
 | `long2ip` | missing |  |
 | `lstat` | missing |  |
-| `ltrim` | implemented |  |
+| `ltrim` | implemented | Removes PHP's default leading ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.ltrim.php |
 | `mail` | missing |  |
 | `max` | missing |  |
 | `md5` | implemented | Returns a lowercase 32-character MD5 digest by default and raw 16-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.md5.php |
@@ -434,23 +434,23 @@ Related baseline functions tracked below: `get_included_files`,
 | `nl2br` | implemented | Inserts `<br />` or `<br>` before newline sequences while preserving the original newline bytes. Source: https://www.php.net/manual/en/function.nl2br.php |
 | `nl_langinfo` | missing |  |
 | `number_format` | missing |  |
-| `ob_clean` | implemented |  |
-| `ob_end_clean` | implemented |  |
-| `ob_end_flush` | implemented |  |
-| `ob_flush` | implemented |  |
-| `ob_get_clean` | implemented |  |
-| `ob_get_contents` | implemented |  |
-| `ob_get_flush` | implemented |  |
-| `ob_get_length` | implemented |  |
-| `ob_get_level` | implemented |  |
+| `ob_clean` | implemented | Discards the active output buffer contents while keeping the buffer open. Source: https://www.php.net/manual/en/function.ob-clean.php |
+| `ob_end_clean` | implemented | Discards and closes the active output buffer, returning a bool success value. Source: https://www.php.net/manual/en/function.ob-end-clean.php |
+| `ob_end_flush` | implemented | Flushes and closes the active output buffer, returning a bool success value. Source: https://www.php.net/manual/en/function.ob-end-flush.php |
+| `ob_flush` | implemented | Flushes the active output buffer to the next output layer while keeping it open. Source: https://www.php.net/manual/en/function.ob-flush.php |
+| `ob_get_clean` | implemented | Returns active buffer contents and closes the buffer, or `false` when no buffer is active. Source: https://www.php.net/manual/en/function.ob-get-clean.php |
+| `ob_get_contents` | implemented | Returns active buffer contents without closing it, or `false` when no buffer is active. Source: https://www.php.net/manual/en/function.ob-get-contents.php |
+| `ob_get_flush` | implemented | Returns active buffer contents, flushes them, and closes the buffer, or `false` when no buffer is active. Source: https://www.php.net/manual/en/function.ob-get-flush.php |
+| `ob_get_length` | implemented | Returns the active output buffer length in bytes, or `false` when no buffer is active. Source: https://www.php.net/manual/en/function.ob-get-length.php |
+| `ob_get_level` | implemented | Returns the current output buffering nesting depth. Source: https://www.php.net/manual/en/function.ob-get-level.php |
 | `ob_get_status` | missing |  |
-| `ob_implicit_flush` | missing |  |
+| `ob_implicit_flush` | implemented | Toggles implicit system flushing after output writes without flushing active user-level buffers. Source: https://www.php.net/manual/en/function.ob-implicit-flush.php |
 | `ob_list_handlers` | missing |  |
-| `ob_start` | implemented |  |
+| `ob_start` | implemented | Starts a new output buffer and stores optional callback metadata; callback invocation is deferred. Source: https://www.php.net/manual/en/function.ob-start.php |
 | `octdec` | implemented | Converts octal strings to unsigned decimal int or float values while ignoring non-octal characters. Source: https://www.php.net/manual/en/function.octdec.php |
 | `opendir` | missing |  |
 | `openlog` | missing |  |
-| `ord` | implemented |  |
+| `ord` | implemented | Returns the integer value of the first byte in a string. Source: https://www.php.net/manual/en/function.ord.php |
 | `output_add_rewrite_var` | missing |  |
 | `output_reset_rewrite_vars` | missing |  |
 | `pack` | missing |  |
@@ -490,7 +490,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `putenv` | implemented | Sets `NAME=value` entries in the current process environment and removes a variable when passed a bare name; request-lifetime restoration is deferred to process lifetime. Source: https://www.php.net/manual/en/function.putenv.php |
 | `quoted_printable_decode` | implemented | Decodes quoted-printable `=XX` byte escapes and soft line breaks according to the scalar string path. Source: https://www.php.net/manual/en/function.quoted-printable-decode.php |
 | `quoted_printable_encode` | implemented | Encodes bytes outside the printable quoted-printable range as uppercase `=XX`; RFC line wrapping and trailing-space line handling are deferred. Source: https://www.php.net/manual/en/function.quoted-printable-encode.php |
-| `quotemeta` | implemented |  |
+| `quotemeta` | implemented | Prefixes regular expression metacharacters with backslashes for literal matching workflows. Source: https://www.php.net/manual/en/function.quotemeta.php |
 | `rad2deg` | implemented | Converts radians to degrees using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.rad2deg.php |
 | `range` | missing |  |
 | `rawurldecode` | implemented | Decodes `%XX` byte escapes without converting `+` to a space. Source: https://www.php.net/manual/en/function.rawurldecode.php |
@@ -512,7 +512,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rmdir` | implemented | Removes empty local directories and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rmdir.php |
 | `round` | missing |  |
 | `rsort` | missing |  |
-| `rtrim` | implemented |  |
+| `rtrim` | implemented | Removes PHP's default trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.rtrim.php |
 | `scandir` | missing |  |
 | `serialize` | missing |  |
 | `set_file_buffer` | missing |  |
@@ -541,23 +541,23 @@ Related baseline functions tracked below: `get_included_files`,
 | `sqrt` | implemented | Returns a square root as float and `NAN` for negative inputs using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sqrt.php |
 | `sscanf` | missing |  |
 | `stat` | missing |  |
-| `str_contains` | implemented |  |
+| `str_contains` | implemented | Performs binary-safe substring detection, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-contains.php |
 | `str_decrement` | missing |  |
-| `str_ends_with` | implemented |  |
+| `str_ends_with` | implemented | Performs binary-safe suffix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-ends-with.php |
 | `str_getcsv` | missing |  |
 | `str_increment` | missing |  |
 | `str_ireplace` | implemented | Performs ASCII case-insensitive scalar string search and replacement; array operands and by-reference count reporting are deferred. Source: https://www.php.net/manual/en/function.str-ireplace.php |
 | `str_pad` | implemented | Pads byte strings on the left, right, or both sides with PHP's default right padding and pad-string truncation behavior. Source: https://www.php.net/manual/en/function.str-pad.php |
-| `str_repeat` | implemented |  |
+| `str_repeat` | implemented | Repeats a string a non-negative number of times and returns the concatenated byte string. Source: https://www.php.net/manual/en/function.str-repeat.php |
 | `str_replace` | implemented | Performs scalar string search and replacement, including empty-search no-op behavior; array operands and by-reference count reporting are deferred. Source: https://www.php.net/manual/en/function.str-replace.php |
-| `str_rot13` | implemented |  |
+| `str_rot13` | implemented | Applies ROT13 to ASCII alphabetic bytes while leaving other bytes unchanged. Source: https://www.php.net/manual/en/function.str-rot13.php |
 | `str_shuffle` | missing |  |
 | `str_split` | implemented | Splits byte strings into an array of fixed-size chunks, with a default chunk length of one byte. Source: https://www.php.net/manual/en/function.str-split.php |
-| `str_starts_with` | implemented |  |
+| `str_starts_with` | implemented | Performs binary-safe prefix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-starts-with.php |
 | `str_word_count` | missing |  |
 | `strchr` | implemented | Alias of `strstr`. |
 | `strcoll` | missing |  |
-| `strcspn` | implemented |  |
+| `strcspn` | implemented | Counts the initial byte span containing none of the bytes from the mask string. Source: https://www.php.net/manual/en/function.strcspn.php |
 | `stream_bucket_append` | missing |  |
 | `stream_bucket_make_writeable` | missing |  |
 | `stream_bucket_new` | missing |  |
@@ -606,28 +606,28 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_wrapper_unregister` | missing |  |
 | `strip_tags` | missing |  |
 | `stripcslashes` | missing |  |
-| `stripos` | implemented |  |
-| `stripslashes` | implemented |  |
-| `stristr` | implemented |  |
+| `stripos` | implemented | Finds the first case-insensitive ASCII byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.stripos.php |
+| `stripslashes` | implemented | Removes backslash quoting from escaped strings, including PHP's `\0` NUL handling. Source: https://www.php.net/manual/en/function.stripslashes.php |
+| `stristr` | implemented | Case-insensitive `strstr()` that returns the matching tail or `false`; before-needle mode is deferred. Source: https://www.php.net/manual/en/function.stristr.php |
 | `strnatcasecmp` | missing |  |
 | `strnatcmp` | missing |  |
-| `strpbrk` | implemented |  |
-| `strpos` | implemented |  |
+| `strpbrk` | implemented | Searches for the first byte from a character mask and returns the matching tail or `false`. Source: https://www.php.net/manual/en/function.strpbrk.php |
+| `strpos` | implemented | Finds the first binary-safe byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.strpos.php |
 | `strptime` | missing |  |
-| `strrchr` | implemented |  |
-| `strrev` | implemented |  |
-| `strripos` | implemented |  |
-| `strrpos` | implemented |  |
-| `strspn` | implemented |  |
-| `strstr` | implemented |  |
+| `strrchr` | implemented | Finds the last byte occurrence and returns the matching tail or `false`. Source: https://www.php.net/manual/en/function.strrchr.php |
+| `strrev` | implemented | Reverses string bytes without Unicode character interpretation. Source: https://www.php.net/manual/en/function.strrev.php |
+| `strripos` | implemented | Finds the last case-insensitive ASCII byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.strripos.php |
+| `strrpos` | implemented | Finds the last binary-safe byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.strrpos.php |
+| `strspn` | implemented | Counts the initial byte span containing only bytes from the mask string. Source: https://www.php.net/manual/en/function.strspn.php |
+| `strstr` | implemented | Finds a byte string and returns the matching tail or `false`; before-needle mode is deferred. Source: https://www.php.net/manual/en/function.strstr.php |
 | `strtok` | missing |  |
-| `strtolower` | implemented |  |
-| `strtoupper` | implemented |  |
+| `strtolower` | implemented | Lowercases ASCII alphabetic bytes and leaves non-ASCII bytes unchanged. Source: https://www.php.net/manual/en/function.strtolower.php |
+| `strtoupper` | implemented | Uppercases ASCII alphabetic bytes and leaves non-ASCII bytes unchanged. Source: https://www.php.net/manual/en/function.strtoupper.php |
 | `strtr` | implemented | Supports the three-argument byte translation form and ignores extra bytes in longer `from` or `to` strings; two-argument array replacement is deferred. Source: https://www.php.net/manual/en/function.strtr.php |
-| `strval` | implemented |  |
-| `substr` | implemented |  |
-| `substr_compare` | implemented |  |
-| `substr_count` | implemented |  |
+| `strval` | implemented | Converts current scalar values to PHP-style strings, including bool and null stringification. Source: https://www.php.net/manual/en/function.strval.php |
+| `substr` | implemented | Returns byte substrings with positive and negative offsets; optional length support is deferred in the scalar path. Source: https://www.php.net/manual/en/function.substr.php |
+| `substr_compare` | implemented | Compares a substring window against another string with optional length and ASCII case-insensitive mode. Source: https://www.php.net/manual/en/function.substr-compare.php |
+| `substr_count` | implemented | Counts non-overlapping byte substring occurrences. Source: https://www.php.net/manual/en/function.substr-count.php |
 | `substr_replace` | missing |  |
 | `symlink` | implemented | Creates local symbolic links and returns a bool success value; Windows-specific target-type behavior, privilege differences, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.symlink.php |
 | `sys_get_temp_dir` | implemented | Returns the host process temporary directory path; PHP INI overrides and virtual-host/open_basedir behavior are deferred. Source: https://www.php.net/manual/en/function.sys-get-temp-dir.php |
@@ -641,10 +641,10 @@ Related baseline functions tracked below: `get_included_files`,
 | `time_sleep_until` | missing |  |
 | `tmpfile` | missing |  |
 | `touch` | implemented | Creates missing local files and sets modification/access timestamps with PHP's default timestamp behavior; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.touch.php |
-| `trim` | implemented |  |
+| `trim` | implemented | Removes PHP's default leading and trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.trim.php |
 | `uasort` | missing |  |
-| `ucfirst` | implemented |  |
-| `ucwords` | implemented |  |
+| `ucfirst` | implemented | Uppercases the first ASCII alphabetic byte of a string and leaves the rest unchanged. Source: https://www.php.net/manual/en/function.ucfirst.php |
+| `ucwords` | implemented | Uppercases the first ASCII alphabetic byte of each word using PHP's default separators. Source: https://www.php.net/manual/en/function.ucwords.php |
 | `uksort` | missing |  |
 | `umask` | missing |  |
 | `uniqid` | implemented | Generates a PHP-shaped time-based identifier with optional prefix and entropy suffix; it is not cryptographically secure and does not guarantee uniqueness. Source: https://www.php.net/manual/en/function.uniqid.php |

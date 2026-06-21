@@ -213,6 +213,21 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Repeats a string a fixed number of times.",
       },
       {
+        name: "str_pad",
+        signature: "str_pad(string $string, int $length, string $pad_string, int $pad_type): string",
+        description: "Pads a string to a requested byte length.",
+      },
+      {
+        name: "str_split",
+        signature: "str_split(string $string, int $length): array",
+        description: "Splits a string into fixed-size byte chunks.",
+      },
+      {
+        name: "chunk_split",
+        signature: "chunk_split(string $string, int $length, string $separator): string",
+        description: "Splits a string into chunks and appends a separator after each chunk.",
+      },
+      {
         name: "substr",
         signature: "substr(string $string, int $offset): string",
         description: "Returns part of a string starting at an offset.",
@@ -308,18 +323,153 @@ export const builtinFamilies: BuiltinFamily[] = [
         signature: "explode(string $separator, string $string, int $limit): array",
         description: "Splits a string into an array using a separator.",
       },
+      {
+        name: "implode",
+        signature: "implode(string $separator, array $array): string",
+        description: "Joins array values into a string using a separator.",
+      },
+      {
+        name: "join",
+        signature: "join(string $separator, array $array): string",
+        description: "Alias of implode.",
+      },
+      {
+        name: "rawurlencode",
+        signature: "rawurlencode(string $string): string",
+        description: "Encodes bytes for RFC 3986 URL path components.",
+      },
+      {
+        name: "rawurldecode",
+        signature: "rawurldecode(string $string): string",
+        description: "Decodes percent escapes without treating plus as space.",
+      },
+      {
+        name: "urlencode",
+        signature: "urlencode(string $string): string",
+        description: "Encodes form/query text with spaces as plus signs.",
+      },
+      {
+        name: "urldecode",
+        signature: "urldecode(string $string): string",
+        description: "Decodes form/query text, including plus signs as spaces.",
+      },
     ],
   },
   {
     slug: "arrays",
     title: "Arrays",
-    description: "Array functions count values and inspect whether arrays behave like lists.",
+    description: "Array functions count, reshape, search, merge, and inspect PHP arrays.",
     builtins: [
       {
         name: "array_is_list",
         signature: "array_is_list(array $array): bool",
         description:
           "Returns true when an array has consecutive integer keys starting at zero. Empty arrays are lists. Associative keys or gaps in numeric keys make an array stop being a list.",
+      },
+      {
+        name: "array_values",
+        signature: "array_values(array $array): array",
+        description: "Returns the input values reindexed from zero.",
+      },
+      {
+        name: "array_keys",
+        signature: "array_keys(array $array, mixed $filter_value, bool $strict): array",
+        description: "Returns array keys, optionally filtered by value.",
+      },
+      {
+        name: "array_fill",
+        signature: "array_fill(int $start_index, int $count, mixed $value): array",
+        description: "Creates an array containing repeated values.",
+      },
+      {
+        name: "array_fill_keys",
+        signature: "array_fill_keys(array $keys, mixed $value): array",
+        description: "Creates an array by using input values as keys.",
+      },
+      {
+        name: "array_combine",
+        signature: "array_combine(array $keys, array $values): array",
+        description: "Creates an array from parallel key and value arrays.",
+      },
+      {
+        name: "array_pad",
+        signature: "array_pad(array $array, int $length, mixed $value): array",
+        description: "Pads an array to a requested length.",
+      },
+      {
+        name: "array_slice",
+        signature: "array_slice(array $array, int $offset, ?int $length, bool $preserve_keys): array",
+        description: "Extracts a window from an array.",
+      },
+      {
+        name: "array_chunk",
+        signature: "array_chunk(array $array, int $length, bool $preserve_keys): array",
+        description: "Splits an array into fixed-size chunks.",
+      },
+      {
+        name: "array_merge",
+        signature: "array_merge(array ...$arrays): array",
+        description: "Merges arrays, appending numeric keys and overwriting duplicate string keys.",
+      },
+      {
+        name: "array_replace",
+        signature: "array_replace(array $array, array ...$replacements): array",
+        description: "Replaces values in the first array with values from later arrays by key.",
+      },
+      {
+        name: "array_reverse",
+        signature: "array_reverse(array $array, bool $preserve_keys): array",
+        description: "Returns array elements in reverse order.",
+      },
+      {
+        name: "array_flip",
+        signature: "array_flip(array $array): array",
+        description: "Exchanges string or integer values with their keys.",
+      },
+      {
+        name: "array_count_values",
+        signature: "array_count_values(array $array): array",
+        description: "Counts repeated string and integer values.",
+      },
+      {
+        name: "array_key_exists",
+        signature: "array_key_exists(mixed $key, array $array): bool",
+        description: "Returns true when an array contains a key, even if the value is null.",
+      },
+      {
+        name: "key_exists",
+        signature: "key_exists(mixed $key, array $array): bool",
+        description: "Alias of array_key_exists.",
+      },
+      {
+        name: "array_key_first",
+        signature: "array_key_first(array $array): int|string|null",
+        description: "Returns the first array key or null for an empty array.",
+      },
+      {
+        name: "array_key_last",
+        signature: "array_key_last(array $array): int|string|null",
+        description: "Returns the last array key or null for an empty array.",
+      },
+      {
+        name: "in_array",
+        signature: "in_array(mixed $needle, array $haystack, bool $strict): bool",
+        description: "Checks whether an array contains a value.",
+      },
+      {
+        name: "array_search",
+        signature: "array_search(mixed $needle, array $haystack, bool $strict): int|string|false",
+        description: "Returns the first key for a matching value or false.",
+      },
+      {
+        name: "array_sum",
+        signature: "array_sum(array $array): int|float",
+        description: "Adds numeric array values.",
+      },
+      {
+        name: "array_product",
+        signature: "array_product(array $array): int|float",
+        description: "Multiplies numeric array values.",
       },
       {
         name: "count",
@@ -448,6 +598,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         signature: "intval(mixed $value): int",
         description: "Converts a value to an integer.",
       },
+      {
+        name: "floatval",
+        signature: "floatval(mixed $value): float",
+        description: "Converts a value to a float.",
+      },
+      {
+        name: "doubleval",
+        signature: "doubleval(mixed $value): float",
+        description: "Alias of floatval.",
+      },
     ],
   },
   {
@@ -459,6 +619,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "abs",
         signature: "abs(int|float $num): int|float",
         description: "Returns the absolute value of a number.",
+      },
+      {
+        name: "bindec",
+        signature: "bindec(string $binary_string): int|float",
+        description: "Converts a binary string to a decimal number.",
       },
       {
         name: "decbin",
@@ -476,6 +641,146 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts an integer to an octal string.",
       },
       {
+        name: "hexdec",
+        signature: "hexdec(string $hex_string): int|float",
+        description: "Converts a hexadecimal string to a decimal number.",
+      },
+      {
+        name: "octdec",
+        signature: "octdec(string $octal_string): int|float",
+        description: "Converts an octal string to a decimal number.",
+      },
+      {
+        name: "base_convert",
+        signature: "base_convert(string $num, int $from_base, int $to_base): string",
+        description: "Converts a number string between bases.",
+      },
+      {
+        name: "deg2rad",
+        signature: "deg2rad(float $num): float",
+        description: "Converts degrees to radians.",
+      },
+      {
+        name: "rad2deg",
+        signature: "rad2deg(float $num): float",
+        description: "Converts radians to degrees.",
+      },
+      {
+        name: "sin",
+        signature: "sin(float $num): float",
+        description: "Returns the sine of a radian value.",
+      },
+      {
+        name: "cos",
+        signature: "cos(float $num): float",
+        description: "Returns the cosine of a radian value.",
+      },
+      {
+        name: "tan",
+        signature: "tan(float $num): float",
+        description: "Returns the tangent of a radian value.",
+      },
+      {
+        name: "asin",
+        signature: "asin(float $num): float",
+        description: "Returns the arc sine in radians.",
+      },
+      {
+        name: "acos",
+        signature: "acos(float $num): float",
+        description: "Returns the arc cosine in radians.",
+      },
+      {
+        name: "atan",
+        signature: "atan(float $num): float",
+        description: "Returns the arc tangent in radians.",
+      },
+      {
+        name: "atan2",
+        signature: "atan2(float $y, float $x): float",
+        description: "Returns the quadrant-aware arc tangent of y over x.",
+      },
+      {
+        name: "sinh",
+        signature: "sinh(float $num): float",
+        description: "Returns the hyperbolic sine.",
+      },
+      {
+        name: "cosh",
+        signature: "cosh(float $num): float",
+        description: "Returns the hyperbolic cosine.",
+      },
+      {
+        name: "tanh",
+        signature: "tanh(float $num): float",
+        description: "Returns the hyperbolic tangent.",
+      },
+      {
+        name: "asinh",
+        signature: "asinh(float $num): float",
+        description: "Returns the inverse hyperbolic sine.",
+      },
+      {
+        name: "acosh",
+        signature: "acosh(float $num): float",
+        description: "Returns the inverse hyperbolic cosine.",
+      },
+      {
+        name: "atanh",
+        signature: "atanh(float $num): float",
+        description: "Returns the inverse hyperbolic tangent.",
+      },
+      {
+        name: "ceil",
+        signature: "ceil(int|float $num): float",
+        description: "Rounds a number up.",
+      },
+      {
+        name: "floor",
+        signature: "floor(int|float $num): float",
+        description: "Rounds a number down.",
+      },
+      {
+        name: "sqrt",
+        signature: "sqrt(float $num): float",
+        description: "Returns the square root.",
+      },
+      {
+        name: "hypot",
+        signature: "hypot(float $x, float $y): float",
+        description: "Returns the length of the hypotenuse.",
+      },
+      {
+        name: "exp",
+        signature: "exp(float $num): float",
+        description: "Returns e raised to a power.",
+      },
+      {
+        name: "expm1",
+        signature: "expm1(float $num): float",
+        description: "Returns exp(num) minus one with precision near zero.",
+      },
+      {
+        name: "log",
+        signature: "log(float $num, float $base): float",
+        description: "Returns a natural or base-specific logarithm.",
+      },
+      {
+        name: "log10",
+        signature: "log10(float $num): float",
+        description: "Returns the base-10 logarithm.",
+      },
+      {
+        name: "log1p",
+        signature: "log1p(float $num): float",
+        description: "Returns log(1 + num) with precision near zero.",
+      },
+      {
+        name: "pow",
+        signature: "pow(mixed $num, mixed $exponent): int|float|object",
+        description: "Raises a number to a power.",
+      },
+      {
         name: "fdiv",
         signature: "fdiv(float $num1, float $num2): float",
         description: "Divides two numbers using IEEE 754 floating-point rules.",
@@ -484,6 +789,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "fpow",
         signature: "fpow(float $num, float $exponent): float",
         description: "Raises a number to a power and returns a float.",
+      },
+      {
+        name: "pi",
+        signature: "pi(): float",
+        description: "Returns an approximation of pi.",
+      },
+      {
+        name: "fmod",
+        signature: "fmod(float $num1, float $num2): float",
+        description: "Returns a floating-point remainder.",
       },
     ],
   },
@@ -523,6 +838,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns true when a local path exists.",
       },
       {
+        name: "chdir",
+        signature: "chdir(string $directory): bool",
+        description: "Changes the current working directory for the process.",
+      },
+      {
+        name: "getcwd",
+        signature: "getcwd(): string|false",
+        description: "Returns the current working directory.",
+      },
+      {
         name: "is_dir",
         signature: "is_dir(string $filename): bool",
         description: "Returns true when a local path exists and is a directory.",
@@ -546,6 +871,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "is_writable",
         signature: "is_writable(string $filename): bool",
         description: "Returns true when a local path can be written by the current process.",
+      },
+      {
+        name: "is_writeable",
+        signature: "is_writeable(string $filename): bool",
+        description: "Alias of is_writable.",
       },
       {
         name: "is_executable",
@@ -1894,6 +2224,450 @@ let $heading = ucwords($title)
 
 echo $heading . "\\n"`,
   ],
+  [
+    "str_pad",
+    `let $invoice = "42"
+let $display = str_pad($invoice, 6, "0", 0)
+
+echo "Invoice " . $display . "\\n"`,
+  ],
+  [
+    "str_split",
+    `let $token = "A1B2C3"
+let $pairs = str_split($token, 2)
+
+echo implode("-", $pairs) . "\\n"`,
+  ],
+  [
+    "chunk_split",
+    `let $key = "abcdef123456"
+let $grouped = chunk_split($key, 4, "-")
+
+echo rtrim($grouped, "-") . "\\n"`,
+  ],
+  [
+    "implode",
+    `let $parts = ["api", "v1", "users"]
+let $path = "/" . implode("/", $parts)
+
+echo $path . "\\n"`,
+  ],
+  [
+    "join",
+    `let $tags = ["php", "echo", "runtime"]
+let $label = join(", ", $tags)
+
+echo $label . "\\n"`,
+  ],
+  [
+    "rawurlencode",
+    `let $segment = "Quarter 1/report"
+let $url = "/files/" . rawurlencode($segment)
+
+echo $url . "\\n"`,
+  ],
+  [
+    "rawurldecode",
+    `let $segment = "Quarter%201%2Freport"
+let $name = rawurldecode($segment)
+
+echo $name . "\\n"`,
+  ],
+  [
+    "urlencode",
+    `let $query = "status: ready"
+let $url = "/search?q=" . urlencode($query)
+
+echo $url . "\\n"`,
+  ],
+  [
+    "urldecode",
+    `let $raw = "status%3A+ready"
+let $query = urldecode($raw)
+
+echo $query . "\\n"`,
+  ],
+  [
+    "array_values",
+    `let $row = ["id": "A-42", "qty": "3"]
+let $cells = array_values($row)
+
+echo implode(",", $cells) . "\\n"`,
+  ],
+  [
+    "array_keys",
+    `let $row = ["id": "A-42", "qty": "3"]
+let $columns = array_keys($row)
+
+echo implode(",", $columns) . "\\n"`,
+  ],
+  [
+    "array_fill",
+    `let $slots = array_fill(0, 3, "pending")
+
+echo implode(",", $slots) . "\\n"`,
+  ],
+  [
+    "array_fill_keys",
+    `let $columns = ["id", "status"]
+let $row = array_fill_keys($columns, "missing")
+
+echo $row["status"] . "\\n"`,
+  ],
+  [
+    "array_combine",
+    `let $columns = ["id", "status"]
+let $values = ["A-42", "ready"]
+let $row = array_combine($columns, $values)
+
+echo $row["status"] . "\\n"`,
+  ],
+  [
+    "array_pad",
+    `let $codes = ["A", "B"]
+let $normalized = array_pad($codes, 4, "N/A")
+
+echo implode(",", $normalized) . "\\n"`,
+  ],
+  [
+    "array_slice",
+    `let $queue = ["draft", "review", "ship", "archive"]
+let $active = array_slice($queue, 1, 2, false)
+
+echo implode(",", $active) . "\\n"`,
+  ],
+  [
+    "array_chunk",
+    `let $ids = ["A1", "A2", "A3", "A4"]
+let $batches = array_chunk($ids, 2, false)
+
+echo implode(",", $batches[0]) . "\\n"`,
+  ],
+  [
+    "array_merge",
+    `let $base = ["status": "draft"]
+let $extra = ["owner": "Ava"]
+let $record = array_merge($base, $extra)
+
+echo $record["owner"] . "\\n"`,
+  ],
+  [
+    "array_replace",
+    `let $defaults = ["status": "draft", "owner": "unassigned"]
+let $override = ["status": "ready"]
+let $record = array_replace($defaults, $override)
+
+echo $record["status"] . "\\n"`,
+  ],
+  [
+    "array_reverse",
+    `let $events = ["queued", "running", "done"]
+let $latestFirst = array_reverse($events, false)
+
+echo $latestFirst[0] . "\\n"`,
+  ],
+  [
+    "array_flip",
+    `let $roles = ["admin", "editor"]
+let $lookup = array_flip($roles)
+
+echo "editor index: " . $lookup["editor"] . "\\n"`,
+  ],
+  [
+    "array_count_values",
+    `let $statuses = ["ready", "ready", "failed"]
+let $counts = array_count_values($statuses)
+
+echo "ready: " . $counts["ready"] . "\\n"`,
+  ],
+  [
+    "array_key_exists",
+    `let $row = ["id": "A-42", "notes": null]
+
+if (array_key_exists("notes", $row)) {
+    echo "notes column present\\n"
+}`,
+  ],
+  [
+    "key_exists",
+    `let $row = ["id": "A-42"]
+
+if (key_exists("id", $row)) {
+    echo "row has id\\n"
+}`,
+  ],
+  [
+    "array_key_first",
+    `let $row = ["id": "A-42", "status": "ready"]
+let $first = array_key_first($row)
+
+echo "first column: " . $first . "\\n"`,
+  ],
+  [
+    "array_key_last",
+    `let $row = ["id": "A-42", "status": "ready"]
+let $last = array_key_last($row)
+
+echo "last column: " . $last . "\\n"`,
+  ],
+  [
+    "in_array",
+    `let $allowed = ["draft", "ready"]
+let $status = "ready"
+
+if (in_array($status, $allowed, true)) {
+    echo "status accepted\\n"
+}`,
+  ],
+  [
+    "array_search",
+    `let $columns = ["id", "status", "owner"]
+let $index = array_search("status", $columns, true)
+
+echo "status column: " . $index . "\\n"`,
+  ],
+  [
+    "array_sum",
+    `let $lineTotals = [12, 8, 5]
+let $total = array_sum($lineTotals)
+
+echo "Total: " . $total . "\\n"`,
+  ],
+  [
+    "array_product",
+    `let $dimensions = [2, 3, 4]
+let $volume = array_product($dimensions)
+
+echo "Volume: " . $volume . "\\n"`,
+  ],
+  [
+    "floatval",
+    `let $raw = "12.50"
+let $amount = floatval($raw)
+
+echo "Amount: " . $amount . "\\n"`,
+  ],
+  [
+    "doubleval",
+    `let $raw = "3.5"
+let $ratio = doubleval($raw)
+
+echo "Ratio: " . $ratio . "\\n"`,
+  ],
+  [
+    "bindec",
+    `let $flags = "1010"
+let $mask = bindec($flags)
+
+echo "Mask: " . $mask . "\\n"`,
+  ],
+  [
+    "hexdec",
+    `let $color = "ff"
+let $channel = hexdec($color)
+
+echo "Channel: " . $channel . "\\n"`,
+  ],
+  [
+    "octdec",
+    `let $mode = "755"
+let $perms = octdec($mode)
+
+echo "Mode: " . $perms . "\\n"`,
+  ],
+  [
+    "base_convert",
+    `let $id = "ff"
+let $decimal = base_convert($id, 16, 10)
+
+echo "Decimal id: " . $decimal . "\\n"`,
+  ],
+  [
+    "deg2rad",
+    `let $degrees = 90
+let $radians = deg2rad($degrees)
+
+echo "Radians: " . $radians . "\\n"`,
+  ],
+  [
+    "rad2deg",
+    `let $degrees = rad2deg(pi())
+
+echo "Degrees: " . $degrees . "\\n"`,
+  ],
+  [
+    "sin",
+    `let $wave = sin(deg2rad(90))
+
+echo "Wave peak: " . $wave . "\\n"`,
+  ],
+  [
+    "cos",
+    `let $x = cos(deg2rad(0))
+
+echo "Unit x: " . $x . "\\n"`,
+  ],
+  [
+    "tan",
+    `let $slope = tan(deg2rad(45))
+
+echo "Slope: " . $slope . "\\n"`,
+  ],
+  [
+    "asin",
+    `let $angle = rad2deg(asin(1))
+
+echo "Angle: " . $angle . "\\n"`,
+  ],
+  [
+    "acos",
+    `let $angle = rad2deg(acos(0))
+
+echo "Angle: " . $angle . "\\n"`,
+  ],
+  [
+    "atan",
+    `let $angle = rad2deg(atan(1))
+
+echo "Angle: " . $angle . "\\n"`,
+  ],
+  [
+    "atan2",
+    `let $heading = rad2deg(atan2(1, 1))
+
+echo "Heading: " . $heading . "\\n"`,
+  ],
+  [
+    "sinh",
+    `let $growth = sinh(1)
+
+echo "Growth curve: " . $growth . "\\n"`,
+  ],
+  [
+    "cosh",
+    `let $growth = cosh(1)
+
+echo "Growth baseline: " . $growth . "\\n"`,
+  ],
+  [
+    "tanh",
+    `let $normalized = tanh(1)
+
+echo "Normalized score: " . $normalized . "\\n"`,
+  ],
+  [
+    "asinh",
+    `let $value = asinh(2)
+
+echo "Inverse hyperbolic value: " . $value . "\\n"`,
+  ],
+  [
+    "acosh",
+    `let $value = acosh(2)
+
+echo "Inverse hyperbolic value: " . $value . "\\n"`,
+  ],
+  [
+    "atanh",
+    `let $value = atanh(0.5)
+
+echo "Inverse hyperbolic value: " . $value . "\\n"`,
+  ],
+  [
+    "ceil",
+    `let $pages = ceil(41 / 20)
+
+echo "Pages: " . $pages . "\\n"`,
+  ],
+  [
+    "floor",
+    `let $completeBatches = floor(41 / 20)
+
+echo "Complete batches: " . $completeBatches . "\\n"`,
+  ],
+  [
+    "sqrt",
+    `let $distance = sqrt(3 * 3 + 4 * 4)
+
+echo "Distance: " . $distance . "\\n"`,
+  ],
+  [
+    "hypot",
+    `let $distance = hypot(3, 4)
+
+echo "Distance: " . $distance . "\\n"`,
+  ],
+  [
+    "exp",
+    `let $growth = exp(0.05)
+
+echo "Growth factor: " . $growth . "\\n"`,
+  ],
+  [
+    "expm1",
+    `let $delta = expm1(0.05)
+
+echo "Growth delta: " . $delta . "\\n"`,
+  ],
+  [
+    "log",
+    `let $scale = log(100, 10)
+
+echo "Scale: " . $scale . "\\n"`,
+  ],
+  [
+    "log10",
+    `let $digits = log10(1000)
+
+echo "Magnitude: " . $digits . "\\n"`,
+  ],
+  [
+    "log1p",
+    `let $adjusted = log1p(0.05)
+
+echo "Adjusted growth: " . $adjusted . "\\n"`,
+  ],
+  [
+    "pow",
+    `let $capacity = pow(2, 10)
+
+echo "Capacity: " . $capacity . "\\n"`,
+  ],
+  [
+    "pi",
+    `let $circumference = 2 * pi() * 10
+
+echo "Circumference: " . $circumference . "\\n"`,
+  ],
+  [
+    "fmod",
+    `let $remainder = fmod(17, 5)
+
+echo "Remainder: " . $remainder . "\\n"`,
+  ],
+  [
+    "chdir",
+    `let $start = getcwd()
+
+if (chdir(sys_get_temp_dir())) {
+    echo "Working in temp\\n"
+    chdir($start)
+}`,
+  ],
+  [
+    "getcwd",
+    `let $cwd = getcwd()
+
+echo "Running from " . basename($cwd) . "\\n"`,
+  ],
+  [
+    "is_writeable",
+    `let $target = sys_get_temp_dir()
+
+if (is_writeable($target)) {
+    echo "Temp directory accepts output\\n"
+}`,
+  ],
 ]);
 
 export const builtinExampleNotes = new Map<string, string>([
@@ -2128,10 +2902,28 @@ export function builtinExample(name: string) {
 }
 
 export function builtinExampleNote(builtin: BuiltinDoc) {
-  return (
-    builtinExampleNotes.get(builtin.name) ??
-    `This example puts ${builtin.name} in the middle of a small workflow so the return value is immediately used instead of being printed as an isolated probe.`
-  );
+  const note = builtinExampleNotes.get(builtin.name);
+
+  if (note) {
+    return note;
+  }
+
+  return `Use \`${builtin.name}()\` when a compatibility workflow needs to ${appliedDescription(
+    builtin.description,
+  )}. The example shows that behavior in context so the result feeds validation, formatting, or a follow-up decision instead of standing alone as a probe.`;
+}
+
+function appliedDescription(description: string) {
+  const firstSentence = description.split(".")[0] ?? description;
+  return firstSentence.replace(/^(Returns?|Checks?|Converts?|Uppercases?|Lowercases?|Applies?|Escapes?|Pads?|Splits?|Joins?|Calculates?|Changes?|Gets?|Sets?|Starts?|Ends?)\b/, (verb) => {
+    const lower = verb.toLowerCase();
+
+    if (lower.endsWith("s")) {
+      return lower.slice(0, -1);
+    }
+
+    return lower;
+  });
 }
 
 export function headingId(heading: string) {
