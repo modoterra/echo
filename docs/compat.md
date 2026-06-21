@@ -43,8 +43,8 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Surface | Functions | Implemented | Remaining |
 | --- | ---: | ---: | ---: |
-| Baseline (`Core` + `standard`) | 607 | 172 | 435 |
-| Loaded local PHP internals, including extensions | 1516 | 172 | 1344 |
+| Baseline (`Core` + `standard`) | 607 | 178 | 429 |
+| Loaded local PHP internals, including extensions | 1516 | 178 | 1338 |
 
 ## Baseline Functions
 
@@ -115,7 +115,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `user_error` | missing |  |
 | `zend_version` | missing |  |
 
-### standard (147/534)
+### standard (153/528)
 
 | Function | Status | Notes |
 | --- | --- | --- |
@@ -222,7 +222,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `constant` | missing |  |
 | `convert_uudecode` | missing |  |
 | `convert_uuencode` | missing |  |
-| `copy` | missing |  |
+| `copy` | implemented | Copies local files and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.copy.php |
 | `cos` | implemented | Returns the cosine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.cos.php |
 | `cosh` | implemented | Returns hyperbolic cosine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.cosh.php |
 | `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
@@ -425,7 +425,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `metaphone` | missing |  |
 | `microtime` | missing |  |
 | `min` | missing |  |
-| `mkdir` | missing |  |
+| `mkdir` | implemented | Creates local directories, including recursive creation and Unix mode hints; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mkdir.php |
 | `move_uploaded_file` | missing |  |
 | `natcasesort` | missing |  |
 | `natsort` | missing |  |
@@ -503,13 +503,13 @@ Related baseline functions tracked below: `get_included_files`,
 | `realpath_cache_size` | missing |  |
 | `register_shutdown_function` | missing |  |
 | `register_tick_function` | missing |  |
-| `rename` | missing |  |
+| `rename` | implemented | Renames or moves local files/directories using host filesystem semantics; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rename.php |
 | `request_parse_body` | missing |  |
 | `restore_include_path` | missing | Source: https://www.php.net/manual/en/function.restore-include-path.php |
 | `reset` | missing |  |
 | `rewind` | missing |  |
 | `rewinddir` | missing |  |
-| `rmdir` | missing |  |
+| `rmdir` | implemented | Removes empty local directories and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rmdir.php |
 | `round` | missing |  |
 | `rsort` | missing |  |
 | `rtrim` | implemented |  |
@@ -640,7 +640,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `time_nanosleep` | missing |  |
 | `time_sleep_until` | missing |  |
 | `tmpfile` | missing |  |
-| `touch` | missing |  |
+| `touch` | implemented | Creates missing local files and sets modification/access timestamps with PHP's default timestamp behavior; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.touch.php |
 | `trim` | implemented |  |
 | `uasort` | missing |  |
 | `ucfirst` | implemented |  |
@@ -648,7 +648,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `uksort` | missing |  |
 | `umask` | missing |  |
 | `uniqid` | missing |  |
-| `unlink` | missing |  |
+| `unlink` | implemented | Deletes local file names or symlinks and returns a bool success value; stream contexts and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.unlink.php |
 | `unpack` | missing |  |
 | `unregister_tick_function` | missing |  |
 | `unserialize` | missing |  |

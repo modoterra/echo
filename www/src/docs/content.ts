@@ -553,6 +553,36 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the local file type, such as file, dir, link, socket, fifo, block, char, or unknown.",
       },
       {
+        name: "touch",
+        signature: "touch(string $filename, ?int $mtime, ?int $atime): bool",
+        description: "Creates a local file if needed and sets its modification and access timestamps.",
+      },
+      {
+        name: "copy",
+        signature: "copy(string $from, string $to, ?resource $context): bool",
+        description: "Copies a local file to another path, overwriting an existing destination file.",
+      },
+      {
+        name: "rename",
+        signature: "rename(string $from, string $to, ?resource $context): bool",
+        description: "Renames or moves a local file or directory.",
+      },
+      {
+        name: "unlink",
+        signature: "unlink(string $filename, ?resource $context): bool",
+        description: "Deletes a local file name or symbolic link.",
+      },
+      {
+        name: "mkdir",
+        signature: "mkdir(string $directory, int $permissions, bool $recursive, ?resource $context): bool",
+        description: "Creates a local directory, optionally creating missing parent directories too.",
+      },
+      {
+        name: "rmdir",
+        signature: "rmdir(string $directory, ?resource $context): bool",
+        description: "Removes an empty local directory.",
+      },
+      {
         name: "basename",
         signature: "basename(string $path, string $suffix): string",
         description: "Returns the trailing name component of a path.",
@@ -908,6 +938,56 @@ let $kind = filetype($target)
 
 if (is_string($kind)) {
     echo "Target kind: " . $kind . "\\n"
+}`,
+  ],
+  [
+    "touch",
+    `let $marker = "storage/cache/.generated"
+
+if (touch($marker)) {
+    echo "Cache marker refreshed\\n"
+}`,
+  ],
+  [
+    "copy",
+    `let $report = "storage/report.csv"
+let $backup = "storage/report.csv.bak"
+
+if (copy($report, $backup)) {
+    echo "Report backup ready\\n"
+}`,
+  ],
+  [
+    "rename",
+    `let $staged = "storage/export.tmp"
+let $ready = "storage/export.csv"
+
+if (rename($staged, $ready)) {
+    echo "Export published\\n"
+}`,
+  ],
+  [
+    "unlink",
+    `let $scratch = "storage/export.tmp"
+
+if (is_file($scratch)) {
+    unlink($scratch)
+}`,
+  ],
+  [
+    "mkdir",
+    `let $cacheDir = "storage/cache/daily"
+
+if (mkdir($cacheDir, 0755, true)) {
+    echo "Cache directory ready\\n"
+}`,
+  ],
+  [
+    "rmdir",
+    `let $emptyBatch = "storage/imports/empty-batch"
+
+if (is_dir($emptyBatch)) {
+    rmdir($emptyBatch)
 }`,
   ],
   [
@@ -1626,6 +1706,30 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "filetype",
     "Use `filetype()` before choosing a path-handling branch, such as treating directories, regular files, and symlinks differently in a cleanup or deployment script.",
+  ],
+  [
+    "touch",
+    "Use `touch()` when a workflow needs a marker file or a controlled modification timestamp, such as recording that generated cache contents are fresh.",
+  ],
+  [
+    "copy",
+    "Use `copy()` when the original file should remain in place, such as taking a backup before rewriting a report or staging an export for later publication.",
+  ],
+  [
+    "rename",
+    "Use `rename()` to publish staged files atomically within the same filesystem, moving a completed temporary export into the path that readers consume.",
+  ],
+  [
+    "unlink",
+    "Use `unlink()` for cleanup of files that are no longer needed, usually after checking the path points to the expected generated file.",
+  ],
+  [
+    "mkdir",
+    "Use `mkdir()` before writing generated output into a new directory tree. Recursive creation is useful for cache, export, and upload paths derived from dates or tenants.",
+  ],
+  [
+    "rmdir",
+    "Use `rmdir()` when cleanup should remove only an empty directory, leaving non-empty directories intact so accidental recursive deletion is avoided.",
   ],
   [
     "realpath",

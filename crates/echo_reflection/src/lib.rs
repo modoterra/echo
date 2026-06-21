@@ -507,6 +507,56 @@ fn php_builtin_reflections() -> Vec<FunctionReflection> {
             Some("string|false"),
         ),
         php_builtin_reflection(
+            "touch",
+            &[
+                ("filename", Some("string")),
+                ("mtime", Some("?int")),
+                ("atime", Some("?int")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "copy",
+            &[
+                ("from", Some("string")),
+                ("to", Some("string")),
+                ("context", Some("?resource")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "rename",
+            &[
+                ("from", Some("string")),
+                ("to", Some("string")),
+                ("context", Some("?resource")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "unlink",
+            &[("filename", Some("string")), ("context", Some("?resource"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "mkdir",
+            &[
+                ("directory", Some("string")),
+                ("permissions", Some("int")),
+                ("recursive", Some("bool")),
+                ("context", Some("?resource")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "rmdir",
+            &[
+                ("directory", Some("string")),
+                ("context", Some("?resource")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "realpath",
             &[("path", Some("string"))],
             Some("string|false"),

@@ -9,6 +9,7 @@ crate-type = ["rlib", "staticlib"]
 [dependencies]
 bytes = "1"
 crc32fast = "1.5.0"
+filetime = "0.2"
 http = "1"
 md5_digest = { version = "0.11.0", package = "md-5" }
 mio = { version = "1", features = ["os-poll", "net"] }

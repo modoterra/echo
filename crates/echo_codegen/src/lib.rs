@@ -1342,6 +1342,59 @@ fn jit_runtime_symbol_addresses() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_touch",
+            echo_runtime::echo_php_touch
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_copy",
+            echo_runtime::echo_php_copy
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_rename",
+            echo_runtime::echo_php_rename
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_unlink",
+            echo_runtime::echo_php_unlink
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_mkdir",
+            echo_runtime::echo_php_mkdir
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_rmdir",
+            echo_runtime::echo_php_rmdir
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_realpath",
             echo_runtime::echo_php_realpath
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
@@ -2608,8 +2661,12 @@ impl IrModule {
             | BuiltinCodegen::Log
             | BuiltinCodegen::StrPad
             | BuiltinCodegen::StrSplit
+            | BuiltinCodegen::ValueUnaryOptionalContextExpression
+            | BuiltinCodegen::ValueBinaryOptionalContextExpression
             | BuiltinCodegen::ValueUnaryOptionalBoolExpression
             | BuiltinCodegen::ValueTernaryExpression
+            | BuiltinCodegen::Mkdir
+            | BuiltinCodegen::Touch
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare => {
                 unreachable!("expression builtin used as statement call")
@@ -3521,6 +3578,127 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({value}, {flag})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueUnaryOptionalContextExpression => {
+                if !(1..=2).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let context = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {context})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueBinaryOptionalContextExpression => {
+                if !(2..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let left = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let right = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let context = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({left}, {right}, {context})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Mkdir => {
+                if !(1..=4).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let directory = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let permissions = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 511 }".to_string(),
+                };
+                let recursive = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let context = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({directory}, {permissions}, {recursive}, {context})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::Touch => {
+                if !(1..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let filename = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let mtime = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let atime = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({filename}, {mtime}, {atime})\n",
                     builtin.symbol
                 ));
 
@@ -4841,6 +5019,129 @@ mod tests {
                 "{ir}"
             );
         }
+    }
+
+    #[test]
+    fn filesystem_mutation_builtins_lower_optional_arguments() {
+        let touch_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "touch".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "cache.marker".to_string(),
+                    span: Span::new(6, 20),
+                })],
+                span: Span::new(0, 21),
+            })],
+            span: Span::new(0, 22),
+        })]))
+        .expect("IR");
+
+        assert!(
+            touch_ir
+                .contains("declare %EchoValue @echo_php_touch(%EchoValue, %EchoValue, %EchoValue)"),
+            "{touch_ir}"
+        );
+        assert!(
+            touch_ir.contains("call %EchoValue @echo_php_touch(%EchoValue %runtime_call_0, %EchoValue { i32 0, i64 0 }, %EchoValue { i32 0, i64 0 })"),
+            "{touch_ir}"
+        );
+
+        let copy_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "copy".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "import.csv".to_string(),
+                        span: Span::new(5, 17),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "import.csv.bak".to_string(),
+                        span: Span::new(19, 35),
+                    }),
+                ],
+                span: Span::new(0, 36),
+            })],
+            span: Span::new(0, 37),
+        })]))
+        .expect("IR");
+
+        assert!(
+            copy_ir
+                .contains("declare %EchoValue @echo_php_copy(%EchoValue, %EchoValue, %EchoValue)"),
+            "{copy_ir}"
+        );
+        assert!(
+            copy_ir.contains("call %EchoValue @echo_php_copy(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 0, i64 0 })"),
+            "{copy_ir}"
+        );
+
+        let unlink_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "unlink".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "import.csv.bak".to_string(),
+                    span: Span::new(7, 23),
+                })],
+                span: Span::new(0, 24),
+            })],
+            span: Span::new(0, 25),
+        })]))
+        .expect("IR");
+
+        assert!(
+            unlink_ir.contains("declare %EchoValue @echo_php_unlink(%EchoValue, %EchoValue)"),
+            "{unlink_ir}"
+        );
+        assert!(
+            unlink_ir.contains("call %EchoValue @echo_php_unlink(%EchoValue %runtime_call_0, %EchoValue { i32 0, i64 0 })"),
+            "{unlink_ir}"
+        );
+
+        let mkdir_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "mkdir".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "storage/cache".to_string(),
+                    span: Span::new(6, 21),
+                })],
+                span: Span::new(0, 22),
+            })],
+            span: Span::new(0, 23),
+        })]))
+        .expect("IR");
+
+        assert!(
+            mkdir_ir.contains(
+                "declare %EchoValue @echo_php_mkdir(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{mkdir_ir}"
+        );
+        assert!(
+            mkdir_ir.contains("call %EchoValue @echo_php_mkdir(%EchoValue %runtime_call_0, %EchoValue { i32 2, i64 511 }, %EchoValue { i32 1, i64 0 }, %EchoValue { i32 0, i64 0 })"),
+            "{mkdir_ir}"
+        );
+
+        let rmdir_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "rmdir".to_string(),
+                args: vec![Expr::String(StringLiteral {
+                    value: "storage/cache".to_string(),
+                    span: Span::new(6, 21),
+                })],
+                span: Span::new(0, 22),
+            })],
+            span: Span::new(0, 23),
+        })]))
+        .expect("IR");
+
+        assert!(
+            rmdir_ir.contains("declare %EchoValue @echo_php_rmdir(%EchoValue, %EchoValue)"),
+            "{rmdir_ir}"
+        );
+        assert!(
+            rmdir_ir.contains("call %EchoValue @echo_php_rmdir(%EchoValue %runtime_call_0, %EchoValue { i32 0, i64 0 })"),
+            "{rmdir_ir}"
+        );
     }
 
     #[test]
