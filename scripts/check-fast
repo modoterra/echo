@@ -704,6 +704,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections/keys.rs)
       add_changed_check "runtime-collections-keys"
       ;;
+    crates/echo_runtime/src/runtime_tests/collections/keys.rs)
+      add_changed_check "runtime-collections-keys"
+      ;;
     crates/echo_runtime/src/collections/search.rs)
       add_changed_check "runtime-collections-search"
       ;;
@@ -1202,6 +1205,8 @@ run_script_tests() {
     crates/echo_runtime/src/collections/sequence.rs
   assert_routing "runtime collection keys routes focused checks" "runtime-collections-keys" \
     crates/echo_runtime/src/collections/keys.rs
+  assert_routing "runtime collection key tests route focused checks" "runtime-collections-keys" \
+    crates/echo_runtime/src/runtime_tests/collections/keys.rs
   assert_routing "runtime collection search routes focused checks" "runtime-collections-search" \
     crates/echo_runtime/src/collections/search.rs
   assert_routing "runtime filesystem metadata routes focused checks" "runtime-filesystem-metadata" \
