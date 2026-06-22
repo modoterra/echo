@@ -1,4 +1,8 @@
-use crate::{EchoValue, string::php_string_map_builtin};
+use crc32fast::Hasher as Crc32Hasher;
+use md5_digest::{Digest as _, Md5};
+use sha1::Sha1;
+
+use crate::{EchoString, EchoValue, string::php_string_map_builtin};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PercentEncodingMode {
@@ -30,6 +34,50 @@ pub(crate) fn decode_hex(bytes: &[u8]) -> Option<Vec<u8>> {
     }
 
     Some(decoded)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let mut hasher = Crc32Hasher::new();
+            hasher.update(&bytes);
+            EchoValue::int(hasher.finalize() as i64)
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_md5(value: EchoValue, binary: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let digest = Md5::digest(&bytes);
+            let bytes = if binary.bool_value().unwrap_or(false) {
+                digest.to_vec()
+            } else {
+                lowercase_hex_bytes(&digest)
+            };
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sha1(value: EchoValue, binary: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => {
+            let digest = Sha1::digest(&bytes);
+            let bytes = if binary.bool_value().unwrap_or(false) {
+                digest.to_vec()
+            } else {
+                lowercase_hex_bytes(&digest)
+            };
+            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+        }
+        None => EchoValue::error(),
+    }
 }
 
 pub(crate) fn encode_base64(bytes: &[u8]) -> Vec<u8> {

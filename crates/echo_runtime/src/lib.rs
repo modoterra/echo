@@ -23,10 +23,7 @@ pub mod thread;
 pub mod time;
 pub mod value;
 
-use crc32fast::Hasher as Crc32Hasher;
 use filetime::FileTime;
-use md5_digest::{Digest as _, Md5};
-use sha1::Sha1;
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
 use std::env;
@@ -46,9 +43,9 @@ use collections::{
 };
 use encoding::*;
 pub use encoding::{
-    echo_php_base64_decode, echo_php_base64_encode, echo_php_escapeshellarg,
-    echo_php_escapeshellcmd, echo_php_rawurldecode, echo_php_rawurlencode, echo_php_urldecode,
-    echo_php_urlencode,
+    echo_php_base64_decode, echo_php_base64_encode, echo_php_crc32, echo_php_escapeshellarg,
+    echo_php_escapeshellcmd, echo_php_md5, echo_php_rawurldecode, echo_php_rawurlencode,
+    echo_php_sha1, echo_php_urldecode, echo_php_urlencode,
 };
 pub use environment::*;
 pub use error::EchoError;
@@ -2138,50 +2135,6 @@ pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
             lowercase_hex_bytes(&bytes),
         )))),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => {
-            let mut hasher = Crc32Hasher::new();
-            hasher.update(&bytes);
-            EchoValue::int(hasher.finalize() as i64)
-        }
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_md5(value: EchoValue, binary: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => {
-            let digest = Md5::digest(&bytes);
-            let bytes = if binary.bool_value().unwrap_or(false) {
-                digest.to_vec()
-            } else {
-                lowercase_hex_bytes(&digest)
-            };
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-        }
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_sha1(value: EchoValue, binary: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => {
-            let digest = Sha1::digest(&bytes);
-            let bytes = if binary.bool_value().unwrap_or(false) {
-                digest.to_vec()
-            } else {
-                lowercase_hex_bytes(&digest)
-            };
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-        }
         None => EchoValue::error(),
     }
 }
