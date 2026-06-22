@@ -54,6 +54,7 @@ pub use encoding::{
 };
 pub use environment::*;
 pub use error::EchoError;
+pub use execution::echo_join;
 #[cfg(test)]
 use filesystem::{
     PHP_FILE_APPEND, path_buf_from_bytes, path_getcwd, path_is_dir, path_is_file, path_realpath,
@@ -606,19 +607,6 @@ fn inspect_string_literal(bytes: &[u8]) -> String {
     }
     literal.push('"');
     literal
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
-    match handle.kind {
-        ECHO_VALUE_TASK => echo_task_join(handle),
-        ECHO_VALUE_THREAD => echo_thread_join(handle),
-        ECHO_VALUE_PROCESS => echo_process_join(handle),
-        _ => {
-            eprintln!("error: join target is not a task, thread, or process handle");
-            EchoValue::error()
-        }
-    }
 }
 
 #[unsafe(no_mangle)]

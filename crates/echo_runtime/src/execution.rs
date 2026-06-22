@@ -1,6 +1,11 @@
 use std::cell::RefCell;
 use std::io::{self, Write};
 
+use crate::{
+    ECHO_VALUE_PROCESS, ECHO_VALUE_TASK, ECHO_VALUE_THREAD, EchoValue, echo_process_join,
+    echo_task_join, echo_thread_join,
+};
+
 #[derive(Debug, Default)]
 struct RuntimeExecution {
     stdout: Option<Vec<u8>>,
@@ -61,4 +66,17 @@ pub(crate) fn write_stdout(bytes: &[u8]) {
         .write_all(bytes)
         .expect("failed to write Echo runtime output");
     stdout.flush().expect("failed to flush Echo runtime output");
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
+    match handle.kind {
+        ECHO_VALUE_TASK => echo_task_join(handle),
+        ECHO_VALUE_THREAD => echo_thread_join(handle),
+        ECHO_VALUE_PROCESS => echo_process_join(handle),
+        _ => {
+            eprintln!("error: join target is not a task, thread, or process handle");
+            EchoValue::error()
+        }
+    }
 }
