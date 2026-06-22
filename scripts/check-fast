@@ -69,6 +69,7 @@ Usage:
   scripts/check-fast runtime-filesystem-content
   scripts/check-fast runtime-filesystem-links
   scripts/check-fast runtime-filesystem-metadata
+  scripts/check-fast runtime-filesystem-mutation
   scripts/check-fast runtime-filesystem-temporary
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
@@ -191,6 +192,7 @@ Examples:
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-content
   scripts/check-fast runtime-filesystem-links
+  scripts/check-fast runtime-filesystem-mutation
   scripts/check-fast runtime-filesystem-temporary
   scripts/check-fast runtime-math
   scripts/check-fast runtime-math-elementary
@@ -731,6 +733,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/filesystem/links.rs)
       add_changed_check "runtime-filesystem-links"
       ;;
+    crates/echo_runtime/src/filesystem/mutation.rs)
+      add_changed_check "runtime-filesystem-mutation"
+      ;;
     crates/echo_runtime/src/filesystem/temporary.rs)
       add_changed_check "runtime-filesystem-temporary"
       ;;
@@ -1081,6 +1086,8 @@ run_script_tests() {
     crates/echo_runtime/src/filesystem/content.rs
   assert_routing "runtime filesystem links routes focused checks" "runtime-filesystem-links" \
     crates/echo_runtime/src/filesystem/links.rs
+  assert_routing "runtime filesystem mutation routes focused checks" "runtime-filesystem-mutation" \
+    crates/echo_runtime/src/filesystem/mutation.rs
   assert_routing "runtime filesystem temporary routes focused checks" "runtime-filesystem-temporary" \
     crates/echo_runtime/src/filesystem/temporary.rs
   assert_routing "runtime elementary math routes focused checks" "runtime-math-elementary" \
@@ -1534,6 +1541,10 @@ case "$command" in
   runtime-filesystem-links)
     run_quiet cargo test -q -p echo_runtime filesystem_link_builtins_create_and_read_links
     run_with_optional_fixture "079_filesystem_link_builtins,139_filesystem_link_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-filesystem-mutation)
+    run_quiet cargo test -q -p echo_runtime filesystem_mutation_builtins_create_move_and_remove_paths
+    run_with_optional_fixture "077_filesystem_mutation_builtins,137_filesystem_mutation_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-filesystem-temporary)
     run_quiet cargo test -q -p echo_runtime temporary_name_builtins_create_files_and_identifiers
