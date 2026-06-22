@@ -61,6 +61,32 @@ pub(crate) fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_chr(value: EchoValue) -> EchoValue {
+    match value.int_value() {
+        Some(codepoint) => {
+            let byte = codepoint.rem_euclid(256) as u8;
+            echo_runtime_string(vec![byte])
+        }
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_dechex(value: EchoValue) -> EchoValue {
+    php_int_to_string_builtin(value, |number| format!("{:x}", number as u64).into_bytes())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_decbin(value: EchoValue) -> EchoValue {
+    php_int_to_string_builtin(value, |number| format!("{:b}", number as u64).into_bytes())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
+    php_int_to_string_builtin(value, |number| format!("{:o}", number as u64).into_bytes())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
     php_string_transform_builtin(value, |bytes| bytes.make_ascii_uppercase())
 }

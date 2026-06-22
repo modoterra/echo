@@ -69,8 +69,9 @@ pub use reflection::{
 };
 pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
-    echo_php_lcfirst, echo_php_ord, echo_php_str_repeat, echo_php_str_rot13, echo_php_strrev,
-    echo_php_strtolower, echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
+    echo_php_chr, echo_php_decbin, echo_php_dechex, echo_php_decoct, echo_php_lcfirst,
+    echo_php_ord, echo_php_str_repeat, echo_php_str_rot13, echo_php_strrev, echo_php_strtolower,
+    echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
 };
 use string::{
     php_int_to_string_builtin, php_string_to_number_builtin, trim_ascii, trim_ascii_start,
@@ -1799,32 +1800,6 @@ pub extern "C" fn echo_php_floatval(value: EchoValue) -> EchoValue {
         Some(value) => EchoValue::float(value),
         None => EchoValue::error(),
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_chr(value: EchoValue) -> EchoValue {
-    match value.int_value() {
-        Some(codepoint) => {
-            let byte = codepoint.rem_euclid(256) as u8;
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(vec![byte]))))
-        }
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_dechex(value: EchoValue) -> EchoValue {
-    php_int_to_string_builtin(value, |number| format!("{:x}", number as u64).into_bytes())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_decbin(value: EchoValue) -> EchoValue {
-    php_int_to_string_builtin(value, |number| format!("{:b}", number as u64).into_bytes())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
-    php_int_to_string_builtin(value, |number| format!("{:o}", number as u64).into_bytes())
 }
 
 #[unsafe(no_mangle)]
