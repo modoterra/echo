@@ -850,7 +850,7 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/semantic_tokens.rs)
       add_changed_check "lsp-semantic-tokens"
       ;;
-    crates/echo_lsp/src/server.rs)
+    crates/echo_lsp/src/server.rs|crates/echo_lsp/src/server/tests.rs)
       add_changed_check "lsp-server"
       ;;
     crates/echo_lsp/src/signature_help.rs)
@@ -1245,6 +1245,8 @@ run_script_tests() {
     crates/echo_lsp/src/definition_target.rs
   assert_routing "lsp server routes focused checks" "lsp-server" \
     crates/echo_lsp/src/server.rs
+  assert_routing "lsp server tests route focused checks" "lsp-server" \
+    crates/echo_lsp/src/server/tests.rs
   assert_routing "lsp document links route focused checks" "lsp-document-links" \
     crates/echo_lsp/src/document_links.rs
   assert_routing "lsp indexing route focused checks" "lsp-indexing" \
