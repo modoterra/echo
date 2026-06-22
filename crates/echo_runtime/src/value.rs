@@ -1,5 +1,94 @@
 use crate::string::trim_ascii_start;
+use crate::{
+    ECHO_VALUE_ARRAY, ECHO_VALUE_BOOL, ECHO_VALUE_FLOAT, ECHO_VALUE_INT, ECHO_VALUE_LIST,
+    ECHO_VALUE_NULL, ECHO_VALUE_OBJECT, ECHO_VALUE_PROCESS, ECHO_VALUE_STRING, ECHO_VALUE_TASK,
+    ECHO_VALUE_TASK_GROUP, ECHO_VALUE_TCP_CONNECTION, ECHO_VALUE_TCP_LISTENER, ECHO_VALUE_THREAD,
+    echo_runtime_string,
+};
 pub use crate::{EchoArray, EchoCallable, EchoList, EchoSymbol, EchoValue};
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
+    let type_name = match value.kind {
+        ECHO_VALUE_NULL => b"NULL".as_slice(),
+        ECHO_VALUE_BOOL => b"boolean".as_slice(),
+        ECHO_VALUE_INT => b"integer".as_slice(),
+        ECHO_VALUE_FLOAT => b"double".as_slice(),
+        ECHO_VALUE_STRING => b"string".as_slice(),
+        ECHO_VALUE_ARRAY => b"array".as_slice(),
+        ECHO_VALUE_LIST => b"list".as_slice(),
+        ECHO_VALUE_TASK
+        | ECHO_VALUE_TASK_GROUP
+        | ECHO_VALUE_OBJECT
+        | ECHO_VALUE_PROCESS
+        | ECHO_VALUE_THREAD => b"object".as_slice(),
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
+        _ => b"unknown type".as_slice(),
+    };
+    echo_runtime_string(type_name.to_vec())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_countable(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array() || value.is_list())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_iterable(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_array() || value.is_list())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_null(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_null())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_bool())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_int())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_float(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_float())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_object(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_object())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_resource(value: EchoValue) -> EchoValue {
+    EchoValue::bool(matches!(
+        value.kind,
+        ECHO_VALUE_TCP_LISTENER
+            | ECHO_VALUE_TCP_CONNECTION
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_THREAD
+    ))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_string(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_string())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_scalar(value: EchoValue) -> EchoValue {
+    EchoValue::bool(value.is_bool() || value.is_int() || value.is_string())
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_boolval(value: EchoValue) -> EchoValue {

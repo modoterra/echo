@@ -82,7 +82,12 @@ use time::system_time_unix_timestamp;
 use time::unix_duration_now_or_zero;
 pub use time::{echo_php_microtime, echo_time_sleep};
 use value::format_php_float;
-pub use value::{EchoObject, EchoString, echo_php_boolval, echo_php_floatval, echo_php_intval};
+pub use value::{
+    EchoObject, EchoString, echo_php_boolval, echo_php_floatval, echo_php_gettype, echo_php_intval,
+    echo_php_is_array, echo_php_is_bool, echo_php_is_countable, echo_php_is_float, echo_php_is_int,
+    echo_php_is_iterable, echo_php_is_null, echo_php_is_object, echo_php_is_resource,
+    echo_php_is_scalar, echo_php_is_string,
+};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1624,34 +1629,8 @@ pub extern "C" fn echo_php_array_product(array: EchoValue) -> EchoValue {
     product.into_echo_value()
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
-    let type_name = match value.kind {
-        ECHO_VALUE_NULL => b"NULL".as_slice(),
-        ECHO_VALUE_BOOL => b"boolean".as_slice(),
-        ECHO_VALUE_INT => b"integer".as_slice(),
-        ECHO_VALUE_FLOAT => b"double".as_slice(),
-        ECHO_VALUE_STRING => b"string".as_slice(),
-        ECHO_VALUE_ARRAY => b"array".as_slice(),
-        ECHO_VALUE_LIST => b"list".as_slice(),
-        ECHO_VALUE_TASK
-        | ECHO_VALUE_TASK_GROUP
-        | ECHO_VALUE_OBJECT
-        | ECHO_VALUE_PROCESS
-        | ECHO_VALUE_THREAD => b"object".as_slice(),
-        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
-        _ => b"unknown type".as_slice(),
-    };
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(type_name.to_vec()))))
-}
-
 pub(crate) fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_array())
 }
 
 #[unsafe(no_mangle)]
@@ -1683,21 +1662,6 @@ pub extern "C" fn echo_php_array_is_list(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_countable(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_array() || value.is_list())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_iterable(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_array() || value.is_list())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_null(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_null())
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_numeric(value: EchoValue) -> EchoValue {
     let is_numeric = match value.kind {
         ECHO_VALUE_INT => true,
@@ -1709,21 +1673,6 @@ pub extern "C" fn echo_php_is_numeric(value: EchoValue) -> EchoValue {
         _ => false,
     };
     EchoValue::bool(is_numeric)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_bool())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_int(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_int())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_float(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_float())
 }
 
 #[unsafe(no_mangle)]
@@ -1739,33 +1688,6 @@ pub extern "C" fn echo_php_is_infinite(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_nan(value: EchoValue) -> EchoValue {
     php_float_predicate_builtin(value, f64::is_nan)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_object(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_object())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_resource(value: EchoValue) -> EchoValue {
-    EchoValue::bool(matches!(
-        value.kind,
-        ECHO_VALUE_TCP_LISTENER
-            | ECHO_VALUE_TCP_CONNECTION
-            | ECHO_VALUE_PROCESS
-            | ECHO_VALUE_TASK_GROUP
-            | ECHO_VALUE_THREAD
-    ))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_string(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_string())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_scalar(value: EchoValue) -> EchoValue {
-    EchoValue::bool(value.is_bool() || value.is_int() || value.is_string())
 }
 
 #[unsafe(no_mangle)]
