@@ -37,6 +37,16 @@ pub(crate) fn decode_hex(bytes: &[u8]) -> Option<Vec<u8>> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            lowercase_hex_bytes(&bytes),
+        )))),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => {

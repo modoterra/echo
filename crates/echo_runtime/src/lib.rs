@@ -43,9 +43,9 @@ use collections::{
 };
 use encoding::*;
 pub use encoding::{
-    echo_php_base64_decode, echo_php_base64_encode, echo_php_crc32, echo_php_escapeshellarg,
-    echo_php_escapeshellcmd, echo_php_md5, echo_php_rawurldecode, echo_php_rawurlencode,
-    echo_php_sha1, echo_php_urldecode, echo_php_urlencode,
+    echo_php_base64_decode, echo_php_base64_encode, echo_php_bin2hex, echo_php_crc32,
+    echo_php_escapeshellarg, echo_php_escapeshellcmd, echo_php_md5, echo_php_rawurldecode,
+    echo_php_rawurlencode, echo_php_sha1, echo_php_urldecode, echo_php_urlencode,
 };
 pub use environment::*;
 pub use error::EchoError;
@@ -2126,16 +2126,6 @@ fn php_binary_float_builtin(
     match (php_float_coercion(left), php_float_coercion(right)) {
         (Some(left), Some(right)) => EchoValue::float(f(left, right)),
         _ => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            lowercase_hex_bytes(&bytes),
-        )))),
-        None => EchoValue::error(),
     }
 }
 
