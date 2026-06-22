@@ -41,6 +41,8 @@ Usage:
   scripts/check-fast lsp
   scripts/check-fast std
   scripts/check-fast reflection
+  scripts/check-fast docs
+  scripts/check-fast web-docs
   scripts/check-fast codegen
   scripts/check-fast xo
   scripts/check-fast repl
@@ -72,6 +74,8 @@ Examples:
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
   scripts/check-fast runtime-encoding
+  scripts/check-fast docs
+  scripts/check-fast web-docs
   scripts/check-fast parser
   scripts/check-fast parser 017_object_append_count
   scripts/check-fast pipeline
@@ -367,6 +371,9 @@ add_checks_for_changed_path() {
     crates/echo_reflection/*)
       add_changed_check "reflection"
       ;;
+    docs/*.md|docs/**/*.md)
+      add_changed_check "docs"
+      ;;
     crates/xo/src/build.rs)
       add_changed_check "xo"
       add_changed_check "fixture"
@@ -392,6 +399,9 @@ add_checks_for_changed_path() {
       ;;
     tests/php/*|tests/echo/*)
       add_fixture_checks "$path"
+      ;;
+    www/src/docs/*)
+      add_changed_check "web-docs"
       ;;
     www/*)
       add_changed_check "web"
@@ -472,6 +482,10 @@ run_script_tests() {
     crates/echo_runtime/src/assertions.rs
   assert_routing "runtime require routes focused checks" "runtime-require" \
     crates/echo_runtime/src/require.rs
+  assert_routing "markdown docs route docs checks" "docs" \
+    docs/time-foundation.md
+  assert_routing "website docs route type checks" "web-docs" \
+    www/src/docs/content.ts
 }
 
 run_changed_checks() {
@@ -737,6 +751,12 @@ case "$command" in
     ;;
   reflection)
     test_crate echo_reflection
+    ;;
+  docs)
+    run_quiet bash -c '! rg -n "<<<<<<<|=======|>>>>>>>" docs --glob "*.md"'
+    ;;
+  web-docs)
+    run_quiet bash -c 'cd www && ./node_modules/.bin/tsc -b'
     ;;
   codegen)
     test_crate echo_codegen
