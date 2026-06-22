@@ -57,6 +57,7 @@ Usage:
   scripts/check-fast runtime-time
   scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
+  scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
@@ -151,6 +152,7 @@ Examples:
   scripts/check-fast runtime-time
   scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
+  scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
   scripts/check-fast runtime-encoding
@@ -610,6 +612,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/string.rs)
       add_changed_check "runtime-string"
       ;;
+    crates/echo_runtime/src/value/inspect.rs)
+      add_changed_check "runtime-value-inspect"
+      ;;
     crates/echo_runtime/src/value/*.rs)
       add_changed_check "runtime-value"
       ;;
@@ -916,7 +921,7 @@ run_script_tests() {
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
-  assert_routing "runtime value submodule routes focused checks" "runtime-value" \
+  assert_routing "runtime value inspect routes focused checks" "runtime-value-inspect" \
     crates/echo_runtime/src/value/inspect.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
@@ -1194,6 +1199,11 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime floatval_preserves_php_scalar_float_coercion
     run_quiet cargo test -q -p echo_runtime is_object_reports_only_object_values
     run_quiet cargo test -q -p echo_runtime gettype_returns_php_type_names_for_current_values
+    ;;
+  runtime-value-inspect)
+    run_quiet cargo test -q -p echo_runtime repl_inspector
+    run_quiet cargo test -q -p echo_runtime runtime_capture_stdout_enables_repl_inspection
+    run_quiet cargo test -q -p echo_runtime output::
     ;;
   runtime-collections)
     run_quiet cargo test -q -p echo_runtime array_
