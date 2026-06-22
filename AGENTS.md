@@ -58,6 +58,7 @@ This repo uses a single-context domain documentation layout. See `docs/agents/do
 - Use `scripts/check-fast runtime-reflection` after runtime reflection registry, `function_exists`, `is_callable`, or `std.reflect.*` changes.
 - Use `scripts/check-fast runtime-math` after runtime numeric, float, trigonometric, rounding, exponent, or logarithm changes.
 - Use `scripts/check-fast runtime-encoding` after runtime hex, base64, URL encoding, or string rewrite changes.
+- Use `scripts/check-fast runtime-tests-string-search-position` or `scripts/check-fast runtime-tests-string-search-matches` for focused runtime string search tests.
 - Use `scripts/check-fast parser` after parser/AST/HIR/MIR shape changes; pass a fixture filter when a parser failure is local to one fixture. Use `scripts/check-fast parser-strings` for PHP string literal parsing, `scripts/check-fast parser-concurrency` for `run`/`fork`/`spawn`/`join` parser syntax, and `scripts/check-fast parser-echo-surface` for Echo-only parser surface tests such as typed `let`, `fn`, dot receiver calls, and target server syntax.
 - Use `scripts/check-fast semantics`, `scripts/check-fast hir`, or `scripts/check-fast mir` for focused checks in the shared language pipeline.
 - Use `scripts/check-fast pipeline` before codegen when a change crosses parser, semantic analysis, HIR, or MIR lowering.

@@ -31,6 +31,8 @@ Usage:
   scripts/check-fast runtime-tests-string-paths
   scripts/check-fast runtime-tests-string-rewrite
   scripts/check-fast runtime-tests-string-search
+  scripts/check-fast runtime-tests-string-search-matches
+  scripts/check-fast runtime-tests-string-search-position
   scripts/check-fast runtime-tests-string-span
   scripts/check-fast runtime-tests-string-substr
   scripts/check-fast runtime-tests-task
@@ -348,6 +350,8 @@ runtime-tests-string-encoding|string_encoding|crates/echo_runtime/src/runtime_te
 runtime-tests-string-format|string_format|crates/echo_runtime/src/runtime_tests/string_format.rs|runtime string format tests
 runtime-tests-string-paths|string_paths|crates/echo_runtime/src/runtime_tests/string_paths.rs|runtime string path tests
 runtime-tests-string-rewrite|string_rewrite|crates/echo_runtime/src/runtime_tests/string_rewrite.rs|runtime string rewrite tests
+runtime-tests-string-search-matches|string_search::matches|crates/echo_runtime/src/runtime_tests/string_search/matches.rs|runtime string search match tests
+runtime-tests-string-search-position|string_search::position|crates/echo_runtime/src/runtime_tests/string_search/position.rs|runtime string search position tests
 runtime-tests-string-search|string_search|crates/echo_runtime/src/runtime_tests/string_search.rs|runtime string search tests
 runtime-tests-string-span|string_span|crates/echo_runtime/src/runtime_tests/string_span.rs|runtime string span tests
 runtime-tests-string-substr|string_substr|crates/echo_runtime/src/runtime_tests/string_substr.rs|runtime string substr tests
@@ -712,6 +716,12 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/collections/sequence.rs)
       add_changed_check "runtime-collections-sequence"
+      ;;
+    crates/echo_runtime/src/runtime_tests/string_search/matches.rs)
+      add_changed_check "runtime-tests-string-search-matches"
+      ;;
+    crates/echo_runtime/src/runtime_tests/string_search/position.rs)
+      add_changed_check "runtime-tests-string-search-position"
       ;;
     crates/echo_runtime/src/runtime_tests/*.rs)
       if ! add_runtime_test_module_check_for_path "$path"; then
@@ -1199,6 +1209,10 @@ run_script_tests() {
     crates/echo_runtime/src/string/compare.rs
   assert_routing "runtime string pattern routes focused checks" "runtime-string-pattern" \
     crates/echo_runtime/src/string/pattern.rs
+  assert_routing "runtime string search match tests route focused checks" "runtime-tests-string-search-matches" \
+    crates/echo_runtime/src/runtime_tests/string_search/matches.rs
+  assert_routing "runtime string search position tests route focused checks" "runtime-tests-string-search-position" \
+    crates/echo_runtime/src/runtime_tests/string_search/position.rs
   assert_routing "runtime string sequence routes focused checks" "runtime-string-sequence" \
     crates/echo_runtime/src/string/sequence.rs
   assert_routing "runtime collection sequence routes focused checks" "runtime-collections-sequence" \
