@@ -694,7 +694,7 @@ case "$command" in
     run_pipeline_checks
     ;;
   runtime)
-    test_crate echo_runtime
+    run_quiet cargo test -q -p echo_runtime -- --test-threads=1
     ;;
   runtime-assert)
     run_quiet cargo test -q -p echo_runtime assertions::
@@ -790,14 +790,26 @@ case "$command" in
     run_with_optional_fixture "041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-math)
-    test_crate echo_runtime
+    run_quiet cargo test -q -p echo_runtime float_scalar_math_builtins_preserve_php_scalar_behavior
+    run_quiet cargo test -q -p echo_runtime angle_conversion_builtins_preserve_php_float_coercion
+    run_quiet cargo test -q -p echo_runtime trigonometric_builtins_preserve_php_float_coercion
+    run_quiet cargo test -q -p echo_runtime hyperbolic_builtins_preserve_php_float_behavior
+    run_quiet cargo test -q -p echo_runtime rounding_and_magnitude_builtins_preserve_php_float_behavior
+    run_quiet cargo test -q -p echo_runtime exponential_and_logarithm_builtins_preserve_php_float_behavior
+    run_quiet cargo test -q -p echo_runtime is_finite_preserves_php_float_coercion_for_current_values
+    run_quiet cargo test -q -p echo_runtime is_infinite_preserves_php_float_coercion_for_current_values
+    run_quiet cargo test -q -p echo_runtime is_nan_preserves_php_float_coercion_for_current_values
     run_with_optional_fixture "058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-math-fixtures)
     run_with_optional_fixture "058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-encoding)
-    test_crate echo_runtime
+    run_quiet cargo test -q -p echo_runtime chr_and_bin2hex_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime base64_encode_preserves_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime base64_decode_preserves_php_default_non_strict_byte_behavior
+    run_quiet cargo test -q -p echo_runtime url_encoding_builtins_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime hex2bin_and_str_repeat_preserve_php_byte_behavior
     run_with_optional_fixture "049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,081_string_rewrite_builtins,114_url_encoding_builtins,141_string_rewrite_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-encoding-fixtures)
