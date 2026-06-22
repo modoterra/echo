@@ -668,6 +668,9 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/reflection_lowering.rs)
       add_changed_check "codegen-reflection"
       ;;
+    crates/echo_codegen/src/tests/reflection.rs)
+      add_changed_check "codegen-reflection"
+      ;;
     crates/echo_codegen/src/statement_lowering.rs)
       add_changed_check "codegen-statements"
       ;;
@@ -1341,6 +1344,8 @@ run_script_tests() {
     crates/echo_codegen/src/php_lowering.rs
   assert_routing "codegen reflection lowering routes focused reflection checks" "codegen-reflection" \
     crates/echo_codegen/src/reflection_lowering.rs
+  assert_routing "codegen reflection tests route focused reflection checks" "codegen-reflection" \
+    crates/echo_codegen/src/tests/reflection.rs
   assert_routing "codegen statement lowering routes focused statement checks" "codegen-statements" \
     crates/echo_codegen/src/statement_lowering.rs
   assert_routing "codegen runtime symbols route focused JIT checks" "codegen-jit" \
