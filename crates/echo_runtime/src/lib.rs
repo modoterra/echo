@@ -69,8 +69,8 @@ pub use reflection::{
 };
 pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
-    echo_php_lcfirst, echo_php_ord, echo_php_str_rot13, echo_php_strrev, echo_php_strtolower,
-    echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
+    echo_php_lcfirst, echo_php_ord, echo_php_str_repeat, echo_php_str_rot13, echo_php_strrev,
+    echo_php_strtolower, echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
 };
 use string::{
     php_int_to_string_builtin, php_string_to_number_builtin, trim_ascii, trim_ascii_start,
@@ -3800,23 +3800,6 @@ fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         || haystack
             .windows(needle.len())
             .any(|window| window == needle)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_str_repeat(value: EchoValue, times: EchoValue) -> EchoValue {
-    let Some(bytes) = value.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(times) = times.int_value() else {
-        return EchoValue::error();
-    };
-    let Ok(times) = usize::try_from(times) else {
-        return EchoValue::error();
-    };
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-        bytes.repeat(times),
-    ))))
 }
 
 #[unsafe(no_mangle)]

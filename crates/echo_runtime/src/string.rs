@@ -1,4 +1,4 @@
-use crate::{EchoValue, echo_runtime_string};
+use crate::{EchoString, EchoValue, echo_runtime_string};
 
 pub(crate) fn php_string_transform_builtin(
     value: EchoValue,
@@ -128,4 +128,21 @@ pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
             };
         }
     })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_repeat(value: EchoValue, times: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(times) = times.int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(times) = usize::try_from(times) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        bytes.repeat(times),
+    ))))
 }
