@@ -889,6 +889,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime string_byte_builtins_preserve_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime explode_preserves_php_array_count_and_limit_behavior
     run_quiet cargo test -q -p echo_runtime implode_joins_array_values_with_php_string_coercion
+    run_quiet cargo test -q -p echo_runtime str_repeat_preserves_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime str_pad_preserves_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime string_chunk_builtins_preserve_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime substr_preserves_php_byte_behavior
@@ -952,7 +953,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime base64_encode_preserves_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime base64_decode_preserves_php_default_non_strict_byte_behavior
     run_quiet cargo test -q -p echo_runtime url_encoding_builtins_preserve_php_byte_behavior
-    run_quiet cargo test -q -p echo_runtime hex2bin_and_str_repeat_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime hex2bin_preserves_php_byte_behavior
     run_with_optional_fixture "$RUNTIME_ENCODING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-encoding-fixtures)

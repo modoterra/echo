@@ -7028,7 +7028,7 @@ mod tests {
     }
 
     #[test]
-    fn hex2bin_and_str_repeat_preserve_php_byte_behavior() {
+    fn hex2bin_preserves_php_byte_behavior() {
         let hex = Box::into_raw(Box::new(EchoString {
             bytes: "c384".as_bytes().to_vec(),
         }));
@@ -7037,12 +7037,6 @@ mod tests {
         }));
         let invalid_hex = Box::into_raw(Box::new(EchoString {
             bytes: "f".as_bytes().to_vec(),
-        }));
-        let repeated = Box::into_raw(Box::new(EchoString {
-            bytes: "xo".as_bytes().to_vec(),
-        }));
-        let empty_repeat = Box::into_raw(Box::new(EchoString {
-            bytes: "x".as_bytes().to_vec(),
         }));
 
         assert_eq!(
@@ -7057,6 +7051,23 @@ mod tests {
             echo_php_hex2bin(EchoValue::string(invalid_hex)),
             EchoValue::bool(false)
         );
+
+        unsafe {
+            drop(Box::from_raw(hex));
+            drop(Box::from_raw(upper_hex));
+            drop(Box::from_raw(invalid_hex));
+        }
+    }
+
+    #[test]
+    fn str_repeat_preserves_php_byte_behavior() {
+        let repeated = Box::into_raw(Box::new(EchoString {
+            bytes: "xo".as_bytes().to_vec(),
+        }));
+        let empty_repeat = Box::into_raw(Box::new(EchoString {
+            bytes: "x".as_bytes().to_vec(),
+        }));
+
         assert_eq!(
             echo_php_str_repeat(EchoValue::string(repeated), EchoValue::int(3)).string_bytes(),
             Some("xoxoxo".as_bytes().to_vec())
@@ -7067,9 +7078,6 @@ mod tests {
         );
 
         unsafe {
-            drop(Box::from_raw(hex));
-            drop(Box::from_raw(upper_hex));
-            drop(Box::from_raw(invalid_hex));
             drop(Box::from_raw(repeated));
             drop(Box::from_raw(empty_repeat));
         }
