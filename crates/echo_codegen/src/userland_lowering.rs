@@ -87,14 +87,8 @@ impl IrModule {
             args.push(self.render_mir_expr_as_echo_value(body, arg)?);
         }
 
-        let call_id = self.next_call_id;
-        self.next_call_id += 1;
-
-        body.push_str(&format!(
-            "  %runtime_call_{call_id} = call %EchoValue @{}({})\n",
-            userland_function_symbol(&call.name),
-            args.join(", ")
-        ));
+        let symbol = userland_function_symbol(&call.name);
+        self.push_echo_value_call(body, &symbol, &args.join(", "));
 
         Ok(())
     }
@@ -126,15 +120,8 @@ impl IrModule {
             args.push(self.render_mir_expr_as_echo_value(body, arg)?);
         }
 
-        let call_id = self.next_call_id;
-        self.next_call_id += 1;
-        let name = format!("%runtime_call_{call_id}");
-
-        body.push_str(&format!(
-            "  {name} = call %EchoValue @{}({})\n",
-            userland_function_symbol(&call.name),
-            args.join(", ")
-        ));
+        let symbol = userland_function_symbol(&call.name);
+        let name = self.push_echo_value_call(body, &symbol, &args.join(", "));
 
         Ok(RuntimeValue::EchoValue(name))
     }

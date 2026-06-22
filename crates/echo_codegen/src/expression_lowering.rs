@@ -20,14 +20,11 @@ impl IrModule {
             (left, right) => {
                 let left = self.runtime_value_as_echo_value(body, left);
                 let right = self.runtime_value_as_echo_value(body, right);
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call %EchoValue @{}({left}, {right})\n",
-                    CoreRuntimeSymbol::ValueConcat.symbol()
-                ));
+                let name = self.push_echo_value_call(
+                    body,
+                    CoreRuntimeSymbol::ValueConcat.symbol(),
+                    &format!("{left}, {right}"),
+                );
 
                 Ok(RuntimeValue::EchoValue(name))
             }
@@ -43,14 +40,7 @@ impl IrModule {
     ) -> Result<RuntimeValue, Diagnostic> {
         let left = self.render_mir_expr_as_echo_value(body, left)?;
         let right = self.render_mir_expr_as_echo_value(body, right)?;
-        let call_id = self.next_call_id;
-        self.next_call_id += 1;
-        let name = format!("%runtime_call_{call_id}");
-
-        body.push_str(&format!(
-            "  {name} = call %EchoValue @{}({left}, {right})\n",
-            symbol.symbol()
-        ));
+        let name = self.push_echo_value_call(body, symbol.symbol(), &format!("{left}, {right}"));
 
         Ok(RuntimeValue::EchoValue(name))
     }
@@ -62,14 +52,7 @@ impl IrModule {
         symbol: CoreRuntimeSymbol,
     ) -> Result<RuntimeValue, Diagnostic> {
         let value = self.render_mir_expr_as_echo_value(body, expr)?;
-        let call_id = self.next_call_id;
-        self.next_call_id += 1;
-        let name = format!("%runtime_call_{call_id}");
-
-        body.push_str(&format!(
-            "  {name} = call %EchoValue @{}({value})\n",
-            symbol.symbol()
-        ));
+        let name = self.push_echo_value_call(body, symbol.symbol(), &value);
 
         Ok(RuntimeValue::EchoValue(name))
     }
