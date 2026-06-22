@@ -77,9 +77,10 @@ pub use reflection::{
 };
 pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
-    echo_php_chr, echo_php_decbin, echo_php_dechex, echo_php_decoct, echo_php_lcfirst,
-    echo_php_ord, echo_php_str_repeat, echo_php_str_rot13, echo_php_strrev, echo_php_strtolower,
-    echo_php_strtoupper, echo_php_strval, echo_php_ucfirst, echo_php_ucwords,
+    echo_php_chr, echo_php_decbin, echo_php_dechex, echo_php_decoct, echo_php_explode,
+    echo_php_implode, echo_php_lcfirst, echo_php_ord, echo_php_str_repeat, echo_php_str_rot13,
+    echo_php_strrev, echo_php_strtolower, echo_php_strtoupper, echo_php_strval, echo_php_ucfirst,
+    echo_php_ucwords,
 };
 use string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
@@ -1808,109 +1809,6 @@ fn ascii_digit_value(byte: u8) -> Option<u32> {
         b'A'..=b'Z' => Some((byte - b'A' + 10) as u32),
         _ => None,
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_explode(
-    separator: EchoValue,
-    string: EchoValue,
-    limit: EchoValue,
-) -> EchoValue {
-    let Some(separator) = separator.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(string) = string.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(limit) = limit.php_int_value() else {
-        return EchoValue::error();
-    };
-    if separator.is_empty() {
-        return EchoValue::error();
-    }
-
-    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
-        explode_bytes(&separator, &string, limit)
-            .into_iter()
-            .map(|bytes| EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))))
-            .collect(),
-    ))))
-}
-
-fn explode_bytes(separator: &[u8], string: &[u8], limit: i64) -> Vec<Vec<u8>> {
-    let limit = if limit == 0 { 1 } else { limit };
-    if limit > 0 {
-        return explode_bytes_positive_limit(separator, string, limit as usize);
-    }
-
-    let mut parts = explode_bytes_all(separator, string);
-    let omit = limit.unsigned_abs() as usize;
-    let keep = parts.len().saturating_sub(omit);
-    parts.truncate(keep);
-    parts
-}
-
-fn explode_bytes_positive_limit(separator: &[u8], string: &[u8], limit: usize) -> Vec<Vec<u8>> {
-    if limit == 1 {
-        return vec![string.to_vec()];
-    }
-
-    let mut parts = Vec::new();
-    let mut start = 0;
-    while parts.len() + 1 < limit {
-        let Some(offset) = find_subslice(&string[start..], separator) else {
-            break;
-        };
-        let end = start + offset;
-        parts.push(string[start..end].to_vec());
-        start = end + separator.len();
-    }
-    parts.push(string[start..].to_vec());
-    parts
-}
-
-fn explode_bytes_all(separator: &[u8], string: &[u8]) -> Vec<Vec<u8>> {
-    let mut parts = Vec::new();
-    let mut start = 0;
-    while let Some(offset) = find_subslice(&string[start..], separator) {
-        let end = start + offset;
-        parts.push(string[start..end].to_vec());
-        start = end + separator.len();
-    }
-    parts.push(string[start..].to_vec());
-    parts
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_implode(separator: EchoValue, array: EchoValue) -> EchoValue {
-    let Some(separator) = separator.string_bytes() else {
-        return EchoValue::error();
-    };
-    if !array.is_array() {
-        return EchoValue::error();
-    }
-    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
-        return EchoValue::error();
-    };
-
-    let mut joined = Vec::new();
-    for (index, value) in array.values.iter().enumerate() {
-        if index > 0 {
-            joined.extend_from_slice(&separator);
-        }
-        let Some(bytes) = value.string_bytes() else {
-            return EchoValue::error();
-        };
-        joined.extend_from_slice(&bytes);
-    }
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(joined))))
 }
 
 #[unsafe(no_mangle)]
