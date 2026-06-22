@@ -78,6 +78,7 @@ Usage:
   scripts/check-fast pipeline
   scripts/check-fast index
   scripts/check-fast index-lookup
+  scripts/check-fast index-storage
   scripts/check-fast lsp
   scripts/check-fast lsp-completion
   scripts/check-fast lsp-definition
@@ -183,6 +184,7 @@ Examples:
   scripts/check-fast semantics-index
   scripts/check-fast pipeline
   scripts/check-fast mir-lowering
+  scripts/check-fast index-storage
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
   scripts/check-fast codegen-collections
@@ -696,6 +698,9 @@ add_checks_for_changed_path() {
     crates/echo_index/src/index/lookup.rs)
       add_changed_check "index-lookup"
       ;;
+    crates/echo_index/src/index/storage.rs)
+      add_changed_check "index-storage"
+      ;;
     crates/echo_index/*)
       add_changed_check "index"
       ;;
@@ -1033,6 +1038,8 @@ run_script_tests() {
     crates/echo_semantics/src/index_facts.rs
   assert_routing "index lookup routes focused checks" "index-lookup" \
     crates/echo_index/src/index/lookup.rs
+  assert_routing "index storage routes focused checks" "index-storage" \
+    crates/echo_index/src/index/storage.rs
   assert_routing "mir lowering routes focused checks" "mir-lowering" \
     crates/echo_mir/src/lowering.rs
   assert_routing "lsp definition routes focused checks" "lsp-definition" \
@@ -1450,6 +1457,12 @@ case "$command" in
     run_quiet cargo test -q -p echo_index resolves_class_reference_to_php_use_dependency
     run_quiet cargo test -q -p echo_index returns_references_for_imported_class_reference
     run_quiet cargo test -q -p echo_index resolves_method_definition_by_fully_qualified_class_name
+    ;;
+  index-storage)
+    run_quiet cargo test -q -p echo_index update_replaces_only_symbols_from_that_file
+    run_quiet cargo test -q -p echo_index remove_file_removes_its_symbols
+    run_quiet cargo test -q -p echo_index returns_document_symbols_for_one_file
+    run_quiet cargo test -q -p echo_index returns_workspace_symbols_across_files
     ;;
   lsp)
     test_crate echo_lsp

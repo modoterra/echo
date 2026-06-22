@@ -1,6 +1,6 @@
 use crate::{
-    DefinitionLocation, DependencyFact, DependencyQuery, EchoIndex, FileId, FqName, ReferenceFact,
-    ReferenceLocation, ReferenceQuery, SymbolId, SymbolLocation, TextOffset,
+    DefinitionLocation, DependencyFact, DependencyQuery, EchoIndex, FileId, ReferenceFact,
+    ReferenceLocation, ReferenceQuery, SymbolLocation, TextOffset,
 };
 
 impl EchoIndex {
