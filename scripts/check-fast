@@ -66,6 +66,7 @@ Usage:
   scripts/check-fast runtime-value-coercion
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
+  scripts/check-fast runtime-filesystem-content
   scripts/check-fast runtime-filesystem-metadata
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
@@ -186,6 +187,7 @@ Examples:
   scripts/check-fast runtime-value-coercion
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
+  scripts/check-fast runtime-filesystem-content
   scripts/check-fast runtime-math
   scripts/check-fast runtime-math-elementary
   scripts/check-fast runtime-encoding
@@ -719,6 +721,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/filesystem/metadata.rs)
       add_changed_check "runtime-filesystem-metadata"
       ;;
+    crates/echo_runtime/src/filesystem/content.rs)
+      add_changed_check "runtime-filesystem-content"
+      ;;
     crates/echo_runtime/src/filesystem.rs)
       add_changed_check "runtime-filesystem"
       ;;
@@ -1062,6 +1067,8 @@ run_script_tests() {
     crates/echo_runtime/src/collections/search.rs
   assert_routing "runtime filesystem metadata routes focused checks" "runtime-filesystem-metadata" \
     crates/echo_runtime/src/filesystem/metadata.rs
+  assert_routing "runtime filesystem content routes focused checks" "runtime-filesystem-content" \
+    crates/echo_runtime/src/filesystem/content.rs
   assert_routing "runtime elementary math routes focused checks" "runtime-math-elementary" \
     crates/echo_runtime/src/math/elementary.rs
   assert_runtime_fixture_scope_routing
@@ -1505,6 +1512,10 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime basename
     run_quiet cargo test -q -p echo_runtime dirname
     run_runtime_fixture_scope runtime-filesystem-fixtures
+    ;;
+  runtime-filesystem-content)
+    run_quiet cargo test -q -p echo_runtime filesystem_content_builtins_read_write_append_and_stream_output
+    run_with_optional_fixture "078_filesystem_content_builtins,138_filesystem_content_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-filesystem-metadata)
     run_quiet cargo test -q -p echo_runtime file_exists
