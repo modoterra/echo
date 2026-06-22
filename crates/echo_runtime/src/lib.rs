@@ -83,8 +83,6 @@ pub use output::{
     echo_write_string, echo_write_value,
 };
 pub use process::{echo_process_join, echo_process_spawn};
-#[cfg(test)]
-use reflection::REFLECTION_SOURCE_PHP_BUILTIN;
 pub use reflection::{
     echo_php_function_exists, echo_php_is_callable, echo_reflection_register_function,
     echo_std_reflect_exists, echo_std_reflect_params, echo_std_reflect_return_type,
