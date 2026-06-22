@@ -72,6 +72,7 @@ Usage:
   scripts/check-fast semantics-index
   scripts/check-fast hir
   scripts/check-fast mir
+  scripts/check-fast mir-lowering
   scripts/check-fast pipeline
   scripts/check-fast index
   scripts/check-fast lsp
@@ -170,6 +171,7 @@ Examples:
   scripts/check-fast parser 017_object_append_count
   scripts/check-fast semantics-index
   scripts/check-fast pipeline
+  scripts/check-fast mir-lowering
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
   scripts/check-fast codegen-collections
@@ -534,6 +536,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_hir/*)
       add_changed_check "hir"
+      ;;
+    crates/echo_mir/src/lowering.rs)
+      add_changed_check "mir-lowering"
       ;;
     crates/echo_mir/*)
       add_changed_check "mir"
@@ -978,6 +983,8 @@ run_script_tests() {
     www/src/docs/content.ts
   assert_routing "semantics index facts route focused checks" "semantics-index" \
     crates/echo_semantics/src/index_facts.rs
+  assert_routing "mir lowering routes focused checks" "mir-lowering" \
+    crates/echo_mir/src/lowering.rs
   assert_routing "lsp definition routes focused checks" "lsp-definition" \
     crates/echo_lsp/src/definition.rs
   assert_routing "lsp server routes focused checks" "lsp-server" \
@@ -1181,6 +1188,10 @@ case "$command" in
     ;;
   mir)
     test_crate echo_mir
+    ;;
+  mir-lowering)
+    run_quiet cargo test -q -p echo_mir lower_program
+    run_quiet cargo test -q -p echo_mir lower_syntax_statement
     ;;
   pipeline)
     run_pipeline_checks
