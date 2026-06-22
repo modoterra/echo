@@ -1,4 +1,6 @@
-use crate::collections::{EchoArray, EchoArrayKey, EchoList, php_array_union};
+use crate::collections::{
+    EchoArray, EchoArrayKey, EchoList, echo_arrays_equal, echo_lists_equal, php_array_union,
+};
 use crate::math::echo_math_pow;
 use crate::string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
 use crate::{echo_runtime_string, net, process, task, task_group, thread};
@@ -463,6 +465,32 @@ fn inspect_string_literal(bytes: &[u8]) -> String {
     }
     literal.push('"');
     literal
+}
+
+pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
+    if left.kind != right.kind {
+        return false;
+    }
+
+    match left.kind {
+        ECHO_VALUE_NULL => true,
+        ECHO_VALUE_BOOL | ECHO_VALUE_INT | ECHO_VALUE_FLOAT => left.payload == right.payload,
+        ECHO_VALUE_STRING => left.string_bytes() == right.string_bytes(),
+        ECHO_VALUE_ARRAY => echo_arrays_equal(left, right, echo_values_equal),
+        ECHO_VALUE_LIST => echo_lists_equal(left, right, echo_values_equal),
+        _ => left.payload == right.payload,
+    }
+}
+
+pub(crate) fn php_values_equal(left: EchoValue, right: EchoValue) -> bool {
+    if let (Some(left), Some(right)) = (PhpNumber::coerce(left), PhpNumber::coerce(right)) {
+        return left.as_float() == right.as_float();
+    }
+
+    match (left.string_bytes(), right.string_bytes()) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
 }
 
 #[unsafe(no_mangle)]

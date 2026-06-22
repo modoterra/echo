@@ -45,7 +45,6 @@ pub use collections::{
     echo_value_array_append, echo_value_array_new, echo_value_array_set, echo_value_index_get,
     echo_value_list_append, echo_value_list_new,
 };
-use collections::{echo_arrays_equal, echo_lists_equal};
 pub use encoding::{
     echo_php_base64_decode, echo_php_base64_encode, echo_php_bin2hex, echo_php_crc32,
     echo_php_escapeshellarg, echo_php_escapeshellcmd, echo_php_hex2bin, echo_php_md5,
@@ -134,8 +133,10 @@ pub use value::{
     echo_value_object_new, echo_value_object_set, echo_value_pow, echo_value_sub,
     echo_value_unary_minus, echo_value_unary_plus,
 };
-use value::{PhpNumber, format_php_float};
-use value::{php_number_add, php_number_mul};
+pub(crate) use value::{
+    PhpNumber, echo_values_equal, format_php_float, php_number_add, php_number_mul,
+    php_values_equal,
+};
 
 pub fn echo_is_callable(value: EchoValue) -> bool {
     echo_normalize_callable(value).is_ok_and(|callback| callback.is_some())
@@ -156,32 +157,6 @@ pub fn capture_stdout<T>(repl_inspect: bool, f: impl FnOnce() -> T) -> (T, Vec<u
 
 pub(crate) fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-}
-
-pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
-    if left.kind != right.kind {
-        return false;
-    }
-
-    match left.kind {
-        ECHO_VALUE_NULL => true,
-        ECHO_VALUE_BOOL | ECHO_VALUE_INT | ECHO_VALUE_FLOAT => left.payload == right.payload,
-        ECHO_VALUE_STRING => left.string_bytes() == right.string_bytes(),
-        ECHO_VALUE_ARRAY => echo_arrays_equal(left, right, echo_values_equal),
-        ECHO_VALUE_LIST => echo_lists_equal(left, right, echo_values_equal),
-        _ => left.payload == right.payload,
-    }
-}
-
-pub(crate) fn php_values_equal(left: EchoValue, right: EchoValue) -> bool {
-    if let (Some(left), Some(right)) = (PhpNumber::coerce(left), PhpNumber::coerce(right)) {
-        return left.as_float() == right.as_float();
-    }
-
-    match (left.string_bytes(), right.string_bytes()) {
-        (Some(left), Some(right)) => left == right,
-        _ => false,
-    }
 }
 
 #[cfg(test)]
