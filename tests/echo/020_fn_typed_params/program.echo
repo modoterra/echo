@@ -14,10 +14,10 @@ fn responseBody($request, list<User> $users): string {
 let $request = Request {
     path: "/demo"
 }
-let list<User> $users = {}
-$users[] = User {
+let $users: list<User> = {}
+$users.push({
     id: 1
     email: "first@example.test"
-}
+}: User)
 
 echo responseBody($request, $users)

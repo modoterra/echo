@@ -718,6 +718,7 @@ fn expression_kind(expr: &Expr) -> &'static str {
             BinaryOp::Concat => "concat expression",
             BinaryOp::Is | BinaryOp::IsNot => "null test expression",
         },
+        Expr::TypeAscription(_) => "type ascription expression",
         Expr::Field(_) => "field expression",
         Expr::Index(_) => "index expression",
         Expr::Object(_) => "object expression",
@@ -750,6 +751,7 @@ fn expression_static_type(expr: &Expr) -> String {
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
         Expr::MethodCall(_) | Expr::StaticCall(_) => "unknown".to_string(),
+        Expr::TypeAscription(expr) => expr.ty.clone(),
         Expr::Assign(expr) => expression_static_type(&expr.value),
         Expr::MagicConstant(_) => "string".to_string(),
         Expr::Require(_) => "bool".to_string(),

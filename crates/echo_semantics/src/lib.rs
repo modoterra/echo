@@ -419,6 +419,7 @@ impl IndexFactExtractor {
                 self.extract_expr_dependencies(&expr.left);
                 self.extract_expr_dependencies(&expr.right);
             }
+            Expr::TypeAscription(expr) => self.extract_expr_dependencies(&expr.expr),
             Expr::Field(expr) => self.extract_expr_dependencies(&expr.object),
             Expr::Index(expr) => {
                 self.extract_expr_dependencies(&expr.collection);
@@ -913,6 +914,10 @@ impl Analyzer {
                 }
                 Type::Unknown
             }
+            Expr::TypeAscription(expr) => {
+                self.analyze_expr(&expr.expr);
+                Type::Named(expr.ty.clone())
+            }
             Expr::Object(expr) => {
                 for field in &expr.fields {
                     self.analyze_expr(&field.value);
@@ -987,9 +992,9 @@ mod tests {
     use echo_ast::{
         AppendStmt, ArrayExpr, AssignExpr, AssignStmt, BinaryExpr, ClassDeclStmt, ExprStmt,
         ForkExpr, FunctionCallExpr, FunctionDeclStmt, IfStmt, ImportStmt, IndexExpr, JoinExpr,
-        LetStmt, ListExpr, MagicConstantExpr, MethodDecl, NamespaceStmt, NumberLiteral, ObjectExpr,
-        ObjectField, QualifiedName, RequireExpr, RunExpr, SpawnExpr, StaticCallExpr, StringLiteral,
-        TypeDeclStmt, UseStmt, VariableExpr,
+        LetStmt, ListExpr, MagicConstantExpr, MethodDecl, MethodVisibility, NamespaceStmt,
+        NumberLiteral, ObjectExpr, ObjectField, QualifiedName, RequireExpr, RunExpr, SpawnExpr,
+        StaticCallExpr, StringLiteral, TypeDeclStmt, UseStmt, VariableExpr,
     };
 
     use super::*;
@@ -1363,6 +1368,7 @@ mod tests {
                         name: "show".to_string(),
                         params: vec![],
                         return_type: None,
+                        visibility: MethodVisibility::Private,
                         is_static: false,
                         is_intrinsic: false,
                         span: Span::new(76, 88),

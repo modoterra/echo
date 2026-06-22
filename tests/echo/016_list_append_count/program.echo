@@ -1,6 +1,6 @@
-let list<string> $items = {}
-$items[] = "first"
-$items[] = "second"
+let $items: list<string> = {}
+$items.push("first")
+$items.push("second")
 
 echo count($items)
 echo "\n"

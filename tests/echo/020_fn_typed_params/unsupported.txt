@@ -1,1 +1,0 @@
-Uses PHP [] append syntax on an Echo list, which is invalid because lists are distinct from arrays. Replace with Echo-native list mutation syntax when that exists.

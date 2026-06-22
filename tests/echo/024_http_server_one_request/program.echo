@@ -11,17 +11,17 @@ fn responseBody($request, list<User> $users): string {
     return "Hello from Echo at " . $request.path . "\nUsers seen: " . count($users) . "\n"
 }
 
-let list<User> $users = {}
+let $users: list<User> = {}
 let $server = net.listen("127.0.0.1:39186")
 
 let $serverTask = run {
     let $conn = net.accept($server)
     let $request = http.readRequest($conn)
 
-    $users[] = User {
+    $users.push({
         id: count($users) + 1
         email: "visitor" . count($users) . "@echo.local"
-    }
+    }: User)
 
     net.write($conn, http.responseText(responseBody($request, $users)))
     net.close($conn)

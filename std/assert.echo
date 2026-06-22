@@ -1,4 +1,4 @@
 namespace std assert
 
-intrinsic function ok(bool $condition): bool
-intrinsic function equals(mixed $actual, mixed $expected): bool
+intrinsic fn ok(bool $condition): bool
+intrinsic fn equals(mixed $actual, mixed $expected): bool

@@ -1,19 +1,19 @@
 namespace std net
 
-intrinsic function listen(string $address): TcpServer
-intrinsic function connect(string $address): TcpConnection
-intrinsic function accept(TcpServer $server): TcpConnection
-intrinsic function read(TcpConnection $connection, int $maxBytes): bytes
-intrinsic function write(TcpConnection $connection, bytes|string $data): int
-intrinsic function close(TcpConnection $connection): void
+intrinsic fn listen(string $address): TcpServer
+intrinsic fn connect(string $address): TcpConnection
+intrinsic fn accept(TcpServer $server): TcpConnection
+intrinsic fn read(TcpConnection $connection, int $maxBytes): bytes
+intrinsic fn write(TcpConnection $connection, bytes|string $data): int
+intrinsic fn close(TcpConnection $connection): void
 
 class TcpServer {
-    intrinsic static function listen(string $address): TcpServer
-    intrinsic function accept(): TcpConnection
+    pub intrinsic static fn listen(string $address): TcpServer
+    pub intrinsic fn accept(): TcpConnection
 }
 
 class TcpConnection {
-    intrinsic function read(int $maxBytes): bytes
-    intrinsic function write(bytes|string $data): int
-    intrinsic function close(): void
+    pub intrinsic fn read(int $maxBytes): bytes
+    pub intrinsic fn write(bytes|string $data): int
+    pub intrinsic fn close(): void
 }

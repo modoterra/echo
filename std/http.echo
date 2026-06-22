@@ -1,4 +1,4 @@
 namespace std http
 
-intrinsic function responseText(string $body): bytes
-intrinsic function readRequest(TcpConnection $connection): Request
+intrinsic fn responseText(string $body): bytes
+intrinsic fn readRequest(TcpConnection $connection): Request

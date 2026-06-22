@@ -1,5 +1,5 @@
-let list<string> $items = {}
-$items[] = "first"
+let $items: list<string> = {}
+$items.push("first")
 
 echo count($items) + 1
 echo "\n"

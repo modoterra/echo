@@ -1,6 +1,6 @@
-let list<string> $items = {}
+let $items: list<string> = {}
 let $task = run {
-    $items[] = "inside"
+    $items.push("inside")
 }
 
 join $task

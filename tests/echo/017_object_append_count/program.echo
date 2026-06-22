@@ -3,11 +3,11 @@ type User = {
     email: string
 }
 
-let list<User> $users = {}
-$users[] = User {
+let $users: list<User> = {}
+$users.push({
     id: 1
     email: "first@example.test"
-}
+}: User)
 
 echo count($users)
 echo "\n"

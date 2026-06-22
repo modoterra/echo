@@ -2235,6 +2235,54 @@ impl IrModule {
         Ok(())
     }
 
+    fn render_mir_method_call_expr(
+        &mut self,
+        body: &mut String,
+        object: &echo_mir::MirExpr,
+        method: &str,
+        args: &[echo_mir::MirExpr],
+    ) -> Result<RuntimeValue, Diagnostic> {
+        match (method, args) {
+            ("push", [value]) => self.render_mir_list_push_expr(body, object, value),
+            _ => {
+                self.render_mir_expr_as_echo_value(body, object)?;
+                for arg in args {
+                    self.render_mir_expr_as_echo_value(body, arg)?;
+                }
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
+        }
+    }
+
+    fn render_mir_list_push_expr(
+        &mut self,
+        body: &mut String,
+        object: &echo_mir::MirExpr,
+        value: &echo_mir::MirExpr,
+    ) -> Result<RuntimeValue, Diagnostic> {
+        let target = match object {
+            echo_mir::MirExpr::Variable { name, .. } => Some(self.resolve_alias(name)),
+            _ => None,
+        };
+        let list = self.render_mir_expr_as_echo_value(body, object)?;
+        let value = self.render_mir_expr_as_echo_value(body, value)?;
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        let name = format!("%runtime_call_{call_id}");
+
+        body.push_str(&format!(
+            "  {name} = call %EchoValue @{}({list}, {value})\n",
+            CoreRuntimeSymbol::ValueListAppend.symbol()
+        ));
+
+        if let Some(target) = target {
+            self.locals
+                .insert(target, RuntimeValue::EchoValue(name.clone()));
+        }
+
+        Ok(RuntimeValue::EchoValue(name))
+    }
+
     fn render_mir_assign_ref_stmt(
         &mut self,
         source: &Stmt,
@@ -2788,13 +2836,12 @@ impl IrModule {
             echo_mir::MirExpr::FunctionCall { call, .. } => {
                 self.render_mir_function_call_expr(body, call)
             }
-            echo_mir::MirExpr::MethodCall { object, args, .. } => {
-                self.render_mir_expr_as_echo_value(body, object)?;
-                for arg in args {
-                    self.render_mir_expr_as_echo_value(body, arg)?;
-                }
-                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
-            }
+            echo_mir::MirExpr::MethodCall {
+                object,
+                method,
+                args,
+                ..
+            } => self.render_mir_method_call_expr(body, object, method, args),
             echo_mir::MirExpr::StaticCall { args, .. } => {
                 for arg in args {
                     self.render_mir_expr_as_echo_value(body, arg)?;
@@ -4538,9 +4585,10 @@ fn llvm_string_literal(value: &str) -> String {
 mod tests {
     use super::*;
     use echo_ast::{
-        ArrayElement, ArrayExpr, AssignStmt, BoolLiteral, DeferExpr, EchoStmt, Expr,
-        FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, ImportStmt, NullLiteral,
-        NumberLiteral, QualifiedName, ReturnStmt, StringLiteral, TypedParam,
+        ArrayElement, ArrayExpr, AssignStmt, BoolLiteral, DeferExpr, EchoStmt, Expr, ExprStmt,
+        FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, ImportStmt, LetStmt, ListExpr,
+        MethodCallExpr, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, QualifiedName,
+        ReturnStmt, StringLiteral, TypeAscriptionExpr, TypedParam, VariableExpr,
     };
 
     fn program(statements: Vec<Stmt>) -> Program {
@@ -6829,6 +6877,87 @@ mod tests {
         assert!(ir.contains("declare %EchoValue @echo_value_array_append(%EchoValue, %EchoValue)"));
         assert!(ir.contains("call %EchoValue @echo_value_array_append"));
         assert!(!ir.contains("call %EchoValue @echo_value_list_append"));
+    }
+
+    #[test]
+    fn list_push_method_lowers_to_list_append_runtime() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Let(LetStmt {
+                name: "items".to_string(),
+                ty: Some("list<string>".to_string()),
+                value: Expr::List(ListExpr {
+                    values: vec![],
+                    span: Span::new(27, 29),
+                }),
+                span: Span::new(0, 29),
+            }),
+            Stmt::Expr(ExprStmt {
+                expr: Expr::MethodCall(Box::new(MethodCallExpr {
+                    object: Expr::Variable(VariableExpr {
+                        name: "items".to_string(),
+                        span: Span::new(30, 36),
+                    }),
+                    method: "push".to_string(),
+                    args: vec![Expr::String(StringLiteral {
+                        value: "first".to_string(),
+                        span: Span::new(42, 49),
+                    })],
+                    span: Span::new(30, 50),
+                })),
+                span: Span::new(30, 50),
+            }),
+        ]))
+        .expect("list push should lower");
+
+        assert!(ir.contains("declare %EchoValue @echo_value_list_append(%EchoValue, %EchoValue)"));
+        assert!(ir.contains("call %EchoValue @echo_value_list_append"));
+        assert!(!ir.contains("call %EchoValue @echo_value_array_append"));
+    }
+
+    #[test]
+    fn list_push_lowers_type_ascribed_structural_literal() {
+        let ir = compile_to_ir(&program(vec![
+            Stmt::Let(LetStmt {
+                name: "users".to_string(),
+                ty: Some("list<User>".to_string()),
+                value: Expr::List(ListExpr {
+                    values: vec![],
+                    span: Span::new(24, 26),
+                }),
+                span: Span::new(0, 26),
+            }),
+            Stmt::Expr(ExprStmt {
+                expr: Expr::MethodCall(Box::new(MethodCallExpr {
+                    object: Expr::Variable(VariableExpr {
+                        name: "users".to_string(),
+                        span: Span::new(27, 33),
+                    }),
+                    method: "push".to_string(),
+                    args: vec![Expr::TypeAscription(Box::new(TypeAscriptionExpr {
+                        expr: Expr::Object(ObjectExpr {
+                            name: String::new(),
+                            fields: vec![ObjectField {
+                                name: "email".to_string(),
+                                value: Expr::String(StringLiteral {
+                                    value: "first@example.test".to_string(),
+                                    span: Span::new(50, 70),
+                                }),
+                            }],
+                            span: Span::new(39, 72),
+                        }),
+                        ty: "User".to_string(),
+                        span: Span::new(39, 78),
+                    }))],
+                    span: Span::new(27, 79),
+                })),
+                span: Span::new(27, 79),
+            }),
+        ]))
+        .expect("type-ascribed structural literal push should lower");
+
+        assert!(ir.contains("call %EchoValue @echo_value_object_new()"));
+        assert!(ir.contains("call %EchoValue @echo_value_object_set"));
+        assert!(ir.contains("call %EchoValue @echo_value_list_append"));
     }
 
     #[test]

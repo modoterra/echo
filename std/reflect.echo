@@ -1,6 +1,6 @@
 namespace std reflect
 
-intrinsic function exists(string $name): bool
-intrinsic function params(string $name): string
-intrinsic function returnType(string $name): string
-intrinsic function typeOf(mixed $value): string
+intrinsic fn exists(string $name): bool
+intrinsic fn params(string $name): string
+intrinsic fn returnType(string $name): string
+intrinsic fn typeOf(mixed $value): string

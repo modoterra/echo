@@ -6,10 +6,10 @@ use echo_ast::{
     DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr,
     FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr,
     LetStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MethodCallExpr,
-    MethodDecl, NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral, ObjectExpr,
-    ObjectField, Program, QualifiedName, RequireExpr, RequireKind, ReturnStmt, RunExpr, SpawnExpr,
-    StaticCallExpr, Stmt, StringLiteral, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp,
-    UseStmt, VariableExpr, YieldStmt,
+    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral,
+    ObjectExpr, ObjectField, Program, QualifiedName, RequireExpr, RequireKind, ReturnStmt, RunExpr,
+    SpawnExpr, StaticCallExpr, Stmt, StringLiteral, TypeAscriptionExpr, TypeDeclStmt, TypeField,
+    TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -187,6 +187,7 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
             validate_expr_mode(&expr.right, mode, diagnostics);
         }
         Expr::Unary(expr) => validate_expr_mode(&expr.expr, mode, diagnostics),
+        Expr::TypeAscription(expr) => validate_expr_mode(&expr.expr, mode, diagnostics),
         Expr::Field(expr) => validate_expr_mode(&expr.object, mode, diagnostics),
         Expr::Index(expr) => {
             validate_expr_mode(&expr.collection, mode, diagnostics);
@@ -446,6 +447,45 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         })
         .padded()
         .or_not();
+
+    let type_expr = recursive(|type_expr| {
+        let type_name = text::ident()
+            .separated_by(just('\\'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| parts.join("\\"));
+
+        let generic_type = type_name
+            .clone()
+            .then(
+                type_expr
+                    .clone()
+                    .separated_by(just(',').padded())
+                    .at_least(1)
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('<').padded(), just('>').padded())
+                    .or_not(),
+            )
+            .map(|(name, args): (String, Option<Vec<String>>)| match args {
+                Some(args) => format!("{name}<{}>", args.join(", ")),
+                None => name,
+            });
+
+        generic_type
+            .clone()
+            .separated_by(just('|').padded())
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| parts.join("|"))
+            .map(|union| {
+                union
+                    .strip_prefix('?')
+                    .map_or(union.clone(), |inner| format!("{inner}|null"))
+            })
+            .or(just('?')
+                .ignore_then(generic_type.clone())
+                .map(|inner| format!("{inner}|null")))
+    });
 
     let expr = recursive(|expr| {
         let null = text::keyword("null")
@@ -735,8 +775,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         let structural_object_expr = object_field
             .clone()
-            .separated_by(just(',').padded().or(just(';').padded()))
-            .allow_trailing()
+            .repeated()
             .at_least(1)
             .collect::<Vec<_>>()
             .delimited_by(just('{').padded(), just('}').padded())
@@ -794,11 +833,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         #[derive(Clone)]
         enum Postfix {
             MethodCall { method: String, args: Vec<Expr> },
+            TypeAscription(String),
             Field(String),
             Index(Expr),
         }
 
-        let method_call_postfix = just("->")
+        let arrow_method_call_postfix = just("->")
             .ignore_then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(args.clone())
@@ -807,9 +847,24 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 method: method.to_string(),
                 args,
             });
-        let field_postfix = just('.')
+        let dot_postfix = just('.')
             .ignore_then(text::ident())
-            .map(|field: &str| Postfix::Field(field.to_string()));
+            .then(
+                args.clone()
+                    .delimited_by(just('(').padded(), just(')').padded())
+                    .or_not(),
+            )
+            .map(|(name, args): (&str, Option<Vec<Expr>>)| match args {
+                Some(args) => Postfix::MethodCall {
+                    method: name.to_string(),
+                    args,
+                },
+                None => Postfix::Field(name.to_string()),
+            });
+        let type_ascription_postfix = just(':')
+            .padded()
+            .ignore_then(type_expr.clone().padded())
+            .map(Postfix::TypeAscription);
         let index_postfix = expr
             .clone()
             .padded()
@@ -817,8 +872,9 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map(Postfix::Index);
 
         let fielded = atom.clone().foldl(
-            method_call_postfix
-                .or(field_postfix)
+            arrow_method_call_postfix
+                .or(dot_postfix)
+                .or(type_ascription_postfix)
                 .or(index_postfix)
                 .repeated(),
             |left, postfix| match postfix {
@@ -832,6 +888,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         object: left,
                         method,
                         args,
+                        span,
+                    }))
+                }
+                Postfix::TypeAscription(ty) => {
+                    let span = Span::new(left.span().start, left.span().end + ty.len() + 2);
+
+                    Expr::TypeAscription(Box::new(TypeAscriptionExpr {
+                        expr: left,
+                        ty,
                         span,
                     }))
                 }
@@ -983,36 +1048,6 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .at_least(1)
             .collect::<Vec<_>>()
             .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
-
-        let type_expr = recursive(|type_expr| {
-            let type_name = text::ident()
-                .separated_by(just('\\'))
-                .at_least(1)
-                .collect::<Vec<_>>()
-                .map(|parts| parts.join("\\"));
-
-            let generic_type = type_name
-                .clone()
-                .then(
-                    type_expr
-                        .clone()
-                        .separated_by(just(',').padded())
-                        .at_least(1)
-                        .collect::<Vec<_>>()
-                        .delimited_by(just('<').padded(), just('>').padded())
-                        .or_not(),
-                )
-                .map(|(name, args): (String, Option<Vec<String>>)| match args {
-                    Some(args) => format!("{name}<{}>", args.join(", ")),
-                    None => name,
-                });
-
-            generic_type
-                .separated_by(just('|').padded())
-                .at_least(1)
-                .collect::<Vec<_>>()
-                .map(|parts| parts.join("|"))
-        });
 
         let namespace_stmt = text::keyword("namespace")
             .padded()
@@ -1209,15 +1244,23 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .ignored()
             .delimited_by(just('{').padded(), just('}').padded())
             .ignored();
+        let method_end = method_body
+            .then_ignore(terminator.clone().or_not())
+            .or(terminator.clone())
+            .ignored();
 
-        let method_visibility = text::keyword("public")
-            .or(text::keyword("protected"))
-            .or(text::keyword("private"))
+        let method_visibility = text::keyword("pub")
+            .to(MethodVisibility::Public)
+            .or(text::keyword("public").to(MethodVisibility::Public))
+            .or(text::keyword("protected").to(MethodVisibility::Protected))
+            .or(text::keyword("private").to(MethodVisibility::Private))
             .padded()
             .or_not();
 
+        let function_keyword = text::keyword("fn").or(text::keyword("function")).padded();
+
         let method_decl = method_visibility
-            .ignore_then(
+            .then(
                 text::keyword("intrinsic")
                     .padded()
                     .to(true)
@@ -1231,7 +1274,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .or_not()
                     .map(|is_static| is_static.unwrap_or(false)),
             )
-            .then_ignore(text::keyword("function").padded())
+            .then_ignore(function_keyword)
             .then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
@@ -1249,10 +1292,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .ignore_then(type_expr.clone().padded())
                     .or_not(),
             )
-            .then_ignore(terminator.clone().or(method_body))
+            .then_ignore(method_end)
             .map_with(
-                |((((is_intrinsic, is_static), name), params), return_type): (
-                    (((bool, bool), &str), Vec<TypedParam>),
+                |(((((visibility, is_intrinsic), is_static), name), params), return_type): (
+                    (
+                        (((Option<MethodVisibility>, bool), bool), &str),
+                        Vec<TypedParam>,
+                    ),
                     Option<String>,
                 ),
                  extra| {
@@ -1262,6 +1308,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         name: name.to_string(),
                         params,
                         return_type,
+                        visibility: visibility.unwrap_or(MethodVisibility::Private),
                         is_static,
                         is_intrinsic,
                         span: Span::new(span.start, span.end),
@@ -1405,7 +1452,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         let intrinsic_function_decl_stmt = text::keyword("intrinsic")
             .padded()
-            .ignore_then(text::keyword("function").padded())
+            .ignore_then(text::keyword("fn").or(text::keyword("function")).padded())
             .ignore_then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
@@ -1513,16 +1560,21 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(stray_terminators.clone())
             .delimited_by(just('{').padded(), just('}').padded());
 
+        let let_binding = just('$').ignore_then(text::ident().padded()).then(
+            just(':')
+                .padded()
+                .ignore_then(type_expr.clone().padded())
+                .or_not(),
+        );
+
         let let_stmt = text::keyword("let")
             .padded()
-            .ignore_then(type_expr.clone().padded().or_not())
-            .then_ignore(just('$'))
-            .then(text::ident().padded())
+            .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
             .then(expr.clone())
             .then_ignore(terminator.clone())
             .map_with(
-                |((ty, name), value): ((Option<String>, &str), Expr), extra| {
+                |((name, ty), value): ((&str, Option<String>), Expr), extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::Let(LetStmt {
@@ -1536,16 +1588,14 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         let let_join_run_block_stmt = text::keyword("let")
             .padded()
-            .ignore_then(type_expr.clone().padded().or_not())
-            .then_ignore(just('$'))
-            .then(text::ident().padded())
+            .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("join").padded())
             .then_ignore(text::keyword("run").padded())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((ty, name), body): ((Option<String>, &str), Vec<Stmt>), extra| {
+                |((name, ty), body): ((&str, Option<String>), Vec<Stmt>), extra| {
                     let span: SimpleSpan = extra.span();
                     let run_span = Span::new(span.start, span.end);
 
@@ -1566,15 +1616,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         let let_loop_block_stmt = text::keyword("let")
             .padded()
-            .ignore_then(type_expr.clone().padded().or_not())
-            .then_ignore(just('$'))
-            .then(text::ident().padded())
+            .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("loop").padded())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((ty, name), body): ((Option<String>, &str), Vec<Stmt>), extra| {
+                |((name, ty), body): ((&str, Option<String>), Vec<Stmt>), extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::Let(LetStmt {
@@ -1591,15 +1639,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         let let_run_block_stmt = text::keyword("let")
             .padded()
-            .ignore_then(type_expr.clone().padded().or_not())
-            .then_ignore(just('$'))
-            .then(text::ident().padded())
+            .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("run").padded())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((ty, name), body): ((Option<String>, &str), Vec<Stmt>), extra| {
+                |((name, ty), body): ((&str, Option<String>), Vec<Stmt>), extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::Let(LetStmt {
@@ -1625,15 +1671,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
 
         let let_run_group_stmt = text::keyword("let")
             .padded()
-            .ignore_then(type_expr.clone().padded().or_not())
-            .then_ignore(just('$'))
-            .then(text::ident().padded())
+            .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
             .then_ignore(text::keyword("run").padded())
             .then(run_group_entries.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((ty, name), entries): ((Option<String>, &str), Vec<Vec<Stmt>>), extra| {
+                |((name, ty), entries): ((&str, Option<String>), Vec<Vec<Stmt>>), extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::Let(LetStmt {
@@ -2570,6 +2614,47 @@ return $body . "Users seen: " . count($users) . "\n"
     }
 
     #[test]
+    fn parses_dot_receiver_method_call() {
+        let program = parse_with_mode(r#"$items.push("first")"#, SourceMode::Strict)
+            .expect("dot receiver method call parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::MethodCall(expr)
+                        if expr.method == "push"
+                            && matches!(&expr.object, Expr::Variable(variable) if variable.name == "items")
+                            && expr.args.len() == 1
+                )
+        ));
+    }
+
+    #[test]
+    fn parses_type_ascribed_structural_literal_argument() {
+        let program = parse_with_mode(
+            r#"$users.push({
+    id: 1
+    email: "first@example.test"
+}: User)"#,
+            SourceMode::Strict,
+        )
+        .expect("type-ascribed structural literal parses");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::Expr(statement)
+                if matches!(
+                    &statement.expr,
+                    Expr::MethodCall(expr)
+                        if expr.method == "push"
+                            && matches!(&expr.args[0], Expr::TypeAscription(ascription) if ascription.ty == "User")
+                )
+        ));
+    }
+
+    #[test]
     fn parses_type_declaration_before_fn() {
         let program = parse_with_mode(
             r#"type User = {
@@ -2592,13 +2677,19 @@ fn responseBody($request, list<User> $users): string {
 
     #[test]
     fn preserves_typed_let_annotation() {
-        let program = parse_with_mode("let list<User> $users = {}", SourceMode::Strict)
+        let program = parse_with_mode("let $users: list<User> = {}", SourceMode::Strict)
             .expect("typed let parses");
 
         assert!(matches!(
             &program.statements[0],
             Stmt::Let(statement) if statement.name == "users" && statement.ty.as_deref() == Some("list<User>")
         ));
+    }
+
+    #[test]
+    fn rejects_legacy_prefix_typed_let_annotation() {
+        parse_with_mode("let list<User> $users = {}", SourceMode::Strict)
+            .expect_err("typed let annotations must follow the symbol");
     }
 
     #[test]
@@ -2648,10 +2739,10 @@ fn responseBody($request, list<User> $users): string {
     run {
         let $request = http.readRequest($conn)
 
-        $users[] = User {
+        $users.push(User {
             id: count($users) + 1
             email: "visitor" . count($users) . "@echo.local"
-        }
+        })
 
         net.write($conn, http.responseText(responseBody($request, $users)))
         net.close($conn)
@@ -2731,10 +2822,10 @@ fn responseBody($request, list<User> $users): string {
             r#"run {
     let $request = http.readRequest($conn)
 
-    $users[] = User {
+    $users.push(User {
         id: count($users) + 1
         email: "visitor" . count($users) . "@echo.local"
-    }
+    })
 
     net.write($conn, http.responseText(responseBody($request, $users)))
     net.close($conn)
@@ -2873,6 +2964,42 @@ $fn("Echo");
                     && matches!(
                         &statement.members[0],
                         ClassMember::Method(method) if method.name == "handleRequest"
+                    )
+        ));
+    }
+
+    #[test]
+    fn echo_mode_accepts_fn_class_methods_with_private_default() {
+        let program = parse_with_mode(
+            r#"class ReportFormatter {
+    fn slug($name): string {
+        return $name
+    }
+
+    pub fn title($name): string {
+        return $name
+    }
+}
+"#,
+            SourceMode::Strict,
+        )
+        .expect("Echo class fn methods parse");
+
+        assert!(matches!(
+            &program.statements[0],
+            Stmt::ClassDecl(statement)
+                if statement.name == "ReportFormatter"
+                    && matches!(
+                        &statement.members[0],
+                        ClassMember::Method(method)
+                            if method.name == "slug"
+                                && method.visibility == MethodVisibility::Private
+                    )
+                    && matches!(
+                        &statement.members[1],
+                        ClassMember::Method(method)
+                            if method.name == "title"
+                                && method.visibility == MethodVisibility::Public
                     )
         ));
     }

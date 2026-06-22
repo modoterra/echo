@@ -587,6 +587,7 @@ fn lower_expr(expr: &Expr) -> MirExpr {
             op: value.op,
             right: Box::new(lower_expr(&value.right)),
         },
+        Expr::TypeAscription(value) => lower_expr(&value.expr),
         Expr::Field(value) => MirExpr::Field {
             source: expr.clone(),
             object: Box::new(lower_expr(&value.object)),

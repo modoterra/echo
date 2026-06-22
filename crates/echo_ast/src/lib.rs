@@ -189,11 +189,19 @@ pub enum ClassMember {
     Method(MethodDecl),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MethodVisibility {
+    Private,
+    Protected,
+    Public,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct MethodDecl {
     pub name: String,
     pub params: Vec<TypedParam>,
     pub return_type: Option<String>,
+    pub visibility: MethodVisibility,
     pub is_static: bool,
     pub is_intrinsic: bool,
     pub span: Span,
@@ -241,6 +249,7 @@ pub enum Expr {
     Loop(LoopExpr),
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
+    TypeAscription(Box<TypeAscriptionExpr>),
     Field(Box<FieldExpr>),
     Index(Box<IndexExpr>),
     Object(ObjectExpr),
@@ -270,6 +279,7 @@ impl Expr {
             Self::Loop(expr) => expr.span,
             Self::Unary(expr) => expr.span,
             Self::Binary(expr) => expr.span,
+            Self::TypeAscription(expr) => expr.span,
             Self::Field(expr) => expr.span,
             Self::Index(expr) => expr.span,
             Self::Object(expr) => expr.span,
@@ -277,6 +287,13 @@ impl Expr {
             Self::Array(expr) => expr.span,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeAscriptionExpr {
+    pub expr: Expr,
+    pub ty: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]

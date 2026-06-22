@@ -228,9 +228,9 @@ mod tests {
 
         assert_eq!(module.path, "std/net.echo");
         assert!(module.source.contains("namespace std net"));
-        assert!(module.source.contains("intrinsic function listen"));
+        assert!(module.source.contains("intrinsic fn listen"));
         assert!(module.source.contains("class TcpServer"));
-        assert!(module.source.contains("intrinsic static function listen"));
+        assert!(module.source.contains("pub intrinsic static fn listen"));
     }
 
     #[test]
@@ -242,7 +242,7 @@ mod tests {
 
         assert_eq!(module.path, "std/time.echo");
         assert!(module.source.contains("namespace std time"));
-        assert!(module.source.contains("intrinsic function sleep"));
+        assert!(module.source.contains("intrinsic fn sleep"));
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod tests {
 
         assert_eq!(module.path, "std/http.echo");
         assert!(module.source.contains("namespace std http"));
-        assert!(module.source.contains("intrinsic function responseText"));
+        assert!(module.source.contains("intrinsic fn responseText"));
     }
 
     #[test]
@@ -266,8 +266,8 @@ mod tests {
 
         assert_eq!(module.path, "std/assert.echo");
         assert!(module.source.contains("namespace std assert"));
-        assert!(module.source.contains("intrinsic function ok"));
-        assert!(module.source.contains("intrinsic function equals"));
+        assert!(module.source.contains("intrinsic fn ok"));
+        assert!(module.source.contains("intrinsic fn equals"));
     }
 
     #[test]
@@ -279,9 +279,9 @@ mod tests {
 
         assert_eq!(module.path, "std/reflect.echo");
         assert!(module.source.contains("namespace std reflect"));
-        assert!(module.source.contains("intrinsic function params"));
-        assert!(module.source.contains("intrinsic function returnType"));
-        assert!(module.source.contains("intrinsic function typeOf"));
+        assert!(module.source.contains("intrinsic fn params"));
+        assert!(module.source.contains("intrinsic fn returnType"));
+        assert!(module.source.contains("intrinsic fn typeOf"));
     }
 
     #[test]
