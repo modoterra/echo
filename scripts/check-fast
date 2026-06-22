@@ -13,6 +13,7 @@ Usage:
   scripts/check-fast lexer
   scripts/check-fast ast
   scripts/check-fast runtime
+  scripts/check-fast runtime-tests
   scripts/check-fast runtime-assert
   scripts/check-fast runtime-callable
   scripts/check-fast runtime-task
@@ -73,6 +74,7 @@ Examples:
   scripts/check-fast changed --take 3
   scripts/check-fast changed
   scripts/check-fast runtime
+  scripts/check-fast runtime-tests
   scripts/check-fast runtime-assert
   scripts/check-fast runtime-callable
   scripts/check-fast runtime-task
@@ -369,6 +371,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/collections.rs)
       add_changed_check "runtime-collections"
+      ;;
+    crates/echo_runtime/src/runtime_tests.rs)
+      add_changed_check "runtime-tests"
       ;;
     crates/echo_runtime/src/assertions.rs)
       add_changed_check "runtime-assert"
@@ -667,6 +672,8 @@ run_script_tests() {
     crates/echo_runtime/src/collections.rs
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
+  assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
+    crates/echo_runtime/src/runtime_tests.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
     crates/echo_runtime/src/assertions.rs
   assert_routing "runtime callable routes focused checks" "runtime-callable" \
@@ -883,6 +890,9 @@ case "$command" in
     ;;
   runtime)
     run_quiet cargo test -q -p echo_runtime -- --test-threads=1
+    ;;
+  runtime-tests)
+    run_quiet cargo test -q -p echo_runtime runtime_tests:: -- --test-threads=1
     ;;
   runtime-assert)
     run_quiet cargo test -q -p echo_runtime assertions::
