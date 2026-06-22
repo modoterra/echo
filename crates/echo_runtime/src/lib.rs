@@ -23,10 +23,8 @@ pub mod thread;
 pub mod time;
 pub mod value;
 
-use std::cell::RefCell;
 #[cfg(test)]
 use std::env;
-use std::io::{self as std_io, Write};
 #[cfg(test)]
 use std::path::Path;
 #[cfg(test)]
@@ -54,7 +52,6 @@ pub use encoding::{
 };
 pub use environment::*;
 pub use error::EchoError;
-use execution::{repl_inspect_enabled, write_stdout};
 #[cfg(test)]
 use filesystem::{
     PHP_FILE_APPEND, path_buf_from_bytes, path_getcwd, path_is_dir, path_is_file, path_realpath,
@@ -83,7 +80,15 @@ pub use net::{
     echo_std_net_close, echo_std_net_connect, echo_std_net_listen, echo_std_net_read,
     echo_std_net_write,
 };
-pub use output::OutputRuntime;
+pub(crate) use output::write_runtime_output;
+pub use output::{
+    OutputRuntime, echo_php_flush, echo_php_ob_clean, echo_php_ob_end_clean, echo_php_ob_end_flush,
+    echo_php_ob_flush, echo_php_ob_get_clean, echo_php_ob_get_contents, echo_php_ob_get_flush,
+    echo_php_ob_get_length, echo_php_ob_get_level, echo_php_ob_implicit_flush, echo_php_ob_start,
+    echo_php_ob_start_value, echo_shutdown, echo_write, echo_write_i64, echo_write_i64_or_false,
+    echo_write_string, echo_write_value,
+};
+use output::{output_ob_start, reset_output_runtime};
 pub use process::{echo_process_join, echo_process_spawn};
 #[cfg(test)]
 use reflection::REFLECTION_SOURCE_PHP_BUILTIN;
@@ -306,7 +311,7 @@ impl EchoValue {
         }
     }
 
-    fn inspect_bytes(self) -> Option<Vec<u8>> {
+    pub(crate) fn inspect_bytes(self) -> Option<Vec<u8>> {
         Some(self.inspect_string(0).into_bytes())
     }
 
@@ -538,21 +543,15 @@ pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>,
 pub fn echo_call(callable: &EchoCallable, _args: &[EchoValue]) -> Result<EchoValue, EchoError> {
     match callable {
         EchoCallable::Function(symbol) if symbol.as_str() == "ob_start" => {
-            OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
+            output_ob_start();
             Ok(EchoValue::null())
         }
         EchoCallable::Function(symbol) => Err(EchoError::UndefinedFunction(symbol.clone())),
     }
 }
 
-thread_local! {
-    static OUTPUT: RefCell<OutputRuntime> = RefCell::new(OutputRuntime::new());
-}
-
 pub fn reset_execution_state() {
-    OUTPUT.with(|runtime| {
-        *runtime.borrow_mut() = OutputRuntime::new();
-    });
+    reset_output_runtime();
     execution::reset();
     assertions::reset();
 }
@@ -562,69 +561,6 @@ pub fn capture_stdout<T>(repl_inspect: bool, f: impl FnOnce() -> T) -> (T, Vec<u
     execution::begin_capture(repl_inspect);
     let result = f();
     (result, execution::finish_capture())
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_write(ptr: *const u8, len: usize) {
-    if ptr.is_null() && len != 0 {
-        return;
-    }
-
-    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
-    write_runtime_output(bytes);
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_write_i64(value: i64) {
-    let bytes = value.to_string();
-    write_runtime_output(bytes.as_bytes());
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_write_i64_or_false(value: i64) {
-    // PHP echoes `false` as an empty string. Echo uses -1 as the current sentinel
-    // for int|false runtime calls where supported integer results cannot be negative.
-    if value >= 0 {
-        echo_write_i64(value);
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
-    if value.is_null() {
-        return;
-    }
-
-    let bytes = unsafe { &(*value).bytes };
-    write_runtime_output(bytes);
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
-    if repl_inspect_enabled() {
-        if let Some(bytes) = value.inspect_bytes() {
-            unsafe { echo_write(bytes.as_ptr(), bytes.len()) };
-        }
-        return;
-    }
-
-    match value.kind {
-        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => {}
-        ECHO_VALUE_BOOL => {
-            if value.payload != 0 {
-                unsafe { echo_write(c"1".as_ptr().cast(), 1) };
-            }
-        }
-        ECHO_VALUE_INT => echo_write_i64(value.payload as i64),
-        ECHO_VALUE_FLOAT => {
-            let bytes = format_php_float(f64::from_bits(value.payload)).into_bytes();
-            unsafe { echo_write(bytes.as_ptr(), bytes.len()) };
-        }
-        ECHO_VALUE_STRING => unsafe { echo_write_string(value.payload as *const EchoString) },
-        ECHO_VALUE_ARRAY => unsafe { echo_write(c"Array".as_ptr().cast(), 5) },
-        ECHO_VALUE_LIST => unsafe { echo_write(c"List".as_ptr().cast(), 4) },
-        _ => {}
-    }
 }
 
 fn inspect_array(array: &EchoArray, depth: usize) -> String {
@@ -690,20 +626,6 @@ fn inspect_string_literal(bytes: &[u8]) -> String {
     }
     literal.push('"');
     literal
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_flush() {
-    let _ = std_io::stdout().flush();
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_implicit_flush(value: EchoValue) {
-    OUTPUT.with(|runtime| {
-        runtime
-            .borrow_mut()
-            .ob_implicit_flush(value.bool_value().unwrap_or(false));
-    });
 }
 
 #[unsafe(no_mangle)]
@@ -1464,117 +1386,6 @@ pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoV
 
     let callable = EchoCallable::Function(EchoSymbol::new(name));
     echo_call(&callable, &[]).unwrap_or_else(|_| EchoValue::error())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_start() -> bool {
-    OUTPUT.with(|runtime| runtime.borrow_mut().ob_start());
-    true
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_start_value(callback: EchoValue) -> bool {
-    let Ok(callback) = echo_normalize_callable(callback) else {
-        return false;
-    };
-
-    OUTPUT.with(|runtime| runtime.borrow_mut().ob_start_with_callback(callback));
-    true
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_clean() -> bool {
-    OUTPUT.with(|runtime| runtime.borrow_mut().ob_clean())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_flush() -> bool {
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        let ok = runtime.borrow_mut().ob_flush(&mut stdout);
-        write_stdout(&stdout);
-        ok
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_end_flush() -> bool {
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        let ok = runtime.borrow_mut().ob_end_flush(&mut stdout);
-        write_stdout(&stdout);
-        ok
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_end_clean() -> bool {
-    OUTPUT.with(|runtime| runtime.borrow_mut().ob_end_clean())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_get_clean() -> EchoValue {
-    OUTPUT.with(|runtime| match runtime.borrow_mut().ob_get_clean() {
-        Some(value) => EchoValue::string(Box::into_raw(Box::new(value))),
-        None => EchoValue::bool(false),
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_get_contents() -> EchoValue {
-    OUTPUT.with(|runtime| match runtime.borrow().ob_get_contents() {
-        Some(value) => EchoValue::string(Box::into_raw(Box::new(value))),
-        None => EchoValue::bool(false),
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_get_flush() -> EchoValue {
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        let value = runtime.borrow_mut().ob_get_flush(&mut stdout);
-        write_stdout(&stdout);
-        match value {
-            Some(value) => EchoValue::string(Box::into_raw(Box::new(value))),
-            None => EchoValue::bool(false),
-        }
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_get_level() -> EchoValue {
-    // PHP `ob_get_level()` returns zero when inactive; the first active buffer is level 1.
-    // Source: https://www.php.net/manual/en/function.ob-get-level.php
-    OUTPUT.with(|runtime| EchoValue::int(runtime.borrow().level() as i64))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ob_get_length() -> EchoValue {
-    OUTPUT.with(|runtime| match runtime.borrow().ob_get_length() {
-        Some(len) => EchoValue::int(len as i64),
-        None => EchoValue::bool(false),
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_shutdown() {
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        runtime.borrow_mut().shutdown(&mut stdout);
-        write_stdout(&stdout);
-    });
-
-    if assertions::has_failures() {
-        std::process::exit(1);
-    }
-}
-
-pub(crate) fn write_runtime_output(bytes: &[u8]) {
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        runtime.borrow_mut().write(bytes, &mut stdout);
-        write_stdout(&stdout);
-    });
 }
 
 pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
