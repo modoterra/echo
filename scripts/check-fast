@@ -15,6 +15,7 @@ Usage:
   scripts/check-fast runtime
   scripts/check-fast runtime-tests
   scripts/check-fast runtime-tests-collections
+  scripts/check-fast runtime-tests-encoding
   scripts/check-fast runtime-tests-filesystem
   scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-string
@@ -81,6 +82,7 @@ Examples:
   scripts/check-fast runtime
   scripts/check-fast runtime-tests
   scripts/check-fast runtime-tests-collections
+  scripts/check-fast runtime-tests-encoding
   scripts/check-fast runtime-tests-filesystem
   scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-string
@@ -384,6 +386,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/collections.rs)
       add_changed_check "runtime-tests-collections"
+      ;;
+    crates/echo_runtime/src/runtime_tests/encoding.rs)
+      add_changed_check "runtime-tests-encoding"
       ;;
     crates/echo_runtime/src/runtime_tests/filesystem.rs)
       add_changed_check "runtime-tests-filesystem"
@@ -739,6 +744,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests.rs
   assert_routing "runtime collection tests route focused submodule check" "runtime-tests-collections" \
     crates/echo_runtime/src/runtime_tests/collections.rs
+  assert_routing "runtime encoding tests route focused submodule check" "runtime-tests-encoding" \
+    crates/echo_runtime/src/runtime_tests/encoding.rs
   assert_routing "runtime filesystem tests route focused submodule check" "runtime-tests-filesystem" \
     crates/echo_runtime/src/runtime_tests/filesystem.rs
   assert_routing "runtime math tests route focused submodule check" "runtime-tests-math" \
@@ -970,6 +977,9 @@ case "$command" in
     ;;
   runtime-tests-collections)
     run_quiet cargo test -q -p echo_runtime runtime_tests::collections:: -- --test-threads=1
+    ;;
+  runtime-tests-encoding)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::encoding:: -- --test-threads=1
     ;;
   runtime-tests-filesystem)
     run_quiet cargo test -q -p echo_runtime runtime_tests::filesystem:: -- --test-threads=1
