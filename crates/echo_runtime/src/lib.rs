@@ -528,21 +528,13 @@ pub unsafe extern "C" fn echo_write(ptr: *const u8, len: usize) {
     }
 
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        runtime.borrow_mut().write(bytes, &mut stdout);
-        write_stdout(&stdout);
-    });
+    write_runtime_output(bytes);
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_write_i64(value: i64) {
     let bytes = value.to_string();
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        runtime.borrow_mut().write(bytes.as_bytes(), &mut stdout);
-        write_stdout(&stdout);
-    });
+    write_runtime_output(bytes.as_bytes());
 }
 
 #[unsafe(no_mangle)]
@@ -561,11 +553,7 @@ pub unsafe extern "C" fn echo_write_string(value: *const EchoString) {
     }
 
     let bytes = unsafe { &(*value).bytes };
-    OUTPUT.with(|runtime| {
-        let mut stdout = Vec::new();
-        runtime.borrow_mut().write(bytes, &mut stdout);
-        write_stdout(&stdout);
-    });
+    write_runtime_output(bytes);
 }
 
 #[unsafe(no_mangle)]
