@@ -1195,7 +1195,7 @@ fn string_chunk_builtins_lower_optional_arguments_to_php_defaults() {
 
 #[test]
 fn every_lowered_php_builtin_has_reflected_declaration() {
-    for builtin in PHP_BUILTINS {
+    for builtin in PHP_BUILTINS.iter() {
         assert!(
             echo_reflection::php_builtin(builtin.php_name).is_some(),
             "missing reflected declaration for {}",
