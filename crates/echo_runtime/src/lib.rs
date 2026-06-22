@@ -40,7 +40,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
 pub use callable::{EchoCallable, EchoSymbol};
 pub use collections::{EchoArray, EchoList};
-use collections::{EchoArrayKey, next_array_append_key, php_array_union};
+use collections::{
+    EchoArrayKey, echo_arrays_equal, echo_lists_equal, next_array_append_key, php_array_union,
+};
 use encoding::*;
 pub use environment::*;
 pub use error::EchoError;
@@ -4764,8 +4766,8 @@ pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
         ECHO_VALUE_NULL => true,
         ECHO_VALUE_BOOL | ECHO_VALUE_INT | ECHO_VALUE_FLOAT => left.payload == right.payload,
         ECHO_VALUE_STRING => left.string_bytes() == right.string_bytes(),
-        ECHO_VALUE_ARRAY => echo_arrays_equal(left, right),
-        ECHO_VALUE_LIST => echo_lists_equal(left, right),
+        ECHO_VALUE_ARRAY => echo_arrays_equal(left, right, echo_values_equal),
+        ECHO_VALUE_LIST => echo_lists_equal(left, right, echo_values_equal),
         _ => left.payload == right.payload,
     }
 }
@@ -4779,38 +4781,6 @@ fn php_values_equal(left: EchoValue, right: EchoValue) -> bool {
         (Some(left), Some(right)) => left == right,
         _ => false,
     }
-}
-
-fn echo_arrays_equal(left: EchoValue, right: EchoValue) -> bool {
-    let Some(left) = (unsafe { (left.payload as *const EchoArray).as_ref() }) else {
-        return false;
-    };
-    let Some(right) = (unsafe { (right.payload as *const EchoArray).as_ref() }) else {
-        return false;
-    };
-
-    left.values.len() == right.values.len()
-        && left
-            .values
-            .iter()
-            .zip(&right.values)
-            .all(|(left, right)| echo_values_equal(*left, *right))
-}
-
-fn echo_lists_equal(left: EchoValue, right: EchoValue) -> bool {
-    let Some(left) = (unsafe { (left.payload as *const EchoList).as_ref() }) else {
-        return false;
-    };
-    let Some(right) = (unsafe { (right.payload as *const EchoList).as_ref() }) else {
-        return false;
-    };
-
-    left.values.len() == right.values.len()
-        && left
-            .values
-            .iter()
-            .zip(&right.values)
-            .all(|(left, right)| echo_values_equal(*left, *right))
 }
 
 #[cfg(test)]

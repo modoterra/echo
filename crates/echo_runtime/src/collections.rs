@@ -102,6 +102,46 @@ pub(crate) fn php_array_union(left: EchoValue, right: EchoValue) -> EchoValue {
     EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
 }
 
+pub(crate) fn echo_arrays_equal(
+    left: EchoValue,
+    right: EchoValue,
+    values_equal: fn(EchoValue, EchoValue) -> bool,
+) -> bool {
+    let Some(left) = (unsafe { (left.payload as *const EchoArray).as_ref() }) else {
+        return false;
+    };
+    let Some(right) = (unsafe { (right.payload as *const EchoArray).as_ref() }) else {
+        return false;
+    };
+
+    left.values.len() == right.values.len()
+        && left
+            .values
+            .iter()
+            .zip(&right.values)
+            .all(|(left, right)| values_equal(*left, *right))
+}
+
+pub(crate) fn echo_lists_equal(
+    left: EchoValue,
+    right: EchoValue,
+    values_equal: fn(EchoValue, EchoValue) -> bool,
+) -> bool {
+    let Some(left) = (unsafe { (left.payload as *const EchoList).as_ref() }) else {
+        return false;
+    };
+    let Some(right) = (unsafe { (right.payload as *const EchoList).as_ref() }) else {
+        return false;
+    };
+
+    left.values.len() == right.values.len()
+        && left
+            .values
+            .iter()
+            .zip(&right.values)
+            .all(|(left, right)| values_equal(*left, *right))
+}
+
 pub(crate) fn next_array_append_key(array: &EchoArray) -> EchoArrayKey {
     let next = array
         .keys
