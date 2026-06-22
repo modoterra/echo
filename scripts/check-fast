@@ -575,7 +575,7 @@ assert_command_echo_controls() {
   local quiet_output
   local fixture_output
 
-  default_output="$(run_quiet true)"
+  default_output="$(CHECK_FAST_ECHO_COMMANDS= run_quiet true)"
   if [[ "$default_output" != ":: true" ]]; then
     printf 'command echo test failed: default trace\nexpected: :: true\nactual: %s\n' "$default_output" >&2
     exit 1
