@@ -668,6 +668,9 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/tests/php_compat.rs)
       add_changed_check "codegen-php"
       ;;
+    crates/echo_codegen/src/tests/php_filesystem.rs)
+      add_changed_check "codegen-php"
+      ;;
     crates/echo_codegen/src/reflection_lowering.rs)
       add_changed_check "codegen-reflection"
       ;;
@@ -1409,6 +1412,8 @@ run_script_tests() {
     crates/echo_codegen/src/php_lowering.rs
   assert_routing "codegen PHP compatibility tests route focused PHP checks" "codegen-php" \
     crates/echo_codegen/src/tests/php_compat.rs
+  assert_routing "codegen PHP filesystem tests route focused PHP checks" "codegen-php" \
+    crates/echo_codegen/src/tests/php_filesystem.rs
   assert_routing "codegen reflection lowering routes focused reflection checks" "codegen-reflection" \
     crates/echo_codegen/src/reflection_lowering.rs
   assert_routing "codegen reflection tests route focused reflection checks" "codegen-reflection" \
