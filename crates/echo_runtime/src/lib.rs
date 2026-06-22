@@ -19,6 +19,7 @@ pub mod task;
 pub mod task_group;
 pub mod thread;
 pub mod time;
+pub mod value;
 
 use crc32fast::Hasher as Crc32Hasher;
 use filetime::FileTime;
@@ -65,28 +66,7 @@ pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_c
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 pub use time::echo_time_sleep;
-
-#[derive(Debug)]
-pub struct EchoString {
-    bytes: Vec<u8>,
-}
-
-impl EchoString {
-    pub(crate) fn new(bytes: Vec<u8>) -> Self {
-        Self { bytes }
-    }
-}
-
-#[derive(Debug)]
-pub struct EchoObject {
-    fields: Vec<(String, EchoValue)>,
-}
-
-impl EchoObject {
-    fn new() -> Self {
-        Self { fields: Vec::new() }
-    }
-}
+pub use value::{EchoObject, EchoString};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
