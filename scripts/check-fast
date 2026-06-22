@@ -19,6 +19,7 @@ Usage:
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
+  scripts/check-fast runtime-process
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
@@ -55,6 +56,7 @@ Examples:
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
+  scripts/check-fast runtime-process
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
   scripts/check-fast runtime-encoding
@@ -307,6 +309,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/net.rs)
       add_changed_check "runtime-net"
       ;;
+    crates/echo_runtime/src/process.rs)
+      add_changed_check "runtime-process"
+      ;;
     crates/echo_runtime/src/filesystem.rs)
       add_changed_check "runtime-filesystem"
       ;;
@@ -423,6 +428,8 @@ run_script_tests() {
     crates/echo_runtime/src/environment.rs
   assert_routing "runtime net routes focused checks" "runtime-net" \
     crates/echo_runtime/src/net.rs
+  assert_routing "runtime process routes focused checks" "runtime-process" \
+    crates/echo_runtime/src/process.rs
 }
 
 run_changed_checks() {
@@ -621,6 +628,11 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime std_net_abi_exchanges_loopback_bytes
     run_quiet cargo test -q -p echo_runtime std_http_response_text_formats_http_response
     run_with_optional_fixture "009_net_loopback_exchange,010_http_response_over_net,023_http_read_request_path,024_http_server_one_request,026_concurrent_http_tasks" tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-process)
+    run_quiet cargo test -q -p echo_runtime process::
+    run_quiet cargo test -q -p xo --test repl piped_repl_can_join_spawned_process_handle_later
+    run_with_optional_fixture "027_spawn_process_exit_status" tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-filesystem)
     run_quiet cargo test -q -p echo_runtime file_exists

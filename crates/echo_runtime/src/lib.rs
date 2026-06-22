@@ -47,6 +47,7 @@ pub use net::{
     echo_std_net_write,
 };
 pub use output::OutputRuntime;
+pub use process::{echo_process_join, echo_process_spawn};
 use reflection::{
     REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
     function_reflection_by_name_and_source, function_reflection_for_value,
@@ -125,7 +126,6 @@ const ECHO_VALUE_THREAD: i32 = 13;
 const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
-static NEXT_PROCESS_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
@@ -447,7 +447,7 @@ impl EchoValue {
         unsafe { (self.payload as *mut task_group::EchoTaskGroup).as_mut() }
     }
 
-    fn as_process_mut(self) -> Option<&'static mut process::EchoProcess> {
+    pub(crate) fn as_process_mut(self) -> Option<&'static mut process::EchoProcess> {
         if self.kind != ECHO_VALUE_PROCESS || self.payload == 0 {
             return None;
         }
@@ -834,28 +834,6 @@ pub extern "C" fn echo_thread_join(thread_value: EchoValue) -> EchoValue {
     };
 
     thread.join()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_process_spawn(command: EchoValue) -> EchoValue {
-    let Some(command) = command.string_bytes() else {
-        return EchoValue::error();
-    };
-    let id = NEXT_PROCESS_ID.fetch_add(1, Ordering::Relaxed);
-
-    match process::EchoProcess::spawn(task::ProcessId(id), command) {
-        Ok(process) => EchoValue::process(Box::into_raw(Box::new(process))),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_process_join(process_value: EchoValue) -> EchoValue {
-    let Some(process) = process_value.as_process_mut() else {
-        return EchoValue::error();
-    };
-
-    process.join()
 }
 
 #[unsafe(no_mangle)]
