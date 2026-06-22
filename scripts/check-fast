@@ -49,6 +49,7 @@ Usage:
   scripts/check-fast runtime-require
   scripts/check-fast runtime-sched
   scripts/check-fast runtime-string
+  scripts/check-fast runtime-string-compare
   scripts/check-fast runtime-string-fixtures
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
@@ -145,6 +146,7 @@ Examples:
   scripts/check-fast runtime-reflection-fixtures
   scripts/check-fast runtime-require
   scripts/check-fast runtime-string
+  scripts/check-fast runtime-string-compare
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -609,6 +611,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/time.rs)
       add_changed_check "runtime-time"
       ;;
+    crates/echo_runtime/src/string/compare.rs)
+      add_changed_check "runtime-string-compare"
+      ;;
     crates/echo_runtime/src/string.rs)
       add_changed_check "runtime-string"
       ;;
@@ -918,6 +923,8 @@ run_script_tests() {
     crates/echo_runtime/src/time.rs
   assert_routing "runtime string routes focused checks" "runtime-string" \
     crates/echo_runtime/src/string.rs
+  assert_routing "runtime string compare routes focused checks" "runtime-string-compare" \
+    crates/echo_runtime/src/string/compare.rs
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
@@ -1249,6 +1256,9 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime string_rewrite_builtins_preserve_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime string_predicate_builtins_are_binary_safe_and_case_sensitive
     run_runtime_fixture_scope runtime-string-fixtures
+    ;;
+  runtime-string-compare)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::string_compare:: -- --test-threads=1
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins
