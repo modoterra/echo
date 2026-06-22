@@ -1,4 +1,5 @@
 use super::*;
+use crate::filesystem::PHP_FILE_APPEND;
 
 #[test]
 fn filesystem_content_builtins_read_write_append_and_stream_output() {
