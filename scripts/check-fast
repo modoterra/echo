@@ -45,6 +45,7 @@ Usage:
   scripts/check-fast runtime-collections-fixtures
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
+  scripts/check-fast runtime-output-buffer
   scripts/check-fast runtime-output-fixtures
   scripts/check-fast runtime-poll
   scripts/check-fast runtime-reflection
@@ -174,6 +175,7 @@ Examples:
   scripts/check-fast runtime-collections-fixtures
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
+  scripts/check-fast runtime-output-buffer
   scripts/check-fast runtime-output-fixtures
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-reflection-fixtures
@@ -681,6 +683,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/output.rs)
       add_changed_check "runtime-output"
       ;;
+    crates/echo_runtime/src/output/buffer.rs)
+      add_changed_check "runtime-output-buffer"
+      ;;
     crates/echo_runtime/src/poll.rs)
       add_changed_check "runtime-poll"
       ;;
@@ -1081,6 +1086,8 @@ run_script_tests() {
     crates/echo_runtime/src/time.rs
   assert_routing "runtime string routes focused checks" "runtime-string" \
     crates/echo_runtime/src/string.rs
+  assert_routing "runtime output buffer routes focused checks" "runtime-output-buffer" \
+    crates/echo_runtime/src/output/buffer.rs
   assert_routing "runtime string compare routes focused checks" "runtime-string-compare" \
     crates/echo_runtime/src/string/compare.rs
   assert_routing "runtime string pattern routes focused checks" "runtime-string-pattern" \
@@ -1477,6 +1484,10 @@ case "$command" in
     ;;
   runtime-output)
     run_quiet cargo test -q -p echo_runtime output::
+    run_runtime_fixture_scope runtime-output-fixtures
+    ;;
+  runtime-output-buffer)
+    run_quiet cargo test -q -p echo_runtime output::buffer:: -- --test-threads=1
     run_runtime_fixture_scope runtime-output-fixtures
     ;;
   runtime-poll)
