@@ -31,10 +31,11 @@
 This repo uses a single-context domain documentation layout. See `docs/agents/domain.md`.
 
 ## Commands
-- Fast agent checks: `scripts/check-fast changed --list`, `scripts/check-fast changed`, `scripts/check-fast source`, `scripts/check-fast diagnostics`, `scripts/check-fast lexer`, `scripts/check-fast ast`, `scripts/check-fast runtime`, `scripts/check-fast runtime-collections`, `scripts/check-fast runtime-execution`, `scripts/check-fast runtime-output`, `scripts/check-fast runtime-reflection`, `scripts/check-fast runtime-math`, `scripts/check-fast runtime-encoding`, `scripts/check-fast parser <fixture-filter>`, `scripts/check-fast semantics`, `scripts/check-fast hir`, `scripts/check-fast mir`, `scripts/check-fast pipeline`, `scripts/check-fast index`, `scripts/check-fast lsp`, `scripts/check-fast std`, `scripts/check-fast reflection`, `scripts/check-fast codegen`, `scripts/check-fast xo`, `scripts/check-fast repl`, `scripts/check-fast jit <fixture-filter>`, `scripts/check-fast fixture <fixture-filter>`, `scripts/check-fast bench-echo <fixture-filter>`, `scripts/check-fast bench-php <fixture-filter>`, `scripts/check-fast fmt`, `scripts/check-fast script`, and `scripts/check-fast web`.
+- Fast agent checks: `scripts/check-fast changed --list`, `scripts/check-fast changed`, `scripts/check-fast source`, `scripts/check-fast diagnostics`, `scripts/check-fast lexer`, `scripts/check-fast ast`, `scripts/check-fast runtime`, `scripts/check-fast runtime-collections`, `scripts/check-fast runtime-execution`, `scripts/check-fast runtime-output`, `scripts/check-fast runtime-reflection`, `scripts/check-fast runtime-math`, `scripts/check-fast runtime-encoding`, `scripts/check-fast parser <fixture-filter>`, `scripts/check-fast semantics`, `scripts/check-fast hir`, `scripts/check-fast mir`, `scripts/check-fast pipeline`, `scripts/check-fast index`, `scripts/check-fast lsp`, `scripts/check-fast std`, `scripts/check-fast reflection`, `scripts/check-fast codegen`, `scripts/check-fast xo`, `scripts/check-fast repl`, `scripts/check-fast jit <fixture-filter>`, `scripts/check-fast fixture <fixture-filter>`, `scripts/check-fast bench-echo <fixture-filter>`, `scripts/check-fast bench-php <fixture-filter>`, `scripts/check-fast fmt`, `scripts/check-fast script`, `scripts/check-fast workspace`, and `scripts/check-fast web`.
 - Check all crates: `cargo check --workspace`.
 - Run all tests/doc-tests: `cargo test --workspace`.
 - Check formatting: `cargo fmt --all -- --check`.
+- Quiet final verification: `scripts/check-fast workspace` runs format, `cargo check --workspace`, and `cargo test --workspace` with successful output suppressed.
 - Focus one crate: `cargo test -p echo_parser` or `cargo check -p xo`.
 - Benchmark PHP fixtures against system PHP: `cargo test -p xo --test php_bench -- --ignored --nocapture`; use `ECHO_BENCH_ITERATIONS=2 cargo test -p xo --test php_bench -- --ignored --nocapture` for intermediate smoke checks, and larger counts such as 100 for final benchmark reports.
 - Run CLI examples: `cargo run -p xo -- ast examples/hello.php`, `cargo run -p xo -- ir examples/hello.php`, `cargo run -p xo -- run examples/hello.php`, and `cargo run -p xo -- build examples/hello.php -o /tmp/hello`.
@@ -48,6 +49,7 @@ This repo uses a single-context domain documentation layout. See `docs/agents/do
 - Use `scripts/check-fast changed --take N` to run only the first N derived checks when the dirty worktree is broad and you want a bounded first signal.
 - `scripts/check-fast changed` batches dirty fixture directories into comma-separated filters, avoids redundant filtered parser/JIT checks when broad parser or JIT checks are already selected, and uses runtime fixture-only variants when broad runtime tests are already selected.
 - Use `scripts/check-fast script` after changing `scripts/check-fast` itself.
+- Use `scripts/check-fast workspace` for quiet final verification before committing.
 - Use `scripts/check-fast source`, `scripts/check-fast diagnostics`, `scripts/check-fast lexer`, or `scripts/check-fast ast` for foundational crate changes before checking parser behavior.
 - Use `scripts/check-fast runtime` after runtime-only built-in or value-behavior changes.
 - Use `scripts/check-fast runtime-collections` after PHP array, Echo list, collection key coercion, or index lookup changes.
@@ -100,7 +102,7 @@ Benchmark shortcuts default `ECHO_BENCH_ITERATIONS` to `2`; set the variable exp
 - Start with the fixture whenever behavior is user-observable. PHP compatibility behavior belongs under `tests/php/<number>_<name>/`; Echo-only behavior belongs under `tests/echo/<number>_<name>/` with `program.echo`, `stdin.txt`, and `stdout.txt`.
 - Ground PHP compatibility slices in `php.net` before implementation. Prefer adding the relevant manual URL to nearby docs/spec notes; add a concise source comment only when the PHP behavior is non-obvious in code.
 - Keep implementation comments rare and useful. Comments should explain compatibility rules, runtime invariants, or surprising behavior, not restate straightforward code.
-- Run focused tests while developing, then run the full verification set before committing: `cargo fmt --all -- --check`, `cargo test --workspace`, and the relevant fixture harness.
+- Run focused tests while developing, then run quiet full verification before committing: `scripts/check-fast workspace`; run the relevant fixture harness separately when a slice needs a specific fixture path.
 - Run ignored benchmarks when a slice affects executable behavior, runtime performance, fixture benchmark reports, or PHP/Echo parity timing: `ECHO_BENCH_ITERATIONS=2 cargo test -p xo --test php_bench -- --ignored --nocapture` for PHP parity and `ECHO_BENCH_ITERATIONS=2 cargo test -p xo --test echo_bench -- --ignored --nocapture` for Echo runtime behavior.
 - Commit each completed slice with a small meaningful conventional commit after verification. Do not push unless the user explicitly asks.
 
@@ -120,7 +122,7 @@ Benchmark shortcuts default `ECHO_BENCH_ITERATIONS` to `2`; set the variable exp
 - Before implementing, run the fixture with system `php` when behavior is not obvious; make `stdout.txt` match PHP, not assumptions or hand-written formatting.
 - TDD order: add `program.php`/`stdin.txt` -> generate `stdout.txt` with PHP -> confirm `cargo test -p xo --test php_fixtures` fails -> implement the smallest parser/AST/codegen/runtime change -> make the fixture pass.
 - Each slice must keep the whole path working: `xo ast`, `xo ir`, `xo run`, and `xo build`, with run and built binary stdout matching PHP.
-- After green, run `cargo test --workspace` and `cargo fmt --all -- --check`; run the ignored PHP/Echo benchmark that matches the affected behavior when the slice affects executable behavior, runtime behavior, performance, or benchmark reports.
+- After green, run `scripts/check-fast workspace`; run the ignored PHP/Echo benchmark that matches the affected behavior when the slice affects executable behavior, runtime behavior, performance, or benchmark reports.
 - Before committing, re-check the implemented behavior against the relevant `php.net` manual page and update nearby docs/spec notes with the source URL; include a concise source comment in code only when it clarifies non-obvious PHP compatibility behavior.
 - After verifying a completed slice, create a small meaningful conventional commit with an explanatory body; do not push unless the user explicitly asks.
 - Keep unsupported PHP behavior explicit with diagnostics rather than silently approximating semantics.

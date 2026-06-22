@@ -7,6 +7,7 @@ Usage:
   scripts/check-fast fmt
   scripts/check-fast script
   scripts/check-fast script-tests
+  scripts/check-fast workspace
   scripts/check-fast changed [--list [N]|--take N]
   scripts/check-fast source
   scripts/check-fast diagnostics
@@ -236,6 +237,7 @@ Examples:
   scripts/check-fast xo
   scripts/check-fast xo-test-runner
   scripts/check-fast repl
+  scripts/check-fast workspace
   scripts/check-fast jit 017_object_append_count
   scripts/check-fast fixture string_escape
   scripts/check-fast bench-echo 017_object_append_count
@@ -248,6 +250,10 @@ the variable is already set.
 Successful command trace lines are suppressed by default. Set
 CHECK_FAST_ECHO_COMMANDS=1 to show them. Failed commands still replay bounded
 output controlled by CHECK_FAST_MAX_OUTPUT_LINES.
+
+Use `scripts/check-fast workspace` for quiet final verification. It runs
+formatting, workspace check, and workspace tests with successful command output
+suppressed.
 EOF
 }
 
@@ -1471,6 +1477,11 @@ case "$command" in
     ;;
   script-tests)
     run_script_tests
+    ;;
+  workspace)
+    run_quiet cargo fmt --all -- --check
+    run_quiet cargo check --workspace
+    run_quiet cargo test --workspace
     ;;
   changed)
     run_changed_checks "${fixture_filter:-run}" "$extra_arg"
