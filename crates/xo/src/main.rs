@@ -1,18 +1,26 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal};
 use std::path::PathBuf;
 use std::process::{Child, Command as ProcessCommand};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
 use echo_ast::{BinaryOp, EchoStmt, Expr, FunctionCallExpr, Program, Stmt};
-use echo_source::{SourceFile, SourceMode};
+use echo_source::SourceFile;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 
-static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
+mod build;
+mod source;
+
+use build::{
+    OptimizationLevel, build_ir_binary, optimize_ir, parse_optimization_level, run_command,
+    temp_path, verify_ir,
+};
+use source::{
+    ModeOverride, compile_ir, parse_source_program, print_diagnostics, read_source,
+    read_source_file, run_jit, source_file_from_text,
+};
 
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_DIM: &str = "\x1b[2m";
@@ -77,75 +85,10 @@ enum Command {
 }
 
 #[derive(Debug, Clone, Copy, clap::Args)]
-struct ModeOverride {
-    /// Force strict mode, rejecting unsafe PHP compatibility patterns.
-    #[arg(long, conflicts_with = "unsafe_mode")]
-    strict: bool,
-
-    /// Force Echo unsafe/superset mode, allowing PHP compatibility patterns.
-    #[arg(long = "unsafe", conflicts_with = "strict")]
-    unsafe_mode: bool,
-}
-
-impl ModeOverride {
-    fn apply(self, default: SourceMode) -> SourceMode {
-        if self.strict {
-            SourceMode::Strict
-        } else if self.unsafe_mode {
-            SourceMode::Echo
-        } else {
-            default
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, clap::Args)]
 struct OptimizationOptions {
     /// LLVM optimization level for build output.
     #[arg(short = 'O', default_value = "0", value_parser = parse_optimization_level)]
     level: OptimizationLevel,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OptimizationLevel {
-    O0,
-    O1,
-    O2,
-    O3,
-    Oz,
-}
-
-impl OptimizationLevel {
-    const fn clang_arg(self) -> &'static str {
-        match self {
-            Self::O0 => "-O0",
-            Self::O1 => "-O1",
-            Self::O2 => "-O2",
-            Self::O3 => "-O3",
-            Self::Oz => "-Oz",
-        }
-    }
-
-    const fn opt_pipeline(self) -> Option<&'static str> {
-        match self {
-            Self::O0 => None,
-            Self::O1 => Some("default<O1>"),
-            Self::O2 => Some("default<O2>"),
-            Self::O3 => Some("default<O3>"),
-            Self::Oz => Some("default<Oz>"),
-        }
-    }
-}
-
-fn parse_optimization_level(value: &str) -> Result<OptimizationLevel, String> {
-    match value {
-        "0" => Ok(OptimizationLevel::O0),
-        "1" => Ok(OptimizationLevel::O1),
-        "2" => Ok(OptimizationLevel::O2),
-        "3" => Ok(OptimizationLevel::O3),
-        "z" | "Z" => Ok(OptimizationLevel::Oz),
-        _ => Err(format!("expected one of 0, 1, 2, 3, or z, got `{value}`")),
-    }
 }
 
 fn main() {
@@ -632,116 +575,6 @@ fn build_binary(
     build_ir_binary(file, &ir, optimization, output);
 }
 
-fn build_ir_binary(file: &PathBuf, ir: &str, optimization: OptimizationLevel, output: &PathBuf) {
-    ensure_runtime_library();
-    build_ir_binary_quiet(file, ir, optimization, output);
-}
-
-fn build_ir_binary_quiet(
-    file: &PathBuf,
-    ir: &str,
-    optimization: OptimizationLevel,
-    output: &PathBuf,
-) {
-    let ir_path = write_temp_ir(file, &ir);
-    run_command(
-        ProcessCommand::new("clang")
-            .arg(optimization.clang_arg())
-            .arg("-x")
-            .arg("ir")
-            .arg(&ir_path)
-            .arg("-x")
-            .arg("none")
-            .arg(runtime_library_path())
-            .arg("-o")
-            .arg(output),
-    );
-    let _ = fs::remove_file(ir_path);
-}
-
-fn verify_ir(file: &PathBuf, ir: &str) {
-    let ir_path = write_temp_ir(file, ir);
-    let output = ProcessCommand::new("opt")
-        .arg("-disable-output")
-        .arg("-passes=verify")
-        .arg(&ir_path)
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("error: failed to run opt verifier: {err}");
-            std::process::exit(1);
-        });
-    let _ = fs::remove_file(ir_path);
-
-    if !output.status.success() {
-        eprintln!("error: generated LLVM IR failed verification");
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
-}
-
-fn optimize_ir(file: &PathBuf, ir: &str, optimization: OptimizationLevel) -> String {
-    let Some(pipeline) = optimization.opt_pipeline() else {
-        return ir.to_string();
-    };
-
-    let ir_path = write_temp_ir(file, ir);
-    let output = ProcessCommand::new("opt")
-        .arg("-S")
-        .arg(format!("-passes={pipeline}"))
-        .arg(&ir_path)
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("error: failed to run opt: {err}");
-            std::process::exit(1);
-        });
-    let _ = fs::remove_file(ir_path);
-
-    if !output.status.success() {
-        eprintln!("error: opt exited with {}", output.status);
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
-
-    String::from_utf8(output.stdout).unwrap_or_else(|err| {
-        eprintln!("error: opt emitted non-UTF-8 IR: {err}");
-        std::process::exit(1);
-    })
-}
-
-fn compile_ir(file: &PathBuf, mode: ModeOverride) -> String {
-    let source = read_source_file(file, mode);
-
-    match try_compile_ir(&source) {
-        Ok(ir) => ir,
-        Err(diagnostics) => {
-            print_diagnostics(diagnostics);
-            std::process::exit(1);
-        }
-    }
-}
-
-fn run_jit(file: &PathBuf, mode: ModeOverride) {
-    let source = read_source_file(file, mode);
-
-    match try_run_jit(&source) {
-        Ok(status) => {
-            if status != 0 {
-                std::process::exit(status);
-            }
-        }
-        Err(diagnostics) => {
-            print_diagnostics(diagnostics);
-            std::process::exit(1);
-        }
-    }
-}
-
-fn try_run_jit(source: &SourceFile) -> Result<i32, Vec<echo_diagnostics::Diagnostic>> {
-    let program = parse_source_program(source)?;
-
-    echo_codegen::run_program_jit(&program)
-}
-
 fn try_parse_repl_input(
     source: &SourceFile,
 ) -> Result<ReplParsed, Vec<echo_diagnostics::Diagnostic>> {
@@ -771,91 +604,6 @@ fn repl_display_expr(statements: &[Stmt]) -> Option<Expr> {
         })),
         _ => None,
     }
-}
-
-fn try_compile_ir(source: &SourceFile) -> Result<String, Vec<echo_diagnostics::Diagnostic>> {
-    let program = parse_source_program(source)?;
-
-    echo_codegen::compile_to_ir(&program)
-}
-
-fn parse_source_program(source: &SourceFile) -> Result<Program, Vec<echo_diagnostics::Diagnostic>> {
-    let mut program = echo_parser::parse_with_mode(&source.text, source.mode)?;
-    program.source_dir = source_dir_for(&source.path);
-    Ok(program)
-}
-
-fn source_dir_for(path: &PathBuf) -> Option<String> {
-    let path = fs::canonicalize(path).unwrap_or_else(|_| path.clone());
-    path.parent().map(|path| path.display().to_string())
-}
-
-fn write_temp_ir(file: &PathBuf, ir: &str) -> PathBuf {
-    let path = create_temp_file(file, "ll", ir.as_bytes());
-
-    path
-}
-
-fn create_temp_file(file: &PathBuf, extension: &str, contents: &[u8]) -> PathBuf {
-    for _ in 0..100 {
-        let path = temp_path(file, extension);
-        match fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-        {
-            Ok(mut temp_file) => {
-                temp_file.write_all(contents).unwrap_or_else(|err| {
-                    eprintln!("error: failed to write {}: {err}", path.display());
-                    std::process::exit(1);
-                });
-                return path;
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => {
-                eprintln!("error: failed to create {}: {err}", path.display());
-                std::process::exit(1);
-            }
-        }
-    }
-
-    eprintln!("error: failed to allocate unique temporary {extension} path");
-    std::process::exit(1);
-}
-
-fn temp_path(file: &PathBuf, extension: &str) -> PathBuf {
-    let stem = file
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or("program");
-
-    let counter = TEMP_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-
-    std::env::temp_dir().join(format!(
-        "echo-{stem}-{}-{nanos}-{counter}.{extension}",
-        std::process::id(),
-    ))
-}
-
-fn runtime_library_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("xo should be two levels below the workspace root")
-        .join("target/debug/libecho_runtime.a")
-}
-
-fn ensure_runtime_library() {
-    run_command(
-        ProcessCommand::new("cargo")
-            .arg("build")
-            .arg("-p")
-            .arg("echo_runtime"),
-    );
 }
 
 #[derive(Debug)]
@@ -1030,99 +778,9 @@ fn colorize_type(ty: &str) -> String {
     format!("{color}{ty}{ANSI_RESET}")
 }
 
-fn run_command(command: &mut ProcessCommand) {
-    let status = command.status().unwrap_or_else(|err| {
-        eprintln!("error: failed to run {command:?}: {err}");
-        std::process::exit(1);
-    });
-
-    if !status.success() {
-        eprintln!("error: {command:?} exited with {status}");
-        std::process::exit(status.code().unwrap_or(1));
-    }
-}
-
-fn read_source(file: &PathBuf) -> String {
-    fs::read_to_string(file).unwrap_or_else(|err| {
-        eprintln!("error: failed to read {}: {err}", file.display());
-        std::process::exit(1);
-    })
-}
-
-fn read_source_file(file: &PathBuf, mode: ModeOverride) -> SourceFile {
-    source_file_from_text(file.clone(), read_source(file), mode)
-}
-
-fn source_file_from_text(file: PathBuf, text: String, mode: ModeOverride) -> SourceFile {
-    let mut source = SourceFile::new(file, text);
-    source.mode = mode.apply(source.mode);
-    source
-}
-
-fn print_diagnostics(diagnostics: Vec<echo_diagnostics::Diagnostic>) {
-    for diagnostic in diagnostics {
-        eprintln!(
-            "error: {} at {}..{}",
-            diagnostic.message, diagnostic.span.start, diagnostic.span.end
-        );
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn temp_ir_files_are_unique_for_repeated_builds() {
-        let source = PathBuf::from("program.php");
-        let first = create_temp_file(&source, "ll", b"first");
-        let second = create_temp_file(&source, "ll", b"second");
-
-        assert_ne!(first, second);
-        assert_eq!(fs::read(&first).expect("first temp file"), b"first");
-        assert_eq!(fs::read(&second).expect("second temp file"), b"second");
-
-        let _ = fs::remove_file(first);
-        let _ = fs::remove_file(second);
-    }
-
-    #[test]
-    fn parses_optimization_levels() {
-        assert_eq!(parse_optimization_level("0"), Ok(OptimizationLevel::O0));
-        assert_eq!(parse_optimization_level("1"), Ok(OptimizationLevel::O1));
-        assert_eq!(parse_optimization_level("2"), Ok(OptimizationLevel::O2));
-        assert_eq!(parse_optimization_level("3"), Ok(OptimizationLevel::O3));
-        assert_eq!(parse_optimization_level("z"), Ok(OptimizationLevel::Oz));
-        assert!(parse_optimization_level("4").is_err());
-    }
-
-    #[test]
-    fn repl_source_defaults_to_strict_mode() {
-        let source = source_file_from_text(
-            PathBuf::from("repl.echo"),
-            "echo \"hello\";".to_string(),
-            ModeOverride {
-                strict: false,
-                unsafe_mode: false,
-            },
-        );
-
-        assert_eq!(source.mode, SourceMode::Strict);
-    }
-
-    #[test]
-    fn repl_source_can_use_unsafe_mode() {
-        let source = source_file_from_text(
-            PathBuf::from("repl.echo"),
-            "<?php echo \"hello\";".to_string(),
-            ModeOverride {
-                strict: false,
-                unsafe_mode: true,
-            },
-        );
-
-        assert_eq!(source.mode, SourceMode::Echo);
-    }
 
     #[test]
     fn repl_prompt_uses_xo_paren_with_ansi_color() {
