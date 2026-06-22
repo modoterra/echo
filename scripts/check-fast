@@ -732,6 +732,15 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/runtime_tests/value/reflection.rs)
       add_changed_check "runtime-reflection"
       ;;
+    crates/echo_runtime/src/runtime_tests/value/arithmetic.rs)
+      add_changed_check "runtime-value-arithmetic"
+      ;;
+    crates/echo_runtime/src/runtime_tests/value/coercion.rs)
+      add_changed_check "runtime-value-coercion"
+      ;;
+    crates/echo_runtime/src/runtime_tests/value/types.rs)
+      add_changed_check "runtime-value"
+      ;;
     crates/echo_runtime/src/runtime_tests/filesystem/content.rs)
       add_changed_check "runtime-filesystem-content"
       ;;
@@ -1283,6 +1292,12 @@ run_script_tests() {
     crates/echo_runtime/src/value/coercion.rs
   assert_routing "runtime value reflection tests route focused checks" "runtime-reflection" \
     crates/echo_runtime/src/runtime_tests/value/reflection.rs
+  assert_routing "runtime value arithmetic tests route focused checks" "runtime-value-arithmetic" \
+    crates/echo_runtime/src/runtime_tests/value/arithmetic.rs
+  assert_routing "runtime value coercion tests route focused checks" "runtime-value-coercion" \
+    crates/echo_runtime/src/runtime_tests/value/coercion.rs
+  assert_routing "runtime value type tests route focused checks" "runtime-value" \
+    crates/echo_runtime/src/runtime_tests/value/types.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
   assert_runtime_test_module_routing
