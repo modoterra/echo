@@ -612,6 +612,9 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/abi.rs)
       add_changed_check "codegen-abi"
       ;;
+    crates/echo_codegen/src/abi/std_intrinsics.rs)
+      add_changed_check "codegen-stdlib"
+      ;;
     crates/echo_codegen/src/collection_lowering.rs)
       add_changed_check "codegen-collections"
       ;;
@@ -1186,6 +1189,8 @@ run_script_tests() {
     crates/echo_lsp/src/signature_help.rs
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
     crates/echo_codegen/src/abi.rs
+  assert_routing "codegen std ABI routes focused std checks" "codegen-stdlib" \
+    crates/echo_codegen/src/abi/std_intrinsics.rs
   assert_routing "codegen collection lowering routes focused collection checks" "codegen-collections" \
     crates/echo_codegen/src/collection_lowering.rs
   assert_routing "codegen control-flow lowering routes focused control-flow checks" "codegen-control-flow" \
