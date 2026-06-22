@@ -43,7 +43,6 @@ pub use collections::{
     echo_value_list_append, echo_value_list_new,
 };
 use collections::{EchoArrayKey, echo_arrays_equal, echo_lists_equal, php_array_union};
-use encoding::*;
 pub use encoding::{
     echo_php_base64_decode, echo_php_base64_encode, echo_php_bin2hex, echo_php_crc32,
     echo_php_escapeshellarg, echo_php_escapeshellcmd, echo_php_hex2bin, echo_php_md5,
@@ -99,15 +98,18 @@ pub use reflection::{
 };
 pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
-    echo_php_chr, echo_php_chunk_split, echo_php_decbin, echo_php_dechex, echo_php_decoct,
-    echo_php_explode, echo_php_implode, echo_php_lcfirst, echo_php_ord, echo_php_str_contains,
+    echo_php_addslashes, echo_php_chr, echo_php_chunk_split, echo_php_decbin, echo_php_dechex,
+    echo_php_decoct, echo_php_explode, echo_php_implode, echo_php_lcfirst, echo_php_ltrim,
+    echo_php_nl2br, echo_php_ord, echo_php_quoted_printable_decode,
+    echo_php_quoted_printable_encode, echo_php_quotemeta, echo_php_rtrim, echo_php_str_contains,
     echo_php_str_ends_with, echo_php_str_ireplace, echo_php_str_pad, echo_php_str_repeat,
     echo_php_str_replace, echo_php_str_rot13, echo_php_str_split, echo_php_str_starts_with,
-    echo_php_strcasecmp, echo_php_strcmp, echo_php_strcspn, echo_php_stripos, echo_php_stristr,
-    echo_php_strncasecmp, echo_php_strncmp, echo_php_strpbrk, echo_php_strpos, echo_php_strrchr,
-    echo_php_strrev, echo_php_strripos, echo_php_strrpos, echo_php_strspn, echo_php_strstr,
-    echo_php_strtolower, echo_php_strtoupper, echo_php_strtr, echo_php_strval, echo_php_substr,
-    echo_php_substr_compare, echo_php_substr_count, echo_php_ucfirst, echo_php_ucwords,
+    echo_php_strcasecmp, echo_php_strcmp, echo_php_strcspn, echo_php_stripos,
+    echo_php_stripslashes, echo_php_stristr, echo_php_strncasecmp, echo_php_strncmp,
+    echo_php_strpbrk, echo_php_strpos, echo_php_strrchr, echo_php_strrev, echo_php_strripos,
+    echo_php_strrpos, echo_php_strspn, echo_php_strstr, echo_php_strtolower, echo_php_strtoupper,
+    echo_php_strtr, echo_php_strval, echo_php_substr, echo_php_substr_compare,
+    echo_php_substr_count, echo_php_trim, echo_php_ucfirst, echo_php_ucwords,
 };
 use string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
@@ -147,7 +149,6 @@ const ECHO_VALUE_PROCESS: i32 = 12;
 const ECHO_VALUE_THREAD: i32 = 13;
 const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
-const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
 const INSPECT_MAX_DEPTH: usize = 3;
 const INSPECT_MAX_ITEMS: usize = 8;
 
@@ -954,55 +955,6 @@ pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoVal
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_trim(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
-            &bytes, true, true,
-        ))))),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_ltrim(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
-            &bytes, true, false,
-        ))))),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_rtrim(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(trim_bytes(
-            &bytes, false, true,
-        ))))),
-        None => EchoValue::error(),
-    }
-}
-
-fn trim_bytes(bytes: &[u8], left: bool, right: bool) -> Vec<u8> {
-    let mut start = 0;
-    let mut end = bytes.len();
-
-    if left {
-        while start < end && PHP_DEFAULT_TRIM_BYTES.contains(&bytes[start]) {
-            start += 1;
-        }
-    }
-
-    if right {
-        while end > start && PHP_DEFAULT_TRIM_BYTES.contains(&bytes[end - 1]) {
-            end -= 1;
-        }
-    }
-
-    bytes[start..end].to_vec()
-}
-
 fn parse_php_decimal_int(bytes: &[u8]) -> i64 {
     let bytes = trim_ascii_start(bytes);
     let (negative, digits) = match bytes.first().copied() {
@@ -1186,138 +1138,6 @@ fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
         *index += 1;
     }
     *index - start
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_addslashes(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => {
-            let mut escaped = Vec::with_capacity(bytes.len());
-            for byte in bytes {
-                match byte {
-                    b'\'' | b'"' | b'\\' => {
-                        escaped.push(b'\\');
-                        escaped.push(byte);
-                    }
-                    b'\0' => escaped.extend_from_slice(b"\\0"),
-                    other => escaped.push(other),
-                }
-            }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(escaped))))
-        }
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_stripslashes(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => {
-            let mut stripped = Vec::with_capacity(bytes.len());
-            let mut index = 0;
-
-            while index < bytes.len() {
-                if bytes[index] != b'\\' || index + 1 == bytes.len() {
-                    stripped.push(bytes[index]);
-                    index += 1;
-                    continue;
-                }
-
-                match bytes[index + 1] {
-                    b'0' => stripped.push(b'\0'),
-                    other => stripped.push(other),
-                }
-                index += 2;
-            }
-
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(stripped))))
-        }
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_quoted_printable_encode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            quoted_printable_encode_bytes(&bytes),
-        )))),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_quoted_printable_decode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            quoted_printable_decode_bytes(&bytes),
-        )))),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_nl2br(value: EchoValue, use_xhtml: EchoValue) -> EchoValue {
-    let Some(bytes) = value.string_bytes() else {
-        return EchoValue::error();
-    };
-    let use_xhtml = use_xhtml.bool_value().unwrap_or(true);
-    let marker: &[u8] = if use_xhtml { b"<br />" } else { b"<br>" };
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_nl2br(
-        &bytes, marker,
-    )))))
-}
-
-fn php_nl2br(bytes: &[u8], marker: &[u8]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-
-    while index < bytes.len() {
-        match bytes[index] {
-            b'\r' if bytes.get(index + 1) == Some(&b'\n') => {
-                result.extend_from_slice(marker);
-                result.extend_from_slice(b"\r\n");
-                index += 2;
-            }
-            b'\n' => {
-                result.extend_from_slice(marker);
-                result.push(b'\n');
-                index += 1;
-            }
-            b'\r' => {
-                result.extend_from_slice(marker);
-                result.push(b'\r');
-                index += 1;
-            }
-            other => {
-                result.push(other);
-                index += 1;
-            }
-        }
-    }
-
-    result
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_quotemeta(value: EchoValue) -> EchoValue {
-    const META_BYTES: &[u8] = b".\\+*?[^]($)";
-
-    match value.string_bytes() {
-        Some(bytes) if bytes.is_empty() => EchoValue::bool(false),
-        Some(bytes) => {
-            let mut quoted = Vec::with_capacity(bytes.len());
-            for byte in bytes {
-                if META_BYTES.contains(&byte) {
-                    quoted.push(b'\\');
-                }
-                quoted.push(byte);
-            }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(quoted))))
-        }
-        None => EchoValue::error(),
-    }
 }
 
 #[unsafe(no_mangle)]
