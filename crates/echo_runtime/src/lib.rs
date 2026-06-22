@@ -55,6 +55,7 @@ use reflection::{
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
+pub use time::echo_time_sleep;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchoSymbol {
@@ -705,15 +706,6 @@ pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
             EchoValue::error()
         }
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_time_sleep(millis: i64) {
-    if millis <= 0 {
-        return;
-    }
-
-    std::thread::sleep(Duration::from_millis(millis as u64));
 }
 
 #[unsafe(no_mangle)]

@@ -1,4 +1,4 @@
-use crate::{EchoError, EchoValue, sched};
+use crate::{EchoError, EchoValue, sched, time};
 use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
@@ -255,9 +255,7 @@ pub extern "C" fn echo_task_sleep_current(
     if sched::sleep_current_task(millis, continuation) {
         EchoValue::pending()
     } else {
-        if millis > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(millis as u64));
-        }
+        time::sleep(millis);
         EchoValue::null()
     }
 }
