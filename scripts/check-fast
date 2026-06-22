@@ -49,6 +49,9 @@ Usage:
   scripts/check-fast docs
   scripts/check-fast web-docs
   scripts/check-fast codegen
+  scripts/check-fast codegen-abi
+  scripts/check-fast codegen-stdlib
+  scripts/check-fast codegen-jit
   scripts/check-fast xo
   scripts/check-fast repl
   scripts/check-fast jit [fixture-filter]
@@ -90,6 +93,9 @@ Examples:
   scripts/check-fast parser 017_object_append_count
   scripts/check-fast pipeline
   scripts/check-fast codegen
+  scripts/check-fast codegen-abi
+  scripts/check-fast codegen-stdlib
+  scripts/check-fast codegen-jit
   scripts/check-fast xo
   scripts/check-fast repl
   scripts/check-fast jit 017_object_append_count
@@ -308,10 +314,14 @@ add_checks_for_changed_path() {
       add_changed_check "mir"
       ;;
     crates/echo_codegen/src/jit.rs)
-      add_changed_check "jit"
+      add_changed_check "codegen-jit"
       ;;
     crates/echo_codegen/src/abi.rs)
-      add_changed_check "codegen"
+      add_changed_check "codegen-abi"
+      ;;
+    crates/echo_codegen/src/lib.rs)
+      add_changed_check "codegen-abi"
+      add_changed_check "codegen-stdlib"
       ;;
     crates/echo_codegen/*)
       add_changed_check "codegen"
@@ -523,6 +533,12 @@ run_script_tests() {
     docs/time-foundation.md
   assert_routing "website docs route type checks" "web-docs" \
     www/src/docs/content.ts
+  assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
+    crates/echo_codegen/src/abi.rs
+  assert_routing "codegen jit routes focused JIT checks" "codegen-jit" \
+    crates/echo_codegen/src/jit.rs
+  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-stdlib' \
+    crates/echo_codegen/src/lib.rs
 }
 
 run_changed_checks() {
@@ -844,6 +860,19 @@ case "$command" in
     ;;
   codegen)
     test_crate echo_codegen
+    ;;
+  codegen-abi)
+    run_quiet cargo test -q -p echo_codegen runtime_declarations_deduplicate_alias_symbols
+    run_quiet cargo test -q -p echo_codegen every_lowered_php_builtin_has_reflected_declaration
+    ;;
+  codegen-stdlib)
+    run_quiet cargo test -q -p echo_codegen time_sleep_lowers_to_core_runtime_call
+    run_quiet cargo test -q -p echo_codegen net_listen_lowers_to_std_intrinsic_call
+    run_quiet cargo test -q -p echo_codegen http_response_text_lowers_to_std_intrinsic_call
+    run_quiet cargo test -q -p echo_codegen reflect_lowers_to_std_intrinsic_call
+    ;;
+  codegen-jit)
+    run_quiet cargo test -q -p echo_codegen runtime_symbol_address_map_is_cached
     ;;
   xo)
     run_quiet cargo test -q -p xo --bin xo
