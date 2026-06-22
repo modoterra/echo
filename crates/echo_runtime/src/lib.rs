@@ -82,7 +82,7 @@ use time::system_time_unix_timestamp;
 use time::unix_duration_now_or_zero;
 pub use time::{echo_php_microtime, echo_time_sleep};
 use value::format_php_float;
-pub use value::{EchoObject, EchoString};
+pub use value::{EchoObject, EchoString, echo_php_boolval, echo_php_floatval, echo_php_intval};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1769,30 +1769,6 @@ pub extern "C" fn echo_php_is_scalar(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_php_boolval(value: EchoValue) -> EchoValue {
-    match value.bool_value() {
-        Some(value) => EchoValue::bool(value),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_intval(value: EchoValue) -> EchoValue {
-    match value.php_int_value() {
-        Some(value) => EchoValue::int(value),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_floatval(value: EchoValue) -> EchoValue {
-    match php_float_cast(value) {
-        Some(value) => EchoValue::float(value),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_bindec(value: EchoValue) -> EchoValue {
     php_string_to_number_builtin(value, |bytes| php_unsigned_base_to_decimal(bytes, 2))
 }
@@ -3440,59 +3416,6 @@ fn php_float_coercion(value: EchoValue) -> Option<f64> {
         },
         _ => None,
     }
-}
-
-fn php_float_cast(value: EchoValue) -> Option<f64> {
-    match value.kind {
-        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0.0),
-        ECHO_VALUE_BOOL => Some(if value.payload == 0 { 0.0 } else { 1.0 }),
-        ECHO_VALUE_INT => Some(value.payload as i64 as f64),
-        ECHO_VALUE_FLOAT => Some(f64::from_bits(value.payload)),
-        ECHO_VALUE_STRING => unsafe {
-            let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
-            Some(parse_php_decimal_float_prefix(bytes))
-        },
-        _ => None,
-    }
-}
-
-fn parse_php_decimal_float_prefix(bytes: &[u8]) -> f64 {
-    let bytes = trim_ascii_start(bytes);
-    let mut index = match bytes.first().copied() {
-        Some(b'-' | b'+') => 1,
-        _ => 0,
-    };
-
-    let integer_digits = consume_ascii_digits(bytes, &mut index);
-    let fraction_digits = if bytes.get(index) == Some(&b'.') {
-        index += 1;
-        consume_ascii_digits(bytes, &mut index)
-    } else {
-        0
-    };
-
-    if integer_digits + fraction_digits == 0 {
-        return 0.0;
-    }
-
-    let mut end = index;
-    if matches!(bytes.get(index), Some(b'e' | b'E')) {
-        let exponent_start = index;
-        index += 1;
-        if matches!(bytes.get(index), Some(b'-' | b'+')) {
-            index += 1;
-        }
-        if consume_ascii_digits(bytes, &mut index) > 0 {
-            end = index;
-        } else {
-            end = exponent_start;
-        }
-    }
-
-    std::str::from_utf8(&bytes[..end])
-        .ok()
-        .and_then(|text| text.parse::<f64>().ok())
-        .unwrap_or(0.0)
 }
 
 fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
