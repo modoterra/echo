@@ -80,13 +80,20 @@ This example shows why strict mode needs separate literal families: the delimite
 Type families:
 
 ```text
-array<T>     dynamic contiguous zero-indexed array
-array<T>[N]  fixed-size contiguous zero-indexed array
-array[N]     fixed-size array with inferred element type
-list<T>      linked heap-backed dynamic list
-type T = { } structural object type alias
-{ ... }      structural object value when keyed
-( ... )      tuple value
+list<T>       linked heap-backed dynamic list, written with {}
+array<T>      dynamic contiguous zero-indexed array, written with []
+array<T>[N]   fixed-size contiguous zero-indexed array, written with []
+map<K, V>     keyed Echo collection, distinct from PHP arrays
+set<T>        unique-value Echo collection
+type T = { }  structural object type alias
+{ ... }       structural object value when keyed
+class T       nominal class declaration; new T is a class instance, not an object
+trait<T>      reusable method/contract surface
+interface<T>  nominal behavior contract
+( ... )       tuple literal, always inferred from direct literal instantiation
+enum T        nominal enum; PHP singleton/backed forms plus Echo payload variants
+range<T>      iterable range value such as 1..30
+buffer        byte-oriented storage built from string prefixes such as x"...", b"...", bb"..."
 ```
 
 The type-family table is the vocabulary for diagnostics and hover text; strict mode should name the collection kind rather than collapsing everything into PHP arrays.
@@ -96,7 +103,7 @@ The type-family table is the vocabulary for diagnostics and hover text; strict m
 Strict arrays are contiguous indexed sequences. They are not PHP hash maps.
 
 ```php
-let array<int> $a = [1, 2, 3];
+let $a: array<int> = [1, 2, 3];
 ```
 
 This is the strict dynamic-array shape: a contiguous integer-indexed sequence with a known element type.
@@ -189,7 +196,7 @@ This rule gives both diagnostics and runtime lowering one simple distinction: re
 Explicit element type:
 
 ```php
-let array<int>[3] $a = [1, 2, 3];
+let $a: array<int>[3] = [1, 2, 3];
 ```
 
 This declaration is for fixed-size storage when both element type and length are part of the type.
@@ -197,7 +204,7 @@ This declaration is for fixed-size storage when both element type and length are
 Inferred element type:
 
 ```php
-let array[3] $a = [1, 2, 3];
+let $a: array[3] = [1, 2, 3];
 ```
 
 This form fixes the length while allowing the element type to come from the literal.
@@ -205,7 +212,7 @@ This form fixes the length while allowing the element type to come from the lite
 Valid:
 
 ```php
-let array<int>[3] $rgb = [255, 128, 0];
+let $rgb: array<int>[3] = [255, 128, 0];
 
 $rgb[0] = 0;
 $rgb[1] = 64;
@@ -279,8 +286,8 @@ These properties explain why lists do not reuse array append or fixed-array inde
 List literals use unkeyed brace literals:
 
 ```php
-let list<int> $xs = {1, 2, 3};
-let list<string> $names = {"Chris", "Echo"};
+let $xs: list<int> = {1, 2, 3};
+let $names: list<string> = {"Chris", "Echo"};
 ```
 
 Brace list literals make linked list construction visually distinct from PHP-compatible arrays.
@@ -289,7 +296,7 @@ Empty braces default to an empty list unless expected type context says otherwis
 
 ```php
 let $xs = {};            // infer empty list
-let list<int> $ids = {}; // empty list<int>
+let $ids: list<int> = {}; // empty list<int>
 ```
 
 This default keeps `{}` useful for empty collections while still allowing type context to refine the element type.
@@ -302,7 +309,7 @@ type Options = {
     timeout?: int
 }
 
-let Options $opts = {}; // empty object satisfying Options
+let $opts: Options = {}; // empty object satisfying Options
 ```
 
 This contextual form lets optional-field objects be constructed without inventing a separate empty-object token.
@@ -334,7 +341,7 @@ Lists use list-specific receiver functions for mutation. PHP array append syntax
 is not list append:
 
 ```php
-let list<int> $xs = {1, 2, 3};
+let $xs: list<int> = {1, 2, 3};
 
 $xs[] = 4; // reject: list is not array
 $xs.push(4);
@@ -506,11 +513,11 @@ type Options = {
     retries?: int
 }
 
-let Options $opts = Options {
+let $opts: Options = Options {
     requestId: "abc"
 }
 
-let Options $empty = {};
+let $empty: Options = {};
 $empty.requestId = "abc"; // reject
 ```
 
@@ -749,12 +756,12 @@ This rejection list is the minimum strict-mode diagnostic surface for ambiguous 
 These parse in strict mode:
 
 ```php
-let array<int>[3] $a = [1, 2, 3];
-let array[3] $b = [1, 2, 3];
-let array<int> $c = [1, 2, 3];
-let list<int> $xs = {1, 2, 3};
-let list<int> $empty = {};
-let (int, string) $pair = (1, "Echo");
+let $a: array<int>[3] = [1, 2, 3];
+let $b: array[3] = [1, 2, 3];
+let $c: array<int> = [1, 2, 3];
+let $xs: list<int> = {1, 2, 3};
+let $empty: list<int> = {};
+let $pair = (1, "Echo");
 
 type User = {
     const id: int
@@ -762,7 +769,7 @@ type User = {
     displayName?: string
 }
 
-let User $user = User {
+let $user: User = User {
     id: 1
     email: "a@example.com"
 }

@@ -194,12 +194,14 @@ export const builtinFamilies: BuiltinFamily[] = [
       },
       {
         name: "str_replace",
-        signature: "str_replace(array|string $search, array|string $replace, string|array $subject): string|array",
+        signature:
+          "str_replace(array|string $search, array|string $replace, string|array $subject): string|array",
         description: "Replaces fixed string occurrences in another string.",
       },
       {
         name: "str_ireplace",
-        signature: "str_ireplace(array|string $search, array|string $replace, string|array $subject): string|array",
+        signature:
+          "str_ireplace(array|string $search, array|string $replace, string|array $subject): string|array",
         description: "Replaces fixed string occurrences case-insensitively.",
       },
       {
@@ -214,7 +216,8 @@ export const builtinFamilies: BuiltinFamily[] = [
       },
       {
         name: "str_pad",
-        signature: "str_pad(string $string, int $length, string $pad_string, int $pad_type): string",
+        signature:
+          "str_pad(string $string, int $length, string $pad_string, int $pad_type): string",
         description: "Pads a string to a requested byte length.",
       },
       {
@@ -398,7 +401,8 @@ export const builtinFamilies: BuiltinFamily[] = [
       },
       {
         name: "array_slice",
-        signature: "array_slice(array $array, int $offset, ?int $length, bool $preserve_keys): array",
+        signature:
+          "array_slice(array $array, int $offset, ?int $length, bool $preserve_keys): array",
         description: "Extracts a window from an array.",
       },
       {
@@ -805,7 +809,8 @@ export const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "hashes",
     title: "Hashes and Checksums",
-    description: "Hash and checksum functions create compact identifiers for compatibility workflows.",
+    description:
+      "Hash and checksum functions create compact identifiers for compatibility workflows.",
     builtins: [
       {
         name: "crc32",
@@ -885,62 +890,77 @@ export const builtinFamilies: BuiltinFamily[] = [
       {
         name: "filesize",
         signature: "filesize(string $filename): int|false",
-        description: "Returns the size of a local file in bytes, or false when metadata cannot be read.",
+        description:
+          "Returns the size of a local file in bytes, or false when metadata cannot be read.",
       },
       {
         name: "fileatime",
         signature: "fileatime(string $filename): int|false",
-        description: "Returns the last access time of a local file as a Unix timestamp, or false when metadata cannot be read.",
+        description:
+          "Returns the last access time of a local file as a Unix timestamp, or false when metadata cannot be read.",
       },
       {
         name: "filectime",
         signature: "filectime(string $filename): int|false",
-        description: "Returns the inode change time of a local file as a Unix timestamp, or false when metadata cannot be read.",
+        description:
+          "Returns the inode change time of a local file as a Unix timestamp, or false when metadata cannot be read.",
       },
       {
         name: "filemtime",
         signature: "filemtime(string $filename): int|false",
-        description: "Returns the last content modification time of a local file as a Unix timestamp, or false when metadata cannot be read.",
+        description:
+          "Returns the last content modification time of a local file as a Unix timestamp, or false when metadata cannot be read.",
       },
       {
         name: "fileinode",
         signature: "fileinode(string $filename): int|false",
-        description: "Returns the inode number for a local file, or false when metadata cannot be read.",
+        description:
+          "Returns the inode number for a local file, or false when metadata cannot be read.",
       },
       {
         name: "fileowner",
         signature: "fileowner(string $filename): int|false",
-        description: "Returns the numeric owner ID for a local file, or false when metadata cannot be read.",
+        description:
+          "Returns the numeric owner ID for a local file, or false when metadata cannot be read.",
       },
       {
         name: "filegroup",
         signature: "filegroup(string $filename): int|false",
-        description: "Returns the numeric group ID for a local file, or false when metadata cannot be read.",
+        description:
+          "Returns the numeric group ID for a local file, or false when metadata cannot be read.",
       },
       {
         name: "fileperms",
         signature: "fileperms(string $filename): int|false",
-        description: "Returns the numeric mode bits for a local file, or false when metadata cannot be read.",
+        description:
+          "Returns the numeric mode bits for a local file, or false when metadata cannot be read.",
       },
       {
         name: "filetype",
         signature: "filetype(string $filename): string|false",
-        description: "Returns the local file type, such as file, dir, link, socket, fifo, block, char, or unknown.",
+        description:
+          "Returns the local file type, such as file, dir, link, socket, fifo, block, char, or unknown.",
       },
       {
         name: "file_get_contents",
-        signature: "file_get_contents(string $filename, bool $use_include_path, ?resource $context, int $offset, ?int $length): string|false",
-        description: "Reads a local file into a string, optionally starting at an offset and limiting the number of bytes returned.",
+        signature:
+          "file_get_contents(string $filename, bool $use_include_path, ?resource $context, int $offset, ?int $length): string|false",
+        description:
+          "Reads a local file into a string, optionally starting at an offset and limiting the number of bytes returned.",
       },
       {
         name: "file_put_contents",
-        signature: "file_put_contents(string $filename, mixed $data, int $flags, ?resource $context): int|false",
-        description: "Writes data to a local file and returns the number of bytes written, or false on failure.",
+        signature:
+          "file_put_contents(string $filename, mixed $data, int $flags, ?resource $context): int|false",
+        description:
+          "Writes data to a local file and returns the number of bytes written, or false on failure.",
       },
       {
         name: "readfile",
-        signature: "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
-        description: "Writes a local file to the current output stream and returns the number of bytes read.",
+        signature:
+          "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
+        description:
+          "Writes a local file to the current output stream and returns the number of bytes read.",
       },
       {
         name: "sys_get_temp_dir",
@@ -955,7 +975,8 @@ export const builtinFamilies: BuiltinFamily[] = [
       {
         name: "readlink",
         signature: "readlink(string $path): string|false",
-        description: "Returns the stored target of a local symbolic link, or false when it cannot be read.",
+        description:
+          "Returns the stored target of a local symbolic link, or false when it cannot be read.",
       },
       {
         name: "link",
@@ -970,12 +991,14 @@ export const builtinFamilies: BuiltinFamily[] = [
       {
         name: "touch",
         signature: "touch(string $filename, ?int $mtime, ?int $atime): bool",
-        description: "Creates a local file if needed and sets its modification and access timestamps.",
+        description:
+          "Creates a local file if needed and sets its modification and access timestamps.",
       },
       {
         name: "copy",
         signature: "copy(string $from, string $to, ?resource $context): bool",
-        description: "Copies a local file to another path, overwriting an existing destination file.",
+        description:
+          "Copies a local file to another path, overwriting an existing destination file.",
       },
       {
         name: "rename",
@@ -989,8 +1012,10 @@ export const builtinFamilies: BuiltinFamily[] = [
       },
       {
         name: "mkdir",
-        signature: "mkdir(string $directory, int $permissions, bool $recursive, ?resource $context): bool",
-        description: "Creates a local directory, optionally creating missing parent directories too.",
+        signature:
+          "mkdir(string $directory, int $permissions, bool $recursive, ?resource $context): bool",
+        description:
+          "Creates a local directory, optionally creating missing parent directories too.",
       },
       {
         name: "rmdir",
@@ -1010,7 +1035,8 @@ export const builtinFamilies: BuiltinFamily[] = [
       {
         name: "realpath",
         signature: "realpath(string $path): string|false",
-        description: "Resolves an existing local path to its canonical absolute path, or false when the path cannot be resolved.",
+        description:
+          "Resolves an existing local path to its canonical absolute path, or false when the path cannot be resolved.",
       },
     ],
   },
@@ -1140,8 +1166,7 @@ export const builtinFamilies: BuiltinFamily[] = [
       {
         name: "putenv",
         signature: "putenv(string $assignment): bool",
-        description:
-          "Sets or removes an environment variable for the current process.",
+        description: "Sets or removes an environment variable for the current process.",
       },
       {
         name: "gethostname",
@@ -2915,15 +2940,18 @@ export function builtinExampleNote(builtin: BuiltinDoc) {
 
 function appliedDescription(description: string) {
   const firstSentence = description.split(".")[0] ?? description;
-  return firstSentence.replace(/^(Returns?|Checks?|Converts?|Uppercases?|Lowercases?|Applies?|Escapes?|Pads?|Splits?|Joins?|Calculates?|Changes?|Gets?|Sets?|Starts?|Ends?)\b/, (verb) => {
-    const lower = verb.toLowerCase();
+  return firstSentence.replace(
+    /^(Returns?|Checks?|Converts?|Uppercases?|Lowercases?|Applies?|Escapes?|Pads?|Splits?|Joins?|Calculates?|Changes?|Gets?|Sets?|Starts?|Ends?)\b/,
+    (verb) => {
+      const lower = verb.toLowerCase();
 
-    if (lower.endsWith("s")) {
-      return lower.slice(0, -1);
-    }
+      if (lower.endsWith("s")) {
+        return lower.slice(0, -1);
+      }
 
-    return lower;
-  });
+      return lower;
+    },
+  );
 }
 
 export function headingId(heading: string) {
@@ -3051,6 +3079,373 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "data-structures",
+    path: "/docs/data-structures",
+    navGroup: "Language",
+    category: "Language",
+    title: "Data Structures",
+    summary:
+      "Choose the right collection, record, enum, range, or byte-buffer shape.",
+    tags: [
+      "data structures",
+      "collections",
+      "list",
+      "array",
+      "fixed array",
+      "object",
+      "class",
+      "map",
+      "set",
+      "tuple",
+      "enum",
+      "range",
+      "buffer",
+    ],
+    aliases: ["collections", "records", "values"],
+    sections: [
+      {
+        title: "Choosing a Shape",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo keeps collection and record forms distinct. Use ",
+              { code: "List" },
+              " for ordered Echo values, ",
+              { code: "Array" },
+              " and ",
+              { code: "Fixed Array" },
+              " for contiguous storage, ",
+              { code: "Map" },
+              " and ",
+              { code: "Set" },
+              " for keyed and unique Echo collections, ",
+              { code: "Object" },
+              " for structural records, ",
+              { code: "Class" },
+              " for nominal class instances, ",
+              { code: "Tuple" },
+              " for inferred positional products, ",
+              { code: "Enum" },
+              " for nominal choices, ",
+              { code: "Range" },
+              " for iterable spans, and ",
+              { code: "Buffer" },
+              " for byte-oriented values.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $items: list<string> = {}\n$items.push("draft")\n\nlet $fixedArray: array<number>[3] = [1, 2, 3]\nlet $tuple = (1, "draft", true)\nlet $range = 1..30\nlet $bytes = x"AABBEE"\n\nlet $user = {\n    id: 42\n    email: "admin@example.com"\n}: User',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Keep these shapes separate when designing APIs. Echo list mutation goes through receiver functions, structural objects use named fields, class instances come from ",
+              { code: "new" },
+              ", and PHP arrays stay available as the compatibility floor rather than the shape for every collection.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "PHP-compatible enums remain nominal singleton or backed enum cases. Echo-native enums extend that model with generic and payload-carrying variants for results, options, typed errors, parser states, and protocol states.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "data-structures-list",
+    path: "/docs/data-structures/list",
+    navGroup: "Language",
+    category: "Data Structures",
+    title: "List",
+    summary: "Create Echo lists with brace literals and mutate them with list receiver functions.",
+    tags: ["data structures", "list", "push", "collection"],
+    aliases: ["lists", "linked list", "list push"],
+    sections: [
+      {
+        title: "List Literals",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo lists use unkeyed brace literals. Add an explicit type after the symbol when the initializer cannot carry enough element information.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $items: list<string> = {}\n$items.push("first")\n$items.push("second")\n\necho count($items)\necho "\\n"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use this form for empty lists or when the element type matters at the boundary. When the initializer is clear, prefer inference and write ",
+              { code: 'let $items = {"first", "second"}' },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "push",
+        tags: ["push", "append", "mutation"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "push(T $value): list<T>" }],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "push()" },
+              " appends a value to a list and updates the receiver when it is a local variable.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $users: list<User> = {}\n$users.push({\n    id: 1\n    email: "first@example.test"\n}: User)\n\necho count($users)\necho "\\n"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "push()" },
+              " for Echo lists instead of PHP ",
+              { code: "$value[] = item" },
+              ". The PHP append form is reserved for non-fixed PHP arrays, so it does not define list growth.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "data-structures-object",
+    path: "/docs/data-structures/object",
+    navGroup: "Language",
+    category: "Data Structures",
+    title: "Object",
+    summary: "Use structural objects for named-field values.",
+    tags: ["data structures", "object", "record", "fields"],
+    aliases: ["structural object", "record"],
+    sections: [
+      {
+        title: "Structural Values",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo structural objects are named-field values. They are useful when the data shape matters more than PHP class identity.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'type User = {\n    const id: int\n    email: string\n}\n\nlet $user = User {\n    id: 1\n    email: "first@example.test"\n}\n\necho $user.email',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use structural objects for request payloads, configuration records, and typed data that should be easy to construct and inspect.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "data-structures-class",
+    path: "/docs/data-structures/class",
+    navGroup: "Language",
+    category: "Data Structures",
+    title: "Class",
+    summary: "Use classes for PHP-compatible class declarations and method surfaces.",
+    tags: ["data structures", "class", "php compatibility", "methods"],
+    aliases: ["classes", "methods"],
+    sections: [
+      {
+        title: "PHP-Compatible Classes",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Classes preserve PHP-compatible declaration shape. Use them when existing PHP code, method lookup, or class identity is part of the API contract.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'class ReportFormatter {\n    public function title($name) {\n        echo "Report: " . $name . "\\n"\n    }\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Prefer structural objects for plain data and classes for PHP-oriented method surfaces or interoperability boundaries.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "data-structures-array",
+    path: "/docs/data-structures/array",
+    navGroup: "Language",
+    category: "Data Structures",
+    title: "Array",
+    summary: "Use PHP arrays for PHP-compatible indexed and keyed array behavior.",
+    tags: ["data structures", "array", "php array", "compatibility"],
+    aliases: ["arrays", "php arrays"],
+    sections: [
+      {
+        title: "PHP Arrays",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Square brackets create PHP-compatible arrays. Use them when code depends on PHP array built-ins, keyed rows, or compatibility with existing PHP programs.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $row = ["id" => "A-42", "status" => "ready"]\nlet $columns = array_keys($row)\n\necho join(", ", $columns)\necho "\\n"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use arrays for PHP compatibility workflows. Use Echo lists when you want an ordered Echo collection with list-specific receiver functions.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "data-structures-enum",
+    path: "/docs/data-structures/enum",
+    navGroup: "Language",
+    category: "Data Structures",
+    title: "Enum",
+    summary:
+      "Use nominal enum types for PHP-compatible singleton/backed cases and Echo-native payload variants.",
+    tags: ["data structures", "enum", "backed enum", "payload enum", "match"],
+    aliases: ["enums", "algebraic enum", "result", "option"],
+    sections: [
+      {
+        title: "Pure Enums",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A pure enum is a nominal type with singleton cases. This is the Echo form of PHP's pure enum model.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "enum Status {\n    Draft\n    Published\n    Archived\n}\n\nlet $status = Status::Draft",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use pure enums when the case identity is the value and no scalar backing or payload data is needed.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Backed Enums",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A backed enum gives every case a string or int identity for PHP-compatible scalar conversion.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'enum Status: string {\n    Draft = "draft"\n    Published = "published"\n    Archived = "archived"\n}\n\nlet $status = Status::from("draft")\necho $status->value',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Backed enums are for compatibility with storage formats, HTTP payloads, and PHP APIs that exchange stable string or integer values.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Payload Enums",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo-native enums may carry payload data. A backed enum cannot have payload cases because scalar backing is identity while payload data is runtime state.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "enum Result<T, E> {\n    Ok(T)\n    Err(E)\n}\n\nenum FileError {\n    NotFound(path: string)\n    PermissionDenied(path: string)\n    InvalidEncoding(path: string, encoding: string)\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use payload enums for recoverable errors, parser results, protocol states, and AST-like values where each case may need different data.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Matching Enums",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Enum matches can destructure payloads and should be exhaustive in strict mode.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "match result {\n    Ok(value) => compile(value)\n    Err(error) => report(error)\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Exhaustive matching makes enum APIs useful for typed errors and state machines because adding a case surfaces the handling sites that must be updated.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "PHP Enum Compatibility",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "PHP-compatible enums are nominal singleton enums with optional string or int backing. They may have methods and expose ",
+              { code: "from" },
+              ", ",
+              { code: "tryFrom" },
+              ", and ",
+              { code: "value" },
+              " for backed enums.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'enum Status: string {\n    Draft = "draft"\n    Published = "published"\n\n    public function label(): string {\n        return match ($this) {\n            self::Draft => "Draft"\n            self::Published => "Published"\n        }\n    }\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Treat PHP enums as the compatibility floor. Echo's ceiling includes generic and payload-carrying enums, but those forms are Echo-native and need lowering when targeting PHP-compatible output.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "standard-library",
     path: "/docs/std",
     navGroup: "Language",
@@ -3075,7 +3470,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std time\n\nlet $started = microtime(true)\ntime.sleep(25)\nlet $elapsed = microtime(true) - $started\n\necho \"Elapsed seconds: \" . $elapsed . \"\\n\"",
+            code: 'use std time\n\nlet $started = microtime(true)\ntime.sleep(25)\nlet $elapsed = microtime(true) - $started\n\necho "Elapsed seconds: " . $elapsed . "\\n"',
           },
           {
             kind: "paragraph",
@@ -3101,7 +3496,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, \"received \" . strlen($request) . \" bytes\\n\")\nnet.close($connection)",
+            code: 'use std net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, "received " . strlen($request) . " bytes\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3127,7 +3522,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std http\nuse std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $response = http.responseText(\"ok\\n\")\n\nnet.write($connection, $response)\nnet.close($connection)",
+            code: 'use std http\nuse std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $response = http.responseText("ok\\n")\n\nnet.write($connection, $response)\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3153,7 +3548,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std time\n\nlet $attempt = 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)",
+            code: 'use std time\n\nlet $attempt = 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)',
           },
           {
             kind: "paragraph",
@@ -3177,7 +3572,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" returns \" . reflect.returnType($name) . \"\\n\"\n}",
+            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3201,7 +3596,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nlet $parts = explode(\":\", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == \"signed\")",
+            code: 'use std assert\n\nlet $payload = "signed:user-42"\nlet $parts = explode(":", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == "signed")',
           },
           {
             kind: "paragraph",
@@ -3241,7 +3636,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\necho \"Listening on 127.0.0.1:8080\\n\"",
+            code: 'use std net\n\nlet $server = net.listen("127.0.0.1:8080")\necho "Listening on 127.0.0.1:8080\\n"',
           },
           {
             kind: "paragraph",
@@ -3269,7 +3664,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nnet.write($connection, \"ping\\n\")\nnet.close($connection)",
+            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nnet.write($connection, "ping\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3297,7 +3692,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nnet.write($connection, \"hello\\n\")\nnet.close($connection)",
+            code: 'use std net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nnet.write($connection, "hello\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3325,7 +3720,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $chunk = net.read($connection, 4096)\necho \"Read \" . strlen($chunk) . \" bytes\\n\"\nnet.close($connection)",
+            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $chunk = net.read($connection, 4096)\necho "Read " . strlen($chunk) . " bytes\\n"\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3353,7 +3748,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $written = net.write($connection, \"status=ready\\n\")\necho \"Wrote \" . $written . \" bytes\\n\"\nnet.close($connection)",
+            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $written = net.write($connection, "status=ready\\n")\necho "Wrote " . $written . " bytes\\n"\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3381,7 +3776,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nnet.write($connection, \"done\\n\")\nnet.close($connection)",
+            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nnet.write($connection, "done\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3421,7 +3816,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std http\nuse std net\n\nlet $connection = net.connect(\"127.0.0.1:8080\")\nlet $response = http.responseText(\"ok\\n\")\n\nnet.write($connection, $response)\nnet.close($connection)",
+            code: 'use std http\nuse std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $response = http.responseText("ok\\n")\n\nnet.write($connection, $response)\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3451,7 +3846,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std http\nuse std net\n\nlet $server = net.listen(\"127.0.0.1:8080\")\nlet $connection = net.accept($server)\nlet $request = http.readRequest($connection)\n\nnet.close($connection)",
+            code: 'use std http\nuse std net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nlet $request = http.readRequest($connection)\n\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3491,7 +3886,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std time\n\nlet $attempt = 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho \"Polling attempt \" . $attempt . \"\\n\"\ntime.sleep(250)",
+            code: 'use std time\n\nlet $attempt = 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)',
           },
           {
             kind: "paragraph",
@@ -3509,7 +3904,8 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "reflect",
-    summary: "Inspect available symbols, function signatures, return types, and runtime value types.",
+    summary:
+      "Inspect available symbols, function signatures, return types, and runtime value types.",
     tags: ["standard library", "stdlib", "std", "reflect", "reflection", "metadata"],
     aliases: ["std.reflect", "introspection", "function metadata"],
     sections: [
@@ -3524,14 +3920,11 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "paragraph",
-            text: [
-              { code: "exists()" },
-              " checks whether a symbol is known to Echo reflection.",
-            ],
+            text: [{ code: "exists()" }, " checks whether a symbol is known to Echo reflection."],
           },
           {
             kind: "code",
-            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" is available\\n\"\n}",
+            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " is available\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3559,7 +3952,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" params: \" . reflect.params($name) . \"\\n\"\n}",
+            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " params: " . reflect.params($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3587,7 +3980,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std reflect\n\nlet $name = \"std.time.sleep\"\n\nif (reflect.exists($name)) {\n    echo $name . \" returns \" . reflect.returnType($name) . \"\\n\"\n}",
+            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3608,14 +4001,11 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "paragraph",
-            text: [
-              { code: "typeOf()" },
-              " reports the runtime type of a value.",
-            ],
+            text: [{ code: "typeOf()" }, " reports the runtime type of a value."],
           },
           {
             kind: "code",
-            code: "use std reflect\n\nlet $value = \"signed:user-42\"\necho \"Value type: \" . reflect.typeOf($value) . \"\\n\"",
+            code: 'use std reflect\n\nlet $value = "signed:user-42"\necho "Value type: " . reflect.typeOf($value) . "\\n"',
           },
           {
             kind: "paragraph",
@@ -3655,7 +4045,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nassert.ok(str_contains($payload, \":\"))",
+            code: 'use std assert\n\nlet $payload = "signed:user-42"\nassert.ok(str_contains($payload, ":"))',
           },
           {
             kind: "paragraph",
@@ -3683,7 +4073,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "use std assert\n\nlet $payload = \"signed:user-42\"\nlet $parts = explode(\":\", $payload)\n\nassert.equals(count($parts), 2)\nassert.equals($parts[0], \"signed\")",
+            code: 'use std assert\n\nlet $payload = "signed:user-42"\nlet $parts = explode(":", $payload)\n\nassert.equals(count($parts), 2)\nassert.equals($parts[0], "signed")',
           },
           {
             kind: "paragraph",
@@ -3738,6 +4128,17 @@ export const docsNavigation: DocsNavGroup[] = [
   {
     title: "Language",
     links: [
+      {
+        label: "Data Structures",
+        to: "/docs/data-structures",
+        children: [
+          { label: "List", to: "/docs/data-structures/list" },
+          { label: "Object", to: "/docs/data-structures/object" },
+          { label: "Class", to: "/docs/data-structures/class" },
+          { label: "Array", to: "/docs/data-structures/array" },
+          { label: "Enum", to: "/docs/data-structures/enum" },
+        ],
+      },
       {
         label: "PHP Built-ins",
         to: "/docs/php-built-ins",

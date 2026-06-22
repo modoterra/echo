@@ -561,7 +561,7 @@ fn responseBody($request, list<User> $users): string {
     return $body . "Users seen: " . count($users) . "\n"
 }
 
-let list<User> $users = {}
+let $users: list<User> = {}
 let $server = net.listen("127.0.0.1:8080")
 
 loop {
@@ -570,10 +570,10 @@ loop {
     run {
         let $request = http.readRequest($conn)
 
-        $users[] = User {
+        $users.push({
             id: count($users) + 1
             email: "visitor" . count($users) . "@echo.local"
-        }
+        }: User)
 
         net.write($conn, http.responseText(responseBody($request, $users)))
         net.close($conn)

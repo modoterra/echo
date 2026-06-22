@@ -45,10 +45,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import {
-  docsSearchIndexUrl,
-  docsSemanticIndexUrl,
-} from "virtual:docs-search-indices";
+import { docsSearchIndexUrl, docsSemanticIndexUrl } from "virtual:docs-search-indices";
 import { HomePage } from "./app";
 import {
   builtinExample,
@@ -56,6 +53,7 @@ import {
   builtinFamilies,
   builtinFamilyBySlug,
   docsNavigation,
+  docsPageByPath,
   docsPages,
   headingId,
   type BuiltinDoc,
@@ -72,6 +70,14 @@ import {
   type DocsSearchRecord,
   type DocsSemanticAsset,
 } from "./docs/search";
+
+function docsPage(path: string) {
+  const page = docsPageByPath.get(path);
+  if (!page) {
+    throw new Error(`Missing docs page: ${path}`);
+  }
+  return page;
+}
 
 type DocsShellProps = {
   category: string;
@@ -95,9 +101,7 @@ const defaultDocsPageMeta: DocsPageMeta = {
 const DocsLayoutContext = createContext<DocsLayoutContextValue | null>(null);
 
 type ShikiCoreModule = typeof import("react-shiki/core");
-type PhpHighlighter = Awaited<
-  ReturnType<ShikiCoreModule["createHighlighterCore"]>
->;
+type PhpHighlighter = Awaited<ReturnType<ShikiCoreModule["createHighlighterCore"]>>;
 type ShikiHighlighterComponent = ShikiCoreModule["default"];
 
 let phpHighlighterPromise: Promise<{
@@ -170,14 +174,8 @@ function mergeHybridSearchResults({
   recordById: Map<string, DocsSearchRecord>;
   semanticResults: { id: string; score: number }[];
 }) {
-  const maxLexicalScore = Math.max(
-    1,
-    ...lexicalResults.map((result) => result.score),
-  );
-  const maxSemanticScore = Math.max(
-    0.0001,
-    ...semanticResults.map((result) => result.score),
-  );
+  const maxLexicalScore = Math.max(1, ...lexicalResults.map((result) => result.score));
+  const maxSemanticScore = Math.max(0.0001, ...semanticResults.map((result) => result.score));
   const merged = new Map<string, DocsSearchResult>();
 
   for (const result of lexicalResults) {
@@ -227,9 +225,7 @@ function DocsSearch() {
   const [query, setQuery] = useState("");
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [asset, setAsset] = useState<DocsSearchAsset | null>(null);
-  const [semanticAsset, setSemanticAsset] = useState<DocsSemanticAsset | null>(
-    null,
-  );
+  const [semanticAsset, setSemanticAsset] = useState<DocsSemanticAsset | null>(null);
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
   const [isLoadingIndex, setIsLoadingIndex] = useState(false);
   const [isSemanticModelReady, setIsSemanticModelReady] = useState(false);
@@ -237,10 +233,7 @@ function DocsSearch() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchResultsRef = useRef<HTMLDivElement | null>(null);
   const searchResultRefs = useRef<Record<string, HTMLLIElement | null>>({});
-  const miniSearch = useMemo(
-    () => (asset ? loadDocsMiniSearch(asset) : null),
-    [asset],
-  );
+  const miniSearch = useMemo(() => (asset ? loadDocsMiniSearch(asset) : null), [asset]);
   const results = useMemo(() => {
     const trimmedQuery = query.trim();
 
@@ -248,9 +241,7 @@ function DocsSearch() {
       return [];
     }
 
-    const lexicalResults = miniSearch.search(
-      trimmedQuery,
-    ) as unknown as DocsSearchResult[];
+    const lexicalResults = miniSearch.search(trimmedQuery) as unknown as DocsSearchResult[];
 
     if (!asset || !semanticAsset || !queryEmbedding) {
       return lexicalResults.slice(0, docsSearchResultLimit);
@@ -383,12 +374,11 @@ function DocsSearch() {
 
     let active = true;
 
-    void embedSearchQuery(trimmedQuery)
-      .then((embedding) => {
-        if (active) {
-          setQueryEmbedding(embedding);
-        }
-      });
+    void embedSearchQuery(trimmedQuery).then((embedding) => {
+      if (active) {
+        setQueryEmbedding(embedding);
+      }
+    });
 
     return () => {
       active = false;
@@ -431,9 +421,7 @@ function DocsSearch() {
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setActiveResultIndex((index) =>
-          Math.min(index + 1, results.length - 1),
-        );
+        setActiveResultIndex((index) => Math.min(index + 1, results.length - 1));
         return;
       }
 
@@ -701,15 +689,13 @@ function builtinCategoryIcon(category: string): RemixiconComponentType {
 }
 
 function loadDocsSearchAsset() {
-  docsSearchAssetPromise ??=
-    fetchDocsIndex<DocsSearchAsset>(docsSearchIndexUrl);
+  docsSearchAssetPromise ??= fetchDocsIndex<DocsSearchAsset>(docsSearchIndexUrl);
 
   return docsSearchAssetPromise;
 }
 
 function loadDocsSemanticAsset() {
-  docsSemanticAssetPromise ??=
-    fetchDocsIndex<DocsSemanticAsset>(docsSemanticIndexUrl);
+  docsSemanticAssetPromise ??= fetchDocsIndex<DocsSemanticAsset>(docsSemanticIndexUrl);
 
   return docsSemanticAssetPromise;
 }
@@ -755,24 +741,22 @@ let queryEmbedderPromise: Promise<{
 }> | null = null;
 
 function preloadSearchEmbedder() {
-  queryEmbedderPromise ??= import("@huggingface/transformers").then(
-    async ({ env, pipeline }) => {
-      env.localModelPath = "/models/";
-      env.allowLocalModels = true;
-      env.allowRemoteModels = false;
+  queryEmbedderPromise ??= import("@huggingface/transformers").then(async ({ env, pipeline }) => {
+    env.localModelPath = "/models/";
+    env.allowLocalModels = true;
+    env.allowRemoteModels = false;
 
-      return pipeline("feature-extraction", "xmlml6v2", {
-        dtype: "q8",
-      }) as unknown as {
-        (
-          query: string,
-          options: { pooling: "mean"; normalize: true },
-        ): Promise<{
-          data: ArrayLike<number>;
-        }>;
-      };
-    },
-  );
+    return pipeline("feature-extraction", "xmlml6v2", {
+      dtype: "q8",
+    }) as unknown as {
+      (
+        query: string,
+        options: { pooling: "mean"; normalize: true },
+      ): Promise<{
+        data: ArrayLike<number>;
+      }>;
+    };
+  });
 
   return queryEmbedderPromise;
 }
@@ -784,13 +768,7 @@ async function embedSearchQuery(query: string) {
   return Array.from(output.data);
 }
 
-function CodeSnippet({
-  children,
-  className = "mt-8",
-}: {
-  children: string;
-  className?: string;
-}) {
+function CodeSnippet({ children, className = "mt-8" }: { children: string; className?: string }) {
   const snippetRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [shiki, setShiki] = useState<{
@@ -843,19 +821,14 @@ function CodeSnippet({
     let active = true;
     let delayTimeout: number | undefined;
     const delay = new Promise((resolve) => {
-      delayTimeout = window.setTimeout(
-        resolve,
-        randomCodeSnippetSkeletonDelay(),
-      );
+      delayTimeout = window.setTimeout(resolve, randomCodeSnippetSkeletonDelay());
     });
 
-    void Promise.all([loadPhpHighlighter(), delay]).then(
-      ([loadedShiki]) => {
-        if (active) {
-          setShiki(loadedShiki);
-        }
-      },
-    );
+    void Promise.all([loadPhpHighlighter(), delay]).then(([loadedShiki]) => {
+      if (active) {
+        setShiki(loadedShiki);
+      }
+    });
 
     return () => {
       active = false;
@@ -979,12 +952,8 @@ function NotFoundPage() {
   return (
     <main className="bg-white px-6 py-28 text-slate-950">
       <section className="mx-auto max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-          404
-        </p>
-        <h1 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
-          Page not found
-        </h1>
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">404</p>
+        <h1 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">Page not found</h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
           The requested Echo docs page does not exist or has moved.
         </p>
@@ -1066,30 +1035,21 @@ function SiteFooter() {
             PHP-compatible source today, native binaries tomorrow.
           </p>
           <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
-            Echo is an early-stage Rust implementation of a PHP superset with
-            compiler tooling and native execution as the direction of travel.
+            Echo is an early-stage Rust implementation of a PHP superset with compiler tooling and
+            native execution as the direction of travel.
           </p>
-          <p className="mt-10 text-sm text-slate-400">
-            © 2026 Modoterra Corporation
-          </p>
+          <p className="mt-10 text-sm text-slate-400">© 2026 Modoterra Corporation</p>
         </section>
 
-        <nav
-          aria-label="Footer navigation"
-          className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4"
-        >
+        <nav aria-label="Footer navigation" className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {footerLinkGroups.map((group) => (
             <section key={group.title}>
-              <h2 className="text-sm font-semibold text-slate-950">
-                {group.title}
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
               <ul className="mt-6 space-y-4">
                 {group.links.map((link) => (
                   <li key={link.label}>
                     {link.disabled ? (
-                      <span className="text-sm text-slate-300">
-                        {link.label}
-                      </span>
+                      <span className="text-sm text-slate-300">{link.label}</span>
                     ) : link.href.startsWith("http") ? (
                       <a
                         className="text-sm text-slate-500 transition hover:text-slate-950"
@@ -1129,13 +1089,7 @@ function SiteFooter() {
               patternUnits="userSpaceOnUse"
               width="10"
             >
-              <rect
-                fill="url(#footer-echo-fade)"
-                height="8.5"
-                width="8.5"
-                x="0"
-                y="0"
-              />
+              <rect fill="url(#footer-echo-fade)" height="8.5" width="8.5" x="0" y="0" />
             </pattern>
             <linearGradient
               gradientUnits="userSpaceOnUse"
@@ -1214,20 +1168,11 @@ function SiteFooter() {
   );
 }
 
-function DocsNavLinkItem({
-  link,
-  pathname,
-}: {
-  link: DocsNavLink;
-  pathname: string;
-}) {
+function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: string }) {
   const isActive = pathname === link.to;
   const hasActiveChild = link.children?.some((child) => pathname === child.to);
-  const activeChildIndex =
-    link.children?.findIndex((child) => pathname === child.to) ?? -1;
-  const shouldShowChildren = Boolean(
-    link.children && (isActive || hasActiveChild),
-  );
+  const activeChildIndex = link.children?.findIndex((child) => pathname === child.to) ?? -1;
+  const shouldShowChildren = Boolean(link.children && (isActive || hasActiveChild));
   const textClass = link.disabled
     ? "text-sm leading-6 text-slate-300"
     : isActive
@@ -1268,11 +1213,7 @@ function DocsNavLinkItem({
               ) : null}
               <ul className="space-y-3">
                 {link.children?.map((child) => (
-                  <DocsNavLinkItem
-                    key={child.label}
-                    link={child}
-                    pathname={pathname}
-                  />
+                  <DocsNavLinkItem key={child.label} link={child} pathname={pathname} />
                 ))}
               </ul>
             </div>
@@ -1313,9 +1254,7 @@ function DocsLayout() {
 
           return element ? element.getBoundingClientRect().top <= 160 : false;
         }) ??
-        headings.find((heading) =>
-          document.getElementById(headingId(heading)),
-        ) ??
+        headings.find((heading) => document.getElementById(headingId(heading))) ??
         headings[0] ??
         "";
 
@@ -1353,9 +1292,7 @@ function DocsLayout() {
 
       const railRect = rail.getBoundingClientRect();
       const itemRect = item.getBoundingClientRect();
-      setOnThisPageTrainY(
-        itemRect.top - railRect.top + itemRect.height / 2 - 9,
-      );
+      setOnThisPageTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
     }
 
     function scheduleUpdate() {
@@ -1409,16 +1346,10 @@ function DocsLayout() {
             <div className="space-y-10">
               {docsNavigation.map((group) => (
                 <section key={group.title}>
-                  <h2 className="text-sm font-semibold text-slate-950">
-                    {group.title}
-                  </h2>
+                  <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
                   <ul className="mt-5 space-y-3">
                     {group.links.map((link) => (
-                      <DocsNavLinkItem
-                        key={link.label}
-                        link={link}
-                        pathname={location.pathname}
-                      />
+                      <DocsNavLinkItem key={link.label} link={link} pathname={location.pathname} />
                     ))}
                   </ul>
                 </section>
@@ -1430,9 +1361,7 @@ function DocsLayout() {
         <DocsLayoutContext.Provider value={docsLayoutContext}>
           <article className="max-w-none">
             <p className="text-sm font-semibold text-slate-500">{category}</p>
-            <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">
-              {title}
-            </h1>
+            <h1 className="mt-6 text-5xl font-semibold tracking-normal text-slate-950">{title}</h1>
             <Outlet />
           </article>
         </DocsLayoutContext.Provider>
@@ -1473,12 +1402,7 @@ function DocsLayout() {
                         }
                         href={`#${headingId(heading)}`}
                         onClick={(event) => {
-                          if (
-                            event.altKey ||
-                            event.ctrlKey ||
-                            event.metaKey ||
-                            event.shiftKey
-                          ) {
+                          if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
                             return;
                           }
 
@@ -1531,11 +1455,7 @@ function DocsBlockView({ block }: { block: DocsBlock }) {
     return <CodeSnippet>{block.code}</CodeSnippet>;
   }
 
-  return (
-    <p className="mt-6 text-lg leading-8 text-slate-600">
-      {block.text.map(renderTextPart)}
-    </p>
-  );
+  return <p className="mt-6 text-lg leading-8 text-slate-600">{block.text.map(renderTextPart)}</p>;
 }
 
 function DocsContentPage({ page }: { page: DocsPageData }) {
@@ -1546,14 +1466,8 @@ function DocsContentPage({ page }: { page: DocsPageData }) {
       title={page.title}
     >
       {page.sections.map((section) => (
-        <section
-          className="mt-16 scroll-mt-28"
-          id={headingId(section.title)}
-          key={section.title}
-        >
-          <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
-            {section.title}
-          </h2>
+        <section className="mt-16 scroll-mt-28" id={headingId(section.title)} key={section.title}>
+          <h2 className="text-3xl font-semibold tracking-normal text-slate-950">{section.title}</h2>
           {section.blocks.map((block, index) => (
             <DocsBlockView block={block} key={index} />
           ))}
@@ -1571,10 +1485,9 @@ function PhpBuiltinsPage() {
       title="PHP Built-ins"
     >
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        PHP built-ins keep familiar names and signatures. They are grouped by
-        family so each page can stay focused: strings, arrays, types, math,
-        filesystem, reflection, shell integration, output buffering, and core
-        runtime helpers.
+        PHP built-ins keep familiar names and signatures. They are grouped by family so each page
+        can stay focused: strings, arrays, types, math, filesystem, reflection, shell integration,
+        output buffering, and core runtime helpers.
       </p>
 
       <div className="mt-10 grid gap-6">
@@ -1587,9 +1500,7 @@ function PhpBuiltinsPage() {
             <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
               {family.title}
             </h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">
-              {family.description}
-            </p>
+            <p className="mt-4 text-base leading-7 text-slate-600">{family.description}</p>
             <Link
               className="mt-5 inline-flex text-sm font-semibold text-slate-500 transition hover:text-slate-950"
               to={phpBuiltinFamilyPath(family.slug)}
@@ -1637,9 +1548,7 @@ function PhpBuiltinFamilyPage({ family }: { family: BuiltinFamily }) {
       headings={family.builtins.map((builtin) => builtin.name)}
       title={family.title}
     >
-      <p className="mt-6 text-lg leading-8 text-slate-600">
-        {family.description}
-      </p>
+      <p className="mt-6 text-lg leading-8 text-slate-600">{family.description}</p>
 
       <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200">
         {family.builtins.map((builtin) => (
@@ -1662,17 +1571,11 @@ function BuiltinReference({ builtin }: { builtin: BuiltinDoc }) {
       >
         {builtin.name}
       </h2>
-      <p className="mt-3 font-mono text-sm text-slate-500">
-        {builtin.signature}
-      </p>
-      <p className="mt-7 text-lg leading-8 text-slate-600">
-        {builtin.description}
-      </p>
+      <p className="mt-3 font-mono text-sm text-slate-500">{builtin.signature}</p>
+      <p className="mt-7 text-lg leading-8 text-slate-600">{builtin.description}</p>
 
       <CodeSnippet className="mt-7">{example}</CodeSnippet>
-      <p className="mt-5 text-base leading-7 text-slate-600">
-        {renderInlineCodeText(exampleNote)}
-      </p>
+      <p className="mt-5 text-base leading-7 text-slate-600">{renderInlineCodeText(exampleNote)}</p>
     </section>
   );
 }
@@ -1697,49 +1600,85 @@ const docsLayoutRoute = createRoute({
 const docsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "/",
-  component: () => <DocsContentPage page={docsPages[0]} />,
+  component: () => <DocsContentPage page={docsPage("/docs")} />,
 });
 
 const sourceModesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "source-modes",
-  component: () => <DocsContentPage page={docsPages[1]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/source-modes")} />,
+});
+
+const dataStructuresRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "data-structures",
+  component: () => <DocsContentPage page={docsPage("/docs/data-structures")} />,
+});
+
+const dataStructuresListRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "data-structures/list",
+  component: () => <DocsContentPage page={docsPage("/docs/data-structures/list")} />,
+});
+
+const dataStructuresObjectRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "data-structures/object",
+  component: () => <DocsContentPage page={docsPage("/docs/data-structures/object")} />,
+});
+
+const dataStructuresClassRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "data-structures/class",
+  component: () => <DocsContentPage page={docsPage("/docs/data-structures/class")} />,
+});
+
+const dataStructuresArrayRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "data-structures/array",
+  component: () => <DocsContentPage page={docsPage("/docs/data-structures/array")} />,
+});
+
+const dataStructuresEnumRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "data-structures/enum",
+  component: () => <DocsContentPage page={docsPage("/docs/data-structures/enum")} />,
 });
 
 const standardLibraryRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std",
-  component: () => <DocsContentPage page={docsPages[2]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/std")} />,
 });
 
 const standardLibraryNetRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std/net",
-  component: () => <DocsContentPage page={docsPages[3]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/std/net")} />,
 });
 
 const standardLibraryHttpRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std/http",
-  component: () => <DocsContentPage page={docsPages[4]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/std/http")} />,
 });
 
 const standardLibraryTimeRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std/time",
-  component: () => <DocsContentPage page={docsPages[5]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/std/time")} />,
 });
 
 const standardLibraryReflectRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std/reflect",
-  component: () => <DocsContentPage page={docsPages[6]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/std/reflect")} />,
 });
 
 const standardLibraryAssertRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std/assert",
-  component: () => <DocsContentPage page={docsPages[7]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/std/assert")} />,
 });
 
 const phpBuiltinsRoute = createRoute({
@@ -1751,105 +1690,79 @@ const phpBuiltinsRoute = createRoute({
 const phpBuiltinStringsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/strings",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />,
 });
 
 const phpBuiltinArraysRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/arrays",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />,
 });
 
 const phpBuiltinTypesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/types",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />,
 });
 
 const phpBuiltinMathRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/math",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />,
 });
 
 const phpBuiltinHashesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/hashes",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />,
 });
 
 const phpBuiltinHashRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/hash",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />,
 });
 
 const phpBuiltinHashesAndChecksumsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/hashes-and-checksums",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />,
 });
 
 const phpBuiltinFilesystemRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/filesystem",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />,
 });
 
 const phpBuiltinReflectionRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/reflection",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />,
 });
 
 const phpBuiltinShellRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/shell",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />,
 });
 
 const phpBuiltinOutputBufferingRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/output-buffering",
-  component: () => (
-    <PhpBuiltinFamilyPage
-      family={builtinFamilyBySlug.get("output-buffering")!}
-    />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("output-buffering")!} />,
 });
 
 const phpBuiltinCoreRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "php-built-ins/core",
-  component: () => (
-    <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />
-  ),
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />,
 });
 
 const sourceBuildsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "source-builds",
-  component: () => <DocsContentPage page={docsPages[8]} />,
+  component: () => <DocsContentPage page={docsPage("/docs/source-builds")} />,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -1857,6 +1770,12 @@ const routeTree = rootRoute.addChildren([
   docsLayoutRoute.addChildren([
     docsRoute,
     sourceModesRoute,
+    dataStructuresRoute,
+    dataStructuresListRoute,
+    dataStructuresObjectRoute,
+    dataStructuresClassRoute,
+    dataStructuresArrayRoute,
+    dataStructuresEnumRoute,
     standardLibraryRoute,
     standardLibraryNetRoute,
     standardLibraryHttpRoute,
