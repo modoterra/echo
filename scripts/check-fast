@@ -71,6 +71,18 @@ Usage:
   scripts/check-fast pipeline
   scripts/check-fast index
   scripts/check-fast lsp
+  scripts/check-fast lsp-completion
+  scripts/check-fast lsp-definition
+  scripts/check-fast lsp-diagnostics
+  scripts/check-fast lsp-document
+  scripts/check-fast lsp-hover
+  scripts/check-fast lsp-position
+  scripts/check-fast lsp-references
+  scripts/check-fast lsp-rename
+  scripts/check-fast lsp-semantic-tokens
+  scripts/check-fast lsp-server
+  scripts/check-fast lsp-signature-help
+  scripts/check-fast lsp-symbols
   scripts/check-fast std
   scripts/check-fast std-source
   scripts/check-fast reflection
@@ -617,6 +629,42 @@ add_checks_for_changed_path() {
     crates/echo_index/*)
       add_changed_check "index"
       ;;
+    crates/echo_lsp/src/completion.rs)
+      add_changed_check "lsp-completion"
+      ;;
+    crates/echo_lsp/src/definition.rs)
+      add_changed_check "lsp-definition"
+      ;;
+    crates/echo_lsp/src/diagnostics.rs)
+      add_changed_check "lsp-diagnostics"
+      ;;
+    crates/echo_lsp/src/document.rs)
+      add_changed_check "lsp-document"
+      ;;
+    crates/echo_lsp/src/hover.rs)
+      add_changed_check "lsp-hover"
+      ;;
+    crates/echo_lsp/src/position.rs)
+      add_changed_check "lsp-position"
+      ;;
+    crates/echo_lsp/src/references.rs)
+      add_changed_check "lsp-references"
+      ;;
+    crates/echo_lsp/src/rename.rs)
+      add_changed_check "lsp-rename"
+      ;;
+    crates/echo_lsp/src/semantic_tokens.rs)
+      add_changed_check "lsp-semantic-tokens"
+      ;;
+    crates/echo_lsp/src/server.rs)
+      add_changed_check "lsp-server"
+      ;;
+    crates/echo_lsp/src/signature_help.rs)
+      add_changed_check "lsp-signature-help"
+      ;;
+    crates/echo_lsp/src/symbols.rs)
+      add_changed_check "lsp-symbols"
+      ;;
     crates/echo_lsp/*)
       add_changed_check "lsp"
       ;;
@@ -888,6 +936,12 @@ run_script_tests() {
     www/src/docs/content.ts
   assert_routing "semantics index facts route focused checks" "semantics-index" \
     crates/echo_semantics/src/index_facts.rs
+  assert_routing "lsp definition routes focused checks" "lsp-definition" \
+    crates/echo_lsp/src/definition.rs
+  assert_routing "lsp server routes focused checks" "lsp-server" \
+    crates/echo_lsp/src/server.rs
+  assert_routing "lsp signature help routes focused checks" "lsp-signature-help" \
+    crates/echo_lsp/src/signature_help.rs
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
     crates/echo_codegen/src/abi.rs
   assert_routing "codegen php lowering routes focused PHP checks" "codegen-php" \
@@ -1244,6 +1298,42 @@ case "$command" in
     ;;
   lsp)
     test_crate echo_lsp
+    ;;
+  lsp-completion)
+    run_quiet cargo test -q -p echo_lsp completion::tests
+    ;;
+  lsp-definition)
+    run_quiet cargo test -q -p echo_lsp definition::tests
+    ;;
+  lsp-diagnostics)
+    run_quiet cargo test -q -p echo_lsp diagnostics::tests
+    ;;
+  lsp-document)
+    run_quiet cargo test -q -p echo_lsp document::tests
+    ;;
+  lsp-hover)
+    run_quiet cargo test -q -p echo_lsp hover::tests
+    ;;
+  lsp-position)
+    run_quiet cargo test -q -p echo_lsp position::tests
+    ;;
+  lsp-references)
+    run_quiet cargo test -q -p echo_lsp references::tests
+    ;;
+  lsp-rename)
+    run_quiet cargo test -q -p echo_lsp rename::tests
+    ;;
+  lsp-semantic-tokens)
+    run_quiet cargo test -q -p echo_lsp semantic_tokens::tests
+    ;;
+  lsp-server)
+    run_quiet cargo test -q -p echo_lsp server::tests
+    ;;
+  lsp-signature-help)
+    run_quiet cargo test -q -p echo_lsp signature_help::tests
+    ;;
+  lsp-symbols)
+    run_quiet cargo test -q -p echo_lsp symbols::tests
     ;;
   std)
     test_crate echo_std
