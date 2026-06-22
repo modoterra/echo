@@ -241,13 +241,14 @@ harnesses. Passing the optional fixture-filter argument sets ECHO_FIXTURE for
 that command only. Benchmark shortcuts default ECHO_BENCH_ITERATIONS to 2 unless
 the variable is already set.
 
-Set CHECK_FAST_ECHO_COMMANDS=0 to suppress successful command trace lines. Failed
-commands still replay bounded output controlled by CHECK_FAST_MAX_OUTPUT_LINES.
+Successful command trace lines are suppressed by default. Set
+CHECK_FAST_ECHO_COMMANDS=1 to show them. Failed commands still replay bounded
+output controlled by CHECK_FAST_MAX_OUTPUT_LINES.
 EOF
 }
 
 echo_commands_enabled() {
-  [[ "${CHECK_FAST_ECHO_COMMANDS:-1}" != "0" ]]
+  [[ "${CHECK_FAST_ECHO_COMMANDS:-0}" == "1" ]]
 }
 
 run() {
@@ -980,24 +981,24 @@ assert_positive_integer() {
 
 assert_command_echo_controls() {
   local default_output
-  local quiet_output
+  local traced_output
   local fixture_output
 
   default_output="$(CHECK_FAST_ECHO_COMMANDS= run_quiet true)"
-  if [[ "$default_output" != ":: true" ]]; then
-    printf 'command echo test failed: default trace\nexpected: :: true\nactual: %s\n' "$default_output" >&2
+  if [[ -n "$default_output" ]]; then
+    printf 'command echo test failed: default trace should be empty\nactual: %s\n' "$default_output" >&2
     exit 1
   fi
 
-  quiet_output="$(CHECK_FAST_ECHO_COMMANDS=0 run_quiet true)"
-  if [[ -n "$quiet_output" ]]; then
-    printf 'command echo test failed: quiet trace should be empty\nactual: %s\n' "$quiet_output" >&2
+  traced_output="$(CHECK_FAST_ECHO_COMMANDS=1 run_quiet true)"
+  if [[ "$traced_output" != ":: true" ]]; then
+    printf 'command echo test failed: opt-in trace\nexpected: :: true\nactual: %s\n' "$traced_output" >&2
     exit 1
   fi
 
-  fixture_output="$(CHECK_FAST_ECHO_COMMANDS=0 run_with_optional_fixture "043_strlen_builtin" tests/php -- true)"
+  fixture_output="$(CHECK_FAST_ECHO_COMMANDS= run_with_optional_fixture "043_strlen_builtin" tests/php -- true)"
   if [[ -n "$fixture_output" ]]; then
-    printf 'command echo test failed: quiet fixture trace should be empty\nactual: %s\n' "$fixture_output" >&2
+    printf 'command echo test failed: default fixture trace should be empty\nactual: %s\n' "$fixture_output" >&2
     exit 1
   fi
 }

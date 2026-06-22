@@ -42,6 +42,7 @@ This repo uses a single-context domain documentation layout. See `docs/agents/do
 
 ## Fast Development Checks
 - Prefer `scripts/check-fast` while iterating. It suppresses successful Rust test output and uses fixture filters so agents get targeted pass/fail signals without dumping the full fixture corpus; failing commands replay a bounded captured-output preview and retain the full temp log path.
+- `scripts/check-fast` also suppresses successful command trace lines by default; set `CHECK_FAST_ECHO_COMMANDS=1` only when you need to see each underlying command.
 - Set `CHECK_FAST_MAX_OUTPUT_LINES=0` to replay full failing command output, or set it to a positive line count to adjust the preview size.
 - Use `scripts/check-fast changed --list` to see the checks implied by the current dirty worktree, then `scripts/check-fast changed` to run that set when the list looks right.
 - Use `scripts/check-fast changed --take N` to run only the first N derived checks when the dirty worktree is broad and you want a bounded first signal.
