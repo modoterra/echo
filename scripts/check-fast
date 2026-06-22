@@ -588,7 +588,7 @@ add_checks_for_changed_path() {
     crates/echo_semantics/src/analyzer.rs)
       add_changed_check "semantics-analyzer"
       ;;
-    crates/echo_semantics/src/index_facts.rs)
+    crates/echo_semantics/src/index_facts.rs|crates/echo_semantics/src/index_facts/tests.rs)
       add_changed_check "semantics-index"
       ;;
     crates/echo_semantics/src/index_facts/dependencies.rs)
@@ -1221,6 +1221,8 @@ run_script_tests() {
     crates/echo_semantics/src/analyzer.rs
   assert_routing "semantics index facts route focused checks" "semantics-index" \
     crates/echo_semantics/src/index_facts.rs
+  assert_routing "semantics index facts tests route focused checks" "semantics-index" \
+    crates/echo_semantics/src/index_facts/tests.rs
   assert_routing "semantics index dependency facts route focused checks" "semantics-index-dependencies" \
     crates/echo_semantics/src/index_facts/dependencies.rs
   assert_routing "semantics PHPDoc index facts route focused checks" "semantics-index-phpdoc" \
