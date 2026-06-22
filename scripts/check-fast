@@ -77,6 +77,7 @@ Usage:
   scripts/check-fast web-docs
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
+  scripts/check-fast codegen-php
   scripts/check-fast codegen-stdlib
   scripts/check-fast codegen-jit
   scripts/check-fast xo
@@ -148,6 +149,7 @@ Examples:
   scripts/check-fast pipeline
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
+  scripts/check-fast codegen-php
   scripts/check-fast codegen-stdlib
   scripts/check-fast codegen-jit
   scripts/check-fast xo
@@ -511,11 +513,21 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/jit.rs)
       add_changed_check "codegen-jit"
       ;;
+    crates/echo_codegen/src/runtime_symbols.rs)
+      add_changed_check "codegen-jit"
+      ;;
     crates/echo_codegen/src/abi.rs)
       add_changed_check "codegen-abi"
       ;;
+    crates/echo_codegen/src/php_lowering.rs)
+      add_changed_check "codegen-php"
+      ;;
+    crates/echo_codegen/src/std_lowering.rs)
+      add_changed_check "codegen-stdlib"
+      ;;
     crates/echo_codegen/src/lib.rs)
       add_changed_check "codegen-abi"
+      add_changed_check "codegen-php"
       add_changed_check "codegen-stdlib"
       ;;
     crates/echo_codegen/*)
@@ -871,9 +883,15 @@ run_script_tests() {
     www/src/docs/content.ts
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
     crates/echo_codegen/src/abi.rs
+  assert_routing "codegen php lowering routes focused PHP checks" "codegen-php" \
+    crates/echo_codegen/src/php_lowering.rs
+  assert_routing "codegen runtime symbols route focused JIT checks" "codegen-jit" \
+    crates/echo_codegen/src/runtime_symbols.rs
+  assert_routing "codegen std lowering routes focused std checks" "codegen-stdlib" \
+    crates/echo_codegen/src/std_lowering.rs
   assert_routing "codegen jit routes focused JIT checks" "codegen-jit" \
     crates/echo_codegen/src/jit.rs
-  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-stdlib' \
+  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-php\ncodegen-stdlib' \
     crates/echo_codegen/src/lib.rs
   assert_fixture_filter_rejects "fixture filters validate every comma item" \
     "043_strlen_builtin,__missing_fixture__"
@@ -1240,6 +1258,10 @@ case "$command" in
   codegen-abi)
     run_quiet cargo test -q -p echo_codegen runtime_declarations_deduplicate_alias_symbols
     run_quiet cargo test -q -p echo_codegen every_lowered_php_builtin_has_reflected_declaration
+    ;;
+  codegen-php)
+    run_quiet cargo test -q -p echo_codegen builtin
+    run_quiet cargo test -q -p echo_codegen ob_start
     ;;
   codegen-stdlib)
     run_quiet cargo test -q -p echo_codegen time_sleep_lowers_to_core_runtime_call
