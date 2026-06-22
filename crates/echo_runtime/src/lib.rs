@@ -66,10 +66,10 @@ pub use require::{echo_php_require, echo_php_require_once};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
-pub use time::echo_time_sleep;
 #[cfg(not(unix))]
 use time::system_time_unix_timestamp;
 use time::unix_duration_now_or_zero;
+pub use time::{echo_php_microtime, echo_time_sleep};
 pub use value::{EchoObject, EchoString};
 
 #[repr(C)]
@@ -2547,20 +2547,6 @@ pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoVal
         Some(bytes) if !bytes.is_empty() => EchoValue::bool(true),
         _ => EchoValue::error(),
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
-    let now = unix_duration_now_or_zero();
-
-    if as_float.bool_value().unwrap_or(false) {
-        return EchoValue::float(now.as_secs_f64());
-    }
-
-    let micros = now.subsec_micros();
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-        format!("0.{micros:06} {}", now.as_secs()).into_bytes(),
-    ))))
 }
 
 #[unsafe(no_mangle)]
