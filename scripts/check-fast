@@ -40,6 +40,7 @@ Usage:
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-collections
   scripts/check-fast runtime-collections-keys
+  scripts/check-fast runtime-collections-search
   scripts/check-fast runtime-collections-sequence
   scripts/check-fast runtime-collections-fixtures
   scripts/check-fast runtime-execution
@@ -161,6 +162,7 @@ Examples:
   scripts/check-fast runtime-sched
   scripts/check-fast runtime-collections
   scripts/check-fast runtime-collections-keys
+  scripts/check-fast runtime-collections-search
   scripts/check-fast runtime-collections-sequence
   scripts/check-fast runtime-collections-fixtures
   scripts/check-fast runtime-execution
@@ -629,6 +631,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections/keys.rs)
       add_changed_check "runtime-collections-keys"
       ;;
+    crates/echo_runtime/src/collections/search.rs)
+      add_changed_check "runtime-collections-search"
+      ;;
     crates/echo_runtime/src/collections/sequence.rs)
       add_changed_check "runtime-collections-sequence"
       ;;
@@ -1048,6 +1053,8 @@ run_script_tests() {
     crates/echo_runtime/src/collections/sequence.rs
   assert_routing "runtime collection keys routes focused checks" "runtime-collections-keys" \
     crates/echo_runtime/src/collections/keys.rs
+  assert_routing "runtime collection search routes focused checks" "runtime-collections-search" \
+    crates/echo_runtime/src/collections/search.rs
   assert_routing "runtime filesystem metadata routes focused checks" "runtime-filesystem-metadata" \
     crates/echo_runtime/src/filesystem/metadata.rs
   assert_runtime_fixture_scope_routing
@@ -1404,6 +1411,10 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime array_key_value_and_aggregate_builtins_preserve_php_array_behavior
     run_quiet cargo test -q -p echo_runtime array_fill_builtins_preserve_php_key_construction_behavior
     run_quiet cargo test -q -p echo_runtime array_combine_and_pad_builtins_preserve_php_key_behavior
+    run_quiet cargo test -q -p echo_runtime array_lookup_builtins_preserve_php_key_and_value_behavior
+    ;;
+  runtime-collections-search)
+    run_quiet cargo test -q -p echo_runtime array_search_and_count_values_preserve_php_value_behavior
     run_quiet cargo test -q -p echo_runtime array_lookup_builtins_preserve_php_key_and_value_behavior
     ;;
   runtime-collections-sequence)
