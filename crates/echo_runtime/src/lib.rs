@@ -52,6 +52,7 @@ use reflection::{
     REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
     function_reflection_by_name_and_source, function_reflection_for_value,
 };
+pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchoSymbol {
@@ -126,7 +127,6 @@ const ECHO_VALUE_THREAD: i32 = 13;
 const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
 static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
-static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
@@ -431,7 +431,7 @@ impl EchoValue {
         self.kind == ECHO_VALUE_PENDING
     }
 
-    fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
+    pub(crate) fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
         if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
             return None;
         }
@@ -455,7 +455,7 @@ impl EchoValue {
         unsafe { (self.payload as *mut process::EchoProcess).as_mut() }
     }
 
-    fn as_thread_mut(self) -> Option<&'static mut thread::EchoThread> {
+    pub(crate) fn as_thread_mut(self) -> Option<&'static mut thread::EchoThread> {
         if self.kind != ECHO_VALUE_THREAD || self.payload == 0 {
             return None;
         }
@@ -800,40 +800,6 @@ pub extern "C" fn echo_task_group_run_and_join(group_value: EchoValue) -> EchoVa
     }
 
     EchoValue::list(Box::into_raw(Box::new(results)))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_thread_fork(callback: Option<task::EchoTaskCallback>) -> EchoValue {
-    let Some(callback) = callback else {
-        return EchoValue::error();
-    };
-    let id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
-    let thread = thread::EchoThread::fork(task::ThreadId(id), callback);
-
-    EchoValue::thread(Box::into_raw(Box::new(thread)))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_thread_fork_task(task_value: EchoValue) -> EchoValue {
-    let Some(task) = task_value.as_task_mut() else {
-        return EchoValue::error();
-    };
-    let Some(callback) = task.callback() else {
-        return EchoValue::error();
-    };
-    let id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
-    let thread = thread::EchoThread::fork(task::ThreadId(id), callback);
-
-    EchoValue::thread(Box::into_raw(Box::new(thread)))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_thread_join(thread_value: EchoValue) -> EchoValue {
-    let Some(thread) = thread_value.as_thread_mut() else {
-        return EchoValue::error();
-    };
-
-    thread.join()
 }
 
 #[unsafe(no_mangle)]
