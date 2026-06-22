@@ -17,6 +17,8 @@ Usage:
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-filesystem
+  scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
   scripts/check-fast runtime-math-fixtures
   scripts/check-fast runtime-encoding
@@ -49,6 +51,7 @@ Examples:
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
   scripts/check-fast runtime-encoding
   scripts/check-fast parser
@@ -233,6 +236,10 @@ normalize_changed_checks() {
       remove_changed_check "runtime-encoding"
       add_changed_check "runtime-encoding-fixtures"
     fi
+    if has_changed_check "runtime-filesystem"; then
+      remove_changed_check "runtime-filesystem"
+      add_changed_check "runtime-filesystem-fixtures"
+    fi
   fi
 }
 
@@ -289,6 +296,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/reflection.rs)
       add_changed_check "runtime-reflection"
+      ;;
+    crates/echo_runtime/src/filesystem.rs)
+      add_changed_check "runtime-filesystem"
       ;;
     crates/echo_runtime/src/math.rs)
       add_changed_check "runtime-math"
@@ -396,6 +406,9 @@ run_script_tests() {
   assert_routing "runtime math normalizes fixture coverage" $'runtime\njit\nruntime-math-fixtures' \
     crates/echo_runtime/src/lib.rs \
     crates/echo_runtime/src/math.rs
+  assert_routing "runtime filesystem normalizes fixture coverage" $'runtime\njit\nruntime-filesystem-fixtures' \
+    crates/echo_runtime/src/lib.rs \
+    crates/echo_runtime/src/filesystem.rs
 }
 
 run_changed_checks() {
@@ -584,6 +597,21 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime reflect
     run_quiet cargo test -q -p echo_runtime function_exists
     run_quiet cargo test -q -p echo_runtime is_callable
+    ;;
+  runtime-filesystem)
+    run_quiet cargo test -q -p echo_runtime file_exists
+    run_quiet cargo test -q -p echo_runtime chdir
+    run_quiet cargo test -q -p echo_runtime is_dir
+    run_quiet cargo test -q -p echo_runtime is_file
+    run_quiet cargo test -q -p echo_runtime is_link
+    run_quiet cargo test -q -p echo_runtime filesystem_
+    run_quiet cargo test -q -p echo_runtime temporary_name
+    run_quiet cargo test -q -p echo_runtime basename
+    run_quiet cargo test -q -p echo_runtime dirname
+    run_with_optional_fixture "041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-filesystem-fixtures)
+    run_with_optional_fixture "041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-math)
     test_crate echo_runtime
