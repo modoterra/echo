@@ -1,5 +1,6 @@
 pub mod abi;
 mod assertions;
+mod callable;
 mod collections;
 mod encoding;
 mod environment;
@@ -36,10 +37,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
+pub use callable::{EchoCallable, EchoSymbol};
 pub use collections::{EchoArray, EchoList};
 use collections::{EchoArrayKey, next_array_append_key, php_array_union};
 use encoding::*;
 pub use environment::*;
+pub use error::EchoError;
 use execution::{repl_inspect_enabled, write_stdout};
 use math::*;
 pub use net::{
@@ -62,32 +65,6 @@ pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_c
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 pub use time::echo_time_sleep;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EchoSymbol {
-    name: String,
-}
-
-impl EchoSymbol {
-    pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into() }
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.name
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EchoCallable {
-    Function(EchoSymbol),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EchoError {
-    InvalidCallable,
-    UndefinedFunction(EchoSymbol),
-}
 
 #[derive(Debug)]
 pub struct EchoString {
