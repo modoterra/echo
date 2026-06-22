@@ -1,6 +1,8 @@
 use super::*;
 
 mod base64;
+mod shell;
+mod url;
 
 #[test]
 fn bin2hex_preserves_php_byte_behavior() {
@@ -111,118 +113,6 @@ fn base_to_decimal_builtins_preserve_php_unsigned_string_behavior() {
             EchoValue::int(10)
         ),
         EchoValue::error()
-    );
-}
-
-#[test]
-fn escapeshellarg_preserves_php_unix_shell_argument_quoting() {
-    assert_eq!(
-        echo_php_escapeshellarg(test_string_value(b"Echo")).string_bytes(),
-        Some("'Echo'".as_bytes().to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellarg(test_string_value(b"it's ready")).string_bytes(),
-        Some("'it'\\''s ready'".as_bytes().to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellarg(test_string_value(b"")).string_bytes(),
-        Some("''".as_bytes().to_vec())
-    );
-}
-
-#[test]
-fn escapeshellcmd_preserves_php_unix_shell_meta_escaping() {
-    fn string_value(bytes: &[u8]) -> *mut EchoString {
-        Box::into_raw(Box::new(EchoString {
-            bytes: bytes.to_vec(),
-        }))
-    }
-
-    let semicolon = string_value(b"path; rm -rf /");
-    let paired_double = string_value(b"echo \"ok\"");
-    let unpaired_double = string_value(b"echo \"unterminated");
-    let paired_single = string_value(b"echo 'ok'");
-    let unpaired_single = string_value(b"echo 'unterminated");
-    let newline = string_value(b"line\nbreak");
-    let slash = string_value(b"a\\b");
-    let dollar = string_value(b"a$b");
-
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(semicolon)).string_bytes(),
-        Some(b"path\\; rm -rf /".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(paired_double)).string_bytes(),
-        Some(b"echo \"ok\"".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(unpaired_double)).string_bytes(),
-        Some(b"echo \\\"unterminated".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(paired_single)).string_bytes(),
-        Some(b"echo 'ok'".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(unpaired_single)).string_bytes(),
-        Some(b"echo \\'unterminated".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(newline)).string_bytes(),
-        Some(b"line\\\nbreak".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(slash)).string_bytes(),
-        Some(b"a\\\\b".to_vec())
-    );
-    assert_eq!(
-        echo_php_escapeshellcmd(EchoValue::string(dollar)).string_bytes(),
-        Some(b"a\\$b".to_vec())
-    );
-
-    unsafe {
-        drop(Box::from_raw(semicolon));
-        drop(Box::from_raw(paired_double));
-        drop(Box::from_raw(unpaired_double));
-        drop(Box::from_raw(paired_single));
-        drop(Box::from_raw(unpaired_single));
-        drop(Box::from_raw(newline));
-        drop(Box::from_raw(slash));
-        drop(Box::from_raw(dollar));
-    }
-}
-
-#[test]
-fn url_encoding_builtins_preserve_php_byte_behavior() {
-    fn string_value(bytes: &[u8]) -> EchoValue {
-        EchoValue::string(Box::into_raw(Box::new(EchoString {
-            bytes: bytes.to_vec(),
-        })))
-    }
-
-    assert_eq!(
-        echo_php_rawurlencode(string_value(b"sales and marketing/Miami~")).string_bytes(),
-        Some(b"sales%20and%20marketing%2FMiami~".to_vec())
-    );
-    assert_eq!(
-        echo_php_urlencode(string_value(b"Data123!@-_ +~")).string_bytes(),
-        Some(b"Data123%21%40-_+%2B%7E".to_vec())
-    );
-    assert_eq!(
-        echo_php_rawurldecode(string_value(b"foo%20bar%40baz+plus%ZZ")).string_bytes(),
-        Some(b"foo bar@baz+plus%ZZ".to_vec())
-    );
-    assert_eq!(
-        echo_php_urldecode(string_value(b"green+and+red%2Bblue%ZZ")).string_bytes(),
-        Some(b"green and red+blue%ZZ".to_vec())
-    );
-    assert_eq!(
-        echo_php_rawurldecode(echo_php_rawurlencode(string_value(b"a/b c+~"))).string_bytes(),
-        Some(b"a/b c+~".to_vec())
-    );
-    assert_eq!(
-        echo_php_rawurlencode(string_value(&[0xc3, 0x84])).string_bytes(),
-        Some(b"%C3%84".to_vec())
     );
 }
 
