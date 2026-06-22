@@ -101,6 +101,7 @@ Usage:
   scripts/check-fast codegen-stdlib
   scripts/check-fast codegen-jit
   scripts/check-fast xo
+  scripts/check-fast xo-test-runner
   scripts/check-fast repl
   scripts/check-fast jit [fixture-filter]
   scripts/check-fast fixture [fixture-filter]
@@ -180,6 +181,7 @@ Examples:
   scripts/check-fast codegen-stdlib
   scripts/check-fast codegen-jit
   scripts/check-fast xo
+  scripts/check-fast xo-test-runner
   scripts/check-fast repl
   scripts/check-fast jit 017_object_append_count
   scripts/check-fast fixture string_escape
@@ -729,6 +731,9 @@ add_checks_for_changed_path() {
       add_changed_check "jit"
       add_changed_check "fixture"
       ;;
+    crates/xo/src/test_runner.rs)
+      add_changed_check "xo-test-runner"
+      ;;
     crates/xo/src/main.rs)
       add_changed_check "xo"
       add_changed_check "repl"
@@ -931,6 +936,8 @@ run_script_tests() {
     crates/xo/src/source.rs
   assert_routing "xo build routes build fixtures" $'xo\nfixture' \
     crates/xo/src/build.rs
+  assert_routing "xo test runner routes focused checks" "xo-test-runner" \
+    crates/xo/src/test_runner.rs
   assert_routing "echo fixture routes filtered checks" $'parser 017_object_append_count\njit 017_object_append_count\nfixture 017_object_append_count' \
     tests/echo/017_object_append_count/unsupported.txt
   assert_routing "runtime environment routes focused checks" "runtime-environment" \
@@ -1469,6 +1476,9 @@ case "$command" in
     ;;
   xo)
     run_quiet cargo test -q -p xo --bin xo
+    ;;
+  xo-test-runner)
+    run_quiet cargo test -q -p xo --bin xo test_runner::
     ;;
   repl)
     run_quiet cargo test -q -p xo --test repl
