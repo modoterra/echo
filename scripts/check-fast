@@ -81,7 +81,9 @@ Usage:
   scripts/check-fast runtime-encoding
   scripts/check-fast runtime-encoding-fixtures
   scripts/check-fast parser [fixture-filter]
+  scripts/check-fast parser-concurrency
   scripts/check-fast parser-echo-surface
+  scripts/check-fast parser-strings
   scripts/check-fast semantics
   scripts/check-fast semantics-analyzer
   scripts/check-fast semantics-index
@@ -589,6 +591,12 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_parser/src/tests/echo_surface.rs)
       add_changed_check "parser-echo-surface"
+      ;;
+    crates/echo_parser/src/tests/concurrency.rs)
+      add_changed_check "parser-concurrency"
+      ;;
+    crates/echo_parser/src/tests/strings.rs)
+      add_changed_check "parser-strings"
       ;;
     crates/echo_parser/*)
       add_changed_check "parser"
@@ -1162,6 +1170,10 @@ run_script_tests() {
     tests/echo/017_object_append_count/unsupported.txt
   assert_routing "parser Echo surface tests route focused parser checks" "parser-echo-surface" \
     crates/echo_parser/src/tests/echo_surface.rs
+  assert_routing "parser concurrency tests route focused parser checks" "parser-concurrency" \
+    crates/echo_parser/src/tests/concurrency.rs
+  assert_routing "parser string tests route focused parser checks" "parser-strings" \
+    crates/echo_parser/src/tests/strings.rs
   assert_routing "runtime environment routes focused checks" "runtime-environment" \
     crates/echo_runtime/src/environment.rs
   assert_routing "runtime net routes focused checks" "runtime-net" \
@@ -1511,8 +1523,14 @@ case "$command" in
   parser)
     run_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p echo_parser
     ;;
+  parser-concurrency)
+    run_quiet cargo test -q -p echo_parser tests::concurrency
+    ;;
   parser-echo-surface)
     run_quiet cargo test -q -p echo_parser tests::echo_surface
+    ;;
+  parser-strings)
+    run_quiet cargo test -q -p echo_parser tests::strings
     ;;
   semantics)
     test_crate echo_semantics

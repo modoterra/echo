@@ -1,144 +1,11 @@
 use super::*;
 
+#[path = "tests/concurrency.rs"]
+mod concurrency;
 #[path = "tests/echo_surface.rs"]
 mod echo_surface;
-
-#[test]
-fn parses_php_string_literal_forms() {
-    let program = parse_with_mode(
-        r#"<?php
-echo 'single quoted';
-echo "double quoted\n";
-echo <<<'NOW'
-nowdoc body
-NOW;
-echo <<<HTML
-heredoc body
-HTML;
-"#,
-        SourceMode::Echo,
-    )
-    .expect("program parses");
-
-    assert_eq!(program.statements.len(), 4);
-    assert!(matches!(
-        &program.statements[0],
-        Stmt::Echo(statement)
-            if matches!(&statement.exprs[0], Expr::String(string) if string.value == "single quoted")
-    ));
-    assert!(matches!(
-        &program.statements[1],
-        Stmt::Echo(statement)
-            if matches!(&statement.exprs[0], Expr::String(string) if string.value == "double quoted\n")
-    ));
-    assert!(matches!(
-        &program.statements[2],
-        Stmt::Echo(statement)
-            if matches!(&statement.exprs[0], Expr::String(string) if string.value.contains("nowdoc body"))
-    ));
-    assert!(matches!(
-        &program.statements[3],
-        Stmt::Echo(statement)
-            if matches!(&statement.exprs[0], Expr::String(string) if string.value.contains("heredoc body"))
-    ));
-}
-
-#[test]
-fn parses_php_single_quoted_string_escapes() {
-    let program = parse_with_mode(r#"<?php echo 'c:\path\n and \'quote\'';"#, SourceMode::Echo)
-        .expect("program parses");
-
-    assert!(matches!(
-        &program.statements[0],
-        Stmt::Echo(statement)
-            if matches!(&statement.exprs[0], Expr::String(string) if string.value == r#"c:\path\n and 'quote'"#)
-    ));
-}
-
-#[test]
-fn parses_concurrency_keyword_expressions() {
-    let program = parse_with_mode(
-        r#"<?php
-$task = run $deferred;
-$worker = fork $job;
-$process = spawn "worker";
-$value = join $task;
-"#,
-        SourceMode::Echo,
-    )
-    .expect("program parses");
-
-    assert!(matches!(
-        &program.statements[0],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Run(_))
-    ));
-    assert!(matches!(
-        &program.statements[1],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(_))
-    ));
-    assert!(matches!(
-        &program.statements[2],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Spawn(_))
-    ));
-    assert!(matches!(
-        &program.statements[3],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Join(_))
-    ));
-}
-
-#[test]
-fn parses_concurrency_block_assignments() {
-    let program = parse_with_mode(
-        r#"<?php
-$deferred = defer { return "later"; };
-$task = run { return "soon"; };
-$worker = fork { return "parallel"; };
-"#,
-        SourceMode::Echo,
-    )
-    .expect("program parses");
-
-    assert!(matches!(
-        &program.statements[0],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Defer(_))
-    ));
-    assert!(matches!(
-        &program.statements[1],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Run(RunExpr::Block { .. }))
-    ));
-    assert!(matches!(
-        &program.statements[2],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(ForkExpr::Block { .. }))
-    ));
-}
-
-#[test]
-fn parses_run_group_assignments() {
-    let program = parse_with_mode(
-        r#"<?php
-$tasks = run [
-    { return "user"; },
-    { return "posts"; },
-];
-let $more = run [
-    { return "audit"; },
-];
-"#,
-        SourceMode::Echo,
-    )
-    .expect("program parses");
-
-    assert!(matches!(
-        &program.statements[0],
-        Stmt::Assign(statement)
-            if matches!(&statement.value, Expr::Run(RunExpr::Group { entries, .. }) if entries.len() == 2)
-    ));
-    assert!(matches!(
-        &program.statements[1],
-        Stmt::Let(statement)
-            if matches!(&statement.value, Expr::Run(RunExpr::Group { entries, .. }) if entries.len() == 1)
-    ));
-}
+#[path = "tests/strings.rs"]
+mod strings;
 
 #[test]
 fn parses_optional_statement_semicolons() {
@@ -168,32 +35,6 @@ function greet($name) { return $name }
         Stmt::DynamicFunctionCall(_)
     ));
     assert!(matches!(&program.statements[7], Stmt::FunctionDecl(_)));
-}
-
-#[test]
-fn parses_optional_semicolons_after_concurrency_blocks() {
-    let program = parse_with_mode(
-        r#"<?php
-$deferred = defer { return "later" }
-$task = run { return "soon" }
-$worker = fork { return "parallel" }
-"#,
-        SourceMode::Echo,
-    )
-    .expect("concurrency block assignments parse without semicolons");
-
-    assert!(matches!(
-        &program.statements[0],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Defer(_))
-    ));
-    assert!(matches!(
-        &program.statements[1],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Run(RunExpr::Block { .. }))
-    ));
-    assert!(matches!(
-        &program.statements[2],
-        Stmt::Assign(statement) if matches!(statement.value, Expr::Fork(ForkExpr::Block { .. }))
-    ));
 }
 
 #[test]
