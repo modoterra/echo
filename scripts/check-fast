@@ -641,7 +641,13 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/control_flow_lowering.rs)
       add_changed_check "codegen-control-flow"
       ;;
+    crates/echo_codegen/src/tests/control_flow.rs)
+      add_changed_check "codegen-control-flow"
+      ;;
     crates/echo_codegen/src/expression_lowering.rs)
+      add_changed_check "codegen-expressions"
+      ;;
+    crates/echo_codegen/src/tests/expressions.rs)
       add_changed_check "codegen-expressions"
       ;;
     crates/echo_codegen/src/php_lowering.rs)
@@ -1282,8 +1288,12 @@ run_script_tests() {
     crates/echo_codegen/src/tests/collections.rs
   assert_routing "codegen control-flow lowering routes focused control-flow checks" "codegen-control-flow" \
     crates/echo_codegen/src/control_flow_lowering.rs
+  assert_routing "codegen control-flow tests route focused control-flow checks" "codegen-control-flow" \
+    crates/echo_codegen/src/tests/control_flow.rs
   assert_routing "codegen expression lowering routes focused expression checks" "codegen-expressions" \
     crates/echo_codegen/src/expression_lowering.rs
+  assert_routing "codegen expression tests route focused expression checks" "codegen-expressions" \
+    crates/echo_codegen/src/tests/expressions.rs
   assert_routing "codegen php lowering routes focused PHP checks" "codegen-php" \
     crates/echo_codegen/src/php_lowering.rs
   assert_routing "codegen reflection lowering routes focused reflection checks" "codegen-reflection" \
