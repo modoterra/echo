@@ -19,8 +19,10 @@ Usage:
   scripts/check-fast runtime-collections
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
+  scripts/check-fast runtime-poll
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-require
+  scripts/check-fast runtime-sched
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -62,6 +64,8 @@ Examples:
   scripts/check-fast runtime-assert
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
+  scripts/check-fast runtime-poll
+  scripts/check-fast runtime-sched
   scripts/check-fast runtime-collections
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
@@ -327,11 +331,17 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/output.rs)
       add_changed_check "runtime-output"
       ;;
+    crates/echo_runtime/src/poll.rs)
+      add_changed_check "runtime-poll"
+      ;;
     crates/echo_runtime/src/reflection.rs)
       add_changed_check "runtime-reflection"
       ;;
     crates/echo_runtime/src/require.rs)
       add_changed_check "runtime-require"
+      ;;
+    crates/echo_runtime/src/sched.rs)
+      add_changed_check "runtime-sched"
       ;;
     crates/echo_runtime/src/environment.rs)
       add_changed_check "runtime-environment"
@@ -487,6 +497,10 @@ run_script_tests() {
     crates/echo_runtime/src/assertions.rs
   assert_routing "runtime require routes focused checks" "runtime-require" \
     crates/echo_runtime/src/require.rs
+  assert_routing "runtime poll routes focused checks" "runtime-poll" \
+    crates/echo_runtime/src/poll.rs
+  assert_routing "runtime sched routes focused checks" "runtime-sched" \
+    crates/echo_runtime/src/sched.rs
   assert_routing "stdlib source routes package and parse checks" "std-source" \
     std/time.echo
   assert_routing "markdown docs route docs checks" "docs" \
@@ -690,6 +704,9 @@ case "$command" in
   runtime-output)
     run_quiet cargo test -q -p echo_runtime output::
     ;;
+  runtime-poll)
+    run_quiet cargo test -q -p echo_runtime poll::
+    ;;
   runtime-reflection)
     run_quiet cargo test -q -p echo_runtime reflection::
     run_quiet cargo test -q -p echo_runtime reflect
@@ -699,6 +716,9 @@ case "$command" in
     ;;
   runtime-require)
     run_quiet cargo test -q -p echo_runtime require::
+    ;;
+  runtime-sched)
+    run_quiet cargo test -q -p echo_runtime sched::
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins
