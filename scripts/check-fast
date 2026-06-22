@@ -16,6 +16,7 @@ Usage:
   scripts/check-fast runtime-tests
   scripts/check-fast runtime-tests-collections
   scripts/check-fast runtime-tests-filesystem
+  scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-string
   scripts/check-fast runtime-tests-value
   scripts/check-fast runtime-assert
@@ -81,6 +82,7 @@ Examples:
   scripts/check-fast runtime-tests
   scripts/check-fast runtime-tests-collections
   scripts/check-fast runtime-tests-filesystem
+  scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-string
   scripts/check-fast runtime-tests-value
   scripts/check-fast runtime-assert
@@ -385,6 +387,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/filesystem.rs)
       add_changed_check "runtime-tests-filesystem"
+      ;;
+    crates/echo_runtime/src/runtime_tests/math.rs)
+      add_changed_check "runtime-tests-math"
       ;;
     crates/echo_runtime/src/runtime_tests/string.rs)
       add_changed_check "runtime-tests-string"
@@ -736,6 +741,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/collections.rs
   assert_routing "runtime filesystem tests route focused submodule check" "runtime-tests-filesystem" \
     crates/echo_runtime/src/runtime_tests/filesystem.rs
+  assert_routing "runtime math tests route focused submodule check" "runtime-tests-math" \
+    crates/echo_runtime/src/runtime_tests/math.rs
   assert_routing "runtime string tests route focused submodule check" "runtime-tests-string" \
     crates/echo_runtime/src/runtime_tests/string.rs
   assert_routing "runtime value tests route focused submodule check" "runtime-tests-value" \
@@ -966,6 +973,9 @@ case "$command" in
     ;;
   runtime-tests-filesystem)
     run_quiet cargo test -q -p echo_runtime runtime_tests::filesystem:: -- --test-threads=1
+    ;;
+  runtime-tests-math)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::math:: -- --test-threads=1
     ;;
   runtime-tests-string)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string:: -- --test-threads=1
