@@ -60,6 +60,7 @@ Usage:
   scripts/check-fast runtime-time
   scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
+  scripts/check-fast runtime-value-arithmetic
   scripts/check-fast runtime-value-coercion
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
@@ -170,6 +171,7 @@ Examples:
   scripts/check-fast runtime-time
   scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
+  scripts/check-fast runtime-value-arithmetic
   scripts/check-fast runtime-value-coercion
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
@@ -670,6 +672,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/value/inspect.rs)
       add_changed_check "runtime-value-inspect"
       ;;
+    crates/echo_runtime/src/value/arithmetic.rs)
+      add_changed_check "runtime-value-arithmetic"
+      ;;
     crates/echo_runtime/src/value/coercion.rs)
       add_changed_check "runtime-value-coercion"
       ;;
@@ -1009,6 +1014,8 @@ run_script_tests() {
     crates/echo_runtime/src/value.rs
   assert_routing "runtime value inspect routes focused checks" "runtime-value-inspect" \
     crates/echo_runtime/src/value/inspect.rs
+  assert_routing "runtime value arithmetic routes focused checks" "runtime-value-arithmetic" \
+    crates/echo_runtime/src/value/arithmetic.rs
   assert_routing "runtime value coercion routes focused checks" "runtime-value-coercion" \
     crates/echo_runtime/src/value/coercion.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
@@ -1311,6 +1318,13 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime floatval_preserves_php_scalar_float_coercion
     run_quiet cargo test -q -p echo_runtime is_object_reports_only_object_values
     run_quiet cargo test -q -p echo_runtime gettype_returns_php_type_names_for_current_values
+    ;;
+  runtime-value-arithmetic)
+    run_quiet cargo test -q -p echo_runtime arithmetic
+    run_quiet cargo test -q -p echo_runtime php_arithmetic_core_abi_handles_remaining_operators
+    run_quiet cargo test -q -p echo_runtime php_numeric_arithmetic_coerces_strings_bools_and_null
+    run_quiet cargo test -q -p echo_runtime abs_preserves_php_integer_absolute_value_behavior
+    run_quiet cargo test -q -p echo_runtime base_to_decimal_builtins_preserve_php_unsigned_string_behavior
     ;;
   runtime-value-coercion)
     run_quiet cargo test -q -p echo_runtime php_float_formatting_matches_runtime_scalar_strings
