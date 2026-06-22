@@ -975,3 +975,78 @@ pub(crate) fn path_realpath(bytes: &[u8]) -> Option<Vec<u8>> {
         .and_then(|path| path.into_os_string().into_string().ok())
         .map(String::into_bytes)
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_basename(path: EchoValue, suffix: EchoValue) -> EchoValue {
+    let Some(path) = path.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(suffix) = suffix.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    echo_runtime_string(php_basename(&path, &suffix))
+}
+
+fn php_basename(path: &[u8], suffix: &[u8]) -> Vec<u8> {
+    let trimmed_end = path
+        .iter()
+        .rposition(|byte| *byte != b'/')
+        .map_or(0, |position| position + 1);
+    let path = &path[..trimmed_end];
+    let start = path
+        .iter()
+        .rposition(|byte| *byte == b'/')
+        .map_or(0, |position| position + 1);
+    let mut basename = path[start..].to_vec();
+
+    if !suffix.is_empty() && basename.ends_with(suffix) {
+        basename.truncate(basename.len() - suffix.len());
+    }
+
+    basename
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_dirname(path: EchoValue, levels: EchoValue) -> EchoValue {
+    let Some(path) = path.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(levels) = levels.php_int_value() else {
+        return EchoValue::error();
+    };
+    if levels <= 0 {
+        return EchoValue::error();
+    }
+
+    let mut dirname = path;
+    for _ in 0..levels {
+        dirname = php_dirname_once(&dirname);
+    }
+
+    echo_runtime_string(dirname)
+}
+
+fn php_dirname_once(path: &[u8]) -> Vec<u8> {
+    let Some(last_non_slash) = path.iter().rposition(|byte| *byte != b'/') else {
+        return b"/".to_vec();
+    };
+    let path = &path[..=last_non_slash];
+    let Some(last_slash) = path.iter().rposition(|byte| *byte == b'/') else {
+        return b".".to_vec();
+    };
+    if last_slash == 0 {
+        return b"/".to_vec();
+    }
+
+    let parent = &path[..last_slash];
+    let parent_end = parent
+        .iter()
+        .rposition(|byte| *byte != b'/')
+        .map_or(0, |position| position + 1);
+    if parent_end == 0 {
+        b"/".to_vec()
+    } else {
+        parent[..parent_end].to_vec()
+    }
+}
