@@ -47,6 +47,14 @@ pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
+    match value.string_bytes().and_then(|bytes| decode_hex(&bytes)) {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
+        None => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => {

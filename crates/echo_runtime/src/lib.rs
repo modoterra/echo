@@ -44,8 +44,9 @@ use collections::{
 use encoding::*;
 pub use encoding::{
     echo_php_base64_decode, echo_php_base64_encode, echo_php_bin2hex, echo_php_crc32,
-    echo_php_escapeshellarg, echo_php_escapeshellcmd, echo_php_md5, echo_php_rawurldecode,
-    echo_php_rawurlencode, echo_php_sha1, echo_php_urldecode, echo_php_urlencode,
+    echo_php_escapeshellarg, echo_php_escapeshellcmd, echo_php_hex2bin, echo_php_md5,
+    echo_php_rawurldecode, echo_php_rawurlencode, echo_php_sha1, echo_php_urldecode,
+    echo_php_urlencode,
 };
 pub use environment::*;
 pub use error::EchoError;
@@ -3229,14 +3230,6 @@ fn php_dirname_once(path: &[u8]) -> Vec<u8> {
         b"/".to_vec()
     } else {
         parent[..parent_end].to_vec()
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
-    match value.string_bytes().and_then(|bytes| decode_hex(&bytes)) {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
-        None => EchoValue::bool(false),
     }
 }
 
