@@ -31,7 +31,10 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
-pub use callable::{EchoCallable, EchoSymbol};
+pub use callable::{
+    EchoCallable, EchoSymbol, echo_call, echo_call_function, echo_normalize_callable,
+    echo_php_define,
+};
 pub use collections::{
     EchoArray, EchoList, echo_php_array_chunk, echo_php_array_combine, echo_php_array_count_values,
     echo_php_array_fill, echo_php_array_fill_keys, echo_php_array_flip, echo_php_array_is_list,
@@ -79,6 +82,7 @@ pub use net::{
     echo_std_net_close, echo_std_net_connect, echo_std_net_listen, echo_std_net_read,
     echo_std_net_write,
 };
+use output::reset_output_runtime;
 pub(crate) use output::write_runtime_output;
 pub use output::{
     OutputRuntime, echo_php_flush, echo_php_ob_clean, echo_php_ob_end_clean, echo_php_ob_end_flush,
@@ -87,7 +91,6 @@ pub use output::{
     echo_php_ob_start_value, echo_shutdown, echo_write, echo_write_i64, echo_write_i64_or_false,
     echo_write_string, echo_write_value,
 };
-use output::{output_ob_start, reset_output_runtime};
 pub use process::{echo_process_join, echo_process_spawn};
 #[cfg(test)]
 use reflection::REFLECTION_SOURCE_PHP_BUILTIN;
@@ -526,32 +529,6 @@ pub fn echo_is_callable(value: EchoValue) -> bool {
     echo_normalize_callable(value).is_ok_and(|callback| callback.is_some())
 }
 
-pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>, EchoError> {
-    if value.is_null() {
-        return Ok(None);
-    }
-
-    if value.is_string() {
-        let string = unsafe { (value.payload as *const EchoString).as_ref() }
-            .ok_or(EchoError::InvalidCallable)?;
-        let name = std::str::from_utf8(&string.bytes).map_err(|_| EchoError::InvalidCallable)?;
-
-        return Ok(Some(EchoCallable::Function(EchoSymbol::new(name))));
-    }
-
-    Err(EchoError::InvalidCallable)
-}
-
-pub fn echo_call(callable: &EchoCallable, _args: &[EchoValue]) -> Result<EchoValue, EchoError> {
-    match callable {
-        EchoCallable::Function(symbol) if symbol.as_str() == "ob_start" => {
-            output_ob_start();
-            Ok(EchoValue::null())
-        }
-        EchoCallable::Function(symbol) => Err(EchoError::UndefinedFunction(symbol.clone())),
-    }
-}
-
 pub fn reset_execution_state() {
     reset_output_runtime();
     execution::reset();
@@ -947,14 +924,6 @@ fn ascii_digit_value(byte: u8) -> Option<u32> {
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoValue {
-    match name.string_bytes() {
-        Some(bytes) if !bytes.is_empty() => EchoValue::bool(true),
-        _ => EchoValue::error(),
-    }
-}
-
 fn parse_php_decimal_int(bytes: &[u8]) -> i64 {
     let bytes = trim_ascii_start(bytes);
     let (negative, digits) = match bytes.first().copied() {
@@ -1138,21 +1107,6 @@ fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
         *index += 1;
     }
     *index - start
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoValue {
-    if ptr.is_null() && len != 0 {
-        return EchoValue::error();
-    }
-
-    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
-    let Ok(name) = std::str::from_utf8(bytes) else {
-        return EchoValue::error();
-    };
-
-    let callable = EchoCallable::Function(EchoSymbol::new(name));
-    echo_call(&callable, &[]).unwrap_or_else(|_| EchoValue::error())
 }
 
 pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
