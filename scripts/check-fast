@@ -6,6 +6,7 @@ usage() {
 Usage:
   scripts/check-fast fmt
   scripts/check-fast script
+  scripts/check-fast script-tests
   scripts/check-fast changed [--list|--take N]
   scripts/check-fast source
   scripts/check-fast diagnostics
@@ -235,105 +236,125 @@ normalize_changed_checks() {
   fi
 }
 
-collect_changed_checks() {
+add_checks_for_changed_path() {
+  local path="$1"
+
+  case "$path" in
+    AGENTS.md|scripts/check-fast)
+      add_changed_check "script"
+      ;;
+    crates/echo_source/*)
+      add_changed_check "source"
+      ;;
+    crates/echo_diagnostics/*)
+      add_changed_check "diagnostics"
+      ;;
+    crates/echo_lexer/*)
+      add_changed_check "lexer"
+      ;;
+    crates/echo_ast/*)
+      add_changed_check "ast"
+      add_changed_check "parser"
+      ;;
+    crates/echo_parser/*)
+      add_changed_check "parser"
+      ;;
+    crates/echo_semantics/*)
+      add_changed_check "semantics"
+      ;;
+    crates/echo_hir/*)
+      add_changed_check "hir"
+      ;;
+    crates/echo_mir/*)
+      add_changed_check "mir"
+      ;;
+    crates/echo_codegen/src/jit.rs)
+      add_changed_check "jit"
+      ;;
+    crates/echo_codegen/src/abi.rs)
+      add_changed_check "codegen"
+      ;;
+    crates/echo_codegen/*)
+      add_changed_check "codegen"
+      add_changed_check "jit"
+      ;;
+    crates/echo_runtime/src/collections.rs)
+      add_changed_check "runtime-collections"
+      ;;
+    crates/echo_runtime/src/execution.rs)
+      add_changed_check "runtime-execution"
+      ;;
+    crates/echo_runtime/src/output.rs)
+      add_changed_check "runtime-output"
+      ;;
+    crates/echo_runtime/src/reflection.rs)
+      add_changed_check "runtime-reflection"
+      ;;
+    crates/echo_runtime/src/math.rs)
+      add_changed_check "runtime-math"
+      ;;
+    crates/echo_runtime/src/encoding.rs)
+      add_changed_check "runtime-encoding"
+      ;;
+    crates/echo_runtime/*)
+      add_changed_check "runtime"
+      add_changed_check "jit"
+      ;;
+    crates/echo_index/*)
+      add_changed_check "index"
+      ;;
+    crates/echo_lsp/*)
+      add_changed_check "lsp"
+      ;;
+    crates/echo_std/*)
+      add_changed_check "std"
+      ;;
+    crates/echo_reflection/*)
+      add_changed_check "reflection"
+      ;;
+    crates/xo/src/build.rs)
+      add_changed_check "xo"
+      add_changed_check "fixture"
+      ;;
+    crates/xo/src/source.rs)
+      add_changed_check "xo"
+      add_changed_check "repl"
+      add_changed_check "jit"
+      add_changed_check "fixture"
+      ;;
+    crates/xo/src/main.rs)
+      add_changed_check "xo"
+      add_changed_check "repl"
+      ;;
+    crates/xo/src/*)
+      add_changed_check "xo"
+      ;;
+    crates/xo/tests/repl.rs)
+      add_changed_check "repl"
+      ;;
+    crates/xo/tests/*)
+      add_changed_check "xo"
+      ;;
+    tests/php/*|tests/echo/*)
+      add_fixture_checks "$path"
+      ;;
+    www/*)
+      add_changed_check "web"
+      ;;
+    Cargo.toml|Cargo.lock|crates/*/Cargo.toml)
+      add_changed_check "smoke"
+      ;;
+  esac
+}
+
+collect_changed_checks_for_paths() {
   local path
   changed_checks=()
   changed_fixtures=()
 
   while IFS= read -r path; do
-    case "$path" in
-      AGENTS.md|scripts/check-fast)
-        add_changed_check "script"
-        ;;
-      crates/echo_source/*)
-        add_changed_check "source"
-        ;;
-      crates/echo_diagnostics/*)
-        add_changed_check "diagnostics"
-        ;;
-      crates/echo_lexer/*)
-        add_changed_check "lexer"
-        ;;
-      crates/echo_ast/*)
-        add_changed_check "ast"
-        add_changed_check "parser"
-        ;;
-      crates/echo_parser/*)
-        add_changed_check "parser"
-        ;;
-      crates/echo_semantics/*)
-        add_changed_check "semantics"
-        ;;
-      crates/echo_hir/*)
-        add_changed_check "hir"
-        ;;
-      crates/echo_mir/*)
-        add_changed_check "mir"
-        ;;
-      crates/echo_codegen/src/jit.rs)
-        add_changed_check "jit"
-        ;;
-      crates/echo_codegen/src/abi.rs)
-        add_changed_check "codegen"
-        ;;
-      crates/echo_codegen/*)
-        add_changed_check "codegen"
-        add_changed_check "jit"
-        ;;
-      crates/echo_runtime/src/collections.rs)
-        add_changed_check "runtime-collections"
-        ;;
-      crates/echo_runtime/src/execution.rs)
-        add_changed_check "runtime-execution"
-        ;;
-      crates/echo_runtime/src/output.rs)
-        add_changed_check "runtime-output"
-        ;;
-      crates/echo_runtime/src/reflection.rs)
-        add_changed_check "runtime-reflection"
-        ;;
-      crates/echo_runtime/src/math.rs)
-        add_changed_check "runtime-math"
-        ;;
-      crates/echo_runtime/src/encoding.rs)
-        add_changed_check "runtime-encoding"
-        ;;
-      crates/echo_runtime/*)
-        add_changed_check "runtime"
-        add_changed_check "jit"
-        ;;
-      crates/echo_index/*)
-        add_changed_check "index"
-        ;;
-      crates/echo_lsp/*)
-        add_changed_check "lsp"
-        ;;
-      crates/echo_std/*)
-        add_changed_check "std"
-        ;;
-      crates/echo_reflection/*)
-        add_changed_check "reflection"
-        ;;
-      crates/xo/src/*)
-        add_changed_check "xo"
-        ;;
-      crates/xo/tests/repl.rs)
-        add_changed_check "repl"
-        ;;
-      crates/xo/tests/*)
-        add_changed_check "xo"
-        ;;
-      tests/php/*|tests/echo/*)
-        add_fixture_checks "$path"
-        ;;
-      www/*)
-        add_changed_check "web"
-        ;;
-      Cargo.toml|Cargo.lock|crates/*/Cargo.toml)
-        add_changed_check "smoke"
-        ;;
-    esac
-  done < <(changed_files)
+    add_checks_for_changed_path "$path"
+  done
 
   add_changed_fixture_checks
   normalize_changed_checks
@@ -341,6 +362,40 @@ collect_changed_checks() {
   if ((${#changed_checks[@]} == 0)); then
     add_changed_check "smoke"
   fi
+}
+
+collect_changed_checks() {
+  collect_changed_checks_for_paths < <(changed_files)
+}
+
+assert_routing() {
+  local name="$1"
+  local expected="$2"
+  shift 2
+  local actual
+
+  actual="$(printf '%s\n' "$@" | {
+    collect_changed_checks_for_paths
+    printf '%s\n' "${changed_checks[@]}"
+  })"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'routing test failed: %s\nexpected:\n%s\nactual:\n%s\n' "$name" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
+run_script_tests() {
+  assert_routing "xo main routes repl" $'xo\nrepl' \
+    crates/xo/src/main.rs
+  assert_routing "xo source routes execution paths" $'xo\nrepl\njit\nfixture' \
+    crates/xo/src/source.rs
+  assert_routing "xo build routes build fixtures" $'xo\nfixture' \
+    crates/xo/src/build.rs
+  assert_routing "echo fixture routes filtered checks" $'parser 017_object_append_count\njit 017_object_append_count\nfixture 017_object_append_count' \
+    tests/echo/017_object_append_count/unsupported.txt
+  assert_routing "runtime math normalizes fixture coverage" $'runtime\njit\nruntime-math-fixtures' \
+    crates/echo_runtime/src/lib.rs \
+    crates/echo_runtime/src/math.rs
 }
 
 run_changed_checks() {
@@ -477,6 +532,9 @@ case "$command" in
     ;;
   script)
     run bash -n scripts/check-fast
+    ;;
+  script-tests)
+    run_script_tests
     ;;
   changed)
     run_changed_checks "${fixture_filter:-run}" "$extra_arg"
