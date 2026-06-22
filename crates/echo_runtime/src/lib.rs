@@ -41,6 +41,11 @@ use encoding::*;
 pub use environment::*;
 use execution::{repl_inspect_enabled, write_stdout};
 use math::*;
+pub use net::{
+    echo_std_http_read_request, echo_std_http_response_text, echo_std_net_accept,
+    echo_std_net_close, echo_std_net_connect, echo_std_net_listen, echo_std_net_read,
+    echo_std_net_write,
+};
 pub use output::OutputRuntime;
 use reflection::{
     REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
@@ -458,7 +463,7 @@ impl EchoValue {
         unsafe { (self.payload as *mut thread::EchoThread).as_mut() }
     }
 
-    fn as_tcp_listener_ref(self) -> Option<&'static net::EchoTcpListener> {
+    pub(crate) fn as_tcp_listener_ref(self) -> Option<&'static net::EchoTcpListener> {
         if self.kind != ECHO_VALUE_TCP_LISTENER || self.payload == 0 {
             return None;
         }
@@ -466,7 +471,7 @@ impl EchoValue {
         unsafe { (self.payload as *const net::EchoTcpListener).as_ref() }
     }
 
-    fn as_tcp_connection_mut(self) -> Option<&'static mut net::EchoTcpConnection> {
+    pub(crate) fn as_tcp_connection_mut(self) -> Option<&'static mut net::EchoTcpConnection> {
         if self.kind != ECHO_VALUE_TCP_CONNECTION || self.payload == 0 {
             return None;
         }
@@ -889,128 +894,6 @@ pub extern "C" fn echo_task_sleep_current(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_std_net_listen(address: EchoValue) -> EchoValue {
-    let Some(bytes) = address.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Ok(address) = String::from_utf8(bytes) else {
-        return EchoValue::error();
-    };
-
-    match net::listen(address) {
-        Ok(listener) => EchoValue::tcp_listener(Box::into_raw(Box::new(listener))),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_net_connect(address: EchoValue) -> EchoValue {
-    let Some(bytes) = address.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Ok(address) = String::from_utf8(bytes) else {
-        return EchoValue::error();
-    };
-
-    match net::connect(address) {
-        Ok(connection) => EchoValue::tcp_connection(Box::into_raw(Box::new(connection))),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_net_accept(listener: EchoValue) -> EchoValue {
-    let Some(listener) = listener.as_tcp_listener_ref() else {
-        return EchoValue::error();
-    };
-
-    match net::accept(listener) {
-        Ok(connection) => EchoValue::tcp_connection(Box::into_raw(Box::new(connection))),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_net_read(connection: EchoValue, max_bytes: EchoValue) -> EchoValue {
-    let Some(connection) = connection.as_tcp_connection_mut() else {
-        return EchoValue::error();
-    };
-    if !max_bytes.is_int() {
-        return EchoValue::error();
-    }
-
-    match net::read(connection, max_bytes.payload as usize) {
-        Ok(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            bytes.into_bytes().to_vec(),
-        )))),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_net_write(connection: EchoValue, data: EchoValue) -> EchoValue {
-    let Some(connection) = connection.as_tcp_connection_mut() else {
-        return EchoValue::error();
-    };
-    let Some(bytes) = data.string_bytes() else {
-        return EchoValue::error();
-    };
-
-    match net::write(connection, &bytes) {
-        Ok(written) => EchoValue::int(written as i64),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_net_close(connection: EchoValue) -> EchoValue {
-    let Some(connection) = connection.as_tcp_connection_mut() else {
-        return EchoValue::error();
-    };
-
-    match net::close(connection) {
-        Ok(()) => EchoValue::null(),
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_http_response_text(body: EchoValue) -> EchoValue {
-    let Some(body) = body.string_bytes() else {
-        return EchoValue::error();
-    };
-
-    let Ok(response) = http::Response::builder()
-        .status(http::StatusCode::OK)
-        .header(http::header::CONTENT_TYPE, "text/plain")
-        .header(http::header::CONTENT_LENGTH, body.len().to_string())
-        .header(http::header::CONNECTION, "close")
-        .body(body)
-    else {
-        return EchoValue::error();
-    };
-
-    let (parts, body) = response.into_parts();
-    let reason = parts.status.canonical_reason().unwrap_or("OK");
-    let mut bytes = format!("HTTP/1.1 {} {reason}\r\n", parts.status.as_u16()).into_bytes();
-
-    for (name, value) in &parts.headers {
-        let Ok(value) = value.to_str() else {
-            return EchoValue::error();
-        };
-        bytes.extend_from_slice(name.as_str().as_bytes());
-        bytes.extend_from_slice(b": ");
-        bytes.extend_from_slice(value.as_bytes());
-        bytes.extend_from_slice(b"\r\n");
-    }
-
-    bytes.extend_from_slice(b"\r\n");
-    bytes.extend_from_slice(&body);
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_std_reflect_exists(name: EchoValue) -> EchoValue {
     match function_reflection_for_value(name) {
         Some(_) => EchoValue::bool(true),
@@ -1095,39 +978,6 @@ pub extern "C" fn echo_std_assert_equals(actual: EchoValue, expected: EchoValue)
     let passed = echo_values_equal(actual, expected);
     record_assertion(passed, "assert.equals failed");
     EchoValue::bool(passed)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_http_read_request(connection: EchoValue) -> EchoValue {
-    if connection.kind != ECHO_VALUE_TCP_CONNECTION {
-        return EchoValue::error();
-    }
-
-    let Some(connection) =
-        (unsafe { (connection.payload as *mut net::EchoTcpConnection).as_mut() })
-    else {
-        return EchoValue::error();
-    };
-    let Ok(buffer) = net::read(connection, 4096) else {
-        return EchoValue::error();
-    };
-    let Ok(request) = std::str::from_utf8(buffer.as_bytes()) else {
-        return EchoValue::error();
-    };
-    let Some(request_line) = request.lines().next() else {
-        return EchoValue::error();
-    };
-    let mut parts = request_line.split_whitespace();
-    let (Some(_method), Some(path), Some(_version)) = (parts.next(), parts.next(), parts.next())
-    else {
-        return EchoValue::error();
-    };
-
-    let object = echo_value_object_new();
-    let path = EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-        path.as_bytes().to_vec(),
-    ))));
-    unsafe { echo_value_object_set(object, b"path".as_ptr(), 4, path) }
 }
 
 #[unsafe(no_mangle)]

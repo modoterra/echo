@@ -4,6 +4,8 @@ use std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
 use bytes::Bytes;
 use socket2::{Domain, Protocol, Socket, Type};
 
+use crate::{EchoString, EchoValue, echo_value_object_new, echo_value_object_set};
+
 #[derive(Debug)]
 pub struct EchoTcpListener {
     inner: TcpListener,
@@ -108,6 +110,155 @@ pub fn close(connection: &mut EchoTcpConnection) -> io::Result<()> {
     };
 
     stream.shutdown(std::net::Shutdown::Both)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_listen(address: EchoValue) -> EchoValue {
+    let Some(bytes) = address.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(address) = String::from_utf8(bytes) else {
+        return EchoValue::error();
+    };
+
+    match listen(address) {
+        Ok(listener) => EchoValue::tcp_listener(Box::into_raw(Box::new(listener))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_connect(address: EchoValue) -> EchoValue {
+    let Some(bytes) = address.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(address) = String::from_utf8(bytes) else {
+        return EchoValue::error();
+    };
+
+    match connect(address) {
+        Ok(connection) => EchoValue::tcp_connection(Box::into_raw(Box::new(connection))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_accept(listener: EchoValue) -> EchoValue {
+    let Some(listener) = listener.as_tcp_listener_ref() else {
+        return EchoValue::error();
+    };
+
+    match accept(listener) {
+        Ok(connection) => EchoValue::tcp_connection(Box::into_raw(Box::new(connection))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_read(connection: EchoValue, max_bytes: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+    if !max_bytes.is_int() {
+        return EchoValue::error();
+    }
+
+    match read(connection, max_bytes.payload as usize) {
+        Ok(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+            bytes.into_bytes().to_vec(),
+        )))),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_write(connection: EchoValue, data: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+    let Some(bytes) = data.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    match write(connection, &bytes) {
+        Ok(written) => EchoValue::int(written as i64),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_net_close(connection: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+
+    match close(connection) {
+        Ok(()) => EchoValue::null(),
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_http_response_text(body: EchoValue) -> EchoValue {
+    let Some(body) = body.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Ok(response) = http::Response::builder()
+        .status(http::StatusCode::OK)
+        .header(http::header::CONTENT_TYPE, "text/plain")
+        .header(http::header::CONTENT_LENGTH, body.len().to_string())
+        .header(http::header::CONNECTION, "close")
+        .body(body)
+    else {
+        return EchoValue::error();
+    };
+
+    let (parts, body) = response.into_parts();
+    let reason = parts.status.canonical_reason().unwrap_or("OK");
+    let mut bytes = format!("HTTP/1.1 {} {reason}\r\n", parts.status.as_u16()).into_bytes();
+
+    for (name, value) in &parts.headers {
+        let Ok(value) = value.to_str() else {
+            return EchoValue::error();
+        };
+        bytes.extend_from_slice(name.as_str().as_bytes());
+        bytes.extend_from_slice(b": ");
+        bytes.extend_from_slice(value.as_bytes());
+        bytes.extend_from_slice(b"\r\n");
+    }
+
+    bytes.extend_from_slice(b"\r\n");
+    bytes.extend_from_slice(&body);
+
+    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_http_read_request(connection: EchoValue) -> EchoValue {
+    let Some(connection) = connection.as_tcp_connection_mut() else {
+        return EchoValue::error();
+    };
+    let Ok(buffer) = read(connection, 4096) else {
+        return EchoValue::error();
+    };
+    let Ok(request) = std::str::from_utf8(buffer.as_bytes()) else {
+        return EchoValue::error();
+    };
+    let Some(request_line) = request.lines().next() else {
+        return EchoValue::error();
+    };
+    let mut parts = request_line.split_whitespace();
+    let (Some(_method), Some(path), Some(_version)) = (parts.next(), parts.next(), parts.next())
+    else {
+        return EchoValue::error();
+    };
+
+    let object = echo_value_object_new();
+    let path = EchoValue::string(Box::into_raw(Box::new(EchoString::new(
+        path.as_bytes().to_vec(),
+    ))));
+    unsafe { echo_value_object_set(object, b"path".as_ptr(), 4, path) }
 }
 
 #[cfg(test)]
