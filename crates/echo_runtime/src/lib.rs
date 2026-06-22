@@ -1,9 +1,15 @@
 pub mod abi;
+mod collections;
+mod encoding;
 pub mod error;
+mod execution;
 pub mod io;
+mod math;
 pub mod net;
+mod output;
 pub mod poll;
 pub mod process;
+mod reflection;
 pub mod sched;
 pub mod task;
 pub mod task_group;
@@ -28,18 +34,16 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Default)]
-pub struct OutputRuntime {
-    stack: Vec<OutputBuffer>,
-    implicit_flush: bool,
-}
-
-#[derive(Debug, Default)]
-struct OutputBuffer {
-    bytes: Vec<u8>,
-    #[allow(dead_code)]
-    callback: Option<EchoCallable>,
-}
+pub use collections::{EchoArray, EchoList};
+use collections::{EchoArrayKey, next_array_append_key, php_array_union};
+use encoding::*;
+use execution::{repl_inspect_enabled, write_stdout};
+use math::*;
+pub use output::OutputRuntime;
+use reflection::{
+    REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
+    function_reflection_by_name_and_source, function_reflection_for_value,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchoSymbol {
@@ -73,73 +77,8 @@ pub struct EchoString {
 }
 
 impl EchoString {
-    fn new(bytes: Vec<u8>) -> Self {
+    pub(crate) fn new(bytes: Vec<u8>) -> Self {
         Self { bytes }
-    }
-}
-
-#[derive(Debug)]
-pub struct EchoList {
-    values: Vec<EchoValue>,
-}
-
-impl EchoList {
-    fn new() -> Self {
-        Self { values: Vec::new() }
-    }
-}
-
-#[derive(Debug)]
-pub struct EchoArray {
-    keys: Vec<EchoArrayKey>,
-    values: Vec<EchoValue>,
-}
-
-impl EchoArray {
-    fn new() -> Self {
-        Self {
-            keys: Vec::new(),
-            values: Vec::new(),
-        }
-    }
-
-    fn from_values(values: Vec<EchoValue>) -> Self {
-        let keys = (0..values.len())
-            .map(|key| EchoArrayKey::Int(key as i64))
-            .collect();
-        Self { keys, values }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum EchoArrayKey {
-    Int(i64),
-    String(Vec<u8>),
-}
-
-impl EchoArrayKey {
-    fn from_value(value: EchoValue) -> Option<Self> {
-        match value.kind {
-            ECHO_VALUE_INT => Some(Self::Int(value.payload as i64)),
-            ECHO_VALUE_FLOAT => Some(Self::Int(f64::from_bits(value.payload) as i64)),
-            ECHO_VALUE_BOOL => Some(Self::Int(if value.payload == 0 { 0 } else { 1 })),
-            ECHO_VALUE_NULL => Some(Self::String(Vec::new())),
-            ECHO_VALUE_STRING => unsafe {
-                let bytes = &(value.payload as *const EchoString).as_ref()?.bytes;
-                match parse_php_array_integer_key(bytes) {
-                    Some(key) => Some(Self::Int(key)),
-                    None => Some(Self::String(bytes.clone())),
-                }
-            },
-            _ => None,
-        }
-    }
-
-    fn to_value(&self) -> EchoValue {
-        match self {
-            Self::Int(value) => EchoValue::int(*value),
-            Self::String(bytes) => echo_runtime_string(bytes.clone()),
-        }
     }
 }
 
@@ -152,14 +91,6 @@ impl EchoObject {
     fn new() -> Self {
         Self { fields: Vec::new() }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct RuntimeFunctionReflection {
-    name: String,
-    params_signature: String,
-    return_type: String,
-    source_kind: i32,
 }
 
 #[repr(C)]
@@ -192,8 +123,6 @@ static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
-
-const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
 
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
 const INSPECT_MAX_DEPTH: usize = 3;
@@ -332,7 +261,7 @@ impl EchoValue {
         }
     }
 
-    fn string_bytes(self) -> Option<Vec<u8>> {
+    pub(crate) fn string_bytes(self) -> Option<Vec<u8>> {
         match self.kind {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
             ECHO_VALUE_BOOL => {
@@ -544,126 +473,6 @@ impl EchoValue {
     }
 }
 
-impl OutputRuntime {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn write(&mut self, bytes: &[u8], stdout: &mut Vec<u8>) {
-        match self.stack.last_mut() {
-            Some(buffer) => buffer.bytes.extend_from_slice(bytes),
-            None => stdout.extend_from_slice(bytes),
-        }
-    }
-
-    pub fn ob_implicit_flush(&mut self, enabled: bool) {
-        self.implicit_flush = enabled;
-    }
-
-    pub fn ob_start(&mut self) {
-        self.ob_start_with_callback(None);
-    }
-
-    pub fn ob_start_with_callback(&mut self, callback: Option<EchoCallable>) {
-        self.stack.push(OutputBuffer {
-            bytes: Vec::new(),
-            callback,
-        });
-    }
-
-    pub fn ob_clean(&mut self) -> bool {
-        // PHP `ob_clean()` discards active buffer contents without turning the buffer off.
-        // Source: https://www.php.net/manual/en/function.ob-clean.php
-        let Some(buffer) = self.stack.last_mut() else {
-            return false;
-        };
-
-        buffer.bytes.clear();
-        true
-    }
-
-    pub fn ob_flush(&mut self, stdout: &mut Vec<u8>) -> bool {
-        if self.stack.is_empty() {
-            return false;
-        };
-
-        // PHP flushes only the active buffer; nested buffers flush to their parent.
-        // Sources: function.ob-flush.php and outcontrol.nesting-output-buffers.php
-        let top = self.stack.len() - 1;
-        let bytes = std::mem::take(&mut self.stack[top].bytes);
-
-        match top
-            .checked_sub(1)
-            .and_then(|parent| self.stack.get_mut(parent))
-        {
-            Some(parent) => parent.bytes.extend_from_slice(&bytes),
-            None => stdout.extend_from_slice(&bytes),
-        }
-
-        true
-    }
-
-    pub fn ob_end_flush(&mut self, stdout: &mut Vec<u8>) -> bool {
-        // PHP `ob_end_flush()` flushes contents and turns off the active buffer.
-        // Source: https://www.php.net/manual/en/function.ob-end-flush.php
-        let Some(buffer) = self.stack.pop() else {
-            return false;
-        };
-
-        self.write(&buffer.bytes, stdout);
-        true
-    }
-
-    pub fn ob_end_clean(&mut self) -> bool {
-        // PHP `ob_end_clean()` discards contents and turns off the active buffer.
-        // Source: https://www.php.net/manual/en/function.ob-end-clean.php
-        self.take_active_buffer().is_some()
-    }
-
-    pub fn ob_get_clean(&mut self) -> Option<EchoString> {
-        // PHP `ob_get_clean()` returns the active buffer contents and turns that buffer off.
-        // Source: https://www.php.net/manual/en/function.ob-get-clean.php
-        self.take_active_buffer()
-            .map(|buffer| EchoString { bytes: buffer })
-    }
-
-    pub fn ob_get_flush(&mut self, stdout: &mut Vec<u8>) -> Option<EchoString> {
-        // PHP `ob_get_flush()` returns the active buffer contents, flushes them, and turns it off.
-        // Source: https://www.php.net/manual/en/function.ob-get-flush.php
-        let buffer = self.take_active_buffer()?;
-        self.write(&buffer, stdout);
-        Some(EchoString { bytes: buffer })
-    }
-
-    pub fn ob_get_contents(&self) -> Option<EchoString> {
-        // PHP `ob_get_contents()` returns a new string with the active buffer contents.
-        // Source: https://www.php.net/manual/en/function.ob-get-contents.php
-        self.stack.last().map(|buffer| EchoString {
-            bytes: buffer.bytes.clone(),
-        })
-    }
-
-    pub fn ob_get_length(&self) -> Option<usize> {
-        // PHP `ob_get_length()` returns the active buffer length in bytes.
-        // Source: https://www.php.net/manual/en/function.ob-get-length.php
-        self.stack.last().map(|buffer| buffer.bytes.len())
-    }
-
-    pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
-        // PHP shutdown flushes and turns off still-open buffers in reverse start order.
-        // Source: https://www.php.net/manual/en/outcontrol.user-level-output-buffers.php
-        while self.ob_end_flush(stdout) {}
-    }
-
-    pub fn level(&self) -> usize {
-        self.stack.len()
-    }
-
-    fn take_active_buffer(&mut self) -> Option<Vec<u8>> {
-        self.stack.pop().map(|buffer| buffer.bytes)
-    }
-}
-
 pub fn echo_is_callable(value: EchoValue) -> bool {
     echo_normalize_callable(value).is_ok_and(|callback| callback.is_some())
 }
@@ -696,39 +505,21 @@ pub fn echo_call(callable: &EchoCallable, _args: &[EchoValue]) -> Result<EchoVal
 
 thread_local! {
     static OUTPUT: RefCell<OutputRuntime> = RefCell::new(OutputRuntime::new());
-    static EXECUTION: RefCell<RuntimeExecution> = RefCell::new(RuntimeExecution::default());
-}
-
-#[derive(Debug, Default)]
-struct RuntimeExecution {
-    stdout: Option<Vec<u8>>,
-    repl_inspect: bool,
 }
 
 pub fn reset_execution_state() {
     OUTPUT.with(|runtime| {
         *runtime.borrow_mut() = OutputRuntime::new();
     });
+    execution::reset();
     ASSERT_FAILURES.store(0, Ordering::Relaxed);
 }
 
 pub fn capture_stdout<T>(repl_inspect: bool, f: impl FnOnce() -> T) -> (T, Vec<u8>) {
     reset_execution_state();
-    EXECUTION.with(|execution| {
-        *execution.borrow_mut() = RuntimeExecution {
-            stdout: Some(Vec::new()),
-            repl_inspect,
-        };
-    });
-
+    execution::begin_capture(repl_inspect);
     let result = f();
-    let stdout = EXECUTION.with(|execution| {
-        let mut execution = execution.borrow_mut();
-        execution.repl_inspect = false;
-        execution.stdout.take().unwrap_or_default()
-    });
-
-    (result, stdout)
+    (result, execution::finish_capture())
 }
 
 #[unsafe(no_mangle)]
@@ -804,11 +595,6 @@ pub unsafe extern "C" fn echo_write_value(value: EchoValue) {
         ECHO_VALUE_LIST => unsafe { echo_write(c"List".as_ptr().cast(), 4) },
         _ => {}
     }
-}
-
-fn repl_inspect_enabled() -> bool {
-    EXECUTION.with(|execution| execution.borrow().repl_inspect)
-        || std::env::var_os("ECHO_REPL_INSPECT").is_some()
 }
 
 fn inspect_array(array: &EchoArray, depth: usize) -> String {
@@ -1258,31 +1044,16 @@ pub unsafe extern "C" fn echo_reflection_register_function(
     return_type_len: usize,
     source_kind: i32,
 ) {
-    let Some(name) = runtime_utf8_arg(name_ptr, name_len) else {
-        return;
-    };
-    let Some(params_signature) = runtime_utf8_arg(params_ptr, params_len) else {
-        return;
-    };
-    let Some(return_type) = runtime_utf8_arg(return_type_ptr, return_type_len) else {
-        return;
-    };
-
-    let mut functions = function_reflections()
-        .lock()
-        .expect("function reflection registry should not be poisoned");
-    if let Some(existing) = functions.iter_mut().find(|function| {
-        function.name.eq_ignore_ascii_case(&name) && function.source_kind == source_kind
-    }) {
-        existing.params_signature = params_signature;
-        existing.return_type = return_type;
-    } else {
-        functions.push(RuntimeFunctionReflection {
-            name,
-            params_signature,
-            return_type,
+    unsafe {
+        reflection::register_function_raw(
+            name_ptr,
+            name_len,
+            params_ptr,
+            params_len,
+            return_type_ptr,
+            return_type_len,
             source_kind,
-        });
+        );
     }
 }
 
@@ -2319,58 +2090,8 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(type_name.to_vec()))))
 }
 
-fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
+pub(crate) fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {
     EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-}
-
-fn function_reflection_for_value(value: EchoValue) -> Option<RuntimeFunctionReflection> {
-    let bytes = value.string_bytes()?;
-    let name = std::str::from_utf8(&bytes).ok()?;
-    function_reflections()
-        .lock()
-        .expect("function reflection registry should not be poisoned")
-        .iter()
-        .find(|function| function.name.eq_ignore_ascii_case(name))
-        .cloned()
-}
-
-fn function_reflection_by_name_and_source(
-    name: &str,
-    source_kind: i32,
-) -> Option<RuntimeFunctionReflection> {
-    function_reflections()
-        .lock()
-        .expect("function reflection registry should not be poisoned")
-        .iter()
-        .find(|function| {
-            function.name.eq_ignore_ascii_case(name) && function.source_kind == source_kind
-        })
-        .cloned()
-}
-
-fn function_reflection_by_name(name: &str) -> Option<RuntimeFunctionReflection> {
-    function_reflections()
-        .lock()
-        .expect("function reflection registry should not be poisoned")
-        .iter()
-        .find(|function| function.name.eq_ignore_ascii_case(name))
-        .cloned()
-}
-
-fn function_reflections() -> &'static Mutex<Vec<RuntimeFunctionReflection>> {
-    static FUNCTION_REFLECTIONS: OnceLock<Mutex<Vec<RuntimeFunctionReflection>>> = OnceLock::new();
-    FUNCTION_REFLECTIONS.get_or_init(|| Mutex::new(Vec::new()))
-}
-
-fn runtime_utf8_arg(ptr: *const u8, len: usize) -> Option<String> {
-    if ptr.is_null() && len != 0 {
-        return None;
-    }
-
-    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
-    std::str::from_utf8(bytes)
-        .ok()
-        .map(std::string::ToString::to_string)
 }
 
 #[unsafe(no_mangle)]
@@ -2468,26 +2189,17 @@ pub extern "C" fn echo_php_is_float(value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_finite(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::bool(value.is_finite()),
-        None => EchoValue::error(),
-    }
+    php_float_predicate_builtin(value, f64::is_finite)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_infinite(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::bool(value.is_infinite()),
-        None => EchoValue::error(),
-    }
+    php_float_predicate_builtin(value, f64::is_infinite)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_nan(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::bool(value.is_nan()),
-        None => EchoValue::error(),
-    }
+    php_float_predicate_builtin(value, f64::is_nan)
 }
 
 #[unsafe(no_mangle)]
@@ -2551,78 +2263,48 @@ pub extern "C" fn echo_php_floatval(value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            bytes.make_ascii_uppercase();
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-        }
-        None => EchoValue::error(),
-    }
+    php_string_transform_builtin(value, |bytes| bytes.make_ascii_uppercase())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtolower(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            bytes.make_ascii_lowercase();
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-        }
-        None => EchoValue::error(),
-    }
+    php_string_transform_builtin(value, |bytes| bytes.make_ascii_lowercase())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ucwords(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            let mut uppercase_next = true;
-            for byte in &mut bytes {
-                if uppercase_next {
-                    byte.make_ascii_uppercase();
-                }
-                uppercase_next = matches!(*byte, b' ' | b'\t' | b'\r' | b'\n' | 0x0c | 0x0b);
+    php_string_transform_builtin(value, |bytes| {
+        let mut uppercase_next = true;
+        for byte in bytes {
+            if uppercase_next {
+                byte.make_ascii_uppercase();
             }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+            uppercase_next = matches!(*byte, b' ' | b'\t' | b'\r' | b'\n' | 0x0c | 0x0b);
         }
-        None => EchoValue::error(),
-    }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strrev(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            bytes.reverse();
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-        }
-        None => EchoValue::error(),
-    }
+    php_string_transform_builtin(value, |bytes| bytes.reverse())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ucfirst(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            if let Some(first) = bytes.first_mut() {
-                first.make_ascii_uppercase();
-            }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+    php_string_transform_builtin(value, |bytes| {
+        if let Some(first) = bytes.first_mut() {
+            first.make_ascii_uppercase();
         }
-        None => EchoValue::error(),
-    }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_lcfirst(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            if let Some(first) = bytes.first_mut() {
-                first.make_ascii_lowercase();
-            }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+    php_string_transform_builtin(value, |bytes| {
+        if let Some(first) = bytes.first_mut() {
+            first.make_ascii_lowercase();
         }
-        None => EchoValue::error(),
-    }
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2638,17 +2320,30 @@ pub extern "C" fn echo_php_ord(value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| {
+        for byte in bytes {
+            *byte = match *byte {
+                b'a'..=b'm' | b'A'..=b'M' => *byte + 13,
+                b'n'..=b'z' | b'N'..=b'Z' => *byte - 13,
+                other => other,
+            };
+        }
+    })
+}
+
+fn php_string_transform_builtin(value: EchoValue, f: impl FnOnce(&mut Vec<u8>)) -> EchoValue {
     match value.string_bytes() {
         Some(mut bytes) => {
-            for byte in &mut bytes {
-                *byte = match *byte {
-                    b'a'..=b'm' | b'A'..=b'M' => *byte + 13,
-                    b'n'..=b'z' | b'N'..=b'Z' => *byte - 13,
-                    other => other,
-                };
-            }
-            EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
+            f(&mut bytes);
+            echo_runtime_string(bytes)
         }
+        None => EchoValue::error(),
+    }
+}
+
+fn php_string_map_builtin(value: EchoValue, f: impl FnOnce(&[u8]) -> Vec<u8>) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => echo_runtime_string(f(&bytes)),
         None => EchoValue::error(),
     }
 }
@@ -2666,54 +2361,44 @@ pub extern "C" fn echo_php_chr(value: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_dechex(value: EchoValue) -> EchoValue {
-    match value.php_int_value() {
-        Some(number) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            format!("{:x}", number as u64).into_bytes(),
-        )))),
-        None => EchoValue::error(),
-    }
+    php_int_to_string_builtin(value, |number| format!("{:x}", number as u64).into_bytes())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_decbin(value: EchoValue) -> EchoValue {
-    match value.php_int_value() {
-        Some(number) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            format!("{:b}", number as u64).into_bytes(),
-        )))),
-        None => EchoValue::error(),
-    }
+    php_int_to_string_builtin(value, |number| format!("{:b}", number as u64).into_bytes())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
-    match value.php_int_value() {
-        Some(number) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            format!("{:o}", number as u64).into_bytes(),
-        )))),
-        None => EchoValue::error(),
-    }
+    php_int_to_string_builtin(value, |number| format!("{:o}", number as u64).into_bytes())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_bindec(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => php_unsigned_base_to_decimal(&bytes, 2),
-        None => EchoValue::error(),
-    }
+    php_string_to_number_builtin(value, |bytes| php_unsigned_base_to_decimal(bytes, 2))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hexdec(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => php_unsigned_base_to_decimal(&bytes, 16),
-        None => EchoValue::error(),
-    }
+    php_string_to_number_builtin(value, |bytes| php_unsigned_base_to_decimal(bytes, 16))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_octdec(value: EchoValue) -> EchoValue {
+    php_string_to_number_builtin(value, |bytes| php_unsigned_base_to_decimal(bytes, 8))
+}
+
+fn php_int_to_string_builtin(value: EchoValue, f: impl FnOnce(i64) -> Vec<u8>) -> EchoValue {
+    match value.php_int_value() {
+        Some(number) => echo_runtime_string(f(number)),
+        None => EchoValue::error(),
+    }
+}
+
+fn php_string_to_number_builtin(value: EchoValue, f: impl FnOnce(&[u8]) -> EchoValue) -> EchoValue {
     match value.string_bytes() {
-        Some(bytes) => php_unsigned_base_to_decimal(&bytes, 8),
+        Some(bytes) => f(&bytes),
         None => EchoValue::error(),
     }
 }
@@ -2832,162 +2517,102 @@ fn ascii_digit_value(byte: u8) -> Option<u32> {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_deg2rad(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(value.to_radians()),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, f64::to_radians)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_rad2deg(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(value.to_degrees()),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, f64::to_degrees)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sin(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_sin(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_sin)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_cos(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_cos(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_cos)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_tan(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_sin(value) / echo_math_cos(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, |value| echo_math_sin(value) / echo_math_cos(value))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_asin(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_asin(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_asin)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_acos(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_acos(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_acos)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_atan(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_atan(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_atan)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_atan2(y: EchoValue, x: EchoValue) -> EchoValue {
-    match (php_float_coercion(y), php_float_coercion(x)) {
-        (Some(y), Some(x)) => EchoValue::float(echo_math_atan2(y, x)),
-        _ => EchoValue::error(),
-    }
+    php_binary_float_builtin(y, x, echo_math_atan2)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sinh(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_sinh(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_sinh)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_cosh(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_cosh(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_cosh)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_tanh(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_tanh(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_tanh)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_asinh(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_asinh(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_asinh)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_acosh(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_acosh(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_acosh)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_atanh(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_atanh(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_atanh)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ceil(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_ceil(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_ceil)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_floor(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_floor(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_floor)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sqrt(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_sqrt(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_sqrt)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_exp(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_exp(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_exp)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_expm1(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_expm1(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_expm1)
 }
 
 #[unsafe(no_mangle)]
@@ -3003,18 +2628,12 @@ pub extern "C" fn echo_php_log(value: EchoValue, base: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_log10(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_ln(value) / std::f64::consts::LN_10),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, |value| echo_math_ln(value) / std::f64::consts::LN_10)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_log1p(value: EchoValue) -> EchoValue {
-    match php_float_coercion(value) {
-        Some(value) => EchoValue::float(echo_math_log1p(value)),
-        None => EchoValue::error(),
-    }
+    php_unary_float_builtin(value, echo_math_log1p)
 }
 
 #[unsafe(no_mangle)]
@@ -3024,26 +2643,17 @@ pub extern "C" fn echo_php_pow(base: EchoValue, exponent: EchoValue) -> EchoValu
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fdiv(num1: EchoValue, num2: EchoValue) -> EchoValue {
-    match (php_float_coercion(num1), php_float_coercion(num2)) {
-        (Some(num1), Some(num2)) => EchoValue::float(num1 / num2),
-        _ => EchoValue::error(),
-    }
+    php_binary_float_builtin(num1, num2, |num1, num2| num1 / num2)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fpow(base: EchoValue, exponent: EchoValue) -> EchoValue {
-    match (php_float_coercion(base), php_float_coercion(exponent)) {
-        (Some(base), Some(exponent)) => EchoValue::float(echo_math_pow_float(base, exponent)),
-        _ => EchoValue::error(),
-    }
+    php_binary_float_builtin(base, exponent, echo_math_pow_float)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hypot(x: EchoValue, y: EchoValue) -> EchoValue {
-    match (php_float_coercion(x), php_float_coercion(y)) {
-        (Some(x), Some(y)) => EchoValue::float(echo_math_sqrt(x * x + y * y)),
-        _ => EchoValue::error(),
-    }
+    php_binary_float_builtin(x, y, |x, y| echo_math_sqrt(x * x + y * y))
 }
 
 #[unsafe(no_mangle)]
@@ -3053,396 +2663,31 @@ pub extern "C" fn echo_php_pi() -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fmod(num1: EchoValue, num2: EchoValue) -> EchoValue {
-    match (php_float_coercion(num1), php_float_coercion(num2)) {
-        (Some(num1), Some(num2)) => EchoValue::float(num1 % num2),
+    php_binary_float_builtin(num1, num2, |num1, num2| num1 % num2)
+}
+
+fn php_float_predicate_builtin(value: EchoValue, f: impl FnOnce(f64) -> bool) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::bool(f(value)),
+        None => EchoValue::error(),
+    }
+}
+
+fn php_unary_float_builtin(value: EchoValue, f: impl FnOnce(f64) -> f64) -> EchoValue {
+    match php_float_coercion(value) {
+        Some(value) => EchoValue::float(f(value)),
+        None => EchoValue::error(),
+    }
+}
+
+fn php_binary_float_builtin(
+    left: EchoValue,
+    right: EchoValue,
+    f: impl FnOnce(f64, f64) -> f64,
+) -> EchoValue {
+    match (php_float_coercion(left), php_float_coercion(right)) {
+        (Some(left), Some(right)) => EchoValue::float(f(left, right)),
         _ => EchoValue::error(),
-    }
-}
-
-fn echo_math_sin(value: f64) -> f64 {
-    if !value.is_finite() {
-        return f64::NAN;
-    }
-
-    let (x, sign) = reduce_to_half_pi(value);
-    let x2 = x * x;
-    sign * x
-        * (1.0
-            + x2 * (-1.0 / 6.0
-                + x2 * (1.0 / 120.0
-                    + x2 * (-1.0 / 5040.0
-                        + x2 * (1.0 / 362880.0 + x2 * (-1.0 / 39916800.0 + x2 / 6227020800.0))))))
-}
-
-fn echo_math_cos(value: f64) -> f64 {
-    echo_math_sin(std::f64::consts::FRAC_PI_2 - value)
-}
-
-fn echo_math_asin(value: f64) -> f64 {
-    if !(-1.0..=1.0).contains(&value) {
-        return f64::NAN;
-    }
-    echo_math_atan2(value, echo_math_sqrt(1.0 - value * value))
-}
-
-fn echo_math_acos(value: f64) -> f64 {
-    if !(-1.0..=1.0).contains(&value) {
-        return f64::NAN;
-    }
-    echo_math_atan2(echo_math_sqrt(1.0 - value * value), value)
-}
-
-fn echo_math_atan(value: f64) -> f64 {
-    if value.is_nan() {
-        return f64::NAN;
-    }
-    if value.is_infinite() {
-        return value.signum() * std::f64::consts::FRAC_PI_2;
-    }
-
-    let sign = if value < 0.0 { -1.0 } else { 1.0 };
-    sign * echo_math_atan_positive(value.abs())
-}
-
-fn echo_math_atan2(y: f64, x: f64) -> f64 {
-    if y.is_nan() || x.is_nan() {
-        return f64::NAN;
-    }
-
-    if x > 0.0 {
-        echo_math_atan(y / x)
-    } else if x < 0.0 && y >= 0.0 {
-        echo_math_atan(y / x) + std::f64::consts::PI
-    } else if x < 0.0 {
-        echo_math_atan(y / x) - std::f64::consts::PI
-    } else if y > 0.0 {
-        std::f64::consts::FRAC_PI_2
-    } else if y < 0.0 {
-        -std::f64::consts::FRAC_PI_2
-    } else {
-        0.0
-    }
-}
-
-fn echo_math_atan_positive(value: f64) -> f64 {
-    if value > 1.0 {
-        return std::f64::consts::FRAC_PI_2 - echo_math_atan_positive(1.0 / value);
-    }
-    if value > 0.41421356237309503 {
-        return std::f64::consts::FRAC_PI_4 + echo_math_atan_kernel((value - 1.0) / (value + 1.0));
-    }
-
-    echo_math_atan_kernel(value)
-}
-
-fn echo_math_atan_kernel(value: f64) -> f64 {
-    let x2 = value * value;
-    value
-        * (1.0
-            + x2 * (-1.0 / 3.0
-                + x2 * (1.0 / 5.0
-                    + x2 * (-1.0 / 7.0
-                        + x2 * (1.0 / 9.0
-                            + x2 * (-1.0 / 11.0
-                                + x2 * (1.0 / 13.0 + x2 * (-1.0 / 15.0 + x2 / 17.0))))))))
-}
-
-fn echo_math_sinh(value: f64) -> f64 {
-    if value.is_nan() {
-        return f64::NAN;
-    }
-    if value.is_infinite() {
-        return value;
-    }
-
-    let abs = value.abs();
-    let result = if abs < 0.00000001 {
-        value
-    } else {
-        let exp = echo_math_exp(abs);
-        0.5 * (exp - 1.0 / exp)
-    };
-    result.copysign(value)
-}
-
-fn echo_math_cosh(value: f64) -> f64 {
-    if value.is_nan() {
-        return f64::NAN;
-    }
-    if value.is_infinite() {
-        return f64::INFINITY;
-    }
-
-    let exp = echo_math_exp(value.abs());
-    0.5 * (exp + 1.0 / exp)
-}
-
-fn echo_math_tanh(value: f64) -> f64 {
-    if value.is_nan() {
-        return f64::NAN;
-    }
-    if value == 0.0 {
-        return value;
-    }
-    if value.is_infinite() {
-        return value.signum();
-    }
-
-    let exp2 = echo_math_exp(2.0 * value.abs());
-    let result = (exp2 - 1.0) / (exp2 + 1.0);
-    result.copysign(value)
-}
-
-fn echo_math_asinh(value: f64) -> f64 {
-    if value.is_nan() || value.is_infinite() {
-        return value;
-    }
-    let abs = value.abs();
-    let result = echo_math_ln(abs + echo_math_sqrt(abs * abs + 1.0));
-    result.copysign(value)
-}
-
-fn echo_math_acosh(value: f64) -> f64 {
-    if value < 1.0 || value.is_nan() {
-        return f64::NAN;
-    }
-    if value.is_infinite() {
-        return f64::INFINITY;
-    }
-
-    echo_math_ln(value + echo_math_sqrt(value - 1.0) * echo_math_sqrt(value + 1.0))
-}
-
-fn echo_math_atanh(value: f64) -> f64 {
-    if value.is_nan() || value < -1.0 || value > 1.0 {
-        return f64::NAN;
-    }
-    if value == 1.0 {
-        return f64::INFINITY;
-    }
-    if value == -1.0 {
-        return f64::NEG_INFINITY;
-    }
-
-    0.5 * echo_math_ln((1.0 + value) / (1.0 - value))
-}
-
-fn echo_math_exp(value: f64) -> f64 {
-    const LN_2: f64 = std::f64::consts::LN_2;
-    const MAX_EXP_INPUT: f64 = 709.782712893384;
-    const MIN_EXP_INPUT: f64 = -745.1332191019411;
-
-    if value.is_nan() {
-        return f64::NAN;
-    }
-    if value > MAX_EXP_INPUT {
-        return f64::INFINITY;
-    }
-    if value < MIN_EXP_INPUT {
-        return 0.0;
-    }
-    if value == 0.0 {
-        return 1.0;
-    }
-
-    let scaled = value / LN_2;
-    let k = if scaled >= 0.0 {
-        (scaled + 0.5) as i32
-    } else {
-        (scaled - 0.5) as i32
-    };
-    let r = value - (k as f64) * LN_2;
-    echo_math_pow2(k) * echo_math_exp_kernel(r)
-}
-
-fn echo_math_expm1(value: f64) -> f64 {
-    if value.is_nan() {
-        return f64::NAN;
-    }
-    if value == 0.0 {
-        return value;
-    }
-    if value.abs() >= 0.000001 {
-        return echo_math_exp(value) - 1.0;
-    }
-
-    let mut term = value;
-    let mut sum = value;
-    for n in 2..=24 {
-        term *= value / n as f64;
-        sum += term;
-    }
-    sum
-}
-
-fn echo_math_exp_kernel(value: f64) -> f64 {
-    let mut term = 1.0;
-    let mut sum = 1.0;
-    for n in 1..=24 {
-        term *= value / n as f64;
-        sum += term;
-    }
-    sum
-}
-
-fn echo_math_pow2(exp: i32) -> f64 {
-    if exp > 1023 {
-        return f64::INFINITY;
-    }
-    if exp < -1074 {
-        return 0.0;
-    }
-    if exp >= -1022 {
-        return f64::from_bits(((exp + 1023) as u64) << 52);
-    }
-    f64::from_bits(1_u64 << (exp + 1074))
-}
-
-fn echo_math_ln(value: f64) -> f64 {
-    const LN_2: f64 = std::f64::consts::LN_2;
-
-    if value.is_nan() || value < 0.0 {
-        return f64::NAN;
-    }
-    if value == 0.0 {
-        return f64::NEG_INFINITY;
-    }
-    if value.is_infinite() {
-        return f64::INFINITY;
-    }
-
-    let (mantissa, exponent) = echo_math_frexp(value);
-    let y = (mantissa - 1.0) / (mantissa + 1.0);
-    let y2 = y * y;
-    let mut term = y;
-    let mut sum = 0.0;
-    let mut denominator = 1.0;
-
-    for _ in 0..48 {
-        sum += term / denominator;
-        term *= y2;
-        denominator += 2.0;
-    }
-
-    2.0 * sum + (exponent as f64) * LN_2
-}
-
-fn echo_math_log1p(value: f64) -> f64 {
-    if value.is_nan() || value < -1.0 {
-        return f64::NAN;
-    }
-    if value == -1.0 {
-        return f64::NEG_INFINITY;
-    }
-    if value.abs() >= 0.000001 {
-        return echo_math_ln(1.0 + value);
-    }
-
-    let mut term = value;
-    let mut sum = value;
-    for n in 2..=48 {
-        term *= -value;
-        sum += term / n as f64;
-    }
-    sum
-}
-
-fn echo_math_pow_float(base: f64, exponent: f64) -> f64 {
-    if base.is_nan() || exponent.is_nan() {
-        return f64::NAN;
-    }
-    if exponent == 0.0 {
-        return 1.0;
-    }
-    if base == 0.0 && exponent < 0.0 {
-        return f64::INFINITY;
-    }
-    if base < 0.0 && exponent.fract() != 0.0 {
-        return f64::NAN;
-    }
-    if base == 0.0 {
-        return 0.0;
-    }
-
-    let magnitude = echo_math_exp(echo_math_ln(base.abs()) * exponent);
-    if base < 0.0 && (exponent as i64) % 2 != 0 {
-        -magnitude
-    } else {
-        magnitude
-    }
-}
-
-fn echo_math_frexp(value: f64) -> (f64, i32) {
-    let bits = value.to_bits();
-    let exponent_bits = ((bits >> 52) & 0x7ff) as i32;
-    let fraction_bits = bits & 0x000f_ffff_ffff_ffff;
-
-    if exponent_bits == 0 {
-        let (mantissa, exponent) = echo_math_frexp(value * echo_math_pow2(52));
-        return (mantissa, exponent - 52);
-    }
-
-    let mantissa_bits = (1023_u64 << 52) | fraction_bits;
-    (f64::from_bits(mantissa_bits), exponent_bits - 1023)
-}
-
-fn echo_math_sqrt(value: f64) -> f64 {
-    if value < 0.0 {
-        return f64::NAN;
-    }
-    if value == 0.0 || value.is_infinite() {
-        return value;
-    }
-
-    let mut estimate = if value >= 1.0 { value } else { 1.0 };
-    for _ in 0..24 {
-        estimate = 0.5 * (estimate + value / estimate);
-    }
-    estimate
-}
-
-fn echo_math_floor(value: f64) -> f64 {
-    if !value.is_finite() || value.abs() >= i64::MAX as f64 {
-        return value;
-    }
-
-    let truncated = value as i64 as f64;
-    if value < truncated {
-        truncated - 1.0
-    } else {
-        truncated
-    }
-}
-
-fn echo_math_ceil(value: f64) -> f64 {
-    if !value.is_finite() || value.abs() >= i64::MAX as f64 {
-        return value;
-    }
-
-    let truncated = value as i64 as f64;
-    if value < 0.0 && truncated == 0.0 {
-        -0.0
-    } else if value > truncated {
-        truncated + 1.0
-    } else {
-        truncated
-    }
-}
-
-fn reduce_to_half_pi(value: f64) -> (f64, f64) {
-    let mut x = value - (value / std::f64::consts::TAU) as i64 as f64 * std::f64::consts::TAU;
-    if x > std::f64::consts::PI {
-        x -= std::f64::consts::TAU;
-    } else if x < -std::f64::consts::PI {
-        x += std::f64::consts::TAU;
-    }
-
-    if x > std::f64::consts::FRAC_PI_2 {
-        (std::f64::consts::PI - x, 1.0)
-    } else if x < -std::f64::consts::FRAC_PI_2 {
-        (-std::f64::consts::PI - x, -1.0)
-    } else {
-        (x, 1.0)
     }
 }
 
@@ -3454,17 +2699,6 @@ pub extern "C" fn echo_php_bin2hex(value: EchoValue) -> EchoValue {
         )))),
         None => EchoValue::error(),
     }
-}
-
-fn lowercase_hex_bytes(bytes: &[u8]) -> Vec<u8> {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-
-    let mut encoded = Vec::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        encoded.push(HEX[(byte >> 4) as usize]);
-        encoded.push(HEX[(byte & 0x0f) as usize]);
-    }
-    encoded
 }
 
 #[unsafe(no_mangle)]
@@ -3513,151 +2747,41 @@ pub extern "C" fn echo_php_sha1(value: EchoValue, binary: EchoValue) -> EchoValu
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_base64_encode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(encode_base64(
-            &bytes,
-        ))))),
-        None => EchoValue::error(),
-    }
-}
-
-fn encode_base64(bytes: &[u8]) -> Vec<u8> {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut encoded = Vec::with_capacity(bytes.len().div_ceil(3) * 4);
-
-    for chunk in bytes.chunks(3) {
-        let first = chunk[0];
-        let second = *chunk.get(1).unwrap_or(&0);
-        let third = *chunk.get(2).unwrap_or(&0);
-
-        encoded.push(TABLE[(first >> 2) as usize]);
-        encoded.push(TABLE[(((first & 0b0000_0011) << 4) | (second >> 4)) as usize]);
-
-        if chunk.len() > 1 {
-            encoded.push(TABLE[(((second & 0b0000_1111) << 2) | (third >> 6)) as usize]);
-        } else {
-            encoded.push(b'=');
-        }
-
-        if chunk.len() > 2 {
-            encoded.push(TABLE[(third & 0b0011_1111) as usize]);
-        } else {
-            encoded.push(b'=');
-        }
-    }
-
-    encoded
+    php_string_map_builtin(value, encode_base64)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            decode_base64_non_strict(&bytes),
-        )))),
-        None => EchoValue::error(),
-    }
+    php_string_map_builtin(value, decode_base64_non_strict)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_rawurlencode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => echo_runtime_string(percent_encode(&bytes, PercentEncodingMode::RawUrl)),
-        None => EchoValue::error(),
-    }
+    php_string_map_builtin(value, |bytes| {
+        percent_encode(bytes, PercentEncodingMode::RawUrl)
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_urlencode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => echo_runtime_string(percent_encode(&bytes, PercentEncodingMode::FormUrl)),
-        None => EchoValue::error(),
-    }
+    php_string_map_builtin(value, |bytes| {
+        percent_encode(bytes, PercentEncodingMode::FormUrl)
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_rawurldecode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => echo_runtime_string(percent_decode(&bytes, false)),
-        None => EchoValue::error(),
-    }
+    php_string_map_builtin(value, |bytes| percent_decode(bytes, false))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_urldecode(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => echo_runtime_string(percent_decode(&bytes, true)),
-        None => EchoValue::error(),
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PercentEncodingMode {
-    RawUrl,
-    FormUrl,
-}
-
-fn percent_encode(bytes: &[u8], mode: PercentEncodingMode) -> Vec<u8> {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
-
-    let mut encoded = Vec::with_capacity(bytes.len());
-    for byte in bytes {
-        if percent_encode_keeps_byte(*byte, mode) {
-            encoded.push(*byte);
-        } else if mode == PercentEncodingMode::FormUrl && *byte == b' ' {
-            encoded.push(b'+');
-        } else {
-            encoded.push(b'%');
-            encoded.push(HEX[(byte >> 4) as usize]);
-            encoded.push(HEX[(byte & 0x0f) as usize]);
-        }
-    }
-
-    encoded
-}
-
-fn percent_encode_keeps_byte(byte: u8, mode: PercentEncodingMode) -> bool {
-    byte.is_ascii_alphanumeric()
-        || matches!(byte, b'-' | b'_' | b'.')
-        || (mode == PercentEncodingMode::RawUrl && byte == b'~')
-}
-
-fn percent_decode(bytes: &[u8], decode_plus: bool) -> Vec<u8> {
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-
-    while index < bytes.len() {
-        if decode_plus && bytes[index] == b'+' {
-            decoded.push(b' ');
-            index += 1;
-            continue;
-        }
-
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(high), Some(low)) =
-                (hex_nibble(bytes[index + 1]), hex_nibble(bytes[index + 2]))
-            {
-                decoded.push((high << 4) | low);
-                index += 3;
-                continue;
-            }
-        }
-
-        decoded.push(bytes[index]);
-        index += 1;
-    }
-
-    decoded
+    php_string_map_builtin(value, |bytes| percent_decode(bytes, true))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_escapeshellarg(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            escape_shell_arg_unix(&bytes),
-        )))),
-        None => EchoValue::error(),
-    }
+    php_string_map_builtin(value, escape_shell_arg_unix)
 }
 
 fn escape_shell_arg_unix(bytes: &[u8]) -> Vec<u8> {
@@ -3676,12 +2800,7 @@ fn escape_shell_arg_unix(bytes: &[u8]) -> Vec<u8> {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_escapeshellcmd(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-            escape_shell_cmd_unix(&bytes),
-        )))),
-        None => EchoValue::error(),
-    }
+    php_string_map_builtin(value, escape_shell_cmd_unix)
 }
 
 fn escape_shell_cmd_unix(bytes: &[u8]) -> Vec<u8> {
@@ -3979,137 +3098,108 @@ pub extern "C" fn echo_php_require_once(filename: EchoValue) -> EchoValue {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_dir(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => EchoValue::bool(path_is_dir(&bytes)),
-        None => EchoValue::error(),
-    }
+    path_bool_builtin(filename, path_is_dir)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_file(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => EchoValue::bool(path_is_file(&bytes)),
-        None => EchoValue::error(),
-    }
+    path_bool_builtin(filename, path_is_file)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_link(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => EchoValue::bool(path_is_link(&bytes)),
-        None => EchoValue::error(),
-    }
+    path_bool_builtin(filename, path_is_link)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_readable(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => EchoValue::bool(path_is_readable(&bytes)),
-        None => EchoValue::error(),
-    }
+    path_bool_builtin(filename, path_is_readable)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_writable(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => EchoValue::bool(path_is_writable(&bytes)),
-        None => EchoValue::error(),
-    }
+    path_bool_builtin(filename, path_is_writable)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_executable(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => EchoValue::bool(path_is_executable(&bytes)),
-        None => EchoValue::error(),
-    }
+    path_bool_builtin(filename, path_is_executable)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_filesize(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_filesize(&bytes)
-            .and_then(|size| i64::try_from(size).ok())
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_u64_builtin(filename, path_filesize)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fileatime(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_fileatime(&bytes)
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_i64_builtin(filename, path_fileatime)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_filectime(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_filectime(&bytes)
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_i64_builtin(filename, path_filectime)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_filemtime(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_filemtime(&bytes)
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_i64_builtin(filename, path_filemtime)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fileinode(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_fileinode(&bytes)
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_i64_builtin(filename, path_fileinode)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fileowner(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_fileowner(&bytes)
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_i64_builtin(filename, path_fileowner)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_filegroup(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => path_filegroup(&bytes)
-            .map(EchoValue::int)
-            .unwrap_or_else(|| EchoValue::bool(false)),
-        None => EchoValue::error(),
-    }
+    path_i64_builtin(filename, path_filegroup)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fileperms(filename: EchoValue) -> EchoValue {
+    path_i64_builtin(filename, path_fileperms)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_filetype(filename: EchoValue) -> EchoValue {
+    path_bytes_builtin(filename, path_filetype)
+}
+
+fn path_bool_builtin(filename: EchoValue, f: impl FnOnce(&[u8]) -> bool) -> EchoValue {
     match filename.string_bytes() {
-        Some(bytes) => path_fileperms(&bytes)
+        Some(bytes) => EchoValue::bool(f(&bytes)),
+        None => EchoValue::error(),
+    }
+}
+
+fn path_i64_builtin(filename: EchoValue, f: impl FnOnce(&[u8]) -> Option<i64>) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => f(&bytes)
             .map(EchoValue::int)
             .unwrap_or_else(|| EchoValue::bool(false)),
         None => EchoValue::error(),
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_filetype(filename: EchoValue) -> EchoValue {
+fn path_u64_builtin(filename: EchoValue, f: impl FnOnce(&[u8]) -> Option<u64>) -> EchoValue {
     match filename.string_bytes() {
-        Some(bytes) => path_filetype(&bytes)
+        Some(bytes) => f(&bytes)
+            .and_then(|value| i64::try_from(value).ok())
+            .map(EchoValue::int)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+fn path_bytes_builtin(filename: EchoValue, f: impl FnOnce(&[u8]) -> Option<Vec<u8>>) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => f(&bytes)
             .map(echo_runtime_string)
             .unwrap_or_else(|| EchoValue::bool(false)),
         None => EchoValue::error(),
@@ -5102,90 +4192,11 @@ fn php_dirname_once(path: &[u8]) -> Vec<u8> {
     }
 }
 
-fn decode_base64_non_strict(bytes: &[u8]) -> Vec<u8> {
-    let mut values = Vec::new();
-    for byte in bytes.iter().copied() {
-        match base64_value(byte) {
-            Some(value) => values.push(value),
-            None if byte == b'=' => values.push(64),
-            None => {}
-        }
-    }
-
-    let mut decoded = Vec::with_capacity(values.len() / 4 * 3);
-    for chunk in values.chunks(4) {
-        if chunk.len() < 2 {
-            break;
-        }
-
-        let first = chunk[0];
-        let second = chunk[1];
-        if first >= 64 || second >= 64 {
-            break;
-        }
-
-        decoded.push((first << 2) | (second >> 4));
-
-        let Some(&third) = chunk.get(2) else {
-            break;
-        };
-        if third >= 64 {
-            break;
-        }
-        decoded.push(((second & 0b0000_1111) << 4) | (third >> 2));
-
-        let Some(&fourth) = chunk.get(3) else {
-            break;
-        };
-        if fourth >= 64 {
-            break;
-        }
-        decoded.push(((third & 0b0000_0011) << 6) | fourth);
-    }
-
-    decoded
-}
-
-fn base64_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'A'..=b'Z' => Some(byte - b'A'),
-        b'a'..=b'z' => Some(byte - b'a' + 26),
-        b'0'..=b'9' => Some(byte - b'0' + 52),
-        b'+' => Some(62),
-        b'/' => Some(63),
-        _ => None,
-    }
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
     match value.string_bytes().and_then(|bytes| decode_hex(&bytes)) {
         Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
         None => EchoValue::bool(false),
-    }
-}
-
-fn decode_hex(bytes: &[u8]) -> Option<Vec<u8>> {
-    if bytes.len() % 2 != 0 {
-        return None;
-    }
-
-    let mut decoded = Vec::with_capacity(bytes.len() / 2);
-    for pair in bytes.chunks_exact(2) {
-        let high = hex_nibble(pair[0])?;
-        let low = hex_nibble(pair[1])?;
-        decoded.push((high << 4) | low);
-    }
-
-    Some(decoded)
-}
-
-fn hex_nibble(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
     }
 }
 
@@ -5344,29 +4355,6 @@ fn php_numeric_binary(
     }
 }
 
-fn php_array_union(left: EchoValue, right: EchoValue) -> EchoValue {
-    if !left.is_array() || !right.is_array() {
-        return EchoValue::error();
-    }
-
-    let Some(left) = (unsafe { (left.payload as *const EchoArray).as_ref() }) else {
-        return EchoValue::error();
-    };
-    let Some(right) = (unsafe { (right.payload as *const EchoArray).as_ref() }) else {
-        return EchoValue::error();
-    };
-
-    let mut keys = left.keys.clone();
-    let mut values = left.values.clone();
-    for (key, value) in right.keys.iter().zip(&right.values) {
-        if !keys.contains(key) {
-            keys.push(key.clone());
-            values.push(*value);
-        }
-    }
-    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
-}
-
 fn parse_php_number(bytes: &[u8]) -> Option<PhpNumber> {
     let bytes = trim_ascii(bytes);
     if bytes.is_empty() {
@@ -5379,36 +4367,6 @@ fn parse_php_number(bytes: &[u8]) -> Option<PhpNumber> {
     } else {
         text.parse::<i64>().ok().map(PhpNumber::Int)
     }
-}
-
-fn next_array_append_key(array: &EchoArray) -> EchoArrayKey {
-    let next = array
-        .keys
-        .iter()
-        .filter_map(|key| match key {
-            EchoArrayKey::Int(value) => Some(*value),
-            EchoArrayKey::String(_) => None,
-        })
-        .filter(|value| *value >= 0)
-        .max()
-        .map(|value| value.saturating_add(1))
-        .unwrap_or(0);
-    EchoArrayKey::Int(next)
-}
-
-fn parse_php_array_integer_key(bytes: &[u8]) -> Option<i64> {
-    let text = std::str::from_utf8(bytes).ok()?;
-    if text == "0" {
-        return Some(0);
-    }
-    if let Some(rest) = text.strip_prefix('-') {
-        if rest.starts_with('0') || rest.is_empty() {
-            return None;
-        }
-    } else if text.starts_with('0') || text.is_empty() {
-        return None;
-    }
-    text.parse::<i64>().ok()
 }
 
 fn format_php_float(value: f64) -> String {
@@ -5449,34 +4407,6 @@ fn pow_f64_int(base: f64, exponent: i64) -> f64 {
     }
 
     if negative { 1.0 / value } else { value }
-}
-
-fn echo_math_pow(base: f64, exponent: f64) -> f64 {
-    if exponent == 0.0 {
-        return 1.0;
-    }
-    if base == 0.0 {
-        return if exponent.is_sign_negative() {
-            f64::INFINITY
-        } else {
-            0.0
-        };
-    }
-    if base < 0.0 {
-        return f64::NAN;
-    }
-    if base.is_nan() || exponent.is_nan() {
-        return f64::NAN;
-    }
-    if base.is_infinite() {
-        return if exponent.is_sign_negative() {
-            0.0
-        } else {
-            f64::INFINITY
-        };
-    }
-
-    echo_math_exp(echo_math_ln(base) * exponent)
 }
 
 fn is_php_numeric_string(bytes: &[u8]) -> bool {
@@ -5677,59 +4607,6 @@ pub extern "C" fn echo_php_quoted_printable_decode(value: EchoValue) -> EchoValu
         )))),
         None => EchoValue::error(),
     }
-}
-
-fn quoted_printable_encode_bytes(bytes: &[u8]) -> Vec<u8> {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
-
-    let mut encoded = Vec::with_capacity(bytes.len());
-    for byte in bytes.iter().copied() {
-        if matches!(byte, b'!'..=b'<' | b'>'..=b'~' | b' ' | b'\t') {
-            encoded.push(byte);
-        } else {
-            encoded.push(b'=');
-            encoded.push(HEX[(byte >> 4) as usize]);
-            encoded.push(HEX[(byte & 0x0f) as usize]);
-        }
-    }
-    encoded
-}
-
-fn quoted_printable_decode_bytes(bytes: &[u8]) -> Vec<u8> {
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-
-    while index < bytes.len() {
-        if bytes[index] != b'=' {
-            decoded.push(bytes[index]);
-            index += 1;
-            continue;
-        }
-
-        if bytes.get(index + 1) == Some(&b'\r') && bytes.get(index + 2) == Some(&b'\n') {
-            index += 3;
-            continue;
-        }
-        if bytes.get(index + 1) == Some(&b'\n') {
-            index += 2;
-            continue;
-        }
-
-        if index + 2 < bytes.len() {
-            if let (Some(high), Some(low)) =
-                (hex_nibble(bytes[index + 1]), hex_nibble(bytes[index + 2]))
-            {
-                decoded.push((high << 4) | low);
-                index += 3;
-                continue;
-            }
-        }
-
-        decoded.push(bytes[index]);
-        index += 1;
-    }
-
-    decoded
 }
 
 #[unsafe(no_mangle)]
@@ -6605,30 +5482,6 @@ pub extern "C" fn echo_shutdown() {
     }
 }
 
-fn write_stdout(bytes: &[u8]) {
-    if bytes.is_empty() {
-        return;
-    }
-
-    if EXECUTION.with(|execution| {
-        let mut execution = execution.borrow_mut();
-        if let Some(stdout) = execution.stdout.as_mut() {
-            stdout.extend_from_slice(bytes);
-            true
-        } else {
-            false
-        }
-    }) {
-        return;
-    }
-
-    let mut stdout = std_io::stdout().lock();
-    stdout
-        .write_all(bytes)
-        .expect("failed to write Echo runtime output");
-    stdout.flush().expect("failed to flush Echo runtime output");
-}
-
 fn write_runtime_output(bytes: &[u8]) {
     OUTPUT.with(|runtime| {
         let mut stdout = Vec::new();
@@ -6717,16 +5570,6 @@ mod tests {
     fn assert_float_value(value: EchoValue, expected: f64) {
         assert_eq!(value.kind, ECHO_VALUE_FLOAT);
         assert!((f64::from_bits(value.payload) - expected).abs() < 0.000000000001);
-    }
-
-    #[test]
-    fn writes_to_stdout_without_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.write(b"hello", &mut stdout);
-
-        assert_eq!(stdout, b"hello");
     }
 
     #[test]
@@ -7574,216 +6417,6 @@ mod tests {
             response.string_bytes().expect("response"),
             b"HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\ncontent-length: 5\r\nconnection: close\r\n\r\nhello"
         );
-    }
-
-    #[test]
-    fn end_flush_writes_buffer_to_stdout() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"buffered", &mut stdout);
-        assert!(stdout.is_empty());
-
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(stdout, b"buffered");
-        assert_eq!(runtime.level(), 0);
-    }
-
-    #[test]
-    fn flush_clears_buffer_but_keeps_it_active() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"x", &mut stdout);
-        assert!(runtime.ob_flush(&mut stdout));
-        runtime.write(b"y", &mut stdout);
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(stdout, b"xy");
-    }
-
-    #[test]
-    fn flush_writes_to_stdout_without_ending_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"x", &mut stdout);
-        assert!(runtime.ob_flush(&mut stdout));
-
-        assert_eq!(stdout, b"x");
-        assert_eq!(runtime.level(), 1);
-    }
-
-    #[test]
-    fn clean_discards_buffer_but_keeps_it_active() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"discarded", &mut stdout);
-        assert!(runtime.ob_clean());
-        runtime.write(b"kept", &mut stdout);
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(stdout, b"kept");
-    }
-
-    #[test]
-    fn end_clean_discards_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"discarded", &mut stdout);
-        assert!(runtime.ob_end_clean());
-        runtime.write(b"kept", &mut stdout);
-
-        assert_eq!(stdout, b"kept");
-    }
-
-    #[test]
-    fn nested_end_flush_writes_to_parent_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"A", &mut stdout);
-        runtime.ob_start();
-        runtime.write(b"B", &mut stdout);
-        assert!(runtime.ob_end_flush(&mut stdout));
-        runtime.write(b"C", &mut stdout);
-        assert!(stdout.is_empty());
-
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(stdout, b"ABC");
-    }
-
-    #[test]
-    fn nested_flush_writes_to_parent_buffer_and_keeps_inner_active() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"A", &mut stdout);
-        runtime.ob_start();
-        runtime.write(b"B", &mut stdout);
-        assert!(runtime.ob_flush(&mut stdout));
-        runtime.write(b"C", &mut stdout);
-        assert!(runtime.ob_end_flush(&mut stdout));
-        runtime.write(b"D", &mut stdout);
-        assert!(stdout.is_empty());
-
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(stdout, b"ABCD");
-    }
-
-    #[test]
-    fn shutdown_flushes_open_buffers_inside_out() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"A", &mut stdout);
-        runtime.ob_start();
-        runtime.write(b"B", &mut stdout);
-
-        runtime.shutdown(&mut stdout);
-
-        assert_eq!(stdout, b"AB");
-        assert_eq!(runtime.level(), 0);
-    }
-
-    #[test]
-    fn get_contents_returns_copy_without_cleaning_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"A", &mut stdout);
-        let value = runtime.ob_get_contents().expect("active buffer");
-        runtime.write(b"B", &mut stdout);
-        assert!(runtime.ob_end_clean());
-
-        assert_eq!(value.bytes, b"A");
-        assert!(stdout.is_empty());
-    }
-
-    #[test]
-    fn get_clean_returns_buffer_and_turns_it_off() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"buffered", &mut stdout);
-        let value = runtime.ob_get_clean().expect("active buffer");
-        runtime.write(b"after", &mut stdout);
-
-        assert_eq!(value.bytes, b"buffered");
-        assert_eq!(runtime.level(), 0);
-        assert_eq!(stdout, b"after");
-    }
-
-    #[test]
-    fn get_flush_returns_and_flushes_buffer_then_turns_it_off() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"buffered", &mut stdout);
-        let value = runtime.ob_get_flush(&mut stdout).expect("active buffer");
-        runtime.write(b"after", &mut stdout);
-
-        assert_eq!(value.bytes, b"buffered");
-        assert_eq!(runtime.level(), 0);
-        assert_eq!(stdout, b"bufferedafter");
-    }
-
-    #[test]
-    fn nested_get_flush_writes_to_parent_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"outer:", &mut stdout);
-        runtime.ob_start();
-        runtime.write(b"inner", &mut stdout);
-
-        let value = runtime.ob_get_flush(&mut stdout).expect("active buffer");
-        runtime.write(b"|after:", &mut stdout);
-        runtime.write(&value.bytes, &mut stdout);
-        assert!(stdout.is_empty());
-
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(value.bytes, b"inner");
-        assert_eq!(stdout, b"outer:inner|after:inner");
-    }
-
-    #[test]
-    fn nested_get_clean_does_not_write_to_parent_buffer() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        runtime.ob_start();
-        runtime.write(b"outer:", &mut stdout);
-        runtime.ob_start();
-        runtime.write(b"inner", &mut stdout);
-
-        let value = runtime.ob_get_clean().expect("active buffer");
-        runtime.write(b"|after:", &mut stdout);
-        runtime.write(&value.bytes, &mut stdout);
-        assert!(stdout.is_empty());
-
-        assert!(runtime.ob_end_flush(&mut stdout));
-
-        assert_eq!(value.bytes, b"inner");
-        assert_eq!(stdout, b"outer:|after:inner");
     }
 
     #[test]
@@ -11810,30 +10443,5 @@ mod tests {
             echo_php_gethostname().is_string() || echo_php_gethostname() == EchoValue::bool(false)
         );
         assert_eq!(echo_php_is_int(echo_php_getmypid()), EchoValue::bool(true));
-    }
-
-    #[test]
-    fn ob_start_with_callback_stores_callback_frame() {
-        let mut runtime = OutputRuntime::new();
-        let callback = EchoCallable::Function(EchoSymbol::new("filter"));
-
-        runtime.ob_start_with_callback(Some(callback.clone()));
-
-        assert_eq!(runtime.level(), 1);
-        assert_eq!(runtime.stack[0].callback, Some(callback));
-    }
-
-    #[test]
-    fn get_length_returns_active_buffer_byte_length() {
-        let mut runtime = OutputRuntime::new();
-        let mut stdout = Vec::new();
-
-        assert_eq!(runtime.ob_get_length(), None);
-
-        runtime.ob_start();
-        runtime.write(b"abc", &mut stdout);
-
-        assert_eq!(runtime.ob_get_length(), Some(3));
-        assert!(stdout.is_empty());
     }
 }

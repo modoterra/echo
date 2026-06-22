@@ -1,0 +1,212 @@
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+use crate::EchoValue;
+
+pub(crate) const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuntimeFunctionReflection {
+    pub(crate) name: String,
+    pub(crate) params_signature: String,
+    pub(crate) return_type: String,
+    pub(crate) source_kind: i32,
+}
+
+pub(crate) fn function_reflection_for_value(value: EchoValue) -> Option<RuntimeFunctionReflection> {
+    let bytes = value.string_bytes()?;
+    let name = std::str::from_utf8(&bytes).ok()?;
+    function_registry()
+        .lock()
+        .expect("function reflection registry should not be poisoned")
+        .by_name(name)
+}
+
+pub(crate) fn function_reflection_by_name_and_source(
+    name: &str,
+    source_kind: i32,
+) -> Option<RuntimeFunctionReflection> {
+    function_registry()
+        .lock()
+        .expect("function reflection registry should not be poisoned")
+        .by_name_and_source(name, source_kind)
+}
+
+pub(crate) fn function_reflection_by_name(name: &str) -> Option<RuntimeFunctionReflection> {
+    function_registry()
+        .lock()
+        .expect("function reflection registry should not be poisoned")
+        .by_name(name)
+}
+
+pub(crate) unsafe fn register_function_raw(
+    name_ptr: *const u8,
+    name_len: usize,
+    params_ptr: *const u8,
+    params_len: usize,
+    return_type_ptr: *const u8,
+    return_type_len: usize,
+    source_kind: i32,
+) {
+    let Some(name) = runtime_utf8_arg(name_ptr, name_len) else {
+        return;
+    };
+    let Some(params_signature) = runtime_utf8_arg(params_ptr, params_len) else {
+        return;
+    };
+    let Some(return_type) = runtime_utf8_arg(return_type_ptr, return_type_len) else {
+        return;
+    };
+
+    register_function(name, params_signature, return_type, source_kind);
+}
+
+fn register_function(
+    name: String,
+    params_signature: String,
+    return_type: String,
+    source_kind: i32,
+) {
+    let mut registry = function_registry()
+        .lock()
+        .expect("function reflection registry should not be poisoned");
+    registry.insert(RuntimeFunctionReflection {
+        name,
+        params_signature,
+        return_type,
+        source_kind,
+    });
+}
+
+#[derive(Debug, Default)]
+struct FunctionReflectionRegistry {
+    by_name: HashMap<String, RuntimeFunctionReflection>,
+    by_name_and_source: HashMap<(String, i32), RuntimeFunctionReflection>,
+}
+
+impl FunctionReflectionRegistry {
+    fn insert(&mut self, function: RuntimeFunctionReflection) {
+        let normalized_name = normalize_function_name(&function.name);
+        let key = (normalized_name.clone(), function.source_kind);
+
+        match self.by_name.get_mut(&normalized_name) {
+            Some(existing) if existing.source_kind == function.source_kind => {
+                *existing = function.clone();
+            }
+            Some(_) => {}
+            None => {
+                self.by_name.insert(normalized_name, function.clone());
+            }
+        }
+        self.by_name_and_source.insert(key, function);
+    }
+
+    fn by_name(&self, name: &str) -> Option<RuntimeFunctionReflection> {
+        self.by_name.get(&normalize_function_name(name)).cloned()
+    }
+
+    fn by_name_and_source(
+        &self,
+        name: &str,
+        source_kind: i32,
+    ) -> Option<RuntimeFunctionReflection> {
+        self.by_name_and_source
+            .get(&(normalize_function_name(name), source_kind))
+            .cloned()
+    }
+}
+
+fn normalize_function_name(name: &str) -> String {
+    name.to_ascii_lowercase()
+}
+
+fn function_registry() -> &'static Mutex<FunctionReflectionRegistry> {
+    static FUNCTION_REFLECTIONS: OnceLock<Mutex<FunctionReflectionRegistry>> = OnceLock::new();
+    FUNCTION_REFLECTIONS.get_or_init(|| Mutex::new(FunctionReflectionRegistry::default()))
+}
+
+fn runtime_utf8_arg(ptr: *const u8, len: usize) -> Option<String> {
+    if ptr.is_null() && len != 0 {
+        return None;
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+    std::str::from_utf8(bytes)
+        .ok()
+        .map(std::string::ToString::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reflection(
+        name: &str,
+        params: &str,
+        return_type: &str,
+        source_kind: i32,
+    ) -> RuntimeFunctionReflection {
+        RuntimeFunctionReflection {
+            name: name.to_string(),
+            params_signature: params.to_string(),
+            return_type: return_type.to_string(),
+            source_kind,
+        }
+    }
+
+    #[test]
+    fn registry_lookup_is_case_insensitive_and_keyed_by_source() {
+        let mut registry = FunctionReflectionRegistry::default();
+
+        registry.insert(reflection(
+            "strlen",
+            "string $string",
+            "int",
+            REFLECTION_SOURCE_PHP_BUILTIN,
+        ));
+
+        assert_eq!(
+            registry.by_name("STRLEN").expect("by name").return_type,
+            "int"
+        );
+        assert_eq!(
+            registry
+                .by_name_and_source("STRLEN", REFLECTION_SOURCE_PHP_BUILTIN)
+                .expect("by source")
+                .params_signature,
+            "string $string"
+        );
+        assert!(registry.by_name_and_source("strlen", 0).is_none());
+    }
+
+    #[test]
+    fn registry_updates_existing_source_without_reordering_any_source_lookup() {
+        let mut registry = FunctionReflectionRegistry::default();
+
+        registry.insert(reflection(
+            "fixture",
+            "first",
+            "int",
+            REFLECTION_SOURCE_PHP_BUILTIN,
+        ));
+        registry.insert(reflection("fixture", "userland", "string", 0));
+        registry.insert(reflection(
+            "FIXTURE",
+            "updated",
+            "bool",
+            REFLECTION_SOURCE_PHP_BUILTIN,
+        ));
+
+        assert_eq!(
+            registry.by_name("fixture").expect("by name").return_type,
+            "bool"
+        );
+        assert_eq!(
+            registry
+                .by_name_and_source("fixture", 0)
+                .expect("userland")
+                .return_type,
+            "string"
+        );
+    }
+}
