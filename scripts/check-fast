@@ -113,6 +113,7 @@ Usage:
   scripts/check-fast codegen-reflection
   scripts/check-fast codegen-stdlib
   scripts/check-fast codegen-task
+  scripts/check-fast codegen-userland
   scripts/check-fast codegen-jit
   scripts/check-fast xo
   scripts/check-fast xo-test-runner
@@ -202,6 +203,7 @@ Examples:
   scripts/check-fast codegen-reflection
   scripts/check-fast codegen-stdlib
   scripts/check-fast codegen-task
+  scripts/check-fast codegen-userland
   scripts/check-fast codegen-jit
   scripts/check-fast xo
   scripts/check-fast xo-test-runner
@@ -601,6 +603,9 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/task_lowering.rs)
       add_changed_check "codegen-task"
       ;;
+    crates/echo_codegen/src/userland_lowering.rs)
+      add_changed_check "codegen-userland"
+      ;;
     crates/echo_codegen/src/lib.rs)
       add_changed_check "codegen-abi"
       add_changed_check "codegen-collections"
@@ -610,6 +615,7 @@ add_checks_for_changed_path() {
       add_changed_check "codegen-reflection"
       add_changed_check "codegen-stdlib"
       add_changed_check "codegen-task"
+      add_changed_check "codegen-userland"
       ;;
     crates/echo_codegen/*)
       add_changed_check "codegen"
@@ -1113,9 +1119,11 @@ run_script_tests() {
     crates/echo_codegen/src/std_lowering.rs
   assert_routing "codegen task lowering routes focused task checks" "codegen-task" \
     crates/echo_codegen/src/task_lowering.rs
+  assert_routing "codegen userland lowering routes focused userland checks" "codegen-userland" \
+    crates/echo_codegen/src/userland_lowering.rs
   assert_routing "codegen jit routes focused JIT checks" "codegen-jit" \
     crates/echo_codegen/src/jit.rs
-  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-collections\ncodegen-control-flow\ncodegen-expressions\ncodegen-php\ncodegen-reflection\ncodegen-stdlib\ncodegen-task' \
+  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-collections\ncodegen-control-flow\ncodegen-expressions\ncodegen-php\ncodegen-reflection\ncodegen-stdlib\ncodegen-task\ncodegen-userland' \
     crates/echo_codegen/src/lib.rs
   assert_fixture_filter_rejects "fixture filters validate every comma item" \
     "043_strlen_builtin,__missing_fixture__"
@@ -1639,6 +1647,11 @@ case "$command" in
   codegen-task)
     run_quiet cargo test -q -p echo_codegen task_sleep_lowers_to_timer_continuation
     run_quiet cargo test -q -p echo_codegen defer_lowers_to_runtime_task_handle
+    ;;
+  codegen-userland)
+    run_quiet cargo test -q -p echo_codegen userland_call_emits_function_definition_and_call
+    run_quiet cargo test -q -p echo_codegen userland_call_passes_string_argument_as_echo_value
+    run_quiet cargo test -q -p echo_codegen userland_return_value_can_be_echoed
     ;;
   codegen-jit)
     run_quiet cargo test -q -p echo_codegen runtime_symbol_address_map_is_cached
