@@ -591,6 +591,12 @@ and `Zone` exist.
 
 ## AST And Typing Plan
 
+The next natural implementation step is a parser-visible `DurationLiteral`
+slice. That should land before widening the runtime `time.sleep` implementation,
+because it gives the shared language pipeline a real `time.Duration` expression
+instead of teaching individual callers that some integers might mean
+milliseconds.
+
 Duration literals should parse into a dedicated AST node, not as normal integer
 literals:
 
@@ -755,12 +761,14 @@ Use the receiver method form instead: $instant.to_unix().
 1. Add `DurationLiteral` and `DurationUnit` AST nodes.
 2. Parse integer literals followed by `ns`, `us`, `ms`, `s`, `min`, `h`, `d`, or `w`.
 3. Add invalid-suffix diagnostics for `m`, `mo`, `y`, `yr`, `year`, and `month`.
-4. Add `extend` receiver-method syntax and dot-call typing for time values.
-5. Add semantic facts for opaque `time` core types and typed constructor returns.
-6. Implement duration constructors and `time.sleep(Duration)` in std/runtime.
-7. Add monotonic clock, timer construction, and `Timer.elapsed()` / `Timer.reset()`.
-8. Add `Instant` Unix constructors and conversion receiver methods.
-9. Add `Period` constructor and keep it separate from `Duration`.
+4. Type duration literals as opaque `time.Duration` values in semantic analysis.
+5. Implement plural single-unit constructors and `time.duration(...)` as typed constructors.
+6. Change `time.sleep` from raw integer milliseconds to `time.sleep(Duration)`.
+7. Add `extend` receiver-method syntax and dot-call typing for time values.
+8. Add semantic facts for opaque `time` core types and typed constructor returns.
+9. Add monotonic clock, timer construction, and `Timer.elapsed()` / `Timer.reset()`.
+10. Add `Instant` Unix constructors and conversion receiver methods.
+11. Add `Period` constructor and keep it separate from `Duration`.
 
 Runtime-backed slices should use system wall-clock time for `time.now()`,
 a monotonic clock source for `time.monotonic()`, and exact duration sleeps for

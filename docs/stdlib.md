@@ -46,9 +46,11 @@ codegen              lowers resolved intrinsic calls to approved ABI symbols
 
 This layout separates public Echo source, packaged std metadata, Rust runtime implementation, resolver validation, and final ABI lowering.
 
-Pure value APIs should be written in Echo source:
+Pure value APIs should be written in Echo source. Echo stdlib declarations use
+`fn` for functions. Class members are private by default, so public methods must
+be explicitly prefixed with `pub fn` or `pub intrinsic fn`.
 
-```php
+```echo
 namespace std http
 
 type Response = {
@@ -57,7 +59,7 @@ type Response = {
     body: bytes
 }
 
-fn text(string $body): Response {
+fn text(body: string): Response {
     return Response {
         status: 200
         headers: Headers { contentType: "text/plain" }
@@ -70,17 +72,17 @@ This example is the preferred shape for pure stdlib helpers: public Echo types a
 
 Resource and syscall APIs should be declared in trusted stdlib Echo source as intrinsics and implemented by Rust runtime primitives:
 
-```php
+```echo
 namespace std net
 
 class TcpServer {
-    pub intrinsic static fn listen(string $address): TcpServer
+    pub intrinsic static fn listen(address: string): TcpServer
     pub intrinsic fn accept(): TcpConnection
 }
 
 class TcpConnection {
-    pub intrinsic fn read(int $maxBytes): bytes
-    pub intrinsic fn write(bytes|string $data): int
+    pub intrinsic fn read(maxBytes: int): bytes
+    pub intrinsic fn write(data: bytes|string): int
     pub intrinsic fn close(): void
 }
 ```
@@ -89,15 +91,15 @@ This example keeps the user-facing socket API in Echo source while routing the a
 
 Lowercase stdlib modules may also expose module-style intrinsic functions for value-like APIs:
 
-```php
+```echo
 namespace std net
 
-intrinsic fn listen(string $address): TcpServer
-intrinsic fn connect(string $address): TcpConnection
-intrinsic fn accept(TcpServer $server): TcpConnection
-intrinsic fn read(TcpConnection $connection, int $maxBytes): bytes
-intrinsic fn write(TcpConnection $connection, bytes|string $data): int
-intrinsic fn close(TcpConnection $connection): void
+intrinsic fn listen(address: string): TcpServer
+intrinsic fn connect(address: string): TcpConnection
+intrinsic fn accept(server: TcpServer): TcpConnection
+intrinsic fn read(connection: TcpConnection, maxBytes: int): bytes
+intrinsic fn write(connection: TcpConnection, data: bytes|string): int
+intrinsic fn close(connection: TcpConnection): void
 ```
 
 This module-style surface supports imported calls such as `net.listen(...)` when a class-oriented API would add friction.
@@ -108,7 +110,7 @@ The Echo-native `time` module is planned around typed, opaque values rather
 than PHP's mutable `DateTime` model. The design target is documented in
 [Echo Standard Library Time Foundation](time-foundation.md).
 
-```php
+```echo
 use std time
 
 time.sleep(500ms)
@@ -128,11 +130,11 @@ value.
 
 Tests can use the tiny assertion stdlib module:
 
-```php
+```echo
 namespace std assert
 
-intrinsic fn ok(bool $condition): bool
-intrinsic fn equals(mixed $actual, mixed $expected): bool
+intrinsic fn ok(condition: bool): bool
+intrinsic fn equals(actual: mixed, expected: mixed): bool
 ```
 
 These assertions let Echo tests run through ordinary compiled programs while still reporting failures through the runtime.
@@ -145,13 +147,13 @@ Function reflection is exposed as an Echo strict-mode stdlib module so Echo
 programs can inspect available functions without calling PHP reflection APIs
 directly:
 
-```php
+```echo
 namespace std reflect
 
-intrinsic fn exists(string $name): bool
-intrinsic fn params(string $name): string
-intrinsic fn returnType(string $name): string
-intrinsic fn typeOf(mixed $value): string
+intrinsic fn exists(name: string): bool
+intrinsic fn params(name: string): string
+intrinsic fn returnType(name: string): string
+intrinsic fn typeOf(value: mixed): string
 ```
 
 This reflection surface gives Echo strict-mode code an Echo-owned way to inspect function metadata without importing PHP reflection APIs.
@@ -171,7 +173,7 @@ The `namespace std ...` form declares the compiler's internal stdlib module iden
 
 This distinction is intentional:
 
-```php
+```echo
 namespace std net
 ```
 
