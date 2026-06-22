@@ -3483,7 +3483,7 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "std.net",
+        title: "net",
         tags: ["tcp", "network", "listen", "connect"],
         aliases: ["networking", "tcp server", "tcp connection"],
         blocks: [
@@ -3507,7 +3507,7 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "std.http",
+        title: "http",
         tags: ["http", "response", "request"],
         aliases: ["http response", "http request"],
         blocks: [
@@ -3535,7 +3535,7 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "std.time",
+        title: "time",
         tags: ["sleep", "time", "scheduling"],
         aliases: ["sleep", "delay", "timer"],
         blocks: [
@@ -3559,7 +3559,7 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "std.reflect",
+        title: "reflect",
         tags: ["reflection", "type", "metadata"],
         aliases: ["introspection", "function metadata"],
         blocks: [
@@ -3583,7 +3583,7 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "std.assert",
+        title: "assert",
         tags: ["assert", "testing", "validation"],
         aliases: ["assertions", "test helpers"],
         blocks: [
