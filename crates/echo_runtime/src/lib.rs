@@ -108,11 +108,12 @@ pub use string::{
     echo_php_str_ends_with, echo_php_str_ireplace, echo_php_str_pad, echo_php_str_repeat,
     echo_php_str_replace, echo_php_str_rot13, echo_php_str_split, echo_php_str_starts_with,
     echo_php_strcasecmp, echo_php_strcmp, echo_php_strcspn, echo_php_stripos,
-    echo_php_stripslashes, echo_php_stristr, echo_php_strncasecmp, echo_php_strncmp,
-    echo_php_strpbrk, echo_php_strpos, echo_php_strrchr, echo_php_strrev, echo_php_strripos,
-    echo_php_strrpos, echo_php_strspn, echo_php_strstr, echo_php_strtolower, echo_php_strtoupper,
-    echo_php_strtr, echo_php_strval, echo_php_substr, echo_php_substr_compare,
-    echo_php_substr_count, echo_php_trim, echo_php_ucfirst, echo_php_ucwords,
+    echo_php_stripslashes, echo_php_stristr, echo_php_strlen, echo_php_strncasecmp,
+    echo_php_strncmp, echo_php_strpbrk, echo_php_strpos, echo_php_strrchr, echo_php_strrev,
+    echo_php_strripos, echo_php_strrpos, echo_php_strspn, echo_php_strstr, echo_php_strtolower,
+    echo_php_strtoupper, echo_php_strtr, echo_php_strval, echo_php_substr, echo_php_substr_compare,
+    echo_php_substr_count, echo_php_trim, echo_php_ucfirst, echo_php_ucwords, echo_value_concat,
+    echo_value_string,
 };
 use string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
@@ -608,16 +609,6 @@ fn inspect_string_literal(bytes: &[u8]) -> String {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoValue {
-    if ptr.is_null() && len != 0 {
-        return EchoValue::error();
-    }
-
-    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) }.to_vec();
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
     match handle.kind {
         ECHO_VALUE_TASK => echo_task_join(handle),
@@ -628,19 +619,6 @@ pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
             EchoValue::error()
         }
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
-    let Some(mut bytes) = left.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(right) = right.string_bytes() else {
-        return EchoValue::error();
-    };
-
-    bytes.extend_from_slice(&right);
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))))
 }
 
 #[unsafe(no_mangle)]
@@ -758,14 +736,6 @@ pub extern "C" fn echo_value_unary_minus(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_value_bool(value: EchoValue) -> bool {
     value.bool_value().unwrap_or(false)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::int(bytes.len() as i64),
-        None => EchoValue::error(),
-    }
 }
 
 pub(crate) fn echo_runtime_string(bytes: Vec<u8>) -> EchoValue {

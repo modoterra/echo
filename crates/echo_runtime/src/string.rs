@@ -65,6 +65,37 @@ pub(crate) fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoValue {
+    if ptr.is_null() && len != 0 {
+        return EchoValue::error();
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) }.to_vec();
+    echo_runtime_string(bytes)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_concat(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(mut bytes) = left.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(right) = right.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    bytes.extend_from_slice(&right);
+    echo_runtime_string(bytes)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => EchoValue::int(bytes.len() as i64),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_trim(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| trim_bytes(bytes, true, true))
 }
