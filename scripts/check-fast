@@ -18,6 +18,7 @@ Usage:
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-collections
+  scripts/check-fast runtime-collections-fixtures
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-output-fixtures
@@ -76,6 +77,7 @@ Examples:
   scripts/check-fast runtime-poll
   scripts/check-fast runtime-sched
   scripts/check-fast runtime-collections
+  scripts/check-fast runtime-collections-fixtures
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-output-fixtures
@@ -268,7 +270,10 @@ add_changed_fixture_checks() {
 
 normalize_changed_checks() {
   if has_changed_check "runtime"; then
-    remove_changed_check "runtime-collections"
+    if has_changed_check "runtime-collections"; then
+      remove_changed_check "runtime-collections"
+      add_changed_check "runtime-collections-fixtures"
+    fi
     remove_changed_check "runtime-execution"
     if has_changed_check "runtime-output"; then
       remove_changed_check "runtime-output"
@@ -538,6 +543,9 @@ run_script_tests() {
   assert_routing "runtime reflection normalizes fixture coverage" $'runtime\njit\nruntime-reflection-fixtures' \
     crates/echo_runtime/src/lib.rs \
     crates/echo_runtime/src/reflection.rs
+  assert_routing "runtime collections normalizes fixture coverage" $'runtime\njit\nruntime-collections-fixtures' \
+    crates/echo_runtime/src/lib.rs \
+    crates/echo_runtime/src/collections.rs
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
@@ -696,6 +704,7 @@ RUNTIME_ENCODING_FIXTURES="049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_
 RUNTIME_TIME_FIXTURES="006_time_sleep_run_before_join,007_time_sleep_orders_tasks,027_std_time_import,112_laravel_bootstrap"
 RUNTIME_OUTPUT_FIXTURES="004_ob_start_end_flush,005_ob_flush_keeps_buffer,006_ob_end_clean_discards_buffer,007_nested_ob_end_flush,008_nested_ob_end_clean,009_nested_ob_flush,010_ob_flush_without_end,011_ob_clean_keeps_buffer,012_shutdown_flushes_open_buffers,013_ob_get_level,016_ob_get_contents_copy,025_ob_functions_without_buffer,027_ob_get_clean,028_ob_get_flush,029_nested_ob_get_flush,034_nested_ob_get_clean,074_ob_control_success_returns,075_ob_control_failure_returns,076_flush_builtin,078_ob_implicit_flush_builtin"
 RUNTIME_REFLECTION_FIXTURES="028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions"
+RUNTIME_COLLECTIONS_FIXTURES="015_empty_list_count,016_list_append_count,017_object_append_count,037_array_is_list_builtin,067_array_key_value_builtins,068_array_lookup_builtins,069_array_fill_builtins,070_array_order_builtins,071_array_combine_pad_builtins,072_array_search_count_builtins,073_array_slice_chunk_builtins,074_array_merge_replace_builtins,083_count_builtin,084_array_type_builtins,094_array_is_list_builtin,110_arithmetic_operators,111_array_index_access,127_array_key_value_builtins,128_array_lookup_builtins,129_array_fill_builtins,130_array_order_builtins,131_array_combine_pad_builtins,132_array_search_count_builtins,133_array_slice_chunk_builtins,134_array_merge_replace_builtins"
 
 command="${1:-help}"
 fixture_filter="${2:-}"
@@ -786,6 +795,10 @@ case "$command" in
   runtime-collections)
     run_quiet cargo test -q -p echo_runtime array_
     run_quiet cargo test -q -p echo_runtime index_get
+    run_with_optional_fixture "$RUNTIME_COLLECTIONS_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-collections-fixtures)
+    run_with_optional_fixture "$RUNTIME_COLLECTIONS_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-execution)
     run_quiet cargo test -q -p echo_runtime capture_stdout
