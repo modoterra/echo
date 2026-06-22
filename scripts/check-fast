@@ -60,6 +60,7 @@ Usage:
   scripts/check-fast runtime-value
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
+  scripts/check-fast runtime-filesystem-metadata
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
   scripts/check-fast runtime-math-fixtures
@@ -626,6 +627,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/value.rs)
       add_changed_check "runtime-value"
       ;;
+    crates/echo_runtime/src/filesystem/metadata.rs)
+      add_changed_check "runtime-filesystem-metadata"
+      ;;
     crates/echo_runtime/src/filesystem.rs)
       add_changed_check "runtime-filesystem"
       ;;
@@ -925,6 +929,8 @@ run_script_tests() {
     crates/echo_runtime/src/string.rs
   assert_routing "runtime string compare routes focused checks" "runtime-string-compare" \
     crates/echo_runtime/src/string/compare.rs
+  assert_routing "runtime filesystem metadata routes focused checks" "runtime-filesystem-metadata" \
+    crates/echo_runtime/src/filesystem/metadata.rs
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
@@ -1289,6 +1295,15 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime basename
     run_quiet cargo test -q -p echo_runtime dirname
     run_runtime_fixture_scope runtime-filesystem-fixtures
+    ;;
+  runtime-filesystem-metadata)
+    run_quiet cargo test -q -p echo_runtime file_exists
+    run_quiet cargo test -q -p echo_runtime chdir
+    run_quiet cargo test -q -p echo_runtime is_dir
+    run_quiet cargo test -q -p echo_runtime is_file
+    run_quiet cargo test -q -p echo_runtime is_link
+    run_quiet cargo test -q -p echo_runtime filesystem_metadata
+    run_with_optional_fixture "049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-math)
     run_quiet cargo test -q -p echo_runtime float_scalar_math_builtins_preserve_php_scalar_behavior
