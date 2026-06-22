@@ -20,6 +20,7 @@ Usage:
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-require
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -62,6 +63,7 @@ Examples:
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-require
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -322,6 +324,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/reflection.rs)
       add_changed_check "runtime-reflection"
       ;;
+    crates/echo_runtime/src/require.rs)
+      add_changed_check "runtime-require"
+      ;;
     crates/echo_runtime/src/environment.rs)
       add_changed_check "runtime-environment"
       ;;
@@ -465,6 +470,8 @@ run_script_tests() {
     crates/echo_runtime/src/time.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
     crates/echo_runtime/src/assertions.rs
+  assert_routing "runtime require routes focused checks" "runtime-require" \
+    crates/echo_runtime/src/require.rs
 }
 
 run_changed_checks() {
@@ -668,6 +675,9 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime function_exists
     run_quiet cargo test -q -p echo_runtime is_callable
     run_with_optional_fixture "028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions" tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-require)
+    run_quiet cargo test -q -p echo_runtime require::
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins

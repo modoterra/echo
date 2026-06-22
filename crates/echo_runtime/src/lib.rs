@@ -12,6 +12,7 @@ mod output;
 pub mod poll;
 pub mod process;
 mod reflection;
+mod require;
 pub mod sched;
 pub mod task;
 pub mod task_group;
@@ -24,7 +25,6 @@ use md5_digest::{Digest as _, Md5};
 use sha1::Sha1;
 use std::cell::RefCell;
 use std::cmp::Ordering as CmpOrdering;
-use std::collections::HashSet;
 use std::env;
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
@@ -33,7 +33,6 @@ use std::io::{self as std_io, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
@@ -58,6 +57,7 @@ pub use reflection::{
     echo_reflection_register_function, echo_std_reflect_exists, echo_std_reflect_params,
     echo_std_reflect_return_type, echo_std_reflect_type_of,
 };
+pub use require::{echo_php_require, echo_php_require_once};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
@@ -136,8 +136,6 @@ const ECHO_VALUE_THREAD: i32 = 13;
 const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
 static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
-static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
-
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
 const INSPECT_MAX_DEPTH: usize = 3;
 const INSPECT_MAX_ITEMS: usize = 8;
@@ -2607,33 +2605,6 @@ pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_php_require(filename: EchoValue) -> EchoValue {
-    match filename.string_bytes() {
-        Some(bytes) => require_path(&bytes),
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_require_once(filename: EchoValue) -> EchoValue {
-    let Some(bytes) = filename.string_bytes() else {
-        return EchoValue::error();
-    };
-
-    let key = canonical_require_key(&bytes);
-    let files = REQUIRED_ONCE_FILES.get_or_init(|| Mutex::new(HashSet::new()));
-    {
-        let mut files = files.lock().expect("require_once set poisoned");
-        if files.contains(&key) {
-            return EchoValue::bool(true);
-        }
-        files.insert(key);
-    }
-
-    require_path(&bytes)
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_dir(filename: EchoValue) -> EchoValue {
     path_bool_builtin(filename, path_is_dir)
 }
@@ -2966,29 +2937,6 @@ fn path_getcwd() -> Option<Vec<u8>> {
         .map(|path| path.into_os_string().as_bytes().to_vec())
 }
 
-#[cfg(unix)]
-fn require_path(bytes: &[u8]) -> EchoValue {
-    let path = Path::new(OsStr::from_bytes(bytes));
-    if path.exists() {
-        EchoValue::bool(true)
-    } else {
-        eprintln!(
-            "PHP Fatal error: Failed opening required '{}'",
-            String::from_utf8_lossy(bytes)
-        );
-        std::process::exit(1);
-    }
-}
-
-#[cfg(unix)]
-fn canonical_require_key(bytes: &[u8]) -> Vec<u8> {
-    let path = Path::new(OsStr::from_bytes(bytes));
-    std::fs::canonicalize(path)
-        .ok()
-        .map(|path| path.as_os_str().as_bytes().to_vec())
-        .unwrap_or_else(|| bytes.to_vec())
-}
-
 #[cfg(not(unix))]
 fn path_exists(bytes: &[u8]) -> bool {
     std::str::from_utf8(bytes)
@@ -3009,31 +2957,6 @@ fn path_getcwd() -> Option<Vec<u8>> {
     env::current_dir()
         .ok()
         .map(|path| path.to_string_lossy().as_bytes().to_vec())
-}
-
-#[cfg(not(unix))]
-fn require_path(bytes: &[u8]) -> EchoValue {
-    let Ok(path) = std::str::from_utf8(bytes) else {
-        return EchoValue::error();
-    };
-    if Path::new(path).exists() {
-        EchoValue::bool(true)
-    } else {
-        eprintln!("PHP Fatal error: Failed opening required '{path}'");
-        std::process::exit(1);
-    }
-}
-
-#[cfg(not(unix))]
-fn canonical_require_key(bytes: &[u8]) -> Vec<u8> {
-    let Ok(path) = std::str::from_utf8(bytes) else {
-        return bytes.to_vec();
-    };
-    std::fs::canonicalize(path)
-        .ok()
-        .and_then(|path| path.into_os_string().into_string().ok())
-        .map(String::into_bytes)
-        .unwrap_or_else(|| bytes.to_vec())
 }
 
 #[cfg(unix)]
