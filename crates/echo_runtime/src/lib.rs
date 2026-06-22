@@ -54,13 +54,12 @@ pub use net::{
 };
 pub use output::OutputRuntime;
 pub use process::{echo_process_join, echo_process_spawn};
-use reflection::{
-    REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
-    function_reflection_by_name_and_source,
-};
+#[cfg(test)]
+use reflection::REFLECTION_SOURCE_PHP_BUILTIN;
 pub use reflection::{
-    echo_reflection_register_function, echo_std_reflect_exists, echo_std_reflect_params,
-    echo_std_reflect_return_type, echo_std_reflect_type_of,
+    echo_php_function_exists, echo_php_is_callable, echo_reflection_register_function,
+    echo_std_reflect_exists, echo_std_reflect_params, echo_std_reflect_return_type,
+    echo_std_reflect_type_of,
 };
 pub use require::{echo_php_require, echo_php_require_once};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
@@ -1614,20 +1613,6 @@ pub extern "C" fn echo_php_array_product(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_php_function_exists(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => match std::str::from_utf8(&bytes) {
-            Ok(name) => EchoValue::bool(
-                function_reflection_by_name_and_source(name, REFLECTION_SOURCE_PHP_BUILTIN)
-                    .is_some(),
-            ),
-            Err(_) => EchoValue::bool(false),
-        },
-        None => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
     let type_name = match value.kind {
         ECHO_VALUE_NULL => b"NULL".as_slice(),
@@ -1717,22 +1702,6 @@ pub extern "C" fn echo_php_is_numeric(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_bool(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_bool())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_is_callable(value: EchoValue) -> EchoValue {
-    if value.kind != ECHO_VALUE_STRING {
-        return EchoValue::bool(false);
-    }
-
-    let Some(string) = (unsafe { (value.payload as *const EchoString).as_ref() }) else {
-        return EchoValue::bool(false);
-    };
-
-    match std::str::from_utf8(&string.bytes) {
-        Ok(name) => EchoValue::bool(function_reflection_by_name(name).is_some()),
-        Err(_) => EchoValue::bool(false),
-    }
 }
 
 #[unsafe(no_mangle)]

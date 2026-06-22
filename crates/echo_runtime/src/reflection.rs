@@ -39,6 +39,32 @@ pub(crate) fn function_reflection_by_name(name: &str) -> Option<RuntimeFunctionR
         .by_name(name)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_function_exists(value: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(name) = std::str::from_utf8(&bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(
+        function_reflection_by_name_and_source(name, REFLECTION_SOURCE_PHP_BUILTIN).is_some(),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_callable(value: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Ok(name) = std::str::from_utf8(&bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(function_reflection_by_name(name).is_some())
+}
+
 pub(crate) unsafe fn register_function_raw(
     name_ptr: *const u8,
     name_len: usize,
