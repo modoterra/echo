@@ -22,5 +22,6 @@ mod string;
 mod string_collections;
 mod string_format;
 mod string_paths;
+mod string_search;
 mod task;
 mod value;
