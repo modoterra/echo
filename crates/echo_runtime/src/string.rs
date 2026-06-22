@@ -59,3 +59,73 @@ pub(crate) fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
         .unwrap_or(bytes.len());
     &bytes[start..]
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| bytes.make_ascii_uppercase())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strtolower(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| bytes.make_ascii_lowercase())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ucwords(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| {
+        let mut uppercase_next = true;
+        for byte in bytes {
+            if uppercase_next {
+                byte.make_ascii_uppercase();
+            }
+            uppercase_next = matches!(*byte, b' ' | b'\t' | b'\r' | b'\n' | 0x0c | 0x0b);
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strrev(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| bytes.reverse())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ucfirst(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| {
+        if let Some(first) = bytes.first_mut() {
+            first.make_ascii_uppercase();
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_lcfirst(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| {
+        if let Some(first) = bytes.first_mut() {
+            first.make_ascii_lowercase();
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ord(value: EchoValue) -> EchoValue {
+    match value
+        .string_bytes()
+        .and_then(|bytes| bytes.first().copied())
+    {
+        Some(byte) => EchoValue::int(byte as i64),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
+    php_string_transform_builtin(value, |bytes| {
+        for byte in bytes {
+            *byte = match *byte {
+                b'a'..=b'm' | b'A'..=b'M' => *byte + 13,
+                b'n'..=b'z' | b'N'..=b'Z' => *byte - 13,
+                other => other,
+            };
+        }
+    })
+}
