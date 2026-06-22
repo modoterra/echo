@@ -23,9 +23,6 @@ pub mod thread;
 pub mod time;
 pub mod value;
 
-#[cfg(test)]
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
 pub use callable::{
     EchoCallable, EchoSymbol, echo_call, echo_call_function, echo_normalize_callable,

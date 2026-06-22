@@ -610,6 +610,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/string.rs)
       add_changed_check "runtime-string"
       ;;
+    crates/echo_runtime/src/value/*.rs)
+      add_changed_check "runtime-value"
+      ;;
     crates/echo_runtime/src/value.rs)
       add_changed_check "runtime-value"
       ;;
@@ -913,6 +916,8 @@ run_script_tests() {
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
+  assert_routing "runtime value submodule routes focused checks" "runtime-value" \
+    crates/echo_runtime/src/value/inspect.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
   assert_runtime_test_module_routing
