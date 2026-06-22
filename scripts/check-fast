@@ -54,6 +54,7 @@ Usage:
   scripts/check-fast runtime-string
   scripts/check-fast runtime-string-compare
   scripts/check-fast runtime-string-pattern
+  scripts/check-fast runtime-string-sequence
   scripts/check-fast runtime-string-fixtures
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
@@ -180,6 +181,7 @@ Examples:
   scripts/check-fast runtime-string
   scripts/check-fast runtime-string-compare
   scripts/check-fast runtime-string-pattern
+  scripts/check-fast runtime-string-sequence
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -712,6 +714,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/string/pattern.rs)
       add_changed_check "runtime-string-pattern"
       ;;
+    crates/echo_runtime/src/string/sequence.rs)
+      add_changed_check "runtime-string-sequence"
+      ;;
     crates/echo_runtime/src/string.rs)
       add_changed_check "runtime-string"
       ;;
@@ -1080,6 +1085,8 @@ run_script_tests() {
     crates/echo_runtime/src/string/compare.rs
   assert_routing "runtime string pattern routes focused checks" "runtime-string-pattern" \
     crates/echo_runtime/src/string/pattern.rs
+  assert_routing "runtime string sequence routes focused checks" "runtime-string-sequence" \
+    crates/echo_runtime/src/string/sequence.rs
   assert_routing "runtime collection sequence routes focused checks" "runtime-collections-sequence" \
     crates/echo_runtime/src/collections/sequence.rs
   assert_routing "runtime collection keys routes focused checks" "runtime-collections-keys" \
@@ -1511,6 +1518,11 @@ case "$command" in
   runtime-string-pattern)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string_search:: -- --test-threads=1
     run_quiet cargo test -q -p echo_runtime runtime_tests::string_rewrite:: -- --test-threads=1
+    ;;
+  runtime-string-sequence)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::string_collections:: -- --test-threads=1
+    run_quiet cargo test -q -p echo_runtime string_chunk_builtins_preserve_php_byte_behavior
+    run_runtime_fixture_scope runtime-string-fixtures
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins
