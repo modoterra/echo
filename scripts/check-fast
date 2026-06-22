@@ -568,6 +568,7 @@ assert_positive_integer() {
 assert_command_echo_controls() {
   local default_output
   local quiet_output
+  local fixture_output
 
   default_output="$(run_quiet true)"
   if [[ "$default_output" != ":: true" ]]; then
@@ -578,6 +579,12 @@ assert_command_echo_controls() {
   quiet_output="$(CHECK_FAST_ECHO_COMMANDS=0 run_quiet true)"
   if [[ -n "$quiet_output" ]]; then
     printf 'command echo test failed: quiet trace should be empty\nactual: %s\n' "$quiet_output" >&2
+    exit 1
+  fi
+
+  fixture_output="$(CHECK_FAST_ECHO_COMMANDS=0 run_with_optional_fixture "043_strlen_builtin" tests/php -- true)"
+  if [[ -n "$fixture_output" ]]; then
+    printf 'command echo test failed: quiet fixture trace should be empty\nactual: %s\n' "$fixture_output" >&2
     exit 1
   fi
 }
@@ -738,7 +745,9 @@ run_with_optional_fixture() {
 
   if [[ -n "$filter" ]]; then
     assert_fixture_filter_matches "$filter" "${roots[@]}"
-    printf ':: ECHO_FIXTURE=%s %s\n' "$filter" "$*"
+    if echo_commands_enabled; then
+      printf ':: ECHO_FIXTURE=%s %s\n' "$filter" "$*"
+    fi
     output="$(mktemp "${TMPDIR:-/tmp}/check-fast.XXXXXX")"
     if ECHO_FIXTURE="$filter" "$@" >"$output" 2>&1; then
       rm -f "$output"
@@ -769,10 +778,14 @@ run_benchmark_with_optional_fixture() {
 
   if [[ -n "$filter" ]]; then
     assert_fixture_filter_matches "$filter" "${roots[@]}"
-    printf ':: ECHO_BENCH_ITERATIONS=%s ECHO_FIXTURE=%s %s\n' "$iterations" "$filter" "$*"
+    if echo_commands_enabled; then
+      printf ':: ECHO_BENCH_ITERATIONS=%s ECHO_FIXTURE=%s %s\n' "$iterations" "$filter" "$*"
+    fi
     ECHO_BENCH_ITERATIONS="$iterations" ECHO_FIXTURE="$filter" "$@"
   else
-    printf ':: ECHO_BENCH_ITERATIONS=%s %s\n' "$iterations" "$*"
+    if echo_commands_enabled; then
+      printf ':: ECHO_BENCH_ITERATIONS=%s %s\n' "$iterations" "$*"
+    fi
     ECHO_BENCH_ITERATIONS="$iterations" "$@"
   fi
 }
