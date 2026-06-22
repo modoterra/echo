@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Mutex, MutexGuard};
 
 mod support;
 
@@ -10,8 +11,11 @@ use support::{
     write_artifact, write_empty_execution_artifacts,
 };
 
+static FIXTURE_LOCK: Mutex<()> = Mutex::new(());
+
 #[test]
 fn php_fixtures_work_end_to_end() {
+    let _lock = fixture_lock();
     let _run_artifacts = RunArtifacts::new("php");
     let fixtures = fixture_dirs("tests/php");
     if fixtures.is_empty() && fixture_filter_active() {
@@ -88,6 +92,7 @@ fn php_fixtures_work_end_to_end() {
 
 #[test]
 fn echo_fixtures_are_exercised() {
+    let _lock = fixture_lock();
     let _run_artifacts = RunArtifacts::new("echo");
     let fixtures = fixture_dirs("tests/echo");
     if fixtures.is_empty() && fixture_filter_active() {
@@ -161,6 +166,12 @@ fn echo_fixtures_are_exercised() {
             &binary_path.display().to_string(),
         );
     }
+}
+
+fn fixture_lock() -> MutexGuard<'static, ()> {
+    FIXTURE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn command(subcommand: &str, program_path: &Path) -> Command {

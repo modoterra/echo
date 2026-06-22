@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Mutex, MutexGuard};
 
 mod support;
 
@@ -8,8 +9,11 @@ use support::{
     assert_output_success, assert_stdout_eq, fixture_dirs, fixture_filter_active, output_with_stdin,
 };
 
+static FIXTURE_LOCK: Mutex<()> = Mutex::new(());
+
 #[test]
 fn run_jit_executes_supported_php_fixtures() {
+    let _lock = fixture_lock();
     let fixtures = fixture_dirs("tests/php");
     if fixtures.is_empty() && fixture_filter_active() {
         return;
@@ -26,6 +30,7 @@ fn run_jit_executes_supported_php_fixtures() {
 
 #[test]
 fn run_jit_executes_supported_echo_fixtures() {
+    let _lock = fixture_lock();
     let fixtures = fixture_dirs("tests/echo");
     if fixtures.is_empty() && fixture_filter_active() {
         return;
@@ -38,6 +43,12 @@ fn run_jit_executes_supported_echo_fixtures() {
 
         assert_jit_fixture(&fixture, "program.echo");
     }
+}
+
+fn fixture_lock() -> MutexGuard<'static, ()> {
+    FIXTURE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn assert_jit_fixture(fixture: &Path, program_file: &str) {
