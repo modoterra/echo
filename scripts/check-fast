@@ -20,6 +20,7 @@ Usage:
   scripts/check-fast runtime-collections
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
+  scripts/check-fast runtime-output-fixtures
   scripts/check-fast runtime-poll
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-require
@@ -76,6 +77,7 @@ Examples:
   scripts/check-fast runtime-collections
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
+  scripts/check-fast runtime-output-fixtures
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-require
   scripts/check-fast runtime-environment
@@ -266,7 +268,10 @@ normalize_changed_checks() {
   if has_changed_check "runtime"; then
     remove_changed_check "runtime-collections"
     remove_changed_check "runtime-execution"
-    remove_changed_check "runtime-output"
+    if has_changed_check "runtime-output"; then
+      remove_changed_check "runtime-output"
+      add_changed_check "runtime-output-fixtures"
+    fi
     remove_changed_check "runtime-reflection"
     if has_changed_check "runtime-math"; then
       remove_changed_check "runtime-math"
@@ -522,6 +527,9 @@ run_script_tests() {
   assert_routing "runtime time normalizes fixture coverage" $'runtime\njit\nruntime-time-fixtures' \
     crates/echo_runtime/src/lib.rs \
     crates/echo_runtime/src/time.rs
+  assert_routing "runtime output normalizes fixture coverage" $'runtime\njit\nruntime-output-fixtures' \
+    crates/echo_runtime/src/lib.rs \
+    crates/echo_runtime/src/output.rs
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
@@ -678,6 +686,7 @@ RUNTIME_FILESYSTEM_FIXTURES="041_basename_builtin,042_dirname_builtin,049_file_e
 RUNTIME_MATH_FIXTURES="058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins"
 RUNTIME_ENCODING_FIXTURES="049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,081_string_rewrite_builtins,114_url_encoding_builtins,141_string_rewrite_builtins"
 RUNTIME_TIME_FIXTURES="006_time_sleep_run_before_join,007_time_sleep_orders_tasks,027_std_time_import,112_laravel_bootstrap"
+RUNTIME_OUTPUT_FIXTURES="004_ob_start_end_flush,005_ob_flush_keeps_buffer,006_ob_end_clean_discards_buffer,007_nested_ob_end_flush,008_nested_ob_end_clean,009_nested_ob_flush,010_ob_flush_without_end,011_ob_clean_keeps_buffer,012_shutdown_flushes_open_buffers,013_ob_get_level,016_ob_get_contents_copy,025_ob_functions_without_buffer,027_ob_get_clean,028_ob_get_flush,029_nested_ob_get_flush,034_nested_ob_get_clean,074_ob_control_success_returns,075_ob_control_failure_returns,076_flush_builtin,078_ob_implicit_flush_builtin"
 
 command="${1:-help}"
 fixture_filter="${2:-}"
@@ -774,6 +783,10 @@ case "$command" in
     ;;
   runtime-output)
     run_quiet cargo test -q -p echo_runtime output::
+    run_with_optional_fixture "$RUNTIME_OUTPUT_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-output-fixtures)
+    run_with_optional_fixture "$RUNTIME_OUTPUT_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-poll)
     run_quiet cargo test -q -p echo_runtime poll::
