@@ -65,6 +65,7 @@ Usage:
   scripts/check-fast runtime-encoding-fixtures
   scripts/check-fast parser [fixture-filter]
   scripts/check-fast semantics
+  scripts/check-fast semantics-index
   scripts/check-fast hir
   scripts/check-fast mir
   scripts/check-fast pipeline
@@ -146,6 +147,7 @@ Examples:
   scripts/check-fast std-source
   scripts/check-fast parser
   scripts/check-fast parser 017_object_append_count
+  scripts/check-fast semantics-index
   scripts/check-fast pipeline
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
@@ -500,6 +502,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_parser/*)
       add_changed_check "parser"
+      ;;
+    crates/echo_semantics/src/index_facts.rs)
+      add_changed_check "semantics-index"
       ;;
     crates/echo_semantics/*)
       add_changed_check "semantics"
@@ -881,6 +886,8 @@ run_script_tests() {
     docs/time-foundation.md
   assert_routing "website docs route type checks" "web-docs" \
     www/src/docs/content.ts
+  assert_routing "semantics index facts route focused checks" "semantics-index" \
+    crates/echo_semantics/src/index_facts.rs
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
     crates/echo_codegen/src/abi.rs
   assert_routing "codegen php lowering routes focused PHP checks" "codegen-php" \
@@ -1065,6 +1072,9 @@ case "$command" in
     ;;
   semantics)
     test_crate echo_semantics
+    ;;
+  semantics-index)
+    run_quiet cargo test -q -p echo_semantics index_facts::tests
     ;;
   hir)
     test_crate echo_hir
