@@ -1396,6 +1396,8 @@ run_script_tests() {
     crates/echo_codegen/src/abi/php_builtins/array_entries.rs
   assert_routing "codegen PHP filesystem ABI routes focused PHP checks" "codegen-php" \
     crates/echo_codegen/src/abi/php_builtins/filesystem_entries.rs
+  assert_routing "codegen PHP math ABI routes focused PHP checks" "codegen-php" \
+    crates/echo_codegen/src/abi/php_builtins/math_entries.rs
   assert_routing "codegen std ABI routes focused std checks" "codegen-stdlib" \
     crates/echo_codegen/src/abi/std_intrinsics.rs
   assert_routing "codegen collection lowering routes focused collection checks" "codegen-collections" \
