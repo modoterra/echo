@@ -24,6 +24,7 @@ Usage:
   scripts/check-fast runtime-tests-scalar
   scripts/check-fast runtime-tests-stdlib
   scripts/check-fast runtime-tests-string
+  scripts/check-fast runtime-tests-string-compare
   scripts/check-fast runtime-tests-string-collections
   scripts/check-fast runtime-tests-string-format
   scripts/check-fast runtime-tests-string-paths
@@ -102,6 +103,7 @@ Examples:
   scripts/check-fast runtime-tests-scalar
   scripts/check-fast runtime-tests-stdlib
   scripts/check-fast runtime-tests-string
+  scripts/check-fast runtime-tests-string-compare
   scripts/check-fast runtime-tests-string-collections
   scripts/check-fast runtime-tests-string-format
   scripts/check-fast runtime-tests-string-paths
@@ -435,6 +437,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/string.rs)
       add_changed_check "runtime-tests-string"
+      ;;
+    crates/echo_runtime/src/runtime_tests/string_compare.rs)
+      add_changed_check "runtime-tests-string-compare"
       ;;
     crates/echo_runtime/src/runtime_tests/string_collections.rs)
       add_changed_check "runtime-tests-string-collections"
@@ -817,6 +822,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/stdlib.rs
   assert_routing "runtime string tests route focused submodule check" "runtime-tests-string" \
     crates/echo_runtime/src/runtime_tests/string.rs
+  assert_routing "runtime string compare tests route focused submodule check" "runtime-tests-string-compare" \
+    crates/echo_runtime/src/runtime_tests/string_compare.rs
   assert_routing "runtime string collection tests route focused submodule check" "runtime-tests-string-collections" \
     crates/echo_runtime/src/runtime_tests/string_collections.rs
   assert_routing "runtime string format tests route focused submodule check" "runtime-tests-string-format" \
@@ -1081,6 +1088,9 @@ case "$command" in
     ;;
   runtime-tests-string)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string:: -- --test-threads=1
+    ;;
+  runtime-tests-string-compare)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::string_compare:: -- --test-threads=1
     ;;
   runtime-tests-string-collections)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string_collections:: -- --test-threads=1
