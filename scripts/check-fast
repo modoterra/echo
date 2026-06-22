@@ -83,6 +83,7 @@ Usage:
   scripts/check-fast lsp
   scripts/check-fast lsp-completion
   scripts/check-fast lsp-definition
+  scripts/check-fast lsp-definition-method
   scripts/check-fast lsp-definition-target
   scripts/check-fast lsp-diagnostics
   scripts/check-fast lsp-document
@@ -712,6 +713,9 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/completion.rs)
       add_changed_check "lsp-completion"
       ;;
+    crates/echo_lsp/src/definition_method.rs)
+      add_changed_check "lsp-definition-method"
+      ;;
     crates/echo_lsp/src/definition_target.rs)
       add_changed_check "lsp-definition-target"
       ;;
@@ -1053,6 +1057,8 @@ run_script_tests() {
     crates/echo_lsp/src/definition.rs
   assert_routing "lsp definition composer routes focused checks" "lsp-definition" \
     crates/echo_lsp/src/definition_composer.rs
+  assert_routing "lsp definition method routes focused checks" "lsp-definition-method" \
+    crates/echo_lsp/src/definition_method.rs
   assert_routing "lsp definition target routes focused checks" "lsp-definition-target" \
     crates/echo_lsp/src/definition_target.rs
   assert_routing "lsp server routes focused checks" "lsp-server" \
@@ -1486,6 +1492,10 @@ case "$command" in
     ;;
   lsp-definition)
     run_quiet cargo test -q -p echo_lsp definition::tests
+    ;;
+  lsp-definition-method)
+    run_quiet cargo test -q -p echo_lsp resolves_phpdoc_receiver_method_to_indexed_class_method
+    run_quiet cargo test -q -p echo_lsp resolves_phpdoc_receiver_method_through_composer_psr4
     ;;
   lsp-definition-target)
     run_quiet cargo test -q -p echo_lsp resolves_require_dependency_to_target_file
