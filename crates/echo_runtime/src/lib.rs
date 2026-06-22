@@ -46,8 +46,9 @@ use collections::{
 };
 use encoding::*;
 pub use encoding::{
-    echo_php_base64_decode, echo_php_base64_encode, echo_php_rawurldecode, echo_php_rawurlencode,
-    echo_php_urldecode, echo_php_urlencode,
+    echo_php_base64_decode, echo_php_base64_encode, echo_php_escapeshellarg,
+    echo_php_escapeshellcmd, echo_php_rawurldecode, echo_php_rawurlencode, echo_php_urldecode,
+    echo_php_urlencode,
 };
 pub use environment::*;
 pub use error::EchoError;
@@ -74,8 +75,7 @@ pub use string::{
     echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
 };
 use string::{
-    php_int_to_string_builtin, php_string_map_builtin, php_string_to_number_builtin, trim_ascii,
-    trim_ascii_start,
+    php_int_to_string_builtin, php_string_to_number_builtin, trim_ascii, trim_ascii_start,
 };
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
@@ -2184,73 +2184,6 @@ pub extern "C" fn echo_php_sha1(value: EchoValue, binary: EchoValue) -> EchoValu
         }
         None => EchoValue::error(),
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_escapeshellarg(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, escape_shell_arg_unix)
-}
-
-fn escape_shell_arg_unix(bytes: &[u8]) -> Vec<u8> {
-    let mut escaped = Vec::with_capacity(bytes.len() + 2);
-    escaped.push(b'\'');
-    for byte in bytes {
-        if *byte == b'\'' {
-            escaped.extend_from_slice(b"'\\''");
-        } else {
-            escaped.push(*byte);
-        }
-    }
-    escaped.push(b'\'');
-    escaped
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_escapeshellcmd(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, escape_shell_cmd_unix)
-}
-
-fn escape_shell_cmd_unix(bytes: &[u8]) -> Vec<u8> {
-    let single_quotes_unpaired = bytes.iter().filter(|byte| **byte == b'\'').count() % 2 == 1;
-    let double_quotes_unpaired = bytes.iter().filter(|byte| **byte == b'"').count() % 2 == 1;
-    let mut escaped = Vec::with_capacity(bytes.len());
-
-    for byte in bytes {
-        if shell_cmd_byte_needs_escape(*byte)
-            || (*byte == b'\'' && single_quotes_unpaired)
-            || (*byte == b'"' && double_quotes_unpaired)
-        {
-            escaped.push(b'\\');
-        }
-        escaped.push(*byte);
-    }
-
-    escaped
-}
-
-fn shell_cmd_byte_needs_escape(byte: u8) -> bool {
-    matches!(
-        byte,
-        b'#' | b'&'
-            | b';'
-            | b'`'
-            | b'|'
-            | b'*'
-            | b'?'
-            | b'~'
-            | b'<'
-            | b'>'
-            | b'^'
-            | b'('
-            | b')'
-            | b'['
-            | b']'
-            | b'{'
-            | b'}'
-            | b'$'
-            | b'\\'
-            | b'\n'
-    )
 }
 
 #[unsafe(no_mangle)]

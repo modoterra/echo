@@ -185,6 +185,73 @@ pub extern "C" fn echo_php_urldecode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| percent_decode(bytes, true))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_escapeshellarg(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, escape_shell_arg_unix)
+}
+
+fn escape_shell_arg_unix(bytes: &[u8]) -> Vec<u8> {
+    let mut escaped = Vec::with_capacity(bytes.len() + 2);
+    escaped.push(b'\'');
+    for byte in bytes {
+        if *byte == b'\'' {
+            escaped.extend_from_slice(b"'\\''");
+        } else {
+            escaped.push(*byte);
+        }
+    }
+    escaped.push(b'\'');
+    escaped
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_escapeshellcmd(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, escape_shell_cmd_unix)
+}
+
+fn escape_shell_cmd_unix(bytes: &[u8]) -> Vec<u8> {
+    let single_quotes_unpaired = bytes.iter().filter(|byte| **byte == b'\'').count() % 2 == 1;
+    let double_quotes_unpaired = bytes.iter().filter(|byte| **byte == b'"').count() % 2 == 1;
+    let mut escaped = Vec::with_capacity(bytes.len());
+
+    for byte in bytes {
+        if shell_cmd_byte_needs_escape(*byte)
+            || (*byte == b'\'' && single_quotes_unpaired)
+            || (*byte == b'"' && double_quotes_unpaired)
+        {
+            escaped.push(b'\\');
+        }
+        escaped.push(*byte);
+    }
+
+    escaped
+}
+
+fn shell_cmd_byte_needs_escape(byte: u8) -> bool {
+    matches!(
+        byte,
+        b'#' | b'&'
+            | b';'
+            | b'`'
+            | b'|'
+            | b'*'
+            | b'?'
+            | b'~'
+            | b'<'
+            | b'>'
+            | b'^'
+            | b'('
+            | b')'
+            | b'['
+            | b']'
+            | b'{'
+            | b'}'
+            | b'$'
+            | b'\\'
+            | b'\n'
+    )
+}
+
 pub(crate) fn quoted_printable_encode_bytes(bytes: &[u8]) -> Vec<u8> {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
 
