@@ -1,14 +1,8 @@
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use dashmap::DashMap;
-use echo_diagnostics::Diagnostic as EchoDiagnostic;
-use echo_index::{
-    DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile, ReferenceQuery,
-    TextOffset,
-};
-use echo_source::SourceMode;
+use echo_index::{DependencyQuery, EchoIndex, IndexedFile, ReferenceQuery, TextOffset};
 use tower_lsp_server::jsonrpc::Result;
 use tower_lsp_server::ls_types::{
     CompletionParams, CompletionResponse, Diagnostic, DidChangeTextDocumentParams,
@@ -32,6 +26,7 @@ use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
 use crate::document_links::document_links_for_paths;
 use crate::hover::hover_at;
+use crate::indexing::{index_required_files, parse_index_facts};
 use crate::position::position_to_offset;
 use crate::references::reference_locations_to_lsp;
 use crate::rename::{prepare_rename_at, rename_workspace_edit};
@@ -488,26 +483,6 @@ pub async fn run_stdio() -> std::io::Result<()> {
     Ok(())
 }
 
-fn source_mode(mode: EchoFileMode) -> SourceMode {
-    match mode {
-        EchoFileMode::Echo => SourceMode::Strict,
-        EchoFileMode::PhpCompat => SourceMode::Echo,
-    }
-}
-
-fn parse_index_facts(
-    source: &str,
-    file_id: FileId,
-    mode: EchoFileMode,
-    source_dir: Option<&Path>,
-) -> std::result::Result<IndexFacts, Vec<EchoDiagnostic>> {
-    let mut program = echo_parser::parse_with_mode(source, source_mode(mode))?;
-    program.source_dir = source_dir.map(|path| path.to_string_lossy().to_string());
-    Ok(echo_semantics::index_facts_from_source(
-        source, &program, file_id, mode,
-    ))
-}
-
 fn document_source_dir(document: &Document) -> Option<PathBuf> {
     document
         .uri
@@ -515,81 +490,9 @@ fn document_source_dir(document: &Document) -> Option<PathBuf> {
         .and_then(|path| path.parent().map(Path::to_path_buf))
 }
 
-fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {
-    let mut visited = HashSet::new();
-    index_required_files_inner(index, root_file_id, &mut visited);
-}
-
-fn index_required_files_inner(
-    index: &mut EchoIndex,
-    file_id: FileId,
-    visited: &mut HashSet<PathBuf>,
-) {
-    let dependencies = index
-        .dependencies(DependencyQuery::in_file(file_id))
-        .into_iter()
-        .filter(|dependency| {
-            matches!(
-                dependency.kind,
-                echo_index::DependencyKind::Require
-                    | echo_index::DependencyKind::RequireOnce
-                    | echo_index::DependencyKind::Include
-                    | echo_index::DependencyKind::IncludeOnce
-                    | echo_index::DependencyKind::ComposerAutoload
-            )
-        })
-        .map(|dependency| dependency.target.clone())
-        .collect::<Vec<_>>();
-
-    for target in dependencies {
-        let path = PathBuf::from(target);
-        let Ok(path) = std::fs::canonicalize(path) else {
-            continue;
-        };
-        if !visited.insert(path.clone())
-            || path.extension().and_then(|ext| ext.to_str()) != Some("php")
-        {
-            continue;
-        }
-
-        let included_file_id = match index.file_by_path(&path).map(|file| file.file_id) {
-            Some(file_id) => file_id,
-            None => {
-                let file_id = index.alloc_file_id();
-                let uri = Uri::from_file_path(&path)
-                    .map(|uri| uri.to_string())
-                    .unwrap_or_else(|| format!("file://{}", path.display()));
-                index.insert_file(IndexedFile {
-                    file_id,
-                    uri,
-                    path: Some(path.clone()),
-                    version: None,
-                    mode: EchoFileMode::PhpCompat,
-                    content_hash: None,
-                });
-                file_id
-            }
-        };
-
-        let Ok(source) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let source_dir = path.parent();
-        if let Ok(facts) = parse_index_facts(
-            &source,
-            included_file_id,
-            EchoFileMode::PhpCompat,
-            source_dir,
-        ) {
-            index.update_file(included_file_id, facts);
-            index_required_files_inner(index, included_file_id, visited);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use echo_index::{DependencyKind, ReferenceKind, SymbolKind, TextRange};
+    use echo_index::{DependencyKind, EchoFileMode, FileId, ReferenceKind, SymbolKind, TextRange};
     use ropey::Rope;
 
     use crate::position::range_to_lsp_range;

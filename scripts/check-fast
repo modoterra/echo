@@ -89,6 +89,7 @@ Usage:
   scripts/check-fast lsp-document
   scripts/check-fast lsp-document-links
   scripts/check-fast lsp-hover
+  scripts/check-fast lsp-indexing
   scripts/check-fast lsp-position
   scripts/check-fast lsp-references
   scripts/check-fast lsp-rename
@@ -735,6 +736,9 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/hover.rs)
       add_changed_check "lsp-hover"
       ;;
+    crates/echo_lsp/src/indexing.rs)
+      add_changed_check "lsp-indexing"
+      ;;
     crates/echo_lsp/src/position.rs)
       add_changed_check "lsp-position"
       ;;
@@ -1074,6 +1078,8 @@ run_script_tests() {
     crates/echo_lsp/src/server.rs
   assert_routing "lsp document links route focused checks" "lsp-document-links" \
     crates/echo_lsp/src/document_links.rs
+  assert_routing "lsp indexing route focused checks" "lsp-indexing" \
+    crates/echo_lsp/src/indexing.rs
   assert_routing "lsp signature help routes focused checks" "lsp-signature-help" \
     crates/echo_lsp/src/signature_help.rs
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
@@ -1527,6 +1533,11 @@ case "$command" in
     ;;
   lsp-hover)
     run_quiet cargo test -q -p echo_lsp hover::tests
+    ;;
+  lsp-indexing)
+    run_quiet cargo test -q -p echo_lsp parsed_document_produces_index_facts
+    run_quiet cargo test -q -p echo_lsp laravel_entrypoint_produces_import_and_static_reference_facts
+    run_quiet cargo test -q -p echo_lsp indexes_required_php_files_from_laravel_fixture
     ;;
   lsp-position)
     run_quiet cargo test -q -p echo_lsp position::tests

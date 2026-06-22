@@ -7,6 +7,7 @@ mod diagnostics;
 mod document;
 mod document_links;
 mod hover;
+mod indexing;
 pub mod position;
 mod references;
 mod rename;
