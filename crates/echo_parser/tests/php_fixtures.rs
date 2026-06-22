@@ -1,9 +1,13 @@
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 #[test]
 fn php_compatibility_fixtures_parse() {
     let fixtures = php_fixture_dirs();
+    if fixtures.is_empty() && fixture_filter_active() {
+        return;
+    }
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
 
     for fixture in fixtures {
@@ -32,6 +36,9 @@ fn php_compatibility_fixtures_parse() {
 #[test]
 fn echo_language_fixtures_parse() {
     let fixtures = echo_fixture_dirs();
+    if fixtures.is_empty() && fixture_filter_active() {
+        return;
+    }
     assert!(!fixtures.is_empty(), "expected at least one Echo fixture");
 
     for fixture in fixtures {
@@ -74,7 +81,32 @@ fn fixture_dirs(relative: &str) -> Vec<PathBuf> {
         .collect::<Vec<_>>();
 
     dirs.sort();
+    if let Some(filter) = fixture_filter() {
+        dirs.retain(|path| {
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                return false;
+            };
+
+            filter.iter().any(|needle| name.contains(needle))
+        });
+    }
     dirs
+}
+
+fn fixture_filter_active() -> bool {
+    fixture_filter().is_some()
+}
+
+fn fixture_filter() -> Option<Vec<String>> {
+    let value = env::var("ECHO_FIXTURE").ok()?;
+    let filters = value
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+
+    (!filters.is_empty()).then_some(filters)
 }
 
 fn workspace_root() -> PathBuf {
