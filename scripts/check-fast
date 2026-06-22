@@ -21,6 +21,7 @@ Usage:
   scripts/check-fast runtime-tests-filesystem
   scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-scalar
+  scripts/check-fast runtime-tests-stdlib
   scripts/check-fast runtime-tests-string
   scripts/check-fast runtime-tests-task
   scripts/check-fast runtime-tests-value
@@ -92,6 +93,7 @@ Examples:
   scripts/check-fast runtime-tests-filesystem
   scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-scalar
+  scripts/check-fast runtime-tests-stdlib
   scripts/check-fast runtime-tests-string
   scripts/check-fast runtime-tests-task
   scripts/check-fast runtime-tests-value
@@ -412,6 +414,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/scalar.rs)
       add_changed_check "runtime-tests-scalar"
+      ;;
+    crates/echo_runtime/src/runtime_tests/stdlib.rs)
+      add_changed_check "runtime-tests-stdlib"
       ;;
     crates/echo_runtime/src/runtime_tests/string.rs)
       add_changed_check "runtime-tests-string"
@@ -776,6 +781,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/math.rs
   assert_routing "runtime scalar tests route focused submodule check" "runtime-tests-scalar" \
     crates/echo_runtime/src/runtime_tests/scalar.rs
+  assert_routing "runtime stdlib tests route focused submodule check" "runtime-tests-stdlib" \
+    crates/echo_runtime/src/runtime_tests/stdlib.rs
   assert_routing "runtime string tests route focused submodule check" "runtime-tests-string" \
     crates/echo_runtime/src/runtime_tests/string.rs
   assert_routing "runtime task tests route focused submodule check" "runtime-tests-task" \
@@ -1023,6 +1030,9 @@ case "$command" in
     ;;
   runtime-tests-scalar)
     run_quiet cargo test -q -p echo_runtime runtime_tests::scalar:: -- --test-threads=1
+    ;;
+  runtime-tests-stdlib)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::stdlib:: -- --test-threads=1
     ;;
   runtime-tests-string)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string:: -- --test-threads=1
