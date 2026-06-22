@@ -80,6 +80,7 @@ Usage:
   scripts/check-fast lsp
   scripts/check-fast lsp-completion
   scripts/check-fast lsp-definition
+  scripts/check-fast lsp-definition-target
   scripts/check-fast lsp-diagnostics
   scripts/check-fast lsp-document
   scripts/check-fast lsp-hover
@@ -691,6 +692,9 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/completion.rs)
       add_changed_check "lsp-completion"
       ;;
+    crates/echo_lsp/src/definition_target.rs)
+      add_changed_check "lsp-definition-target"
+      ;;
     crates/echo_lsp/src/definition.rs|crates/echo_lsp/src/definition_composer.rs)
       add_changed_check "lsp-definition"
       ;;
@@ -1023,6 +1027,8 @@ run_script_tests() {
     crates/echo_lsp/src/definition.rs
   assert_routing "lsp definition composer routes focused checks" "lsp-definition" \
     crates/echo_lsp/src/definition_composer.rs
+  assert_routing "lsp definition target routes focused checks" "lsp-definition-target" \
+    crates/echo_lsp/src/definition_target.rs
   assert_routing "lsp server routes focused checks" "lsp-server" \
     crates/echo_lsp/src/server.rs
   assert_routing "lsp signature help routes focused checks" "lsp-signature-help" \
@@ -1433,6 +1439,14 @@ case "$command" in
     ;;
   lsp-definition)
     run_quiet cargo test -q -p echo_lsp definition::tests
+    ;;
+  lsp-definition-target)
+    run_quiet cargo test -q -p echo_lsp resolves_require_dependency_to_target_file
+    run_quiet cargo test -q -p echo_lsp resolves_php_use_dependency_through_composer_psr4
+    run_quiet cargo test -q -p echo_lsp resolves_class_reference
+    run_quiet cargo test -q -p echo_lsp resolves_static_method_reference
+    run_quiet cargo test -q -p echo_lsp resolves_file_path_reference_to_target_file
+    run_quiet cargo test -q -p echo_lsp file_path_reference_link
     ;;
   lsp-diagnostics)
     run_quiet cargo test -q -p echo_lsp diagnostics::tests

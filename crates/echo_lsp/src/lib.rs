@@ -1,6 +1,7 @@
 mod completion;
 mod definition;
 mod definition_composer;
+mod definition_target;
 mod diagnostics;
 mod document;
 mod hover;
