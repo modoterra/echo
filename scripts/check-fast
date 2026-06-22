@@ -29,6 +29,7 @@ Usage:
   scripts/check-fast runtime-process
   scripts/check-fast runtime-thread
   scripts/check-fast runtime-time
+  scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-fixtures
@@ -82,6 +83,7 @@ Examples:
   scripts/check-fast runtime-process
   scripts/check-fast runtime-thread
   scripts/check-fast runtime-time
+  scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
@@ -277,6 +279,10 @@ normalize_changed_checks() {
     if has_changed_check "runtime-filesystem"; then
       remove_changed_check "runtime-filesystem"
       add_changed_check "runtime-filesystem-fixtures"
+    fi
+    if has_changed_check "runtime-time"; then
+      remove_changed_check "runtime-time"
+      add_changed_check "runtime-time-fixtures"
     fi
   fi
 }
@@ -513,6 +519,9 @@ run_script_tests() {
     crates/echo_runtime/src/task_group.rs
   assert_routing "runtime time routes focused checks" "runtime-time" \
     crates/echo_runtime/src/time.rs
+  assert_routing "runtime time normalizes fixture coverage" $'runtime\njit\nruntime-time-fixtures' \
+    crates/echo_runtime/src/lib.rs \
+    crates/echo_runtime/src/time.rs
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
@@ -668,6 +677,7 @@ assert_fixture_filter_matches() {
 RUNTIME_FILESYSTEM_FIXTURES="041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins"
 RUNTIME_MATH_FIXTURES="058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins"
 RUNTIME_ENCODING_FIXTURES="049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,081_string_rewrite_builtins,114_url_encoding_builtins,141_string_rewrite_builtins"
+RUNTIME_TIME_FIXTURES="006_time_sleep_run_before_join,007_time_sleep_orders_tasks,027_std_time_import,112_laravel_bootstrap"
 
 command="${1:-help}"
 fixture_filter="${2:-}"
@@ -738,6 +748,10 @@ case "$command" in
     ;;
   runtime-time)
     run_quiet cargo test -q -p echo_runtime time::
+    run_with_optional_fixture "$RUNTIME_TIME_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-time-fixtures)
+    run_with_optional_fixture "$RUNTIME_TIME_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-value)
     run_quiet cargo test -q -p echo_runtime arithmetic
