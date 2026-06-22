@@ -780,6 +780,9 @@ add_checks_for_changed_path() {
       add_changed_check "jit"
       add_changed_check "fixture"
       ;;
+    crates/xo/src/repl.rs)
+      add_changed_check "repl"
+      ;;
     crates/xo/src/test_runner.rs)
       add_changed_check "xo-test-runner"
       ;;
@@ -983,6 +986,8 @@ run_script_tests() {
     crates/xo/src/main.rs
   assert_routing "xo source routes execution paths" $'xo\nrepl\njit\nfixture' \
     crates/xo/src/source.rs
+  assert_routing "xo repl routes repl checks" "repl" \
+    crates/xo/src/repl.rs
   assert_routing "xo build routes build fixtures" $'xo\nfixture' \
     crates/xo/src/build.rs
   assert_routing "xo test runner routes focused checks" "xo-test-runner" \
