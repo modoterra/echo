@@ -1,3 +1,5 @@
+use crate::{EchoValue, string::php_string_map_builtin};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PercentEncodingMode {
     RawUrl,
@@ -102,6 +104,16 @@ pub(crate) fn decode_base64_non_strict(bytes: &[u8]) -> Vec<u8> {
     decoded
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_base64_encode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, encode_base64)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, decode_base64_non_strict)
+}
+
 pub(crate) fn percent_encode(bytes: &[u8], mode: PercentEncodingMode) -> Vec<u8> {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
 
@@ -147,6 +159,30 @@ pub(crate) fn percent_decode(bytes: &[u8], decode_plus: bool) -> Vec<u8> {
     }
 
     decoded
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rawurlencode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| {
+        percent_encode(bytes, PercentEncodingMode::RawUrl)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_urlencode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| {
+        percent_encode(bytes, PercentEncodingMode::FormUrl)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rawurldecode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| percent_decode(bytes, false))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_urldecode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| percent_decode(bytes, true))
 }
 
 pub(crate) fn quoted_printable_encode_bytes(bytes: &[u8]) -> Vec<u8> {

@@ -45,6 +45,10 @@ use collections::{
     EchoArrayKey, echo_arrays_equal, echo_lists_equal, next_array_append_key, php_array_union,
 };
 use encoding::*;
+pub use encoding::{
+    echo_php_base64_decode, echo_php_base64_encode, echo_php_rawurldecode, echo_php_rawurlencode,
+    echo_php_urldecode, echo_php_urlencode,
+};
 pub use environment::*;
 pub use error::EchoError;
 use execution::{repl_inspect_enabled, write_stdout};
@@ -2180,40 +2184,6 @@ pub extern "C" fn echo_php_sha1(value: EchoValue, binary: EchoValue) -> EchoValu
         }
         None => EchoValue::error(),
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_base64_encode(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, encode_base64)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, decode_base64_non_strict)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_rawurlencode(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, |bytes| {
-        percent_encode(bytes, PercentEncodingMode::RawUrl)
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_urlencode(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, |bytes| {
-        percent_encode(bytes, PercentEncodingMode::FormUrl)
-    })
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_rawurldecode(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, |bytes| percent_decode(bytes, false))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_urldecode(value: EchoValue) -> EchoValue {
-    php_string_map_builtin(value, |bytes| percent_decode(bytes, true))
 }
 
 #[unsafe(no_mangle)]
