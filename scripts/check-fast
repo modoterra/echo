@@ -58,6 +58,7 @@ Usage:
   scripts/check-fast runtime-time
   scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
+  scripts/check-fast runtime-value-coercion
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-metadata
@@ -157,6 +158,7 @@ Examples:
   scripts/check-fast runtime-time
   scripts/check-fast runtime-time-fixtures
   scripts/check-fast runtime-value
+  scripts/check-fast runtime-value-coercion
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
@@ -633,6 +635,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/value/inspect.rs)
       add_changed_check "runtime-value-inspect"
       ;;
+    crates/echo_runtime/src/value/coercion.rs)
+      add_changed_check "runtime-value-coercion"
+      ;;
     crates/echo_runtime/src/value/*.rs)
       add_changed_check "runtime-value"
       ;;
@@ -948,6 +953,8 @@ run_script_tests() {
     crates/echo_runtime/src/value.rs
   assert_routing "runtime value inspect routes focused checks" "runtime-value-inspect" \
     crates/echo_runtime/src/value/inspect.rs
+  assert_routing "runtime value coercion routes focused checks" "runtime-value-coercion" \
+    crates/echo_runtime/src/value/coercion.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
   assert_runtime_test_module_routing
@@ -1191,7 +1198,7 @@ case "$command" in
     fi
     ;;
   runtime-assert)
-    run_quiet cargo test -q -p echo_runtime assertions::
+    run_quiet cargo test -q -p echo_runtime assertions:: -- --test-threads=1
     run_quiet cargo test -q -p echo_runtime assert_intrinsics
     run_with_optional_fixture "030_userland_reflection,031_reflection_assertions" tests/echo -- cargo test -q -p xo --test jit
     ;;
@@ -1228,6 +1235,14 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime floatval_preserves_php_scalar_float_coercion
     run_quiet cargo test -q -p echo_runtime is_object_reports_only_object_values
     run_quiet cargo test -q -p echo_runtime gettype_returns_php_type_names_for_current_values
+    ;;
+  runtime-value-coercion)
+    run_quiet cargo test -q -p echo_runtime php_float_formatting_matches_runtime_scalar_strings
+    run_quiet cargo test -q -p echo_runtime arithmetic
+    run_quiet cargo test -q -p echo_runtime boolval_preserves_php_scalar_truthiness
+    run_quiet cargo test -q -p echo_runtime intval_preserves_php_default_base_scalar_coercion
+    run_quiet cargo test -q -p echo_runtime floatval_preserves_php_scalar_float_coercion
+    run_quiet cargo test -q -p echo_runtime is_numeric_preserves_php_numeric_string_rules
     ;;
   runtime-value-inspect)
     run_quiet cargo test -q -p echo_runtime repl_inspector
