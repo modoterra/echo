@@ -723,6 +723,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/runtime_tests/string_search/position.rs)
       add_changed_check "runtime-tests-string-search-position"
       ;;
+    crates/echo_runtime/src/runtime_tests/value/reflection.rs)
+      add_changed_check "runtime-reflection"
+      ;;
     crates/echo_runtime/src/runtime_tests/*.rs)
       if ! add_runtime_test_module_check_for_path "$path"; then
         add_changed_check "runtime-tests"
@@ -1244,6 +1247,8 @@ run_script_tests() {
     crates/echo_runtime/src/value/arithmetic.rs
   assert_routing "runtime value coercion routes focused checks" "runtime-value-coercion" \
     crates/echo_runtime/src/value/coercion.rs
+  assert_routing "runtime value reflection tests route focused checks" "runtime-reflection" \
+    crates/echo_runtime/src/runtime_tests/value/reflection.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
   assert_runtime_test_module_routing
