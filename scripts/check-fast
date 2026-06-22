@@ -28,6 +28,7 @@ Usage:
   scripts/check-fast runtime-process
   scripts/check-fast runtime-thread
   scripts/check-fast runtime-time
+  scripts/check-fast runtime-value
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
@@ -76,6 +77,7 @@ Examples:
   scripts/check-fast runtime-process
   scripts/check-fast runtime-thread
   scripts/check-fast runtime-time
+  scripts/check-fast runtime-value
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
   scripts/check-fast runtime-encoding
@@ -358,6 +360,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/time.rs)
       add_changed_check "runtime-time"
       ;;
+    crates/echo_runtime/src/value.rs)
+      add_changed_check "runtime-value"
+      ;;
     crates/echo_runtime/src/filesystem.rs)
       add_changed_check "runtime-filesystem"
       ;;
@@ -493,6 +498,8 @@ run_script_tests() {
     crates/echo_runtime/src/task_group.rs
   assert_routing "runtime time routes focused checks" "runtime-time" \
     crates/echo_runtime/src/time.rs
+  assert_routing "runtime value routes focused checks" "runtime-value" \
+    crates/echo_runtime/src/value.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
     crates/echo_runtime/src/assertions.rs
   assert_routing "runtime require routes focused checks" "runtime-require" \
@@ -693,6 +700,12 @@ case "$command" in
     ;;
   runtime-time)
     run_quiet cargo test -q -p echo_runtime time::
+    ;;
+  runtime-value)
+    run_quiet cargo test -q -p echo_runtime arithmetic
+    run_quiet cargo test -q -p echo_runtime index_get
+    run_quiet cargo test -q -p echo_runtime lists_are_distinct_from_php_arrays
+    run_quiet cargo test -q -p echo_runtime arrays_are_distinct_from_lists
     ;;
   runtime-collections)
     run_quiet cargo test -q -p echo_runtime array_
