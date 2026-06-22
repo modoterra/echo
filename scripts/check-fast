@@ -20,6 +20,7 @@ Usage:
   scripts/check-fast runtime-tests-filesystem
   scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-string
+  scripts/check-fast runtime-tests-task
   scripts/check-fast runtime-tests-value
   scripts/check-fast runtime-assert
   scripts/check-fast runtime-callable
@@ -88,6 +89,7 @@ Examples:
   scripts/check-fast runtime-tests-filesystem
   scripts/check-fast runtime-tests-math
   scripts/check-fast runtime-tests-string
+  scripts/check-fast runtime-tests-task
   scripts/check-fast runtime-tests-value
   scripts/check-fast runtime-assert
   scripts/check-fast runtime-callable
@@ -403,6 +405,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/string.rs)
       add_changed_check "runtime-tests-string"
+      ;;
+    crates/echo_runtime/src/runtime_tests/task.rs)
+      add_changed_check "runtime-tests-task"
       ;;
     crates/echo_runtime/src/runtime_tests/value.rs)
       add_changed_check "runtime-tests-value"
@@ -759,6 +764,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/math.rs
   assert_routing "runtime string tests route focused submodule check" "runtime-tests-string" \
     crates/echo_runtime/src/runtime_tests/string.rs
+  assert_routing "runtime task tests route focused submodule check" "runtime-tests-task" \
+    crates/echo_runtime/src/runtime_tests/task.rs
   assert_routing "runtime value tests route focused submodule check" "runtime-tests-value" \
     crates/echo_runtime/src/runtime_tests/value.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
@@ -999,6 +1006,9 @@ case "$command" in
     ;;
   runtime-tests-string)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string:: -- --test-threads=1
+    ;;
+  runtime-tests-task)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::task:: -- --test-threads=1
     ;;
   runtime-tests-value)
     run_quiet cargo test -q -p echo_runtime runtime_tests::value:: -- --test-threads=1
