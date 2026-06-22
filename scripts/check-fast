@@ -91,6 +91,7 @@ Usage:
   scripts/check-fast std
   scripts/check-fast std-source
   scripts/check-fast reflection
+  scripts/check-fast reflection-php
   scripts/check-fast docs
   scripts/check-fast web-docs
   scripts/check-fast codegen
@@ -168,6 +169,7 @@ Examples:
   scripts/check-fast docs
   scripts/check-fast web-docs
   scripts/check-fast std-source
+  scripts/check-fast reflection-php
   scripts/check-fast parser
   scripts/check-fast parser 017_object_append_count
   scripts/check-fast semantics-index
@@ -712,6 +714,9 @@ add_checks_for_changed_path() {
     crates/echo_std/*)
       add_changed_check "std"
       ;;
+    crates/echo_reflection/src/php_builtins.rs)
+      add_changed_check "reflection-php"
+      ;;
     crates/echo_reflection/*)
       add_changed_check "reflection"
       ;;
@@ -984,6 +989,8 @@ run_script_tests() {
     crates/echo_runtime/src/sched.rs
   assert_routing "stdlib source routes package and parse checks" "std-source" \
     std/time.echo
+  assert_routing "php builtin reflection table routes focused checks" "reflection-php" \
+    crates/echo_reflection/src/php_builtins.rs
   assert_routing "markdown docs route docs checks" "docs" \
     docs/time-foundation.md
   assert_routing "website docs route type checks" "web-docs" \
@@ -1436,6 +1443,10 @@ case "$command" in
     ;;
   reflection)
     test_crate echo_reflection
+    ;;
+  reflection-php)
+    run_quiet cargo test -q -p echo_reflection reflects_php_builtin_signatures_from_global_registry
+    run_quiet cargo test -q -p echo_reflection does_not_reflect_std_reflection_api_as_php_builtins
     ;;
   docs)
     run_quiet bash -c '! rg -n "<<<<<<<|=======|>>>>>>>" docs --glob "*.md"'
