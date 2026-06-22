@@ -117,11 +117,20 @@ ECHO_FIXTURE is a comma-separated substring filter understood by the xo fixture
 harnesses. Passing the optional fixture-filter argument sets ECHO_FIXTURE for
 that command only. Benchmark shortcuts default ECHO_BENCH_ITERATIONS to 2 unless
 the variable is already set.
+
+Set CHECK_FAST_ECHO_COMMANDS=0 to suppress successful command trace lines. Failed
+commands still replay bounded output controlled by CHECK_FAST_MAX_OUTPUT_LINES.
 EOF
 }
 
+echo_commands_enabled() {
+  [[ "${CHECK_FAST_ECHO_COMMANDS:-1}" != "0" ]]
+}
+
 run() {
-  printf ':: %s\n' "$*"
+  if echo_commands_enabled; then
+    printf ':: %s\n' "$*"
+  fi
   "$@"
 }
 
@@ -161,7 +170,9 @@ run_quiet() {
   local status
 
   output="$(mktemp "${TMPDIR:-/tmp}/check-fast.XXXXXX")"
-  printf ':: %s\n' "$*"
+  if echo_commands_enabled; then
+    printf ':: %s\n' "$*"
+  fi
   if "$@" >"$output" 2>&1; then
     rm -f "$output"
     return 0
@@ -543,7 +554,25 @@ assert_fixture_filter_rejects() {
   rm -f "$output"
 }
 
+assert_command_echo_controls() {
+  local default_output
+  local quiet_output
+
+  default_output="$(run_quiet true)"
+  if [[ "$default_output" != ":: true" ]]; then
+    printf 'command echo test failed: default trace\nexpected: :: true\nactual: %s\n' "$default_output" >&2
+    exit 1
+  fi
+
+  quiet_output="$(CHECK_FAST_ECHO_COMMANDS=0 run_quiet true)"
+  if [[ -n "$quiet_output" ]]; then
+    printf 'command echo test failed: quiet trace should be empty\nactual: %s\n' "$quiet_output" >&2
+    exit 1
+  fi
+}
+
 run_script_tests() {
+  assert_command_echo_controls
   assert_routing "xo main routes repl" $'xo\nrepl' \
     crates/xo/src/main.rs
   assert_routing "xo source routes execution paths" $'xo\nrepl\njit\nfixture' \
