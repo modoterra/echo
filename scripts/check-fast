@@ -308,6 +308,80 @@ assert_runtime_test_module_routing() {
   done < <(runtime_test_modules)
 }
 
+runtime_fixture_scopes() {
+  cat <<'EOF'
+runtime-collections-fixtures|runtime-collections|tests/php tests/echo|015_empty_list_count,016_list_append_count,017_object_append_count,037_array_is_list_builtin,067_array_key_value_builtins,068_array_lookup_builtins,069_array_fill_builtins,070_array_order_builtins,071_array_combine_pad_builtins,072_array_search_count_builtins,073_array_slice_chunk_builtins,074_array_merge_replace_builtins,083_count_builtin,084_array_type_builtins,094_array_is_list_builtin,110_arithmetic_operators,111_array_index_access,127_array_key_value_builtins,128_array_lookup_builtins,129_array_fill_builtins,130_array_order_builtins,131_array_combine_pad_builtins,132_array_search_count_builtins,133_array_slice_chunk_builtins,134_array_merge_replace_builtins|runtime collections
+runtime-output-fixtures|runtime-output|tests/php tests/echo|004_ob_start_end_flush,005_ob_flush_keeps_buffer,006_ob_end_clean_discards_buffer,007_nested_ob_end_flush,008_nested_ob_end_clean,009_nested_ob_flush,010_ob_flush_without_end,011_ob_clean_keeps_buffer,012_shutdown_flushes_open_buffers,013_ob_get_level,016_ob_get_contents_copy,025_ob_functions_without_buffer,027_ob_get_clean,028_ob_get_flush,029_nested_ob_get_flush,034_nested_ob_get_clean,074_ob_control_success_returns,075_ob_control_failure_returns,076_flush_builtin,078_ob_implicit_flush_builtin|runtime output
+runtime-reflection-fixtures|runtime-reflection|tests/echo|028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions|runtime reflection
+runtime-math-fixtures|runtime-math|tests/php tests/echo|058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins|runtime math
+runtime-encoding-fixtures|runtime-encoding|tests/php tests/echo|046_escapeshellarg_builtin,047_escapeshellcmd_builtin,049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,075_hash_checksum_builtins,081_string_rewrite_builtins,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,114_url_encoding_builtins,135_hash_checksum_builtins,141_string_rewrite_builtins|runtime encoding
+runtime-filesystem-fixtures|runtime-filesystem|tests/php tests/echo|041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins|runtime filesystem
+runtime-time-fixtures|runtime-time|tests/php tests/echo|006_time_sleep_run_before_join,007_time_sleep_orders_tasks,027_std_time_import,112_laravel_bootstrap|runtime time
+runtime-string-fixtures|runtime-string|tests/php tests/echo|042_dynamic_string_concat,043_strlen_builtin,046_string_case_builtins,047_string_unary_builtins,048_string_byte_builtins,049_chr_bin2hex_builtins,050_trim_builtins,051_string_predicate_builtins,052_string_escape_builtins,053_hex_repeat_builtins,054_substr_builtin,054_url_encoding_builtins,058_strstr_builtin,059_stristr_builtin,061_implode_join_builtins,064_str_pad_builtin,065_string_chunk_builtins,067_substr_count_builtin,068_strval_builtin,071_ucwords_builtin,072_base64_encode_builtin,073_base64_decode_builtin,080_substr_compare_builtin,081_string_rewrite_builtins,082_strchr_alias_builtin,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,105_explode_builtin,114_url_encoding_builtins,121_implode_join_builtins,124_str_pad_builtin,125_string_chunk_builtins,141_string_rewrite_builtins|runtime string
+EOF
+}
+
+normalize_runtime_fixture_checks() {
+  local fixture_check
+  local runtime_check
+  local roots
+  local filter
+  local description
+
+  while IFS='|' read -r fixture_check runtime_check roots filter description; do
+    if has_changed_check "$runtime_check"; then
+      remove_changed_check "$runtime_check"
+      add_changed_check "$fixture_check"
+    fi
+  done < <(runtime_fixture_scopes)
+}
+
+run_runtime_fixture_scope() {
+  local requested="$1"
+  local fixture_check
+  local runtime_check
+  local roots
+  local filter
+  local description
+  local -a root_args
+
+  while IFS='|' read -r fixture_check runtime_check roots filter description; do
+    if [[ "$requested" == "$fixture_check" ]]; then
+      read -r -a root_args <<< "$roots"
+      run_with_optional_fixture "$filter" "${root_args[@]}" -- cargo test -q -p xo --test jit
+      return
+    fi
+  done < <(runtime_fixture_scopes)
+
+  return 1
+}
+
+assert_runtime_fixture_scope_routing() {
+  local fixture_check
+  local runtime_check
+  local roots
+  local filter
+  local description
+  local path
+
+  while IFS='|' read -r fixture_check runtime_check roots filter description; do
+    case "$runtime_check" in
+      runtime-collections) path=crates/echo_runtime/src/collections.rs ;;
+      runtime-output) path=crates/echo_runtime/src/output.rs ;;
+      runtime-reflection) path=crates/echo_runtime/src/reflection.rs ;;
+      runtime-math) path=crates/echo_runtime/src/math.rs ;;
+      runtime-encoding) path=crates/echo_runtime/src/encoding.rs ;;
+      runtime-filesystem) path=crates/echo_runtime/src/filesystem.rs ;;
+      runtime-time) path=crates/echo_runtime/src/time.rs ;;
+      runtime-string) path=crates/echo_runtime/src/string.rs ;;
+      *) continue ;;
+    esac
+    assert_routing "$description normalizes fixture coverage" $'runtime\njit\n'"$fixture_check" \
+      crates/echo_runtime/src/lib.rs \
+      "$path"
+  done < <(runtime_fixture_scopes)
+}
+
 run_pipeline_checks() {
   test_crates echo_parser echo_semantics echo_hir echo_mir
 }
@@ -397,39 +471,8 @@ add_changed_fixture_checks() {
 
 normalize_changed_checks() {
   if has_changed_check "runtime"; then
-    if has_changed_check "runtime-collections"; then
-      remove_changed_check "runtime-collections"
-      add_changed_check "runtime-collections-fixtures"
-    fi
     remove_changed_check "runtime-execution"
-    if has_changed_check "runtime-output"; then
-      remove_changed_check "runtime-output"
-      add_changed_check "runtime-output-fixtures"
-    fi
-    if has_changed_check "runtime-reflection"; then
-      remove_changed_check "runtime-reflection"
-      add_changed_check "runtime-reflection-fixtures"
-    fi
-    if has_changed_check "runtime-math"; then
-      remove_changed_check "runtime-math"
-      add_changed_check "runtime-math-fixtures"
-    fi
-    if has_changed_check "runtime-encoding"; then
-      remove_changed_check "runtime-encoding"
-      add_changed_check "runtime-encoding-fixtures"
-    fi
-    if has_changed_check "runtime-filesystem"; then
-      remove_changed_check "runtime-filesystem"
-      add_changed_check "runtime-filesystem-fixtures"
-    fi
-    if has_changed_check "runtime-time"; then
-      remove_changed_check "runtime-time"
-      add_changed_check "runtime-time-fixtures"
-    fi
-    if has_changed_check "runtime-string"; then
-      remove_changed_check "runtime-string"
-      add_changed_check "runtime-string-fixtures"
-    fi
+    normalize_runtime_fixture_checks
   fi
 }
 
@@ -786,12 +829,6 @@ run_script_tests() {
     crates/xo/src/build.rs
   assert_routing "echo fixture routes filtered checks" $'parser 017_object_append_count\njit 017_object_append_count\nfixture 017_object_append_count' \
     tests/echo/017_object_append_count/unsupported.txt
-  assert_routing "runtime math normalizes fixture coverage" $'runtime\njit\nruntime-math-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/math.rs
-  assert_routing "runtime filesystem normalizes fixture coverage" $'runtime\njit\nruntime-filesystem-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/filesystem.rs
   assert_routing "runtime environment routes focused checks" "runtime-environment" \
     crates/echo_runtime/src/environment.rs
   assert_routing "runtime net routes focused checks" "runtime-net" \
@@ -806,23 +843,9 @@ run_script_tests() {
     crates/echo_runtime/src/task_group.rs
   assert_routing "runtime time routes focused checks" "runtime-time" \
     crates/echo_runtime/src/time.rs
-  assert_routing "runtime time normalizes fixture coverage" $'runtime\njit\nruntime-time-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/time.rs
   assert_routing "runtime string routes focused checks" "runtime-string" \
     crates/echo_runtime/src/string.rs
-  assert_routing "runtime string normalizes fixture coverage" $'runtime\njit\nruntime-string-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/string.rs
-  assert_routing "runtime output normalizes fixture coverage" $'runtime\njit\nruntime-output-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/output.rs
-  assert_routing "runtime reflection normalizes fixture coverage" $'runtime\njit\nruntime-reflection-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/reflection.rs
-  assert_routing "runtime collections normalizes fixture coverage" $'runtime\njit\nruntime-collections-fixtures' \
-    crates/echo_runtime/src/lib.rs \
-    crates/echo_runtime/src/collections.rs
+  assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
@@ -990,15 +1013,6 @@ assert_fixture_filter_matches() {
   done
 }
 
-RUNTIME_FILESYSTEM_FIXTURES="041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins"
-RUNTIME_MATH_FIXTURES="058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins"
-RUNTIME_ENCODING_FIXTURES="046_escapeshellarg_builtin,047_escapeshellcmd_builtin,049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,075_hash_checksum_builtins,081_string_rewrite_builtins,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,114_url_encoding_builtins,135_hash_checksum_builtins,141_string_rewrite_builtins"
-RUNTIME_TIME_FIXTURES="006_time_sleep_run_before_join,007_time_sleep_orders_tasks,027_std_time_import,112_laravel_bootstrap"
-RUNTIME_OUTPUT_FIXTURES="004_ob_start_end_flush,005_ob_flush_keeps_buffer,006_ob_end_clean_discards_buffer,007_nested_ob_end_flush,008_nested_ob_end_clean,009_nested_ob_flush,010_ob_flush_without_end,011_ob_clean_keeps_buffer,012_shutdown_flushes_open_buffers,013_ob_get_level,016_ob_get_contents_copy,025_ob_functions_without_buffer,027_ob_get_clean,028_ob_get_flush,029_nested_ob_get_flush,034_nested_ob_get_clean,074_ob_control_success_returns,075_ob_control_failure_returns,076_flush_builtin,078_ob_implicit_flush_builtin"
-RUNTIME_REFLECTION_FIXTURES="028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions"
-RUNTIME_COLLECTIONS_FIXTURES="015_empty_list_count,016_list_append_count,017_object_append_count,037_array_is_list_builtin,067_array_key_value_builtins,068_array_lookup_builtins,069_array_fill_builtins,070_array_order_builtins,071_array_combine_pad_builtins,072_array_search_count_builtins,073_array_slice_chunk_builtins,074_array_merge_replace_builtins,083_count_builtin,084_array_type_builtins,094_array_is_list_builtin,110_arithmetic_operators,111_array_index_access,127_array_key_value_builtins,128_array_lookup_builtins,129_array_fill_builtins,130_array_order_builtins,131_array_combine_pad_builtins,132_array_search_count_builtins,133_array_slice_chunk_builtins,134_array_merge_replace_builtins"
-RUNTIME_STRING_FIXTURES="042_dynamic_string_concat,043_strlen_builtin,046_string_case_builtins,047_string_unary_builtins,048_string_byte_builtins,049_chr_bin2hex_builtins,050_trim_builtins,051_string_predicate_builtins,052_string_escape_builtins,053_hex_repeat_builtins,054_substr_builtin,054_url_encoding_builtins,058_strstr_builtin,059_stristr_builtin,061_implode_join_builtins,064_str_pad_builtin,065_string_chunk_builtins,067_substr_count_builtin,068_strval_builtin,071_ucwords_builtin,072_base64_encode_builtin,073_base64_decode_builtin,080_substr_compare_builtin,081_string_rewrite_builtins,082_strchr_alias_builtin,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,105_explode_builtin,114_url_encoding_builtins,121_implode_join_builtins,124_str_pad_builtin,125_string_chunk_builtins,141_string_rewrite_builtins"
-
 command="${1:-help}"
 fixture_filter="${2:-}"
 extra_arg="${3:-}"
@@ -1077,10 +1091,7 @@ case "$command" in
     ;;
   runtime-time)
     run_quiet cargo test -q -p echo_runtime time::
-    run_with_optional_fixture "$RUNTIME_TIME_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-time-fixtures)
-    run_with_optional_fixture "$RUNTIME_TIME_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-time-fixtures
     ;;
   runtime-value)
     run_quiet cargo test -q -p echo_runtime php_float_formatting_matches_runtime_scalar_strings
@@ -1100,20 +1111,14 @@ case "$command" in
   runtime-collections)
     run_quiet cargo test -q -p echo_runtime array_
     run_quiet cargo test -q -p echo_runtime index_get
-    run_with_optional_fixture "$RUNTIME_COLLECTIONS_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-collections-fixtures)
-    run_with_optional_fixture "$RUNTIME_COLLECTIONS_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-collections-fixtures
     ;;
   runtime-execution)
     run_quiet cargo test -q -p echo_runtime capture_stdout
     ;;
   runtime-output)
     run_quiet cargo test -q -p echo_runtime output::
-    run_with_optional_fixture "$RUNTIME_OUTPUT_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-output-fixtures)
-    run_with_optional_fixture "$RUNTIME_OUTPUT_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-output-fixtures
     ;;
   runtime-poll)
     run_quiet cargo test -q -p echo_runtime poll::
@@ -1123,10 +1128,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime reflect
     run_quiet cargo test -q -p echo_runtime function_exists
     run_quiet cargo test -q -p echo_runtime is_callable
-    run_with_optional_fixture "$RUNTIME_REFLECTION_FIXTURES" tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-reflection-fixtures)
-    run_with_optional_fixture "$RUNTIME_REFLECTION_FIXTURES" tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-reflection-fixtures
     ;;
   runtime-require)
     run_quiet cargo test -q -p echo_runtime require::
@@ -1149,10 +1151,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime substr_preserves_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime string_rewrite_builtins_preserve_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime string_predicate_builtins_are_binary_safe_and_case_sensitive
-    run_with_optional_fixture "$RUNTIME_STRING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-string-fixtures)
-    run_with_optional_fixture "$RUNTIME_STRING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-string-fixtures
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins
@@ -1182,10 +1181,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime temporary_name
     run_quiet cargo test -q -p echo_runtime basename
     run_quiet cargo test -q -p echo_runtime dirname
-    run_with_optional_fixture "$RUNTIME_FILESYSTEM_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-filesystem-fixtures)
-    run_with_optional_fixture "$RUNTIME_FILESYSTEM_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-filesystem-fixtures
     ;;
   runtime-math)
     run_quiet cargo test -q -p echo_runtime float_scalar_math_builtins_preserve_php_scalar_behavior
@@ -1197,10 +1193,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime is_finite_preserves_php_float_coercion_for_current_values
     run_quiet cargo test -q -p echo_runtime is_infinite_preserves_php_float_coercion_for_current_values
     run_quiet cargo test -q -p echo_runtime is_nan_preserves_php_float_coercion_for_current_values
-    run_with_optional_fixture "$RUNTIME_MATH_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
-    ;;
-  runtime-math-fixtures)
-    run_with_optional_fixture "$RUNTIME_MATH_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-math-fixtures
     ;;
   runtime-encoding)
     run_quiet cargo test -q -p echo_runtime bin2hex_preserves_php_byte_behavior
@@ -1210,10 +1203,13 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime base64_decode_preserves_php_default_non_strict_byte_behavior
     run_quiet cargo test -q -p echo_runtime url_encoding_builtins_preserve_php_byte_behavior
     run_quiet cargo test -q -p echo_runtime hex2bin_preserves_php_byte_behavior
-    run_with_optional_fixture "$RUNTIME_ENCODING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    run_runtime_fixture_scope runtime-encoding-fixtures
     ;;
-  runtime-encoding-fixtures)
-    run_with_optional_fixture "$RUNTIME_ENCODING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+  runtime-*-fixtures)
+    if ! run_runtime_fixture_scope "$command"; then
+      usage
+      exit 2
+    fi
     ;;
   index)
     test_crate echo_index
