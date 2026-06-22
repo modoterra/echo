@@ -283,3 +283,138 @@ pub extern "C" fn echo_php_implode(separator: EchoValue, array: EchoValue) -> Ec
 
     echo_runtime_string(joined)
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_pad(
+    value: EchoValue,
+    length: EchoValue,
+    pad_string: EchoValue,
+    pad_type: EchoValue,
+) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(pad_string) = pad_string.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(pad_type) = pad_type.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return echo_runtime_string(bytes);
+    };
+    if pad_string.is_empty() {
+        return EchoValue::error();
+    }
+
+    echo_runtime_string(php_str_pad(&bytes, length, &pad_string, pad_type))
+}
+
+fn php_str_pad(bytes: &[u8], length: usize, pad_string: &[u8], pad_type: i64) -> Vec<u8> {
+    let missing = length.saturating_sub(bytes.len());
+    if missing == 0 {
+        return bytes.to_vec();
+    }
+
+    let (left, right) = match pad_type {
+        0 => (missing, 0),
+        2 => (missing / 2, missing - (missing / 2)),
+        _ => (0, missing),
+    };
+
+    let mut result = Vec::with_capacity(length);
+    append_repeated_pad(&mut result, pad_string, left);
+    result.extend_from_slice(bytes);
+    let current_len = result.len();
+    append_repeated_pad(&mut result, pad_string, current_len + right);
+    result
+}
+
+fn append_repeated_pad(result: &mut Vec<u8>, pad_string: &[u8], target_len: usize) {
+    while result.len() < target_len {
+        let remaining = target_len - result.len();
+        if remaining >= pad_string.len() {
+            result.extend_from_slice(pad_string);
+        } else {
+            result.extend_from_slice(&pad_string[..remaining]);
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_split(value: EchoValue, length: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::error();
+    };
+    if length == 0 {
+        return EchoValue::error();
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        bytes
+            .chunks(length)
+            .map(|chunk| echo_runtime_string(chunk.to_vec()))
+            .collect(),
+    ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_chunk_split(
+    value: EchoValue,
+    length: EchoValue,
+    separator: EchoValue,
+) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(separator) = separator.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::error();
+    };
+    if length == 0 {
+        return EchoValue::error();
+    }
+
+    echo_runtime_string(php_chunk_split(&bytes, length, &separator))
+}
+
+fn php_chunk_split(bytes: &[u8], length: usize, separator: &[u8]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(bytes.len() + separator.len());
+    for chunk in bytes.chunks(length) {
+        result.extend_from_slice(chunk);
+        result.extend_from_slice(separator);
+    }
+    if bytes.is_empty() {
+        result.extend_from_slice(separator);
+    }
+    result
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_substr(value: EchoValue, offset: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(offset) = offset.int_value() else {
+        return EchoValue::error();
+    };
+
+    let len = bytes.len() as i64;
+    let start = if offset >= 0 { offset } else { len + offset }.clamp(0, len);
+
+    echo_runtime_string(bytes[start as usize..].to_vec())
+}

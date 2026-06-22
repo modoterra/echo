@@ -77,9 +77,10 @@ pub use reflection::{
 };
 pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
-    echo_php_chr, echo_php_decbin, echo_php_dechex, echo_php_decoct, echo_php_explode,
-    echo_php_implode, echo_php_lcfirst, echo_php_ord, echo_php_str_repeat, echo_php_str_rot13,
-    echo_php_strrev, echo_php_strtolower, echo_php_strtoupper, echo_php_strval, echo_php_ucfirst,
+    echo_php_chr, echo_php_chunk_split, echo_php_decbin, echo_php_dechex, echo_php_decoct,
+    echo_php_explode, echo_php_implode, echo_php_lcfirst, echo_php_ord, echo_php_str_pad,
+    echo_php_str_repeat, echo_php_str_rot13, echo_php_str_split, echo_php_strrev,
+    echo_php_strtolower, echo_php_strtoupper, echo_php_strval, echo_php_substr, echo_php_ucfirst,
     echo_php_ucwords,
 };
 use string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
@@ -3307,152 +3308,6 @@ fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         || haystack
             .windows(needle.len())
             .any(|window| window == needle)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_str_pad(
-    value: EchoValue,
-    length: EchoValue,
-    pad_string: EchoValue,
-    pad_type: EchoValue,
-) -> EchoValue {
-    let Some(bytes) = value.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(length) = length.php_int_value() else {
-        return EchoValue::error();
-    };
-    let Some(pad_string) = pad_string.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(pad_type) = pad_type.php_int_value() else {
-        return EchoValue::error();
-    };
-    let Ok(length) = usize::try_from(length) else {
-        return EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes))));
-    };
-    if pad_string.is_empty() {
-        return EchoValue::error();
-    }
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_str_pad(
-        &bytes,
-        length,
-        &pad_string,
-        pad_type,
-    )))))
-}
-
-fn php_str_pad(bytes: &[u8], length: usize, pad_string: &[u8], pad_type: i64) -> Vec<u8> {
-    let missing = length.saturating_sub(bytes.len());
-    if missing == 0 {
-        return bytes.to_vec();
-    }
-
-    let (left, right) = match pad_type {
-        0 => (missing, 0),
-        2 => (missing / 2, missing - (missing / 2)),
-        _ => (0, missing),
-    };
-
-    let mut result = Vec::with_capacity(length);
-    append_repeated_pad(&mut result, pad_string, left);
-    result.extend_from_slice(bytes);
-    let current_len = result.len();
-    append_repeated_pad(&mut result, pad_string, current_len + right);
-    result
-}
-
-fn append_repeated_pad(result: &mut Vec<u8>, pad_string: &[u8], target_len: usize) {
-    while result.len() < target_len {
-        let remaining = target_len - result.len();
-        if remaining >= pad_string.len() {
-            result.extend_from_slice(pad_string);
-        } else {
-            result.extend_from_slice(&pad_string[..remaining]);
-        }
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_str_split(value: EchoValue, length: EchoValue) -> EchoValue {
-    let Some(bytes) = value.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(length) = length.php_int_value() else {
-        return EchoValue::error();
-    };
-    let Ok(length) = usize::try_from(length) else {
-        return EchoValue::error();
-    };
-    if length == 0 {
-        return EchoValue::error();
-    }
-
-    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
-        bytes
-            .chunks(length)
-            .map(|chunk| {
-                EchoValue::string(Box::into_raw(Box::new(EchoString::new(chunk.to_vec()))))
-            })
-            .collect(),
-    ))))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_chunk_split(
-    value: EchoValue,
-    length: EchoValue,
-    separator: EchoValue,
-) -> EchoValue {
-    let Some(bytes) = value.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(length) = length.php_int_value() else {
-        return EchoValue::error();
-    };
-    let Some(separator) = separator.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Ok(length) = usize::try_from(length) else {
-        return EchoValue::error();
-    };
-    if length == 0 {
-        return EchoValue::error();
-    }
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(php_chunk_split(
-        &bytes, length, &separator,
-    )))))
-}
-
-fn php_chunk_split(bytes: &[u8], length: usize, separator: &[u8]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(bytes.len() + separator.len());
-    for chunk in bytes.chunks(length) {
-        result.extend_from_slice(chunk);
-        result.extend_from_slice(separator);
-    }
-    if bytes.is_empty() {
-        result.extend_from_slice(separator);
-    }
-    result
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_substr(value: EchoValue, offset: EchoValue) -> EchoValue {
-    let Some(bytes) = value.string_bytes() else {
-        return EchoValue::error();
-    };
-    let Some(offset) = offset.int_value() else {
-        return EchoValue::error();
-    };
-
-    let len = bytes.len() as i64;
-    let start = if offset >= 0 { offset } else { len + offset }.clamp(0, len);
-
-    EchoValue::string(Box::into_raw(Box::new(EchoString::new(
-        bytes[start as usize..].to_vec(),
-    ))))
 }
 
 #[unsafe(no_mangle)]
