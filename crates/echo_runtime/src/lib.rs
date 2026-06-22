@@ -5499,7 +5499,7 @@ mod tests {
     }
 
     #[test]
-    fn float_scalar_math_builtins_preserve_php_scalar_behavior() {
+    fn floatval_preserves_php_scalar_float_coercion() {
         assert_float_value(echo_php_floatval(EchoValue::null()), 0.0);
         assert_float_value(echo_php_floatval(EchoValue::bool(true)), 1.0);
         assert_float_value(echo_php_floatval(EchoValue::int(42)), 42.0);
@@ -5521,6 +5521,17 @@ mod tests {
         assert_float_value(echo_php_floatval(EchoValue::string(invalid)), 0.0);
         assert_float_value(echo_php_floatval(EchoValue::string(offset)), -12.5);
         assert_float_value(echo_php_floatval(EchoValue::string(exponent)), 100.0);
+
+        unsafe {
+            drop(Box::from_raw(prefixed));
+            drop(Box::from_raw(invalid));
+            drop(Box::from_raw(offset));
+            drop(Box::from_raw(exponent));
+        }
+    }
+
+    #[test]
+    fn float_scalar_math_builtins_preserve_php_scalar_behavior() {
         assert_float_value(echo_php_pi(), std::f64::consts::PI);
         assert_float_value(
             echo_php_fmod(EchoValue::float(5.7), EchoValue::float(1.3)),
@@ -5533,13 +5544,6 @@ mod tests {
         assert!(
             f64::from_bits(echo_php_fmod(EchoValue::int(5), EchoValue::int(0)).payload).is_nan()
         );
-
-        unsafe {
-            drop(Box::from_raw(prefixed));
-            drop(Box::from_raw(invalid));
-            drop(Box::from_raw(offset));
-            drop(Box::from_raw(exponent));
-        }
     }
 
     #[test]

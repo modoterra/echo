@@ -843,7 +843,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime output::
     run_quiet cargo test -q -p echo_runtime boolval_preserves_php_scalar_truthiness
     run_quiet cargo test -q -p echo_runtime intval_preserves_php_default_base_scalar_coercion
-    run_quiet cargo test -q -p echo_runtime float_scalar_math_builtins_preserve_php_scalar_behavior
+    run_quiet cargo test -q -p echo_runtime floatval_preserves_php_scalar_float_coercion
     run_quiet cargo test -q -p echo_runtime is_object_reports_only_object_values
     run_quiet cargo test -q -p echo_runtime gettype_returns_php_type_names_for_current_values
     ;;
