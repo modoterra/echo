@@ -811,7 +811,7 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/definition_target.rs)
       add_changed_check "lsp-definition-target"
       ;;
-    crates/echo_lsp/src/definition.rs|crates/echo_lsp/src/definition_composer.rs)
+    crates/echo_lsp/src/definition.rs|crates/echo_lsp/src/definition/tests.rs|crates/echo_lsp/src/definition_composer.rs)
       add_changed_check "lsp-definition"
       ;;
     crates/echo_lsp/src/diagnostics.rs)
@@ -1224,6 +1224,8 @@ run_script_tests() {
     crates/echo_mir/src/lowering.rs
   assert_routing "lsp definition routes focused checks" "lsp-definition" \
     crates/echo_lsp/src/definition.rs
+  assert_routing "lsp definition tests route focused checks" "lsp-definition" \
+    crates/echo_lsp/src/definition/tests.rs
   assert_routing "lsp definition composer routes focused checks" "lsp-definition" \
     crates/echo_lsp/src/definition_composer.rs
   assert_routing "lsp definition method routes focused checks" "lsp-definition-method" \
