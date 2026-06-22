@@ -741,6 +741,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/runtime_tests/value/types.rs)
       add_changed_check "runtime-value"
       ;;
+    crates/echo_runtime/src/runtime_tests/encoding/base64.rs)
+      add_changed_check "runtime-encoding"
+      ;;
     crates/echo_runtime/src/runtime_tests/filesystem/content.rs)
       add_changed_check "runtime-filesystem-content"
       ;;
@@ -1281,6 +1284,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/filesystem/metadata.rs
   assert_routing "runtime elementary math routes focused checks" "runtime-math-elementary" \
     crates/echo_runtime/src/math/elementary.rs
+  assert_routing "runtime encoding base64 tests route focused checks" "runtime-encoding" \
+    crates/echo_runtime/src/runtime_tests/encoding/base64.rs
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
