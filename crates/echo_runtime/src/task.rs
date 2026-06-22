@@ -1,7 +1,11 @@
-use crate::{EchoError, EchoValue};
+use crate::{EchoError, EchoValue, sched};
+use std::io;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
 pub type EchoTaskCallback = unsafe extern "C" fn() -> EchoValue;
+
+static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TaskId(pub usize);
@@ -198,6 +202,66 @@ pub enum TaskResultError {
     Failed,
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_defer(callback: Option<EchoTaskCallback>) -> EchoValue {
+    let id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
+    EchoValue::task(Box::into_raw(Box::new(EchoTask::deferred(
+        TaskId(id),
+        callback,
+    ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_run(task_value: EchoValue) -> EchoValue {
+    let Some(task) = task_value.as_task_mut() else {
+        return EchoValue::error();
+    };
+
+    match sched::with_thread_event_loop(|event_loop| {
+        event_loop
+            .schedule_task(task)
+            .map_err(|_| io::Error::other("failed to schedule Echo task"))
+    }) {
+        Ok(()) => task_value,
+        Err(_) => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_join(task_value: EchoValue) -> EchoValue {
+    let Some(task) = task_value.as_task_mut() else {
+        return EchoValue::error();
+    };
+
+    match task.result() {
+        Ok(value) => return value,
+        Err(TaskResultError::Failed) => return EchoValue::error(),
+        Err(TaskResultError::NotFinished) => {}
+    }
+
+    sched::with_thread_event_loop(|event_loop| {
+        event_loop
+            .join_task(task)
+            .map_err(|_| io::Error::other("failed to join Echo task"))
+    })
+    .unwrap_or_else(|_| EchoValue::error())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_task_sleep_current(
+    millis: i64,
+    continuation: Option<EchoTaskCallback>,
+) -> EchoValue {
+    if sched::sleep_current_task(millis, continuation) {
+        EchoValue::pending()
+    } else {
+        if millis > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+        }
+        EchoValue::null()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,5 +311,27 @@ mod tests {
 
         assert_eq!(task.start(), Ok(()));
         assert_eq!(task.start(), Err(TaskStartError::NotDeferred));
+    }
+
+    #[test]
+    fn task_defer_run_and_join_returns_callback_value() {
+        unsafe extern "C" fn callback() -> EchoValue {
+            EchoValue::int(42)
+        }
+
+        let task = echo_task_defer(Some(callback));
+        let task = echo_task_run(task);
+
+        assert_eq!(echo_task_join(task), EchoValue::int(42));
+    }
+
+    #[test]
+    fn task_join_rejects_non_task_values() {
+        assert_eq!(echo_task_join(EchoValue::int(42)), EchoValue::error());
+    }
+
+    #[test]
+    fn task_sleep_current_returns_null_outside_running_task() {
+        assert_eq!(echo_task_sleep_current(0, None), EchoValue::null());
     }
 }

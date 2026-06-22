@@ -52,6 +52,8 @@ use reflection::{
     REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
     function_reflection_by_name_and_source, function_reflection_for_value,
 };
+pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
+pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -126,7 +128,6 @@ const ECHO_VALUE_PROCESS: i32 = 12;
 const ECHO_VALUE_THREAD: i32 = 13;
 const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
-static NEXT_TASK_ID: AtomicUsize = AtomicUsize::new(1);
 static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
@@ -439,7 +440,7 @@ impl EchoValue {
         unsafe { (self.payload as *mut task::EchoTask).as_mut() }
     }
 
-    fn as_task_group_mut(self) -> Option<&'static mut task_group::EchoTaskGroup> {
+    pub(crate) fn as_task_group_mut(self) -> Option<&'static mut task_group::EchoTaskGroup> {
         if self.kind != ECHO_VALUE_TASK_GROUP || self.payload == 0 {
             return None;
         }
@@ -694,115 +695,6 @@ pub unsafe extern "C" fn echo_value_string(ptr: *const u8, len: usize) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn echo_task_defer(callback: Option<task::EchoTaskCallback>) -> EchoValue {
-    let id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
-    EchoValue::task(Box::into_raw(Box::new(task::EchoTask::deferred(
-        task::TaskId(id),
-        callback,
-    ))))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_task_run(task_value: EchoValue) -> EchoValue {
-    let Some(task) = task_value.as_task_mut() else {
-        return EchoValue::error();
-    };
-
-    match sched::with_thread_event_loop(|event_loop| {
-        event_loop
-            .schedule_task(task)
-            .map_err(|_| std_io::Error::other("failed to schedule Echo task"))
-    }) {
-        Ok(()) => task_value,
-        Err(_) => EchoValue::error(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_task_join(task_value: EchoValue) -> EchoValue {
-    let Some(task) = task_value.as_task_mut() else {
-        return EchoValue::error();
-    };
-
-    match task.result() {
-        Ok(value) => return value,
-        Err(task::TaskResultError::Failed) => return EchoValue::error(),
-        Err(task::TaskResultError::NotFinished) => {}
-    }
-
-    sched::with_thread_event_loop(|event_loop| {
-        event_loop
-            .join_task(task)
-            .map_err(|_| std_io::Error::other("failed to join Echo task"))
-    })
-    .unwrap_or_else(|_| EchoValue::error())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_task_group_new() -> EchoValue {
-    EchoValue::task_group(Box::into_raw(Box::new(task_group::EchoTaskGroup::new())))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_task_group_add(group_value: EchoValue, task_value: EchoValue) -> EchoValue {
-    let Some(group) = group_value.as_task_group_mut() else {
-        return EchoValue::error();
-    };
-    let Some(task) = task_value.as_task_mut() else {
-        return EchoValue::error();
-    };
-
-    group.add(task as *mut task::EchoTask);
-    group_value
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_task_group_run_and_join(group_value: EchoValue) -> EchoValue {
-    let Some(group) = group_value.as_task_group_mut() else {
-        return EchoValue::error();
-    };
-
-    let schedule_result = sched::with_thread_event_loop(|event_loop| {
-        for task in &group.tasks {
-            let Some(task) = (unsafe { task.as_ref() }) else {
-                return Err(std_io::Error::other("invalid Echo task in group"));
-            };
-            event_loop
-                .schedule_task(task)
-                .map_err(|_| std_io::Error::other("failed to schedule Echo task group task"))?;
-        }
-        Ok(())
-    });
-    if schedule_result.is_err() {
-        return EchoValue::error();
-    }
-
-    let mut results = EchoList::new();
-    for task in &group.tasks {
-        let Some(task) = (unsafe { task.as_ref() }) else {
-            return EchoValue::error();
-        };
-        let result = match task.result() {
-            Ok(value) => value,
-            Err(task::TaskResultError::Failed) => return EchoValue::error(),
-            Err(task::TaskResultError::NotFinished) => {
-                match sched::with_thread_event_loop(|event_loop| {
-                    event_loop
-                        .join_task(task)
-                        .map_err(|_| std_io::Error::other("failed to join Echo task group task"))
-                }) {
-                    Ok(value) => value,
-                    Err(_) => return EchoValue::error(),
-                }
-            }
-        };
-        results.values.push(result);
-    }
-
-    EchoValue::list(Box::into_raw(Box::new(results)))
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
     match handle.kind {
         ECHO_VALUE_TASK => echo_task_join(handle),
@@ -822,19 +714,6 @@ pub extern "C" fn echo_time_sleep(millis: i64) {
     }
 
     std::thread::sleep(Duration::from_millis(millis as u64));
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_task_sleep_current(
-    millis: i64,
-    continuation: Option<task::EchoTaskCallback>,
-) -> EchoValue {
-    if sched::sleep_current_task(millis, continuation) {
-        EchoValue::pending()
-    } else {
-        echo_time_sleep(millis);
-        EchoValue::null()
-    }
 }
 
 #[unsafe(no_mangle)]
