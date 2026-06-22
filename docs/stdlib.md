@@ -57,7 +57,7 @@ type Response = {
     body: bytes
 }
 
-function text(string $body): Response {
+fn text(string $body): Response {
     return Response {
         status: 200
         headers: Headers { contentType: "text/plain" }
@@ -74,14 +74,14 @@ Resource and syscall APIs should be declared in trusted stdlib Echo source as in
 namespace std net
 
 class TcpServer {
-    intrinsic static function listen(string $address): TcpServer
-    intrinsic function accept(): TcpConnection
+    pub intrinsic static fn listen(string $address): TcpServer
+    pub intrinsic fn accept(): TcpConnection
 }
 
 class TcpConnection {
-    intrinsic function read(int $maxBytes): bytes
-    intrinsic function write(bytes|string $data): int
-    intrinsic function close(): void
+    pub intrinsic fn read(int $maxBytes): bytes
+    pub intrinsic fn write(bytes|string $data): int
+    pub intrinsic fn close(): void
 }
 ```
 
@@ -92,23 +92,47 @@ Lowercase stdlib modules may also expose module-style intrinsic functions for va
 ```php
 namespace std net
 
-intrinsic function listen(string $address): TcpServer
-intrinsic function connect(string $address): TcpConnection
-intrinsic function accept(TcpServer $server): TcpConnection
-intrinsic function read(TcpConnection $connection, int $maxBytes): bytes
-intrinsic function write(TcpConnection $connection, bytes|string $data): int
-intrinsic function close(TcpConnection $connection): void
+intrinsic fn listen(string $address): TcpServer
+intrinsic fn connect(string $address): TcpConnection
+intrinsic fn accept(TcpServer $server): TcpConnection
+intrinsic fn read(TcpConnection $connection, int $maxBytes): bytes
+intrinsic fn write(TcpConnection $connection, bytes|string $data): int
+intrinsic fn close(TcpConnection $connection): void
 ```
 
 This module-style surface supports imported calls such as `net.listen(...)` when a class-oriented API would add friction.
+
+## Time Foundation
+
+The Echo-native `time` module is planned around typed, opaque values rather
+than PHP's mutable `DateTime` model. The design target is documented in
+[Echo Standard Library Time Foundation](time-foundation.md).
+
+```php
+use std time
+
+time.sleep(500ms)
+
+let $timer = time.timer()
+render()
+
+if ($timer.elapsed() > 16ms) {
+    echo "slow frame"
+}
+```
+
+This example shows the intended split: module functions such as `time.sleep()`
+and `time.timer()` create values or interact with runtime scheduling, while
+receiver methods such as `$timer.elapsed()` operate on an existing opaque time
+value.
 
 Tests can use the tiny assertion stdlib module:
 
 ```php
 namespace std assert
 
-intrinsic function ok(bool $condition): bool
-intrinsic function equals(mixed $actual, mixed $expected): bool
+intrinsic fn ok(bool $condition): bool
+intrinsic fn equals(mixed $actual, mixed $expected): bool
 ```
 
 These assertions let Echo tests run through ordinary compiled programs while still reporting failures through the runtime.
@@ -124,10 +148,10 @@ directly:
 ```php
 namespace std reflect
 
-intrinsic function exists(string $name): bool
-intrinsic function params(string $name): string
-intrinsic function returnType(string $name): string
-intrinsic function typeOf(mixed $value): string
+intrinsic fn exists(string $name): bool
+intrinsic fn params(string $name): string
+intrinsic fn returnType(string $name): string
+intrinsic fn typeOf(mixed $value): string
 ```
 
 This reflection surface gives Echo strict-mode code an Echo-owned way to inspect function metadata without importing PHP reflection APIs.
@@ -592,6 +616,25 @@ Pure Echo implementations are still useful when they make semantics easier to au
 Strict Echo's array/list/object/tuple/type model is documented in [Strict-Mode Type System](strict-mode-type-system.md).
 
 Echo-owned imports, including `from std use ...`, are documented in [Imports](imports.md).
+
+The target Echo-native time surface is documented in [Echo Standard Library Time Foundation](time-foundation.md). That design makes `time.Duration`, `time.Instant`, `time.MonoInstant`, `time.Period`, and `time.Timer` opaque stdlib types; construction stays on dot-notation module functions such as `time.now()`, `time.timer()`, and `time.duration(...)`, while value behavior is defined through `extend` receiver methods such as `$timer.elapsed()` and `$duration.total_millis()`. Echo stdlib calls should use `time.sleep(...)`, not PHP namespace-call spelling such as `time\sleep(...)`.
+
+The planned time API uses duration values rather than raw integers:
+
+```echo
+time.sleep(500ms)
+
+let $timer = time.timer()
+render()
+
+if ($timer.elapsed() > 16ms) {
+    echo "slow frame"
+}
+```
+
+This keeps units explicit and separates exact elapsed `time.Duration` values from calendar-relative `time.Period` values such as `time.period(months: 1)`.
+
+Numeric literals are not objects, so `5.seconds()` is not valid Echo. Use `5s`, `time.seconds(5)`, or `time.duration(seconds: 5)`.
 
 ## First Slices
 

@@ -3276,12 +3276,14 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'class ReportFormatter {\n    public function title($name) {\n        echo "Report: " . $name . "\\n"\n    }\n}',
+            code: 'class ReportFormatter {\n    pub fn title($name) {\n        echo "Report: " . $name . "\\n"\n    }\n}',
           },
           {
             kind: "paragraph",
             text: [
-              "Prefer structural objects for plain data and classes for PHP-oriented method surfaces or interoperability boundaries.",
+              "Prefer structural objects for plain data and classes for method surfaces or interoperability boundaries. In Echo class bodies, unprefixed methods are private by default; add ",
+              { code: "pub fn" },
+              " for public methods.",
             ],
           },
         ],
@@ -3433,7 +3435,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'enum Status: string {\n    Draft = "draft"\n    Published = "published"\n\n    public function label(): string {\n        return match ($this) {\n            self::Draft => "Draft"\n            self::Published => "Published"\n        }\n    }\n}',
+            code: 'enum Status: string {\n    Draft = "draft"\n    Published = "published"\n\n    pub fn label(): string {\n        return match ($this) {\n            self::Draft => "Draft"\n            self::Published => "Published"\n        }\n    }\n}',
           },
           {
             kind: "paragraph",
@@ -3470,7 +3472,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std time\n\nlet $started = microtime(true)\ntime.sleep(25)\nlet $elapsed = microtime(true) - $started\n\necho "Elapsed seconds: " . $elapsed . "\\n"',
+            code: 'use std time\n\nlet $timer = time.timer()\ntime.sleep(25ms)\nlet $elapsed = $timer.elapsed()\n\necho "Elapsed milliseconds: " . $elapsed.total_millis() . "\\n"',
           },
           {
             kind: "paragraph",
@@ -3490,7 +3492,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.net" },
+              { code: "net" },
               " exposes TCP listener and connection APIs. Use it when an Echo program owns socket IO instead of shelling out to another process.",
             ],
           },
@@ -3514,9 +3516,9 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.http" },
+              { code: "http" },
               " contains HTTP helpers built on Echo runtime types. The first supported surface formats plain text responses and reads requests from ",
-              { code: "std.net" },
+              { code: "net" },
               " connections.",
             ],
           },
@@ -3542,18 +3544,24 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.time" },
-              " provides scheduling helpers such as millisecond sleep. Use it to express runtime delays in Echo code instead of busy waiting.",
+              { code: "time" },
+              " is the planned home for exact time, monotonic timing, durations, periods, timers, and sleep. Module functions construct or access time values; receiver methods operate on those values.",
             ],
           },
           {
             kind: "code",
-            code: 'use std time\n\nlet $attempt = 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)',
+            code: 'use std time\n\ntime.sleep(500ms)\n\nlet $timer = time.timer()\nrender()\n\nif ($timer.elapsed() > 16ms) {\n    echo "slow frame"\n}',
           },
           {
             kind: "paragraph",
             text: [
-              "The delay is explicit at the point where retry behavior happens, so the polling loop stays readable and avoids consuming CPU while waiting for external work.",
+              "Use duration literals or constructors such as ",
+              { code: "time.milliseconds(500)" },
+              " and ",
+              { code: "time.duration(milliseconds: 500)" },
+              ". Raw numeric sleeps such as ",
+              { code: "time.sleep(500)" },
+              " are intentionally invalid because the unit is ambiguous.",
             ],
           },
         ],
@@ -3566,13 +3574,13 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.reflect" },
+              { code: "reflect" },
               " inspects Echo-visible functions and values. It can see Echo standard library and userland metadata in addition to PHP compatibility functions.",
             ],
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
+            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3590,7 +3598,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              { code: "std.assert" },
+              { code: "assert" },
               " provides assertion helpers for Echo test-style programs and small runtime checks.",
             ],
           },
@@ -3864,10 +3872,252 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Standard Library",
     title: "time",
-    summary: "Pause execution for a fixed number of milliseconds.",
-    tags: ["standard library", "stdlib", "std", "time", "sleep", "scheduling"],
-    aliases: ["std.time", "sleep", "delay", "timer"],
+    summary: "Work with exact time, durations, monotonic timers, periods, and sleep.",
+    tags: [
+      "standard library",
+      "stdlib",
+      "std",
+      "time",
+      "sleep",
+      "scheduling",
+      "duration",
+      "timer",
+      "instant",
+      "period",
+    ],
+    aliases: ["std.time", "sleep", "delay", "timer", "duration", "instant", "period"],
     sections: [
+      {
+        title: "Core Types",
+        tags: ["instant", "duration", "period", "timer", "monotonic"],
+        aliases: ["Instant", "MonoInstant", "Duration", "Period", "Timer"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "time" },
+              " defines opaque values for wall-clock instants, monotonic instants, exact durations, calendar periods, and timers.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "namespace time\n\npub type Instant\npub type MonoInstant\npub type Duration\npub type Period\npub type Timer",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Construct these values through module functions and literals. Do not construct core time values by writing raw fields; their representation is a stdlib implementation detail.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Instant" },
+              " is wall-clock Unix timeline time. ",
+              { code: "MonoInstant" },
+              " is monotonic runtime time for elapsed measurement. ",
+              { code: "Duration" },
+              " is exact elapsed machine time. ",
+              { code: "Period" },
+              " is calendar-relative human time.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Construction",
+        tags: ["duration", "constructors", "literal"],
+        aliases: ["duration literal", "time.duration", "time.milliseconds"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use module-level functions for clocks, constructors, and runtime interaction. Duration values can be written as literals, built from a single unit, or built from named compound units.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Echo standard library time calls use dot notation such as ",
+              { code: "time.sleep(...)" },
+              ". Do not use PHP namespace-call spelling such as ",
+              { code: "time\\sleep(...)" },
+              " for Echo-owned stdlib modules.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $literal = 500ms\nlet $single = time.milliseconds(500)\nlet $compound = time.duration(milliseconds: 500)\n\nlet $now = time.now()\nlet $monotonic = time.monotonic()\nlet $timer = time.timer()",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use literals for fixed values, single-unit constructors for dynamic values, and named compound constructors when several units need to be combined.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Supported duration literal suffixes are ",
+              { code: "ns" },
+              ", ",
+              { code: "us" },
+              ", ",
+              { code: "ms" },
+              ", ",
+              { code: "s" },
+              ", ",
+              { code: "min" },
+              ", ",
+              { code: "h" },
+              ", ",
+              { code: "d" },
+              ", and ",
+              { code: "w" },
+              ". Use ",
+              { code: "min" },
+              " for minutes; ",
+              { code: "10m" },
+              ", ",
+              { code: "1mo" },
+              ", and ",
+              { code: "1y" },
+              " are invalid duration literals.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "5.seconds() // invalid\n10m         // invalid; use 10min\n1mo         // invalid; use time.period(months: 1)\n1y          // invalid; use time.period(years: 1)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Numeric literals are not objects in Echo. Duration units must be expressed with duration literals or ",
+              { code: "time" },
+              " constructors, and months or years must be calendar periods.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "time.duration(...)" },
+              " accepts optional named parameters for ",
+              { code: "weeks" },
+              ", ",
+              { code: "days" },
+              ", ",
+              { code: "hours" },
+              ", ",
+              { code: "minutes" },
+              ", ",
+              { code: "seconds" },
+              ", ",
+              { code: "milliseconds" },
+              ", ",
+              { code: "microseconds" },
+              ", and ",
+              { code: "nanoseconds" },
+              "; omitted units default to zero.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $window = time.duration(\n    minutes: 1,\n    seconds: 30,\n)\n\nlet $zero = time.duration()",
+          },
+        ],
+      },
+      {
+        title: "Instants",
+        tags: ["instant", "monotonic", "unix"],
+        aliases: ["time.now", "time.monotonic", "unix time"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "time.now()" },
+              " returns a wall-clock ",
+              { code: "Instant" },
+              " for creation times, expirations, event timestamps, and serialization. ",
+              { code: "time.monotonic()" },
+              " returns a ",
+              { code: "MonoInstant" },
+              " that is only for elapsed timing.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $created_at = time.now()\nlet $expires_at = $created_at + 30d\n\nif (time.now() >= $expires_at) {\n    echo \"expired\"\n}\n\nlet $start = time.monotonic()\nwork()\nlet $elapsed = time.monotonic() - $start",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Subtracting two ",
+              { code: "Instant" },
+              " values or two ",
+              { code: "MonoInstant" },
+              " values returns a ",
+              { code: "Duration" },
+              ". Mixing wall-clock and monotonic instants is invalid.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "time.now() - time.monotonic() // invalid",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Instant" },
+              " does not expose calendar fields such as ",
+              { code: "year" },
+              " or ",
+              { code: "hour" },
+              "; those depend on a future timezone-aware ",
+              { code: "DateTime" },
+              " value.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Receiver Methods",
+        tags: ["extend", "receiver", "method"],
+        aliases: ["timer elapsed", "duration total_millis", "instant unix"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Receiver methods operate on existing time values and are defined with ",
+              { code: "extend" },
+              ". Do not model this behavior as module functions like ",
+              { code: "time.elapsed($timer)" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "extend Instant {\n    pub fn to_unix(self): i64 {\n        // seconds since Unix epoch\n    }\n}\n\nlet $unix = time.now().to_unix()\nlet $elapsed = time.timer().elapsed()",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Planned receiver methods include ",
+              { code: "$instant.to_unix()" },
+              ", ",
+              { code: "$duration.total_millis()" },
+              ", ",
+              { code: "$timer.elapsed()" },
+              ", and ",
+              { code: "$timer.reset()" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "extend Duration {\n    pub fn total_millis(self): i128 {\n        // total milliseconds\n    }\n\n    pub fn whole_seconds(self): i64 {\n        // whole elapsed seconds\n    }\n}\n\nlet $elapsed = time.timer().elapsed()\necho $elapsed.total_millis()",
+          },
+        ],
+      },
       {
         title: "sleep",
         tags: ["sleep", "time", "scheduling"],
@@ -3875,23 +4125,104 @@ export const docsPages: DocsPage[] = [
         blocks: [
           {
             kind: "paragraph",
-            text: [{ code: "sleep(int $millis): void" }],
+            text: [{ code: "sleep(Duration $duration): void" }],
           },
           {
             kind: "paragraph",
             text: [
               { code: "sleep()" },
-              " pauses the current task for the requested number of milliseconds before continuing execution.",
+              " pauses the current task for an explicit duration before continuing execution.",
             ],
           },
           {
             kind: "code",
-            code: 'use std time\n\nlet $attempt = 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)\n\n$attempt = $attempt + 1\necho "Polling attempt " . $attempt . "\\n"\ntime.sleep(250)',
+            code: 'use std time\n\ntime.sleep(500ms)\ntime.sleep(time.milliseconds(500))\ntime.sleep(time.duration(seconds: 5))',
           },
           {
             kind: "paragraph",
             text: [
-              "The delay is explicit at the point where retry behavior happens, so the polling loop stays readable and avoids consuming CPU while waiting for external work.",
+              { code: "time.sleep(500)" },
+              " is invalid because the unit is unclear. Use a duration literal like ",
+              { code: "500ms" },
+              " or a constructor like ",
+              { code: "time.milliseconds(500)" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Timer",
+        tags: ["timer", "elapsed", "reset", "monotonic"],
+        aliases: ["time.timer", "Timer.elapsed", "Timer.reset"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Timer" },
+              " stores a ",
+              { code: "MonoInstant" },
+              " internally and is the preferred API for measuring elapsed time.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $timer = time.timer()\n\nrender()\n\nif ($timer.elapsed() > 16ms) {\n    echo \"slow frame\"\n}\n\nlet $elapsed = $timer.reset()",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "$timer.elapsed()" },
+              " returns the duration since the timer started. ",
+              { code: "$timer.reset()" },
+              " returns the elapsed duration and resets the stored start to the current monotonic time.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Period",
+        tags: ["period", "calendar", "duration"],
+        aliases: ["calendar period", "months", "years"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Duration" },
+              " is exact elapsed machine time. ",
+              { code: "Period" },
+              " is calendar-relative human time for months, years, billing cycles, and future date-time movement.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $exactly_24_hours = 1d\nlet $calendar_tomorrow = time.period(days: 1)\nlet $next_month = time.period(months: 1)\nlet $next_year = time.period(years: 1)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Do not add ",
+              { code: "time.months(1)" },
+              " or ",
+              { code: "time.years(1)" },
+              " as duration constructors. Months and years belong to ",
+              { code: "time.period(...)" },
+              ".",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "time.period(...)" },
+              " accepts optional named parameters for ",
+              { code: "years" },
+              ", ",
+              { code: "months" },
+              ", ",
+              { code: "weeks" },
+              ", and ",
+              { code: "days" },
+              "; omitted units default to zero.",
             ],
           },
         ],
@@ -3924,7 +4255,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " is available\\n"\n}',
+            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " is available\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3952,7 +4283,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " params: " . reflect.params($name) . "\\n"\n}',
+            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " params: " . reflect.params($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3980,7 +4311,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "std.time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
+            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
