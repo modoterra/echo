@@ -69,6 +69,7 @@ Usage:
   scripts/check-fast runtime-filesystem-metadata
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
+  scripts/check-fast runtime-math-elementary
   scripts/check-fast runtime-math-fixtures
   scripts/check-fast runtime-encoding
   scripts/check-fast runtime-encoding-fixtures
@@ -186,6 +187,7 @@ Examples:
   scripts/check-fast runtime-value-inspect
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
+  scripts/check-fast runtime-math-elementary
   scripts/check-fast runtime-encoding
   scripts/check-fast docs
   scripts/check-fast web-docs
@@ -723,6 +725,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/math.rs)
       add_changed_check "runtime-math"
       ;;
+    crates/echo_runtime/src/math/elementary.rs)
+      add_changed_check "runtime-math-elementary"
+      ;;
     crates/echo_runtime/src/encoding.rs)
       add_changed_check "runtime-encoding"
       ;;
@@ -1057,6 +1062,8 @@ run_script_tests() {
     crates/echo_runtime/src/collections/search.rs
   assert_routing "runtime filesystem metadata routes focused checks" "runtime-filesystem-metadata" \
     crates/echo_runtime/src/filesystem/metadata.rs
+  assert_routing "runtime elementary math routes focused checks" "runtime-math-elementary" \
+    crates/echo_runtime/src/math/elementary.rs
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
@@ -1519,6 +1526,13 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime is_infinite_preserves_php_float_coercion_for_current_values
     run_quiet cargo test -q -p echo_runtime is_nan_preserves_php_float_coercion_for_current_values
     run_runtime_fixture_scope runtime-math-fixtures
+    ;;
+  runtime-math-elementary)
+    run_quiet cargo test -q -p echo_runtime angle_conversion_builtins_preserve_php_float_coercion
+    run_quiet cargo test -q -p echo_runtime trigonometric_builtins_preserve_php_float_coercion
+    run_quiet cargo test -q -p echo_runtime hyperbolic_builtins_preserve_php_float_behavior
+    run_quiet cargo test -q -p echo_runtime rounding_and_magnitude_builtins_preserve_php_float_behavior
+    run_quiet cargo test -q -p echo_runtime exponential_and_logarithm_builtins_preserve_php_float_behavior
     ;;
   runtime-encoding)
     run_quiet cargo test -q -p echo_runtime bin2hex_preserves_php_byte_behavior
