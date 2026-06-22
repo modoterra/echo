@@ -7,7 +7,7 @@ Usage:
   scripts/check-fast fmt
   scripts/check-fast script
   scripts/check-fast script-tests
-  scripts/check-fast changed [--list|--take N]
+  scripts/check-fast changed [--list [N]|--take N]
   scripts/check-fast source
   scripts/check-fast diagnostics
   scripts/check-fast lexer
@@ -69,6 +69,7 @@ Usage:
 
 Examples:
   scripts/check-fast changed --list
+  scripts/check-fast changed --list 5
   scripts/check-fast changed --take 3
   scripts/check-fast changed
   scripts/check-fast runtime
@@ -554,6 +555,16 @@ assert_fixture_filter_rejects() {
   rm -f "$output"
 }
 
+assert_positive_integer() {
+  local label="$1"
+  local value="$2"
+
+  if [[ ! "$value" =~ ^[0-9]+$ || "$value" == "0" ]]; then
+    printf '%s requires a positive integer limit\n' "$label" >&2
+    exit 2
+  fi
+}
+
 assert_command_echo_controls() {
   local default_output
   local quiet_output
@@ -571,8 +582,37 @@ assert_command_echo_controls() {
   fi
 }
 
+list_changed_checks() {
+  local limit="${1:-}"
+
+  if [[ -n "$limit" ]]; then
+    assert_positive_integer "changed --list" "$limit"
+    printf '%s\n' "${changed_checks[@]:0:limit}"
+  else
+    printf '%s\n' "${changed_checks[@]}"
+  fi
+}
+
+assert_changed_list_limit() {
+  local actual
+
+  changed_checks=(ast parser semantics)
+  actual="$(list_changed_checks 2)"
+  if [[ "$actual" != $'ast\nparser' ]]; then
+    printf 'changed list limit test failed\nexpected:\nast\nparser\nactual:\n%s\n' "$actual" >&2
+    exit 1
+  fi
+
+  actual="$(list_changed_checks)"
+  if [[ "$actual" != $'ast\nparser\nsemantics' ]]; then
+    printf 'changed list full test failed\nexpected:\nast\nparser\nsemantics\nactual:\n%s\n' "$actual" >&2
+    exit 1
+  fi
+}
+
 run_script_tests() {
   assert_command_echo_controls
+  assert_changed_list_limit
   assert_routing "xo main routes repl" $'xo\nrepl' \
     crates/xo/src/main.rs
   assert_routing "xo source routes execution paths" $'xo\nrepl\njit\nfixture' \
@@ -659,15 +699,12 @@ run_changed_checks() {
   collect_changed_checks
 
   if [[ "$mode" == "--list" ]]; then
-    printf '%s\n' "${changed_checks[@]}"
+    list_changed_checks "$limit"
     return
   fi
 
   if [[ "$mode" == "--take" ]]; then
-    if [[ ! "$limit" =~ ^[0-9]+$ || "$limit" == "0" ]]; then
-      printf 'changed --take requires a positive integer limit\n' >&2
-      exit 2
-    fi
+    assert_positive_integer "changed --take" "$limit"
   elif [[ "$mode" != "run" && -n "$mode" ]]; then
     printf 'unknown changed mode: %s\n' "$mode" >&2
     exit 2
