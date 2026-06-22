@@ -179,11 +179,11 @@ run_quiet() {
   if "$@" >"$output" 2>&1; then
     rm -f "$output"
     return 0
+  else
+    status=$?
+    replay_failure_output "$output"
+    return "$status"
   fi
-
-  status=$?
-  replay_failure_output "$output"
-  return "$status"
 }
 
 test_crate() {
@@ -594,6 +594,43 @@ assert_command_echo_controls() {
   fi
 }
 
+assert_failure_output_is_bounded() {
+  local output
+  local status
+
+  output="$(mktemp "${TMPDIR:-/tmp}/check-fast-script-test.XXXXXX")"
+  set +e
+  (
+    CHECK_FAST_ECHO_COMMANDS=0 CHECK_FAST_MAX_OUTPUT_LINES=4 \
+      run_quiet bash -c 'for line in 1 2 3 4 5 6; do printf "line-%s\n" "$line"; done; exit 7'
+  ) >"$output" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$status" != "7" ]]; then
+    printf 'bounded failure output test failed: expected status 7, got %s\n' "$status" >&2
+    cat "$output" >&2
+    rm -f "$output"
+    exit 1
+  fi
+
+  if ! rg -q "omitted 2 lines" "$output"; then
+    printf 'bounded failure output test failed: missing omission marker\n' >&2
+    cat "$output" >&2
+    rm -f "$output"
+    exit 1
+  fi
+
+  if rg -q "line-3|line-4" "$output"; then
+    printf 'bounded failure output test failed: omitted middle lines were replayed\n' >&2
+    cat "$output" >&2
+    rm -f "$output"
+    exit 1
+  fi
+
+  rm -f "$output"
+}
+
 list_changed_checks() {
   local limit="${1:-}"
 
@@ -624,6 +661,7 @@ assert_changed_list_limit() {
 
 run_script_tests() {
   assert_command_echo_controls
+  assert_failure_output_is_bounded
   assert_changed_list_limit
   assert_routing "xo main routes repl" $'xo\nrepl' \
     crates/xo/src/main.rs
@@ -759,10 +797,11 @@ run_with_optional_fixture() {
     if ECHO_FIXTURE="$filter" "$@" >"$output" 2>&1; then
       rm -f "$output"
       return 0
+    else
+      status=$?
+      replay_failure_output "$output"
+      return "$status"
     fi
-    status=$?
-    replay_failure_output "$output"
-    return "$status"
   else
     run_quiet "$@"
   fi
