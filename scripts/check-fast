@@ -238,6 +238,76 @@ test_crates() {
   done
 }
 
+runtime_test_modules() {
+  cat <<'EOF'
+runtime-tests-arithmetic|arithmetic|crates/echo_runtime/src/runtime_tests/arithmetic.rs|runtime arithmetic tests
+runtime-tests-callable|callable|crates/echo_runtime/src/runtime_tests/callable.rs|runtime callable tests
+runtime-tests-collections|collections|crates/echo_runtime/src/runtime_tests/collections.rs|runtime collection tests
+runtime-tests-encoding|encoding|crates/echo_runtime/src/runtime_tests/encoding.rs|runtime encoding tests
+runtime-tests-environment|environment|crates/echo_runtime/src/runtime_tests/environment.rs|runtime environment tests
+runtime-tests-filesystem|filesystem|crates/echo_runtime/src/runtime_tests/filesystem.rs|runtime filesystem tests
+runtime-tests-math|math|crates/echo_runtime/src/runtime_tests/math.rs|runtime math tests
+runtime-tests-scalar|scalar|crates/echo_runtime/src/runtime_tests/scalar.rs|runtime scalar tests
+runtime-tests-stdlib|stdlib|crates/echo_runtime/src/runtime_tests/stdlib.rs|runtime stdlib tests
+runtime-tests-string-compare|string_compare|crates/echo_runtime/src/runtime_tests/string_compare.rs|runtime string compare tests
+runtime-tests-string-collections|string_collections|crates/echo_runtime/src/runtime_tests/string_collections.rs|runtime string collection tests
+runtime-tests-string-encoding|string_encoding|crates/echo_runtime/src/runtime_tests/string_encoding.rs|runtime string encoding tests
+runtime-tests-string-format|string_format|crates/echo_runtime/src/runtime_tests/string_format.rs|runtime string format tests
+runtime-tests-string-paths|string_paths|crates/echo_runtime/src/runtime_tests/string_paths.rs|runtime string path tests
+runtime-tests-string-rewrite|string_rewrite|crates/echo_runtime/src/runtime_tests/string_rewrite.rs|runtime string rewrite tests
+runtime-tests-string-search|string_search|crates/echo_runtime/src/runtime_tests/string_search.rs|runtime string search tests
+runtime-tests-string-span|string_span|crates/echo_runtime/src/runtime_tests/string_span.rs|runtime string span tests
+runtime-tests-string-substr|string_substr|crates/echo_runtime/src/runtime_tests/string_substr.rs|runtime string substr tests
+runtime-tests-task|task|crates/echo_runtime/src/runtime_tests/task.rs|runtime task tests
+runtime-tests-value|value|crates/echo_runtime/src/runtime_tests/value.rs|runtime value tests
+EOF
+}
+
+add_runtime_test_module_check_for_path() {
+  local changed_path="$1"
+  local check
+  local module
+  local module_path
+  local description
+
+  while IFS='|' read -r check module module_path description; do
+    if [[ "$changed_path" == "$module_path" ]]; then
+      add_changed_check "$check"
+      return 0
+    fi
+  done < <(runtime_test_modules)
+
+  return 1
+}
+
+run_runtime_test_module_command() {
+  local requested="$1"
+  local check
+  local module
+  local module_path
+  local description
+
+  while IFS='|' read -r check module module_path description; do
+    if [[ "$requested" == "$check" ]]; then
+      run_quiet cargo test -q -p echo_runtime "runtime_tests::${module}::" -- --test-threads=1
+      return
+    fi
+  done < <(runtime_test_modules)
+
+  return 1
+}
+
+assert_runtime_test_module_routing() {
+  local check
+  local module
+  local module_path
+  local description
+
+  while IFS='|' read -r check module module_path description; do
+    assert_routing "$description route focused submodule check" "$check" "$module_path"
+  done < <(runtime_test_modules)
+}
+
 run_pipeline_checks() {
   test_crates echo_parser echo_semantics echo_hir echo_mir
 }
@@ -412,67 +482,12 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections.rs)
       add_changed_check "runtime-collections"
       ;;
-    crates/echo_runtime/src/runtime_tests/arithmetic.rs)
-      add_changed_check "runtime-tests-arithmetic"
+    crates/echo_runtime/src/runtime_tests/*.rs)
+      if ! add_runtime_test_module_check_for_path "$path"; then
+        add_changed_check "runtime-tests"
+      fi
       ;;
-    crates/echo_runtime/src/runtime_tests/collections.rs)
-      add_changed_check "runtime-tests-collections"
-      ;;
-    crates/echo_runtime/src/runtime_tests/callable.rs)
-      add_changed_check "runtime-tests-callable"
-      ;;
-    crates/echo_runtime/src/runtime_tests/encoding.rs)
-      add_changed_check "runtime-tests-encoding"
-      ;;
-    crates/echo_runtime/src/runtime_tests/environment.rs)
-      add_changed_check "runtime-tests-environment"
-      ;;
-    crates/echo_runtime/src/runtime_tests/filesystem.rs)
-      add_changed_check "runtime-tests-filesystem"
-      ;;
-    crates/echo_runtime/src/runtime_tests/math.rs)
-      add_changed_check "runtime-tests-math"
-      ;;
-    crates/echo_runtime/src/runtime_tests/scalar.rs)
-      add_changed_check "runtime-tests-scalar"
-      ;;
-    crates/echo_runtime/src/runtime_tests/stdlib.rs)
-      add_changed_check "runtime-tests-stdlib"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_compare.rs)
-      add_changed_check "runtime-tests-string-compare"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_collections.rs)
-      add_changed_check "runtime-tests-string-collections"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_encoding.rs)
-      add_changed_check "runtime-tests-string-encoding"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_format.rs)
-      add_changed_check "runtime-tests-string-format"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_paths.rs)
-      add_changed_check "runtime-tests-string-paths"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_rewrite.rs)
-      add_changed_check "runtime-tests-string-rewrite"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_search.rs)
-      add_changed_check "runtime-tests-string-search"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_span.rs)
-      add_changed_check "runtime-tests-string-span"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_substr.rs)
-      add_changed_check "runtime-tests-string-substr"
-      ;;
-    crates/echo_runtime/src/runtime_tests/task.rs)
-      add_changed_check "runtime-tests-task"
-      ;;
-    crates/echo_runtime/src/runtime_tests/value.rs)
-      add_changed_check "runtime-tests-value"
-      ;;
-    crates/echo_runtime/src/runtime_tests.rs|crates/echo_runtime/src/runtime_tests/*.rs)
+    crates/echo_runtime/src/runtime_tests.rs)
       add_changed_check "runtime-tests"
       ;;
     crates/echo_runtime/src/assertions.rs)
@@ -812,46 +827,7 @@ run_script_tests() {
     crates/echo_runtime/src/value.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
-  assert_routing "runtime arithmetic tests route focused submodule check" "runtime-tests-arithmetic" \
-    crates/echo_runtime/src/runtime_tests/arithmetic.rs
-  assert_routing "runtime collection tests route focused submodule check" "runtime-tests-collections" \
-    crates/echo_runtime/src/runtime_tests/collections.rs
-  assert_routing "runtime callable tests route focused submodule check" "runtime-tests-callable" \
-    crates/echo_runtime/src/runtime_tests/callable.rs
-  assert_routing "runtime encoding tests route focused submodule check" "runtime-tests-encoding" \
-    crates/echo_runtime/src/runtime_tests/encoding.rs
-  assert_routing "runtime environment tests route focused submodule check" "runtime-tests-environment" \
-    crates/echo_runtime/src/runtime_tests/environment.rs
-  assert_routing "runtime filesystem tests route focused submodule check" "runtime-tests-filesystem" \
-    crates/echo_runtime/src/runtime_tests/filesystem.rs
-  assert_routing "runtime math tests route focused submodule check" "runtime-tests-math" \
-    crates/echo_runtime/src/runtime_tests/math.rs
-  assert_routing "runtime scalar tests route focused submodule check" "runtime-tests-scalar" \
-    crates/echo_runtime/src/runtime_tests/scalar.rs
-  assert_routing "runtime stdlib tests route focused submodule check" "runtime-tests-stdlib" \
-    crates/echo_runtime/src/runtime_tests/stdlib.rs
-  assert_routing "runtime string compare tests route focused submodule check" "runtime-tests-string-compare" \
-    crates/echo_runtime/src/runtime_tests/string_compare.rs
-  assert_routing "runtime string collection tests route focused submodule check" "runtime-tests-string-collections" \
-    crates/echo_runtime/src/runtime_tests/string_collections.rs
-  assert_routing "runtime string encoding tests route focused submodule check" "runtime-tests-string-encoding" \
-    crates/echo_runtime/src/runtime_tests/string_encoding.rs
-  assert_routing "runtime string format tests route focused submodule check" "runtime-tests-string-format" \
-    crates/echo_runtime/src/runtime_tests/string_format.rs
-  assert_routing "runtime string path tests route focused submodule check" "runtime-tests-string-paths" \
-    crates/echo_runtime/src/runtime_tests/string_paths.rs
-  assert_routing "runtime string rewrite tests route focused submodule check" "runtime-tests-string-rewrite" \
-    crates/echo_runtime/src/runtime_tests/string_rewrite.rs
-  assert_routing "runtime string search tests route focused submodule check" "runtime-tests-string-search" \
-    crates/echo_runtime/src/runtime_tests/string_search.rs
-  assert_routing "runtime string span tests route focused submodule check" "runtime-tests-string-span" \
-    crates/echo_runtime/src/runtime_tests/string_span.rs
-  assert_routing "runtime string substr tests route focused submodule check" "runtime-tests-string-substr" \
-    crates/echo_runtime/src/runtime_tests/string_substr.rs
-  assert_routing "runtime task tests route focused submodule check" "runtime-tests-task" \
-    crates/echo_runtime/src/runtime_tests/task.rs
-  assert_routing "runtime value tests route focused submodule check" "runtime-tests-value" \
-    crates/echo_runtime/src/runtime_tests/value.rs
+  assert_runtime_test_module_routing
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
     crates/echo_runtime/src/assertions.rs
   assert_routing "runtime callable routes focused checks" "runtime-callable" \
@@ -1073,65 +1049,11 @@ case "$command" in
   runtime-tests)
     run_quiet cargo test -q -p echo_runtime runtime_tests:: -- --test-threads=1
     ;;
-  runtime-tests-arithmetic)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::arithmetic:: -- --test-threads=1
-    ;;
-  runtime-tests-callable)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::callable:: -- --test-threads=1
-    ;;
-  runtime-tests-collections)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::collections:: -- --test-threads=1
-    ;;
-  runtime-tests-encoding)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::encoding:: -- --test-threads=1
-    ;;
-  runtime-tests-environment)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::environment:: -- --test-threads=1
-    ;;
-  runtime-tests-filesystem)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::filesystem:: -- --test-threads=1
-    ;;
-  runtime-tests-math)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::math:: -- --test-threads=1
-    ;;
-  runtime-tests-scalar)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::scalar:: -- --test-threads=1
-    ;;
-  runtime-tests-stdlib)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::stdlib:: -- --test-threads=1
-    ;;
-  runtime-tests-string-compare)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_compare:: -- --test-threads=1
-    ;;
-  runtime-tests-string-collections)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_collections:: -- --test-threads=1
-    ;;
-  runtime-tests-string-encoding)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_encoding:: -- --test-threads=1
-    ;;
-  runtime-tests-string-format)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_format:: -- --test-threads=1
-    ;;
-  runtime-tests-string-paths)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_paths:: -- --test-threads=1
-    ;;
-  runtime-tests-string-rewrite)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_rewrite:: -- --test-threads=1
-    ;;
-  runtime-tests-string-search)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_search:: -- --test-threads=1
-    ;;
-  runtime-tests-string-span)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_span:: -- --test-threads=1
-    ;;
-  runtime-tests-string-substr)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::string_substr:: -- --test-threads=1
-    ;;
-  runtime-tests-task)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::task:: -- --test-threads=1
-    ;;
-  runtime-tests-value)
-    run_quiet cargo test -q -p echo_runtime runtime_tests::value:: -- --test-threads=1
+  runtime-tests-*)
+    if ! run_runtime_test_module_command "$command"; then
+      usage
+      exit 2
+    fi
     ;;
   runtime-assert)
     run_quiet cargo test -q -p echo_runtime assertions::
