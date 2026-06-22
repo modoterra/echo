@@ -71,7 +71,7 @@ pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
     echo_php_chr, echo_php_decbin, echo_php_dechex, echo_php_decoct, echo_php_lcfirst,
     echo_php_ord, echo_php_str_repeat, echo_php_str_rot13, echo_php_strrev, echo_php_strtolower,
-    echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
+    echo_php_strtoupper, echo_php_strval, echo_php_ucfirst, echo_php_ucwords,
 };
 use string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
@@ -1766,14 +1766,6 @@ pub extern "C" fn echo_php_is_string(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_scalar(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_bool() || value.is_int() || value.is_string())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_php_strval(value: EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
-        None => EchoValue::error(),
-    }
 }
 
 #[unsafe(no_mangle)]

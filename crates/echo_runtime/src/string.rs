@@ -87,6 +87,14 @@ pub extern "C" fn echo_php_decoct(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strval(value: EchoValue) -> EchoValue {
+    match value.string_bytes() {
+        Some(bytes) => echo_runtime_string(bytes),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strtoupper(value: EchoValue) -> EchoValue {
     php_string_transform_builtin(value, |bytes| bytes.make_ascii_uppercase())
 }
