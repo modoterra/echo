@@ -20,5 +20,6 @@ mod scalar;
 mod stdlib;
 mod string;
 mod string_collections;
+mod string_paths;
 mod task;
 mod value;

@@ -25,6 +25,7 @@ Usage:
   scripts/check-fast runtime-tests-stdlib
   scripts/check-fast runtime-tests-string
   scripts/check-fast runtime-tests-string-collections
+  scripts/check-fast runtime-tests-string-paths
   scripts/check-fast runtime-tests-task
   scripts/check-fast runtime-tests-value
   scripts/check-fast runtime-assert
@@ -99,6 +100,7 @@ Examples:
   scripts/check-fast runtime-tests-stdlib
   scripts/check-fast runtime-tests-string
   scripts/check-fast runtime-tests-string-collections
+  scripts/check-fast runtime-tests-string-paths
   scripts/check-fast runtime-tests-task
   scripts/check-fast runtime-tests-value
   scripts/check-fast runtime-assert
@@ -430,6 +432,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/string_collections.rs)
       add_changed_check "runtime-tests-string-collections"
+      ;;
+    crates/echo_runtime/src/runtime_tests/string_paths.rs)
+      add_changed_check "runtime-tests-string-paths"
       ;;
     crates/echo_runtime/src/runtime_tests/task.rs)
       add_changed_check "runtime-tests-task"
@@ -799,6 +804,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/string.rs
   assert_routing "runtime string collection tests route focused submodule check" "runtime-tests-string-collections" \
     crates/echo_runtime/src/runtime_tests/string_collections.rs
+  assert_routing "runtime string path tests route focused submodule check" "runtime-tests-string-paths" \
+    crates/echo_runtime/src/runtime_tests/string_paths.rs
   assert_routing "runtime task tests route focused submodule check" "runtime-tests-task" \
     crates/echo_runtime/src/runtime_tests/task.rs
   assert_routing "runtime value tests route focused submodule check" "runtime-tests-value" \
@@ -1056,6 +1063,9 @@ case "$command" in
     ;;
   runtime-tests-string-collections)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string_collections:: -- --test-threads=1
+    ;;
+  runtime-tests-string-paths)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::string_paths:: -- --test-threads=1
     ;;
   runtime-tests-task)
     run_quiet cargo test -q -p echo_runtime runtime_tests::task:: -- --test-threads=1
