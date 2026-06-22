@@ -14,6 +14,7 @@ Usage:
   scripts/check-fast ast
   scripts/check-fast runtime
   scripts/check-fast runtime-assert
+  scripts/check-fast runtime-callable
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-collections
@@ -63,6 +64,7 @@ Examples:
   scripts/check-fast changed
   scripts/check-fast runtime
   scripts/check-fast runtime-assert
+  scripts/check-fast runtime-callable
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-poll
@@ -321,6 +323,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/assertions.rs)
       add_changed_check "runtime-assert"
       ;;
+    crates/echo_runtime/src/callable.rs|crates/echo_runtime/src/error.rs)
+      add_changed_check "runtime-callable"
+      ;;
     crates/echo_runtime/src/task.rs)
       add_changed_check "runtime-task"
       ;;
@@ -502,6 +507,10 @@ run_script_tests() {
     crates/echo_runtime/src/value.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
     crates/echo_runtime/src/assertions.rs
+  assert_routing "runtime callable routes focused checks" "runtime-callable" \
+    crates/echo_runtime/src/callable.rs
+  assert_routing "runtime error routes focused checks" "runtime-callable" \
+    crates/echo_runtime/src/error.rs
   assert_routing "runtime require routes focused checks" "runtime-require" \
     crates/echo_runtime/src/require.rs
   assert_routing "runtime poll routes focused checks" "runtime-poll" \
@@ -691,6 +700,15 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime assertions::
     run_quiet cargo test -q -p echo_runtime assert_intrinsics
     run_with_optional_fixture "030_userland_reflection,031_reflection_assertions" tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-callable)
+    run_quiet cargo test -q -p echo_runtime invalid_value_does_not_normalize_to_callable
+    run_quiet cargo test -q -p echo_runtime string_value_normalizes_to_function_callable
+    run_quiet cargo test -q -p echo_runtime non_utf8_string_value_is_not_callable
+    run_quiet cargo test -q -p echo_runtime function_callable_call_fails_until_registry_exists
+    run_quiet cargo test -q -p echo_runtime output::
+    run_quiet cargo test -q -p echo_runtime task::
+    run_quiet cargo test -q -p echo_runtime sched::
     ;;
   runtime-task)
     run_quiet cargo test -q -p echo_runtime task::
