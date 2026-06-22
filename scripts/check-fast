@@ -754,6 +754,7 @@ case "$command" in
     run_with_optional_fixture "$RUNTIME_TIME_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-value)
+    run_quiet cargo test -q -p echo_runtime php_float_formatting_matches_runtime_scalar_strings
     run_quiet cargo test -q -p echo_runtime arithmetic
     run_quiet cargo test -q -p echo_runtime index_get
     run_quiet cargo test -q -p echo_runtime lists_are_distinct_from_php_arrays

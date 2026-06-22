@@ -70,6 +70,7 @@ pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 use time::system_time_unix_timestamp;
 use time::unix_duration_now_or_zero;
 pub use time::{echo_php_microtime, echo_time_sleep};
+use value::format_php_float;
 pub use value::{EchoObject, EchoString};
 
 #[repr(C)]
@@ -3693,25 +3694,6 @@ fn parse_php_number(bytes: &[u8]) -> Option<PhpNumber> {
     } else {
         text.parse::<i64>().ok().map(PhpNumber::Int)
     }
-}
-
-fn format_php_float(value: f64) -> String {
-    if value.is_nan() {
-        return "NAN".to_string();
-    }
-    if value.is_infinite() {
-        return if value.is_sign_negative() {
-            "-INF".to_string()
-        } else {
-            "INF".to_string()
-        };
-    }
-
-    let formatted = format!("{value:.14}");
-    formatted
-        .trim_end_matches('0')
-        .trim_end_matches('.')
-        .to_string()
 }
 
 fn pow_f64_int(base: f64, exponent: i64) -> f64 {
