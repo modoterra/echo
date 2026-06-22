@@ -1,13 +1,469 @@
-use crate::collections::php_array_union;
+use crate::collections::{EchoArray, EchoArrayKey, EchoList, php_array_union};
 use crate::math::echo_math_pow;
 use crate::string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
-use crate::{
-    ECHO_VALUE_ARRAY, ECHO_VALUE_BOOL, ECHO_VALUE_FLOAT, ECHO_VALUE_INT, ECHO_VALUE_LIST,
-    ECHO_VALUE_NULL, ECHO_VALUE_OBJECT, ECHO_VALUE_PROCESS, ECHO_VALUE_STRING, ECHO_VALUE_TASK,
-    ECHO_VALUE_TASK_GROUP, ECHO_VALUE_TCP_CONNECTION, ECHO_VALUE_TCP_LISTENER, ECHO_VALUE_THREAD,
-    echo_runtime_string,
-};
-pub use crate::{EchoArray, EchoCallable, EchoList, EchoSymbol, EchoValue};
+use crate::{echo_runtime_string, net, process, task, task_group, thread};
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EchoValue {
+    pub kind: i32,
+    pub payload: u64,
+}
+
+pub(crate) const ECHO_VALUE_NULL: i32 = 0;
+pub(crate) const ECHO_VALUE_ERROR: i32 = -1;
+pub(crate) const ECHO_VALUE_BOOL: i32 = 1;
+pub(crate) const ECHO_VALUE_INT: i32 = 2;
+pub(crate) const ECHO_VALUE_STRING: i32 = 3;
+pub(crate) const ECHO_VALUE_ARRAY: i32 = 4;
+pub(crate) const ECHO_VALUE_TASK: i32 = 5;
+pub(crate) const ECHO_VALUE_PENDING: i32 = 6;
+pub(crate) const ECHO_VALUE_TCP_LISTENER: i32 = 7;
+pub(crate) const ECHO_VALUE_TCP_CONNECTION: i32 = 8;
+pub(crate) const ECHO_VALUE_OBJECT: i32 = 9;
+pub(crate) const ECHO_VALUE_LIST: i32 = 10;
+pub(crate) const ECHO_VALUE_FLOAT: i32 = 11;
+pub(crate) const ECHO_VALUE_PROCESS: i32 = 12;
+pub(crate) const ECHO_VALUE_THREAD: i32 = 13;
+pub(crate) const ECHO_VALUE_TASK_GROUP: i32 = 14;
+
+const INSPECT_MAX_DEPTH: usize = 3;
+const INSPECT_MAX_ITEMS: usize = 8;
+
+impl EchoValue {
+    pub const fn null() -> Self {
+        Self {
+            kind: ECHO_VALUE_NULL,
+            payload: 0,
+        }
+    }
+
+    pub const fn error() -> Self {
+        Self {
+            kind: ECHO_VALUE_ERROR,
+            payload: 0,
+        }
+    }
+
+    pub const fn bool(value: bool) -> Self {
+        Self {
+            kind: ECHO_VALUE_BOOL,
+            payload: value as u64,
+        }
+    }
+
+    pub const fn int(value: i64) -> Self {
+        Self {
+            kind: ECHO_VALUE_INT,
+            payload: value as u64,
+        }
+    }
+
+    pub const fn float(value: f64) -> Self {
+        Self {
+            kind: ECHO_VALUE_FLOAT,
+            payload: value.to_bits(),
+        }
+    }
+
+    pub const fn is_null(self) -> bool {
+        self.kind == ECHO_VALUE_NULL
+    }
+
+    pub const fn is_false(self) -> bool {
+        self.kind == ECHO_VALUE_BOOL && self.payload == 0
+    }
+
+    pub const fn is_bool(self) -> bool {
+        self.kind == ECHO_VALUE_BOOL
+    }
+
+    pub const fn is_int(self) -> bool {
+        self.kind == ECHO_VALUE_INT
+    }
+
+    pub const fn is_float(self) -> bool {
+        self.kind == ECHO_VALUE_FLOAT
+    }
+
+    pub fn string(value: *mut EchoString) -> Self {
+        Self {
+            kind: ECHO_VALUE_STRING,
+            payload: value as u64,
+        }
+    }
+
+    pub fn task(value: *mut task::EchoTask) -> Self {
+        Self {
+            kind: ECHO_VALUE_TASK,
+            payload: value as u64,
+        }
+    }
+
+    pub fn task_group(value: *mut task_group::EchoTaskGroup) -> Self {
+        Self {
+            kind: ECHO_VALUE_TASK_GROUP,
+            payload: value as u64,
+        }
+    }
+
+    pub fn process(value: *mut process::EchoProcess) -> Self {
+        Self {
+            kind: ECHO_VALUE_PROCESS,
+            payload: value as u64,
+        }
+    }
+
+    pub fn thread(value: *mut thread::EchoThread) -> Self {
+        Self {
+            kind: ECHO_VALUE_THREAD,
+            payload: value as u64,
+        }
+    }
+
+    pub fn list(value: *mut EchoList) -> Self {
+        Self {
+            kind: ECHO_VALUE_LIST,
+            payload: value as u64,
+        }
+    }
+
+    pub fn array(value: *mut EchoArray) -> Self {
+        Self {
+            kind: ECHO_VALUE_ARRAY,
+            payload: value as u64,
+        }
+    }
+
+    pub fn object(value: *mut EchoObject) -> Self {
+        Self {
+            kind: ECHO_VALUE_OBJECT,
+            payload: value as u64,
+        }
+    }
+
+    pub const fn pending() -> Self {
+        Self {
+            kind: ECHO_VALUE_PENDING,
+            payload: 0,
+        }
+    }
+
+    pub fn tcp_listener(value: *mut net::EchoTcpListener) -> Self {
+        Self {
+            kind: ECHO_VALUE_TCP_LISTENER,
+            payload: value as u64,
+        }
+    }
+
+    pub fn tcp_connection(value: *mut net::EchoTcpConnection) -> Self {
+        Self {
+            kind: ECHO_VALUE_TCP_CONNECTION,
+            payload: value as u64,
+        }
+    }
+
+    pub(crate) fn string_bytes(self) -> Option<Vec<u8>> {
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
+            ECHO_VALUE_BOOL => {
+                if self.payload == 0 {
+                    Some(Vec::new())
+                } else {
+                    Some(b"1".to_vec())
+                }
+            }
+            ECHO_VALUE_INT => Some((self.payload as i64).to_string().into_bytes()),
+            ECHO_VALUE_FLOAT => Some(format_php_float(f64::from_bits(self.payload)).into_bytes()),
+            ECHO_VALUE_STRING => unsafe {
+                (self.payload as *const EchoString)
+                    .as_ref()
+                    .map(|value| value.bytes.clone())
+            },
+            ECHO_VALUE_ARRAY => Some(b"Array".to_vec()),
+            ECHO_VALUE_LIST => Some(b"List".to_vec()),
+            ECHO_VALUE_TASK
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_OBJECT
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_THREAD => Some(b"Object".to_vec()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn inspect_bytes(self) -> Option<Vec<u8>> {
+        Some(self.inspect_string(0).into_bytes())
+    }
+
+    fn inspect_string(self, depth: usize) -> String {
+        if depth >= INSPECT_MAX_DEPTH {
+            return match self.kind {
+                ECHO_VALUE_ARRAY => "Array [...]".to_string(),
+                ECHO_VALUE_LIST => "List [...]".to_string(),
+                ECHO_VALUE_OBJECT => "Object {...}".to_string(),
+                _ => self
+                    .string_bytes()
+                    .and_then(|bytes| String::from_utf8(bytes).ok())
+                    .unwrap_or_default(),
+            };
+        }
+
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => String::new(),
+            ECHO_VALUE_BOOL => {
+                if self.payload == 0 {
+                    String::new()
+                } else {
+                    "1".to_string()
+                }
+            }
+            ECHO_VALUE_INT => (self.payload as i64).to_string(),
+            ECHO_VALUE_FLOAT => format_php_float(f64::from_bits(self.payload)),
+            ECHO_VALUE_STRING => unsafe {
+                (self.payload as *const EchoString)
+                    .as_ref()
+                    .map(|value| {
+                        if depth == 0 {
+                            String::from_utf8_lossy(&value.bytes).into_owned()
+                        } else {
+                            inspect_string_literal(&value.bytes)
+                        }
+                    })
+                    .unwrap_or_default()
+            },
+            ECHO_VALUE_ARRAY => unsafe {
+                (self.payload as *const EchoArray)
+                    .as_ref()
+                    .map(|array| inspect_array(array, depth + 1))
+                    .unwrap_or_else(|| "Array".to_string())
+            },
+            ECHO_VALUE_LIST => unsafe {
+                (self.payload as *const EchoList)
+                    .as_ref()
+                    .map(|list| inspect_list(list, depth + 1))
+                    .unwrap_or_else(|| "List".to_string())
+            },
+            ECHO_VALUE_TASK
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_OBJECT
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_THREAD => "Object".to_string(),
+            _ => String::new(),
+        }
+    }
+
+    pub(crate) fn int_value(self) -> Option<i64> {
+        match self.kind {
+            ECHO_VALUE_BOOL => Some(if self.payload == 0 { 0 } else { 1 }),
+            ECHO_VALUE_INT => Some(self.payload as i64),
+            ECHO_VALUE_FLOAT => Some(f64::from_bits(self.payload) as i64),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
+                let text = std::str::from_utf8(bytes).ok()?.trim_ascii();
+                text.parse::<i64>().ok()
+            },
+            _ => None,
+        }
+    }
+
+    pub(crate) fn bool_value(self) -> Option<bool> {
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(false),
+            ECHO_VALUE_BOOL => Some(self.payload != 0),
+            ECHO_VALUE_INT => Some(self.payload as i64 != 0),
+            ECHO_VALUE_FLOAT => Some(f64::from_bits(self.payload) != 0.0),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
+                Some(!bytes.is_empty() && bytes != b"0")
+            },
+            ECHO_VALUE_ARRAY | ECHO_VALUE_LIST => Some(true),
+            ECHO_VALUE_TASK
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_TCP_LISTENER
+            | ECHO_VALUE_TCP_CONNECTION
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_THREAD => Some(true),
+            ECHO_VALUE_PENDING => Some(false),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn php_int_value(self) -> Option<i64> {
+        match self.kind {
+            ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(0),
+            ECHO_VALUE_BOOL => Some(if self.payload == 0 { 0 } else { 1 }),
+            ECHO_VALUE_INT => Some(self.payload as i64),
+            ECHO_VALUE_FLOAT => Some(f64::from_bits(self.payload) as i64),
+            ECHO_VALUE_STRING => unsafe {
+                let bytes = &(self.payload as *const EchoString).as_ref()?.bytes;
+                Some(parse_php_decimal_int(bytes))
+            },
+            _ => None,
+        }
+    }
+
+    pub const fn is_string(self) -> bool {
+        self.kind == ECHO_VALUE_STRING
+    }
+
+    pub const fn is_array(self) -> bool {
+        self.kind == ECHO_VALUE_ARRAY
+    }
+
+    pub const fn is_list(self) -> bool {
+        self.kind == ECHO_VALUE_LIST
+    }
+
+    pub const fn is_object(self) -> bool {
+        self.kind == ECHO_VALUE_OBJECT
+    }
+
+    pub const fn is_task(self) -> bool {
+        self.kind == ECHO_VALUE_TASK
+    }
+
+    pub const fn is_pending(self) -> bool {
+        self.kind == ECHO_VALUE_PENDING
+    }
+
+    pub(crate) const fn is_true_bool(self) -> bool {
+        self.kind == ECHO_VALUE_BOOL && self.payload != 0
+    }
+
+    pub(crate) fn type_name_bytes(self) -> &'static [u8] {
+        match self.kind {
+            ECHO_VALUE_NULL => b"null".as_slice(),
+            ECHO_VALUE_BOOL => b"bool".as_slice(),
+            ECHO_VALUE_INT => b"int".as_slice(),
+            ECHO_VALUE_FLOAT => b"float".as_slice(),
+            ECHO_VALUE_STRING => b"string".as_slice(),
+            ECHO_VALUE_ARRAY => b"array".as_slice(),
+            ECHO_VALUE_LIST => b"list".as_slice(),
+            ECHO_VALUE_TASK => b"task".as_slice(),
+            ECHO_VALUE_TASK_GROUP => b"task_group".as_slice(),
+            ECHO_VALUE_THREAD => b"thread".as_slice(),
+            ECHO_VALUE_PROCESS => b"process".as_slice(),
+            ECHO_VALUE_PENDING => b"pending".as_slice(),
+            ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
+            ECHO_VALUE_TCP_CONNECTION => b"TcpConnection".as_slice(),
+            ECHO_VALUE_OBJECT => b"object".as_slice(),
+            _ => b"unknown".as_slice(),
+        }
+    }
+
+    pub(crate) fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
+        if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut task::EchoTask).as_mut() }
+    }
+
+    pub(crate) fn as_task_group_mut(self) -> Option<&'static mut task_group::EchoTaskGroup> {
+        if self.kind != ECHO_VALUE_TASK_GROUP || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut task_group::EchoTaskGroup).as_mut() }
+    }
+
+    pub(crate) fn as_process_mut(self) -> Option<&'static mut process::EchoProcess> {
+        if self.kind != ECHO_VALUE_PROCESS || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut process::EchoProcess).as_mut() }
+    }
+
+    pub(crate) fn as_thread_mut(self) -> Option<&'static mut thread::EchoThread> {
+        if self.kind != ECHO_VALUE_THREAD || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut thread::EchoThread).as_mut() }
+    }
+
+    pub(crate) fn as_tcp_listener_ref(self) -> Option<&'static net::EchoTcpListener> {
+        if self.kind != ECHO_VALUE_TCP_LISTENER || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *const net::EchoTcpListener).as_ref() }
+    }
+
+    pub(crate) fn as_tcp_connection_mut(self) -> Option<&'static mut net::EchoTcpConnection> {
+        if self.kind != ECHO_VALUE_TCP_CONNECTION || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut net::EchoTcpConnection).as_mut() }
+    }
+}
+
+fn inspect_array(array: &EchoArray, depth: usize) -> String {
+    let mut parts = Vec::new();
+    for (key, value) in array
+        .keys
+        .iter()
+        .zip(array.values.iter())
+        .take(INSPECT_MAX_ITEMS)
+    {
+        parts.push(format!(
+            "{} => {}",
+            inspect_array_key(key),
+            value.inspect_string(depth)
+        ));
+    }
+
+    if array.values.len() > INSPECT_MAX_ITEMS {
+        parts.push(format!(
+            "... {} more",
+            array.values.len() - INSPECT_MAX_ITEMS
+        ));
+    }
+
+    format!("Array [{}]", parts.join(", "))
+}
+
+fn inspect_list(list: &EchoList, depth: usize) -> String {
+    let mut parts = Vec::new();
+    for value in list.values.iter().take(INSPECT_MAX_ITEMS) {
+        parts.push(value.inspect_string(depth));
+    }
+
+    if list.values.len() > INSPECT_MAX_ITEMS {
+        parts.push(format!(
+            "... {} more",
+            list.values.len() - INSPECT_MAX_ITEMS
+        ));
+    }
+
+    format!("List [{}]", parts.join(", "))
+}
+
+fn inspect_array_key(key: &EchoArrayKey) -> String {
+    match key {
+        EchoArrayKey::Int(value) => value.to_string(),
+        EchoArrayKey::String(bytes) => inspect_string_literal(bytes),
+    }
+}
+
+fn inspect_string_literal(bytes: &[u8]) -> String {
+    let mut literal = String::from("\"");
+    for byte in bytes {
+        match byte {
+            b'\\' => literal.push_str("\\\\"),
+            b'"' => literal.push_str("\\\""),
+            b'\n' => literal.push_str("\\n"),
+            b'\r' => literal.push_str("\\r"),
+            b'\t' => literal.push_str("\\t"),
+            0x20..=0x7e => literal.push(*byte as char),
+            _ => literal.push_str(&format!("\\x{byte:02x}")),
+        }
+    }
+    literal.push('"');
+    literal
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
