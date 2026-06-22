@@ -16,6 +16,7 @@ pub mod process;
 mod reflection;
 mod require;
 pub mod sched;
+mod string;
 pub mod task;
 pub mod task_group;
 pub mod thread;
@@ -64,6 +65,10 @@ pub use reflection::{
     echo_std_reflect_type_of,
 };
 pub use require::{echo_php_require, echo_php_require_once};
+use string::{
+    php_int_to_string_builtin, php_string_map_builtin, php_string_to_number_builtin,
+    php_string_transform_builtin, trim_ascii, trim_ascii_start,
+};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
@@ -1860,23 +1865,6 @@ pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
     })
 }
 
-fn php_string_transform_builtin(value: EchoValue, f: impl FnOnce(&mut Vec<u8>)) -> EchoValue {
-    match value.string_bytes() {
-        Some(mut bytes) => {
-            f(&mut bytes);
-            echo_runtime_string(bytes)
-        }
-        None => EchoValue::error(),
-    }
-}
-
-fn php_string_map_builtin(value: EchoValue, f: impl FnOnce(&[u8]) -> Vec<u8>) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => echo_runtime_string(f(&bytes)),
-        None => EchoValue::error(),
-    }
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_chr(value: EchoValue) -> EchoValue {
     match value.int_value() {
@@ -1916,20 +1904,6 @@ pub extern "C" fn echo_php_hexdec(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_octdec(value: EchoValue) -> EchoValue {
     php_string_to_number_builtin(value, |bytes| php_unsigned_base_to_decimal(bytes, 8))
-}
-
-fn php_int_to_string_builtin(value: EchoValue, f: impl FnOnce(i64) -> Vec<u8>) -> EchoValue {
-    match value.php_int_value() {
-        Some(number) => echo_runtime_string(f(number)),
-        None => EchoValue::error(),
-    }
-}
-
-fn php_string_to_number_builtin(value: EchoValue, f: impl FnOnce(&[u8]) -> EchoValue) -> EchoValue {
-    match value.string_bytes() {
-        Some(bytes) => f(&bytes),
-        None => EchoValue::error(),
-    }
 }
 
 #[unsafe(no_mangle)]
@@ -3789,23 +3763,6 @@ fn consume_ascii_digits(bytes: &[u8], index: &mut usize) -> usize {
         *index += 1;
     }
     *index - start
-}
-
-fn trim_ascii(bytes: &[u8]) -> &[u8] {
-    let bytes = trim_ascii_start(bytes);
-    let end = bytes
-        .iter()
-        .rposition(|byte| !byte.is_ascii_whitespace())
-        .map_or(0, |index| index + 1);
-    &bytes[..end]
-}
-
-fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
-    let start = bytes
-        .iter()
-        .position(|byte| !byte.is_ascii_whitespace())
-        .unwrap_or(bytes.len());
-    &bytes[start..]
 }
 
 #[unsafe(no_mangle)]
