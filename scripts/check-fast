@@ -28,6 +28,7 @@ Usage:
   scripts/check-fast runtime-tests-string-collections
   scripts/check-fast runtime-tests-string-format
   scripts/check-fast runtime-tests-string-paths
+  scripts/check-fast runtime-tests-string-rewrite
   scripts/check-fast runtime-tests-string-search
   scripts/check-fast runtime-tests-string-span
   scripts/check-fast runtime-tests-task
@@ -107,6 +108,7 @@ Examples:
   scripts/check-fast runtime-tests-string-collections
   scripts/check-fast runtime-tests-string-format
   scripts/check-fast runtime-tests-string-paths
+  scripts/check-fast runtime-tests-string-rewrite
   scripts/check-fast runtime-tests-string-search
   scripts/check-fast runtime-tests-string-span
   scripts/check-fast runtime-tests-task
@@ -449,6 +451,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/runtime_tests/string_paths.rs)
       add_changed_check "runtime-tests-string-paths"
+      ;;
+    crates/echo_runtime/src/runtime_tests/string_rewrite.rs)
+      add_changed_check "runtime-tests-string-rewrite"
       ;;
     crates/echo_runtime/src/runtime_tests/string_search.rs)
       add_changed_check "runtime-tests-string-search"
@@ -830,6 +835,8 @@ run_script_tests() {
     crates/echo_runtime/src/runtime_tests/string_format.rs
   assert_routing "runtime string path tests route focused submodule check" "runtime-tests-string-paths" \
     crates/echo_runtime/src/runtime_tests/string_paths.rs
+  assert_routing "runtime string rewrite tests route focused submodule check" "runtime-tests-string-rewrite" \
+    crates/echo_runtime/src/runtime_tests/string_rewrite.rs
   assert_routing "runtime string search tests route focused submodule check" "runtime-tests-string-search" \
     crates/echo_runtime/src/runtime_tests/string_search.rs
   assert_routing "runtime string span tests route focused submodule check" "runtime-tests-string-span" \
@@ -1100,6 +1107,9 @@ case "$command" in
     ;;
   runtime-tests-string-paths)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string_paths:: -- --test-threads=1
+    ;;
+  runtime-tests-string-rewrite)
+    run_quiet cargo test -q -p echo_runtime runtime_tests::string_rewrite:: -- --test-threads=1
     ;;
   runtime-tests-string-search)
     run_quiet cargo test -q -p echo_runtime runtime_tests::string_search:: -- --test-threads=1
