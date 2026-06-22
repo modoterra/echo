@@ -6,6 +6,7 @@ mod encoding;
 mod environment;
 pub mod error;
 mod execution;
+mod filesystem;
 pub mod io;
 mod math;
 pub mod net;
@@ -33,7 +34,7 @@ use std::fs::OpenOptions;
 use std::io::{self as std_io, Write};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -45,6 +46,7 @@ use encoding::*;
 pub use environment::*;
 pub use error::EchoError;
 use execution::{repl_inspect_enabled, write_stdout};
+use filesystem::{path_buf_from_bytes, path_bytes, push_path_component_from_bytes};
 use math::*;
 pub use net::{
     echo_std_http_read_request, echo_std_http_response_text, echo_std_net_accept,
@@ -3292,21 +3294,6 @@ fn path_symlink(_target: &[u8], _link: &[u8]) -> bool {
     false
 }
 
-#[cfg(unix)]
-fn path_bytes(path: PathBuf) -> Option<Vec<u8>> {
-    use std::os::unix::ffi::OsStringExt;
-
-    Some(path.into_os_string().into_vec())
-}
-
-#[cfg(not(unix))]
-fn path_bytes(path: PathBuf) -> Option<Vec<u8>> {
-    path.into_os_string()
-        .into_string()
-        .ok()
-        .map(String::into_bytes)
-}
-
 fn path_tempnam(directory: &[u8], prefix: &[u8]) -> Option<Vec<u8>> {
     let requested = path_buf_from_bytes(directory)?;
     let fallback = env::temp_dir();
@@ -3333,18 +3320,6 @@ fn create_temp_file_in(directory: &Path, prefix: &[u8]) -> Option<Vec<u8>> {
     }
 
     None
-}
-
-#[cfg(unix)]
-fn push_path_component_from_bytes(path: &mut PathBuf, component: &[u8]) -> Option<()> {
-    path.push(OsStr::from_bytes(component));
-    Some(())
-}
-
-#[cfg(not(unix))]
-fn push_path_component_from_bytes(path: &mut PathBuf, component: &[u8]) -> Option<()> {
-    path.push(std::str::from_utf8(component).ok()?);
-    Some(())
 }
 
 fn create_temp_file(path: &Path) -> bool {
@@ -3382,16 +3357,6 @@ fn php_uniqid(prefix: &[u8], more_entropy: bool) -> Vec<u8> {
         id.extend_from_slice(format!(".{entropy:09}").as_bytes());
     }
     id
-}
-
-#[cfg(unix)]
-fn path_buf_from_bytes(bytes: &[u8]) -> Option<PathBuf> {
-    Some(PathBuf::from(OsStr::from_bytes(bytes)))
-}
-
-#[cfg(not(unix))]
-fn path_buf_from_bytes(bytes: &[u8]) -> Option<PathBuf> {
-    std::str::from_utf8(bytes).ok().map(PathBuf::from)
 }
 
 fn path_touch(bytes: &[u8], mtime: Option<i64>, atime: Option<i64>) -> bool {
