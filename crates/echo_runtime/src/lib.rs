@@ -50,7 +50,11 @@ pub use output::OutputRuntime;
 pub use process::{echo_process_join, echo_process_spawn};
 use reflection::{
     REFLECTION_SOURCE_PHP_BUILTIN, function_reflection_by_name,
-    function_reflection_by_name_and_source, function_reflection_for_value,
+    function_reflection_by_name_and_source,
+};
+pub use reflection::{
+    echo_reflection_register_function, echo_std_reflect_exists, echo_std_reflect_params,
+    echo_std_reflect_return_type, echo_std_reflect_type_of,
 };
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
@@ -433,6 +437,27 @@ impl EchoValue {
         self.kind == ECHO_VALUE_PENDING
     }
 
+    pub(crate) fn type_name_bytes(self) -> &'static [u8] {
+        match self.kind {
+            ECHO_VALUE_NULL => b"null".as_slice(),
+            ECHO_VALUE_BOOL => b"bool".as_slice(),
+            ECHO_VALUE_INT => b"int".as_slice(),
+            ECHO_VALUE_FLOAT => b"float".as_slice(),
+            ECHO_VALUE_STRING => b"string".as_slice(),
+            ECHO_VALUE_ARRAY => b"array".as_slice(),
+            ECHO_VALUE_LIST => b"list".as_slice(),
+            ECHO_VALUE_TASK => b"task".as_slice(),
+            ECHO_VALUE_TASK_GROUP => b"task_group".as_slice(),
+            ECHO_VALUE_THREAD => b"thread".as_slice(),
+            ECHO_VALUE_PROCESS => b"process".as_slice(),
+            ECHO_VALUE_PENDING => b"pending".as_slice(),
+            ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
+            ECHO_VALUE_TCP_CONNECTION => b"TcpConnection".as_slice(),
+            ECHO_VALUE_OBJECT => b"object".as_slice(),
+            _ => b"unknown".as_slice(),
+        }
+    }
+
     pub(crate) fn as_task_mut(self) -> Option<&'static mut task::EchoTask> {
         if self.kind != ECHO_VALUE_TASK || self.payload == 0 {
             return None;
@@ -706,79 +731,6 @@ pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
             EchoValue::error()
         }
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_reflect_exists(name: EchoValue) -> EchoValue {
-    match function_reflection_for_value(name) {
-        Some(_) => EchoValue::bool(true),
-        None => EchoValue::bool(false),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_reflect_params(name: EchoValue) -> EchoValue {
-    let params = function_reflection_for_value(name)
-        .map(|function| function.params_signature)
-        .unwrap_or_default();
-
-    echo_runtime_string(params.into_bytes())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_reflect_return_type(name: EchoValue) -> EchoValue {
-    let return_type = function_reflection_for_value(name)
-        .map(|function| function.return_type)
-        .unwrap_or_default();
-
-    echo_runtime_string(return_type.into_bytes())
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_reflection_register_function(
-    name_ptr: *const u8,
-    name_len: usize,
-    params_ptr: *const u8,
-    params_len: usize,
-    return_type_ptr: *const u8,
-    return_type_len: usize,
-    source_kind: i32,
-) {
-    unsafe {
-        reflection::register_function_raw(
-            name_ptr,
-            name_len,
-            params_ptr,
-            params_len,
-            return_type_ptr,
-            return_type_len,
-            source_kind,
-        );
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
-    let type_name = match value.kind {
-        ECHO_VALUE_NULL => b"null".as_slice(),
-        ECHO_VALUE_BOOL => b"bool".as_slice(),
-        ECHO_VALUE_INT => b"int".as_slice(),
-        ECHO_VALUE_FLOAT => b"float".as_slice(),
-        ECHO_VALUE_STRING => b"string".as_slice(),
-        ECHO_VALUE_ARRAY => b"array".as_slice(),
-        ECHO_VALUE_LIST => b"list".as_slice(),
-        ECHO_VALUE_TASK => b"task".as_slice(),
-        ECHO_VALUE_TASK_GROUP => b"task_group".as_slice(),
-        ECHO_VALUE_THREAD => b"thread".as_slice(),
-        ECHO_VALUE_PROCESS => b"process".as_slice(),
-        ECHO_VALUE_PENDING => b"pending".as_slice(),
-        ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
-        ECHO_VALUE_TCP_CONNECTION => b"TcpConnection".as_slice(),
-        ECHO_VALUE_OBJECT => b"object".as_slice(),
-        _ => b"unknown".as_slice(),
-    };
-
-    echo_runtime_string(type_name.to_vec())
 }
 
 #[unsafe(no_mangle)]

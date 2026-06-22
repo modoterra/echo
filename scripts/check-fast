@@ -655,6 +655,7 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime reflect
     run_quiet cargo test -q -p echo_runtime function_exists
     run_quiet cargo test -q -p echo_runtime is_callable
+    run_with_optional_fixture "028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions" tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use crate::EchoValue;
+use crate::{EchoValue, echo_runtime_string};
 
 pub(crate) const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
 
@@ -59,6 +59,60 @@ pub(crate) unsafe fn register_function_raw(
     };
 
     register_function(name, params_signature, return_type, source_kind);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_reflect_exists(name: EchoValue) -> EchoValue {
+    match function_reflection_for_value(name) {
+        Some(_) => EchoValue::bool(true),
+        None => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_reflect_params(name: EchoValue) -> EchoValue {
+    let params = function_reflection_for_value(name)
+        .map(|function| function.params_signature)
+        .unwrap_or_default();
+
+    echo_runtime_string(params.into_bytes())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_reflect_return_type(name: EchoValue) -> EchoValue {
+    let return_type = function_reflection_for_value(name)
+        .map(|function| function.return_type)
+        .unwrap_or_default();
+
+    echo_runtime_string(return_type.into_bytes())
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_reflection_register_function(
+    name_ptr: *const u8,
+    name_len: usize,
+    params_ptr: *const u8,
+    params_len: usize,
+    return_type_ptr: *const u8,
+    return_type_len: usize,
+    source_kind: i32,
+) {
+    unsafe {
+        register_function_raw(
+            name_ptr,
+            name_len,
+            params_ptr,
+            params_len,
+            return_type_ptr,
+            return_type_len,
+            source_kind,
+        );
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_std_reflect_type_of(value: EchoValue) -> EchoValue {
+    echo_runtime_string(value.type_name_bytes().to_vec())
 }
 
 fn register_function(
@@ -207,6 +261,14 @@ mod tests {
                 .expect("userland")
                 .return_type,
             "string"
+        );
+    }
+
+    #[test]
+    fn type_of_reports_runtime_value_category() {
+        assert_eq!(
+            echo_std_reflect_type_of(EchoValue::int(42)).string_bytes(),
+            Some(b"int".to_vec())
         );
     }
 }
