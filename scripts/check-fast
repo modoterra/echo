@@ -17,6 +17,7 @@ Usage:
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-environment
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
@@ -51,6 +52,7 @@ Examples:
   scripts/check-fast runtime-execution
   scripts/check-fast runtime-output
   scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-environment
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-math
   scripts/check-fast runtime-encoding
@@ -297,6 +299,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/reflection.rs)
       add_changed_check "runtime-reflection"
       ;;
+    crates/echo_runtime/src/environment.rs)
+      add_changed_check "runtime-environment"
+      ;;
     crates/echo_runtime/src/filesystem.rs)
       add_changed_check "runtime-filesystem"
       ;;
@@ -409,6 +414,8 @@ run_script_tests() {
   assert_routing "runtime filesystem normalizes fixture coverage" $'runtime\njit\nruntime-filesystem-fixtures' \
     crates/echo_runtime/src/lib.rs \
     crates/echo_runtime/src/filesystem.rs
+  assert_routing "runtime environment routes focused checks" "runtime-environment" \
+    crates/echo_runtime/src/environment.rs
 }
 
 run_changed_checks() {
@@ -597,6 +604,10 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime reflect
     run_quiet cargo test -q -p echo_runtime function_exists
     run_quiet cargo test -q -p echo_runtime is_callable
+    ;;
+  runtime-environment)
+    run_quiet cargo test -q -p echo_runtime environment_process_builtins
+    run_with_optional_fixture "083_environment_process_builtins,143_environment_process_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-filesystem)
     run_quiet cargo test -q -p echo_runtime file_exists
