@@ -732,6 +732,12 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/runtime_tests/value/reflection.rs)
       add_changed_check "runtime-reflection"
       ;;
+    crates/echo_runtime/src/runtime_tests/filesystem/content.rs)
+      add_changed_check "runtime-filesystem-content"
+      ;;
+    crates/echo_runtime/src/runtime_tests/filesystem/links.rs)
+      add_changed_check "runtime-filesystem-links"
+      ;;
     crates/echo_runtime/src/runtime_tests/*.rs)
       if ! add_runtime_test_module_check_for_path "$path"; then
         add_changed_check "runtime-tests"
@@ -1239,8 +1245,12 @@ run_script_tests() {
     crates/echo_runtime/src/filesystem/metadata.rs
   assert_routing "runtime filesystem content routes focused checks" "runtime-filesystem-content" \
     crates/echo_runtime/src/filesystem/content.rs
+  assert_routing "runtime filesystem content tests route focused checks" "runtime-filesystem-content" \
+    crates/echo_runtime/src/runtime_tests/filesystem/content.rs
   assert_routing "runtime filesystem links routes focused checks" "runtime-filesystem-links" \
     crates/echo_runtime/src/filesystem/links.rs
+  assert_routing "runtime filesystem link tests route focused checks" "runtime-filesystem-links" \
+    crates/echo_runtime/src/runtime_tests/filesystem/links.rs
   assert_routing "runtime filesystem mutation routes focused checks" "runtime-filesystem-mutation" \
     crates/echo_runtime/src/filesystem/mutation.rs
   assert_routing "runtime filesystem temporary routes focused checks" "runtime-filesystem-temporary" \

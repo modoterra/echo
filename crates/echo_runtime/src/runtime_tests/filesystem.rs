@@ -5,6 +5,9 @@ use crate::filesystem::{
 use std::env;
 use std::path::Path;
 
+mod content;
+mod links;
+
 #[test]
 fn file_exists_reports_existing_files_and_directories() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -203,43 +206,6 @@ fn is_link_reports_only_existing_symbolic_links() {
     std::fs::remove_dir_all(&temp_dir).ok();
 }
 
-#[cfg(unix)]
-#[test]
-fn filesystem_link_builtins_create_and_read_links() {
-    let temp_dir = std::env::temp_dir().join(format!("echo-runtime-link-{}", std::process::id()));
-    let target_path = temp_dir.join("target.txt");
-    let symlink_path = temp_dir.join("target-link.txt");
-    let hard_link_path = temp_dir.join("target-hard.txt");
-    let missing_path = temp_dir.join("missing-link.txt");
-    std::fs::remove_dir_all(&temp_dir).ok();
-    std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
-    std::fs::write(&target_path, b"target").expect("write link target");
-
-    fn path_value(path: &Path) -> EchoValue {
-        EchoValue::string(Box::into_raw(Box::new(EchoString {
-            bytes: path.to_string_lossy().as_bytes().to_vec(),
-        })))
-    }
-
-    let target = path_value(&target_path);
-    let symlink = path_value(&symlink_path);
-    let hard_link = path_value(&hard_link_path);
-    let missing = path_value(&missing_path);
-
-    assert_eq!(echo_php_symlink(target, symlink), EchoValue::bool(true));
-    assert_eq!(echo_php_is_link(symlink), EchoValue::bool(true));
-    assert_eq!(
-        echo_php_readlink(symlink).string_bytes(),
-        Some(target_path.to_string_lossy().as_bytes().to_vec())
-    );
-    assert_eq!(echo_php_link(target, hard_link), EchoValue::bool(true));
-    assert_eq!(echo_php_is_link(hard_link), EchoValue::bool(false));
-    assert_eq!(echo_php_file_exists(hard_link), EchoValue::bool(true));
-    assert_eq!(echo_php_readlink(missing), EchoValue::bool(false));
-
-    std::fs::remove_dir_all(&temp_dir).ok();
-}
-
 #[test]
 fn temporary_name_builtins_create_files_and_identifiers() {
     let temp_dir = std::env::temp_dir().join(format!(
@@ -360,92 +326,6 @@ fn filesystem_metadata_builtins_report_paths_and_false_failures() {
         echo_php_realpath(parent_lookup).string_bytes(),
         path_realpath(file_path.to_string_lossy().as_bytes())
     );
-
-    std::fs::remove_dir_all(&temp_dir).ok();
-}
-
-#[test]
-fn filesystem_content_builtins_read_write_append_and_stream_output() {
-    let temp_dir = std::env::temp_dir().join(format!(
-        "echo-runtime-filesystem-content-{}",
-        std::process::id()
-    ));
-    let file_path = temp_dir.join("report.txt");
-    let missing_path = temp_dir.join("missing.txt");
-    std::fs::remove_dir_all(&temp_dir).ok();
-    std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
-
-    fn path_value(path: &Path) -> EchoValue {
-        EchoValue::string(Box::into_raw(Box::new(EchoString {
-            bytes: path.to_string_lossy().as_bytes().to_vec(),
-        })))
-    }
-
-    fn string_value(bytes: &[u8]) -> EchoValue {
-        EchoValue::string(Box::into_raw(Box::new(EchoString {
-            bytes: bytes.to_vec(),
-        })))
-    }
-
-    let file = path_value(&file_path);
-    let missing = path_value(&missing_path);
-
-    assert_eq!(
-        echo_php_file_put_contents(
-            file,
-            string_value(b"alpha\nbeta\ngamma\n"),
-            EchoValue::int(0),
-            EchoValue::null()
-        ),
-        EchoValue::int(17)
-    );
-    assert_eq!(
-        echo_php_file_put_contents(
-            file,
-            string_value(b"delta\n"),
-            EchoValue::int(PHP_FILE_APPEND),
-            EchoValue::null()
-        ),
-        EchoValue::int(6)
-    );
-    assert_eq!(
-        echo_php_file_get_contents(
-            file,
-            EchoValue::bool(false),
-            EchoValue::null(),
-            EchoValue::int(6),
-            EchoValue::int(4)
-        )
-        .string_bytes(),
-        Some(b"beta".to_vec())
-    );
-    assert_eq!(
-        echo_php_file_get_contents(
-            file,
-            EchoValue::bool(false),
-            EchoValue::null(),
-            EchoValue::int(-6),
-            EchoValue::null()
-        )
-        .string_bytes(),
-        Some(b"delta\n".to_vec())
-    );
-    assert_eq!(
-        echo_php_file_get_contents(
-            missing,
-            EchoValue::bool(false),
-            EchoValue::null(),
-            EchoValue::int(0),
-            EchoValue::null()
-        ),
-        EchoValue::bool(false)
-    );
-
-    let (bytes_read, stdout) = capture_stdout(false, || {
-        echo_php_readfile(file, EchoValue::bool(false), EchoValue::null())
-    });
-    assert_eq!(bytes_read, EchoValue::int(23));
-    assert_eq!(stdout, b"alpha\nbeta\ngamma\ndelta\n");
 
     std::fs::remove_dir_all(&temp_dir).ok();
 }
