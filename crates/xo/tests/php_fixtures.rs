@@ -1,12 +1,22 @@
 use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::path::Path;
+use std::process::Command;
+
+mod support;
+
+use support::{
+    RunArtifacts, artifact_dir, assert_output_success, assert_stdout_eq, command_output,
+    fixture_dirs, fixture_filter_active, output_with_stdin, reset_dir, run_artifact_dir,
+    write_artifact, write_empty_execution_artifacts,
+};
 
 #[test]
 fn php_fixtures_work_end_to_end() {
-    let _run_artifacts = RunArtifacts::new(workspace_root().join("test-results/php/.runs"));
+    let _run_artifacts = RunArtifacts::new("php");
     let fixtures = fixture_dirs("tests/php");
+    if fixtures.is_empty() && fixture_filter_active() {
+        return;
+    }
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
 
     for fixture in fixtures {
@@ -14,7 +24,7 @@ fn php_fixtures_work_end_to_end() {
         let stdin_path = fixture.join("stdin.txt");
         let stdout_path = fixture.join("stdout.txt");
         let unsupported_path = fixture.join("unsupported.txt");
-        let artifact_dir = artifact_dir_for(&fixture);
+        let artifact_dir = artifact_dir("php", &fixture);
 
         assert!(program_path.is_file(), "missing {}", program_path.display());
         assert!(stdin_path.is_file(), "missing {}", stdin_path.display());
@@ -33,11 +43,7 @@ fn php_fixtures_work_end_to_end() {
         write_artifact(&artifact_dir.join("ast.txt"), &ast_output.stdout);
 
         if unsupported {
-            write_artifact(&artifact_dir.join("ir.ll"), b"");
-            write_artifact(&artifact_dir.join("run.stdout"), b"");
-            write_artifact(&artifact_dir.join("run.stderr"), b"");
-            write_artifact(&artifact_dir.join("binary.stdout"), b"");
-            write_artifact(&artifact_dir.join("binary.stderr"), b"");
+            write_empty_execution_artifacts(&artifact_dir);
             continue;
         }
 
@@ -50,14 +56,13 @@ fn php_fixtures_work_end_to_end() {
         assert_output_success(&run_output, "xo run");
         write_artifact(&artifact_dir.join("run.stdout"), &run_output.stdout);
         write_artifact(&artifact_dir.join("run.stderr"), &run_output.stderr);
-        assert_eq!(
-            run_output.stdout,
-            expected_stdout,
-            "{}",
-            program_path.display()
+        assert_stdout_eq(
+            &run_output.stdout,
+            &expected_stdout,
+            &program_path.display().to_string(),
         );
 
-        let binary_dir = run_artifact_dir_for(&fixture);
+        let binary_dir = run_artifact_dir("php", &fixture);
         fs::create_dir_all(&binary_dir)
             .unwrap_or_else(|err| panic!("failed to create {}: {err}", binary_dir.display()));
         let binary_path = binary_dir.join("program");
@@ -73,19 +78,21 @@ fn php_fixtures_work_end_to_end() {
         assert_output_success(&binary_output, &format!("{}", binary_path.display()));
         write_artifact(&artifact_dir.join("binary.stdout"), &binary_output.stdout);
         write_artifact(&artifact_dir.join("binary.stderr"), &binary_output.stderr);
-        assert_eq!(
-            binary_output.stdout,
-            expected_stdout,
-            "{}",
-            binary_path.display()
+        assert_stdout_eq(
+            &binary_output.stdout,
+            &expected_stdout,
+            &binary_path.display().to_string(),
         );
     }
 }
 
 #[test]
 fn echo_fixtures_are_exercised() {
-    let _run_artifacts = RunArtifacts::new(workspace_root().join("test-results/echo/.runs"));
+    let _run_artifacts = RunArtifacts::new("echo");
     let fixtures = fixture_dirs("tests/echo");
+    if fixtures.is_empty() && fixture_filter_active() {
+        return;
+    }
     assert!(!fixtures.is_empty(), "expected at least one Echo fixture");
 
     for fixture in fixtures {
@@ -93,7 +100,7 @@ fn echo_fixtures_are_exercised() {
         let stdin_path = fixture.join("stdin.txt");
         let stdout_path = fixture.join("stdout.txt");
         let unsupported_path = fixture.join("unsupported.txt");
-        let artifact_dir = echo_artifact_dir_for(&fixture);
+        let artifact_dir = artifact_dir("echo", &fixture);
 
         assert!(program_path.is_file(), "missing {}", program_path.display());
         assert!(stdin_path.is_file(), "missing {}", stdin_path.display());
@@ -110,11 +117,7 @@ fn echo_fixtures_are_exercised() {
         let ast_output = command_output(command("ast", &program_path));
         write_artifact(&artifact_dir.join("ast.txt"), &ast_output.stdout);
         if unsupported {
-            write_artifact(&artifact_dir.join("ir.ll"), b"");
-            write_artifact(&artifact_dir.join("run.stdout"), b"");
-            write_artifact(&artifact_dir.join("run.stderr"), b"");
-            write_artifact(&artifact_dir.join("binary.stdout"), b"");
-            write_artifact(&artifact_dir.join("binary.stderr"), b"");
+            write_empty_execution_artifacts(&artifact_dir);
             continue;
         }
         assert_output_success(&ast_output, "xo ast");
@@ -127,7 +130,7 @@ fn echo_fixtures_are_exercised() {
         write_artifact(&artifact_dir.join("run.stdout"), &run_output.stdout);
         write_artifact(&artifact_dir.join("run.stderr"), &run_output.stderr);
 
-        let binary_dir = echo_run_artifact_dir_for(&fixture);
+        let binary_dir = run_artifact_dir("echo", &fixture);
         fs::create_dir_all(&binary_dir)
             .unwrap_or_else(|err| panic!("failed to create {}: {err}", binary_dir.display()));
         let binary_path = binary_dir.join("program");
@@ -141,11 +144,10 @@ fn echo_fixtures_are_exercised() {
 
         assert_output_success(&ir_output, "xo ir");
         assert_output_success(&run_output, "xo run");
-        assert_eq!(
-            run_output.stdout,
-            expected_stdout,
-            "{}",
-            program_path.display()
+        assert_stdout_eq(
+            &run_output.stdout,
+            &expected_stdout,
+            &program_path.display().to_string(),
         );
         assert_output_success(&build_output, "xo build");
 
@@ -153,11 +155,10 @@ fn echo_fixtures_are_exercised() {
         assert_output_success(&binary_output, &format!("{}", binary_path.display()));
         write_artifact(&artifact_dir.join("binary.stdout"), &binary_output.stdout);
         write_artifact(&artifact_dir.join("binary.stderr"), &binary_output.stderr);
-        assert_eq!(
-            binary_output.stdout,
-            expected_stdout,
-            "{}",
-            binary_path.display()
+        assert_stdout_eq(
+            &binary_output.stdout,
+            &expected_stdout,
+            &binary_path.display().to_string(),
         );
     }
 }
@@ -173,157 +174,4 @@ fn assert_command_success(command: Command) {
     let output = command_output(command);
 
     assert_output_success(&output, &label);
-}
-
-fn command_output(mut command: Command) -> std::process::Output {
-    command
-        .output()
-        .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"))
-}
-
-fn output_with_stdin(command: &mut Command, stdin: &[u8]) -> std::process::Output {
-    let mut child = command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
-
-    child
-        .stdin
-        .as_mut()
-        .expect("stdin should be piped")
-        .write_all(stdin)
-        .expect("failed to write fixture stdin");
-
-    child
-        .wait_with_output()
-        .expect("failed to wait for command")
-}
-
-fn assert_output_success(output: &std::process::Output, label: &str) {
-    assert!(
-        output.status.success(),
-        "{label} failed\nstdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-}
-
-fn fixture_dirs(relative: &str) -> Vec<PathBuf> {
-    let root = workspace_root().join(relative);
-    let mut dirs = fs::read_dir(&root)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
-        .map(|entry| entry.expect("failed to read fixture entry").path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-
-    dirs.sort();
-    dirs
-}
-
-fn artifact_dir_for(fixture: &Path) -> PathBuf {
-    let name = fixture
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("fixture path should have UTF-8 file name");
-
-    workspace_root().join("test-results/php").join(name)
-}
-
-fn echo_artifact_dir_for(fixture: &Path) -> PathBuf {
-    let name = fixture
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("fixture path should have UTF-8 file name");
-
-    workspace_root().join("test-results/echo").join(name)
-}
-
-fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
-    let name = fixture
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("fixture path should have UTF-8 file name");
-
-    workspace_root()
-        .join("test-results/php/.runs")
-        .join(std::process::id().to_string())
-        .join(name)
-}
-
-fn echo_run_artifact_dir_for(fixture: &Path) -> PathBuf {
-    let name = fixture
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("fixture path should have UTF-8 file name");
-
-    workspace_root()
-        .join("test-results/echo/.runs")
-        .join(std::process::id().to_string())
-        .join(name)
-}
-
-fn reset_dir(path: &Path) {
-    if path.exists() {
-        fs::remove_dir_all(path)
-            .unwrap_or_else(|err| panic!("failed to remove {}: {err}", path.display()));
-    }
-
-    fs::create_dir_all(path)
-        .unwrap_or_else(|err| panic!("failed to create {}: {err}", path.display()));
-}
-
-fn write_artifact(path: &Path, bytes: &[u8]) {
-    fs::write(path, bytes)
-        .unwrap_or_else(|err| panic!("failed to write {}: {err}", path.display()));
-}
-
-struct RunArtifacts {
-    current_run_dir: PathBuf,
-}
-
-impl RunArtifacts {
-    fn new(root: PathBuf) -> Self {
-        fs::create_dir_all(&root)
-            .unwrap_or_else(|err| panic!("failed to create {}: {err}", root.display()));
-        remove_stale_run_dirs(&root);
-        let current_run_dir = root.join(std::process::id().to_string());
-        fs::create_dir_all(&current_run_dir)
-            .unwrap_or_else(|err| panic!("failed to create {}: {err}", current_run_dir.display()));
-
-        Self { current_run_dir }
-    }
-}
-
-impl Drop for RunArtifacts {
-    fn drop(&mut self) {
-        if self.current_run_dir.exists() {
-            fs::remove_dir_all(&self.current_run_dir).unwrap_or_else(|err| {
-                panic!("failed to remove {}: {err}", self.current_run_dir.display())
-            });
-        }
-    }
-}
-
-fn remove_stale_run_dirs(root: &Path) {
-    let current_pid = std::process::id().to_string();
-    for entry in
-        fs::read_dir(root).unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
-    {
-        let path = entry.expect("failed to read run artifact entry").path();
-        let is_current = path.file_name().and_then(|name| name.to_str()) == Some(&current_pid);
-        if path.is_dir() && !is_current {
-            fs::remove_dir_all(&path)
-                .unwrap_or_else(|err| panic!("failed to remove {}: {err}", path.display()));
-        }
-    }
-}
-
-fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("xo should be two levels below the workspace root")
-        .to_path_buf()
 }

@@ -1,24 +1,30 @@
 use std::collections::VecDeque;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod support;
+
+use support::{
+    ResourceMetrics, RunArtifacts, artifact_dir, assert_output_success, assert_stdout_eq,
+    assert_tool_exists, benchmark_iterations, fixture_dirs, output_with_stdin,
+    output_with_stdin_and_resources, run_artifact_dir, time_iterations, workspace_root,
+};
+
 const DEFAULT_ITERATIONS: usize = 100;
-const LINUX_CLK_TCK: f64 = 100.0;
 
 #[test]
 #[ignore = "benchmark is opt-in and requires php and clang on PATH"]
 fn benchmark_php_fixtures_against_php() {
     assert_tool_exists("php");
 
-    let _run_artifacts = RunArtifacts::new(workspace_root().join("test-results/php/.runs"));
-    let iterations = benchmark_iterations();
-    let fixtures = fixture_dirs();
+    let _run_artifacts = RunArtifacts::new("php");
+    let iterations = benchmark_iterations(DEFAULT_ITERATIONS);
+    let fixtures = fixture_dirs("tests/php");
     assert!(!fixtures.is_empty(), "expected at least one PHP fixture");
     let jobs = benchmark_jobs(fixtures.len());
     let suite_start = Instant::now();
@@ -68,7 +74,7 @@ fn benchmark_fixture(fixture: &Path, iterations: usize) -> BenchmarkRow {
     let program_path = fixture.join("program.php");
     let stdin_path = fixture.join("stdin.txt");
     let stdout_path = fixture.join("stdout.txt");
-    let artifact_dir = artifact_dir_for(fixture);
+    let artifact_dir = artifact_dir("php", fixture);
 
     fs::create_dir_all(&artifact_dir)
         .unwrap_or_else(|err| panic!("failed to create {}: {err}", artifact_dir.display()));
@@ -78,17 +84,17 @@ fn benchmark_fixture(fixture: &Path, iterations: usize) -> BenchmarkRow {
     let stdin = fs::read(&stdin_path)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", stdin_path.display()));
 
-    let echo_binary = build_echo_binary(&program_path, &run_artifact_dir_for(fixture));
+    let echo_binary = build_echo_binary(&program_path, &run_artifact_dir("php", fixture));
 
     let (php_first, php_resources) =
         output_with_stdin_and_resources(Command::new("php").arg(&program_path), &stdin);
     assert_success(&php_first, "php");
-    assert_eq!(php_first.stdout, expected_stdout, "php output mismatch");
+    assert_stdout_eq(&php_first.stdout, &expected_stdout, "php");
 
     let (echo_first, echo_resources) =
         output_with_stdin_and_resources(&mut Command::new(&echo_binary), &stdin);
     assert_success(&echo_first, "Echo binary");
-    assert_eq!(echo_first.stdout, expected_stdout, "Echo output mismatch");
+    assert_stdout_eq(&echo_first.stdout, &expected_stdout, "Echo binary");
 
     let php_duration = time_iterations(iterations, || {
         let output = output_with_stdin(Command::new("php").arg(&program_path), &stdin);
@@ -191,34 +197,6 @@ impl BenchmarkRow {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-struct ResourceMetrics {
-    user_cpu_s: Option<f64>,
-    system_cpu_s: Option<f64>,
-    elapsed_wall_s: Option<f64>,
-    max_rss_kb: Option<u64>,
-    minor_page_faults: Option<u64>,
-    major_page_faults: Option<u64>,
-    voluntary_context_switches: Option<u64>,
-    involuntary_context_switches: Option<u64>,
-}
-
-fn benchmark_iterations() -> usize {
-    let iterations = match env::var("ECHO_BENCH_ITERATIONS") {
-        Ok(value) => value.parse().unwrap_or_else(|err| {
-            panic!("ECHO_BENCH_ITERATIONS must be a positive integer, got {value:?}: {err}")
-        }),
-        Err(env::VarError::NotPresent) => DEFAULT_ITERATIONS,
-        Err(err) => panic!("failed to read ECHO_BENCH_ITERATIONS: {err}"),
-    };
-
-    assert!(
-        iterations > 0,
-        "ECHO_BENCH_ITERATIONS must be greater than zero"
-    );
-    iterations
-}
-
 fn benchmark_jobs(fixture_count: usize) -> usize {
     let jobs = match env::var("ECHO_BENCH_JOBS") {
         Ok(value) => value.parse().unwrap_or_else(|err| {
@@ -232,16 +210,6 @@ fn benchmark_jobs(fixture_count: usize) -> usize {
 
     assert!(jobs > 0, "ECHO_BENCH_JOBS must be greater than zero");
     jobs.min(fixture_count.max(1))
-}
-
-fn time_iterations(iterations: usize, mut f: impl FnMut()) -> Duration {
-    let start = Instant::now();
-
-    for _ in 0..iterations {
-        f();
-    }
-
-    start.elapsed()
 }
 
 fn build_echo_binary(program_path: &Path, artifact_dir: &Path) -> PathBuf {
@@ -260,113 +228,6 @@ fn build_echo_binary(program_path: &Path, artifact_dir: &Path) -> PathBuf {
     );
 
     echo_binary
-}
-
-fn output_with_stdin(command: &mut Command, stdin: &[u8]) -> std::process::Output {
-    let mut child = command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
-
-    write_fixture_stdin(child.stdin.as_mut().expect("stdin should be piped"), stdin);
-
-    child
-        .wait_with_output()
-        .expect("failed to wait for command")
-}
-
-fn output_with_stdin_and_resources(
-    command: &mut Command,
-    stdin: &[u8],
-) -> (std::process::Output, Option<ResourceMetrics>) {
-    let mut child = command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
-
-    let mut child_stdin = child.stdin.take().expect("stdin should be piped");
-    write_fixture_stdin(&mut child_stdin, stdin);
-
-    let pid = child.id();
-    let mut metrics = ResourceMetrics::default();
-    let start = Instant::now();
-
-    loop {
-        merge_proc_metrics(&mut metrics, pid);
-        match child.try_wait().expect("failed to poll command") {
-            Some(_) => break,
-            None => thread::sleep(Duration::from_millis(1)),
-        }
-    }
-
-    merge_proc_metrics(&mut metrics, pid);
-    metrics.elapsed_wall_s = Some(start.elapsed().as_secs_f64());
-    let output = child
-        .wait_with_output()
-        .expect("failed to wait for command");
-
-    (output, Some(metrics))
-}
-
-fn write_fixture_stdin(writer: &mut impl Write, stdin: &[u8]) {
-    match writer.write_all(stdin) {
-        Ok(()) => {}
-        Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {}
-        Err(err) => panic!("failed to write fixture stdin: {err}"),
-    }
-}
-
-fn merge_proc_metrics(metrics: &mut ResourceMetrics, pid: u32) {
-    if let Ok(status) = fs::read_to_string(format!("/proc/{pid}/status")) {
-        for line in status.lines() {
-            if let Some(value) = line.strip_prefix("VmHWM:") {
-                metrics.max_rss_kb = max_option(metrics.max_rss_kb, parse_status_kb(value));
-            } else if let Some(value) = line.strip_prefix("VmRSS:") {
-                metrics.max_rss_kb = max_option(metrics.max_rss_kb, parse_status_kb(value));
-            } else if let Some(value) = line.strip_prefix("voluntary_ctxt_switches:") {
-                metrics.voluntary_context_switches = parse_status_u64(value);
-            } else if let Some(value) = line.strip_prefix("nonvoluntary_ctxt_switches:") {
-                metrics.involuntary_context_switches = parse_status_u64(value);
-            }
-        }
-    }
-
-    if let Ok(stat) = fs::read_to_string(format!("/proc/{pid}/stat")) {
-        if let Some(after_comm) = stat.rsplit_once(") ").map(|(_, after)| after) {
-            let fields = after_comm.split_whitespace().collect::<Vec<_>>();
-            metrics.minor_page_faults = fields.get(7).and_then(|value| value.parse().ok());
-            metrics.major_page_faults = fields.get(9).and_then(|value| value.parse().ok());
-            metrics.user_cpu_s = fields
-                .get(11)
-                .and_then(|value| value.parse::<f64>().ok())
-                .map(|ticks| ticks / LINUX_CLK_TCK);
-            metrics.system_cpu_s = fields
-                .get(12)
-                .and_then(|value| value.parse::<f64>().ok())
-                .map(|ticks| ticks / LINUX_CLK_TCK);
-        }
-    }
-}
-
-fn parse_status_kb(value: &str) -> Option<u64> {
-    value.split_whitespace().next()?.parse().ok()
-}
-
-fn parse_status_u64(value: &str) -> Option<u64> {
-    value.trim().parse().ok()
-}
-
-fn max_option(left: Option<u64>, right: Option<u64>) -> Option<u64> {
-    match (left, right) {
-        (Some(left), Some(right)) => Some(left.max(right)),
-        (Some(left), None) => Some(left),
-        (None, Some(right)) => Some(right),
-        (None, None) => None,
-    }
 }
 
 fn write_suite_artifacts(rows: &[BenchmarkRow], suite_duration: Duration) {
@@ -559,101 +420,5 @@ fn json_escape(value: &str) -> String {
 }
 
 fn assert_success(output: &std::process::Output, label: &str) {
-    assert!(
-        output.status.success(),
-        "{label} failed\nstdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-}
-
-fn assert_tool_exists(tool: &str) {
-    let output = Command::new("which")
-        .arg(tool)
-        .output()
-        .unwrap_or_else(|err| panic!("failed to check for {tool}: {err}"));
-
-    assert_success(&output, &format!("which {tool}"));
-}
-
-fn fixture_dirs() -> Vec<PathBuf> {
-    let root = workspace_root().join("tests/php");
-    let mut dirs = fs::read_dir(&root)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
-        .map(|entry| entry.expect("failed to read fixture entry").path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-
-    dirs.sort();
-    dirs
-}
-
-fn artifact_dir_for(fixture: &Path) -> PathBuf {
-    let name = fixture
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("fixture path should have UTF-8 file name");
-
-    workspace_root().join("test-results/php").join(name)
-}
-
-fn run_artifact_dir_for(fixture: &Path) -> PathBuf {
-    let name = fixture
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("fixture path should have UTF-8 file name");
-
-    workspace_root()
-        .join("test-results/php/.runs")
-        .join(std::process::id().to_string())
-        .join(name)
-}
-
-struct RunArtifacts {
-    current_run_dir: PathBuf,
-}
-
-impl RunArtifacts {
-    fn new(root: PathBuf) -> Self {
-        fs::create_dir_all(&root)
-            .unwrap_or_else(|err| panic!("failed to create {}: {err}", root.display()));
-        remove_stale_run_dirs(&root);
-        let current_run_dir = root.join(std::process::id().to_string());
-        fs::create_dir_all(&current_run_dir)
-            .unwrap_or_else(|err| panic!("failed to create {}: {err}", current_run_dir.display()));
-
-        Self { current_run_dir }
-    }
-}
-
-impl Drop for RunArtifacts {
-    fn drop(&mut self) {
-        if self.current_run_dir.exists() {
-            fs::remove_dir_all(&self.current_run_dir).unwrap_or_else(|err| {
-                panic!("failed to remove {}: {err}", self.current_run_dir.display())
-            });
-        }
-    }
-}
-
-fn remove_stale_run_dirs(root: &Path) {
-    let current_pid = std::process::id().to_string();
-    for entry in
-        fs::read_dir(root).unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
-    {
-        let path = entry.expect("failed to read run artifact entry").path();
-        let is_current = path.file_name().and_then(|name| name.to_str()) == Some(&current_pid);
-        if path.is_dir() && !is_current {
-            fs::remove_dir_all(&path)
-                .unwrap_or_else(|err| panic!("failed to remove {}: {err}", path.display()));
-        }
-    }
-}
-
-fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("xo should be two levels below the workspace root")
-        .to_path_buf()
+    assert_output_success(output, label);
 }

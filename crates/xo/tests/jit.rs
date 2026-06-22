@@ -1,10 +1,21 @@
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::path::Path;
+use std::process::Command;
+
+mod support;
+
+use support::{
+    assert_output_success, assert_stdout_eq, fixture_dirs, fixture_filter_active, output_with_stdin,
+};
 
 #[test]
 fn run_jit_executes_supported_php_fixtures() {
-    for fixture in fixture_dirs("tests/php") {
+    let fixtures = fixture_dirs("tests/php");
+    if fixtures.is_empty() && fixture_filter_active() {
+        return;
+    }
+
+    for fixture in fixtures {
         if fixture.join("unsupported.txt").is_file() {
             continue;
         }
@@ -15,7 +26,12 @@ fn run_jit_executes_supported_php_fixtures() {
 
 #[test]
 fn run_jit_executes_supported_echo_fixtures() {
-    for fixture in fixture_dirs("tests/echo") {
+    let fixtures = fixture_dirs("tests/echo");
+    if fixtures.is_empty() && fixture_filter_active() {
+        return;
+    }
+
+    for fixture in fixtures {
         if fixture.join("unsupported.txt").is_file() {
             continue;
         }
@@ -38,52 +54,13 @@ fn assert_jit_fixture(fixture: &Path, program_file: &str) {
         &stdin,
     );
 
-    assert!(
-        output.status.success(),
-        "xo run --jit failed for {}\nstdout:\n{}\nstderr:\n{}",
-        program_path.display(),
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+    assert_output_success(
+        &output,
+        &format!("xo run --jit for {}", program_path.display()),
     );
-    assert_eq!(output.stdout, expected_stdout, "{}", program_path.display());
-}
-
-fn fixture_dirs(relative: &str) -> Vec<PathBuf> {
-    let root = workspace_root().join(relative);
-    let mut dirs = fs::read_dir(&root)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", root.display()))
-        .map(|entry| entry.expect("failed to read fixture entry").path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-
-    dirs.sort();
-    dirs
-}
-
-fn output_with_stdin(command: &mut Command, stdin: &[u8]) -> std::process::Output {
-    let mut child = command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|err| panic!("failed to run {command:?}: {err}"));
-
-    use std::io::Write;
-    child
-        .stdin
-        .as_mut()
-        .expect("stdin should be piped")
-        .write_all(stdin)
-        .expect("failed to write fixture stdin");
-
-    child
-        .wait_with_output()
-        .expect("failed to wait for command")
-}
-
-fn workspace_root() -> &'static Path {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("xo crate should be two levels below workspace root")
+    assert_stdout_eq(
+        &output.stdout,
+        &expected_stdout,
+        &program_path.display().to_string(),
+    );
 }
