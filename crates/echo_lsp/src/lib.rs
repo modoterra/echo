@@ -5,6 +5,7 @@ mod definition_method;
 mod definition_target;
 mod diagnostics;
 mod document;
+mod document_links;
 mod hover;
 pub mod position;
 mod references;

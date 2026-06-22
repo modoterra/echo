@@ -87,6 +87,7 @@ Usage:
   scripts/check-fast lsp-definition-target
   scripts/check-fast lsp-diagnostics
   scripts/check-fast lsp-document
+  scripts/check-fast lsp-document-links
   scripts/check-fast lsp-hover
   scripts/check-fast lsp-position
   scripts/check-fast lsp-references
@@ -728,6 +729,9 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/document.rs)
       add_changed_check "lsp-document"
       ;;
+    crates/echo_lsp/src/document_links.rs)
+      add_changed_check "lsp-document-links"
+      ;;
     crates/echo_lsp/src/hover.rs)
       add_changed_check "lsp-hover"
       ;;
@@ -1068,6 +1072,8 @@ run_script_tests() {
     crates/echo_lsp/src/definition_target.rs
   assert_routing "lsp server routes focused checks" "lsp-server" \
     crates/echo_lsp/src/server.rs
+  assert_routing "lsp document links route focused checks" "lsp-document-links" \
+    crates/echo_lsp/src/document_links.rs
   assert_routing "lsp signature help routes focused checks" "lsp-signature-help" \
     crates/echo_lsp/src/signature_help.rs
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
@@ -1515,6 +1521,9 @@ case "$command" in
     ;;
   lsp-document)
     run_quiet cargo test -q -p echo_lsp document::tests
+    ;;
+  lsp-document-links)
+    run_quiet cargo test -q -p echo_lsp document_links_cover_whole_dir_path_expression
     ;;
   lsp-hover)
     run_quiet cargo test -q -p echo_lsp hover::tests

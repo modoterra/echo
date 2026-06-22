@@ -5,11 +5,10 @@ use std::sync::Mutex;
 use dashmap::DashMap;
 use echo_diagnostics::Diagnostic as EchoDiagnostic;
 use echo_index::{
-    DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts,
-    IndexedFile, ReferenceFact, ReferenceKind, ReferenceQuery, TextOffset, TextRange,
+    DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile, ReferenceQuery,
+    TextOffset,
 };
 use echo_source::SourceMode;
-use ropey::Rope;
 use tower_lsp_server::jsonrpc::Result;
 use tower_lsp_server::ls_types::{
     CompletionParams, CompletionResponse, Diagnostic, DidChangeTextDocumentParams,
@@ -31,8 +30,9 @@ use crate::definition::{
 };
 use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
+use crate::document_links::document_links_for_paths;
 use crate::hover::hover_at;
-use crate::position::{position_to_offset, range_to_lsp_range};
+use crate::position::position_to_offset;
 use crate::references::reference_locations_to_lsp;
 use crate::rename::{prepare_rename_at, rename_workspace_edit};
 use crate::semantic_tokens::{semantic_tokens_for_source, semantic_tokens_options};
@@ -240,8 +240,6 @@ impl LanguageServer for Backend {
             let index = self.index.lock().expect("echo index mutex poisoned");
             document_links_for_paths(
                 &document.text,
-                &index,
-                document.file_id,
                 &index.dependencies(DependencyQuery::in_file(document.file_id)),
                 &index.references(ReferenceQuery::in_file(document.file_id)),
             )
@@ -517,76 +515,6 @@ fn document_source_dir(document: &Document) -> Option<PathBuf> {
         .and_then(|path| path.parent().map(Path::to_path_buf))
 }
 
-fn document_links_for_paths(
-    text: &Rope,
-    _index: &EchoIndex,
-    _file_id: FileId,
-    dependencies: &[&DependencyFact],
-    references: &[&ReferenceFact],
-) -> Vec<DocumentLink> {
-    let mut links = Vec::new();
-    let mut ranges = HashSet::new();
-
-    for dependency in dependencies {
-        if !matches!(
-            dependency.kind,
-            DependencyKind::Require
-                | DependencyKind::RequireOnce
-                | DependencyKind::Include
-                | DependencyKind::IncludeOnce
-                | DependencyKind::ComposerAutoload
-        ) {
-            continue;
-        }
-        push_document_link(
-            text,
-            &mut links,
-            &mut ranges,
-            dependency.target_range,
-            &dependency.target,
-        );
-    }
-
-    for reference in references {
-        if reference.kind != ReferenceKind::FilePath {
-            continue;
-        }
-        push_document_link(
-            text,
-            &mut links,
-            &mut ranges,
-            reference.range,
-            &reference.name,
-        );
-    }
-
-    links
-}
-
-fn push_document_link(
-    text: &Rope,
-    links: &mut Vec<DocumentLink>,
-    ranges: &mut HashSet<TextRange>,
-    range: TextRange,
-    target: &str,
-) {
-    if !ranges.insert(range) {
-        return;
-    }
-    let Ok(path) = std::fs::canonicalize(target) else {
-        return;
-    };
-    let Some(uri) = Uri::from_file_path(path) else {
-        return;
-    };
-    links.push(DocumentLink {
-        range: range_to_lsp_range(text, range),
-        target: Some(uri),
-        tooltip: Some(target.to_string()),
-        data: None,
-    });
-}
-
 fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {
     let mut visited = HashSet::new();
     index_required_files_inner(index, root_file_id, &mut visited);
@@ -662,6 +590,9 @@ fn index_required_files_inner(
 #[cfg(test)]
 mod tests {
     use echo_index::{DependencyKind, ReferenceKind, SymbolKind, TextRange};
+    use ropey::Rope;
+
+    use crate::position::range_to_lsp_range;
 
     use super::*;
 
@@ -881,13 +812,8 @@ $app->handleRequest(Request::capture());
 
         let dependencies = index.dependencies(DependencyQuery::in_file(file_id));
         let references = index.references(ReferenceQuery::in_file(file_id));
-        let links = document_links_for_paths(
-            &Rope::from_str(&public_source),
-            &index,
-            file_id,
-            &dependencies,
-            &references,
-        );
+        let links =
+            document_links_for_paths(&Rope::from_str(&public_source), &dependencies, &references);
         let link = links
             .iter()
             .find(|link| {
