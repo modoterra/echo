@@ -137,7 +137,8 @@ run_pipeline_checks() {
 
 changed_files() {
   {
-    git diff --name-only --diff-filter=ACMRT
+    git diff --name-only --diff-filter=ACMRTD
+    git diff --cached --name-only --diff-filter=ACMRTD
     git ls-files --others --exclude-standard
   } | sort -u
 }
