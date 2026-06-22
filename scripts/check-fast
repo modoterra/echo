@@ -1,0 +1,591 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/check-fast fmt
+  scripts/check-fast script
+  scripts/check-fast changed [--list|--take N]
+  scripts/check-fast source
+  scripts/check-fast diagnostics
+  scripts/check-fast lexer
+  scripts/check-fast ast
+  scripts/check-fast runtime
+  scripts/check-fast runtime-collections
+  scripts/check-fast runtime-execution
+  scripts/check-fast runtime-output
+  scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-math
+  scripts/check-fast runtime-math-fixtures
+  scripts/check-fast runtime-encoding
+  scripts/check-fast runtime-encoding-fixtures
+  scripts/check-fast parser [fixture-filter]
+  scripts/check-fast semantics
+  scripts/check-fast hir
+  scripts/check-fast mir
+  scripts/check-fast pipeline
+  scripts/check-fast index
+  scripts/check-fast lsp
+  scripts/check-fast std
+  scripts/check-fast reflection
+  scripts/check-fast codegen
+  scripts/check-fast xo
+  scripts/check-fast repl
+  scripts/check-fast jit [fixture-filter]
+  scripts/check-fast fixture [fixture-filter]
+  scripts/check-fast bench-php [fixture-filter]
+  scripts/check-fast bench-echo [fixture-filter]
+  scripts/check-fast web
+  scripts/check-fast smoke
+
+Examples:
+  scripts/check-fast changed --list
+  scripts/check-fast changed --take 3
+  scripts/check-fast changed
+  scripts/check-fast runtime
+  scripts/check-fast runtime-collections
+  scripts/check-fast runtime-execution
+  scripts/check-fast runtime-output
+  scripts/check-fast runtime-reflection
+  scripts/check-fast runtime-math
+  scripts/check-fast runtime-encoding
+  scripts/check-fast parser
+  scripts/check-fast parser 017_object_append_count
+  scripts/check-fast pipeline
+  scripts/check-fast codegen
+  scripts/check-fast xo
+  scripts/check-fast repl
+  scripts/check-fast jit 017_object_append_count
+  scripts/check-fast fixture string_escape
+  scripts/check-fast bench-echo 017_object_append_count
+
+ECHO_FIXTURE is a comma-separated substring filter understood by the xo fixture
+harnesses. Passing the optional fixture-filter argument sets ECHO_FIXTURE for
+that command only. Benchmark shortcuts default ECHO_BENCH_ITERATIONS to 2 unless
+the variable is already set.
+EOF
+}
+
+run() {
+  printf ':: %s\n' "$*"
+  "$@"
+}
+
+replay_failure_output() {
+  local output="$1"
+  local max_lines="${CHECK_FAST_MAX_OUTPUT_LINES:-160}"
+  local head_lines
+  local line_count
+  local omitted
+  local tail_lines
+
+  if [[ ! "$max_lines" =~ ^[0-9]+$ || "$max_lines" == "0" ]]; then
+    cat "$output" >&2
+    printf '\nfull check output retained at %s\n' "$output" >&2
+    return
+  fi
+
+  line_count="$(wc -l <"$output" | tr -d '[:space:]')"
+  if ((line_count <= max_lines)); then
+    cat "$output" >&2
+    printf '\nfull check output retained at %s\n' "$output" >&2
+    return
+  fi
+
+  head_lines=$((max_lines / 2))
+  tail_lines=$((max_lines - head_lines))
+  omitted=$((line_count - max_lines))
+
+  head -n "$head_lines" "$output" >&2
+  printf '\n... omitted %s lines; set CHECK_FAST_MAX_OUTPUT_LINES=0 for full replay ...\n\n' "$omitted" >&2
+  tail -n "$tail_lines" "$output" >&2
+  printf '\nfull check output retained at %s\n' "$output" >&2
+}
+
+run_quiet() {
+  local output
+  local status
+
+  output="$(mktemp "${TMPDIR:-/tmp}/check-fast.XXXXXX")"
+  printf ':: %s\n' "$*"
+  if "$@" >"$output" 2>&1; then
+    rm -f "$output"
+    return 0
+  fi
+
+  status=$?
+  replay_failure_output "$output"
+  return "$status"
+}
+
+test_crate() {
+  run_quiet cargo test -q -p "$1"
+}
+
+test_crates() {
+  local crate
+
+  for crate in "$@"; do
+    test_crate "$crate"
+  done
+}
+
+run_pipeline_checks() {
+  test_crates echo_parser echo_semantics echo_hir echo_mir
+}
+
+changed_files() {
+  {
+    git diff --name-only --diff-filter=ACMRT
+    git ls-files --others --exclude-standard
+  } | sort -u
+}
+
+add_changed_check() {
+  local check="$1"
+  local existing
+
+  for existing in "${changed_checks[@]}"; do
+    [[ "$existing" == "$check" ]] && return
+  done
+
+  changed_checks+=("$check")
+}
+
+remove_changed_check() {
+  local check="$1"
+  local kept=()
+  local existing
+
+  for existing in "${changed_checks[@]}"; do
+    [[ "$existing" == "$check" ]] && continue
+    kept+=("$existing")
+  done
+
+  changed_checks=("${kept[@]}")
+}
+
+add_changed_fixture() {
+  local fixture="$1"
+  local existing
+
+  for existing in "${changed_fixtures[@]}"; do
+    [[ "$existing" == "$fixture" ]] && return
+  done
+
+  changed_fixtures+=("$fixture")
+}
+
+has_changed_check() {
+  local check="$1"
+  local existing
+
+  for existing in "${changed_checks[@]}"; do
+    [[ "$existing" == "$check" ]] && return 0
+  done
+
+  return 1
+}
+
+add_fixture_checks() {
+  local path="$1"
+  local root
+  local fixture
+
+  root="$(dirname "$(dirname "$path")")"
+  fixture="$(basename "$(dirname "$path")")"
+  if [[ "$root" != "tests/php" && "$root" != "tests/echo" ]]; then
+    return 0
+  fi
+  [[ -z "$fixture" || "$fixture" == "." ]] && return
+
+  add_changed_fixture "$fixture"
+}
+
+add_changed_fixture_checks() {
+  local filter
+
+  ((${#changed_fixtures[@]} > 0)) || return 0
+  filter="$(IFS=','; printf '%s' "${changed_fixtures[*]}")"
+  if ! has_changed_check "parser"; then
+    add_changed_check "parser $filter"
+  fi
+  if ! has_changed_check "jit"; then
+    add_changed_check "jit $filter"
+  fi
+  add_changed_check "fixture $filter"
+}
+
+normalize_changed_checks() {
+  if has_changed_check "runtime"; then
+    remove_changed_check "runtime-collections"
+    remove_changed_check "runtime-execution"
+    remove_changed_check "runtime-output"
+    remove_changed_check "runtime-reflection"
+    if has_changed_check "runtime-math"; then
+      remove_changed_check "runtime-math"
+      add_changed_check "runtime-math-fixtures"
+    fi
+    if has_changed_check "runtime-encoding"; then
+      remove_changed_check "runtime-encoding"
+      add_changed_check "runtime-encoding-fixtures"
+    fi
+  fi
+}
+
+collect_changed_checks() {
+  local path
+  changed_checks=()
+  changed_fixtures=()
+
+  while IFS= read -r path; do
+    case "$path" in
+      AGENTS.md|scripts/check-fast)
+        add_changed_check "script"
+        ;;
+      crates/echo_source/*)
+        add_changed_check "source"
+        ;;
+      crates/echo_diagnostics/*)
+        add_changed_check "diagnostics"
+        ;;
+      crates/echo_lexer/*)
+        add_changed_check "lexer"
+        ;;
+      crates/echo_ast/*)
+        add_changed_check "ast"
+        add_changed_check "parser"
+        ;;
+      crates/echo_parser/*)
+        add_changed_check "parser"
+        ;;
+      crates/echo_semantics/*)
+        add_changed_check "semantics"
+        ;;
+      crates/echo_hir/*)
+        add_changed_check "hir"
+        ;;
+      crates/echo_mir/*)
+        add_changed_check "mir"
+        ;;
+      crates/echo_codegen/src/jit.rs)
+        add_changed_check "jit"
+        ;;
+      crates/echo_codegen/src/abi.rs)
+        add_changed_check "codegen"
+        ;;
+      crates/echo_codegen/*)
+        add_changed_check "codegen"
+        add_changed_check "jit"
+        ;;
+      crates/echo_runtime/src/collections.rs)
+        add_changed_check "runtime-collections"
+        ;;
+      crates/echo_runtime/src/execution.rs)
+        add_changed_check "runtime-execution"
+        ;;
+      crates/echo_runtime/src/output.rs)
+        add_changed_check "runtime-output"
+        ;;
+      crates/echo_runtime/src/reflection.rs)
+        add_changed_check "runtime-reflection"
+        ;;
+      crates/echo_runtime/src/math.rs)
+        add_changed_check "runtime-math"
+        ;;
+      crates/echo_runtime/src/encoding.rs)
+        add_changed_check "runtime-encoding"
+        ;;
+      crates/echo_runtime/*)
+        add_changed_check "runtime"
+        add_changed_check "jit"
+        ;;
+      crates/echo_index/*)
+        add_changed_check "index"
+        ;;
+      crates/echo_lsp/*)
+        add_changed_check "lsp"
+        ;;
+      crates/echo_std/*)
+        add_changed_check "std"
+        ;;
+      crates/echo_reflection/*)
+        add_changed_check "reflection"
+        ;;
+      crates/xo/src/*)
+        add_changed_check "xo"
+        ;;
+      crates/xo/tests/repl.rs)
+        add_changed_check "repl"
+        ;;
+      crates/xo/tests/*)
+        add_changed_check "xo"
+        ;;
+      tests/php/*|tests/echo/*)
+        add_fixture_checks "$path"
+        ;;
+      www/*)
+        add_changed_check "web"
+        ;;
+      Cargo.toml|Cargo.lock|crates/*/Cargo.toml)
+        add_changed_check "smoke"
+        ;;
+    esac
+  done < <(changed_files)
+
+  add_changed_fixture_checks
+  normalize_changed_checks
+
+  if ((${#changed_checks[@]} == 0)); then
+    add_changed_check "smoke"
+  fi
+}
+
+run_changed_checks() {
+  local mode="${1:-run}"
+  local limit="${2:-}"
+  local check
+  local check_command
+  local check_arg
+  local index=0
+
+  collect_changed_checks
+
+  if [[ "$mode" == "--list" ]]; then
+    printf '%s\n' "${changed_checks[@]}"
+    return
+  fi
+
+  if [[ "$mode" == "--take" ]]; then
+    if [[ ! "$limit" =~ ^[0-9]+$ || "$limit" == "0" ]]; then
+      printf 'changed --take requires a positive integer limit\n' >&2
+      exit 2
+    fi
+  elif [[ "$mode" != "run" && -n "$mode" ]]; then
+    printf 'unknown changed mode: %s\n' "$mode" >&2
+    exit 2
+  fi
+
+  for check in "${changed_checks[@]}"; do
+    if [[ "$mode" == "--take" && "$index" -ge "$limit" ]]; then
+      break
+    fi
+    read -r check_command check_arg <<< "$check"
+    "$0" "$check_command" "${check_arg:-}"
+    index=$((index + 1))
+  done
+}
+
+run_with_optional_fixture() {
+  local filter="${1:-}"
+  shift
+  local output
+  local roots=()
+  local status
+
+  while (($#)); do
+    if [[ "$1" == "--" ]]; then
+      shift
+      break
+    fi
+    roots+=("$1")
+    shift
+  done
+
+  if [[ -n "$filter" ]]; then
+    assert_fixture_filter_matches "$filter" "${roots[@]}"
+    printf ':: ECHO_FIXTURE=%s %s\n' "$filter" "$*"
+    output="$(mktemp "${TMPDIR:-/tmp}/check-fast.XXXXXX")"
+    if ECHO_FIXTURE="$filter" "$@" >"$output" 2>&1; then
+      rm -f "$output"
+      return 0
+    fi
+    status=$?
+    replay_failure_output "$output"
+    return "$status"
+  else
+    run_quiet "$@"
+  fi
+}
+
+run_benchmark_with_optional_fixture() {
+  local filter="${1:-}"
+  shift
+  local iterations="${ECHO_BENCH_ITERATIONS:-2}"
+  local roots=()
+
+  while (($#)); do
+    if [[ "$1" == "--" ]]; then
+      shift
+      break
+    fi
+    roots+=("$1")
+    shift
+  done
+
+  if [[ -n "$filter" ]]; then
+    assert_fixture_filter_matches "$filter" "${roots[@]}"
+    printf ':: ECHO_BENCH_ITERATIONS=%s ECHO_FIXTURE=%s %s\n' "$iterations" "$filter" "$*"
+    ECHO_BENCH_ITERATIONS="$iterations" ECHO_FIXTURE="$filter" "$@"
+  else
+    printf ':: ECHO_BENCH_ITERATIONS=%s %s\n' "$iterations" "$*"
+    ECHO_BENCH_ITERATIONS="$iterations" "$@"
+  fi
+}
+
+assert_fixture_filter_matches() {
+  local filter="$1"
+  shift
+  local roots=("$@")
+  local needle
+  local fixture
+  local root
+
+  if ((${#roots[@]} == 0)); then
+    roots=(tests/php tests/echo)
+  fi
+
+  IFS=',' read -ra filters <<< "$filter"
+  for needle in "${filters[@]}"; do
+    needle="${needle#"${needle%%[![:space:]]*}"}"
+    needle="${needle%"${needle##*[![:space:]]}"}"
+    [[ -z "$needle" ]] && continue
+
+    for root in "${roots[@]}"; do
+      for fixture in "$root"/*; do
+        [[ -d "$fixture" ]] || continue
+        if [[ "$(basename "$fixture")" == *"$needle"* ]]; then
+          return 0
+        fi
+      done
+    done
+  done
+
+  printf 'fixture filter matched no fixture under %s: %s\n' "${roots[*]}" "$filter" >&2
+  exit 2
+}
+
+command="${1:-help}"
+fixture_filter="${2:-}"
+extra_arg="${3:-}"
+
+case "$command" in
+  fmt)
+    run cargo fmt --all -- --check
+    ;;
+  script)
+    run bash -n scripts/check-fast
+    ;;
+  changed)
+    run_changed_checks "${fixture_filter:-run}" "$extra_arg"
+    ;;
+  source)
+    test_crate echo_source
+    ;;
+  diagnostics)
+    test_crate echo_diagnostics
+    ;;
+  lexer)
+    test_crate echo_lexer
+    ;;
+  ast)
+    test_crate echo_ast
+    ;;
+  parser)
+    run_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p echo_parser
+    ;;
+  semantics)
+    test_crate echo_semantics
+    ;;
+  hir)
+    test_crate echo_hir
+    ;;
+  mir)
+    test_crate echo_mir
+    ;;
+  pipeline)
+    run_pipeline_checks
+    ;;
+  runtime)
+    test_crate echo_runtime
+    ;;
+  runtime-collections)
+    run_quiet cargo test -q -p echo_runtime array_
+    run_quiet cargo test -q -p echo_runtime index_get
+    ;;
+  runtime-execution)
+    run_quiet cargo test -q -p echo_runtime capture_stdout
+    ;;
+  runtime-output)
+    run_quiet cargo test -q -p echo_runtime output::
+    ;;
+  runtime-reflection)
+    run_quiet cargo test -q -p echo_runtime reflection::
+    run_quiet cargo test -q -p echo_runtime reflect
+    run_quiet cargo test -q -p echo_runtime function_exists
+    run_quiet cargo test -q -p echo_runtime is_callable
+    ;;
+  runtime-math)
+    test_crate echo_runtime
+    run_with_optional_fixture "058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-math-fixtures)
+    run_with_optional_fixture "058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-encoding)
+    test_crate echo_runtime
+    run_with_optional_fixture "049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,081_string_rewrite_builtins,114_url_encoding_builtins,141_string_rewrite_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-encoding-fixtures)
+    run_with_optional_fixture "049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,081_string_rewrite_builtins,114_url_encoding_builtins,141_string_rewrite_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  index)
+    test_crate echo_index
+    ;;
+  lsp)
+    test_crate echo_lsp
+    ;;
+  std)
+    test_crate echo_std
+    ;;
+  reflection)
+    test_crate echo_reflection
+    ;;
+  codegen)
+    test_crate echo_codegen
+    ;;
+  xo)
+    run_quiet cargo test -q -p xo --bin xo
+    ;;
+  repl)
+    run_quiet cargo test -q -p xo --test repl
+    ;;
+  jit)
+    run_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  fixture)
+    run_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p xo --test php_fixtures
+    ;;
+  bench-php)
+    run_benchmark_with_optional_fixture "$fixture_filter" tests/php -- cargo test -q -p xo --test php_bench -- --ignored --nocapture
+    ;;
+  bench-echo)
+    run_benchmark_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p xo --test echo_bench -- --ignored --nocapture
+    ;;
+  web)
+    run bash -c 'cd www && ./node_modules/.bin/tsc -b && ./node_modules/.bin/vite build --logLevel error'
+    ;;
+  smoke)
+    run cargo fmt --all -- --check
+    run_pipeline_checks
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  *)
+    printf 'unknown check-fast command: %s\n\n' "$command" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
