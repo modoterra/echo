@@ -1198,7 +1198,7 @@ case "$command" in
     fi
     ;;
   runtime-assert)
-    run_quiet cargo test -q -p echo_runtime assertions:: -- --test-threads=1
+    run_quiet cargo test -q -p echo_runtime assertions::
     run_quiet cargo test -q -p echo_runtime assert_intrinsics
     run_with_optional_fixture "030_userland_reflection,031_reflection_assertions" tests/echo -- cargo test -q -p xo --test jit
     ;;

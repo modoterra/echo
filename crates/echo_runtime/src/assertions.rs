@@ -38,9 +38,19 @@ pub extern "C" fn echo_std_assert_equals(actual: EchoValue, expected: EchoValue)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard};
+
+    static ASSERTION_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn assertion_test_lock() -> MutexGuard<'static, ()> {
+        ASSERTION_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 
     #[test]
     fn assert_ok_records_bool_success() {
+        let _lock = assertion_test_lock();
         reset();
 
         assert_eq!(
@@ -52,6 +62,7 @@ mod tests {
 
     #[test]
     fn assert_equals_uses_runtime_value_equality() {
+        let _lock = assertion_test_lock();
         reset();
 
         assert_eq!(
@@ -63,6 +74,7 @@ mod tests {
 
     #[test]
     fn failed_assertions_are_reported() {
+        let _lock = assertion_test_lock();
         reset();
 
         assert_eq!(
