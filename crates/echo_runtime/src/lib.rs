@@ -119,7 +119,8 @@ pub use value::{
     EchoObject, EchoString, echo_php_boolval, echo_php_floatval, echo_php_gettype, echo_php_intval,
     echo_php_is_array, echo_php_is_bool, echo_php_is_countable, echo_php_is_float, echo_php_is_int,
     echo_php_is_iterable, echo_php_is_null, echo_php_is_object, echo_php_is_resource,
-    echo_php_is_scalar, echo_php_is_string,
+    echo_php_is_scalar, echo_php_is_string, echo_value_object_get, echo_value_object_new,
+    echo_value_object_set,
 };
 
 #[repr(C)]
@@ -779,60 +780,6 @@ pub extern "C" fn echo_value_unary_minus(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_value_bool(value: EchoValue) -> bool {
     value.bool_value().unwrap_or(false)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_value_object_new() -> EchoValue {
-    EchoValue::object(Box::into_raw(Box::new(EchoObject::new())))
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_value_object_set(
-    object: EchoValue,
-    field_ptr: *const u8,
-    field_len: usize,
-    value: EchoValue,
-) -> EchoValue {
-    if object.kind != ECHO_VALUE_OBJECT || (field_ptr.is_null() && field_len != 0) {
-        return EchoValue::error();
-    }
-
-    let Some(fields) = (unsafe { (object.payload as *mut EchoObject).as_mut() }) else {
-        return EchoValue::error();
-    };
-    let field_bytes = unsafe { std::slice::from_raw_parts(field_ptr, field_len) };
-    let Ok(field) = std::str::from_utf8(field_bytes) else {
-        return EchoValue::error();
-    };
-
-    fields.fields.push((field.to_string(), value));
-    object
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_value_object_get(
-    object: EchoValue,
-    field_ptr: *const u8,
-    field_len: usize,
-) -> EchoValue {
-    if object.kind != ECHO_VALUE_OBJECT || (field_ptr.is_null() && field_len != 0) {
-        return EchoValue::error();
-    }
-
-    let Some(fields) = (unsafe { (object.payload as *const EchoObject).as_ref() }) else {
-        return EchoValue::error();
-    };
-    let field_bytes = unsafe { std::slice::from_raw_parts(field_ptr, field_len) };
-    let Ok(field) = std::str::from_utf8(field_bytes) else {
-        return EchoValue::error();
-    };
-
-    fields
-        .fields
-        .iter()
-        .rev()
-        .find_map(|(name, value)| (name == field).then_some(*value))
-        .unwrap_or_else(EchoValue::error)
 }
 
 #[unsafe(no_mangle)]

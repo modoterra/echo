@@ -222,6 +222,60 @@ impl EchoObject {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_object_new() -> EchoValue {
+    EchoValue::object(Box::into_raw(Box::new(EchoObject::new())))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_object_set(
+    object: EchoValue,
+    field_ptr: *const u8,
+    field_len: usize,
+    value: EchoValue,
+) -> EchoValue {
+    if object.kind != ECHO_VALUE_OBJECT || (field_ptr.is_null() && field_len != 0) {
+        return EchoValue::error();
+    }
+
+    let Some(fields) = (unsafe { (object.payload as *mut EchoObject).as_mut() }) else {
+        return EchoValue::error();
+    };
+    let field_bytes = unsafe { std::slice::from_raw_parts(field_ptr, field_len) };
+    let Ok(field) = std::str::from_utf8(field_bytes) else {
+        return EchoValue::error();
+    };
+
+    fields.fields.push((field.to_string(), value));
+    object
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_object_get(
+    object: EchoValue,
+    field_ptr: *const u8,
+    field_len: usize,
+) -> EchoValue {
+    if object.kind != ECHO_VALUE_OBJECT || (field_ptr.is_null() && field_len != 0) {
+        return EchoValue::error();
+    }
+
+    let Some(fields) = (unsafe { (object.payload as *const EchoObject).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let field_bytes = unsafe { std::slice::from_raw_parts(field_ptr, field_len) };
+    let Ok(field) = std::str::from_utf8(field_bytes) else {
+        return EchoValue::error();
+    };
+
+    fields
+        .fields
+        .iter()
+        .rev()
+        .find_map(|(name, value)| (name == field).then_some(*value))
+        .unwrap_or_else(EchoValue::error)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
