@@ -515,6 +515,34 @@ assert_routing() {
   fi
 }
 
+assert_fixture_filter_rejects() {
+  local name="$1"
+  local filter="$2"
+  local output
+  local status
+
+  output="$(mktemp "${TMPDIR:-/tmp}/check-fast-script-test.XXXXXX")"
+  set +e
+  (assert_fixture_filter_matches "$filter" tests/php tests/echo) >"$output" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$status" == "0" ]]; then
+    printf 'fixture validation test failed: %s\nfilter should have been rejected: %s\n' "$name" "$filter" >&2
+    rm -f "$output"
+    exit 1
+  fi
+
+  if ! rg -q "matched no fixture.*__missing_fixture__" "$output"; then
+    printf 'fixture validation test failed: %s\nunexpected output:\n' "$name" >&2
+    cat "$output" >&2
+    rm -f "$output"
+    exit 1
+  fi
+
+  rm -f "$output"
+}
+
 run_script_tests() {
   assert_routing "xo main routes repl" $'xo\nrepl' \
     crates/xo/src/main.rs
@@ -587,6 +615,8 @@ run_script_tests() {
     crates/echo_codegen/src/jit.rs
   assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-stdlib' \
     crates/echo_codegen/src/lib.rs
+  assert_fixture_filter_rejects "fixture filters validate every comma item" \
+    "043_strlen_builtin,__missing_fixture__"
 }
 
 run_changed_checks() {
@@ -685,6 +715,7 @@ assert_fixture_filter_matches() {
   local filter="$1"
   shift
   local roots=("$@")
+  local matched
   local needle
   local fixture
   local root
@@ -699,18 +730,23 @@ assert_fixture_filter_matches() {
     needle="${needle%"${needle##*[![:space:]]}"}"
     [[ -z "$needle" ]] && continue
 
+    matched=0
     for root in "${roots[@]}"; do
       for fixture in "$root"/*; do
         [[ -d "$fixture" ]] || continue
         if [[ "$(basename "$fixture")" == *"$needle"* ]]; then
-          return 0
+          matched=1
+          break
         fi
       done
+      ((matched == 1)) && break
     done
-  done
 
-  printf 'fixture filter matched no fixture under %s: %s\n' "${roots[*]}" "$filter" >&2
-  exit 2
+    if ((matched == 0)); then
+      printf 'fixture filter matched no fixture under %s: %s\n' "${roots[*]}" "$needle" >&2
+      exit 2
+    fi
+  done
 }
 
 RUNTIME_FILESYSTEM_FIXTURES="041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins"
