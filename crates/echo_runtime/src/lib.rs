@@ -1,4 +1,5 @@
 pub mod abi;
+mod assertions;
 mod collections;
 mod encoding;
 mod environment;
@@ -35,6 +36,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
 pub use collections::{EchoArray, EchoList};
 use collections::{EchoArrayKey, next_array_append_key, php_array_union};
 use encoding::*;
@@ -134,7 +136,6 @@ const ECHO_VALUE_THREAD: i32 = 13;
 const ECHO_VALUE_TASK_GROUP: i32 = 14;
 
 static NEXT_UNIQID_COUNTER: AtomicUsize = AtomicUsize::new(0);
-static ASSERT_FAILURES: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
 
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
@@ -437,6 +438,10 @@ impl EchoValue {
         self.kind == ECHO_VALUE_PENDING
     }
 
+    pub(crate) const fn is_true_bool(self) -> bool {
+        self.kind == ECHO_VALUE_BOOL && self.payload != 0
+    }
+
     pub(crate) fn type_name_bytes(self) -> &'static [u8] {
         match self.kind {
             ECHO_VALUE_NULL => b"null".as_slice(),
@@ -546,7 +551,7 @@ pub fn reset_execution_state() {
         *runtime.borrow_mut() = OutputRuntime::new();
     });
     execution::reset();
-    ASSERT_FAILURES.store(0, Ordering::Relaxed);
+    assertions::reset();
 }
 
 pub fn capture_stdout<T>(repl_inspect: bool, f: impl FnOnce() -> T) -> (T, Vec<u8>) {
@@ -731,20 +736,6 @@ pub extern "C" fn echo_join(handle: EchoValue) -> EchoValue {
             EchoValue::error()
         }
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_assert_ok(condition: EchoValue) -> EchoValue {
-    let passed = condition.kind == ECHO_VALUE_BOOL && condition.payload != 0;
-    record_assertion(passed, "assert.ok failed");
-    EchoValue::bool(passed)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn echo_std_assert_equals(actual: EchoValue, expected: EchoValue) -> EchoValue {
-    let passed = echo_values_equal(actual, expected);
-    record_assertion(passed, "assert.equals failed");
-    EchoValue::bool(passed)
 }
 
 #[unsafe(no_mangle)]
@@ -4997,7 +4988,7 @@ pub extern "C" fn echo_shutdown() {
         write_stdout(&stdout);
     });
 
-    if ASSERT_FAILURES.load(Ordering::Relaxed) > 0 {
+    if assertions::has_failures() {
         std::process::exit(1);
     }
 }
@@ -5010,16 +5001,7 @@ fn write_runtime_output(bytes: &[u8]) {
     });
 }
 
-fn record_assertion(passed: bool, message: &str) {
-    if passed {
-        return;
-    }
-
-    ASSERT_FAILURES.fetch_add(1, Ordering::Relaxed);
-    eprintln!("{message}");
-}
-
-fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
+pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
     if left.kind != right.kind {
         return false;
     }

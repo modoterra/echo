@@ -13,6 +13,7 @@ Usage:
   scripts/check-fast lexer
   scripts/check-fast ast
   scripts/check-fast runtime
+  scripts/check-fast runtime-assert
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-collections
@@ -54,6 +55,7 @@ Examples:
   scripts/check-fast changed --take 3
   scripts/check-fast changed
   scripts/check-fast runtime
+  scripts/check-fast runtime-assert
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-collections
@@ -302,6 +304,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections.rs)
       add_changed_check "runtime-collections"
       ;;
+    crates/echo_runtime/src/assertions.rs)
+      add_changed_check "runtime-assert"
+      ;;
     crates/echo_runtime/src/task.rs)
       add_changed_check "runtime-task"
       ;;
@@ -458,6 +463,8 @@ run_script_tests() {
     crates/echo_runtime/src/task_group.rs
   assert_routing "runtime time routes focused checks" "runtime-time" \
     crates/echo_runtime/src/time.rs
+  assert_routing "runtime assert routes focused checks" "runtime-assert" \
+    crates/echo_runtime/src/assertions.rs
 }
 
 run_changed_checks() {
@@ -630,6 +637,11 @@ case "$command" in
     ;;
   runtime)
     test_crate echo_runtime
+    ;;
+  runtime-assert)
+    run_quiet cargo test -q -p echo_runtime assertions::
+    run_quiet cargo test -q -p echo_runtime assert_intrinsics
+    run_with_optional_fixture "030_userland_reflection,031_reflection_assertions" tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-task)
     run_quiet cargo test -q -p echo_runtime task::
