@@ -107,6 +107,7 @@ Usage:
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
   scripts/check-fast codegen-collections
+  scripts/check-fast codegen-control-flow
   scripts/check-fast codegen-expressions
   scripts/check-fast codegen-php
   scripts/check-fast codegen-reflection
@@ -195,6 +196,7 @@ Examples:
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
   scripts/check-fast codegen-collections
+  scripts/check-fast codegen-control-flow
   scripts/check-fast codegen-expressions
   scripts/check-fast codegen-php
   scripts/check-fast codegen-reflection
@@ -581,6 +583,9 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/collection_lowering.rs)
       add_changed_check "codegen-collections"
       ;;
+    crates/echo_codegen/src/control_flow_lowering.rs)
+      add_changed_check "codegen-control-flow"
+      ;;
     crates/echo_codegen/src/expression_lowering.rs)
       add_changed_check "codegen-expressions"
       ;;
@@ -599,6 +604,7 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/lib.rs)
       add_changed_check "codegen-abi"
       add_changed_check "codegen-collections"
+      add_changed_check "codegen-control-flow"
       add_changed_check "codegen-expressions"
       add_changed_check "codegen-php"
       add_changed_check "codegen-reflection"
@@ -1093,6 +1099,8 @@ run_script_tests() {
     crates/echo_codegen/src/abi.rs
   assert_routing "codegen collection lowering routes focused collection checks" "codegen-collections" \
     crates/echo_codegen/src/collection_lowering.rs
+  assert_routing "codegen control-flow lowering routes focused control-flow checks" "codegen-control-flow" \
+    crates/echo_codegen/src/control_flow_lowering.rs
   assert_routing "codegen expression lowering routes focused expression checks" "codegen-expressions" \
     crates/echo_codegen/src/expression_lowering.rs
   assert_routing "codegen php lowering routes focused PHP checks" "codegen-php" \
@@ -1107,7 +1115,7 @@ run_script_tests() {
     crates/echo_codegen/src/task_lowering.rs
   assert_routing "codegen jit routes focused JIT checks" "codegen-jit" \
     crates/echo_codegen/src/jit.rs
-  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-collections\ncodegen-expressions\ncodegen-php\ncodegen-reflection\ncodegen-stdlib\ncodegen-task' \
+  assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-collections\ncodegen-control-flow\ncodegen-expressions\ncodegen-php\ncodegen-reflection\ncodegen-stdlib\ncodegen-task' \
     crates/echo_codegen/src/lib.rs
   assert_fixture_filter_rejects "fixture filters validate every comma item" \
     "043_strlen_builtin,__missing_fixture__"
@@ -1604,6 +1612,11 @@ case "$command" in
     run_quiet cargo test -q -p echo_codegen index_access_lowers_to_index_get_runtime
     run_quiet cargo test -q -p echo_codegen append_statement_lowers_to_array_append_runtime
     run_quiet cargo test -q -p echo_codegen list_push
+    ;;
+  codegen-control-flow)
+    run_quiet cargo test -q -p echo_codegen loop_statement_lowers_to_control_flow_labels
+    run_quiet cargo test -q -p echo_codegen loop_expression_break_value_lowers_to_result_slot
+    run_quiet cargo test -q -p echo_codegen is_null_condition_lowers_to_kind_check
     ;;
   codegen-expressions)
     run_quiet cargo test -q -p echo_codegen dynamic_concat_uses_echo_value_concat
