@@ -632,7 +632,7 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/jit.rs)
       add_changed_check "codegen-jit"
       ;;
-    crates/echo_codegen/src/runtime_symbols.rs|crates/echo_codegen/src/runtime_symbols/*.rs)
+    crates/echo_codegen/src/runtime_symbols.rs|crates/echo_codegen/src/runtime_symbols/*.rs|crates/echo_codegen/src/runtime_symbols/*/*.rs)
       add_changed_check "codegen-jit"
       ;;
     crates/echo_codegen/src/abi.rs)
@@ -1428,6 +1428,8 @@ run_script_tests() {
     crates/echo_codegen/src/runtime_symbols.rs
   assert_routing "codegen runtime symbol domain files route focused JIT checks" "codegen-jit" \
     crates/echo_codegen/src/runtime_symbols/php.rs
+  assert_routing "codegen nested runtime symbol domain files route focused JIT checks" "codegen-jit" \
+    crates/echo_codegen/src/runtime_symbols/php/math.rs
   assert_routing "codegen std lowering routes focused std checks" "codegen-stdlib" \
     crates/echo_codegen/src/std_lowering.rs
   assert_routing "codegen std tests route focused std checks" "codegen-stdlib" \
