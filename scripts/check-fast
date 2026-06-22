@@ -864,7 +864,7 @@ add_checks_for_changed_path() {
     crates/echo_lsp/src/definition_method.rs|crates/echo_lsp/src/definition/tests/methods.rs)
       add_changed_check "lsp-definition-method"
       ;;
-    crates/echo_lsp/src/definition_target.rs)
+    crates/echo_lsp/src/definition_target.rs|crates/echo_lsp/src/definition/tests/targets.rs)
       add_changed_check "lsp-definition-target"
       ;;
     crates/echo_lsp/src/definition/tests/file_paths.rs)
@@ -1313,6 +1313,8 @@ run_script_tests() {
     crates/echo_lsp/src/definition/tests/methods.rs
   assert_routing "lsp definition target routes focused checks" "lsp-definition-target" \
     crates/echo_lsp/src/definition_target.rs
+  assert_routing "lsp definition target tests route focused checks" "lsp-definition-target" \
+    crates/echo_lsp/src/definition/tests/targets.rs
   assert_routing "lsp definition file path tests route focused checks" "lsp-definition-target" \
     crates/echo_lsp/src/definition/tests/file_paths.rs
   assert_routing "lsp server routes focused checks" "lsp-server" \
