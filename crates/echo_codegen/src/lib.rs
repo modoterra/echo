@@ -212,19 +212,27 @@ impl IrModule {
             RuntimeValue::EchoValue(name) => format!("%EchoValue {name}"),
             RuntimeValue::StaticString(value) => {
                 let global = self.string_global(&value);
-                let call_id = self.next_call_id;
-                self.next_call_id += 1;
-                let name = format!("%runtime_call_{call_id}");
-
-                body.push_str(&format!(
-                    "  {name} = call %EchoValue @{}(ptr @{global}, i64 {})\n",
+                let name = self.push_echo_value_call(
+                    body,
                     CoreRuntimeSymbol::ValueString.symbol(),
-                    value.len()
-                ));
+                    &format!("ptr @{global}, i64 {}", value.len()),
+                );
 
                 format!("%EchoValue {name}")
             }
         }
+    }
+
+    fn next_runtime_call_name(&mut self) -> String {
+        let call_id = self.next_call_id;
+        self.next_call_id += 1;
+        format!("%runtime_call_{call_id}")
+    }
+
+    fn push_echo_value_call(&mut self, body: &mut String, symbol: &str, args: &str) -> String {
+        let name = self.next_runtime_call_name();
+        body.push_str(&format!("  {name} = call %EchoValue @{symbol}({args})\n"));
+        name
     }
 
     fn write_call(&mut self, body: &mut String, value: &str) {

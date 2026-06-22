@@ -60,15 +60,7 @@ impl IrModule {
             rendered_args.push(self.render_mir_std_intrinsic_arg(body, arg)?);
         }
 
-        let call_id = self.next_call_id;
-        self.next_call_id += 1;
-        let name = format!("%runtime_call_{call_id}");
-
-        body.push_str(&format!(
-            "  {name} = call %EchoValue @{}({})\n",
-            intrinsic.symbol,
-            rendered_args.join(", ")
-        ));
+        let name = self.push_echo_value_call(body, intrinsic.symbol, &rendered_args.join(", "));
 
         Ok(RuntimeValue::EchoValue(name))
     }
