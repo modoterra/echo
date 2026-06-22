@@ -91,6 +91,7 @@ Usage:
   scripts/check-fast mir-lowering
   scripts/check-fast pipeline
   scripts/check-fast index
+  scripts/check-fast index-core
   scripts/check-fast index-lookup
   scripts/check-fast index-storage
   scripts/check-fast lsp
@@ -218,6 +219,7 @@ Examples:
   scripts/check-fast semantics-index-phpdoc
   scripts/check-fast pipeline
   scripts/check-fast mir-lowering
+  scripts/check-fast index-core
   scripts/check-fast index-storage
   scripts/check-fast codegen
   scripts/check-fast codegen-abi
@@ -802,6 +804,9 @@ add_checks_for_changed_path() {
       add_changed_check "runtime"
       add_changed_check "jit"
       ;;
+    crates/echo_index/src/index.rs|crates/echo_index/src/index/tests.rs)
+      add_changed_check "index-core"
+      ;;
     crates/echo_index/src/index/lookup.rs)
       add_changed_check "index-lookup"
       ;;
@@ -1229,6 +1234,10 @@ run_script_tests() {
     crates/echo_semantics/src/index_facts/dependencies.rs
   assert_routing "semantics PHPDoc index facts route focused checks" "semantics-index-phpdoc" \
     crates/echo_semantics/src/index_facts/phpdoc.rs
+  assert_routing "index core routes focused checks" "index-core" \
+    crates/echo_index/src/index.rs
+  assert_routing "index core tests route focused checks" "index-core" \
+    crates/echo_index/src/index/tests.rs
   assert_routing "index lookup routes focused checks" "index-lookup" \
     crates/echo_index/src/index/lookup.rs
   assert_routing "index storage routes focused checks" "index-storage" \
@@ -1757,6 +1766,11 @@ case "$command" in
     ;;
   index)
     test_crate echo_index
+    ;;
+  index-core)
+    run_quiet cargo test -q -p echo_index returns_document_symbols_for_one_file
+    run_quiet cargo test -q -p echo_index returns_workspace_symbols_across_files
+    run_quiet cargo test -q -p echo_index fully_qualified_name_lookup_preserves_ambiguous_candidates
     ;;
   index-lookup)
     run_quiet cargo test -q -p echo_index stores_dependency_facts_for_later_resolution
