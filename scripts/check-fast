@@ -724,6 +724,11 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime index_get
     run_quiet cargo test -q -p echo_runtime lists_are_distinct_from_php_arrays
     run_quiet cargo test -q -p echo_runtime arrays_are_distinct_from_lists
+    run_quiet cargo test -q -p echo_runtime string_value_normalizes_to_function_callable
+    run_quiet cargo test -q -p echo_runtime non_utf8_string_value_is_not_callable
+    run_quiet cargo test -q -p echo_runtime output::
+    run_quiet cargo test -q -p echo_runtime is_object_reports_only_object_values
+    run_quiet cargo test -q -p echo_runtime gettype_returns_php_type_names_for_current_values
     ;;
   runtime-collections)
     run_quiet cargo test -q -p echo_runtime array_
