@@ -69,6 +69,7 @@ Usage:
   scripts/check-fast runtime-filesystem-content
   scripts/check-fast runtime-filesystem-links
   scripts/check-fast runtime-filesystem-metadata
+  scripts/check-fast runtime-filesystem-temporary
   scripts/check-fast runtime-filesystem-fixtures
   scripts/check-fast runtime-math
   scripts/check-fast runtime-math-elementary
@@ -190,6 +191,7 @@ Examples:
   scripts/check-fast runtime-filesystem
   scripts/check-fast runtime-filesystem-content
   scripts/check-fast runtime-filesystem-links
+  scripts/check-fast runtime-filesystem-temporary
   scripts/check-fast runtime-math
   scripts/check-fast runtime-math-elementary
   scripts/check-fast runtime-encoding
@@ -729,6 +731,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/filesystem/links.rs)
       add_changed_check "runtime-filesystem-links"
       ;;
+    crates/echo_runtime/src/filesystem/temporary.rs)
+      add_changed_check "runtime-filesystem-temporary"
+      ;;
     crates/echo_runtime/src/filesystem.rs)
       add_changed_check "runtime-filesystem"
       ;;
@@ -1076,6 +1081,8 @@ run_script_tests() {
     crates/echo_runtime/src/filesystem/content.rs
   assert_routing "runtime filesystem links routes focused checks" "runtime-filesystem-links" \
     crates/echo_runtime/src/filesystem/links.rs
+  assert_routing "runtime filesystem temporary routes focused checks" "runtime-filesystem-temporary" \
+    crates/echo_runtime/src/filesystem/temporary.rs
   assert_routing "runtime elementary math routes focused checks" "runtime-math-elementary" \
     crates/echo_runtime/src/math/elementary.rs
   assert_runtime_fixture_scope_routing
@@ -1527,6 +1534,10 @@ case "$command" in
   runtime-filesystem-links)
     run_quiet cargo test -q -p echo_runtime filesystem_link_builtins_create_and_read_links
     run_with_optional_fixture "079_filesystem_link_builtins,139_filesystem_link_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-filesystem-temporary)
+    run_quiet cargo test -q -p echo_runtime temporary_name_builtins_create_files_and_identifiers
+    run_with_optional_fixture "080_temporary_name_builtins,140_temporary_name_builtins" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-filesystem-metadata)
     run_quiet cargo test -q -p echo_runtime file_exists
