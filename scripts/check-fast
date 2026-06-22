@@ -887,7 +887,7 @@ add_checks_for_changed_path() {
       add_changed_check "jit"
       add_changed_check "fixture"
       ;;
-    crates/xo/src/repl.rs)
+    crates/xo/src/repl.rs|crates/xo/src/repl/tests.rs)
       add_changed_check "repl"
       ;;
     crates/xo/src/test_runner.rs)
@@ -1129,6 +1129,8 @@ run_script_tests() {
     crates/xo/src/source.rs
   assert_routing "xo repl routes repl checks" "repl" \
     crates/xo/src/repl.rs
+  assert_routing "xo repl unit tests route repl checks" "repl" \
+    crates/xo/src/repl/tests.rs
   assert_routing "xo build routes build fixtures" $'xo\nfixture' \
     crates/xo/src/build.rs
   assert_routing "xo test runner routes focused checks" "xo-test-runner" \
@@ -1909,6 +1911,7 @@ case "$command" in
     run_quiet cargo test -q -p xo --bin xo test_runner::
     ;;
   repl)
+    run_quiet cargo test -q -p xo --bin xo repl::tests
     run_quiet cargo test -q -p xo --test repl
     ;;
   jit)
