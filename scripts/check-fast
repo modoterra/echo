@@ -81,6 +81,7 @@ Usage:
   scripts/check-fast runtime-encoding-fixtures
   scripts/check-fast parser [fixture-filter]
   scripts/check-fast semantics
+  scripts/check-fast semantics-analyzer
   scripts/check-fast semantics-index
   scripts/check-fast semantics-index-dependencies
   scripts/check-fast semantics-index-phpdoc
@@ -209,6 +210,7 @@ Examples:
   scripts/check-fast reflection-php
   scripts/check-fast parser
   scripts/check-fast parser 017_object_append_count
+  scripts/check-fast semantics-analyzer
   scripts/check-fast semantics-index
   scripts/check-fast semantics-index-dependencies
   scripts/check-fast semantics-index-phpdoc
@@ -576,6 +578,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_parser/*)
       add_changed_check "parser"
+      ;;
+    crates/echo_semantics/src/analyzer.rs)
+      add_changed_check "semantics-analyzer"
       ;;
     crates/echo_semantics/src/index_facts.rs)
       add_changed_check "semantics-index"
@@ -1149,6 +1154,8 @@ run_script_tests() {
     docs/time-foundation.md
   assert_routing "website docs route type checks" "web-docs" \
     www/src/docs/content.ts
+  assert_routing "semantics analyzer route focused checks" "semantics-analyzer" \
+    crates/echo_semantics/src/analyzer.rs
   assert_routing "semantics index facts route focused checks" "semantics-index" \
     crates/echo_semantics/src/index_facts.rs
   assert_routing "semantics index dependency facts route focused checks" "semantics-index-dependencies" \
@@ -1375,6 +1382,13 @@ case "$command" in
     ;;
   semantics)
     test_crate echo_semantics
+    ;;
+  semantics-analyzer)
+    run_quiet cargo test -q -p echo_semantics tracks_variable_type_from_let_initializer
+    run_quiet cargo test -q -p echo_semantics reports_undefined_variable
+    run_quiet cargo test -q -p echo_semantics infers_concurrency_handle_types
+    run_quiet cargo test -q -p echo_semantics rejects_php_append_syntax_for_lists
+    run_quiet cargo test -q -p echo_semantics rejects_index_access_for_objects
     ;;
   semantics-index)
     run_quiet cargo test -q -p echo_semantics index_facts::tests
