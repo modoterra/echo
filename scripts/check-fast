@@ -372,7 +372,7 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections.rs)
       add_changed_check "runtime-collections"
       ;;
-    crates/echo_runtime/src/runtime_tests.rs)
+    crates/echo_runtime/src/runtime_tests.rs|crates/echo_runtime/src/runtime_tests/*.rs)
       add_changed_check "runtime-tests"
       ;;
     crates/echo_runtime/src/assertions.rs)
@@ -712,6 +712,8 @@ run_script_tests() {
     crates/echo_runtime/src/value.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
+  assert_routing "runtime extracted test submodules route focused module check" "runtime-tests" \
+    crates/echo_runtime/src/runtime_tests/collections.rs
   assert_routing "runtime assert routes focused checks" "runtime-assert" \
     crates/echo_runtime/src/assertions.rs
   assert_routing "runtime callable routes focused checks" "runtime-callable" \
