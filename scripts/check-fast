@@ -27,6 +27,8 @@ Usage:
   scripts/check-fast runtime-reflection-fixtures
   scripts/check-fast runtime-require
   scripts/check-fast runtime-sched
+  scripts/check-fast runtime-string
+  scripts/check-fast runtime-string-fixtures
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -84,6 +86,7 @@ Examples:
   scripts/check-fast runtime-reflection
   scripts/check-fast runtime-reflection-fixtures
   scripts/check-fast runtime-require
+  scripts/check-fast runtime-string
   scripts/check-fast runtime-environment
   scripts/check-fast runtime-net
   scripts/check-fast runtime-process
@@ -299,6 +302,10 @@ normalize_changed_checks() {
       remove_changed_check "runtime-time"
       add_changed_check "runtime-time-fixtures"
     fi
+    if has_changed_check "runtime-string"; then
+      remove_changed_check "runtime-string"
+      add_changed_check "runtime-string-fixtures"
+    fi
   fi
 }
 
@@ -395,6 +402,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/time.rs)
       add_changed_check "runtime-time"
+      ;;
+    crates/echo_runtime/src/string.rs)
+      add_changed_check "runtime-string"
       ;;
     crates/echo_runtime/src/value.rs)
       add_changed_check "runtime-value"
@@ -537,6 +547,11 @@ run_script_tests() {
   assert_routing "runtime time normalizes fixture coverage" $'runtime\njit\nruntime-time-fixtures' \
     crates/echo_runtime/src/lib.rs \
     crates/echo_runtime/src/time.rs
+  assert_routing "runtime string routes focused checks" "runtime-string" \
+    crates/echo_runtime/src/string.rs
+  assert_routing "runtime string normalizes fixture coverage" $'runtime\njit\nruntime-string-fixtures' \
+    crates/echo_runtime/src/lib.rs \
+    crates/echo_runtime/src/string.rs
   assert_routing "runtime output normalizes fixture coverage" $'runtime\njit\nruntime-output-fixtures' \
     crates/echo_runtime/src/lib.rs \
     crates/echo_runtime/src/output.rs
@@ -705,6 +720,7 @@ RUNTIME_TIME_FIXTURES="006_time_sleep_run_before_join,007_time_sleep_orders_task
 RUNTIME_OUTPUT_FIXTURES="004_ob_start_end_flush,005_ob_flush_keeps_buffer,006_ob_end_clean_discards_buffer,007_nested_ob_end_flush,008_nested_ob_end_clean,009_nested_ob_flush,010_ob_flush_without_end,011_ob_clean_keeps_buffer,012_shutdown_flushes_open_buffers,013_ob_get_level,016_ob_get_contents_copy,025_ob_functions_without_buffer,027_ob_get_clean,028_ob_get_flush,029_nested_ob_get_flush,034_nested_ob_get_clean,074_ob_control_success_returns,075_ob_control_failure_returns,076_flush_builtin,078_ob_implicit_flush_builtin"
 RUNTIME_REFLECTION_FIXTURES="028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions"
 RUNTIME_COLLECTIONS_FIXTURES="015_empty_list_count,016_list_append_count,017_object_append_count,037_array_is_list_builtin,067_array_key_value_builtins,068_array_lookup_builtins,069_array_fill_builtins,070_array_order_builtins,071_array_combine_pad_builtins,072_array_search_count_builtins,073_array_slice_chunk_builtins,074_array_merge_replace_builtins,083_count_builtin,084_array_type_builtins,094_array_is_list_builtin,110_arithmetic_operators,111_array_index_access,127_array_key_value_builtins,128_array_lookup_builtins,129_array_fill_builtins,130_array_order_builtins,131_array_combine_pad_builtins,132_array_search_count_builtins,133_array_slice_chunk_builtins,134_array_merge_replace_builtins"
+RUNTIME_STRING_FIXTURES="042_dynamic_string_concat,043_strlen_builtin,046_string_case_builtins,047_string_unary_builtins,048_string_byte_builtins,049_chr_bin2hex_builtins,050_trim_builtins,051_string_predicate_builtins,052_string_escape_builtins,053_hex_repeat_builtins,054_substr_builtin,054_url_encoding_builtins,058_strstr_builtin,059_stristr_builtin,061_implode_join_builtins,064_str_pad_builtin,065_string_chunk_builtins,067_substr_count_builtin,068_strval_builtin,071_ucwords_builtin,072_base64_encode_builtin,073_base64_decode_builtin,080_substr_compare_builtin,081_string_rewrite_builtins,082_strchr_alias_builtin,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,105_explode_builtin,114_url_encoding_builtins,121_implode_join_builtins,124_str_pad_builtin,125_string_chunk_builtins,141_string_rewrite_builtins"
 
 command="${1:-help}"
 fixture_filter="${2:-}"
@@ -828,6 +844,24 @@ case "$command" in
     ;;
   runtime-sched)
     run_quiet cargo test -q -p echo_runtime sched::
+    ;;
+  runtime-string)
+    run_quiet cargo test -q -p echo_runtime string_case_builtins_convert_only_ascii_bytes
+    run_quiet cargo test -q -p echo_runtime ucwords_preserves_php_default_separator_byte_behavior
+    run_quiet cargo test -q -p echo_runtime strval_preserves_php_scalar_string_coercion
+    run_quiet cargo test -q -p echo_runtime string_unary_builtins_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime string_byte_builtins_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime explode_preserves_php_array_count_and_limit_behavior
+    run_quiet cargo test -q -p echo_runtime implode_joins_array_values_with_php_string_coercion
+    run_quiet cargo test -q -p echo_runtime str_pad_preserves_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime string_chunk_builtins_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime substr_preserves_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime string_rewrite_builtins_preserve_php_byte_behavior
+    run_quiet cargo test -q -p echo_runtime string_predicate_builtins_are_binary_safe_and_case_sensitive
+    run_with_optional_fixture "$RUNTIME_STRING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
+    ;;
+  runtime-string-fixtures)
+    run_with_optional_fixture "$RUNTIME_STRING_FIXTURES" tests/php tests/echo -- cargo test -q -p xo --test jit
     ;;
   runtime-environment)
     run_quiet cargo test -q -p echo_runtime environment_process_builtins
