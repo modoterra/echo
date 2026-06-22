@@ -24,10 +24,6 @@ pub mod time;
 pub mod value;
 
 #[cfg(test)]
-use std::env;
-#[cfg(test)]
-use std::path::Path;
-#[cfg(test)]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
@@ -54,10 +50,6 @@ pub use encoding::{
 pub use environment::*;
 pub use error::EchoError;
 pub use execution::echo_join;
-#[cfg(test)]
-use filesystem::{
-    PHP_FILE_APPEND, path_buf_from_bytes, path_getcwd, path_is_dir, path_is_file, path_realpath,
-};
 pub use filesystem::{
     echo_php_basename, echo_php_chdir, echo_php_copy, echo_php_dirname, echo_php_file_exists,
     echo_php_file_get_contents, echo_php_file_put_contents, echo_php_fileatime, echo_php_filectime,
