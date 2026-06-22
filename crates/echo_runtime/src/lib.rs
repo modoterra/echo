@@ -73,9 +73,7 @@ pub use string::{
     echo_php_ord, echo_php_str_repeat, echo_php_str_rot13, echo_php_strrev, echo_php_strtolower,
     echo_php_strtoupper, echo_php_ucfirst, echo_php_ucwords,
 };
-use string::{
-    php_int_to_string_builtin, php_string_to_number_builtin, trim_ascii, trim_ascii_start,
-};
+use string::{php_string_to_number_builtin, trim_ascii, trim_ascii_start};
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
@@ -5705,23 +5703,13 @@ mod tests {
     }
 
     #[test]
-    fn chr_and_bin2hex_preserve_php_byte_behavior() {
-        let numeric = Box::into_raw(Box::new(EchoString {
-            bytes: "321".as_bytes().to_vec(),
-        }));
-        let text = Box::into_raw(Box::new(EchoString {
-            bytes: "Echo".as_bytes().to_vec(),
-        }));
-        let non_ascii = Box::into_raw(Box::new(EchoString {
-            bytes: "Ä".as_bytes().to_vec(),
-        }));
-
+    fn base_string_conversion_builtins_preserve_php_byte_behavior() {
         assert_eq!(
             echo_php_chr(EchoValue::int(65)).string_bytes(),
             Some("A".as_bytes().to_vec())
         );
         assert_eq!(
-            echo_php_chr(EchoValue::string(numeric)).string_bytes(),
+            echo_php_chr(test_string_value(b"321")).string_bytes(),
             Some("A".as_bytes().to_vec())
         );
         assert_eq!(
@@ -5752,14 +5740,22 @@ mod tests {
             echo_php_decoct(EchoValue::int(-1)).string_bytes(),
             Some("1777777777777777777777".as_bytes().to_vec())
         );
+    }
+
+    #[test]
+    fn bin2hex_preserves_php_byte_behavior() {
         assert_eq!(
-            echo_php_bin2hex(EchoValue::string(text)).string_bytes(),
+            echo_php_bin2hex(test_string_value(b"Echo")).string_bytes(),
             Some("4563686f".as_bytes().to_vec())
         );
         assert_eq!(
-            echo_php_bin2hex(EchoValue::string(non_ascii)).string_bytes(),
+            echo_php_bin2hex(test_string_value("Ä".as_bytes())).string_bytes(),
             Some("c384".as_bytes().to_vec())
         );
+    }
+
+    #[test]
+    fn checksum_builtins_preserve_php_byte_behavior() {
         assert_eq!(
             echo_php_crc32(test_string_value(b"Echo\nPHP")),
             EchoValue::int(286159390)
@@ -5790,16 +5786,6 @@ mod tests {
                 0x4e, 0x31, 0x18, 0x68, 0x98, 0x76,
             ])
         );
-        assert_eq!(
-            echo_php_escapeshellarg(EchoValue::string(text)).string_bytes(),
-            Some("'Echo'".as_bytes().to_vec())
-        );
-
-        unsafe {
-            drop(Box::from_raw(numeric));
-            drop(Box::from_raw(text));
-            drop(Box::from_raw(non_ascii));
-        }
     }
 
     #[test]
@@ -5865,6 +5851,22 @@ mod tests {
                 EchoValue::int(10)
             ),
             EchoValue::error()
+        );
+    }
+
+    #[test]
+    fn escapeshellarg_preserves_php_unix_shell_argument_quoting() {
+        assert_eq!(
+            echo_php_escapeshellarg(test_string_value(b"Echo")).string_bytes(),
+            Some("'Echo'".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellarg(test_string_value(b"it's ready")).string_bytes(),
+            Some("'it'\\''s ready'".as_bytes().to_vec())
+        );
+        assert_eq!(
+            echo_php_escapeshellarg(test_string_value(b"")).string_bytes(),
+            Some("''".as_bytes().to_vec())
         );
     }
 
