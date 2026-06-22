@@ -66,6 +66,7 @@ This repo uses a single-context domain documentation layout. See `docs/agents/do
 - Use `scripts/check-fast jit <fixture-filter>` for executable behavior that can be proven through the in-process LLVM JIT.
 - Use `scripts/check-fast fixture <fixture-filter>` only when the full `xo ast`/`ir`/`run`/`build` path matters for a specific fixture.
 - Use `scripts/check-fast bench-echo <fixture-filter>` or `scripts/check-fast bench-php <fixture-filter>` for a two-iteration benchmark smoke check before running larger reports.
+- Fast benchmark shortcuts are quiet on success; inspect `test-results/echo/` or `test-results/php/` for the benchmark reports.
 - Use `scripts/check-fast web` for a quiet TypeScript plus Vite production build; successful runs suppress Vite's asset table.
 
 ```sh

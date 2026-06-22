@@ -886,6 +886,29 @@ add_checks_for_changed_path() {
     crates/xo/tests/repl.rs)
       add_changed_check "repl"
       ;;
+    crates/xo/tests/support/artifacts.rs)
+      add_changed_check "fixture 043_strlen_builtin"
+      add_changed_check "bench-echo 017_object_append_count"
+      ;;
+    crates/xo/tests/support/benchmark.rs|crates/xo/tests/support/metrics.rs)
+      add_changed_check "bench-echo 017_object_append_count"
+      ;;
+    crates/xo/tests/support/fixtures.rs)
+      add_changed_check "jit 043_strlen_builtin"
+      add_changed_check "fixture 043_strlen_builtin"
+      add_changed_check "bench-echo 017_object_append_count"
+      ;;
+    crates/xo/tests/support/process.rs)
+      add_changed_check "repl"
+      add_changed_check "jit 043_strlen_builtin"
+      add_changed_check "fixture 043_strlen_builtin"
+      ;;
+    crates/xo/tests/support/mod.rs)
+      add_changed_check "repl"
+      add_changed_check "jit 043_strlen_builtin"
+      add_changed_check "fixture 043_strlen_builtin"
+      add_changed_check "bench-echo 017_object_append_count"
+      ;;
     crates/xo/tests/*)
       add_changed_check "xo"
       ;;
@@ -1040,6 +1063,16 @@ assert_failure_output_is_bounded() {
   rm -f "$output"
 }
 
+assert_benchmark_success_output_is_quiet() {
+  local output
+
+  output="$(run_benchmark_with_optional_fixture "" -- bash -c 'printf "benchmark success\n"')"
+  if [[ -n "$output" ]]; then
+    printf 'benchmark quiet output test failed: successful output should be empty\nactual: %s\n' "$output" >&2
+    exit 1
+  fi
+}
+
 list_changed_checks() {
   local limit="${1:-}"
 
@@ -1071,6 +1104,7 @@ assert_changed_list_limit() {
 run_script_tests() {
   assert_command_echo_controls
   assert_failure_output_is_bounded
+  assert_benchmark_success_output_is_quiet
   assert_changed_list_limit
   assert_routing "xo main routes repl" $'xo\nrepl' \
     crates/xo/src/main.rs
@@ -1082,6 +1116,12 @@ run_script_tests() {
     crates/xo/src/build.rs
   assert_routing "xo test runner routes focused checks" "xo-test-runner" \
     crates/xo/src/test_runner.rs
+  assert_routing "xo fixture artifacts support routes filtered fixture and benchmark checks" $'fixture 043_strlen_builtin\nbench-echo 017_object_append_count' \
+    crates/xo/tests/support/artifacts.rs
+  assert_routing "xo fixture process support routes REPL and filtered execution checks" $'repl\njit 043_strlen_builtin\nfixture 043_strlen_builtin' \
+    crates/xo/tests/support/process.rs
+  assert_routing "xo benchmark support routes filtered benchmark checks" "bench-echo 017_object_append_count" \
+    crates/xo/tests/support/metrics.rs
   assert_routing "echo fixture routes filtered checks" $'parser 017_object_append_count\njit 017_object_append_count\nfixture 017_object_append_count' \
     tests/echo/017_object_append_count/unsupported.txt
   assert_routing "runtime environment routes focused checks" "runtime-environment" \
@@ -1291,7 +1331,9 @@ run_benchmark_with_optional_fixture() {
   local filter="${1:-}"
   shift
   local iterations="${ECHO_BENCH_ITERATIONS:-2}"
+  local output
   local roots=()
+  local status
 
   while (($#)); do
     if [[ "$1" == "--" ]]; then
@@ -1307,12 +1349,28 @@ run_benchmark_with_optional_fixture() {
     if echo_commands_enabled; then
       printf ':: ECHO_BENCH_ITERATIONS=%s ECHO_FIXTURE=%s %s\n' "$iterations" "$filter" "$*"
     fi
-    ECHO_BENCH_ITERATIONS="$iterations" ECHO_FIXTURE="$filter" "$@"
+    output="$(mktemp "${TMPDIR:-/tmp}/check-fast.XXXXXX")"
+    if ECHO_BENCH_ITERATIONS="$iterations" ECHO_FIXTURE="$filter" "$@" >"$output" 2>&1; then
+      rm -f "$output"
+      return 0
+    else
+      status=$?
+      replay_failure_output "$output"
+      return "$status"
+    fi
   else
     if echo_commands_enabled; then
       printf ':: ECHO_BENCH_ITERATIONS=%s %s\n' "$iterations" "$*"
     fi
-    ECHO_BENCH_ITERATIONS="$iterations" "$@"
+    output="$(mktemp "${TMPDIR:-/tmp}/check-fast.XXXXXX")"
+    if ECHO_BENCH_ITERATIONS="$iterations" "$@" >"$output" 2>&1; then
+      rm -f "$output"
+      return 0
+    else
+      status=$?
+      replay_failure_output "$output"
+      return "$status"
+    fi
   fi
 }
 
@@ -1822,10 +1880,10 @@ case "$command" in
     run_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p xo --test php_fixtures
     ;;
   bench-php)
-    run_benchmark_with_optional_fixture "$fixture_filter" tests/php -- cargo test -q -p xo --test php_bench -- --ignored --nocapture
+    run_benchmark_with_optional_fixture "$fixture_filter" tests/php -- cargo test -q -p xo --test php_bench -- --ignored
     ;;
   bench-echo)
-    run_benchmark_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p xo --test echo_bench -- --ignored --nocapture
+    run_benchmark_with_optional_fixture "$fixture_filter" tests/php tests/echo -- cargo test -q -p xo --test echo_bench -- --ignored
     ;;
   web)
     run_quiet bash -c 'cd www && ./node_modules/.bin/tsc -b && ./node_modules/.bin/vite build --logLevel error'
