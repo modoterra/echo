@@ -36,7 +36,6 @@ use std::io::{self as std_io, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
 pub use callable::{EchoCallable, EchoSymbol};
@@ -68,6 +67,9 @@ pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_c
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 pub use time::echo_time_sleep;
+#[cfg(not(unix))]
+use time::system_time_unix_timestamp;
+use time::unix_duration_now_or_zero;
 pub use value::{EchoObject, EchoString};
 
 #[repr(C)]
@@ -2549,9 +2551,7 @@ pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoVal
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_else(|_| Duration::from_secs(0));
+    let now = unix_duration_now_or_zero();
 
     if as_float.bool_value().unwrap_or(false) {
         return EchoValue::float(now.as_secs_f64());
@@ -2995,10 +2995,7 @@ fn path_is_writable(bytes: &[u8]) -> bool {
 
 fn path_is_writable_path(path: &Path) -> bool {
     if path.is_dir() {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or(0);
+        let nanos = unix_duration_now_or_zero().as_nanos();
         let probe = path.join(format!(".echo_writable_probe_{nanos}"));
         return OpenOptions::new()
             .write(true)
@@ -3340,9 +3337,7 @@ fn configure_temp_file_mode(options: &mut OpenOptions) {
 fn configure_temp_file_mode(_options: &mut OpenOptions) {}
 
 fn php_uniqid(prefix: &[u8], more_entropy: bool) -> Vec<u8> {
-    let duration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
+    let duration = unix_duration_now_or_zero();
     let seconds = duration.as_secs() as u32;
     let micros = duration.subsec_micros();
     let counter = NEXT_UNIQID_COUNTER.fetch_add(1, Ordering::Relaxed) as u32;
@@ -3373,11 +3368,7 @@ fn path_touch(bytes: &[u8], mtime: Option<i64>, atime: Option<i64>) -> bool {
         return false;
     }
 
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
-        .unwrap_or(0);
+    let now = i64::try_from(unix_duration_now_or_zero().as_secs()).unwrap_or(0);
     let modified = mtime.unwrap_or(now);
     let accessed = atime.unwrap_or(modified);
 
@@ -3437,13 +3428,6 @@ fn path_rmdir(bytes: &[u8]) -> bool {
     path_buf_from_bytes(bytes)
         .map(std::fs::remove_dir)
         .is_some_and(|result| result.is_ok())
-}
-
-#[cfg(not(unix))]
-fn system_time_unix_timestamp(time: SystemTime) -> Option<i64> {
-    time.duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
 }
 
 #[cfg(unix)]
