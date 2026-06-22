@@ -689,6 +689,9 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/userland_lowering.rs)
       add_changed_check "codegen-userland"
       ;;
+    crates/echo_codegen/src/tests/userland.rs)
+      add_changed_check "codegen-userland"
+      ;;
     crates/echo_codegen/src/lib.rs)
       add_changed_check "codegen-abi"
       add_changed_check "codegen-collections"
@@ -1362,6 +1365,8 @@ run_script_tests() {
     crates/echo_codegen/src/tests/task.rs
   assert_routing "codegen userland lowering routes focused userland checks" "codegen-userland" \
     crates/echo_codegen/src/userland_lowering.rs
+  assert_routing "codegen userland tests route focused userland checks" "codegen-userland" \
+    crates/echo_codegen/src/tests/userland.rs
   assert_routing "codegen jit routes focused JIT checks" "codegen-jit" \
     crates/echo_codegen/src/jit.rs
   assert_routing "codegen lib routes focused lowering checks" $'codegen-abi\ncodegen-collections\ncodegen-control-flow\ncodegen-expressions\ncodegen-php\ncodegen-reflection\ncodegen-statements\ncodegen-stdlib\ncodegen-task\ncodegen-userland' \
