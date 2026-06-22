@@ -118,7 +118,7 @@ Stdlib source declares its module with the matching `namespace std ...` form:
 namespace std net
 
 class TcpServer {
-    intrinsic static function listen(string $address): TcpServer
+    pub intrinsic static fn listen(string $address): TcpServer
 }
 ```
 

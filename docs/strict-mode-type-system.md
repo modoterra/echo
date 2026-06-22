@@ -63,11 +63,11 @@ These commands let a project test strict diagnostics on PHP input or temporarily
 - Strict mode rejects user `namespace std ...` declarations; only trusted packaged stdlib source may declare std modules. PHP namespaces such as `namespace std\Net` remain valid.
 - Echo superset mode still accepts PHP reference assignment for compatibility.
 
-## Value Families
+## Language Data Structures
 
 Strict Echo separates these families:
 
-```php
+```echo
 [1, 2, 3]              // array literal
 {1, 2, 3}              // list literal
 {}                     // empty list by default, or empty object with expected object type
@@ -80,20 +80,19 @@ This example shows why strict mode needs separate literal families: the delimite
 Type families:
 
 ```text
-list<T>       linked heap-backed dynamic list, written with {}
-array<T>      dynamic contiguous zero-indexed array, written with []
-array<T>[N]   fixed-size contiguous zero-indexed array, written with []
-map<K, V>     keyed Echo collection, distinct from PHP arrays
-set<T>        unique-value Echo collection
-type T = { }  structural object type alias
-{ ... }       structural object value when keyed
-class T       nominal class declaration; new T is a class instance, not an object
-trait<T>      reusable method/contract surface
-interface<T>  nominal behavior contract
-( ... )       tuple literal, always inferred from direct literal instantiation
-enum T        nominal enum; PHP singleton/backed forms plus Echo payload variants
-range<T>      iterable range value such as 1..30
-buffer        byte-oriented storage built from string prefixes such as x"...", b"...", bb"..."
+list<T>             linked heap-backed dynamic list, written with {}
+array<T>            dynamic contiguous zero-indexed array, written with []
+array<T>[N]         fixed-size contiguous zero-indexed array, written with []
+object              structural object value, written as { field: value }
+class T             nominal class declaration; new T is a class instance, not an object
+map<K, V>           keyed Echo collection, distinct from PHP arrays
+set<T>              unique-value Echo collection
+trait<T>            reusable method/contract surface
+interface<T>        nominal behavior contract
+tuple               always inferred from a direct literal such as (1, 2, 3)
+enum T              nominal enum; PHP singleton/backed forms plus Echo payload variants
+range<T>            iterable range value such as 1..30
+buffer              byte-oriented storage built from string prefixes such as x"...", b"...", bb"..."
 ```
 
 The type-family table is the vocabulary for diagnostics and hover text; strict mode should name the collection kind rather than collapsing everything into PHP arrays.
@@ -102,8 +101,8 @@ The type-family table is the vocabulary for diagnostics and hover text; strict m
 
 Strict arrays are contiguous indexed sequences. They are not PHP hash maps.
 
-```php
-let $a: array<int> = [1, 2, 3];
+```echo
+let $a: array<int> = [1, 2, 3]
 ```
 
 This is the strict dynamic-array shape: a contiguous integer-indexed sequence with a known element type.
@@ -122,29 +121,29 @@ The expanded meaning is the invariant codegen and diagnostics can rely on when s
 
 Strict mode rejects associative arrays and explicit keys:
 
-```php
-let $user = ["id" => 1];
-let $bad = [0 => "a", 1 => "b"];
-let $bad = [1 => "a"];
+```echo
+let $user = ["id" => 1]
+let $bad = [0 => "a", 1 => "b"]
+let $bad = [1 => "a"]
 ```
 
 These examples are rejected because explicit keys would reintroduce PHP hash-map ambiguity into strict arrays.
 
 Use a structural object instead:
 
-```php
+```echo
 let $user = {
-    id: 1,
-    email: "a@example.com",
-};
+    id: 1
+    email: "a@example.com"
+}
 ```
 
 This replacement is the strict-mode modeling path for named data: fields belong to object types, not array keys.
 
 Array reads use indexes:
 
-```php
-let int $first = $a[0];
+```echo
+let $first: int = $a[0]
 ```
 
 Indexed reads are valid because strict arrays preserve contiguous zero-based positions.
@@ -154,27 +153,27 @@ https://www.php.net/manual/en/language.types.array.php
 
 Indexed assignment is replacement only:
 
-```php
-$a[0] = 10;
+```echo
+$a[0] = 10
 ```
 
 This assignment updates an existing slot; it does not change array length.
 
 Append is valid for non-fixed arrays:
 
-```php
-$a[] = 4;
+```echo
+$a[] = 4
 ```
 
 Append is the only strict-mode growth operation for dynamic arrays.
 
 Reject indexed assignment as growth:
 
-```php
-let $a = [1];
+```echo
+let $a = [1]
 
-$a[1] = 3;  // reject
-$a[5] = 9;  // reject
+$a[1] = 3  // reject
+$a[5] = 9  // reject
 ```
 
 These assignments would create new slots through indexed replacement syntax, so strict mode rejects them instead of allowing sparse growth.
@@ -195,65 +194,65 @@ This rule gives both diagnostics and runtime lowering one simple distinction: re
 
 Explicit element type:
 
-```php
-let $a: array<int>[3] = [1, 2, 3];
+```echo
+let $a: array<int>[3] = [1, 2, 3]
 ```
 
 This declaration is for fixed-size storage when both element type and length are part of the type.
 
 Inferred element type:
 
-```php
-let $a: array[3] = [1, 2, 3];
+```echo
+let $a: array[3] = [1, 2, 3]
 ```
 
 This form fixes the length while allowing the element type to come from the literal.
 
 Valid:
 
-```php
-let $rgb: array<int>[3] = [255, 128, 0];
+```echo
+let $rgb: array<int>[3] = [255, 128, 0]
 
-$rgb[0] = 0;
-$rgb[1] = 64;
-$rgb[2] = 255;
+$rgb[0] = 0
+$rgb[1] = 64
+$rgb[2] = 255
 ```
 
 This is the intended mutation model for fixed arrays: every write targets an existing known slot.
 
 Reject:
 
-```php
-$rgb[] = 255;  // fixed-size array cannot append
-$rgb[3] = 255; // out of bounds
+```echo
+$rgb[] = 255  // fixed-size array cannot append
+$rgb[3] = 255 // out of bounds
 ```
 
 Both operations would change or exceed fixed capacity, so they should be compile-time errors when the index is known.
 
 Dynamic indexes may be allowed with runtime bounds checks, but they are still replacement-only:
 
-```php
-let int $i = getIndex();
-$rgb[$i] = 10;
+```echo
+let $i: int = getIndex()
+$rgb[$i] = 10
 ```
 
 This pattern is only safe if lowering preserves a bounds check; even then, it remains replacement rather than growth.
 
 ## Dynamic Arrays
 
-```php
-let array<int> $ids = [1, 2, 3];
-let $ids = [1, 2, 3]; // inferred array<int>
+```echo
+let $ids: array<int> = [1, 2, 3]
+let $ids = [1, 2, 3] // inferred array<int>
 ```
 
 These examples show explicit and inferred dynamic arrays; both represent the same growable contiguous collection kind.
 
 Dynamic arrays are contiguous and can grow by append:
 
-```php
-$ids[] = 4;  // ok for dynamic array
-$ids[0] = 9; // ok replacement
-$ids[3] = 9; // reject if used as growth
+```echo
+$ids[] = 4  // ok for dynamic array
+$ids[0] = 9 // ok replacement
+$ids[3] = 9 // reject if used as growth
 ```
 
 This block demonstrates the strict distinction between appending and replacing: only `$ids[]` can grow the dynamic array.
@@ -285,31 +284,31 @@ These properties explain why lists do not reuse array append or fixed-array inde
 
 List literals use unkeyed brace literals:
 
-```php
-let $xs: list<int> = {1, 2, 3};
-let $names: list<string> = {"Chris", "Echo"};
+```echo
+let $xs: list<int> = {1, 2, 3}
+let $names: list<string> = {"Chris", "Echo"}
 ```
 
 Brace list literals make linked list construction visually distinct from PHP-compatible arrays.
 
 Empty braces default to an empty list unless expected type context says otherwise:
 
-```php
-let $xs = {};            // infer empty list
-let $ids: list<int> = {}; // empty list<int>
+```echo
+let $xs = {}             // infer empty list
+let $ids: list<int> = {} // empty list<int>
 ```
 
 This default keeps `{}` useful for empty collections while still allowing type context to refine the element type.
 
 With expected object context, `{}` can mean an empty object satisfying that type:
 
-```php
+```echo
 type Options = {
     retries?: int
     timeout?: int
 }
 
-let $opts: Options = {}; // empty object satisfying Options
+let $opts: Options = {} // empty object satisfying Options
 ```
 
 This contextual form lets optional-field objects be constructed without inventing a separate empty-object token.
@@ -328,11 +327,11 @@ The disambiguation table is the parser and diagnostics rule for deciding whether
 
 Reject mixed brace literals:
 
-```php
+```echo
 let $bad = {
-    id: 1,
-    "loose",
-};
+    id: 1
+    "loose"
+}
 ```
 
 Mixed literals are rejected because they do not have a single strict-mode value family.
@@ -340,20 +339,20 @@ Mixed literals are rejected because they do not have a single strict-mode value 
 Lists use list-specific receiver functions for mutation. PHP array append syntax
 is not list append:
 
-```php
-let $xs: list<int> = {1, 2, 3};
+```echo
+let $xs: list<int> = {1, 2, 3}
 
-$xs[] = 4; // reject: list is not array
-$xs.push(4);
-let ?int $last = $xs.pop();
+$xs[] = 4 // reject: list is not array
+$xs.push(4)
+let $last: ?int = $xs.pop()
 ```
 
 This example shows the intended list API: list mutation goes through receiver functions, not PHP array growth syntax.
 
 Do not use indexed assignment as list growth:
 
-```php
-$xs[3] = 4; // reject when this grows the list
+```echo
+$xs[3] = 4 // reject when this grows the list
 ```
 
 Indexed assignment would imply contiguous array behavior, so growing a linked list this way is rejected.
@@ -362,26 +361,25 @@ Indexed assignment would imply contiguous array behavior, so growing a linked li
 
 Tuples are fixed positional values.
 
-```php
-let (int, string) $pair = (1, "Echo");
-let $pair = (1, "Echo"); // inferred tuple<int, string>
+```echo
+let $pair = (1, "Echo") // inferred tuple<int, string>
 ```
 
 Tuples are for small positional products where both length and element order are part of the type.
 
 Access uses bracket indexes:
 
-```php
-echo $pair[0];
-echo $pair[1];
+```echo
+echo $pair[0]
+echo $pair[1]
 ```
 
 Bracket access keeps tuple reads close to array reads while still allowing the compiler to bounds-check literal indexes.
 
 Do not use dot indexes:
 
-```php
-$pair.0; // reject
+```echo
+$pair.0 // reject
 ```
 
 Dot access is reserved for named fields and receiver members, so tuple positions should not use it.
@@ -399,13 +397,169 @@ Tuples are not extendable in v1.
 
 These rules keep tuple support small and statically checkable in the first strict-mode implementation.
 
+## Enums
+
+Echo enums are nominal types. PHP enums are the compatibility floor: pure enums and backed enums should remain compatible, while Echo-native enums may also carry payloads.
+
+Pure enums use singleton cases:
+
+```echo
+enum Status {
+    Draft
+    Published
+    Archived
+}
+
+let $status = Status::Draft
+```
+
+This is equivalent to a PHP pure enum in shape: each case is a singleton value of the enum type, not a string or integer constant.
+
+Backed enums declare a scalar backing type and assign every case a backing value:
+
+```echo
+enum Status: string {
+    Draft = "draft"
+    Published = "published"
+    Archived = "archived"
+}
+
+let $status = Status::from("draft")
+echo $status->value
+```
+
+Backed enums preserve PHP's `from`, `tryFrom`, and `value` behavior. The backing type must be `string` or `int` for PHP compatibility.
+
+Echo-native payload enums allow associated data:
+
+```echo
+enum Result<T, E> {
+    Ok(T)
+    Err(E)
+}
+
+enum ParseResult {
+    Ok(value: AstNode)
+    Err(error: ParseError)
+}
+```
+
+Payload variants are for recoverable results, typed errors, parser states, AST nodes, and protocol states where each case may need different data.
+
+Enums are intended to work with exhaustive `match`:
+
+```echo
+match result {
+    Ok(value) => compile(value)
+    Err(error) => report(error)
+}
+```
+
+The match form destructures payloads and should be exhaustive when the matched expression has a known enum type.
+
+Backed enums cannot carry payloads:
+
+```echo
+enum Bad: string {
+    Ok(value: string) = "ok" // reject
+}
+```
+
+Backing values are scalar identity, while payloads are runtime data; mixing them would make enum identity ambiguous.
+
+Enum declaration shape:
+
+```text
+EnumDecl
+  name
+  generic_params?
+  backing_type?: string | int
+  cases: EnumCase[]
+
+EnumCase
+  name
+  backing_value?: scalar
+  payload?: positional types | named fields
+```
+
+Semantic validation:
+
+```text
+If enum has backing_type:
+  every case must have a valid backing scalar
+  no case may have payload fields
+  backing type must be string or int
+
+If enum has payload cases:
+  enum is Echo-native algebraic enum
+  no scalar backing
+  match can destructure payloads
+
+If enum has neither:
+  enum is a pure singleton enum
+```
+
+This model keeps PHP enum compatibility while letting Echo use algebraic enums for `Option`, `Result`, typed errors, protocol states, parser states, and AST nodes.
+
+## Ranges
+
+Ranges are iterable values inferred from range literals:
+
+```echo
+let $ids = 1..30
+
+for $id in $ids {
+    echo $id
+}
+```
+
+The literal creates a `range<int>` value that can be consumed anywhere an iterable is accepted.
+
+Conceptual shape:
+
+```text
+Range<T> {
+    start: T
+    end: T
+    step: T
+    inclusive: bool
+}
+```
+
+The range value records the bounds and step without eagerly allocating a list or array.
+
+## Slices
+
+Slices are bounded views over array storage:
+
+```echo
+let $items: array<string> = ["draft", "published", "archived"]
+let $visible = $items[:2]
+```
+
+The slice expression should preserve bounds information and avoid copying when the runtime representation allows a borrowed or view-backed slice.
+
+## Buffers
+
+Buffers are byte-oriented values constructed from prefixed string literals:
+
+```echo
+let $signature = x"AABBEE"
+let $payload = b"regular bytes"
+let $mask = bb"1111_0001"
+let $text = u"unicode"
+let $wide = uu"Unicode 16"
+```
+
+The prefixes describe the literal decoding rule and produce buffer/string-family values without overloading plain strings.
+
 ## Objects And Shapes
 
 Strict Echo uses structural objects for named-field data.
 
 Type syntax:
 
-```php
+```echo
 type User = {
     const id: int
     email: string
@@ -417,8 +571,8 @@ This type alias defines named structural data with required, optional, and immut
 
 Value syntax:
 
-```php
-let User $user = User {
+```echo
+let $user: User = User {
     id: 1
     email: "a@example.com"
 }
@@ -428,33 +582,33 @@ The constructor shape makes the intended structural type explicit while keeping 
 
 Field access:
 
-```php
-echo $user.email;
+```echo
+echo $user.email
 ```
 
 Dot access is the strict-mode path for structural fields and should power IDE definition and hover on object shapes.
 
 Field mutation:
 
-```php
-$user.email = "b@example.com";
-$user.displayName = "Chris";
+```echo
+$user.email = "b@example.com"
+$user.displayName = "Chris"
 ```
 
 These writes are valid because the fields are declared and mutable after construction.
 
 Reject unknown fields:
 
-```php
-$user.unknown = true;
-echo $user.unknown;
+```echo
+$user.unknown = true
+echo $user.unknown
 ```
 
 Unknown fields are hard errors so structural objects stay closed and typo-resistant.
 
 Objects are mutable by default. A field is immutable only when declared `const`.
 
-```php
+```echo
 type Person = {
     const id: int
     name: string
@@ -466,23 +620,23 @@ This declaration illustrates the default: `name` and `age` are mutable, while `i
 
 Valid:
 
-```php
-let Person $p = Person {
+```echo
+let $p: Person = Person {
     id: 1
     name: "Chris"
 }
 
-$p.name = "Echo";
-$p.age = 36;
+$p.name = "Echo"
+$p.age = 36
 ```
 
 The valid writes show mutable required and optional fields being updated after construction.
 
 Reject:
 
-```php
-$p.id = 2;        // const field
-$p.email = "..."; // non-existing field
+```echo
+$p.id = 2        // const field
+$p.email = "..." // non-existing field
 ```
 
 These rejections cover the two main object safety checks: const fields cannot be reassigned and undeclared fields cannot appear.
@@ -507,7 +661,7 @@ The meaning block is the semantic contract for construction checking and later f
 
 Const optional fields are construction-only:
 
-```php
+```echo
 type Options = {
     const requestId?: string
     retries?: int
@@ -517,8 +671,8 @@ let $opts: Options = Options {
     requestId: "abc"
 }
 
-let $empty: Options = {};
-$empty.requestId = "abc"; // reject
+let $empty: Options = {}
+$empty.requestId = "abc" // reject
 ```
 
 This example shows that optionality controls presence, while `const` still controls whether later assignment is allowed.
@@ -618,11 +772,11 @@ Syntax:
 
 ```php
 extend list<T> as $list {
-    function push(T $value): void {
+    fn push(T $value): void {
         // implementation
     }
 
-    function pop(): ?T {
+    fn pop(): ?T {
         // implementation
     }
 }
@@ -634,7 +788,7 @@ Receiver binding is explicit through `as $name`:
 
 ```php
 extend UserList as $users {
-    function active(): UserList {
+    fn active(): UserList {
         // implementation
     }
 }
@@ -646,7 +800,7 @@ Using `$this` is allowed only when explicitly bound:
 
 ```php
 extend UserList as $this {
-    function active(): UserList {
+    fn active(): UserList {
         // $this is the receiver because the block declared it
     }
 }
@@ -696,7 +850,7 @@ Classes continue to use PHP-style `->`:
 
 ```php
 class User {
-    function save(): void {
+    pub fn save(): void {
         // ...
     }
 }
@@ -775,7 +929,7 @@ let $user: User = User {
 }
 
 extend list<T> as $list {
-    function pop(): ?T {
+    fn pop(): ?T {
         // placeholder
     }
 }

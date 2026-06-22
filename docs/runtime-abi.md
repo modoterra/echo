@@ -106,7 +106,7 @@ The first HTTP server should be written as an Echo program using `echo_std`, not
 
 Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: codegen depends on the small core runtime ABI, PHP-compatible functions use `echo_php_*`, Echo-native library APIs live in `echo_std`, optional modules use `echo_ext_*`, and runtime internals stay private.
 
-Trusted stdlib Echo source may declare intrinsic functions and methods. Those declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` ABI symbols.
+Trusted stdlib Echo source may declare intrinsic `fn` functions and methods. Public class methods use `pub fn` or `pub intrinsic fn`; unprefixed Echo class methods are private by default. Those declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` ABI symbols.
 
 Trusted stdlib source declares modules with `namespace std ...`, for example `namespace std net`. This is a stdlib module declaration, not a PHP namespace declaration.
 
