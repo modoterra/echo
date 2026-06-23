@@ -729,6 +729,9 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections/sequence.rs)
       add_changed_check "runtime-collections-sequence"
       ;;
+    crates/echo_runtime/src/runtime_tests/collections/sequence.rs)
+      add_changed_check "runtime-collections-sequence"
+      ;;
     crates/echo_runtime/src/runtime_tests/string_search/matches.rs)
       add_changed_check "runtime-tests-string-search-matches"
       ;;
@@ -1268,6 +1271,8 @@ run_script_tests() {
     crates/echo_runtime/src/string/sequence.rs
   assert_routing "runtime collection sequence routes focused checks" "runtime-collections-sequence" \
     crates/echo_runtime/src/collections/sequence.rs
+  assert_routing "runtime collection sequence tests route focused checks" "runtime-collections-sequence" \
+    crates/echo_runtime/src/runtime_tests/collections/sequence.rs
   assert_routing "runtime collection keys routes focused checks" "runtime-collections-keys" \
     crates/echo_runtime/src/collections/keys.rs
   assert_routing "runtime collection key tests route focused checks" "runtime-collections-keys" \
