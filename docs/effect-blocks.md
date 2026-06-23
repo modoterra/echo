@@ -67,7 +67,7 @@ $account = effect {
 }
 ```
 
-This workflow shows the compiler-owned short-circuit boundary: each assignment either binds the successful inner value or exits the effect.
+This example shows the compiler-owned short-circuit boundary: each assignment either binds the successful inner value or exits the effect.
 
 For optional values, this behaves like:
 

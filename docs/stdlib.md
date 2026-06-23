@@ -111,7 +111,7 @@ than PHP's mutable `DateTime` model. The design target is documented in
 [Echo Standard Library Time Foundation](time-foundation.md).
 
 ```echo
-use std time
+from std use time
 
 time.sleep(500ms)
 
@@ -316,7 +316,7 @@ Examples:
 - `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
 - `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.
 
-Working-directory helpers let a script run a small relative-path workflow from a known directory and then restore the caller's location:
+Working-directory helpers let a script run a small relative-path task from a known directory and then restore the caller's location:
 
 ```php
 let $start = getcwd()
@@ -377,7 +377,7 @@ echo "export-row:" . implode("|", $exportRow) . "\n";
 echo "total:" . $lineTotal . "\n";
 ```
 
-Use `array_fill_keys()` to turn an allow-list into a keyed lookup or counter map, such as initializing every supported status to zero before counting imported rows. Use `array_fill()` when a fixed-width import or export row needs placeholder values without spelling out the same empty field repeatedly. `array_pad()` is useful when an imported row has fewer fields than the header and needs explicit empty trailing fields before validation. `array_combine()` can then turn the header list and normalized values into a keyed row, so downstream code reads `$importFields["quantity"]` instead of relying on a fragile numeric column offset. `array_replace()` applies imported values over a keyed default row while preserving the required field order, which is useful before validation or templated output. `array_merge()` is better for numeric export rows where later segments should be appended and reindexed, such as adding a derived leading column before the normalized row values. `array_key_exists()` is the right guard before reading required fields because it still succeeds when a present field intentionally contains `null`. `array_key_first()` and `array_key_last()` let a caller inspect the shape of an ordered row without allocating the full key list. Use `in_array(..., true)` for allow-lists such as statuses or required columns so strings like `"0"` are not treated as the same value as `0`. `array_search(..., true)` is useful when a workflow needs the first position of a required header, while keeping the `false` miss case distinct from a real key such as `0`. `array_count_values()` turns a cleaned list of status strings into a frequency table for summaries or import validation. `array_slice()` is useful for taking a display window such as the first few visible columns without mutating the full header list. `array_chunk()` breaks a normalized row into review-sized batches, which fits paged validation screens, multi-column summaries, or rate-limited downstream writes. `array_keys()` is still useful when a caller needs every label, `array_values()` prepares keyed rows for numeric-index consumers, and `array_reverse()` can derive a display order such as showing the last column first without mutating the original row. `array_flip()` is useful when an ordered header list needs fast name-to-position lookup, such as finding the `status` column in imported CSV data; duplicate labels keep the latest original key, matching PHP. `array_sum()` or `array_product()` handle small numeric reductions such as totals, weights, or price times quantity.
+Use `array_fill_keys()` to turn an allow-list into a keyed lookup or counter map, such as initializing every supported status to zero before counting imported rows. Use `array_fill()` when a fixed-width import or export row needs placeholder values without spelling out the same empty field repeatedly. `array_pad()` is useful when an imported row has fewer fields than the header and needs explicit empty trailing fields before validation. `array_combine()` can then turn the header list and normalized values into a keyed row, so downstream code reads `$importFields["quantity"]` instead of relying on a fragile numeric column offset. `array_replace()` applies imported values over a keyed default row while preserving the required field order, which is useful before validation or templated output. `array_merge()` is better for numeric export rows where later segments should be appended and reindexed, such as adding a derived leading column before the normalized row values. `array_key_exists()` is the right guard before reading required fields because it still succeeds when a present field intentionally contains `null`. `array_key_first()` and `array_key_last()` let a caller inspect the shape of an ordered row without allocating the full key list. Use `in_array(..., true)` for allow-lists such as statuses or required columns so strings like `"0"` are not treated as the same value as `0`. `array_search(..., true)` is useful when code needs the first position of a required header, while keeping the `false` miss case distinct from a real key such as `0`. `array_count_values()` turns a cleaned list of status strings into a frequency table for summaries or import validation. `array_slice()` is useful for taking a display window such as the first few visible columns without mutating the full header list. `array_chunk()` breaks a normalized row into review-sized batches, which fits paged validation screens, multi-column summaries, or rate-limited downstream writes. `array_keys()` is still useful when a caller needs every label, `array_values()` prepares keyed rows for numeric-index consumers, and `array_reverse()` can derive a display order such as showing the last column first without mutating the original row. `array_flip()` is useful when an ordered header list needs fast name-to-position lookup, such as finding the `status` column in imported CSV data; duplicate labels keep the latest original key, matching PHP. `array_sum()` or `array_product()` handle small numeric reductions such as totals, weights, or price times quantity.
 
 Filesystem metadata helpers can be combined to validate a user-provided path before using it in a generated response:
 
@@ -389,7 +389,7 @@ echo "readable:" . is_readable($report) . "\n"
 echo "bytes:" . filesize($report) . "\n"
 ```
 
-This workflow uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to derive the public-facing file name from the validated path. That is the common job for `basename()`: keep server paths such as `/srv/app/data/report.csv` internal while deriving a download label, audit-log value, import summary entry, or `Content-Disposition` filename such as `report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
+This example uses `realpath()` to collapse `..` segments before display or logging, then uses `basename()` to derive the public-facing file name from the validated path. That is the common job for `basename()`: keep server paths such as `/srv/app/data/report.csv` internal while deriving a download label, audit-log value, import summary entry, or `Content-Disposition` filename such as `report.csv`. `is_readable()` and `filesize()` provide the metadata a caller would normally check before linking or serving the file.
 
 URL encoding helpers are split by the part of the URL being built:
 
@@ -402,7 +402,7 @@ echo "/teams/" . $department . "?" . $query . "\n"
 
 Use `rawurlencode()` for path segments so spaces become `%20` and embedded slashes are protected as `%2F`. Use `urlencode()` for form-style query values where spaces are conventionally written as `+`; decoding mirrors that distinction with `rawurldecode()` preserving literal plus signs and `urldecode()` turning them back into spaces.
 
-Checksum and digest helpers turn a byte string into compact identifiers for compatibility workflows:
+Checksum and digest helpers turn a byte string into compact identifiers for compatibility code:
 
 ```php
 let $payload = "Echo\nPHP"
@@ -484,7 +484,7 @@ echo "diagonal:" . $diagonal . "\n"
 
 Use `ceil()` when a partial unit still needs a whole allocation, such as enough tiles, pages, or batches to cover all input. Use `floor()` when extra fractional capacity should be ignored, and use `sqrt()` or `hypot()` for geometry, distance checks, and vector lengths without open-coding the square-root calculation.
 
-Float conversion and remainder helpers make user-provided scalar settings usable in recurring numeric workflows:
+Float conversion and remainder helpers make user-provided scalar settings usable in recurring numeric code:
 
 ```php
 let $interval = floatval("2.5 seconds")

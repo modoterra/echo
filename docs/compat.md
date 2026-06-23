@@ -490,7 +490,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `putenv` | implemented | Sets `NAME=value` entries in the current process environment and removes a variable when passed a bare name; request-lifetime restoration is deferred to process lifetime. Source: https://www.php.net/manual/en/function.putenv.php |
 | `quoted_printable_decode` | implemented | Decodes quoted-printable `=XX` byte escapes and soft line breaks according to the scalar string path. Source: https://www.php.net/manual/en/function.quoted-printable-decode.php |
 | `quoted_printable_encode` | implemented | Encodes bytes outside the printable quoted-printable range as uppercase `=XX`; RFC line wrapping and trailing-space line handling are deferred. Source: https://www.php.net/manual/en/function.quoted-printable-encode.php |
-| `quotemeta` | implemented | Prefixes regular expression metacharacters with backslashes for literal matching workflows. Source: https://www.php.net/manual/en/function.quotemeta.php |
+| `quotemeta` | implemented | Prefixes regular expression metacharacters with backslashes for literal matching tasks. Source: https://www.php.net/manual/en/function.quotemeta.php |
 | `rad2deg` | implemented | Converts radians to degrees using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.rad2deg.php |
 | `range` | missing |  |
 | `rawurldecode` | implemented | Decodes `%XX` byte escapes without converting `+` to a space. Source: https://www.php.net/manual/en/function.rawurldecode.php |

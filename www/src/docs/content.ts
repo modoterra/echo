@@ -809,8 +809,7 @@ export const builtinFamilies: BuiltinFamily[] = [
   {
     slug: "hashes",
     title: "Hashes and Checksums",
-    description:
-      "Hash and checksum functions create compact identifiers for compatibility workflows.",
+    description: "Hash and checksum functions create compact identifiers for compatibility code.",
     builtins: [
       {
         name: "crc32",
@@ -2738,11 +2737,11 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "quoted_printable_encode",
-    "Use `quoted_printable_encode()` when a mail or MIME workflow needs mostly readable text while still escaping bytes such as `=` and line breaks for transfer.",
+    "Use `quoted_printable_encode()` when a mail or MIME payload needs mostly readable text while still escaping bytes such as `=` and line breaks for transfer.",
   ],
   [
     "quoted_printable_decode",
-    "Use `quoted_printable_decode()` at the input boundary for stored mail parts or MIME payloads so the rest of the workflow sees the original byte string.",
+    "Use `quoted_printable_decode()` at the input boundary for stored mail parts or MIME payloads so later code sees the original byte string.",
   ],
   [
     "nl2br",
@@ -2762,11 +2761,11 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "file_exists",
-    "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing deeper in the workflow.",
+    "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing later.",
   ],
   [
     "crc32",
-    "Use `crc32()` when an existing PHP workflow expects a compact checksum for duplicate detection, export validation, or quick corruption checks. It is intentionally small and fast, so keep it out of security-sensitive decisions.",
+    "Use `crc32()` when existing PHP code expects a compact checksum for duplicate detection, export validation, or quick corruption checks. It is intentionally small and fast, so keep it out of security-sensitive decisions.",
   ],
   [
     "md5",
@@ -2798,7 +2797,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "filectime",
-    "Use `filectime()` when permission, owner, or other inode metadata changes matter to an audit or cache invalidation workflow. It is not a portable creation timestamp.",
+    "Use `filectime()` when permission, owner, or other inode metadata changes matter to an audit or cache invalidation. It is not a portable creation timestamp.",
   ],
   [
     "filemtime",
@@ -2826,7 +2825,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "fdiv",
-    "Use `fdiv()` when a metric should keep IEEE floating-point behavior at boundary values, such as reporting `INF` for a saturated ratio instead of throwing away the rest of a reporting workflow.",
+    "Use `fdiv()` when a metric should keep IEEE floating-point behavior at boundary values, such as reporting `INF` for a saturated ratio instead of throwing away the rest of a reporting path.",
   ],
   [
     "fpow",
@@ -2834,7 +2833,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "file_get_contents",
-    "Use `file_get_contents()` when a workflow needs the whole local file or a bounded slice in memory, such as previewing a report header, loading a small JSON config, or checking the tail of a log.",
+    "Use `file_get_contents()` when code needs the whole local file or a bounded slice in memory, such as previewing a report header, loading a small JSON config, or checking the tail of a log.",
   ],
   [
     "file_put_contents",
@@ -2846,7 +2845,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "sys_get_temp_dir",
-    "Use `sys_get_temp_dir()` when a workflow needs a scratch location without hard-coding `/tmp`, such as staging uploads, exports, or generated reports before moving them into application storage.",
+    "Use `sys_get_temp_dir()` when code needs a scratch location without hard-coding `/tmp`, such as staging uploads, exports, or generated reports before moving them into application storage.",
   ],
   [
     "tempnam",
@@ -2854,7 +2853,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "readlink",
-    "Use `readlink()` when a deployment, cache, or storage workflow represents the active version as a symbolic link and needs to report or validate the stored target.",
+    "Use `readlink()` when a deployment, cache, or storage layout represents the active version as a symbolic link and needs to report or validate the stored target.",
   ],
   [
     "link",
@@ -2866,7 +2865,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "touch",
-    "Use `touch()` when a workflow needs a marker file or a controlled modification timestamp, such as recording that generated cache contents are fresh.",
+    "Use `touch()` when code needs a marker file or a controlled modification timestamp, such as recording that generated cache contents are fresh.",
   ],
   [
     "copy",
@@ -2890,7 +2889,7 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   [
     "putenv",
-    "Use `putenv()` when a current process needs to pass a derived setting to later environment-aware work. It changes process environment state, so keep the assignment close to the workflow that needs it.",
+    "Use `putenv()` when the current process needs to pass a derived setting to later environment-aware work. It changes process environment state, so keep the assignment close to the code that needs it.",
   ],
   [
     "gethostname",
@@ -2912,6 +2911,605 @@ export const builtinExampleNotes = new Map<string, string>([
     "realpath",
     "Use `realpath()` to collapse relative segments before logging, serving, or comparing paths. The example keeps internal directory traversal out of the final display name by pairing it with `basename()`.",
   ],
+  [
+    "strlen",
+    "Use `strlen()` when byte length matters for protocol frames, upload limits, or fixed-width validation rather than user-visible character count.",
+  ],
+  [
+    "strtoupper",
+    "Use `strtoupper()` to normalize ASCII-style identifiers, status codes, or case-insensitive labels before comparison or display.",
+  ],
+  [
+    "strtolower",
+    "Use `strtolower()` to canonicalize email domains, flags, or lookup keys before storing or comparing them.",
+  ],
+  [
+    "ucwords",
+    "Use `ucwords()` for human-facing titles where each word should begin with an uppercase letter, such as headings or generated labels.",
+  ],
+  [
+    "ucfirst",
+    "Use `ucfirst()` when a single status, sentence, or label needs an initial capital without changing the rest of the string.",
+  ],
+  [
+    "lcfirst",
+    "Use `lcfirst()` to turn class-like or title-cased labels into lower-camel-style field names while leaving later characters untouched.",
+  ],
+  [
+    "strrev",
+    "Use `strrev()` for byte-order transformations such as simple palindrome checks, suffix handling, or legacy formats that store text reversed.",
+  ],
+  [
+    "str_rot13",
+    "Use `str_rot13()` only for PHP-compatible ROT13 text transformations such as old fixtures, examples, or reversible non-secret obfuscation.",
+  ],
+  [
+    "ord",
+    "Use `ord()` when a parser or binary format needs the numeric value of the first byte in a string.",
+  ],
+  [
+    "chr",
+    "Use `chr()` to build a one-byte string from a numeric code, such as constructing separators, control bytes, or protocol markers.",
+  ],
+  [
+    "bin2hex",
+    "Use `bin2hex()` when raw bytes need a printable lowercase hexadecimal representation for logs, manifests, or fixtures.",
+  ],
+  [
+    "hex2bin",
+    "Use `hex2bin()` when a hexadecimal fixture, digest, or protocol field must be converted back to raw bytes.",
+  ],
+  [
+    "base64_encode",
+    "Use `base64_encode()` to carry binary data through text-only fields such as JSON payloads, headers, or form values.",
+  ],
+  [
+    "base64_decode",
+    "Use `base64_decode()` at input boundaries where text payloads need to become bytes again before validation or parsing.",
+  ],
+  [
+    "trim",
+    "Use `trim()` to remove surrounding whitespace from input values such as emails, IDs, or CSV cells before validation.",
+  ],
+  [
+    "ltrim",
+    "Use `ltrim()` when only leading padding or indentation should be removed while preserving meaningful trailing characters.",
+  ],
+  [
+    "rtrim",
+    "Use `rtrim()` for line-oriented input where trailing newlines or separators should be removed without touching leading spacing.",
+  ],
+  [
+    "addslashes",
+    "Use `addslashes()` for PHP-compatible escaping of quotes, backslashes, and NUL bytes when legacy code expects that exact format.",
+  ],
+  [
+    "stripslashes",
+    "Use `stripslashes()` to decode strings that were previously escaped with PHP slash escaping before comparison or display.",
+  ],
+  [
+    "quotemeta",
+    "Use `quotemeta()` when user text should be treated as literal regex text by escaping regexp metacharacters.",
+  ],
+  [
+    "str_contains",
+    "Use `str_contains()` to make substring gates read directly, such as checking whether a token, delimiter, or marker is present before parsing further.",
+  ],
+  [
+    "str_starts_with",
+    "Use `str_starts_with()` for prefix routing, feature flags, or path checks where only the beginning of the string should decide the branch.",
+  ],
+  [
+    "str_ends_with",
+    "Use `str_ends_with()` for suffix checks such as file extensions, generated IDs, or sentinel markers at the end of a value.",
+  ],
+  [
+    "str_repeat",
+    "Use `str_repeat()` to build predictable padding, separators, masks, or fixed-width placeholders from a known unit string.",
+  ],
+  [
+    "str_pad",
+    "Use `str_pad()` when values need a fixed display width, such as report columns, numeric codes, or aligned console output.",
+  ],
+  [
+    "str_split",
+    "Use `str_split()` when a byte string needs to be processed in equal chunks, such as grouping short codes or fixed-width records.",
+  ],
+  [
+    "chunk_split",
+    "Use `chunk_split()` for compatibility formatting that inserts separators at regular byte intervals, such as wrapped encoded payloads.",
+  ],
+  [
+    "substr",
+    "Use `substr()` when a field is located by byte offset, such as protocol headers, fixed-width exports, or known prefixes.",
+  ],
+  [
+    "strpos",
+    "Use `strpos()` when the first byte position of a case-sensitive token decides how to split or validate a string.",
+  ],
+  [
+    "stripos",
+    "Use `stripos()` when token position matters but user capitalization should not affect the result.",
+  ],
+  [
+    "strrpos",
+    "Use `strrpos()` to find the last occurrence of a separator, such as splitting a path, identifier, or dotted name at its final boundary.",
+  ],
+  [
+    "strripos",
+    "Use `strripos()` for the last position of a token when capitalization varies, such as case-insensitive extension or header parsing.",
+  ],
+  [
+    "strstr",
+    "Use `strstr()` to keep the tail of a string from the first delimiter onward, especially when the delimiter itself remains meaningful.",
+  ],
+  [
+    "strchr",
+    "Use `strchr()` as the PHP alias for `strstr()` when maintaining code that already uses the C-style name.",
+  ],
+  [
+    "stristr",
+    "Use `stristr()` when extracting a tail after a marker but the marker may arrive in different capitalization.",
+  ],
+  [
+    "strrchr",
+    "Use `strrchr()` to keep the final suffix beginning at a separator, such as the last extension or namespace segment.",
+  ],
+  [
+    "strpbrk",
+    "Use `strpbrk()` when any one of several delimiter characters can start the interesting part of a string.",
+  ],
+  [
+    "strspn",
+    "Use `strspn()` to measure a leading run of allowed bytes before validating or slicing a token.",
+  ],
+  [
+    "strcspn",
+    "Use `strcspn()` to measure how much text appears before the first forbidden byte or delimiter.",
+  ],
+  [
+    "substr_count",
+    "Use `substr_count()` to count fixed markers such as separators, placeholders, or line tokens before choosing a parser branch.",
+  ],
+  [
+    "substr_compare",
+    "Use `substr_compare()` when a specific byte range must be compared without first allocating a separate substring.",
+  ],
+  [
+    "strcmp",
+    "Use `strcmp()` for exact binary-safe ordering or equality checks where PHP's string comparison result is part of compatibility behavior.",
+  ],
+  [
+    "strcasecmp",
+    "Use `strcasecmp()` for case-insensitive ordering of ASCII-style labels such as headers, command names, or status values.",
+  ],
+  [
+    "strncmp",
+    "Use `strncmp()` when only a fixed leading byte range should participate in an exact comparison.",
+  ],
+  [
+    "strncasecmp",
+    "Use `strncasecmp()` for case-insensitive prefix comparison without slicing the input first.",
+  ],
+  [
+    "explode",
+    "Use `explode()` to turn a delimited field into parts before validating count, order, and required values.",
+  ],
+  [
+    "implode",
+    "Use `implode()` to serialize already validated values into a delimiter-separated label, path segment, or report row.",
+  ],
+  [
+    "join",
+    "Use `join()` as the PHP alias for `implode()` when compatibility code already describes concatenating an array of parts.",
+  ],
+  [
+    "rawurlencode",
+    "Use `rawurlencode()` for RFC 3986 path or query components where spaces should become `%20` rather than `+`.",
+  ],
+  [
+    "rawurldecode",
+    "Use `rawurldecode()` when RFC 3986 percent-encoded data should be decoded without treating plus signs as spaces.",
+  ],
+  [
+    "urlencode",
+    "Use `urlencode()` for classic form-style query values where spaces are encoded as `+` for PHP compatibility.",
+  ],
+  [
+    "urldecode",
+    "Use `urldecode()` for form-style query values where both percent escapes and `+` space encoding must be interpreted.",
+  ],
+  [
+    "array_is_list",
+    "Use `array_is_list()` to distinguish sequential list-shaped arrays from keyed maps before encoding, merging, or validating payload shape.",
+  ],
+  [
+    "array_values",
+    "Use `array_values()` to reindex a filtered or keyed array when downstream code expects consecutive numeric positions.",
+  ],
+  [
+    "array_keys",
+    "Use `array_keys()` when the key set itself is the data, such as validating required fields or building a column header list.",
+  ],
+  [
+    "array_fill",
+    "Use `array_fill()` to initialize a positional array with the same default value before filling selected slots.",
+  ],
+  [
+    "array_fill_keys",
+    "Use `array_fill_keys()` to turn a known key list into a lookup table with a shared initial value.",
+  ],
+  [
+    "array_combine",
+    "Use `array_combine()` when separate key and value columns have already been validated to have matching lengths.",
+  ],
+  [
+    "array_pad",
+    "Use `array_pad()` to extend short positional data to a required width while preserving the original values.",
+  ],
+  [
+    "array_slice",
+    "Use `array_slice()` to take a page, preview, or bounded segment from an array without mutating the original collection.",
+  ],
+  [
+    "array_chunk",
+    "Use `array_chunk()` to batch values into fixed-size groups for reports, queue dispatch, or paginated display.",
+  ],
+  [
+    "array_merge",
+    "Use `array_merge()` when appending list values or layering associative defaults should follow PHP's merge rules.",
+  ],
+  [
+    "array_replace",
+    "Use `array_replace()` when later arrays should override values at the same keys while preserving unrelated entries.",
+  ],
+  [
+    "array_reverse",
+    "Use `array_reverse()` for newest-first displays, backtracking steps, or stack-like presentation without changing the source array.",
+  ],
+  [
+    "array_flip",
+    "Use `array_flip()` to convert a list of allowed scalar values into a fast membership lookup by key.",
+  ],
+  [
+    "array_count_values",
+    "Use `array_count_values()` to summarize repeated scalar values such as tags, statuses, or codes into frequency counts.",
+  ],
+  [
+    "array_key_exists",
+    "Use `array_key_exists()` when the distinction between a missing key and a present key with `null` matters.",
+  ],
+  [
+    "key_exists",
+    "Use `key_exists()` as the PHP alias for `array_key_exists()` when maintaining older code that uses the shorter name.",
+  ],
+  [
+    "array_key_first",
+    "Use `array_key_first()` to inspect insertion order without rewinding or mutating the array pointer.",
+  ],
+  [
+    "array_key_last",
+    "Use `array_key_last()` to find the most recently appended or final configured key without iterating manually.",
+  ],
+  [
+    "in_array",
+    "Use `in_array()` for membership checks against a small value list, especially when strict comparison protects numeric strings from coercion.",
+  ],
+  [
+    "array_search",
+    "Use `array_search()` when membership is not enough and the matching key must be used for a later update or diagnostic.",
+  ],
+  [
+    "array_sum",
+    "Use `array_sum()` to total numeric columns such as quantities, durations, or invoice lines after validating the array contents.",
+  ],
+  [
+    "array_product",
+    "Use `array_product()` for multiplicative totals such as scale factors, probabilities, or repeated quantity multipliers.",
+  ],
+  [
+    "count",
+    "Use `count()` to validate collection size, enforce limits, or explain how many records will be processed.",
+  ],
+  [
+    "sizeof",
+    "Use `sizeof()` as the PHP alias for `count()` when compatibility code uses that spelling for collection length.",
+  ],
+  [
+    "gettype",
+    "Use `gettype()` in diagnostics and compatibility branches where PHP's textual type name is the expected output.",
+  ],
+  [
+    "is_array",
+    "Use `is_array()` before array-specific operations so scalar inputs can be rejected with a clear validation message.",
+  ],
+  [
+    "is_countable",
+    "Use `is_countable()` before calling `count()` on dynamic input that might be a scalar, object, or collection.",
+  ],
+  [
+    "is_iterable",
+    "Use `is_iterable()` before a `foreach`-style path so arrays and traversable values are accepted while scalars are rejected.",
+  ],
+  [
+    "is_numeric",
+    "Use `is_numeric()` to accept strings that PHP can treat as numbers while still rejecting arbitrary text before conversion.",
+  ],
+  [
+    "is_null",
+    "Use `is_null()` when a present `null` has different meaning from false, zero, an empty string, or a missing field.",
+  ],
+  [
+    "is_bool",
+    "Use `is_bool()` to keep configuration flags or decoded payload fields from accepting stringy truth values accidentally.",
+  ],
+  [
+    "is_int",
+    "Use `is_int()` when fractional numbers and numeric strings must be rejected before arithmetic or indexing.",
+  ],
+  [
+    "is_integer",
+    "Use `is_integer()` as the PHP alias for `is_int()` in codebases that use the longer integer spelling.",
+  ],
+  [
+    "is_long",
+    "Use `is_long()` as the PHP alias for `is_int()` when porting older PHP code that names integer checks this way.",
+  ],
+  [
+    "is_float",
+    "Use `is_float()` when decimal numeric values should be accepted but integers, strings, and booleans should not.",
+  ],
+  [
+    "is_double",
+    "Use `is_double()` as the PHP alias for `is_float()` in compatibility code that still uses double terminology.",
+  ],
+  [
+    "is_finite",
+    "Use `is_finite()` to reject `INF`, `-INF`, and `NAN` before persisting metrics or using values in comparisons.",
+  ],
+  [
+    "is_infinite",
+    "Use `is_infinite()` to branch on saturated calculations such as divide-by-zero ratios without confusing them with ordinary large values.",
+  ],
+  [
+    "is_nan",
+    "Use `is_nan()` to catch invalid floating-point results that are not equal to themselves and should not be sorted or serialized as normal numbers.",
+  ],
+  [
+    "is_object",
+    "Use `is_object()` when dynamic data must expose object behavior before property access or method dispatch.",
+  ],
+  [
+    "is_resource",
+    "Use `is_resource()` for legacy PHP APIs that return handles and need to be checked before reads, writes, or cleanup.",
+  ],
+  [
+    "is_string",
+    "Use `is_string()` before string parsing, trimming, or length checks on mixed input from configuration or decoded payloads.",
+  ],
+  [
+    "is_scalar",
+    "Use `is_scalar()` when only simple printable values such as booleans, integers, floats, and strings should pass through.",
+  ],
+  [
+    "strval",
+    "Use `strval()` when PHP-compatible string coercion is required before concatenation, logging, or building keys.",
+  ],
+  [
+    "boolval",
+    "Use `boolval()` when compatibility code needs PHP truthiness as an explicit value rather than an implicit branch condition.",
+  ],
+  [
+    "intval",
+    "Use `intval()` to apply PHP integer conversion deliberately before indexing, limiting, or serializing a numeric setting.",
+  ],
+  [
+    "floatval",
+    "Use `floatval()` when a numeric string or scalar should enter floating-point math using PHP conversion rules.",
+  ],
+  [
+    "doubleval",
+    "Use `doubleval()` as the PHP alias for `floatval()` where older code uses double wording for floating conversion.",
+  ],
+  [
+    "abs",
+    "Use `abs()` to normalize signed differences, offsets, or deltas before comparing magnitudes.",
+  ],
+  [
+    "bindec",
+    "Use `bindec()` to decode binary text fields from flags, permissions, or protocol fixtures into numeric values.",
+  ],
+  [
+    "decbin",
+    "Use `decbin()` when a number needs a binary text representation for debugging masks, permissions, or protocol examples.",
+  ],
+  [
+    "dechex",
+    "Use `dechex()` to display numeric IDs, colors, masks, or digests in lowercase hexadecimal form.",
+  ],
+  ["decoct", "Use `decoct()` when permissions or legacy fields should be shown in octal notation."],
+  [
+    "hexdec",
+    "Use `hexdec()` to parse hexadecimal user input, color components, or protocol values into numbers.",
+  ],
+  [
+    "octdec",
+    "Use `octdec()` to parse octal permission strings or legacy base-8 fields before numeric comparison.",
+  ],
+  [
+    "base_convert",
+    "Use `base_convert()` when compatibility code needs to move textual numbers between uncommon bases without custom parsing.",
+  ],
+  [
+    "deg2rad",
+    "Use `deg2rad()` before passing user-facing degree values into trigonometric functions that expect radians.",
+  ],
+  [
+    "rad2deg",
+    "Use `rad2deg()` after trigonometric or geometry calculations when the displayed result should be in degrees.",
+  ],
+  [
+    "sin",
+    "Use `sin()` for periodic calculations such as wave positions, rotations, or geometry where the input angle is in radians.",
+  ],
+  [
+    "cos",
+    "Use `cos()` for horizontal components, projections, or periodic offsets based on a radian angle.",
+  ],
+  [
+    "tan",
+    "Use `tan()` for slope or tangent calculations from a radian angle, with caller checks near vertical asymptotes.",
+  ],
+  [
+    "asin",
+    "Use `asin()` to recover an angle from a sine ratio after ensuring the input is inside `-1..1`.",
+  ],
+  [
+    "acos",
+    "Use `acos()` to recover an angle from a cosine ratio, commonly after clamping floating-point drift back into range.",
+  ],
+  [
+    "atan",
+    "Use `atan()` to convert a slope or ratio into a radian angle without needing a separate quadrant.",
+  ],
+  [
+    "atan2",
+    "Use `atan2()` when both coordinates are available and the result must preserve the correct quadrant.",
+  ],
+  [
+    "sinh",
+    "Use `sinh()` for hyperbolic geometry, curves, or compatibility calculations that specifically require hyperbolic sine.",
+  ],
+  [
+    "cosh",
+    "Use `cosh()` for hyperbolic cosine calculations such as catenary-style curves or PHP parity tests.",
+  ],
+  [
+    "tanh",
+    "Use `tanh()` when a value should be smoothly compressed toward `-1..1`, such as activation-like math or normalized curves.",
+  ],
+  [
+    "asinh",
+    "Use `asinh()` to invert hyperbolic sine for values across the real number line without a restricted input range.",
+  ],
+  ["acosh", "Use `acosh()` to invert hyperbolic cosine after checking the input is at least `1`."],
+  ["atanh", "Use `atanh()` to invert hyperbolic tangent for inputs strictly between `-1` and `1`."],
+  [
+    "ceil",
+    "Use `ceil()` when partial units must round upward, such as pages, billing blocks, or chunk counts.",
+  ],
+  [
+    "floor",
+    "Use `floor()` when partial units should be discarded, such as whole completed steps or lower-bound bucket numbers.",
+  ],
+  [
+    "sqrt",
+    "Use `sqrt()` for square-root calculations after validating that negative inputs are not meaningful for the domain.",
+  ],
+  [
+    "hypot",
+    "Use `hypot()` to compute Euclidean distance from components without manually squaring and summing them.",
+  ],
+  [
+    "exp",
+    "Use `exp()` for exponential growth, decay, or probability formulas based on Euler's number.",
+  ],
+  [
+    "expm1",
+    "Use `expm1()` when calculating `exp(x) - 1` for small values where direct subtraction would lose precision.",
+  ],
+  [
+    "log",
+    "Use `log()` for natural logarithms or explicit-base calculations after checking the value is positive.",
+  ],
+  [
+    "log10",
+    "Use `log10()` for orders of magnitude, decimal scaling, or digit-count style estimates.",
+  ],
+  [
+    "log1p",
+    "Use `log1p()` when calculating `log(1 + x)` for small values where direct addition would lose precision.",
+  ],
+  [
+    "pow",
+    "Use `pow()` for exponentiation in formulas where PHP-compatible numeric coercion and result typing are expected.",
+  ],
+  [
+    "pi",
+    "Use `pi()` when geometry or trigonometry code needs PHP's built-in constant value rather than a hand-written approximation.",
+  ],
+  [
+    "fmod",
+    "Use `fmod()` for floating-point remainders such as wrapping phases, positions, or cyclic measurements.",
+  ],
+  [
+    "chdir",
+    "Use `chdir()` when a script must run a group of relative-path operations from a known directory, then restore its original location.",
+  ],
+  [
+    "getcwd",
+    "Use `getcwd()` to anchor relative file operations, build diagnostics, or restore the process directory after a temporary change.",
+  ],
+  [
+    "is_dir",
+    "Use `is_dir()` before directory-specific traversal, cleanup, or creation logic so files with the same path are rejected.",
+  ],
+  [
+    "is_file",
+    "Use `is_file()` before reading or serving a path when directories, sockets, and special files are not valid inputs.",
+  ],
+  [
+    "is_link",
+    "Use `is_link()` when symlink entries need separate handling from their targets, such as release pointers or shared upload aliases.",
+  ],
+  [
+    "is_writeable",
+    "Use `is_writeable()` as the PHP alias for `is_writable()` when preserving older spelling in deployment or cache checks.",
+  ],
+  [
+    "dirname",
+    "Use `dirname()` to derive the parent directory for generated files, uploads, or path validation before creating or checking the directory.",
+  ],
+  [
+    "flush",
+    "Use `flush()` when buffered output should be pushed toward the client or next output layer during a long-running response.",
+  ],
+  [
+    "ob_flush",
+    "Use `ob_flush()` to pass the current output buffer onward while keeping the buffer active for later writes.",
+  ],
+  [
+    "ob_clean",
+    "Use `ob_clean()` to discard buffered output without ending the active buffer, useful after a render branch is rejected.",
+  ],
+  [
+    "ob_end_flush",
+    "Use `ob_end_flush()` when a buffer is complete and should be sent onward while removing that buffering layer.",
+  ],
+  [
+    "ob_end_clean",
+    "Use `ob_end_clean()` when captured output should be discarded and the buffering layer should be removed.",
+  ],
+  [
+    "ob_get_length",
+    "Use `ob_get_length()` to enforce response-size limits or decide whether a buffer has produced any bytes yet.",
+  ],
+  [
+    "ob_get_level",
+    "Use `ob_get_level()` to debug nested buffering or restore the output stack to a known depth after rendering.",
+  ],
+  [
+    "ob_implicit_flush",
+    "Use `ob_implicit_flush()` when streaming-style output should flush after each write instead of waiting for manual flush calls.",
+  ],
+  [
+    "define",
+    "Use `define()` for PHP-compatible constants that must be named dynamically or declared outside class and namespace syntax.",
+  ],
+  [
+    "microtime",
+    "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
+  ],
 ]);
 
 export const builtinFamilyBySlug = new Map(builtinFamilies.map((family) => [family.slug, family]));
@@ -2929,29 +3527,11 @@ export function builtinExample(name: string) {
 export function builtinExampleNote(builtin: BuiltinDoc) {
   const note = builtinExampleNotes.get(builtin.name);
 
-  if (note) {
-    return note;
+  if (!note) {
+    throw new Error(`Missing documentation note for PHP builtin: ${builtin.name}`);
   }
 
-  return `Use \`${builtin.name}()\` when a compatibility workflow needs to ${appliedDescription(
-    builtin.description,
-  )}. The example shows that behavior in context so the result feeds validation, formatting, or a follow-up decision instead of standing alone as a probe.`;
-}
-
-function appliedDescription(description: string) {
-  const firstSentence = description.split(".")[0] ?? description;
-  return firstSentence.replace(
-    /^(Returns?|Checks?|Converts?|Uppercases?|Lowercases?|Applies?|Escapes?|Pads?|Splits?|Joins?|Calculates?|Changes?|Gets?|Sets?|Starts?|Ends?)\b/,
-    (verb) => {
-      const lower = verb.toLowerCase();
-
-      if (lower.endsWith("s")) {
-        return lower.slice(0, -1);
-      }
-
-      return lower;
-    },
-  );
+  return note;
 }
 
 export function headingId(heading: string) {
@@ -3084,8 +3664,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Language",
     title: "Data Structures",
-    summary:
-      "Choose the right collection, record, enum, range, or byte-buffer shape.",
+    summary: "Choose the right collection, record, enum, range, or byte-buffer shape.",
     tags: [
       "data structures",
       "collections",
@@ -3316,7 +3895,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Use arrays for PHP compatibility workflows. Use Echo lists when you want an ordered Echo collection with list-specific receiver functions.",
+              "Use arrays for PHP compatibility code. Use Echo lists when you want an ordered Echo collection with list-specific receiver functions.",
             ],
           },
         ],
@@ -3472,12 +4051,12 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std time\n\nlet $timer = time.timer()\ntime.sleep(25ms)\nlet $elapsed = $timer.elapsed()\n\necho "Elapsed milliseconds: " . $elapsed.total_millis() . "\\n"',
+            code: 'from std use time\n\nlet $timer = time.timer()\ntime.sleep(25ms)\nlet $elapsed = $timer.elapsed()\n\necho "Elapsed milliseconds: " . $elapsed.total_millis() . "\\n"',
           },
           {
             kind: "paragraph",
             text: [
-              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. PHP built-ins remain available for compatibility workflows, while ",
+              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. PHP built-ins remain available for compatibility code, while ",
               { code: "std" },
               " modules mark code that intentionally targets Echo's runtime surface.",
             ],
@@ -3498,12 +4077,12 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, "received " . strlen($request) . " bytes\\n")\nnet.close($connection)',
+            code: 'from std use net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nlet $request = net.read($connection, 4096)\n\nnet.write($connection, "received " . strlen($request) . " bytes\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
             text: [
-              "This pattern keeps the listener, accepted connection, read buffer, response write, and close operation in one workflow. Prefer it for low-level TCP services where the program needs direct control over connection lifetime.",
+              "This pattern keeps the listener, accepted connection, read buffer, response write, and close operation in one request path. Prefer it for low-level TCP services where the program needs direct control over connection lifetime.",
             ],
           },
         ],
@@ -3524,7 +4103,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std http\nuse std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $response = http.responseText("ok\\n")\n\nnet.write($connection, $response)\nnet.close($connection)',
+            code: 'from std use http\nfrom std use net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $response = http.responseText("ok\\n")\n\nnet.write($connection, $response)\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3550,7 +4129,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std time\n\ntime.sleep(500ms)\n\nlet $timer = time.timer()\nrender()\n\nif ($timer.elapsed() > 16ms) {\n    echo "slow frame"\n}',
+            code: 'from std use time\n\ntime.sleep(500ms)\n\nlet $timer = time.timer()\nrender()\n\nif ($timer.elapsed() > 16ms) {\n    echo "slow frame"\n}',
           },
           {
             kind: "paragraph",
@@ -3580,7 +4159,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
+            code: 'from std use reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -3604,7 +4183,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std assert\n\nlet $payload = "signed:user-42"\nlet $parts = explode(":", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == "signed")',
+            code: 'from std use assert\n\nlet $payload = "signed:user-42"\nlet $parts = explode(":", $payload)\n\nassert.equals(count($parts), 2)\nassert.ok($parts[0] == "signed")',
           },
           {
             kind: "paragraph",
@@ -3644,7 +4223,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $server = net.listen("127.0.0.1:8080")\necho "Listening on 127.0.0.1:8080\\n"',
+            code: 'from std use net\n\nlet $server = net.listen("127.0.0.1:8080")\necho "Listening on 127.0.0.1:8080\\n"',
           },
           {
             kind: "paragraph",
@@ -3672,7 +4251,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nnet.write($connection, "ping\\n")\nnet.close($connection)',
+            code: 'from std use net\n\nlet $connection = net.connect("127.0.0.1:8080")\nnet.write($connection, "ping\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3700,7 +4279,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nnet.write($connection, "hello\\n")\nnet.close($connection)',
+            code: 'from std use net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nnet.write($connection, "hello\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3728,7 +4307,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $chunk = net.read($connection, 4096)\necho "Read " . strlen($chunk) . " bytes\\n"\nnet.close($connection)',
+            code: 'from std use net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $chunk = net.read($connection, 4096)\necho "Read " . strlen($chunk) . " bytes\\n"\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3756,7 +4335,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $written = net.write($connection, "status=ready\\n")\necho "Wrote " . $written . " bytes\\n"\nnet.close($connection)',
+            code: 'from std use net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $written = net.write($connection, "status=ready\\n")\necho "Wrote " . $written . " bytes\\n"\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3784,7 +4363,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nnet.write($connection, "done\\n")\nnet.close($connection)',
+            code: 'from std use net\n\nlet $connection = net.connect("127.0.0.1:8080")\nnet.write($connection, "done\\n")\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3824,7 +4403,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std http\nuse std net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $response = http.responseText("ok\\n")\n\nnet.write($connection, $response)\nnet.close($connection)',
+            code: 'from std use http\nfrom std use net\n\nlet $connection = net.connect("127.0.0.1:8080")\nlet $response = http.responseText("ok\\n")\n\nnet.write($connection, $response)\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -3854,7 +4433,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std http\nuse std net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nlet $request = http.readRequest($connection)\n\nnet.close($connection)',
+            code: 'from std use http\nfrom std use net\n\nlet $server = net.listen("127.0.0.1:8080")\nlet $connection = net.accept($server)\nlet $request = http.readRequest($connection)\n\nnet.close($connection)',
           },
           {
             kind: "paragraph",
@@ -4046,7 +4625,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "let $created_at = time.now()\nlet $expires_at = $created_at + 30d\n\nif (time.now() >= $expires_at) {\n    echo \"expired\"\n}\n\nlet $start = time.monotonic()\nwork()\nlet $elapsed = time.monotonic() - $start",
+            code: 'let $created_at = time.now()\nlet $expires_at = $created_at + 30d\n\nif (time.now() >= $expires_at) {\n    echo "expired"\n}\n\nlet $start = time.monotonic()\nwork()\nlet $elapsed = time.monotonic() - $start',
           },
           {
             kind: "paragraph",
@@ -4136,7 +4715,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std time\n\ntime.sleep(500ms)\ntime.sleep(time.milliseconds(500))\ntime.sleep(time.duration(seconds: 5))',
+            code: "from std use time\n\ntime.sleep(500ms)\ntime.sleep(time.milliseconds(500))\ntime.sleep(time.duration(seconds: 5))",
           },
           {
             kind: "paragraph",
@@ -4167,7 +4746,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "let $timer = time.timer()\n\nrender()\n\nif ($timer.elapsed() > 16ms) {\n    echo \"slow frame\"\n}\n\nlet $elapsed = $timer.reset()",
+            code: 'let $timer = time.timer()\n\nrender()\n\nif ($timer.elapsed() > 16ms) {\n    echo "slow frame"\n}\n\nlet $elapsed = $timer.reset()',
           },
           {
             kind: "paragraph",
@@ -4255,7 +4834,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " is available\\n"\n}',
+            code: 'from std use reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " is available\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -4283,7 +4862,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " params: " . reflect.params($name) . "\\n"\n}',
+            code: 'from std use reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " params: " . reflect.params($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -4311,7 +4890,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
+            code: 'from std use reflect\n\nlet $name = "time.sleep"\n\nif (reflect.exists($name)) {\n    echo $name . " returns " . reflect.returnType($name) . "\\n"\n}',
           },
           {
             kind: "paragraph",
@@ -4336,7 +4915,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std reflect\n\nlet $value = "signed:user-42"\necho "Value type: " . reflect.typeOf($value) . "\\n"',
+            code: 'from std use reflect\n\nlet $value = "signed:user-42"\necho "Value type: " . reflect.typeOf($value) . "\\n"',
           },
           {
             kind: "paragraph",
@@ -4376,7 +4955,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std assert\n\nlet $payload = "signed:user-42"\nassert.ok(str_contains($payload, ":"))',
+            code: 'from std use assert\n\nlet $payload = "signed:user-42"\nassert.ok(str_contains($payload, ":"))',
           },
           {
             kind: "paragraph",
@@ -4404,7 +4983,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'use std assert\n\nlet $payload = "signed:user-42"\nlet $parts = explode(":", $payload)\n\nassert.equals(count($parts), 2)\nassert.equals($parts[0], "signed")',
+            code: 'from std use assert\n\nlet $payload = "signed:user-42"\nlet $parts = explode(":", $payload)\n\nassert.equals(count($parts), 2)\nassert.equals($parts[0], "signed")',
           },
           {
             kind: "paragraph",

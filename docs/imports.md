@@ -9,15 +9,16 @@ use Psr\Log\LoggerInterface
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest
 
 from std use net\TcpServer
+from illuminate/http use Request
 from "./routes.echo" use route
 from "./config.json" use config satisfies Config
 ```
 
-This example shows the three import lanes side by side: PHP namespace imports stay PHP-compatible, `std` imports bind Echo-owned library modules, and file imports can validate external data at compile time.
+This example shows the import lanes side by side: PHP namespace imports stay PHP-compatible, package-style Echo imports bind module exports, `std` imports bind Echo-owned library modules, and file imports can validate external data at compile time.
 
 Plain `use ...` remains PHP namespace import syntax. Composer/autoloaded PHP classes, interfaces, functions, and constants continue to use PHP-compatible resolution.
 
-`from ... use ...` is Echo-owned import syntax. It is for standard library imports, local Echo modules, future Echo packages, and file-backed data modules.
+`from ... use ...` is Echo-owned import syntax. It is for standard library imports, vendor or package modules, local Echo modules, and file-backed data modules.
 
 `from std use ...` is intended to be real import syntax, not documentation sugar. The resolver must bind it to compiler-known standard library modules supplied by `echo_std`.
 
@@ -30,6 +31,9 @@ use Foo\Bar
 from std use net\TcpServer
   Echo standard library import; resolves to std.net.TcpServer and does not reserve a PHP namespace.
 
+from illuminate/http use Request
+  Echo package import; resolves through Echo package/module rules, not PHP namespace rules.
+
 from "./file.echo" use name
   Local Echo module import.
 
@@ -37,7 +41,7 @@ from "./config.json" use config
   File-backed data import. The file extension selects the loader.
 ```
 
-This block is the resolver contract: the import prefix determines whether Echo follows PHP namespace rules, stdlib module rules, local Echo module loading, or data-loader behavior.
+This block is the resolver contract: the import prefix determines whether Echo follows PHP namespace rules, stdlib module rules, package/module rules, local Echo module loading, or data-loader behavior.
 
 The file extension stays in the import source because it is part of loader selection.
 
@@ -108,7 +112,7 @@ from std use http\Response as HttpResponse
 
 Aliases are for avoiding local naming conflicts while still resolving through the same stdlib module graph.
 
-`from std use ...` must not consult PHP namespace resolution or Composer autoloading. It resolves only against the compiler-known stdlib surface.
+`from std use ...` must not consult PHP namespace resolution or Composer autoloading. It resolves only against the compiler-known stdlib surface. Other `from <package> use ...` sources, such as `from illuminate/http use ...`, can use Echo package resolution later without changing the import grammar.
 
 The stdlib surface can be implemented by a mix of Echo source and trusted intrinsic declarations. See [Echo Standard Library](stdlib.md) for the interop model.
 
@@ -205,6 +209,7 @@ Resolver responsibilities:
 
 - `use Foo\Bar`: bind through PHP namespace rules and allow Composer/autoloaded symbols.
 - `from std use Foo\Bar`: bind through the stdlib module graph supplied by `echo_std`.
+- `from vendor/package use Foo`: bind through Echo package/module resolution.
 - `from "./file.echo" use name`: load the Echo module and bind exported names.
 - `from "./data.json" use data satisfies Type`: load data, validate it against `Type`, and bind the typed value.
 
