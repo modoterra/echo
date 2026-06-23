@@ -1,4 +1,5 @@
 mod array;
+mod environment;
 mod math;
 mod output;
 
@@ -13,43 +14,6 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
         (
             "echo_php_strlen",
             echo_runtime::echo_php_strlen
-                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
-                as usize,
-        ),
-        (
-            "echo_php_define",
-            echo_runtime::echo_php_define
-                as extern "C" fn(
-                    echo_runtime::EchoValue,
-                    echo_runtime::EchoValue,
-                ) -> echo_runtime::EchoValue as usize,
-        ),
-        (
-            "echo_php_microtime",
-            echo_runtime::echo_php_microtime
-                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
-                as usize,
-        ),
-        (
-            "echo_php_getenv",
-            echo_runtime::echo_php_getenv
-                as extern "C" fn(
-                    echo_runtime::EchoValue,
-                    echo_runtime::EchoValue,
-                ) -> echo_runtime::EchoValue as usize,
-        ),
-        (
-            "echo_php_gethostname",
-            echo_runtime::echo_php_gethostname as extern "C" fn() -> echo_runtime::EchoValue
-                as usize,
-        ),
-        (
-            "echo_php_getmypid",
-            echo_runtime::echo_php_getmypid as extern "C" fn() -> echo_runtime::EchoValue as usize,
-        ),
-        (
-            "echo_php_putenv",
-            echo_runtime::echo_php_putenv
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
                 as usize,
         ),
@@ -877,6 +841,7 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
         ),
     ];
     symbols.extend(array::symbols());
+    symbols.extend(environment::symbols());
     symbols.extend(math::symbols());
     symbols.extend(output::symbols());
     symbols
