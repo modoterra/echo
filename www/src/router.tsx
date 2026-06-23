@@ -102,11 +102,12 @@ const defaultDocsPageMeta: DocsPageMeta = {
 const DocsLayoutContext = createContext<DocsLayoutContextValue | null>(null);
 
 type ShikiCoreModule = typeof import("react-shiki/core");
-type PhpHighlighter = Awaited<ReturnType<ShikiCoreModule["createHighlighterCore"]>>;
+type DocsHighlighter = Awaited<ReturnType<ShikiCoreModule["createHighlighterCore"]>>;
 type ShikiHighlighterComponent = ShikiCoreModule["default"];
+type CodeSnippetLanguage = "php" | "shellscript";
 
-let phpHighlighterPromise: Promise<{
-  highlighter: PhpHighlighter;
+let docsHighlighterPromise: Promise<{
+  highlighter: DocsHighlighter;
   ShikiHighlighter: ShikiHighlighterComponent;
 }> | null = null;
 
@@ -117,15 +118,16 @@ const codeSnippetSkeletonMinDelay = 120;
 const codeSnippetSkeletonMaxDelay = 280;
 const codeSnippetLoadRootMargin = "0px";
 
-function loadPhpHighlighter() {
-  phpHighlighterPromise ??= Promise.all([
+function loadDocsHighlighter() {
+  docsHighlighterPromise ??= Promise.all([
     import("react-shiki/core"),
     import("@shikijs/langs/php"),
+    import("@shikijs/langs/shellscript"),
     import("@shikijs/themes/github-dark"),
-  ]).then(async ([shikiCore, php, githubDark]) => {
+  ]).then(async ([shikiCore, php, shellscript, githubDark]) => {
     const highlighter = await shikiCore.createHighlighterCore({
       engine: shikiCore.createJavaScriptRegexEngine({ forgiving: true }),
-      langs: [php.default],
+      langs: [php.default, shellscript.default],
       themes: [githubDark.default],
     });
 
@@ -135,7 +137,7 @@ function loadPhpHighlighter() {
     };
   });
 
-  return phpHighlighterPromise;
+  return docsHighlighterPromise;
 }
 
 function randomCodeSnippetSkeletonDelay() {
@@ -789,11 +791,19 @@ async function embedSearchQuery(query: string) {
   return Array.from(output.data);
 }
 
-function CodeSnippet({ children, className = "mt-8" }: { children: string; className?: string }) {
+function CodeSnippet({
+  children,
+  className = "mt-8",
+  language = "php",
+}: {
+  children: string;
+  className?: string;
+  language?: CodeSnippetLanguage;
+}) {
   const snippetRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [shiki, setShiki] = useState<{
-    highlighter: PhpHighlighter;
+    highlighter: DocsHighlighter;
     ShikiHighlighter: ShikiHighlighterComponent;
   } | null>(null);
   const [shouldLoadHighlighter, setShouldLoadHighlighter] = useState(false);
@@ -845,7 +855,7 @@ function CodeSnippet({ children, className = "mt-8" }: { children: string; class
       delayTimeout = window.setTimeout(resolve, randomCodeSnippetSkeletonDelay());
     });
 
-    void Promise.all([loadPhpHighlighter(), delay]).then(([loadedShiki]) => {
+    void Promise.all([loadDocsHighlighter(), delay]).then(([loadedShiki]) => {
       if (active) {
         setShiki(loadedShiki);
       }
@@ -893,7 +903,7 @@ function CodeSnippet({ children, className = "mt-8" }: { children: string; class
               addDefaultStyles={false}
               className="docs-code-snippet overflow-x-auto rounded-lg p-6 pr-14 font-mono text-sm leading-7 scrollbar-thin scrollbar-nice-dark"
               highlighter={shiki.highlighter}
-              language="php"
+              language={language}
               showLanguage={false}
               showLineNumbers
               theme="github-dark"
@@ -1586,7 +1596,7 @@ function renderInlineCodeText(text: string) {
 
 function DocsBlockView({ block }: { block: DocsBlock }) {
   if (block.kind === "code") {
-    return <CodeSnippet>{block.code}</CodeSnippet>;
+    return <CodeSnippet language={block.language}>{block.code}</CodeSnippet>;
   }
 
   return <p className="mt-6 text-lg leading-8 text-slate-600">{block.text.map(renderTextPart)}</p>;

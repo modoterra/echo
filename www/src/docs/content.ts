@@ -29,7 +29,7 @@ export type DocsTextPart = string | { code: string };
 
 export type DocsBlock =
   | { kind: "paragraph"; text: DocsTextPart[] }
-  | { kind: "code"; code: string };
+  | { kind: "code"; code: string; language?: "php" | "shellscript" };
 
 export type DocsSection = {
   title: string;
@@ -3582,7 +3582,11 @@ export const docsPages: DocsPage[] = [
               " command and keep it on your path. The public installer flow is still being designed, so current releases are source-built by contributors.",
             ],
           },
-          { kind: "code", code: "xo --help\nxo run app.php\nxo build app.php -o app" },
+          {
+            kind: "code",
+            code: "xo --help\nxo run app.php\nxo build app.php -o app",
+            language: "shellscript",
+          },
         ],
       },
       {
@@ -3597,7 +3601,7 @@ export const docsPages: DocsPage[] = [
               " to execute an Echo-compatible PHP file directly from the command line.",
             ],
           },
-          { kind: "code", code: "xo run examples/hello.php" },
+          { kind: "code", code: "xo run examples/hello.php", language: "shellscript" },
         ],
       },
       {
@@ -3612,7 +3616,11 @@ export const docsPages: DocsPage[] = [
               " to compile a supported program into a native binary. The current backend lowers through LLVM IR and links through the project build path while Echo's native toolchain matures.",
             ],
           },
-          { kind: "code", code: "xo build examples/hello.php -o /tmp/hello\n/tmp/hello" },
+          {
+            kind: "code",
+            code: "xo build examples/hello.php -o /tmp/hello\n/tmp/hello",
+            language: "shellscript",
+          },
         ],
       },
       {
