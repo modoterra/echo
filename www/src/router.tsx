@@ -21,6 +21,7 @@ import {
   RiFingerprintLine,
   RiFolderOpenLine,
   RiFunctionLine,
+  RiMenuLine,
   RiNumbersLine,
   RiPhpLine,
   RiRocketLine,
@@ -219,7 +220,7 @@ function mergeHybridSearchResults({
     .slice(0, docsSearchResultLimit);
 }
 
-function DocsSearch() {
+function DocsSearch({ fullWidth = false }: { fullWidth?: boolean } = {}) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -465,12 +466,18 @@ function DocsSearch() {
       <button
         aria-expanded={isOpen}
         aria-label="Search documentation"
-        className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+        className={
+          fullWidth
+            ? "inline-flex h-11 w-full items-center gap-3 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+            : "inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+        }
         onClick={() => setIsOpen(true)}
         type="button"
       >
         <RiSearchLine size={16} />
-        <span className="hidden sm:inline">Search</span>
+        <span className={fullWidth ? "inline" : "hidden sm:inline"}>
+          {fullWidth ? "Search docs" : "Search"}
+        </span>
         <span className="hidden rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 lg:inline">
           /
         </span>
@@ -1224,6 +1231,23 @@ function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: stri
   );
 }
 
+function DocsNavigationList({ pathname }: { pathname: string }) {
+  return (
+    <div className="space-y-10">
+      {docsNavigation.map((group) => (
+        <section key={group.title}>
+          <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
+          <ul className="mt-5 space-y-3">
+            {group.links.map((link) => (
+              <DocsNavLinkItem key={link.label} link={link} pathname={pathname} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function DocsShell({ category, title, headings, children }: DocsShellProps) {
   const docsLayout = useContext(DocsLayoutContext);
 
@@ -1240,10 +1264,29 @@ function DocsLayout() {
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
   const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const onThisPageViewportRef = useRef<HTMLDivElement | null>(null);
   const onThisPageRailRef = useRef<HTMLDivElement | null>(null);
   const onThisPageItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const [onThisPageTrainY, setOnThisPageTrainY] = useState(0);
+
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMobileNavOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileNavOpen]);
+
   useEffect(() => {
     let animationFrame = 0;
 
@@ -1337,24 +1380,72 @@ function DocsLayout() {
 
   return (
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
+      <div className="mx-auto mb-9 flex w-full max-w-7xl items-center justify-between gap-3 lg:hidden">
+        <button
+          aria-controls="mobile-docs-menu"
+          aria-expanded={isMobileNavOpen}
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-950"
+          onClick={() => setIsMobileNavOpen(true)}
+          type="button"
+        >
+          <RiMenuLine size={18} />
+          Docs menu
+        </button>
+        <DocsSearch />
+      </div>
+
+      <AnimatePresence>
+        {isMobileNavOpen ? (
+          <motion.div
+            animate={{ opacity: 1 }}
+            aria-label="Documentation menu"
+            aria-modal="true"
+            className="fixed inset-0 z-40 bg-white lg:hidden"
+            exit={{ opacity: 0 }}
+            id="mobile-docs-menu"
+            initial={{ opacity: 0 }}
+            role="dialog"
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            <div className="flex h-full flex-col">
+              <div className="flex h-20 items-center justify-between border-b border-slate-200 px-6">
+                <Link
+                  aria-label="Echo home"
+                  className="block w-16 opacity-90 transition hover:opacity-100"
+                  to="/"
+                >
+                  <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
+                </Link>
+                <button
+                  aria-label="Close documentation menu"
+                  className="inline-flex size-10 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  type="button"
+                >
+                  <RiCloseLine size={20} />
+                </button>
+              </div>
+              <div className="border-b border-slate-100 px-6 py-5">
+                <DocsSearch fullWidth />
+              </div>
+              <nav
+                aria-label="Documentation sections"
+                className="flex-1 overflow-y-auto px-6 py-7 scrollbar-thin scrollbar-nice"
+              >
+                <DocsNavigationList pathname={location.pathname} />
+              </nav>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 lg:grid-cols-[220px_minmax(0,720px)] xl:grid-cols-[220px_minmax(0,720px)_220px]">
         <aside className="hidden lg:block">
           <nav
             aria-label="Documentation sections"
             className="sticky top-32 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 scrollbar-thin scrollbar-nice"
           >
-            <div className="space-y-10">
-              {docsNavigation.map((group) => (
-                <section key={group.title}>
-                  <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
-                  <ul className="mt-5 space-y-3">
-                    {group.links.map((link) => (
-                      <DocsNavLinkItem key={link.label} link={link} pathname={location.pathname} />
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
+            <DocsNavigationList pathname={location.pathname} />
           </nav>
         </aside>
 
