@@ -1,6 +1,12 @@
 pub(super) fn symbols() -> Vec<(&'static str, usize)> {
     vec![
         (
+            "echo_php_abs",
+            echo_runtime::echo_php_abs
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_decbin",
             echo_runtime::echo_php_decbin
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
