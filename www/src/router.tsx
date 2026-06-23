@@ -1007,6 +1007,37 @@ function NotFoundPage() {
   );
 }
 
+function DocsNotFoundPage() {
+  const location = useLocation();
+
+  return (
+    <DocsShell category="Documentation" headings={["Page Not Found"]} title="Page Not Found">
+      <section className="mt-16 scroll-mt-28" id="page-not-found">
+        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Page Not Found</h2>
+        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          There is no Echo documentation page at{" "}
+          <code className="font-mono text-slate-950">{location.pathname}</code>. Use the
+          documentation menu or search to find the current page.
+        </p>
+        <div className="mt-9 flex flex-wrap gap-3">
+          <Link
+            className="inline-flex items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+            to="/docs"
+          >
+            Open docs
+          </Link>
+          <Link
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+            to="/docs/quickstart"
+          >
+            Open quickstart
+          </Link>
+        </div>
+      </section>
+    </DocsShell>
+  );
+}
+
 type FooterLink =
   | { label: string; href: string; disabled?: false }
   | { label: string; disabled: true };
@@ -1747,6 +1778,12 @@ const docsRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs")} />,
 });
 
+const quickstartRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "quickstart",
+  component: () => <DocsContentPage page={docsPage("/docs/quickstart")} />,
+});
+
 const sourceModesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "source-modes",
@@ -1903,16 +1940,59 @@ const phpBuiltinCoreRoute = createRoute({
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />,
 });
 
+const phpCompatibilityRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-compatibility",
+  component: () => <DocsContentPage page={docsPage("/docs/php-compatibility")} />,
+});
+
+const strictModeRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "strict-mode",
+  component: () => <DocsContentPage page={docsPage("/docs/strict-mode")} />,
+});
+
+const importsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "imports",
+  component: () => <DocsContentPage page={docsPage("/docs/imports")} />,
+});
+
+const commandLineRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "command-line",
+  component: () => <DocsContentPage page={docsPage("/docs/command-line")} />,
+});
+
+const languageServerRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "language-server",
+  component: () => <DocsContentPage page={docsPage("/docs/language-server")} />,
+});
+
+const testingRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "testing",
+  component: () => <DocsContentPage page={docsPage("/docs/testing")} />,
+});
+
 const sourceBuildsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "source-builds",
   component: () => <DocsContentPage page={docsPage("/docs/source-builds")} />,
 });
 
+const docsNotFoundRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "$",
+  component: DocsNotFoundPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   docsLayoutRoute.addChildren([
     docsRoute,
+    quickstartRoute,
     sourceModesRoute,
     dataStructuresRoute,
     dataStructuresListRoute,
@@ -1939,7 +2019,14 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinShellRoute,
     phpBuiltinOutputBufferingRoute,
     phpBuiltinCoreRoute,
+    phpCompatibilityRoute,
+    strictModeRoute,
+    importsRoute,
+    commandLineRoute,
+    languageServerRoute,
+    testingRoute,
     sourceBuildsRoute,
+    docsNotFoundRoute,
   ]),
 ]);
 
