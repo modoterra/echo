@@ -4,7 +4,7 @@ use echo_ast::{
     EchoStmt, Expr, ExprStmt, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt,
     ImportStmt, LetStmt, ListExpr, LoopExpr, LoopStmt, MethodCallExpr, NullLiteral, NumberLiteral,
     ObjectExpr, ObjectField, QualifiedName, ReturnStmt, StringLiteral, TypeAscriptionExpr,
-    TypedParam, VariableExpr,
+    TypedParam, UseStmt, VariableExpr,
 };
 
 fn program(statements: Vec<Stmt>) -> Program {
@@ -121,6 +121,31 @@ fn rejects_unimported_std_module_call() {
         span: Span::new(0, 31),
     })]))
     .expect_err("unimported std module should fail");
+
+    assert_eq!(
+        diagnostics[0].message,
+        "std module `net` must be imported before use"
+    );
+}
+
+#[test]
+fn php_use_std_namespace_does_not_register_std_module_import() {
+    let diagnostics = compile_to_ir(&program(vec![
+        Stmt::Use(UseStmt {
+            name: QualifiedName::new(vec!["std".to_string(), "net".to_string()]),
+            alias: None,
+            span: Span::new(0, 11),
+        }),
+        Stmt::FunctionCall(FunctionCallStmt {
+            name: "net.listen".to_string(),
+            args: vec![Expr::String(StringLiteral {
+                value: "127.0.0.1:39183".to_string(),
+                span: Span::new(23, 42),
+            })],
+            span: Span::new(12, 43),
+        }),
+    ]))
+    .expect_err("PHP use syntax must not satisfy std module imports");
 
     assert_eq!(
         diagnostics[0].message,

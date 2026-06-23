@@ -156,6 +156,35 @@ time.sleep(300)
 }
 
 #[test]
+fn rejects_plain_use_std_module_import_spelling() {
+    parse_with_mode(
+        r#"use std time
+time.sleep(300)
+"#,
+        SourceMode::Strict,
+    )
+    .expect_err("std imports must use `from std use ...`");
+}
+
+#[test]
+fn parses_php_use_std_namespace_as_php_use_statement() {
+    let program = parse_with_mode(
+        r#"use std\time
+time.sleep(300)
+"#,
+        SourceMode::Strict,
+    )
+    .expect("PHP namespace use syntax remains parseable");
+
+    assert!(matches!(&program.statements[0], Stmt::Use(statement)
+        if statement.name.as_string() == "std\\time"));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::FunctionCall(statement) if statement.name == "time.sleep"
+    ));
+}
+
+#[test]
 fn parses_negative_numeric_function_arguments() {
     let program = parse_with_mode(
         r#"<?php echo substr_compare("abcde", "de", -2, 2);"#,
