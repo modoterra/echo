@@ -2,6 +2,7 @@ use super::*;
 
 mod arithmetic;
 mod coercion;
+mod inspect;
 mod reflection;
 mod types;
 
