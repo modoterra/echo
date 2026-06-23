@@ -122,12 +122,11 @@ function loadDocsHighlighter() {
   docsHighlighterPromise ??= Promise.all([
     import("react-shiki/core"),
     import("@shikijs/langs/php"),
-    import("@shikijs/langs/shellscript"),
     import("@shikijs/themes/github-dark"),
-  ]).then(async ([shikiCore, php, shellscript, githubDark]) => {
+  ]).then(async ([shikiCore, php, githubDark]) => {
     const highlighter = await shikiCore.createHighlighterCore({
       engine: shikiCore.createJavaScriptRegexEngine({ forgiving: true }),
-      langs: [php.default, shellscript.default],
+      langs: [php.default],
       themes: [githubDark.default],
     });
 
@@ -808,6 +807,7 @@ function CodeSnippet({
   } | null>(null);
   const [shouldLoadHighlighter, setShouldLoadHighlighter] = useState(false);
   const code = children.trim();
+  const shouldUsePlainText = language === "shellscript";
   const minHeight = useMemo(() => {
     const prepared = prepare(code, codeSnippetFont, { whiteSpace: "pre-wrap" });
     const measured = layout(prepared, 100_000, codeSnippetLineHeight);
@@ -816,6 +816,10 @@ function CodeSnippet({
   }, [code]);
 
   useEffect(() => {
+    if (shouldUsePlainText) {
+      return;
+    }
+
     const snippet = snippetRef.current;
 
     if (!snippet) {
@@ -842,10 +846,10 @@ function CodeSnippet({
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [shouldUsePlainText]);
 
   useEffect(() => {
-    if (!shouldLoadHighlighter) {
+    if (shouldUsePlainText || !shouldLoadHighlighter) {
       return;
     }
 
@@ -865,7 +869,7 @@ function CodeSnippet({
       active = false;
       window.clearTimeout(delayTimeout);
     };
-  }, [shouldLoadHighlighter]);
+  }, [shouldLoadHighlighter, shouldUsePlainText]);
 
   async function copyCode() {
     await navigator.clipboard.writeText(code);
@@ -890,51 +894,66 @@ function CodeSnippet({
       >
         {copied ? <RiCheckLine size={18} /> : <RiFileCopyLine size={18} />}
       </button>
-      <AnimatePresence initial={false} mode="wait">
-        {shiki && ShikiHighlighter ? (
-          <motion.div
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            initial={{ opacity: 0 }}
-            key="highlighted"
-            transition={{ duration: 0.22, ease: "easeOut" }}
-          >
-            <ShikiHighlighter
-              addDefaultStyles={false}
-              className="docs-code-snippet overflow-x-auto rounded-lg p-6 pr-14 font-mono text-sm leading-7 scrollbar-thin scrollbar-nice-dark"
-              highlighter={shiki.highlighter}
-              language={language}
-              showLanguage={false}
-              showLineNumbers
-              theme="github-dark"
-            >
-              {code}
-            </ShikiHighlighter>
-          </motion.div>
-        ) : (
-          <motion.div
-            animate={{ opacity: 1 }}
-            aria-label="Loading highlighted code"
-            className="docs-code-skeleton p-6 pr-14"
-            exit={{ opacity: 0 }}
-            initial={{ opacity: 0 }}
-            key="skeleton"
-            transition={{ duration: 0.18, ease: "easeOut" }}
-          >
+      {shouldUsePlainText ? (
+        <pre className="docs-code-snippet overflow-x-auto rounded-lg p-6 pr-14 font-mono text-sm leading-7 text-slate-300 scrollbar-thin scrollbar-nice-dark">
+          <code className="block min-w-max bg-transparent">
             {code.split("\n").map((line, index) => (
-              <div className="flex h-7 items-center gap-5" key={index}>
-                <span className="h-3 w-5 shrink-0 rounded-full bg-slate-700/45" />
-                <span
-                  className="h-3 rounded-full bg-slate-700/55"
-                  style={{
-                    width: `${Math.min(92, Math.max(24, line.length * 1.8))}%`,
-                  }}
-                />
-              </div>
+              <span className="flex whitespace-pre" key={`${index}-${line}`}>
+                <span className="mr-6 inline-block w-5 select-none text-right text-slate-400/55">
+                  {index + 1}
+                </span>
+                <span>{line}</span>
+              </span>
             ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </code>
+        </pre>
+      ) : (
+        <AnimatePresence initial={false} mode="wait">
+          {shiki && ShikiHighlighter ? (
+            <motion.div
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              key="highlighted"
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <ShikiHighlighter
+                addDefaultStyles={false}
+                className="docs-code-snippet overflow-x-auto rounded-lg p-6 pr-14 font-mono text-sm leading-7 scrollbar-thin scrollbar-nice-dark"
+                highlighter={shiki.highlighter}
+                language="php"
+                showLanguage={false}
+                showLineNumbers
+                theme="github-dark"
+              >
+                {code}
+              </ShikiHighlighter>
+            </motion.div>
+          ) : (
+            <motion.div
+              animate={{ opacity: 1 }}
+              aria-label="Loading highlighted code"
+              className="docs-code-skeleton p-6 pr-14"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              key="skeleton"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {code.split("\n").map((line, index) => (
+                <div className="flex h-7 items-center gap-5" key={index}>
+                  <span className="h-3 w-5 shrink-0 rounded-full bg-slate-700/45" />
+                  <span
+                    className="h-3 rounded-full bg-slate-700/55"
+                    style={{
+                      width: `${Math.min(92, Math.max(24, line.length * 1.8))}%`,
+                    }}
+                  />
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }
