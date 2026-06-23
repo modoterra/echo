@@ -1785,6 +1785,7 @@ case "$command" in
     ;;
   runtime-collections-sequence)
     run_quiet cargo test -q -p echo_runtime array_combine_and_pad_builtins_preserve_php_key_behavior
+    run_quiet cargo test -q -p echo_runtime array_merge_and_replace_builtins_preserve_php_key_behavior
     run_quiet cargo test -q -p echo_runtime array_slice_and_chunk_builtins_preserve_php_key_behavior
     run_quiet cargo test -q -p echo_runtime array_order_builtins_preserve_php_key_behavior
     ;;
