@@ -54,6 +54,21 @@ impl IndexFactExtractor {
                     self.extract_expr_dependencies(arg);
                 }
             }
+            Expr::New(expr) => {
+                let name = expr.class_name.as_string();
+                self.references.push(ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    range: TextRange::new(
+                        expr.span.start.saturating_add(4) as u32,
+                        expr.span.start.saturating_add(4 + name.len()) as u32,
+                    ),
+                    name,
+                    qualifier: None,
+                });
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(arg);
+                }
+            }
             Expr::Assign(expr) => self.extract_expr_dependencies(&expr.value),
             Expr::Require(expr) => {
                 let target = self
@@ -128,6 +143,7 @@ impl IndexFactExtractor {
             | Expr::String(_)
             | Expr::Number(_)
             | Expr::Variable(_)
+            | Expr::ReceiverConst(_)
             | Expr::MagicConstant(_) => {}
         }
     }

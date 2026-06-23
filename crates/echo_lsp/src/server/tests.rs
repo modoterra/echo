@@ -44,6 +44,96 @@ class UserController {
 }
 
 #[test]
+fn echo_module_server_surface_produces_index_facts() {
+    let facts = parse_index_facts(
+        r#"module modoterra.laravel_echo.server
+
+use std.http
+use std.net
+use modoterra.laravel_echo.LaravelEcho
+
+let $app = require_once config("echo.paths.laravel_bootstrap")
+let $kernel = LaravelEcho.kernel($app)
+let $address = config("echo.server.host", "127.0.0.1") . ":" . config("echo.server.port", 8080)
+let $server = net.listen($address)
+
+loop {
+    let $connection = net.accept($server)
+    let $request = http.readRequest($connection)
+    let $response = $kernel.handle($request)
+
+    net.write($connection, http.toBytes($response))
+    net.close($connection)
+}
+"#,
+        FileId(9),
+        EchoFileMode::Echo,
+        None,
+    )
+    .expect("Echo module server source parses for LSP indexing");
+
+    assert!(facts.declarations.iter().any(|symbol| {
+        symbol.kind == SymbolKind::Namespace
+            && symbol.name.text.as_str() == "modoterra\\laravel_echo\\server"
+    }));
+    assert!(facts.dependencies.iter().any(|dependency| {
+        dependency.kind == DependencyKind::EchoStdImport && dependency.target == "http"
+    }));
+    assert!(facts.dependencies.iter().any(|dependency| {
+        dependency.kind == DependencyKind::EchoStdImport && dependency.target == "net"
+    }));
+}
+
+#[test]
+fn echo_service_provider_surface_produces_index_facts() {
+    let facts = parse_index_facts(
+        r#"module modoterra.laravel_echo
+
+use illuminate.support.ServiceProvider
+use modoterra.laravel_echo.console.EchoStartCommand
+
+class EchoServiceProvider extends ServiceProvider {
+    pub fn register(): void {
+        $this.mergeConfigFrom(__DIR__ . "/../config/echo.php", "echo")
+    }
+
+    pub fn boot(): void {
+        $this.publishes({
+            __DIR__ . "/../config/echo.php": config_path("echo.php"),
+        }, "echo-config")
+
+        if $this.app.runningInConsole() {
+            $this.commands({
+                EchoStartCommand,
+            })
+        }
+    }
+}
+"#,
+        FileId(10),
+        EchoFileMode::Echo,
+        None,
+    )
+    .expect("Echo service provider source parses for LSP indexing");
+
+    assert!(facts.declarations.iter().any(|symbol| {
+        symbol.kind == SymbolKind::Namespace
+            && symbol.name.text.as_str() == "modoterra\\laravel_echo"
+    }));
+    assert!(
+        facts
+            .declarations
+            .iter()
+            .any(|symbol| symbol.kind == SymbolKind::Class
+                && symbol.name.text.as_str() == "EchoServiceProvider")
+    );
+    assert!(facts.dependencies.iter().any(|dependency| {
+        dependency.kind == DependencyKind::PhpUse
+            && dependency.target == "illuminate\\support\\ServiceProvider"
+    }));
+}
+
+#[test]
 fn laravel_entrypoint_produces_import_and_static_reference_facts() {
     let source = r#"<?php
 

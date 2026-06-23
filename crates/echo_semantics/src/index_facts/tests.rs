@@ -36,10 +36,12 @@ fn extracts_declaration_facts_with_namespace() {
             }),
             Stmt::ClassDecl(ClassDeclStmt {
                 name: "UserController".to_string(),
+                parent: None,
                 members: vec![ClassMember::Method(MethodDecl {
                     name: "show".to_string(),
                     params: vec![],
                     return_type: None,
+                    body: vec![],
                     visibility: MethodVisibility::Private,
                     is_static: false,
                     is_intrinsic: false,

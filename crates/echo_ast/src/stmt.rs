@@ -17,6 +17,7 @@ pub enum Stmt {
     Use(UseStmt),
     Import(ImportStmt),
     ClassDecl(ClassDeclStmt),
+    ExtendDecl(ExtendDeclStmt),
     TypeDecl(TypeDeclStmt),
     Loop(LoopStmt),
     If(IfStmt),
@@ -132,6 +133,14 @@ pub enum ImportSource {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDeclStmt {
     pub name: String,
+    pub parent: Option<QualifiedName>,
+    pub members: Vec<ClassMember>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtendDeclStmt {
+    pub target: QualifiedName,
     pub members: Vec<ClassMember>,
     pub span: Span,
 }
@@ -194,6 +203,7 @@ pub struct MethodDecl {
     pub name: String,
     pub params: Vec<TypedParam>,
     pub return_type: Option<String>,
+    pub body: Vec<Stmt>,
     pub visibility: MethodVisibility,
     pub is_static: bool,
     pub is_intrinsic: bool,

@@ -1,6 +1,7 @@
 use echo_ast::{
-    AppendStmt, ArrayExpr, AssignStmt, Expr, ExprStmt, ForkExpr, IndexExpr, JoinExpr, LetStmt,
-    ListExpr, NumberLiteral, ObjectExpr, ObjectField, Program, RunExpr, SpawnExpr, Stmt,
+    AppendStmt, ArrayExpr, AssignStmt, ClassDeclStmt, ClassMember, Expr, ExprStmt, ForkExpr,
+    IndexExpr, JoinExpr, LetStmt, ListExpr, MethodDecl, MethodVisibility, NumberLiteral,
+    ObjectExpr, ObjectField, Program, ReceiverConst, ReceiverConstExpr, RunExpr, SpawnExpr, Stmt,
     StringLiteral, VariableExpr,
 };
 use echo_source::Span;
@@ -14,6 +15,26 @@ fn program(statements: Vec<Stmt>) -> Program {
         source_dir: None,
         span: Span::new(0, 0),
     }
+}
+
+fn receiver(kind: ReceiverConst) -> Expr {
+    Expr::ReceiverConst(ReceiverConstExpr {
+        kind,
+        span: Span::new(0, 5),
+    })
+}
+
+fn method(name: &str, is_static: bool, body: Vec<Stmt>) -> ClassMember {
+    ClassMember::Method(MethodDecl {
+        name: name.to_string(),
+        params: Vec::new(),
+        return_type: None,
+        body,
+        visibility: MethodVisibility::Public,
+        is_static,
+        is_intrinsic: false,
+        span: Span::new(0, 0),
+    })
 }
 
 #[test]
@@ -59,6 +80,106 @@ fn reports_undefined_variable() {
 
     assert_eq!(diagnostics[0].message, "undefined variable `$missing`");
     assert_eq!(diagnostics[0].span, Span::new(0, 8));
+}
+
+#[test]
+fn rejects_this_outside_instance_receiver_context() {
+    let diagnostics = analyze(&program(vec![Stmt::Expr(ExprStmt {
+        expr: receiver(ReceiverConst::This),
+        span: Span::new(0, 5),
+    })]))
+    .expect_err("$this outside receiver context should be diagnostic");
+
+    assert_eq!(
+        diagnostics[0].message,
+        "$this is only available inside instance receiver contexts."
+    );
+}
+
+#[test]
+fn rejects_receiver_constant_assignment() {
+    let diagnostics = analyze(&program(vec![Stmt::Assign(AssignStmt {
+        name: "self".to_string(),
+        value: Expr::Variable(VariableExpr {
+            name: "Other".to_string(),
+            span: Span::new(8, 13),
+        }),
+        span: Span::new(0, 13),
+    })]))
+    .expect_err("receiver constant assignment should be diagnostic");
+
+    assert!(diagnostics.iter().any(|diagnostic| diagnostic.message
+        == "$self is a compiler-provided receiver constant and cannot be assigned."));
+}
+
+#[test]
+fn rejects_static_receiver_until_late_static_binding_exists() {
+    let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
+        name: "User".to_string(),
+        parent: None,
+        members: vec![method(
+            "make",
+            true,
+            vec![Stmt::Expr(ExprStmt {
+                expr: receiver(ReceiverConst::Static),
+                span: Span::new(0, 7),
+            })],
+        )],
+        span: Span::new(0, 0),
+    })]))
+    .expect_err("$static should be reserved");
+
+    assert_eq!(
+        diagnostics[0].message,
+        "$static is reserved for late static binding and is not implemented yet."
+    );
+}
+
+#[test]
+fn rejects_parent_without_lexical_parent() {
+    let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
+        name: "User".to_string(),
+        parent: None,
+        members: vec![method(
+            "boot",
+            false,
+            vec![Stmt::Expr(ExprStmt {
+                expr: receiver(ReceiverConst::Parent),
+                span: Span::new(0, 7),
+            })],
+        )],
+        span: Span::new(0, 0),
+    })]))
+    .expect_err("$parent without parent should be diagnostic");
+
+    assert_eq!(
+        diagnostics[0].message,
+        "$parent is only available when the lexical type has a parent."
+    );
+}
+
+#[test]
+fn accepts_this_and_self_inside_instance_method() {
+    analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
+        name: "User".to_string(),
+        parent: None,
+        members: vec![method(
+            "save",
+            false,
+            vec![
+                Stmt::Expr(ExprStmt {
+                    expr: receiver(ReceiverConst::This),
+                    span: Span::new(0, 5),
+                }),
+                Stmt::Expr(ExprStmt {
+                    expr: receiver(ReceiverConst::SelfType),
+                    span: Span::new(6, 11),
+                }),
+            ],
+        )],
+        span: Span::new(0, 0),
+    })]))
+    .expect("$this and $self should be valid in instance methods");
 }
 
 #[test]

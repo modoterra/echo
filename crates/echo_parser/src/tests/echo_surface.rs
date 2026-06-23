@@ -63,6 +63,58 @@ fn parses_dot_receiver_method_call() {
 }
 
 #[test]
+fn parses_receiver_constants_as_special_expressions() {
+    let program = parse_with_mode(r#"db.insert($self.table(), $this)"#, SourceMode::Strict)
+        .expect("receiver constants parse in expressions");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::FunctionCall(call)
+            if matches!(
+                &call.args[0],
+                Expr::MethodCall(method_call)
+                    if matches!(
+                        &method_call.object,
+                        Expr::ReceiverConst(receiver)
+                            if receiver.kind == ReceiverConst::SelfType
+                    )
+            )
+            && matches!(
+                &call.args[1],
+                Expr::ReceiverConst(receiver)
+                    if receiver.kind == ReceiverConst::This
+            )
+    ));
+}
+
+#[test]
+fn parses_extend_methods_with_receiver_constants() {
+    let program = parse_with_mode(
+        r#"extend Instant {
+    pub fn add($duration: Duration): Instant {
+        return time.add($this, $duration)
+    }
+}
+"#,
+        SourceMode::Strict,
+    )
+    .expect("extend methods parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ExtendDecl(statement)
+            if statement.target.as_string() == "Instant"
+                && matches!(
+                    &statement.members[0],
+                    ClassMember::Method(method)
+                        if method.name == "add"
+                            && method.params[0].name == "duration"
+                            && method.params[0].ty.as_deref() == Some("Duration")
+                )
+    ));
+}
+
+#[test]
 fn parses_type_ascribed_structural_literal_argument() {
     let program = parse_with_mode(
         r#"$users.push({

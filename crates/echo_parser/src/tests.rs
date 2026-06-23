@@ -156,6 +156,102 @@ time.sleep(300)
 }
 
 #[test]
+fn parses_echo_module_and_direct_dotted_imports() {
+    let program = parse_with_mode(
+        r#"module modoterra.laravel_echo.server
+use std.http
+use std.net
+use modoterra.laravel_echo.LaravelEcho
+"#,
+        SourceMode::Strict,
+    )
+    .expect("Echo module and direct dotted imports parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Namespace(statement)
+            if statement.source == NamespaceSource::Php
+                && statement.name.parts == ["modoterra", "laravel_echo", "server"]
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Import(statement)
+            if statement.source == ImportSource::Std
+                && statement.name.parts == ["http"]
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::Import(statement)
+            if statement.source == ImportSource::Std
+                && statement.name.parts == ["net"]
+    ));
+    assert!(matches!(
+        &program.statements[3],
+        Stmt::Use(statement)
+            if statement.name.parts == ["modoterra", "laravel_echo", "LaravelEcho"]
+    ));
+}
+
+#[test]
+fn parses_laravel_echo_server_surface() {
+    parse_with_mode(
+        r#"module modoterra.laravel_echo.server
+
+use std.http
+use std.net
+use modoterra.laravel_echo.LaravelEcho
+
+let $app = require_once config("echo.paths.laravel_bootstrap")
+let $kernel = LaravelEcho.kernel($app)
+let $address = config("echo.server.host", "127.0.0.1") . ":" . config("echo.server.port", 8080)
+let $server = net.listen($address)
+
+loop {
+    let $connection = net.accept($server)
+    let $request = http.readRequest($connection)
+    let $response = $kernel.handle($request)
+
+    net.write($connection, http.toBytes($response))
+    net.close($connection)
+}
+"#,
+        SourceMode::Strict,
+    )
+    .expect("Laravel Echo server syntax parses for LSP diagnostics");
+}
+
+#[test]
+fn parses_laravel_echo_service_provider_surface() {
+    parse_with_mode(
+        r#"module modoterra.laravel_echo
+
+use illuminate.support.ServiceProvider
+use modoterra.laravel_echo.console.EchoStartCommand
+
+class EchoServiceProvider extends ServiceProvider {
+    pub fn register(): void {
+        $this.mergeConfigFrom(__DIR__ . "/../config/echo.php", "echo")
+    }
+
+    pub fn boot(): void {
+        $this.publishes({
+            __DIR__ . "/../config/echo.php": config_path("echo.php"),
+        }, "echo-config")
+
+        if $this.app.runningInConsole() {
+            $this.commands({
+                EchoStartCommand,
+            })
+        }
+    }
+}
+"#,
+        SourceMode::Strict,
+    )
+    .expect("Laravel Echo service provider syntax parses for LSP diagnostics");
+}
+
+#[test]
 fn rejects_plain_use_std_module_import_spelling() {
     parse_with_mode(
         r#"use std time
@@ -228,6 +324,28 @@ if (count($parts) === 2) {
             if matches!(
                 &statement.condition,
                 Expr::Binary(expr) if expr.op == BinaryOp::Identical
+            )
+    ));
+}
+
+#[test]
+fn parses_php_new_expression_as_method_argument() {
+    let program = parse_with_mode(
+        r#"<?php
+$status = $app->handleCommand(new ArgvInput);
+"#,
+        SourceMode::Echo,
+    )
+    .expect("new expression parses as a normal expression");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(
+                &statement.value,
+                Expr::MethodCall(call)
+                    if call.method == "handleCommand"
+                        && matches!(&call.args[0], Expr::New(new_expr) if new_expr.class_name.as_string() == "ArgvInput")
             )
     ));
 }

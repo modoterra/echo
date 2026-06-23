@@ -59,6 +59,7 @@ pub enum CoreRuntimeSymbol {
     TimeSleep,
     CallFunction,
     RegisterFunction,
+    ValueExitStatus,
     Shutdown,
 }
 
@@ -105,6 +106,7 @@ impl CoreRuntimeSymbol {
         Self::TimeSleep,
         Self::CallFunction,
         Self::RegisterFunction,
+        Self::ValueExitStatus,
         Self::Shutdown,
     ];
 
@@ -151,6 +153,7 @@ impl CoreRuntimeSymbol {
             Self::TimeSleep => "echo_time_sleep",
             Self::CallFunction => "echo_call_function",
             Self::RegisterFunction => "echo_reflection_register_function",
+            Self::ValueExitStatus => "echo_value_exit_status",
             Self::Shutdown => "echo_shutdown",
         }
     }
@@ -198,6 +201,7 @@ impl CoreRuntimeSymbol {
             Self::TimeSleep => RuntimeSignature::VoidI64,
             Self::CallFunction => RuntimeSignature::EchoValuePtrI64,
             Self::RegisterFunction => RuntimeSignature::VoidPtrI64PtrI64PtrI64I32,
+            Self::ValueExitStatus => RuntimeSignature::I32EchoValue,
             Self::Shutdown => RuntimeSignature::VoidNoArgs,
         }
     }
@@ -216,6 +220,7 @@ pub enum RuntimeSignature {
     VoidEchoValue,
     BoolNoArgs,
     BoolEchoValue,
+    I32EchoValue,
     EchoValueNoArgs,
     EchoValueI64Ptr,
     EchoValuePtr,
@@ -241,6 +246,7 @@ impl RuntimeSignature {
             Self::VoidEchoValue => format!("declare void @{symbol}(%EchoValue)"),
             Self::BoolNoArgs => format!("declare i1 @{symbol}()"),
             Self::BoolEchoValue => format!("declare i1 @{symbol}(%EchoValue)"),
+            Self::I32EchoValue => format!("declare i32 @{symbol}(%EchoValue)"),
             Self::EchoValueNoArgs => format!("declare %EchoValue @{symbol}()"),
             Self::EchoValueI64Ptr => format!("declare %EchoValue @{symbol}(i64, ptr)"),
             Self::EchoValuePtr => format!("declare %EchoValue @{symbol}(ptr)"),

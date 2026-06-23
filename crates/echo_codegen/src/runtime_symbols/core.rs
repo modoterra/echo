@@ -164,6 +164,11 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_value_exit_status",
+            echo_runtime::echo_value_exit_status as extern "C" fn(echo_runtime::EchoValue) -> i32
+                as usize,
+        ),
+        (
             "echo_task_defer",
             echo_runtime::echo_task_defer
                 as extern "C" fn(

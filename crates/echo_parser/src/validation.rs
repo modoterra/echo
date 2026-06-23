@@ -108,7 +108,23 @@ fn validate_statement_mode(
                 ));
             }
         }
-        Stmt::Use(_) | Stmt::Import(_) | Stmt::ClassDecl(_) | Stmt::TypeDecl(_) => {}
+        Stmt::ClassDecl(statement) => {
+            for member in &statement.members {
+                let echo_ast::ClassMember::Method(method) = member;
+                for statement in &method.body {
+                    validate_statement_mode(statement, mode, diagnostics);
+                }
+            }
+        }
+        Stmt::ExtendDecl(statement) => {
+            for member in &statement.members {
+                let echo_ast::ClassMember::Method(method) = member;
+                for statement in &method.body {
+                    validate_statement_mode(statement, mode, diagnostics);
+                }
+            }
+        }
+        Stmt::Use(_) | Stmt::Import(_) | Stmt::TypeDecl(_) => {}
     }
 }
 
@@ -134,6 +150,11 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
         Expr::StaticCall(expr) => {
             for expr in &expr.args {
                 validate_expr_mode(expr, mode, diagnostics);
+            }
+        }
+        Expr::New(expr) => {
+            for arg in &expr.args {
+                validate_expr_mode(arg, mode, diagnostics);
             }
         }
         Expr::Assign(expr) => validate_expr_mode(&expr.value, mode, diagnostics),
@@ -176,6 +197,7 @@ fn validate_expr_mode(expr: &Expr, mode: ValidationMode, diagnostics: &mut Vec<D
         | Expr::String(_)
         | Expr::Number(_)
         | Expr::Variable(_)
+        | Expr::ReceiverConst(_)
         | Expr::MagicConstant(_) => {}
     }
 }

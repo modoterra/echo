@@ -743,9 +743,11 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::String(_) => "string literal",
         Expr::Number(_) => "number literal",
         Expr::Variable(_) => "variable",
+        Expr::ReceiverConst(_) => "receiver constant",
         Expr::FunctionCall(_) => "function call",
         Expr::MethodCall(_) => "method call",
         Expr::StaticCall(_) => "static call",
+        Expr::New(_) => "constructor expression",
         Expr::Assign(_) => "assignment expression",
         Expr::MagicConstant(_) => "magic constant",
         Expr::Require(_) => "require expression",
@@ -804,6 +806,7 @@ fn expression_static_type(expr: &Expr) -> String {
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
         Expr::MethodCall(_) | Expr::StaticCall(_) => "unknown".to_string(),
+        Expr::New(expr) => expr.class_name.as_string(),
         Expr::TypeAscription(expr) => expr.ty.clone(),
         Expr::Assign(expr) => expression_static_type(&expr.value),
         Expr::MagicConstant(_) => "string".to_string(),
@@ -811,9 +814,12 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::Defer(_) | Expr::Run(_) => "task".to_string(),
         Expr::Fork(_) => "thread".to_string(),
         Expr::Spawn(_) => "process".to_string(),
-        Expr::Variable(_) | Expr::Index(_) | Expr::Join(_) | Expr::Loop(_) | Expr::Field(_) => {
-            "unknown".to_string()
-        }
+        Expr::Variable(_)
+        | Expr::ReceiverConst(_)
+        | Expr::Index(_)
+        | Expr::Join(_)
+        | Expr::Loop(_)
+        | Expr::Field(_) => "unknown".to_string(),
     }
 }
 

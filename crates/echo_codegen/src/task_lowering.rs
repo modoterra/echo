@@ -28,7 +28,9 @@ impl IrModule {
         let saved_aliases = std::mem::take(&mut self.aliases);
         let saved_locals = std::mem::take(&mut self.locals);
         let saved_returned = self.returned;
+        let saved_terminated = self.terminated;
         self.returned = false;
+        self.terminated = false;
 
         let sleep = if let Some(echo_mir::MirStmt::FunctionCall { call, .. }) = statements.first()
             && self.resolve_std_call_name(&call.name, call.span)? == "time.sleep"
@@ -66,6 +68,7 @@ impl IrModule {
                     self.aliases = saved_aliases;
                     self.locals = saved_locals;
                     self.returned = saved_returned;
+                    self.terminated = saved_terminated;
                     return Err(diagnostic);
                 }
             }
@@ -75,6 +78,7 @@ impl IrModule {
         self.aliases = saved_aliases;
         self.locals = saved_locals;
         self.returned = saved_returned;
+        self.terminated = saved_terminated;
 
         self.functions_ir.push_str(&format!(
             "define %EchoValue @{function}() {{\nentry:\n{}{}\n}}\n",
@@ -96,18 +100,22 @@ impl IrModule {
     ) -> Result<String, Diagnostic> {
         let function = format!("{parent}_cont");
         let saved_returned = self.returned;
+        let saved_terminated = self.terminated;
         self.returned = false;
+        self.terminated = false;
 
         let mut body = String::new();
         for statement in statements {
             if let Err(diagnostic) = self.render_mir_stmt(&mut body, statement) {
                 self.returned = saved_returned;
+                self.terminated = saved_terminated;
                 return Err(diagnostic);
             }
         }
 
         let returned = self.returned;
         self.returned = saved_returned;
+        self.terminated = saved_terminated;
 
         self.functions_ir.push_str(&format!(
             "define %EchoValue @{function}() {{\nentry:\n{}{}\n}}\n",

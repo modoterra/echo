@@ -194,6 +194,30 @@ impl IndexFactExtractor {
                             text: method_signature(&method.params, method.return_type.as_deref()),
                         }),
                     });
+                    self.extract_statements(&method.body);
+                }
+            }
+            Stmt::ExtendDecl(statement) => {
+                for member in &statement.members {
+                    let ClassMember::Method(method) = member;
+                    self.declarations.push(SymbolFact {
+                        name: SymbolName::new(method.name.as_str()),
+                        fq_name: Some(self.fq_name(&format!(
+                            "{}::{}",
+                            statement.target.as_string(),
+                            method.name
+                        ))),
+                        kind: SymbolKind::Method,
+                        range: span_range(method.span),
+                        selection_range: self
+                            .span_range_for_text(method.span, &method.name)
+                            .unwrap_or_else(|| span_range(method.span)),
+                        visibility: None,
+                        signature: Some(Signature {
+                            text: method_signature(&method.params, method.return_type.as_deref()),
+                        }),
+                    });
+                    self.extract_statements(&method.body);
                 }
             }
             Stmt::TypeDecl(statement) => {

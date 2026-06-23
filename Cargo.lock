@@ -364,6 +364,7 @@ dependencies = [
  "echo_reflection",
  "echo_semantics",
  "echo_source",
+ "echo_syntax",
  "ropey",
  "tokio",
  "tower-lsp-server",
@@ -388,6 +389,7 @@ dependencies = [
  "echo_diagnostics",
  "echo_lexer",
  "echo_source",
+ "echo_syntax",
 ]
 
 [[package]]
@@ -435,6 +437,10 @@ dependencies = [
  "bytes",
  "echo_runtime",
 ]
+
+[[package]]
+name = "echo_syntax"
+version = "0.1.0"
 
 [[package]]
 name = "endian-type"
@@ -1481,6 +1487,7 @@ dependencies = [
  "echo_runtime",
  "echo_semantics",
  "echo_source",
+ "echo_syntax",
  "rustyline",
  "tokio",
 ]

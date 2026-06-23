@@ -147,18 +147,7 @@ fn encode_semantic_tokens(text: &Rope, sources: &[SemanticTokenSource]) -> Vec<S
 }
 
 fn is_keyword(value: &str) -> bool {
-    matches!(
-        value,
-        "use"
-            | "if"
-            | "require"
-            | "require_once"
-            | "true"
-            | "false"
-            | "null"
-            | "define"
-            | "__DIR__"
-    )
+    echo_syntax::keywords::is_keyword(value)
 }
 
 fn previous_is_object_operator(tokens: &[Token], index: usize) -> bool {

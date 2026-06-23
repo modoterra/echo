@@ -3,16 +3,18 @@ use chumsky::span::SimpleSpan;
 use echo_ast::{
     AppendStmt, ArrayElement, ArrayExpr, AssignExpr, AssignRefStmt, AssignStmt, BinaryExpr,
     BinaryOp, BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr,
-    DynamicFunctionCallStmt, EchoStmt, Expr, FieldExpr, ForkExpr, FunctionCallExpr,
+    DynamicFunctionCallStmt, EchoStmt, Expr, ExtendDeclStmt, FieldExpr, ForkExpr, FunctionCallExpr,
     FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr,
     LetStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MethodCallExpr,
-    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NullLiteral, NumberLiteral,
-    ObjectExpr, ObjectField, Program, QualifiedName, RequireExpr, RequireKind, ReturnStmt, RunExpr,
-    SpawnExpr, StaticCallExpr, Stmt, StringLiteral, TypeAscriptionExpr, TypeDeclStmt, TypeField,
-    TypedParam, UnaryExpr, UnaryOp, UseStmt, VariableExpr, YieldStmt,
+    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NullLiteral,
+    NumberLiteral, ObjectExpr, ObjectField, Program, QualifiedName, ReceiverConst,
+    ReceiverConstExpr, RequireExpr, RequireKind, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
+    Stmt, StringLiteral, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
+    UnaryOp, UseStmt, VariableExpr, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
+use echo_syntax::keywords as kw;
 
 #[path = "preprocess.rs"]
 mod preprocess;
@@ -110,7 +112,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
     });
 
     let expr = recursive(|expr| {
-        let null = text::keyword("null")
+        let null = text::keyword(kw::NULL.text)
             .or(text::keyword("NULL"))
             .map_with(|_, extra| {
                 let span: SimpleSpan = extra.span();
@@ -120,10 +122,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let bool_literal = text::keyword("true")
+        let bool_literal = text::keyword(kw::TRUE.text)
             .or(text::keyword("TRUE"))
             .to(true)
-            .or(text::keyword("false").or(text::keyword("FALSE")).to(false))
+            .or(text::keyword(kw::FALSE.text)
+                .or(text::keyword("FALSE"))
+                .to(false))
             .map_with(|value, extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -197,10 +201,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map_with(|name: &str, extra| {
                 let span: SimpleSpan = extra.span();
 
-                Expr::Variable(VariableExpr {
-                    name: name.to_string(),
-                    span: Span::new(span.start, span.end),
-                })
+                let span = Span::new(span.start, span.end);
+                ReceiverConst::from_variable_name(name).map_or_else(
+                    || {
+                        Expr::Variable(VariableExpr {
+                            name: name.to_string(),
+                            span,
+                        })
+                    },
+                    |kind| Expr::ReceiverConst(ReceiverConstExpr { kind, span }),
+                )
             });
 
         let magic_dir = just("__DIR__").map_with(|_, extra| {
@@ -264,7 +274,37 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let run_expr = text::keyword("run")
+        let new_expr = text::keyword(kw::NEW.text)
+            .padded()
+            .ignore_then(
+                text::ident()
+                    .separated_by(just('\\'))
+                    .at_least(1)
+                    .collect::<Vec<_>>()
+                    .map(|parts| {
+                        QualifiedName::new(parts.into_iter().map(str::to_string).collect())
+                    })
+                    .padded(),
+            )
+            .then(
+                just('(')
+                    .padded()
+                    .then_ignore(just(')').padded())
+                    .to(())
+                    .or_not(),
+            )
+            .map_with(|(class_name, _): (QualifiedName, Option<()>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::New(Box::new(NewExpr {
+                    class_name,
+                    args: Vec::new(),
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
+
+        let run_expr = text::keyword(kw::RUN.text)
             .padded()
             .ignore_then(expr.clone())
             .map_with(|task, extra| {
@@ -276,7 +316,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let spawn_expr = text::keyword("spawn")
+        let spawn_expr = text::keyword(kw::SPAWN.text)
             .padded()
             .ignore_then(expr.clone())
             .map_with(|command, extra| {
@@ -288,7 +328,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let fork_expr = text::keyword("fork")
+        let fork_expr = text::keyword(kw::FORK.text)
             .padded()
             .ignore_then(expr.clone())
             .map_with(|task, extra| {
@@ -300,7 +340,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let join_expr = text::keyword("join")
+        let join_expr = text::keyword(kw::JOIN.text)
             .padded()
             .ignore_then(expr.clone())
             .map_with(|handle, extra| {
@@ -312,9 +352,9 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let require_expr = text::keyword("require_once")
+        let require_expr = text::keyword(kw::REQUIRE_ONCE.text)
             .to(RequireKind::RequireOnce)
-            .or(text::keyword("require").to(RequireKind::Require))
+            .or(text::keyword(kw::REQUIRE.text).to(RequireKind::Require))
             .padded()
             .then(expr.clone())
             .map_with(|(kind, path), extra| {
@@ -433,24 +473,28 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .clone()
             .delimited_by(just('(').padded(), just(')').padded());
 
-        let atom = run_expr
-            .or(fork_expr)
-            .or(spawn_expr)
-            .or(join_expr)
-            .or(require_expr)
-            .or(parenthesized)
-            .or(structural_object_expr)
-            .or(object_expr)
-            .or(static_call_expr)
-            .or(function_call_expr)
-            .or(variable)
-            .or(magic_dir)
-            .or(null)
-            .or(bool_literal)
-            .or(array_expr)
-            .or(list_expr)
-            .or(string)
-            .or(number);
+        let atom = choice((
+            run_expr,
+            fork_expr,
+            spawn_expr,
+            join_expr,
+            require_expr,
+            new_expr,
+            parenthesized,
+            structural_object_expr,
+            object_expr,
+            static_call_expr,
+            function_call_expr,
+            variable,
+            magic_dir,
+            null,
+            bool_literal,
+            array_expr,
+            list_expr,
+            string,
+            number,
+        ))
+        .boxed();
 
         #[derive(Clone)]
         enum Postfix {
@@ -625,10 +669,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         );
 
         let is_expr = additive.clone().foldl(
-            text::keyword("is")
+            text::keyword(kw::IS.text)
                 .padded()
-                .ignore_then(text::keyword("not").padded().to(true).or_not())
-                .then_ignore(text::keyword("null").padded())
+                .ignore_then(text::keyword(kw::NOT.text).padded().to(true).or_not())
+                .then_ignore(text::keyword(kw::NULL.text).padded())
                 .repeated(),
             |left, is_not| {
                 let span = left.span();
@@ -689,10 +733,30 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .collect::<Vec<_>>()
             .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
 
-        let namespace_stmt = text::keyword("namespace")
+        let dotted_name = text::ident()
+            .separated_by(just('.'))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
+
+        let module_stmt = text::keyword(kw::MODULE.text)
+            .padded()
+            .ignore_then(dotted_name.clone())
+            .then_ignore(terminator.clone())
+            .map_with(|name, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Namespace(NamespaceStmt {
+                    source: NamespaceSource::Php,
+                    name,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let namespace_stmt = text::keyword(kw::NAMESPACE.text)
             .padded()
             .ignore_then(
-                text::keyword("std")
+                text::keyword(kw::STD.text)
                     .padded()
                     .ignore_then(qualified_name.clone())
                     .map(|name| (NamespaceSource::Std, name))
@@ -711,11 +775,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let use_stmt = text::keyword("use")
+        let use_stmt = text::keyword(kw::USE.text)
             .padded()
             .ignore_then(qualified_name.clone())
             .then(
-                text::keyword("as")
+                text::keyword(kw::AS.text)
                     .padded()
                     .ignore_then(text::ident().padded())
                     .or_not(),
@@ -731,7 +795,50 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let import_source = text::keyword("std")
+        let echo_std_use_stmt = text::keyword(kw::USE.text)
+            .padded()
+            .ignore_then(text::keyword(kw::STD.text).padded())
+            .ignore_then(just('.').padded())
+            .ignore_then(dotted_name.clone())
+            .then(
+                text::keyword(kw::AS.text)
+                    .padded()
+                    .ignore_then(text::ident().padded())
+                    .or_not(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(|(name, alias): (QualifiedName, Option<&str>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Import(ImportStmt {
+                    source: ImportSource::Std,
+                    name,
+                    alias: alias.map(str::to_string),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let dotted_use_stmt = text::keyword(kw::USE.text)
+            .padded()
+            .ignore_then(dotted_name.clone())
+            .then(
+                text::keyword(kw::AS.text)
+                    .padded()
+                    .ignore_then(text::ident().padded())
+                    .or_not(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(|(name, alias): (QualifiedName, Option<&str>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Use(UseStmt {
+                    name,
+                    alias: alias.map(str::to_string),
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
+        let import_source = text::keyword(kw::STD.text)
             .padded()
             .to(ImportSource::Std)
             .or(just('"')
@@ -740,13 +847,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 .padded()
                 .map(ImportSource::File));
 
-        let import_stmt = text::keyword("from")
+        let import_stmt = text::keyword(kw::FROM.text)
             .padded()
             .ignore_then(import_source)
-            .then_ignore(text::keyword("use").padded())
+            .then_ignore(text::keyword(kw::USE.text).padded())
             .then(qualified_name.clone())
             .then(
-                text::keyword("as")
+                text::keyword(kw::AS.text)
                     .padded()
                     .ignore_then(text::ident().padded())
                     .or_not(),
@@ -798,7 +905,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let yield_stmt = text::keyword("yield")
+        let yield_stmt = text::keyword(kw::YIELD.text)
             .padded()
             .ignore_then(expr.clone().padded())
             .then_ignore(terminator.clone())
@@ -868,7 +975,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .allow_trailing()
             .collect::<Vec<_>>();
 
-        let typed_param = type_expr
+        let prefix_typed_param = type_expr
             .clone()
             .padded()
             .or_not()
@@ -879,36 +986,59 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 ty,
             });
 
-        let method_body = none_of('}')
-            .repeated()
-            .ignored()
-            .delimited_by(just('{').padded(), just('}').padded())
-            .ignored();
+        let suffix_typed_param = just('$')
+            .ignore_then(text::ident().padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .map(|(name, ty): (&str, Option<String>)| TypedParam {
+                name: name.to_string(),
+                ty,
+            });
+
+        let typed_param = suffix_typed_param.or(prefix_typed_param);
+
+        let method_param = typed_param.clone();
+
+        let method_body = recursive(|body| {
+            none_of("{}")
+                .ignored()
+                .or(body)
+                .repeated()
+                .ignored()
+                .delimited_by(just('{').padded(), just('}').padded())
+                .ignored()
+        });
         let method_end = method_body
             .then_ignore(terminator.clone().or_not())
             .or(terminator.clone())
             .ignored();
 
-        let method_visibility = text::keyword("pub")
+        let method_visibility = text::keyword(kw::PUB.text)
             .to(MethodVisibility::Public)
-            .or(text::keyword("public").to(MethodVisibility::Public))
-            .or(text::keyword("protected").to(MethodVisibility::Protected))
-            .or(text::keyword("private").to(MethodVisibility::Private))
+            .or(text::keyword(kw::PUBLIC.text).to(MethodVisibility::Public))
+            .or(text::keyword(kw::PROTECTED.text).to(MethodVisibility::Protected))
+            .or(text::keyword(kw::PRIVATE.text).to(MethodVisibility::Private))
             .padded()
             .or_not();
 
-        let function_keyword = text::keyword("fn").or(text::keyword("function")).padded();
+        let function_keyword = text::keyword(kw::FN.text)
+            .or(text::keyword(kw::FUNCTION.text))
+            .padded();
 
         let method_decl = method_visibility
             .then(
-                text::keyword("intrinsic")
+                text::keyword(kw::INTRINSIC.text)
                     .padded()
                     .to(true)
                     .or_not()
                     .map(|is_intrinsic| is_intrinsic.unwrap_or(false)),
             )
             .then(
-                text::keyword("static")
+                text::keyword(kw::STATIC.text)
                     .padded()
                     .to(true)
                     .or_not()
@@ -918,7 +1048,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
-                typed_param
+                method_param
                     .clone()
                     .padded()
                     .separated_by(just(',').padded())
@@ -948,6 +1078,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         name: name.to_string(),
                         params,
                         return_type,
+                        body: Vec::new(),
                         visibility: visibility.unwrap_or(MethodVisibility::Private),
                         is_static,
                         is_intrinsic,
@@ -956,24 +1087,53 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let class_decl_stmt = text::keyword("class")
+        let class_decl_stmt = just(kw::CLASS.text)
             .padded()
             .ignore_then(text::ident().padded())
+            .then(
+                text::keyword("extends")
+                    .padded()
+                    .ignore_then(qualified_name.clone().or(dotted_name.clone()))
+                    .or_not(),
+            )
+            .then_ignore(just('{').padded())
+            .then(method_decl.clone().repeated().collect::<Vec<_>>())
+            .then_ignore(just('}').padded())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(
+                |((name, parent), members): ((&str, Option<QualifiedName>), Vec<ClassMember>),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::ClassDecl(ClassDeclStmt {
+                        name: name.to_string(),
+                        parent,
+                        members,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
+
+        let extend_decl_stmt = just("extend")
+            .padded()
+            .ignore_then(qualified_name.clone().or(dotted_name.clone()))
             .then_ignore(just('{').padded())
             .then(method_decl.repeated().collect::<Vec<_>>())
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
-            .map_with(|(name, members): (&str, Vec<ClassMember>), extra| {
-                let span: SimpleSpan = extra.span();
+            .map_with(
+                |(target, members): (QualifiedName, Vec<ClassMember>), extra| {
+                    let span: SimpleSpan = extra.span();
 
-                Stmt::ClassDecl(ClassDeclStmt {
-                    name: name.to_string(),
-                    members,
-                    span: Span::new(span.start, span.end),
-                })
-            });
+                    Stmt::ExtendDecl(ExtendDeclStmt {
+                        target,
+                        members,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            );
 
-        let type_field = text::keyword("const")
+        let type_field = text::keyword(kw::CONST.text)
             .padded()
             .to(true)
             .or_not()
@@ -994,7 +1154,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let type_decl_stmt = text::keyword("type")
+        let type_decl_stmt = text::keyword(kw::TYPE.text)
             .padded()
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
@@ -1047,7 +1207,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let fn_decl_stmt = text::keyword("fn")
+        let fn_decl_stmt = text::keyword(kw::FN.text)
             .padded()
             .ignore_then(text::ident().padded())
             .then_ignore(just('(').padded())
@@ -1090,9 +1250,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let intrinsic_function_decl_stmt = text::keyword("intrinsic")
+        let intrinsic_function_decl_stmt = text::keyword(kw::INTRINSIC.text)
             .padded()
-            .ignore_then(text::keyword("fn").or(text::keyword("function")).padded())
+            .ignore_then(
+                text::keyword(kw::FN.text)
+                    .or(text::keyword(kw::FUNCTION.text))
+                    .padded(),
+            )
             .ignore_then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
@@ -1128,9 +1292,9 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let gen_fn_decl_stmt = text::keyword("gen")
+        let gen_fn_decl_stmt = text::keyword(kw::GEN.text)
             .padded()
-            .ignore_then(text::keyword("fn").padded())
+            .ignore_then(text::keyword(kw::FN.text).padded())
             .ignore_then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
@@ -1207,7 +1371,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 .or_not(),
         );
 
-        let let_stmt = text::keyword("let")
+        let let_stmt = text::keyword(kw::LET.text)
             .padded()
             .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
@@ -1226,12 +1390,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let let_join_run_block_stmt = text::keyword("let")
+        let let_join_run_block_stmt = text::keyword(kw::LET.text)
             .padded()
             .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("join").padded())
-            .then_ignore(text::keyword("run").padded())
+            .then_ignore(text::keyword(kw::JOIN.text).padded())
+            .then_ignore(text::keyword(kw::RUN.text).padded())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
@@ -1254,11 +1418,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let let_loop_block_stmt = text::keyword("let")
+        let let_loop_block_stmt = text::keyword(kw::LET.text)
             .padded()
             .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("loop").padded())
+            .then_ignore(text::keyword(kw::LOOP.text).padded())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
@@ -1277,11 +1441,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let let_run_block_stmt = text::keyword("let")
+        let let_run_block_stmt = text::keyword(kw::LET.text)
             .padded()
             .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("run").padded())
+            .then_ignore(text::keyword(kw::RUN.text).padded())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
@@ -1309,11 +1473,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .collect::<Vec<_>>()
             .delimited_by(just('[').padded(), just(']').padded());
 
-        let let_run_group_stmt = text::keyword("let")
+        let let_run_group_stmt = text::keyword(kw::LET.text)
             .padded()
             .ignore_then(let_binding.clone())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("run").padded())
+            .then_ignore(text::keyword(kw::RUN.text).padded())
             .then(run_group_entries.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(
@@ -1332,7 +1496,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 },
             );
 
-        let run_block_stmt = text::keyword("run")
+        let run_block_stmt = text::keyword(kw::RUN.text)
             .padded()
             .ignore_then(block.clone())
             .then_ignore(terminator.clone().or_not())
@@ -1365,7 +1529,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let loop_stmt = text::keyword("loop")
+        let loop_stmt = text::keyword(kw::LOOP.text)
             .padded()
             .ignore_then(block.clone())
             .then_ignore(terminator.clone().or_not())
@@ -1378,7 +1542,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let if_stmt = text::keyword("if")
+        let if_stmt = text::keyword(kw::IF.text)
             .padded()
             .ignore_then(expr.clone())
             .then(block.clone())
@@ -1393,7 +1557,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let break_stmt = text::keyword("break")
+        let break_stmt = text::keyword(kw::BREAK.text)
             .padded()
             .ignore_then(expr.clone().padded().or_not())
             .then_ignore(terminator.clone())
@@ -1409,7 +1573,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let assign_defer_block_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("defer").padded())
+            .then_ignore(text::keyword(kw::DEFER.text).padded())
             .then(block.clone())
             .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
@@ -1428,7 +1592,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let assign_run_block_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("run").padded())
+            .then_ignore(text::keyword(kw::RUN.text).padded())
             .then(block.clone())
             .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
@@ -1447,7 +1611,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let assign_run_group_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("run").padded())
+            .then_ignore(text::keyword(kw::RUN.text).padded())
             .then(run_group_entries)
             .then_ignore(terminator.clone())
             .map_with(|(name, entries): (&str, Vec<Vec<Stmt>>), extra| {
@@ -1466,7 +1630,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
         let assign_fork_block_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
-            .then_ignore(text::keyword("fork").padded())
+            .then_ignore(text::keyword(kw::FORK.text).padded())
             .then(block.clone())
             .then_ignore(terminator.clone())
             .map_with(|(name, body): (&str, Vec<Stmt>), extra| {
@@ -1511,12 +1675,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        gen_fn_decl_stmt
+        class_decl_stmt
+            .or(extend_decl_stmt)
+            .or(gen_fn_decl_stmt)
             .or(fn_decl_stmt)
             .or(function_decl_stmt)
             .or(intrinsic_function_decl_stmt)
-            .or(class_decl_stmt)
             .or(type_decl_stmt)
+            .or(module_stmt)
+            .or(echo_std_use_stmt)
+            .or(dotted_use_stmt)
             .or(namespace_stmt)
             .or(use_stmt)
             .or(import_stmt)

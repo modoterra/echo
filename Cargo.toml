@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/echo_source",
+  "crates/echo_syntax",
   "crates/echo_diagnostics",
   "crates/echo_lexer",
   "crates/echo_ast",

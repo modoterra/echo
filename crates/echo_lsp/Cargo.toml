@@ -16,3 +16,4 @@ echo_parser = { path = "../echo_parser" }
 echo_reflection = { path = "../echo_reflection" }
 echo_semantics = { path = "../echo_semantics" }
 echo_source = { path = "../echo_source" }
+echo_syntax = { path = "../echo_syntax" }

@@ -2,3 +2,6 @@
 /test-results/
 /.worktrees/
 /TODO.coverage.md
+/fixtures/php-apps/*
+!/fixtures/php-apps/.gitkeep
+!/fixtures/php-apps/README.md

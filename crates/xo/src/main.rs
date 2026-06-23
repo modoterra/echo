@@ -8,6 +8,7 @@ mod build;
 mod repl;
 mod source;
 mod test_runner;
+mod tools;
 
 use build::{
     OptimizationLevel, build_ir_binary, optimize_ir, parse_optimization_level, run_command,
@@ -50,6 +51,8 @@ enum Command {
         #[arg(long)]
         jit: bool,
         file: PathBuf,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
     },
     Repl {
         #[command(flatten)]
@@ -59,6 +62,10 @@ enum Command {
         #[command(flatten)]
         mode: ModeOverride,
         path: PathBuf,
+    },
+    Tools {
+        #[command(subcommand)]
+        command: ToolsCommand,
     },
     Build {
         #[command(flatten)]
@@ -70,6 +77,23 @@ enum Command {
         output: Option<PathBuf>,
         #[arg(long)]
         emit_ir: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ToolsCommand {
+    Grammar {
+        #[command(subcommand)]
+        command: GrammarCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum GrammarCommand {
+    TreeSitter {
+        /// Directory where the generated tree-sitter grammar package is written.
+        #[arg(short, long)]
+        output: PathBuf,
     },
 }
 
@@ -128,13 +152,22 @@ fn main() {
             let ir = compile_ir(&file, mode);
             print!("{ir}");
         }
-        Command::Run { mode, jit, file } => {
+        Command::Run {
+            mode,
+            jit,
+            file,
+            args,
+        } => {
             if jit {
+                if !args.is_empty() {
+                    eprintln!("error: xo run --jit does not support program arguments yet");
+                    std::process::exit(1);
+                }
                 run_jit(&file, mode);
             } else {
                 let binary_path = temp_path(&file, "program");
                 build_binary(&file, mode, OptimizationLevel::O0, &binary_path);
-                run_command(&mut ProcessCommand::new(&binary_path));
+                run_command(ProcessCommand::new(&binary_path).args(args));
                 let _ = fs::remove_file(binary_path);
             }
         }
@@ -144,6 +177,16 @@ fn main() {
         Command::Test { mode, path } => {
             test_runner::run_tests(&path, mode);
         }
+        Command::Tools { command } => match command {
+            ToolsCommand::Grammar { command } => match command {
+                GrammarCommand::TreeSitter { output } => {
+                    if let Err(err) = tools::grammar::tree_sitter::generate(&output) {
+                        eprintln!("error: failed to generate Tree-sitter grammar: {err}");
+                        std::process::exit(1);
+                    }
+                }
+            },
+        },
         Command::Build {
             mode,
             optimization,

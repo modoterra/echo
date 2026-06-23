@@ -122,6 +122,7 @@ pub(crate) fn lower_syntax_statement(
         | Stmt::Use(_)
         | Stmt::Import(_)
         | Stmt::ClassDecl(_)
+        | Stmt::ExtendDecl(_)
         | Stmt::TypeDecl(_) => MirStmt::Noop {
             source: statement.clone(),
         },
@@ -169,6 +170,10 @@ fn lower_expr(expr: &Expr) -> MirExpr {
             source: expr.clone(),
             name: value.name.clone(),
         },
+        Expr::ReceiverConst(value) => MirExpr::ReceiverConst {
+            source: expr.clone(),
+            kind: value.kind,
+        },
         Expr::FunctionCall(value) => MirExpr::FunctionCall {
             source: expr.clone(),
             call: MirFunctionCall {
@@ -187,6 +192,11 @@ fn lower_expr(expr: &Expr) -> MirExpr {
             source: expr.clone(),
             class_name: value.class_name.clone(),
             method: value.method.clone(),
+            args: value.args.iter().map(lower_expr).collect(),
+        },
+        Expr::New(value) => MirExpr::New {
+            source: expr.clone(),
+            class_name: value.class_name.clone(),
             args: value.args.iter().map(lower_expr).collect(),
         },
         Expr::Assign(value) => MirExpr::Assign {

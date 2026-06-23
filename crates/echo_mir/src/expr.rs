@@ -23,6 +23,10 @@ pub enum MirExpr {
         source: Expr,
         name: String,
     },
+    ReceiverConst {
+        source: Expr,
+        kind: echo_ast::ReceiverConst,
+    },
     FunctionCall {
         source: Expr,
         call: MirFunctionCall,
@@ -37,6 +41,11 @@ pub enum MirExpr {
         source: Expr,
         class_name: echo_ast::QualifiedName,
         method: String,
+        args: Vec<MirExpr>,
+    },
+    New {
+        source: Expr,
+        class_name: echo_ast::QualifiedName,
         args: Vec<MirExpr>,
     },
     Assign {
@@ -152,9 +161,11 @@ impl MirExpr {
             | Self::String { source, .. }
             | Self::Number { source, .. }
             | Self::Variable { source, .. }
+            | Self::ReceiverConst { source, .. }
             | Self::FunctionCall { source, .. }
             | Self::MethodCall { source, .. }
             | Self::StaticCall { source, .. }
+            | Self::New { source, .. }
             | Self::Assign { source, .. }
             | Self::MagicDir { source }
             | Self::Require { source, .. }
@@ -181,9 +192,11 @@ impl MirExpr {
             | Self::String { source, .. }
             | Self::Number { source, .. }
             | Self::Variable { source, .. }
+            | Self::ReceiverConst { source, .. }
             | Self::FunctionCall { source, .. }
             | Self::MethodCall { source, .. }
             | Self::StaticCall { source, .. }
+            | Self::New { source, .. }
             | Self::Assign { source, .. }
             | Self::MagicDir { source }
             | Self::Require { source, .. }

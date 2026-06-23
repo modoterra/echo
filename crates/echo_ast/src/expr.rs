@@ -8,9 +8,11 @@ pub enum Expr {
     String(StringLiteral),
     Number(NumberLiteral),
     Variable(VariableExpr),
+    ReceiverConst(ReceiverConstExpr),
     FunctionCall(FunctionCallExpr),
     MethodCall(Box<MethodCallExpr>),
     StaticCall(StaticCallExpr),
+    New(Box<NewExpr>),
     Assign(Box<AssignExpr>),
     MagicConstant(MagicConstantExpr),
     Require(Box<RequireExpr>),
@@ -38,9 +40,11 @@ impl Expr {
             Self::String(expr) => expr.span,
             Self::Number(expr) => expr.span,
             Self::Variable(expr) => expr.span,
+            Self::ReceiverConst(expr) => expr.span,
             Self::FunctionCall(expr) => expr.span,
             Self::MethodCall(expr) => expr.span,
             Self::StaticCall(expr) => expr.span,
+            Self::New(expr) => expr.span,
             Self::Assign(expr) => expr.span,
             Self::MagicConstant(expr) => expr.span,
             Self::Require(expr) => expr.span,
@@ -144,6 +148,41 @@ pub struct VariableExpr {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReceiverConst {
+    This,
+    SelfType,
+    Parent,
+    Static,
+}
+
+impl ReceiverConst {
+    pub fn variable_name(self) -> &'static str {
+        match self {
+            Self::This => "this",
+            Self::SelfType => "self",
+            Self::Parent => "parent",
+            Self::Static => "static",
+        }
+    }
+
+    pub fn from_variable_name(name: &str) -> Option<Self> {
+        match name {
+            "this" => Some(Self::This),
+            "self" => Some(Self::SelfType),
+            "parent" => Some(Self::Parent),
+            "static" => Some(Self::Static),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReceiverConstExpr {
+    pub kind: ReceiverConst,
+    pub span: Span,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionCallExpr {
     pub name: String,
@@ -163,6 +202,13 @@ pub struct MethodCallExpr {
 pub struct StaticCallExpr {
     pub class_name: QualifiedName,
     pub method: String,
+    pub args: Vec<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewExpr {
+    pub class_name: QualifiedName,
     pub args: Vec<Expr>,
     pub span: Span,
 }

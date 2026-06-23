@@ -58,6 +58,14 @@ pub fn compile_mir_to_ir(program: &echo_mir::MirProgram) -> Result<String, Vec<D
     let mut module = IrModule::new();
     module.source_dir = program.source_dir().map(str::to_string);
     let body = module.render_program(program)?;
+    let main_tail = if module.terminated {
+        String::new()
+    } else {
+        format!(
+            "  call void @{}()\n  ret i32 0\n",
+            CoreRuntimeSymbol::Shutdown.symbol()
+        )
+    };
 
     Ok(format!(
         r#"target triple = "x86_64-pc-linux-gnu"
@@ -71,15 +79,14 @@ pub fn compile_mir_to_ir(program: &echo_mir::MirProgram) -> Result<String, Vec<D
 
 define i32 @main() {{
 entry:
-{}  call void @{}()
-  ret i32 0
+{}{}
 }}
 "#,
         module.globals,
         runtime_declarations(),
         module.functions_ir,
         body,
-        CoreRuntimeSymbol::Shutdown.symbol(),
+        main_tail,
     ))
 }
 
@@ -121,6 +128,9 @@ impl IrModule {
         self.render_reflection_registrations(&mut body);
 
         for statement in program.statements() {
+            if self.terminated {
+                break;
+            }
             if let Err(diagnostic) = self.render_mir_stmt(&mut body, statement) {
                 diagnostics.push(diagnostic);
             }
@@ -183,6 +193,23 @@ impl IrModule {
                         source.span(),
                     )
                 }),
+            echo_mir::MirExpr::ReceiverConst { source, kind } => Err(Diagnostic::new(
+                match kind {
+                    echo_ast::ReceiverConst::Static => {
+                        "$static is reserved for late static binding and is not implemented yet."
+                    }
+                    echo_ast::ReceiverConst::This => {
+                        "$this receiver lowering is not implemented yet."
+                    }
+                    echo_ast::ReceiverConst::SelfType => {
+                        "$self receiver lowering is not implemented yet."
+                    }
+                    echo_ast::ReceiverConst::Parent => {
+                        "$parent receiver lowering is not implemented yet."
+                    }
+                },
+                source.span(),
+            )),
             echo_mir::MirExpr::FunctionCall { call, .. } => {
                 self.render_mir_function_call_expr(body, call)
             }
@@ -197,6 +224,18 @@ impl IrModule {
                     self.render_mir_expr_as_echo_value(body, arg)?;
                 }
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
+            echo_mir::MirExpr::New { args, .. } => {
+                for arg in args {
+                    self.render_mir_expr_as_echo_value(body, arg)?;
+                }
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}()\n",
+                    CoreRuntimeSymbol::ValueObjectNew.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
             }
             echo_mir::MirExpr::Assign { name, value, .. } => {
                 let value = self.render_mir_expr(body, value)?;

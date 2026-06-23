@@ -26,6 +26,7 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::Use(statement) => statement.span,
         Stmt::Import(statement) => statement.span,
         Stmt::ClassDecl(statement) => statement.span,
+        Stmt::ExtendDecl(statement) => statement.span,
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
         Stmt::If(statement) => statement.span,

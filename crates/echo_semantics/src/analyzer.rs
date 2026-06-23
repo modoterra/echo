@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use echo_ast::{BinaryOp, Expr, FunctionDeclStmt, Program, Stmt, UnaryOp};
+use echo_ast::{
+    BinaryOp, ClassMember, Expr, FunctionDeclStmt, MethodDecl, Program, ReceiverConst, Stmt,
+    UnaryOp,
+};
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
 
@@ -24,6 +27,14 @@ struct Analyzer {
     expression_types: HashMap<SpanKey, Type>,
     variables: HashMap<String, VariableInfo>,
     diagnostics: Vec<Diagnostic>,
+    receiver_context: ReceiverContext,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct ReceiverContext {
+    has_instance: bool,
+    has_self_type: bool,
+    has_parent: bool,
 }
 
 impl Analyzer {
@@ -54,7 +65,9 @@ impl Analyzer {
             Stmt::FunctionDecl(statement) => self.analyze_function_decl(statement),
             Stmt::Assign(statement) => {
                 let ty = self.analyze_expr(&statement.value);
-                self.bind_variable(&statement.name, ty, statement.span);
+                if !self.reject_receiver_assignment(&statement.name, statement.span) {
+                    self.bind_variable(&statement.name, ty, statement.span);
+                }
             }
             Stmt::Let(statement) => {
                 let value_ty = self.analyze_expr(&statement.value);
@@ -63,13 +76,17 @@ impl Analyzer {
                     .as_ref()
                     .map(|ty| Type::Named(ty.clone()))
                     .unwrap_or(value_ty);
-                self.bind_variable(&statement.name, ty, statement.span);
+                if !self.reject_receiver_binding(&statement.name, statement.span) {
+                    self.bind_variable(&statement.name, ty, statement.span);
+                }
             }
             Stmt::AssignRef(statement) => {
                 let ty = self
                     .resolve_variable(&statement.target, statement.span)
                     .unwrap_or(Type::Unknown);
-                self.bind_variable(&statement.name, ty, statement.span);
+                if !self.reject_receiver_binding(&statement.name, statement.span) {
+                    self.bind_variable(&statement.name, ty, statement.span);
+                }
             }
             Stmt::Return(statement) => {
                 self.analyze_expr(&statement.value);
@@ -80,10 +97,35 @@ impl Analyzer {
             Stmt::Expr(statement) => {
                 self.analyze_expr(&statement.expr);
             }
+            Stmt::ClassDecl(statement) => {
+                for member in &statement.members {
+                    let ClassMember::Method(method) = member;
+                    self.analyze_method_decl(
+                        method,
+                        ReceiverContext {
+                            has_instance: !method.is_static,
+                            has_self_type: true,
+                            has_parent: statement.parent.is_some(),
+                        },
+                    );
+                }
+            }
+            Stmt::ExtendDecl(statement) => {
+                for member in &statement.members {
+                    let ClassMember::Method(method) = member;
+                    self.analyze_method_decl(
+                        method,
+                        ReceiverContext {
+                            has_instance: !method.is_static,
+                            has_self_type: true,
+                            has_parent: false,
+                        },
+                    );
+                }
+            }
             Stmt::Namespace(_)
             | Stmt::Use(_)
             | Stmt::Import(_)
-            | Stmt::ClassDecl(_)
             | Stmt::TypeDecl(_)
             | Stmt::Break(_) => {}
             Stmt::Loop(statement) => self.analyze_statements(&statement.body),
@@ -117,9 +159,30 @@ impl Analyzer {
                 .as_ref()
                 .map(|ty| Type::Named(ty.clone()))
                 .unwrap_or(Type::Unknown);
-            self.bind_variable(&param.name, ty, statement.span);
+            if !self.reject_receiver_binding(&param.name, statement.span) {
+                self.bind_variable(&param.name, ty, statement.span);
+            }
         }
         self.analyze_statements(&statement.body);
+        self.variables = saved_variables;
+    }
+
+    fn analyze_method_decl(&mut self, method: &MethodDecl, context: ReceiverContext) {
+        let saved_variables = self.variables.clone();
+        let saved_context = self.receiver_context;
+        self.receiver_context = context;
+        for param in &method.params {
+            let ty = param
+                .ty
+                .as_ref()
+                .map(|ty| Type::Named(ty.clone()))
+                .unwrap_or(Type::Unknown);
+            if !self.reject_receiver_binding(&param.name, method.span) {
+                self.bind_variable(&param.name, ty, method.span);
+            }
+        }
+        self.analyze_statements(&method.body);
+        self.receiver_context = saved_context;
         self.variables = saved_variables;
     }
 
@@ -133,6 +196,7 @@ impl Analyzer {
             Expr::Variable(expr) => self
                 .resolve_variable(&expr.name, expr.span)
                 .unwrap_or(Type::Unknown),
+            Expr::ReceiverConst(expr) => self.analyze_receiver_const(expr.kind, expr.span),
             Expr::FunctionCall(expr) => {
                 for arg in &expr.args {
                     self.analyze_expr(arg);
@@ -155,16 +219,24 @@ impl Analyzer {
                 }
                 Type::Unknown
             }
+            Expr::New(expr) => {
+                for arg in &expr.args {
+                    self.analyze_expr(arg);
+                }
+                Type::Object(Some(expr.class_name.as_string()))
+            }
             Expr::Assign(expr) => {
                 let ty = self.analyze_expr(&expr.value);
-                self.variables.insert(
-                    expr.name.clone(),
-                    VariableInfo {
-                        name: expr.name.clone(),
-                        ty: ty.clone(),
-                        span: expr.span,
-                    },
-                );
+                if !self.reject_receiver_assignment(&expr.name, expr.span) {
+                    self.variables.insert(
+                        expr.name.clone(),
+                        VariableInfo {
+                            name: expr.name.clone(),
+                            ty: ty.clone(),
+                            span: expr.span,
+                        },
+                    );
+                }
                 ty
             }
             Expr::MagicConstant(_) => Type::String,
@@ -291,6 +363,59 @@ impl Analyzer {
                 span,
             },
         );
+    }
+
+    fn analyze_receiver_const(&mut self, kind: ReceiverConst, span: Span) -> Type {
+        match kind {
+            ReceiverConst::This if !self.receiver_context.has_instance => {
+                self.diagnostics.push(Diagnostic::new(
+                    "$this is only available inside instance receiver contexts.",
+                    span,
+                ));
+            }
+            ReceiverConst::SelfType if !self.receiver_context.has_self_type => {
+                self.diagnostics.push(Diagnostic::new(
+                    "$self is only available inside class, type, and extend methods.",
+                    span,
+                ));
+            }
+            ReceiverConst::Parent if !self.receiver_context.has_parent => {
+                self.diagnostics.push(Diagnostic::new(
+                    "$parent is only available when the lexical type has a parent.",
+                    span,
+                ));
+            }
+            ReceiverConst::Static => {
+                self.diagnostics.push(Diagnostic::new(
+                    "$static is reserved for late static binding and is not implemented yet.",
+                    span,
+                ));
+            }
+            _ => {}
+        }
+        Type::Unknown
+    }
+
+    fn reject_receiver_binding(&mut self, name: &str, span: Span) -> bool {
+        if ReceiverConst::from_variable_name(name).is_none() {
+            return false;
+        }
+        self.diagnostics.push(Diagnostic::new(
+            format!("${name} is a compiler-provided receiver constant and cannot be declared."),
+            span,
+        ));
+        true
+    }
+
+    fn reject_receiver_assignment(&mut self, name: &str, span: Span) -> bool {
+        if ReceiverConst::from_variable_name(name).is_none() {
+            return false;
+        }
+        self.diagnostics.push(Diagnostic::new(
+            format!("${name} is a compiler-provided receiver constant and cannot be assigned."),
+            span,
+        ));
+        true
     }
 
     fn resolve_variable(&mut self, name: &str, span: Span) -> Option<Type> {

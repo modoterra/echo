@@ -81,7 +81,9 @@ impl IrModule {
         call: &echo_mir::MirFunctionCall,
     ) -> Result<(), Diagnostic> {
         let name = self.resolve_std_call_name(&call.name, call.span)?;
-        if name == "time.sleep" {
+        if name == "exit" {
+            self.render_mir_exit_stmt(body, call)?;
+        } else if name == "time.sleep" {
             self.mir_time_sleep_call(body, &call.args, call.span)?;
         } else if let Some(intrinsic) = std_intrinsic(&name) {
             self.mir_std_intrinsic_call(body, intrinsic, &call.args, call.span)?;
@@ -94,6 +96,40 @@ impl IrModule {
                 Some(_) => self.mir_userland_call(body, call)?,
             }
         }
+
+        Ok(())
+    }
+
+    fn render_mir_exit_stmt(
+        &mut self,
+        body: &mut String,
+        call: &echo_mir::MirFunctionCall,
+    ) -> Result<(), Diagnostic> {
+        let status = match call.args.as_slice() {
+            [] => "0".to_string(),
+            [arg] => {
+                let value = self.render_mir_expr_as_echo_value(body, arg)?;
+                let status_name = self.next_runtime_call_name();
+                body.push_str(&format!(
+                    "  {status_name} = call i32 @{}({value})\n",
+                    CoreRuntimeSymbol::ValueExitStatus.symbol()
+                ));
+                status_name
+            }
+            _ => {
+                return Err(Diagnostic::new(
+                    "unsupported exit argument count in LLVM codegen",
+                    call.span,
+                ));
+            }
+        };
+
+        body.push_str(&format!(
+            "  call void @{}()\n",
+            CoreRuntimeSymbol::Shutdown.symbol()
+        ));
+        body.push_str(&format!("  ret i32 {status}\n"));
+        self.terminated = true;
 
         Ok(())
     }

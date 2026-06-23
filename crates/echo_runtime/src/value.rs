@@ -532,6 +532,15 @@ pub extern "C" fn echo_value_object_new() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_value_exit_status(value: EchoValue) -> i32 {
+    match value.kind {
+        ECHO_VALUE_INT => (value.payload as i64) as i32 & 0xff,
+        ECHO_VALUE_BOOL if value.payload != 0 => 1,
+        _ => 0,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_value_object_set(
     object: EchoValue,
     field_ptr: *const u8,
