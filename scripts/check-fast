@@ -7,6 +7,31 @@ source "$CHECK_FAST_SCRIPT_DIR/check-fast.d/runtime-routes.bash"
 usage() {
   cat <<'EOF'
 Usage:
+  scripts/check-fast changed [--list [N]|--explain|--take N]
+  scripts/check-fast <check> [fixture-filter]
+
+Common checks:
+  script script-tests workspace smoke changed
+  parser semantics hir mir pipeline
+  runtime runtime-* codegen codegen-* xo repl
+  jit fixture bench-php bench-echo web docs
+
+Examples:
+  scripts/check-fast changed --explain
+  scripts/check-fast changed --take 3
+  scripts/check-fast parser 017_object_append_count
+  scripts/check-fast runtime-string
+  scripts/check-fast codegen-php
+  scripts/check-fast workspace
+
+Successful command output is suppressed. Failed commands replay bounded output;
+set CHECK_FAST_MAX_OUTPUT_LINES=0 for full replay. Set CHECK_FAST_ECHO_COMMANDS=1
+to trace commands.
+EOF
+  return
+
+  cat <<'EOF'
+Usage:
   scripts/check-fast fmt
   scripts/check-fast script
   scripts/check-fast script-tests
