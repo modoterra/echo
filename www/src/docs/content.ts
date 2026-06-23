@@ -5269,6 +5269,34 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
+        title: "Help",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "--help" },
+              " directly or the command-style ",
+              { code: "help" },
+              " alias. Both forms print the same clap-generated help output.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "xo --help\nxo help\nxo run --help\nxo help run",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The alias is useful when exploring commands from memory, while ",
+              { code: "--help" },
+              " remains the canonical flag form for scripts and standard CLI expectations.",
+            ],
+          },
+        ],
+      },
+      {
         title: "Source Mode",
         blocks: [
           {

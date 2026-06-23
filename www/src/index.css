@@ -121,6 +121,8 @@
 
 .docs-code-snippet,
 .docs-code-snippet * {
+    font-variant-ligatures: none;
+    font-feature-settings: "calt" 0;
     user-select: text;
 }
 
