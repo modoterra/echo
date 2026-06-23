@@ -1055,7 +1055,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Getting Started", href: "/docs" },
       { label: "Installation", href: "/docs" },
       { label: "Docs", href: "/docs" },
-      { label: "Roadmap", disabled: true },
+      { label: "Roadmap", href: "/docs/roadmap" },
     ],
   },
   {
@@ -1063,18 +1063,18 @@ const footerLinkGroups: FooterLinkGroup[] = [
     links: [
       { label: "Source Modes", href: "/docs/source-modes" },
       { label: "PHP Built-ins", href: "/docs/php-built-ins" },
-      { label: "Compatibility", disabled: true },
-      { label: "Examples", disabled: true },
-      { label: "Benchmarks", disabled: true },
+      { label: "Compatibility", href: "/docs/php-compatibility" },
+      { label: "Examples", href: "/docs/examples" },
+      { label: "Benchmarks", href: "/docs/benchmarks" },
     ],
   },
   {
     title: "Tooling",
     links: [
       { label: "Source Builds", href: "/docs/source-builds" },
-      { label: "Command Line", disabled: true },
-      { label: "Language Server", disabled: true },
-      { label: "Testing", disabled: true },
+      { label: "Command Line", href: "/docs/command-line" },
+      { label: "Language Server", href: "/docs/language-server" },
+      { label: "Testing", href: "/docs/testing" },
     ],
   },
   {
@@ -1790,6 +1790,12 @@ const sourceModesRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/source-modes")} />,
 });
 
+const roadmapRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "roadmap",
+  component: () => <DocsContentPage page={docsPage("/docs/roadmap")} />,
+});
+
 const dataStructuresRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "data-structures",
@@ -1946,6 +1952,18 @@ const phpCompatibilityRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/php-compatibility")} />,
 });
 
+const examplesRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "examples",
+  component: () => <DocsContentPage page={docsPage("/docs/examples")} />,
+});
+
+const benchmarksRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "benchmarks",
+  component: () => <DocsContentPage page={docsPage("/docs/benchmarks")} />,
+});
+
 const strictModeRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "strict-mode",
@@ -1994,6 +2012,7 @@ const routeTree = rootRoute.addChildren([
     docsRoute,
     quickstartRoute,
     sourceModesRoute,
+    roadmapRoute,
     dataStructuresRoute,
     dataStructuresListRoute,
     dataStructuresObjectRoute,
@@ -2020,6 +2039,8 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinOutputBufferingRoute,
     phpBuiltinCoreRoute,
     phpCompatibilityRoute,
+    examplesRoute,
+    benchmarksRoute,
     strictModeRoute,
     importsRoute,
     commandLineRoute,

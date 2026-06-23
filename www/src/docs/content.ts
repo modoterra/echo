@@ -3744,6 +3744,64 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "roadmap",
+    path: "/docs/roadmap",
+    navGroup: "Getting Started",
+    category: "Getting Started",
+    title: "Roadmap",
+    summary:
+      "Track the near-term Echo work across PHP compatibility, Echo-native syntax, standard library modules, and compiler pipeline depth.",
+    tags: ["roadmap", "status", "php compatibility", "compiler", "standard library"],
+    aliases: ["project status", "planned work", "future work"],
+    sections: [
+      {
+        title: "Compatibility First",
+        tags: ["php", "fixtures", "builtins"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo grows by proving vertical slices through parser, AST, semantic analysis, lowering, runtime behavior, CLI execution, docs, and tests. PHP compatibility remains the floor while Echo-native features are added on top.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "scripts/check-fast changed --list\nscripts/check-fast parser-echo-surface\nscripts/check-fast pipeline\nscripts/check-fast web",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use these checks while landing roadmap work so syntax, compiler facts, executable behavior, and website docs stay aligned instead of drifting across separate changes.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Near-Term Language Work",
+        tags: ["hir", "mir", "ast", "control flow", "imports"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The next language slices focus on keeping imports, typed bindings, Echo collections, receiver calls, HIR, MIR, and codegen models clean enough for more PHP built-ins, standard library modules, and Echo control flow.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'from std use time\n\nlet $timer = time.timer()\n\nif ($timer.elapsed() > 16ms) {\n    echo "slow frame\\n"\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This small program crosses the import model, duration literals, receiver calls, comparison rules, and conditional control flow, which makes it a useful shape for future vertical implementation work.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "data-structures",
     path: "/docs/data-structures",
     navGroup: "Language",
@@ -5136,6 +5194,124 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "examples",
+    path: "/docs/examples",
+    navGroup: "Language",
+    category: "Language",
+    title: "Examples",
+    summary:
+      "Use small Echo and PHP-compatible examples to understand the supported surface and the intended style.",
+    tags: ["examples", "echo", "php", "snippets", "standard library"],
+    aliases: ["sample code", "program examples", "recipes"],
+    sections: [
+      {
+        title: "PHP-Compatible Program",
+        tags: ["php", "run", "compatibility"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Start compatibility examples as normal PHP. This keeps the source valid for PHP while Echo proves the same behavior through its compiler and runtime path.",
+            ],
+          },
+          {
+            kind: "code",
+            code: '<?php\n\n$payload = "signed:user-42";\n$parts = explode(":", $payload);\n\nif (count($parts) === 2) {\n    echo strtoupper($parts[1]) . "\\n";\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The example validates the input shape before transforming it, so it exercises string search, array output, count, branching, and output in a realistic compatibility path.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Echo Standard Library",
+        tags: ["std", "time", "strict mode"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo-native examples can use ",
+              { code: "from ... use ..." },
+              " imports, duration literals, and receiver methods in strict source files.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'from std use time\n\nlet $timer = time.timer()\ntime.sleep(25ms)\n\nlet $elapsed = $timer.elapsed()\necho "elapsed: " . $elapsed.total_millis() . "ms\\n"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This shows the intended split between module functions that create or access values and receiver methods that operate on existing values.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "benchmarks",
+    path: "/docs/benchmarks",
+    navGroup: "Language",
+    category: "Language",
+    title: "Benchmarks",
+    summary:
+      "Run PHP and Echo benchmark harnesses when a change affects runtime behavior or executable performance.",
+    tags: ["benchmarks", "performance", "fixtures", "php", "echo"],
+    aliases: ["performance", "bench", "timing"],
+    sections: [
+      {
+        title: "Benchmark Fixtures",
+        tags: ["php_bench", "echo_bench", "fixtures"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Benchmark harnesses compare fixture behavior and timing through PHP and Echo paths. Use a low iteration count while developing, then raise it when preparing a report.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "ECHO_BENCH_ITERATIONS=2 cargo test -p xo --test php_bench -- --ignored --nocapture\nECHO_BENCH_ITERATIONS=2 cargo test -p xo --test echo_bench -- --ignored --nocapture",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Run these when a slice changes executable behavior, runtime data structures, codegen, or benchmark reports. The low count is a smoke check, not a final performance claim.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Focused Fixture Timing",
+        tags: ["check-fast", "fixture", "reports"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use the fast benchmark shortcuts for focused fixture timing while keeping successful command noise out of the terminal.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "scripts/check-fast bench-php 017_object_append_count\nscripts/check-fast bench-echo 017_object_append_count",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The fixture filter keeps the timing run local to the behavior under review and writes reports under the test-results benchmark directories.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "strict-mode",
     path: "/docs/strict-mode",
     navGroup: "Language",
@@ -5467,6 +5643,7 @@ export const docsNavigation: DocsNavGroup[] = [
       { label: "Installation", to: "/docs" },
       { label: "Quickstart", to: "/docs/quickstart" },
       { label: "Source Modes", to: "/docs/source-modes" },
+      { label: "Roadmap", to: "/docs/roadmap" },
     ],
   },
   {
@@ -5503,6 +5680,8 @@ export const docsNavigation: DocsNavGroup[] = [
         ],
       },
       { label: "PHP Compatibility", to: "/docs/php-compatibility" },
+      { label: "Examples", to: "/docs/examples" },
+      { label: "Benchmarks", to: "/docs/benchmarks" },
       { label: "Strict Mode", to: "/docs/strict-mode" },
       { label: "Imports", to: "/docs/imports" },
     ],
