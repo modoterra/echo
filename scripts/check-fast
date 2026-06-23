@@ -362,6 +362,30 @@ runtime-tests-value|value|crates/echo_runtime/src/runtime_tests/value.rs|runtime
 EOF
 }
 
+focused_runtime_test_routes() {
+  cat <<'EOF'
+crates/echo_runtime/src/runtime_tests/collections/access.rs|runtime-collections-access|runtime collection access tests
+crates/echo_runtime/src/runtime_tests/collections/keys.rs|runtime-collections-keys|runtime collection key tests
+crates/echo_runtime/src/runtime_tests/collections/search.rs|runtime-collections-search|runtime collection search tests
+crates/echo_runtime/src/runtime_tests/collections/sequence.rs|runtime-collections-sequence|runtime collection sequence tests
+crates/echo_runtime/src/runtime_tests/encoding/base64.rs|runtime-encoding|runtime encoding base64 tests
+crates/echo_runtime/src/runtime_tests/encoding/shell.rs|runtime-encoding|runtime encoding shell tests
+crates/echo_runtime/src/runtime_tests/encoding/url.rs|runtime-encoding|runtime encoding URL tests
+crates/echo_runtime/src/runtime_tests/filesystem/content.rs|runtime-filesystem-content|runtime filesystem content tests
+crates/echo_runtime/src/runtime_tests/filesystem/links.rs|runtime-filesystem-links|runtime filesystem link tests
+crates/echo_runtime/src/runtime_tests/filesystem/metadata.rs|runtime-filesystem-metadata|runtime filesystem metadata tests
+crates/echo_runtime/src/runtime_tests/filesystem/mutation.rs|runtime-filesystem-mutation|runtime filesystem mutation tests
+crates/echo_runtime/src/runtime_tests/filesystem/temporary.rs|runtime-filesystem-temporary|runtime filesystem temporary tests
+crates/echo_runtime/src/runtime_tests/string_search/matches.rs|runtime-tests-string-search-matches|runtime string search match tests
+crates/echo_runtime/src/runtime_tests/string_search/position.rs|runtime-tests-string-search-position|runtime string search position tests
+crates/echo_runtime/src/runtime_tests/value/arithmetic.rs|runtime-value-arithmetic|runtime value arithmetic tests
+crates/echo_runtime/src/runtime_tests/value/coercion.rs|runtime-value-coercion|runtime value coercion tests
+crates/echo_runtime/src/runtime_tests/value/inspect.rs|runtime-value-inspect|runtime value inspect tests
+crates/echo_runtime/src/runtime_tests/value/reflection.rs|runtime-reflection|runtime value reflection tests
+crates/echo_runtime/src/runtime_tests/value/types.rs|runtime-value|runtime value type tests
+EOF
+}
+
 add_runtime_test_module_check_for_path() {
   local changed_path="$1"
   local check
@@ -375,6 +399,22 @@ add_runtime_test_module_check_for_path() {
       return 0
     fi
   done < <(runtime_test_modules)
+
+  return 1
+}
+
+add_focused_runtime_test_check_for_path() {
+  local changed_path="$1"
+  local route_path
+  local check
+  local description
+
+  while IFS='|' read -r route_path check description; do
+    if [[ "$changed_path" == "$route_path" ]]; then
+      add_changed_check "$check"
+      return 0
+    fi
+  done < <(focused_runtime_test_routes)
 
   return 1
 }
@@ -405,6 +445,16 @@ assert_runtime_test_module_routing() {
   while IFS='|' read -r check module module_path description; do
     assert_routing "$description route focused submodule check" "$check" "$module_path"
   done < <(runtime_test_modules)
+}
+
+assert_focused_runtime_test_routing() {
+  local route_path
+  local check
+  local description
+
+  while IFS='|' read -r route_path check description; do
+    assert_routing "$description route focused checks" "$check" "$route_path"
+  done < <(focused_runtime_test_routes)
 }
 
 runtime_fixture_scopes() {
@@ -719,71 +769,19 @@ add_checks_for_changed_path() {
     crates/echo_runtime/src/collections.rs)
       add_changed_check "runtime-collections"
       ;;
-    crates/echo_runtime/src/runtime_tests/collections/access.rs)
-      add_changed_check "runtime-collections-access"
-      ;;
     crates/echo_runtime/src/collections/keys.rs)
-      add_changed_check "runtime-collections-keys"
-      ;;
-    crates/echo_runtime/src/runtime_tests/collections/keys.rs)
       add_changed_check "runtime-collections-keys"
       ;;
     crates/echo_runtime/src/collections/search.rs)
       add_changed_check "runtime-collections-search"
       ;;
-    crates/echo_runtime/src/runtime_tests/collections/search.rs)
-      add_changed_check "runtime-collections-search"
-      ;;
     crates/echo_runtime/src/collections/sequence.rs)
       add_changed_check "runtime-collections-sequence"
       ;;
-    crates/echo_runtime/src/runtime_tests/collections/sequence.rs)
-      add_changed_check "runtime-collections-sequence"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_search/matches.rs)
-      add_changed_check "runtime-tests-string-search-matches"
-      ;;
-    crates/echo_runtime/src/runtime_tests/string_search/position.rs)
-      add_changed_check "runtime-tests-string-search-position"
-      ;;
-    crates/echo_runtime/src/runtime_tests/value/reflection.rs)
-      add_changed_check "runtime-reflection"
-      ;;
-    crates/echo_runtime/src/runtime_tests/value/arithmetic.rs)
-      add_changed_check "runtime-value-arithmetic"
-      ;;
-    crates/echo_runtime/src/runtime_tests/value/coercion.rs)
-      add_changed_check "runtime-value-coercion"
-      ;;
-    crates/echo_runtime/src/runtime_tests/value/inspect.rs)
-      add_changed_check "runtime-value-inspect"
-      ;;
-    crates/echo_runtime/src/runtime_tests/value/types.rs)
-      add_changed_check "runtime-value"
-      ;;
-    crates/echo_runtime/src/runtime_tests/encoding/base64.rs)
-      add_changed_check "runtime-encoding"
-      ;;
-    crates/echo_runtime/src/runtime_tests/encoding/shell.rs)
-      add_changed_check "runtime-encoding"
-      ;;
-    crates/echo_runtime/src/runtime_tests/encoding/url.rs)
-      add_changed_check "runtime-encoding"
-      ;;
-    crates/echo_runtime/src/runtime_tests/filesystem/content.rs)
-      add_changed_check "runtime-filesystem-content"
-      ;;
-    crates/echo_runtime/src/runtime_tests/filesystem/links.rs)
-      add_changed_check "runtime-filesystem-links"
-      ;;
-    crates/echo_runtime/src/runtime_tests/filesystem/metadata.rs)
-      add_changed_check "runtime-filesystem-metadata"
-      ;;
-    crates/echo_runtime/src/runtime_tests/filesystem/mutation.rs)
-      add_changed_check "runtime-filesystem-mutation"
-      ;;
-    crates/echo_runtime/src/runtime_tests/filesystem/temporary.rs)
-      add_changed_check "runtime-filesystem-temporary"
+    crates/echo_runtime/src/runtime_tests/*/*.rs)
+      if ! add_focused_runtime_test_check_for_path "$path"; then
+        add_changed_check "runtime-tests"
+      fi
       ;;
     crates/echo_runtime/src/runtime_tests/*.rs)
       if ! add_runtime_test_module_check_for_path "$path"; then
@@ -1274,54 +1272,27 @@ run_script_tests() {
     crates/echo_runtime/src/string/compare.rs
   assert_routing "runtime string pattern routes focused checks" "runtime-string-pattern" \
     crates/echo_runtime/src/string/pattern.rs
-  assert_routing "runtime string search match tests route focused checks" "runtime-tests-string-search-matches" \
-    crates/echo_runtime/src/runtime_tests/string_search/matches.rs
-  assert_routing "runtime string search position tests route focused checks" "runtime-tests-string-search-position" \
-    crates/echo_runtime/src/runtime_tests/string_search/position.rs
   assert_routing "runtime string sequence routes focused checks" "runtime-string-sequence" \
     crates/echo_runtime/src/string/sequence.rs
   assert_routing "runtime collection sequence routes focused checks" "runtime-collections-sequence" \
     crates/echo_runtime/src/collections/sequence.rs
-  assert_routing "runtime collection access tests route focused checks" "runtime-collections-access" \
-    crates/echo_runtime/src/runtime_tests/collections/access.rs
-  assert_routing "runtime collection sequence tests route focused checks" "runtime-collections-sequence" \
-    crates/echo_runtime/src/runtime_tests/collections/sequence.rs
   assert_routing "runtime collection keys routes focused checks" "runtime-collections-keys" \
     crates/echo_runtime/src/collections/keys.rs
-  assert_routing "runtime collection key tests route focused checks" "runtime-collections-keys" \
-    crates/echo_runtime/src/runtime_tests/collections/keys.rs
   assert_routing "runtime collection search routes focused checks" "runtime-collections-search" \
     crates/echo_runtime/src/collections/search.rs
-  assert_routing "runtime collection search tests route focused checks" "runtime-collections-search" \
-    crates/echo_runtime/src/runtime_tests/collections/search.rs
   assert_routing "runtime filesystem metadata routes focused checks" "runtime-filesystem-metadata" \
     crates/echo_runtime/src/filesystem/metadata.rs
   assert_routing "runtime filesystem content routes focused checks" "runtime-filesystem-content" \
     crates/echo_runtime/src/filesystem/content.rs
-  assert_routing "runtime filesystem content tests route focused checks" "runtime-filesystem-content" \
-    crates/echo_runtime/src/runtime_tests/filesystem/content.rs
   assert_routing "runtime filesystem links routes focused checks" "runtime-filesystem-links" \
     crates/echo_runtime/src/filesystem/links.rs
-  assert_routing "runtime filesystem link tests route focused checks" "runtime-filesystem-links" \
-    crates/echo_runtime/src/runtime_tests/filesystem/links.rs
   assert_routing "runtime filesystem mutation routes focused checks" "runtime-filesystem-mutation" \
     crates/echo_runtime/src/filesystem/mutation.rs
-  assert_routing "runtime filesystem mutation tests route focused checks" "runtime-filesystem-mutation" \
-    crates/echo_runtime/src/runtime_tests/filesystem/mutation.rs
   assert_routing "runtime filesystem temporary routes focused checks" "runtime-filesystem-temporary" \
     crates/echo_runtime/src/filesystem/temporary.rs
-  assert_routing "runtime filesystem temporary tests route focused checks" "runtime-filesystem-temporary" \
-    crates/echo_runtime/src/runtime_tests/filesystem/temporary.rs
-  assert_routing "runtime filesystem metadata tests route focused checks" "runtime-filesystem-metadata" \
-    crates/echo_runtime/src/runtime_tests/filesystem/metadata.rs
   assert_routing "runtime elementary math routes focused checks" "runtime-math-elementary" \
     crates/echo_runtime/src/math/elementary.rs
-  assert_routing "runtime encoding base64 tests route focused checks" "runtime-encoding" \
-    crates/echo_runtime/src/runtime_tests/encoding/base64.rs
-  assert_routing "runtime encoding shell tests route focused checks" "runtime-encoding" \
-    crates/echo_runtime/src/runtime_tests/encoding/shell.rs
-  assert_routing "runtime encoding URL tests route focused checks" "runtime-encoding" \
-    crates/echo_runtime/src/runtime_tests/encoding/url.rs
+  assert_focused_runtime_test_routing
   assert_runtime_fixture_scope_routing
   assert_routing "runtime value routes focused checks" "runtime-value" \
     crates/echo_runtime/src/value.rs
@@ -1331,16 +1302,6 @@ run_script_tests() {
     crates/echo_runtime/src/value/arithmetic.rs
   assert_routing "runtime value coercion routes focused checks" "runtime-value-coercion" \
     crates/echo_runtime/src/value/coercion.rs
-  assert_routing "runtime value reflection tests route focused checks" "runtime-reflection" \
-    crates/echo_runtime/src/runtime_tests/value/reflection.rs
-  assert_routing "runtime value arithmetic tests route focused checks" "runtime-value-arithmetic" \
-    crates/echo_runtime/src/runtime_tests/value/arithmetic.rs
-  assert_routing "runtime value coercion tests route focused checks" "runtime-value-coercion" \
-    crates/echo_runtime/src/runtime_tests/value/coercion.rs
-  assert_routing "runtime value inspect tests route focused checks" "runtime-value-inspect" \
-    crates/echo_runtime/src/runtime_tests/value/inspect.rs
-  assert_routing "runtime value type tests route focused checks" "runtime-value" \
-    crates/echo_runtime/src/runtime_tests/value/types.rs
   assert_routing "runtime extracted tests route focused module check" "runtime-tests" \
     crates/echo_runtime/src/runtime_tests.rs
   assert_runtime_test_module_routing
