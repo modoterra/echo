@@ -8,7 +8,7 @@ Usage:
   scripts/check-fast script
   scripts/check-fast script-tests
   scripts/check-fast workspace
-  scripts/check-fast changed [--list [N]|--take N]
+  scripts/check-fast changed [--list [N]|--explain|--take N]
   scripts/check-fast source
   scripts/check-fast diagnostics
   scripts/check-fast lexer
@@ -147,6 +147,7 @@ Usage:
 
 Examples:
   scripts/check-fast changed --list
+  scripts/check-fast changed --explain
   scripts/check-fast changed --list 5
   scripts/check-fast changed --take 3
   scripts/check-fast changed
@@ -546,25 +547,37 @@ changed_files() {
 add_changed_check() {
   local check="$1"
   local existing
+  local reason="${current_changed_path:-default routing}"
 
   for existing in "${changed_checks[@]}"; do
     [[ "$existing" == "$check" ]] && return
   done
 
   changed_checks+=("$check")
+  changed_check_reasons+=("$check|$reason")
 }
 
 remove_changed_check() {
   local check="$1"
   local kept=()
+  local kept_reasons=()
   local existing
+  local reason_entry
+  local reason_check
 
   for existing in "${changed_checks[@]}"; do
     [[ "$existing" == "$check" ]] && continue
     kept+=("$existing")
   done
 
+  for reason_entry in "${changed_check_reasons[@]}"; do
+    reason_check="${reason_entry%%|*}"
+    [[ "$reason_check" == "$check" ]] && continue
+    kept_reasons+=("$reason_entry")
+  done
+
   changed_checks=("${kept[@]}")
+  changed_check_reasons=("${kept_reasons[@]}")
 }
 
 add_changed_fixture() {
@@ -609,6 +622,7 @@ add_changed_fixture_checks() {
 
   ((${#changed_fixtures[@]} > 0)) || return 0
   filter="$(IFS=','; printf '%s' "${changed_fixtures[*]}")"
+  current_changed_path="fixture filter: $filter"
   if ! has_changed_check "parser"; then
     add_changed_check "parser $filter"
   fi
@@ -1054,9 +1068,11 @@ add_checks_for_changed_path() {
 collect_changed_checks_for_paths() {
   local path
   changed_checks=()
+  changed_check_reasons=()
   changed_fixtures=()
 
   while IFS= read -r path; do
+    current_changed_path="$path"
     add_checks_for_changed_path "$path"
   done
 
@@ -1064,6 +1080,7 @@ collect_changed_checks_for_paths() {
   normalize_changed_checks
 
   if ((${#changed_checks[@]} == 0)); then
+    current_changed_path="no changed paths"
     add_changed_check "smoke"
   fi
 }
@@ -1208,6 +1225,25 @@ list_changed_checks() {
   fi
 }
 
+explain_changed_checks() {
+  local check
+  local reason_entry
+  local reason_check
+  local reason
+
+  for check in "${changed_checks[@]}"; do
+    reason="default routing"
+    for reason_entry in "${changed_check_reasons[@]}"; do
+      reason_check="${reason_entry%%|*}"
+      if [[ "$reason_check" == "$check" ]]; then
+        reason="${reason_entry#*|}"
+        break
+      fi
+    done
+    printf '%s\t%s\n' "$check" "$reason"
+  done
+}
+
 assert_changed_list_limit() {
   local actual
 
@@ -1225,11 +1261,26 @@ assert_changed_list_limit() {
   fi
 }
 
+assert_changed_explain_includes_routing_reason() {
+  local actual
+
+  actual="$(printf '%s\n' crates/echo_ast/src/expr.rs | {
+    collect_changed_checks_for_paths
+    explain_changed_checks
+  })"
+
+  if [[ "$actual" != $'ast\tcrates/echo_ast/src/expr.rs\nparser\tcrates/echo_ast/src/expr.rs' ]]; then
+    printf 'changed explain test failed\nexpected:\nast\tcrates/echo_ast/src/expr.rs\nparser\tcrates/echo_ast/src/expr.rs\nactual:\n%s\n' "$actual" >&2
+    exit 1
+  fi
+}
+
 run_script_tests() {
   assert_command_echo_controls
   assert_failure_output_is_bounded
   assert_benchmark_success_output_is_quiet
   assert_changed_list_limit
+  assert_changed_explain_includes_routing_reason
   assert_routing "xo main routes repl" $'xo\nrepl' \
     crates/xo/src/main.rs
   assert_routing "xo source routes execution paths" $'xo\nrepl\njit\nfixture' \
@@ -1455,6 +1506,11 @@ run_changed_checks() {
 
   if [[ "$mode" == "--list" ]]; then
     list_changed_checks "$limit"
+    return
+  fi
+
+  if [[ "$mode" == "--explain" ]]; then
+    explain_changed_checks
     return
   fi
 
