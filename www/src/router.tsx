@@ -220,7 +220,11 @@ function mergeHybridSearchResults({
     .slice(0, docsSearchResultLimit);
 }
 
-function DocsSearch({ fullWidth = false }: { fullWidth?: boolean } = {}) {
+function DocsSearch({
+  fullWidth = false,
+  iconOnly = false,
+  onNavigate,
+}: { fullWidth?: boolean; iconOnly?: boolean; onNavigate?: () => void } = {}) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -439,6 +443,7 @@ function DocsSearch({ fullWidth = false }: { fullWidth?: boolean } = {}) {
           viewTransition: false,
         });
         closeSearch();
+        onNavigate?.();
       }
     }
 
@@ -449,7 +454,7 @@ function DocsSearch({ fullWidth = false }: { fullWidth?: boolean } = {}) {
     return () => {
       window.removeEventListener("keydown", handlePaletteKey);
     };
-  }, [activeResult, isOpen, navigate, results.length]);
+  }, [activeResult, isOpen, navigate, onNavigate, results.length]);
 
   function closeSearch() {
     setIsOpen(false);
@@ -467,20 +472,26 @@ function DocsSearch({ fullWidth = false }: { fullWidth?: boolean } = {}) {
         aria-expanded={isOpen}
         aria-label="Search documentation"
         className={
-          fullWidth
-            ? "inline-flex h-11 w-full items-center gap-3 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
-            : "inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+          iconOnly
+            ? "inline-flex size-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+            : fullWidth
+              ? "inline-flex h-11 w-full items-center gap-3 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+              : "inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
         }
         onClick={() => setIsOpen(true)}
         type="button"
       >
         <RiSearchLine size={16} />
-        <span className={fullWidth ? "inline" : "hidden sm:inline"}>
-          {fullWidth ? "Search docs" : "Search"}
-        </span>
-        <span className="hidden rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 lg:inline">
-          /
-        </span>
+        {iconOnly ? null : (
+          <>
+            <span className={fullWidth ? "inline" : "hidden sm:inline"}>
+              {fullWidth ? "Search docs" : "Search"}
+            </span>
+            <span className="hidden rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 lg:inline">
+              /
+            </span>
+          </>
+        )}
       </button>
       {createPortal(
         <AnimatePresence>
@@ -587,7 +598,10 @@ function DocsSearch({ fullWidth = false }: { fullWidth?: boolean } = {}) {
                                 ? "grid grid-cols-[2rem_minmax(0,1fr)_1.25rem] gap-3 rounded-md bg-slate-100 px-3 py-3 text-slate-950"
                                 : "grid grid-cols-[2rem_minmax(0,1fr)_1.25rem] gap-3 rounded-md px-3 py-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                             }
-                            onClick={closeSearch}
+                            onClick={() => {
+                              closeSearch();
+                              onNavigate?.();
+                            }}
                             onMouseEnter={() => setActiveResultIndex(index)}
                             hashScrollIntoView={instantSearchHashScroll}
                             to={result.path}
@@ -1175,7 +1189,15 @@ function SiteFooter() {
   );
 }
 
-function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: string }) {
+function DocsNavLinkItem({
+  link,
+  onNavigate,
+  pathname,
+}: {
+  link: DocsNavLink;
+  onNavigate?: () => void;
+  pathname: string;
+}) {
   const isActive = pathname === link.to;
   const hasActiveChild = link.children?.some((child) => pathname === child.to);
   const activeChildIndex = link.children?.findIndex((child) => pathname === child.to) ?? -1;
@@ -1191,7 +1213,7 @@ function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: stri
       {link.disabled ? (
         <span className={textClass}>{link.label}</span>
       ) : (
-        <Link className={textClass} to={link.to}>
+        <Link className={textClass} onClick={onNavigate} to={link.to}>
           {link.label}
         </Link>
       )}
@@ -1220,7 +1242,12 @@ function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: stri
               ) : null}
               <ul className="space-y-3">
                 {link.children?.map((child) => (
-                  <DocsNavLinkItem key={child.label} link={child} pathname={pathname} />
+                  <DocsNavLinkItem
+                    key={child.label}
+                    link={child}
+                    onNavigate={onNavigate}
+                    pathname={pathname}
+                  />
                 ))}
               </ul>
             </div>
@@ -1231,7 +1258,13 @@ function DocsNavLinkItem({ link, pathname }: { link: DocsNavLink; pathname: stri
   );
 }
 
-function DocsNavigationList({ pathname }: { pathname: string }) {
+function DocsNavigationList({
+  onNavigate,
+  pathname,
+}: {
+  onNavigate?: () => void;
+  pathname: string;
+}) {
   return (
     <div className="space-y-10">
       {docsNavigation.map((group) => (
@@ -1239,7 +1272,12 @@ function DocsNavigationList({ pathname }: { pathname: string }) {
           <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
           <ul className="mt-5 space-y-3">
             {group.links.map((link) => (
-              <DocsNavLinkItem key={link.label} link={link} pathname={pathname} />
+              <DocsNavLinkItem
+                key={link.label}
+                link={link}
+                onNavigate={onNavigate}
+                pathname={pathname}
+              />
             ))}
           </ul>
         </section>
@@ -1379,19 +1417,21 @@ function DocsLayout() {
   }
 
   return (
-    <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950">
-      <div className="mx-auto mb-9 flex w-full max-w-7xl items-center justify-between gap-3 lg:hidden">
-        <button
-          aria-controls="mobile-docs-menu"
-          aria-expanded={isMobileNavOpen}
-          className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-950"
-          onClick={() => setIsMobileNavOpen(true)}
-          type="button"
-        >
-          <RiMenuLine size={18} />
-          Docs menu
-        </button>
-        <DocsSearch />
+    <main className="min-h-screen bg-white px-6 pb-24 pt-36 text-slate-950 lg:pt-32">
+      <div className="fixed inset-x-0 top-20 z-20 border-b border-slate-200/70 bg-white/95 px-6 backdrop-blur lg:hidden">
+        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between">
+          <button
+            aria-controls="mobile-docs-menu"
+            aria-expanded={isMobileNavOpen}
+            aria-label="Open documentation menu"
+            className="inline-flex size-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
+            onClick={() => setIsMobileNavOpen(true)}
+            type="button"
+          >
+            <RiMenuLine size={18} />
+          </button>
+          <DocsSearch iconOnly onNavigate={() => setIsMobileNavOpen(false)} />
+        </div>
       </div>
 
       <AnimatePresence>
@@ -1426,13 +1466,16 @@ function DocsLayout() {
                 </button>
               </div>
               <div className="border-b border-slate-100 px-6 py-5">
-                <DocsSearch fullWidth />
+                <DocsSearch fullWidth onNavigate={() => setIsMobileNavOpen(false)} />
               </div>
               <nav
                 aria-label="Documentation sections"
                 className="flex-1 overflow-y-auto px-6 py-7 scrollbar-thin scrollbar-nice"
               >
-                <DocsNavigationList pathname={location.pathname} />
+                <DocsNavigationList
+                  onNavigate={() => setIsMobileNavOpen(false)}
+                  pathname={location.pathname}
+                />
               </nav>
             </div>
           </motion.div>
