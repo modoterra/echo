@@ -42,6 +42,7 @@ Usage:
   scripts/check-fast runtime-task
   scripts/check-fast runtime-task-group
   scripts/check-fast runtime-collections
+  scripts/check-fast runtime-collections-access
   scripts/check-fast runtime-collections-keys
   scripts/check-fast runtime-collections-search
   scripts/check-fast runtime-collections-sequence
@@ -178,6 +179,7 @@ Examples:
   scripts/check-fast runtime-poll
   scripts/check-fast runtime-sched
   scripts/check-fast runtime-collections
+  scripts/check-fast runtime-collections-access
   scripts/check-fast runtime-collections-keys
   scripts/check-fast runtime-collections-search
   scripts/check-fast runtime-collections-sequence
@@ -716,6 +718,9 @@ add_checks_for_changed_path() {
       ;;
     crates/echo_runtime/src/collections.rs)
       add_changed_check "runtime-collections"
+      ;;
+    crates/echo_runtime/src/runtime_tests/collections/access.rs)
+      add_changed_check "runtime-collections-access"
       ;;
     crates/echo_runtime/src/collections/keys.rs)
       add_changed_check "runtime-collections-keys"
@@ -1277,6 +1282,8 @@ run_script_tests() {
     crates/echo_runtime/src/string/sequence.rs
   assert_routing "runtime collection sequence routes focused checks" "runtime-collections-sequence" \
     crates/echo_runtime/src/collections/sequence.rs
+  assert_routing "runtime collection access tests route focused checks" "runtime-collections-access" \
+    crates/echo_runtime/src/runtime_tests/collections/access.rs
   assert_routing "runtime collection sequence tests route focused checks" "runtime-collections-sequence" \
     crates/echo_runtime/src/runtime_tests/collections/sequence.rs
   assert_routing "runtime collection keys routes focused checks" "runtime-collections-keys" \
@@ -1772,6 +1779,10 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime array_
     run_quiet cargo test -q -p echo_runtime index_get
     run_runtime_fixture_scope runtime-collections-fixtures
+    ;;
+  runtime-collections-access)
+    run_quiet cargo test -q -p echo_runtime php_array_add_uses_union_semantics
+    run_quiet cargo test -q -p echo_runtime index_get
     ;;
   runtime-collections-keys)
     run_quiet cargo test -q -p echo_runtime array_key_value_and_aggregate_builtins_preserve_php_array_behavior
