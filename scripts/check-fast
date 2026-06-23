@@ -1178,6 +1178,20 @@ assert_benchmark_success_output_is_quiet() {
   fi
 }
 
+assert_usage_output_is_compact() {
+  local line_count
+  local output
+
+  output="$(usage)"
+  line_count="$(printf '%s\n' "$output" | wc -l | tr -d '[:space:]')"
+
+  if ((line_count > 30)); then
+    printf 'usage output compactness test failed: expected at most 30 lines, got %s\n' "$line_count" >&2
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+}
+
 list_changed_checks() {
   local limit="${1:-}"
 
@@ -1243,6 +1257,7 @@ run_script_tests() {
   assert_command_echo_controls
   assert_failure_output_is_bounded
   assert_benchmark_success_output_is_quiet
+  assert_usage_output_is_compact
   assert_changed_list_limit
   assert_changed_explain_includes_routing_reason
   assert_routing "check-fast sourced modules route script checks" "script" \
