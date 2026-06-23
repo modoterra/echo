@@ -1,0 +1,63 @@
+runtime_test_modules() {
+  cat <<'EOF'
+runtime-tests-arithmetic|arithmetic|crates/echo_runtime/src/runtime_tests/arithmetic.rs|runtime arithmetic tests
+runtime-tests-callable|callable|crates/echo_runtime/src/runtime_tests/callable.rs|runtime callable tests
+runtime-tests-collections|collections|crates/echo_runtime/src/runtime_tests/collections.rs|runtime collection tests
+runtime-tests-encoding|encoding|crates/echo_runtime/src/runtime_tests/encoding.rs|runtime encoding tests
+runtime-tests-environment|environment|crates/echo_runtime/src/runtime_tests/environment.rs|runtime environment tests
+runtime-tests-filesystem|filesystem|crates/echo_runtime/src/runtime_tests/filesystem.rs|runtime filesystem tests
+runtime-tests-math|math|crates/echo_runtime/src/runtime_tests/math.rs|runtime math tests
+runtime-tests-scalar|scalar|crates/echo_runtime/src/runtime_tests/scalar.rs|runtime scalar tests
+runtime-tests-stdlib|stdlib|crates/echo_runtime/src/runtime_tests/stdlib.rs|runtime stdlib tests
+runtime-tests-string-compare|string_compare|crates/echo_runtime/src/runtime_tests/string_compare.rs|runtime string compare tests
+runtime-tests-string-collections|string_collections|crates/echo_runtime/src/runtime_tests/string_collections.rs|runtime string collection tests
+runtime-tests-string-encoding|string_encoding|crates/echo_runtime/src/runtime_tests/string_encoding.rs|runtime string encoding tests
+runtime-tests-string-format|string_format|crates/echo_runtime/src/runtime_tests/string_format.rs|runtime string format tests
+runtime-tests-string-paths|string_paths|crates/echo_runtime/src/runtime_tests/string_paths.rs|runtime string path tests
+runtime-tests-string-rewrite|string_rewrite|crates/echo_runtime/src/runtime_tests/string_rewrite.rs|runtime string rewrite tests
+runtime-tests-string-search-matches|string_search::matches|crates/echo_runtime/src/runtime_tests/string_search/matches.rs|runtime string search match tests
+runtime-tests-string-search-position|string_search::position|crates/echo_runtime/src/runtime_tests/string_search/position.rs|runtime string search position tests
+runtime-tests-string-search|string_search|crates/echo_runtime/src/runtime_tests/string_search.rs|runtime string search tests
+runtime-tests-string-span|string_span|crates/echo_runtime/src/runtime_tests/string_span.rs|runtime string span tests
+runtime-tests-string-substr|string_substr|crates/echo_runtime/src/runtime_tests/string_substr.rs|runtime string substr tests
+runtime-tests-task|task|crates/echo_runtime/src/runtime_tests/task.rs|runtime task tests
+runtime-tests-value|value|crates/echo_runtime/src/runtime_tests/value.rs|runtime value tests
+EOF
+}
+
+focused_runtime_test_routes() {
+  cat <<'EOF'
+crates/echo_runtime/src/runtime_tests/collections/access.rs|runtime-collections-access|runtime collection access tests
+crates/echo_runtime/src/runtime_tests/collections/keys.rs|runtime-collections-keys|runtime collection key tests
+crates/echo_runtime/src/runtime_tests/collections/search.rs|runtime-collections-search|runtime collection search tests
+crates/echo_runtime/src/runtime_tests/collections/sequence.rs|runtime-collections-sequence|runtime collection sequence tests
+crates/echo_runtime/src/runtime_tests/encoding/base64.rs|runtime-encoding|runtime encoding base64 tests
+crates/echo_runtime/src/runtime_tests/encoding/shell.rs|runtime-encoding|runtime encoding shell tests
+crates/echo_runtime/src/runtime_tests/encoding/url.rs|runtime-encoding|runtime encoding URL tests
+crates/echo_runtime/src/runtime_tests/filesystem/content.rs|runtime-filesystem-content|runtime filesystem content tests
+crates/echo_runtime/src/runtime_tests/filesystem/links.rs|runtime-filesystem-links|runtime filesystem link tests
+crates/echo_runtime/src/runtime_tests/filesystem/metadata.rs|runtime-filesystem-metadata|runtime filesystem metadata tests
+crates/echo_runtime/src/runtime_tests/filesystem/mutation.rs|runtime-filesystem-mutation|runtime filesystem mutation tests
+crates/echo_runtime/src/runtime_tests/filesystem/temporary.rs|runtime-filesystem-temporary|runtime filesystem temporary tests
+crates/echo_runtime/src/runtime_tests/string_search/matches.rs|runtime-tests-string-search-matches|runtime string search match tests
+crates/echo_runtime/src/runtime_tests/string_search/position.rs|runtime-tests-string-search-position|runtime string search position tests
+crates/echo_runtime/src/runtime_tests/value/arithmetic.rs|runtime-value-arithmetic|runtime value arithmetic tests
+crates/echo_runtime/src/runtime_tests/value/coercion.rs|runtime-value-coercion|runtime value coercion tests
+crates/echo_runtime/src/runtime_tests/value/inspect.rs|runtime-value-inspect|runtime value inspect tests
+crates/echo_runtime/src/runtime_tests/value/reflection.rs|runtime-reflection|runtime value reflection tests
+crates/echo_runtime/src/runtime_tests/value/types.rs|runtime-value|runtime value type tests
+EOF
+}
+
+runtime_fixture_scopes() {
+  cat <<'EOF'
+runtime-collections-fixtures|runtime-collections|tests/php tests/echo|015_empty_list_count,016_list_append_count,017_object_append_count,037_array_is_list_builtin,067_array_key_value_builtins,068_array_lookup_builtins,069_array_fill_builtins,070_array_order_builtins,071_array_combine_pad_builtins,072_array_search_count_builtins,073_array_slice_chunk_builtins,074_array_merge_replace_builtins,083_count_builtin,084_array_type_builtins,094_array_is_list_builtin,110_arithmetic_operators,111_array_index_access,127_array_key_value_builtins,128_array_lookup_builtins,129_array_fill_builtins,130_array_order_builtins,131_array_combine_pad_builtins,132_array_search_count_builtins,133_array_slice_chunk_builtins,134_array_merge_replace_builtins|runtime collections
+runtime-output-fixtures|runtime-output|tests/php tests/echo|004_ob_start_end_flush,005_ob_flush_keeps_buffer,006_ob_end_clean_discards_buffer,007_nested_ob_end_flush,008_nested_ob_end_clean,009_nested_ob_flush,010_ob_flush_without_end,011_ob_clean_keeps_buffer,012_shutdown_flushes_open_buffers,013_ob_get_level,016_ob_get_contents_copy,025_ob_functions_without_buffer,027_ob_get_clean,028_ob_get_flush,029_nested_ob_get_flush,034_nested_ob_get_clean,074_ob_control_success_returns,075_ob_control_failure_returns,076_flush_builtin,078_ob_implicit_flush_builtin|runtime output
+runtime-reflection-fixtures|runtime-reflection|tests/echo|028_std_php_reflection,029_reflection_validates_php_builtins,030_userland_reflection,031_reflection_assertions|runtime reflection
+runtime-math-fixtures|runtime-math|tests/php tests/echo|058_trigonometric_builtins,059_rounding_magnitude_builtins,060_float_scalar_math_builtins,066_exponential_log_builtins,082_ieee_float_math_builtins,118_trigonometric_builtins,119_rounding_magnitude_builtins,120_float_scalar_math_builtins,126_exponential_log_builtins,142_ieee_float_math_builtins|runtime math
+runtime-encoding-fixtures|runtime-encoding|tests/php tests/echo|046_escapeshellarg_builtin,047_escapeshellcmd_builtin,049_chr_bin2hex_builtins,053_hex_repeat_builtins,054_url_encoding_builtins,072_base64_encode_builtin,073_base64_decode_builtin,075_hash_checksum_builtins,081_string_rewrite_builtins,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,114_url_encoding_builtins,135_hash_checksum_builtins,141_string_rewrite_builtins|runtime encoding
+runtime-filesystem-fixtures|runtime-filesystem|tests/php tests/echo|041_basename_builtin,042_dirname_builtin,049_file_exists_builtin,050_is_dir_builtin,051_is_file_builtin,052_is_link_builtin,053_filesystem_metadata_builtins,062_working_directory_builtins,076_file_stat_metadata_builtins,077_filesystem_mutation_builtins,078_filesystem_content_builtins,079_filesystem_link_builtins,080_temporary_name_builtins,098_basename_builtin,099_dirname_builtin,106_file_exists_builtin,107_is_dir_builtin,108_is_file_builtin,109_is_link_builtin,113_filesystem_metadata_builtins,122_working_directory_builtins,136_file_stat_metadata_builtins,137_filesystem_mutation_builtins,138_filesystem_content_builtins,139_filesystem_link_builtins,140_temporary_name_builtins|runtime filesystem
+runtime-time-fixtures|runtime-time|tests/php tests/echo|006_time_sleep_run_before_join,007_time_sleep_orders_tasks,027_std_time_import,112_laravel_bootstrap|runtime time
+runtime-string-fixtures|runtime-string|tests/php tests/echo|042_dynamic_string_concat,043_strlen_builtin,046_string_case_builtins,047_string_unary_builtins,048_string_byte_builtins,049_chr_bin2hex_builtins,050_trim_builtins,051_string_predicate_builtins,052_string_escape_builtins,053_hex_repeat_builtins,054_substr_builtin,054_url_encoding_builtins,058_strstr_builtin,059_stristr_builtin,061_implode_join_builtins,064_str_pad_builtin,065_string_chunk_builtins,067_substr_count_builtin,068_strval_builtin,071_ucwords_builtin,072_base64_encode_builtin,073_base64_decode_builtin,080_substr_compare_builtin,081_string_rewrite_builtins,082_strchr_alias_builtin,103_escapeshellarg_builtin,104_escapeshellcmd_builtin,105_explode_builtin,114_url_encoding_builtins,121_implode_join_builtins,124_str_pad_builtin,125_string_chunk_builtins,141_string_rewrite_builtins|runtime string
+EOF
+}
