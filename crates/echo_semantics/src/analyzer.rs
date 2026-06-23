@@ -230,7 +230,7 @@ impl Analyzer {
                     | BinaryOp::Mod
                     | BinaryOp::Pow => Type::Number,
                     BinaryOp::Concat => Type::String,
-                    BinaryOp::Is | BinaryOp::IsNot => Type::Bool,
+                    BinaryOp::Identical | BinaryOp::Is | BinaryOp::IsNot => Type::Bool,
                 }
             }
             Expr::Field(expr) => {

@@ -209,6 +209,30 @@ fn parses_negative_numeric_function_arguments() {
 }
 
 #[test]
+fn parses_strict_identity_comparison_in_if_condition() {
+    let program = parse_with_mode(
+        r#"$payload = "signed:user-42";
+$parts = explode(":", $payload);
+
+if (count($parts) === 2) {
+    echo strtoupper($parts[1]) . "\n";
+}
+"#,
+        SourceMode::Strict,
+    )
+    .expect("strict identity comparison in if condition parses");
+
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::If(statement)
+            if matches!(
+                &statement.condition,
+                Expr::Binary(expr) if expr.op == BinaryOp::Identical
+            )
+    ));
+}
+
+#[test]
 fn parses_subtraction_expression() {
     let program = parse_with_mode("3-5", SourceMode::Strict).expect("subtraction parses");
 

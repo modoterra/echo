@@ -646,6 +646,24 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             },
         );
 
+        let comparison = is_expr.clone().foldl(
+            just("===")
+                .to(BinaryOp::Identical)
+                .padded()
+                .then(is_expr)
+                .repeated(),
+            |left, (op, right)| {
+                let span = Span::new(left.span().start, right.span().end);
+
+                Expr::Binary(Box::new(BinaryExpr {
+                    left,
+                    op,
+                    right,
+                    span,
+                }))
+            },
+        );
+
         just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
@@ -659,7 +677,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     span: Span::new(span.start, span.end),
                 }))
             })
-            .or(is_expr)
+            .or(comparison)
     });
 
     let statement = recursive(|statement| {

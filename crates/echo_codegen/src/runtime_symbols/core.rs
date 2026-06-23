@@ -89,6 +89,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_value_identical",
+            echo_runtime::echo_value_identical
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_value_list_new",
             echo_runtime::echo_value_list_new as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

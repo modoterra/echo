@@ -279,6 +279,14 @@ impl IrModule {
             } if *op == BinaryOp::Pow => {
                 self.render_mir_numeric_binary_expr(body, left, right, CoreRuntimeSymbol::ValuePow)
             }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::Identical => self.render_mir_numeric_binary_expr(
+                body,
+                left,
+                right,
+                CoreRuntimeSymbol::ValueIdentical,
+            ),
             echo_mir::MirExpr::Unary { op, expr, .. } => self.render_mir_numeric_unary_expr(
                 body,
                 expr,

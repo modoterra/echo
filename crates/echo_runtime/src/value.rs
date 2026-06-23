@@ -362,6 +362,11 @@ pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_identical(left: EchoValue, right: EchoValue) -> EchoValue {
+    EchoValue::bool(echo_values_equal(left, right))
+}
+
 pub(crate) fn php_values_equal(left: EchoValue, right: EchoValue) -> bool {
     if let (Some(left), Some(right)) = (PhpNumber::coerce(left), PhpNumber::coerce(right)) {
         return left.as_float() == right.as_float();

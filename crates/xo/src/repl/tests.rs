@@ -27,6 +27,51 @@ fn repl_expression_info_describes_addition() {
 }
 
 #[test]
+fn repl_live_hint_previews_constant_arithmetic() {
+    let mode = ModeOverride {
+        strict: false,
+        unsafe_mode: false,
+    };
+
+    assert_eq!(
+        repl_live_hint("4 + 4", mode, &[]),
+        Some("  => 8 number".to_string())
+    );
+}
+
+#[test]
+fn repl_live_hint_previews_persisted_variable_arithmetic() {
+    let mode = ModeOverride {
+        strict: false,
+        unsafe_mode: false,
+    };
+    let source = source_file_from_text(
+        PathBuf::from("repl.echo"),
+        "let $base = 4".to_string(),
+        mode,
+    );
+    let parsed = try_parse_repl_input(&source).expect("let should parse");
+
+    assert_eq!(
+        repl_live_hint("$base + 4", mode, &parsed.program.statements),
+        Some("  => 8 number".to_string())
+    );
+}
+
+#[test]
+fn repl_live_hint_shows_type_for_non_constant_calls() {
+    let mode = ModeOverride {
+        strict: false,
+        unsafe_mode: false,
+    };
+
+    assert_eq!(
+        repl_live_hint("count($items)", mode, &[]),
+        Some("  => int".to_string())
+    );
+}
+
+#[test]
 fn repl_expression_info_describes_subtraction() {
     let source = source_file_from_text(
         PathBuf::from("repl.echo"),

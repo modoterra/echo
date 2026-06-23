@@ -281,6 +281,7 @@ pub enum BinaryOp {
     Mod,
     Pow,
     Concat,
+    Identical,
     Is,
     IsNot,
 }

@@ -101,6 +101,21 @@ fn piped_repl_can_join_spawned_process_handle_later() {
     assert_repl_stdout(b"$proc = spawn \"exit 7\"\njoin $proc\n:quit\n", b"7");
 }
 
+#[test]
+fn piped_repl_runs_multiline_if_with_strict_identity_condition() {
+    let output = repl_output(
+        b"$payload = \"signed:user-42\";\n$parts = explode(\":\", $payload);\n\nif (count($parts) === 2) {\n    echo strtoupper($parts[1]) . \"\\n\";\n}\n:quit\n",
+    );
+
+    assert_repl_success(&output);
+    assert_stdout_eq(&output.stdout, b"USER-42\n", "xo repl");
+    assert_eq!(
+        repl_stderr(&output),
+        "",
+        "xo repl should not print diagnostics"
+    );
+}
+
 fn assert_repl_stdout(input: &[u8], expected_stdout: &[u8]) {
     let output = repl_output(input);
     assert_repl_success(&output);

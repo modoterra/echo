@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::{self, IsTerminal};
 use std::path::PathBuf;
@@ -5,8 +6,13 @@ use std::process::{Child, Command as ProcessCommand};
 
 use echo_ast::{BinaryOp, EchoStmt, Expr, FunctionCallExpr, Program, Stmt};
 use echo_source::SourceFile;
-use rustyline::DefaultEditor;
+use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
+use rustyline::highlight::Highlighter;
+use rustyline::hint::Hinter;
+use rustyline::history::DefaultHistory;
+use rustyline::validate::{ValidationContext, ValidationResult, Validator};
+use rustyline::{Context, Editor, Helper};
 
 use crate::source::{ModeOverride, parse_source_program, print_diagnostics, source_file_from_text};
 
@@ -30,16 +36,20 @@ pub fn run_repl(mode: ModeOverride) {
 }
 
 fn run_interactive_repl(session: &mut ReplSession, mode: ModeOverride) {
-    let mut editor = DefaultEditor::new().unwrap_or_else(|err| {
+    let mut editor: Editor<ReplHelper, DefaultHistory> = Editor::new().unwrap_or_else(|err| {
         eprintln!("error: failed to initialize REPL editor: {err}");
         std::process::exit(1);
     });
+    editor.set_helper(Some(ReplHelper::new(mode)));
     let history_path = repl_history_path();
     if let Some(path) = history_path.as_deref() {
         let _ = editor.load_history(path);
     }
 
     println!("{ANSI_DIM}Echo REPL. Use :quit or :exit to leave.{ANSI_RESET}");
+
+    let mut pending = String::new();
+    let mut pending_brace_depth = 0i32;
 
     loop {
         let line = match editor.readline(&repl_prompt()) {
@@ -56,12 +66,17 @@ fn run_interactive_repl(session: &mut ReplSession, mode: ModeOverride) {
             continue;
         }
 
-        if input == ":quit" || input == ":exit" {
+        if pending.is_empty() && (input == ":quit" || input == ":exit") {
             break;
         }
 
         let _ = editor.add_history_entry(input);
-        run_repl_input(session, input, mode, true);
+        if let Some(input) = buffer_repl_input(input, &mut pending, &mut pending_brace_depth) {
+            run_repl_input(session, &input, mode, true);
+            if let Some(helper) = editor.helper_mut() {
+                helper.set_statements(session.statements.clone());
+            }
+        }
     }
 
     if let Some(path) = history_path.as_deref() {
@@ -69,8 +84,62 @@ fn run_interactive_repl(session: &mut ReplSession, mode: ModeOverride) {
     }
 }
 
+struct ReplHelper {
+    mode: ModeOverride,
+    statements: Vec<Stmt>,
+}
+
+impl ReplHelper {
+    fn new(mode: ModeOverride) -> Self {
+        Self {
+            mode,
+            statements: Vec::new(),
+        }
+    }
+
+    fn set_statements(&mut self, statements: Vec<Stmt>) {
+        self.statements = statements;
+    }
+}
+
+impl Completer for ReplHelper {
+    type Candidate = Pair;
+}
+
+impl Helper for ReplHelper {}
+
+impl Hinter for ReplHelper {
+    type Hint = String;
+
+    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<Self::Hint> {
+        if pos < line.len() {
+            return None;
+        }
+
+        repl_live_hint(line, self.mode, &self.statements)
+    }
+}
+
+impl Highlighter for ReplHelper {
+    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
+        Cow::Owned(format!("{ANSI_DIM}{hint}{ANSI_RESET}"))
+    }
+}
+
+impl Validator for ReplHelper {
+    fn validate(&self, ctx: &mut ValidationContext) -> rustyline::Result<ValidationResult> {
+        if brace_delta(ctx.input()) > 0 {
+            Ok(ValidationResult::Incomplete)
+        } else {
+            Ok(ValidationResult::Valid(None))
+        }
+    }
+}
+
 fn run_piped_repl(session: &mut ReplSession, mode: ModeOverride) {
     let mut line = String::new();
+    let mut pending = String::new();
+    let mut pending_brace_depth = 0i32;
 
     loop {
         line.clear();
@@ -88,12 +157,63 @@ fn run_piped_repl(session: &mut ReplSession, mode: ModeOverride) {
             continue;
         }
 
-        if input == ":quit" || input == ":exit" {
+        if pending.is_empty() && (input == ":quit" || input == ":exit") {
             break;
         }
 
-        run_repl_input(session, input, mode, false);
+        if let Some(input) = buffer_repl_input(input, &mut pending, &mut pending_brace_depth) {
+            run_repl_input(session, &input, mode, false);
+        }
     }
+}
+
+fn buffer_repl_input(input: &str, pending: &mut String, brace_depth: &mut i32) -> Option<String> {
+    if pending.is_empty() && brace_delta(input) <= 0 {
+        return Some(input.to_string());
+    }
+
+    if !pending.is_empty() {
+        pending.push('\n');
+    }
+    pending.push_str(input);
+    *brace_depth += brace_delta(input);
+
+    if *brace_depth > 0 {
+        return None;
+    }
+
+    *brace_depth = 0;
+    Some(std::mem::take(pending))
+}
+
+fn brace_delta(input: &str) -> i32 {
+    let mut delta = 0;
+    let mut chars = input.chars();
+    let mut quote = None;
+    let mut escaped = false;
+
+    while let Some(ch) = chars.next() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if quote.is_some() && ch == '\\' {
+            escaped = true;
+            continue;
+        }
+
+        match quote {
+            Some(current) if ch == current => quote = None,
+            Some(_) => {}
+            None if ch == '"' || ch == '\'' => quote = Some(ch),
+            None if ch == '{' => delta += 1,
+            None if ch == '}' => delta -= 1,
+            None => {}
+        }
+    }
+
+    delta
 }
 
 #[derive(Debug, Default)]
@@ -425,6 +545,179 @@ fn apply_repl_semantics(input: &mut ReplInput, analysis: &echo_semantics::Analys
     }
 }
 
+fn repl_live_hint(line: &str, mode: ModeOverride, session_statements: &[Stmt]) -> Option<String> {
+    let input = line.trim();
+    if input.is_empty() || input.starts_with(':') || brace_delta(input) > 0 {
+        return None;
+    }
+
+    let file = PathBuf::from("repl.echo");
+    let source = source_file_from_text(file, input.to_string(), mode);
+    let program = parse_source_program(&source).ok()?;
+    let expr = repl_display_expr(program.statements.as_slice())?;
+    let ty = live_expression_type(&program, &expr, session_statements);
+
+    match const_eval_expr(&expr, session_statements) {
+        Some(value) => Some(format!("  => {} {ty}", value.display())),
+        None => Some(format!("  => {ty}")),
+    }
+}
+
+fn live_expression_type(program: &Program, expr: &Expr, session_statements: &[Stmt]) -> String {
+    let mut program = program.clone();
+    let mut statements = session_statements.to_vec();
+    statements.extend(program.statements);
+    program.statements = statements;
+
+    echo_semantics::analyze(&program)
+        .map(|analysis| analysis.expression_type_at(expr.span()).display_name())
+        .unwrap_or_else(|_| expression_static_type(expr))
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ConstValue {
+    Null,
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    String(String),
+}
+
+impl ConstValue {
+    fn display(&self) -> String {
+        match self {
+            Self::Null => "null".to_string(),
+            Self::Bool(value) => value.to_string(),
+            Self::Int(value) => value.to_string(),
+            Self::Float(value) => value.to_string(),
+            Self::String(value) => format!("{value:?}"),
+        }
+    }
+
+    fn as_number(&self) -> Option<f64> {
+        match self {
+            Self::Int(value) => Some(*value as f64),
+            Self::Float(value) => Some(*value),
+            _ => None,
+        }
+    }
+}
+
+fn const_eval_expr(expr: &Expr, session_statements: &[Stmt]) -> Option<ConstValue> {
+    match expr {
+        Expr::Null(_) => Some(ConstValue::Null),
+        Expr::Bool(value) => Some(ConstValue::Bool(value.value)),
+        Expr::String(value) => Some(ConstValue::String(value.value.clone())),
+        Expr::Number(value) => {
+            if value.value.contains('.') || value.value.contains('e') || value.value.contains('E') {
+                value.value.parse().ok().map(ConstValue::Float)
+            } else {
+                value.value.parse().ok().map(ConstValue::Int)
+            }
+        }
+        Expr::Variable(variable) => const_eval_variable(&variable.name, session_statements),
+        Expr::Unary(value) => {
+            let value = const_eval_expr(&value.expr, session_statements)?;
+            match value.as_number()? {
+                number if value_is_int(&value) => {
+                    let value = number as i64;
+                    Some(ConstValue::Int(match value {
+                        value if matches!(expr, Expr::Unary(unary) if unary.op == echo_ast::UnaryOp::Minus) => {
+                            -value
+                        }
+                        value => value,
+                    }))
+                }
+                number => Some(ConstValue::Float(match expr {
+                    Expr::Unary(unary) if unary.op == echo_ast::UnaryOp::Minus => -number,
+                    _ => number,
+                })),
+            }
+        }
+        Expr::Binary(value) => {
+            let left = const_eval_expr(&value.left, session_statements)?;
+            let right = const_eval_expr(&value.right, session_statements)?;
+            const_eval_binary(left, value.op, right)
+        }
+        Expr::TypeAscription(value) => const_eval_expr(&value.expr, session_statements),
+        _ => None,
+    }
+}
+
+fn const_eval_variable(name: &str, session_statements: &[Stmt]) -> Option<ConstValue> {
+    session_statements
+        .iter()
+        .rev()
+        .find_map(|statement| match statement {
+            Stmt::Assign(statement) if statement.name == name => {
+                const_eval_expr(&statement.value, session_statements)
+            }
+            Stmt::Let(statement) if statement.name == name => {
+                const_eval_expr(&statement.value, session_statements)
+            }
+            _ => None,
+        })
+}
+
+fn const_eval_binary(left: ConstValue, op: BinaryOp, right: ConstValue) -> Option<ConstValue> {
+    match op {
+        BinaryOp::Add => const_eval_numeric(left, right, |left, right| left + right),
+        BinaryOp::Sub => const_eval_numeric(left, right, |left, right| left - right),
+        BinaryOp::Mul => const_eval_numeric(left, right, |left, right| left * right),
+        BinaryOp::Div => const_eval_numeric(left, right, |left, right| left / right),
+        BinaryOp::Mod => match (left, right) {
+            (ConstValue::Int(left), ConstValue::Int(right)) if right != 0 => {
+                Some(ConstValue::Int(left % right))
+            }
+            _ => None,
+        },
+        BinaryOp::Pow => const_eval_numeric(left, right, f64::powf),
+        BinaryOp::Concat => Some(ConstValue::String(format!(
+            "{}{}",
+            const_value_as_string(left)?,
+            const_value_as_string(right)?
+        ))),
+        BinaryOp::Identical => Some(ConstValue::Bool(left == right)),
+        BinaryOp::Is => Some(ConstValue::Bool(
+            matches!(right, ConstValue::Null) && left == right,
+        )),
+        BinaryOp::IsNot => Some(ConstValue::Bool(!matches!(
+            const_eval_binary(left, BinaryOp::Is, right)?,
+            ConstValue::Bool(true)
+        ))),
+    }
+}
+
+fn const_eval_numeric(
+    left: ConstValue,
+    right: ConstValue,
+    op: impl FnOnce(f64, f64) -> f64,
+) -> Option<ConstValue> {
+    let both_int = value_is_int(&left) && value_is_int(&right);
+    let result = op(left.as_number()?, right.as_number()?);
+
+    if both_int && result.fract() == 0.0 {
+        Some(ConstValue::Int(result as i64))
+    } else {
+        Some(ConstValue::Float(result))
+    }
+}
+
+fn value_is_int(value: &ConstValue) -> bool {
+    matches!(value, ConstValue::Int(_))
+}
+
+fn const_value_as_string(value: ConstValue) -> Option<String> {
+    match value {
+        ConstValue::Null => Some(String::new()),
+        ConstValue::Bool(true) => Some("1".to_string()),
+        ConstValue::Bool(false) => Some(String::new()),
+        ConstValue::Int(value) => Some(value.to_string()),
+        ConstValue::Float(value) => Some(value.to_string()),
+        ConstValue::String(value) => Some(value),
+    }
+}
+
 fn print_expression_metadata(info: &ExpressionInfo) {
     println!(
         "{ANSI_DIM}   kind:{ANSI_RESET} {}  {ANSI_DIM}type:{ANSI_RESET} {}  {ANSI_DIM}span:{ANSI_RESET} {}..{}",
@@ -474,6 +767,7 @@ fn expression_kind(expr: &Expr) -> &'static str {
             BinaryOp::Mod => "modulo expression",
             BinaryOp::Pow => "exponent expression",
             BinaryOp::Concat => "concat expression",
+            BinaryOp::Identical => "identity comparison expression",
             BinaryOp::Is | BinaryOp::IsNot => "null test expression",
         },
         Expr::TypeAscription(_) => "type ascription expression",
@@ -503,6 +797,7 @@ fn expression_static_type(expr: &Expr) -> String {
             | BinaryOp::Mod
             | BinaryOp::Pow => "number".to_string(),
             BinaryOp::Concat => "string".to_string(),
+            BinaryOp::Identical => "bool".to_string(),
             BinaryOp::Is | BinaryOp::IsNot => "bool".to_string(),
         },
         Expr::FunctionCall(call) => echo_reflection::function(&call.name)
