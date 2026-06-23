@@ -3638,6 +3638,83 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "quickstart",
+    path: "/docs/quickstart",
+    navGroup: "Getting Started",
+    category: "Getting Started",
+    title: "Quickstart",
+    summary: "Run a PHP-compatible file, inspect the compiler output, and build a native binary.",
+    tags: ["quickstart", "run", "build", "ast", "ir", "php"],
+    aliases: ["first program", "hello world", "getting started"],
+    sections: [
+      {
+        title: "Create a Program",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Start with ordinary PHP syntax. Echo accepts PHP-compatible source while the stricter Echo surface grows around it.",
+            ],
+          },
+          {
+            kind: "code",
+            code: '<?php\n\necho "Hello from Echo\\n";',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This keeps the first program inside the PHP-compatible lane, which is the safest starting point when checking Echo against existing PHP habits.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Run It",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "xo run" },
+              " when you want the supported program to execute through Echo's compiler and runtime path.",
+            ],
+          },
+          { kind: "code", code: "xo run hello.php", language: "shellscript" },
+          {
+            kind: "paragraph",
+            text: [
+              "Running through ",
+              { code: "xo" },
+              " exercises Echo's parser, lowering, and runtime instead of delegating to the system PHP binary.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Inspect and Build",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use the inspection commands while developing language features or checking how a program moves through the compiler pipeline.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "xo ast hello.php\nxo ir hello.php\nxo build hello.php -o /tmp/hello\n/tmp/hello",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The inspection commands are useful when a behavior is parsed correctly but still needs verification in lowering, runtime execution, or native build output.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "source-modes",
     path: "/docs/source-modes",
     navGroup: "Getting Started",
@@ -5004,6 +5081,320 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "php-compatibility",
+    path: "/docs/php-compatibility",
+    navGroup: "Language",
+    category: "Language",
+    title: "PHP Compatibility",
+    summary:
+      "Understand Echo's PHP compatibility floor, supported built-ins, and explicit unsupported behavior.",
+    tags: ["php", "compatibility", "builtins", "fixtures", "runtime"],
+    aliases: ["php parity", "compatibility inventory", "supported php"],
+    sections: [
+      {
+        title: "Compatibility Floor",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo is a PHP superset. Existing PHP syntax and behavior should remain valid unless Echo explicitly documents an unsupported edge or a stricter Echo-only mode.",
+            ],
+          },
+          {
+            kind: "code",
+            code: '<?php\n\n$name = "Echo";\necho "Hello, " . $name . "\\n";',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Compatibility work is tracked through fixtures and the PHP built-in inventory. Unsupported behavior should produce a clear diagnostic instead of silently taking a near match.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Built-ins",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "PHP built-ins live in the compatibility surface. Use the PHP Built-ins pages to see current support, signatures, examples, and semantic notes for search.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $payload = "signed:user-42"\n\nif (str_contains($payload, ":")) {\n    echo strtoupper($payload) . "\\n"\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This example combines string search and transformation so the built-ins appear in the kind of validation-and-output path users search for.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "strict-mode",
+    path: "/docs/strict-mode",
+    navGroup: "Language",
+    category: "Language",
+    title: "Strict Mode",
+    summary: "Use Echo-first syntax in .echo and .xo files while PHP files stay compatible.",
+    tags: ["strict", "echo", "source mode", "types", "let"],
+    aliases: ["echo mode", "strict echo", "xo files"],
+    sections: [
+      {
+        title: "Strict Files",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Files ending in ",
+              { code: ".echo" },
+              " or ",
+              { code: ".xo" },
+              " use strict mode. Strict mode is where Echo-first syntax can rely on inference, typed declarations, and standard library imports without PHP open tags.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "from std use time\n\nlet $timer = time.timer()\ntime.sleep(25ms)\necho $timer.elapsed().total_millis()",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The example uses Echo-owned imports and receiver methods, which belong to strict Echo code rather than PHP namespace syntax.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Typed Bindings",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Types are written after the symbol. Prefer inference with ",
+              { code: "let" },
+              " and add an explicit type when it documents a boundary or constrains an empty literal.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $users: list<User> = {}\n\n$users.push({\n    id: 1,\n    email: "first@example.test",\n}: User)',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The explicit list type gives the empty literal enough information for later pushes, while the object literal stays readable at the call site.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "imports",
+    path: "/docs/imports",
+    navGroup: "Language",
+    category: "Language",
+    title: "Imports",
+    summary: "Use PHP namespace imports and Echo-owned from ... use imports without mixing them.",
+    tags: ["imports", "use", "from", "std", "package", "namespace"],
+    aliases: ["from std use", "vendor imports", "php use"],
+    sections: [
+      {
+        title: "Import Lanes",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Plain ",
+              { code: "use" },
+              " remains PHP namespace syntax. Echo-owned imports use ",
+              { code: "from ... use ..." },
+              " for standard library modules, package modules, local Echo modules, and data files.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'use Psr\\Log\\LoggerInterface\n\nfrom std use time\nfrom illuminate/http use Request\nfrom "./routes.echo" use route',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The source prefix decides resolution. ",
+              { code: "from std use ..." },
+              " binds compiler-known standard library modules and never reserves a PHP namespace.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "command-line",
+    path: "/docs/command-line",
+    navGroup: "Tooling",
+    category: "Tooling",
+    title: "Command Line",
+    summary: "Use xo to inspect, run, and build Echo-compatible programs.",
+    tags: ["cli", "xo", "ast", "ir", "run", "build"],
+    aliases: ["xo command", "compiler cli", "run build"],
+    sections: [
+      {
+        title: "Core Commands",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The ",
+              { code: "xo" },
+              " command is the current compiler and runtime entrypoint. Use it to inspect parser output, inspect LLVM IR, run a supported program, or build a binary.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "xo ast examples/hello.php\nxo ir examples/hello.php\nxo run examples/hello.php\nxo build examples/hello.php -o /tmp/hello",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use the narrower inspection commands before running or building when a change needs to prove which compiler stage owns the behavior.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Source Mode",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The CLI chooses source mode from the file extension. ",
+              { code: ".php" },
+              " files use Echo superset mode; ",
+              { code: ".echo" },
+              " and ",
+              { code: ".xo" },
+              " files use strict mode.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "xo run app.php\nxo run app.echo",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This pairing is useful when comparing PHP-compatible source with strict Echo source that uses newer language features.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "language-server",
+    path: "/docs/language-server",
+    navGroup: "Tooling",
+    category: "Tooling",
+    title: "Language Server",
+    summary:
+      "Track the Echo language server direction and the shared compiler facts it should consume.",
+    tags: ["lsp", "language server", "diagnostics", "semantics", "editor"],
+    aliases: ["editor support", "lsp"],
+    sections: [
+      {
+        title: "Current Status",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The language server is a tooling surface over the shared compiler pipeline. Parser diagnostics, semantic facts, type information, and source spans should come from the same crates used by ",
+              { code: "xo" },
+              " rather than from an editor-only implementation.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "scripts/check-fast lsp",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use the LSP check when changing diagnostics, source mapping, semantic analysis, or editor-facing index behavior.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "testing",
+    path: "/docs/testing",
+    navGroup: "Tooling",
+    category: "Tooling",
+    title: "Testing",
+    summary:
+      "Run focused Echo checks while developing and use workspace verification before commits.",
+    tags: ["testing", "fixtures", "check-fast", "cargo", "php"],
+    aliases: ["test commands", "fixtures", "verification"],
+    sections: [
+      {
+        title: "Fast Checks",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "scripts/check-fast" },
+              " for targeted checks while iterating. It keeps successful output quiet and replays bounded failure logs when a command fails.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "scripts/check-fast changed --list\nscripts/check-fast changed\nscripts/check-fast parser-echo-surface\nscripts/check-fast web",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The changed check is the fastest first pass for a dirty tree; focused checks are better when you already know the affected subsystem.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Workspace Verification",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Before committing a broad compiler or docs slice, use the quiet workspace check. It runs formatting, workspace check, and workspace tests with successful output suppressed.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "scripts/check-fast workspace",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Run this before committing broad slices because it catches formatting, compile, and test failures without flooding successful output.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "source-builds",
     path: "/docs/source-builds",
     navGroup: "Tooling",
@@ -5025,6 +5416,13 @@ export const docsPages: DocsPage[] = [
           {
             kind: "code",
             code: "git clone https://github.com/modoterra/echo.git\ncd echo\ncargo build -p xo\ncargo test --workspace\ncargo run -p xo -- run examples/hello.php",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This path builds the current command line from source, runs the workspace test suite, and then exercises the resulting CLI on a small example.",
+            ],
           },
         ],
       },
@@ -5039,7 +5437,7 @@ export const docsNavigation: DocsNavGroup[] = [
     title: "Getting Started",
     links: [
       { label: "Installation", to: "/docs" },
-      { label: "Quickstart", to: "/docs/quickstart", disabled: true },
+      { label: "Quickstart", to: "/docs/quickstart" },
       { label: "Source Modes", to: "/docs/source-modes" },
     ],
   },
@@ -5076,17 +5474,17 @@ export const docsNavigation: DocsNavGroup[] = [
           { label: "assert", to: "/docs/std/assert" },
         ],
       },
-      { label: "PHP Compatibility", to: "/docs/php-compatibility", disabled: true },
-      { label: "Strict Mode", to: "/docs/strict-mode", disabled: true },
-      { label: "Imports", to: "/docs/imports", disabled: true },
+      { label: "PHP Compatibility", to: "/docs/php-compatibility" },
+      { label: "Strict Mode", to: "/docs/strict-mode" },
+      { label: "Imports", to: "/docs/imports" },
     ],
   },
   {
     title: "Tooling",
     links: [
-      { label: "Command Line", to: "/docs/command-line", disabled: true },
-      { label: "Language Server", to: "/docs/language-server", disabled: true },
-      { label: "Testing", to: "/docs/testing", disabled: true },
+      { label: "Command Line", to: "/docs/command-line" },
+      { label: "Language Server", to: "/docs/language-server" },
+      { label: "Testing", to: "/docs/testing" },
       { label: "Source Builds", to: "/docs/source-builds" },
     ],
   },
