@@ -189,3 +189,430 @@ fn list_push_lowers_type_ascribed_structural_literal() {
     assert!(ir.contains("call %EchoValue @echo_value_object_set"));
     assert!(ir.contains("call %EchoValue @echo_value_list_append"));
 }
+
+#[test]
+fn array_keys_lowers_optional_filter_and_strict_defaults() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "array_keys".to_string(),
+            args: vec![Expr::Array(ArrayExpr {
+                elements: vec![ArrayElement {
+                    key: Some(Expr::String(StringLiteral {
+                        value: "id".to_string(),
+                        span: Span::new(12, 16),
+                    })),
+                    value: Expr::Number(NumberLiteral {
+                        value: "10".to_string(),
+                        span: Span::new(20, 22),
+                    }),
+                    span: Span::new(12, 22),
+                }],
+                span: Span::new(11, 23),
+            })],
+            span: Span::new(0, 24),
+        })],
+        span: Span::new(0, 25),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_keys(%EchoValue, %EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("%EchoValue { i32 6, i64 0 }, %EchoValue { i32 1, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
+fn in_array_lowers_optional_strict_default() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "in_array".to_string(),
+            args: vec![
+                Expr::Number(NumberLiteral {
+                    value: "2".to_string(),
+                    span: Span::new(9, 10),
+                }),
+                Expr::Array(ArrayExpr {
+                    elements: vec![ArrayElement {
+                        key: None,
+                        value: Expr::String(StringLiteral {
+                            value: "2".to_string(),
+                            span: Span::new(13, 16),
+                        }),
+                        span: Span::new(13, 16),
+                    }],
+                    span: Span::new(12, 17),
+                }),
+            ],
+            span: Span::new(0, 18),
+        })],
+        span: Span::new(0, 19),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_in_array(%EchoValue, %EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
+}
+
+#[test]
+fn array_fill_lowers_to_three_echo_value_arguments() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "array_fill".to_string(),
+            args: vec![
+                Expr::Number(NumberLiteral {
+                    value: "-2".to_string(),
+                    span: Span::new(11, 13),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "3".to_string(),
+                    span: Span::new(15, 16),
+                }),
+                Expr::String(StringLiteral {
+                    value: "x".to_string(),
+                    span: Span::new(18, 21),
+                }),
+            ],
+            span: Span::new(0, 22),
+        })],
+        span: Span::new(0, 23),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_fill(%EchoValue, %EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("call %EchoValue @echo_php_array_fill("), "{ir}");
+}
+
+#[test]
+fn array_reverse_lowers_optional_preserve_keys_default() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "array_reverse".to_string(),
+            args: vec![Expr::Array(ArrayExpr {
+                elements: vec![ArrayElement {
+                    key: None,
+                    value: Expr::String(StringLiteral {
+                        value: "x".to_string(),
+                        span: Span::new(15, 18),
+                    }),
+                    span: Span::new(15, 18),
+                }],
+                span: Span::new(14, 19),
+            })],
+            span: Span::new(0, 20),
+        })],
+        span: Span::new(0, 21),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_reverse(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
+}
+
+#[test]
+fn array_combine_and_pad_lower_to_runtime_calls() {
+    let ir = compile_to_ir(&program(vec![
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_combine".to_string(),
+                args: vec![
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "sku".to_string(),
+                                span: Span::new(15, 20),
+                            }),
+                            span: Span::new(15, 20),
+                        }],
+                        span: Span::new(14, 21),
+                    }),
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "A-42".to_string(),
+                                span: Span::new(24, 30),
+                            }),
+                            span: Span::new(24, 30),
+                        }],
+                        span: Span::new(23, 31),
+                    }),
+                ],
+                span: Span::new(0, 32),
+            })],
+            span: Span::new(0, 33),
+        }),
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_pad".to_string(),
+                args: vec![
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "x".to_string(),
+                                span: Span::new(50, 53),
+                            }),
+                            span: Span::new(50, 53),
+                        }],
+                        span: Span::new(49, 54),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "3".to_string(),
+                        span: Span::new(56, 57),
+                    }),
+                    Expr::String(StringLiteral {
+                        value: "missing".to_string(),
+                        span: Span::new(59, 68),
+                    }),
+                ],
+                span: Span::new(35, 69),
+            })],
+            span: Span::new(35, 70),
+        }),
+    ]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_combine(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_pad(%EchoValue, %EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_combine("),
+        "{ir}"
+    );
+    assert!(ir.contains("call %EchoValue @echo_php_array_pad("), "{ir}");
+}
+
+#[test]
+fn array_slice_and_chunk_lower_optional_arguments_to_runtime_calls() {
+    let ir = compile_to_ir(&program(vec![
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_slice".to_string(),
+                args: vec![
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "active".to_string(),
+                                span: Span::new(13, 21),
+                            }),
+                            span: Span::new(13, 21),
+                        }],
+                        span: Span::new(12, 22),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "1".to_string(),
+                        span: Span::new(24, 25),
+                    }),
+                ],
+                span: Span::new(0, 26),
+            })],
+            span: Span::new(0, 27),
+        }),
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_chunk".to_string(),
+                args: vec![
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "active".to_string(),
+                                span: Span::new(41, 49),
+                            }),
+                            span: Span::new(41, 49),
+                        }],
+                        span: Span::new(40, 50),
+                    }),
+                    Expr::Number(NumberLiteral {
+                        value: "2".to_string(),
+                        span: Span::new(52, 53),
+                    }),
+                ],
+                span: Span::new(28, 54),
+            })],
+            span: Span::new(28, 55),
+        }),
+    ]))
+    .expect("IR");
+
+    assert!(
+            ir.contains(
+                "declare %EchoValue @echo_php_array_slice(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+            ),
+            "{ir}"
+        );
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_chunk(%EchoValue, %EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_slice(")
+            && ir.contains("%EchoValue { i32 0, i64 0 }, %EchoValue { i32 1, i64 0 })"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_chunk(")
+            && ir.contains("%EchoValue { i32 1, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
+fn array_merge_and_replace_pack_variadic_arguments_for_runtime_calls() {
+    let ir = compile_to_ir(&program(vec![
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_merge".to_string(),
+                args: vec![],
+                span: Span::new(0, 13),
+            })],
+            span: Span::new(0, 14),
+        }),
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_replace".to_string(),
+                args: vec![
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: Some(Expr::String(StringLiteral {
+                                value: "sku".to_string(),
+                                span: Span::new(30, 35),
+                            })),
+                            value: Expr::String(StringLiteral {
+                                value: "A-42".to_string(),
+                                span: Span::new(39, 45),
+                            }),
+                            span: Span::new(30, 45),
+                        }],
+                        span: Span::new(29, 46),
+                    }),
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: Some(Expr::String(StringLiteral {
+                                value: "sku".to_string(),
+                                span: Span::new(49, 54),
+                            })),
+                            value: Expr::String(StringLiteral {
+                                value: "A-43".to_string(),
+                                span: Span::new(58, 64),
+                            }),
+                            span: Span::new(49, 64),
+                        }],
+                        span: Span::new(48, 65),
+                    }),
+                ],
+                span: Span::new(15, 66),
+            })],
+            span: Span::new(15, 67),
+        }),
+    ]))
+    .expect("IR");
+
+    assert!(ir.contains("declare %EchoValue @echo_php_array_merge(%EchoValue)"));
+    assert!(ir.contains("declare %EchoValue @echo_php_array_replace(%EchoValue)"));
+    assert!(
+        ir.contains("call %EchoValue @echo_value_array_new()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_value_array_append("),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_merge("),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_replace("),
+        "{ir}"
+    );
+}
+
+#[test]
+fn array_search_and_count_values_lower_to_runtime_calls() {
+    let ir = compile_to_ir(&program(vec![
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_search".to_string(),
+                args: vec![
+                    Expr::String(StringLiteral {
+                        value: "active".to_string(),
+                        span: Span::new(13, 21),
+                    }),
+                    Expr::Array(ArrayExpr {
+                        elements: vec![ArrayElement {
+                            key: None,
+                            value: Expr::String(StringLiteral {
+                                value: "active".to_string(),
+                                span: Span::new(24, 32),
+                            }),
+                            span: Span::new(24, 32),
+                        }],
+                        span: Span::new(23, 33),
+                    }),
+                ],
+                span: Span::new(0, 34),
+            })],
+            span: Span::new(0, 35),
+        }),
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+                name: "array_count_values".to_string(),
+                args: vec![Expr::Array(ArrayExpr {
+                    elements: vec![ArrayElement {
+                        key: None,
+                        value: Expr::String(StringLiteral {
+                            value: "active".to_string(),
+                            span: Span::new(58, 66),
+                        }),
+                        span: Span::new(58, 66),
+                    }],
+                    span: Span::new(57, 67),
+                })],
+                span: Span::new(37, 68),
+            })],
+            span: Span::new(37, 69),
+        }),
+    ]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "declare %EchoValue @echo_php_array_search(%EchoValue, %EchoValue, %EchoValue)"
+        ),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_count_values(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_search("),
+        "{ir}"
+    );
+    assert!(ir.contains("%EchoValue { i32 1, i64 0 })"), "{ir}");
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_count_values("),
+        "{ir}"
+    );
+}
