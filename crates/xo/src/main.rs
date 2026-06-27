@@ -16,8 +16,8 @@ use build::{
 };
 use repl::run_repl;
 use source::{
-    ModeOverride, compile_ir, parse_source_program, print_diagnostics, read_source,
-    read_source_file, run_jit,
+    DiagnosticFormat, ModeOverride, compile_ir, compile_ir_with_diagnostics, parse_source_program,
+    print_diagnostics, read_source, read_source_file, run_jit,
 };
 
 #[derive(Debug, Parser)]
@@ -47,6 +47,8 @@ enum Command {
     Run {
         #[command(flatten)]
         mode: ModeOverride,
+        #[arg(long, value_enum, default_value_t = DiagnosticFormat::Human)]
+        diagnostics: DiagnosticFormat,
         /// Execute with the in-process LLVM JIT instead of a temporary native binary.
         #[arg(long)]
         jit: bool,
@@ -154,6 +156,7 @@ fn main() {
         }
         Command::Run {
             mode,
+            diagnostics,
             jit,
             file,
             args,
@@ -166,7 +169,13 @@ fn main() {
                 run_jit(&file, mode);
             } else {
                 let binary_path = temp_path(&file, "program");
-                build_binary(&file, mode, OptimizationLevel::O0, &binary_path);
+                build_binary(
+                    &file,
+                    mode,
+                    diagnostics,
+                    OptimizationLevel::O0,
+                    &binary_path,
+                );
                 run_command(ProcessCommand::new(&binary_path).args(args));
                 let _ = fs::remove_file(binary_path);
             }
@@ -204,7 +213,13 @@ fn main() {
                     std::process::exit(1);
                 };
 
-                build_binary(&file, mode, optimization.level, &output);
+                build_binary(
+                    &file,
+                    mode,
+                    DiagnosticFormat::Human,
+                    optimization.level,
+                    &output,
+                );
             }
         }
     }
@@ -213,10 +228,11 @@ fn main() {
 fn build_binary(
     file: &PathBuf,
     mode: ModeOverride,
+    diagnostic_format: DiagnosticFormat,
     optimization: OptimizationLevel,
     output: &PathBuf,
 ) {
-    let ir = compile_ir(file, mode);
+    let ir = compile_ir_with_diagnostics(file, mode, diagnostic_format);
     verify_ir(file, &ir);
     build_ir_binary(file, &ir, optimization, output);
 }

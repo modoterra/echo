@@ -13,8 +13,13 @@ echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
 echo_lexer = { path = "../echo_lexer" }
 echo_parser = { path = "../echo_parser" }
+echo_hir = { path = "../echo_hir" }
+echo_mir = { path = "../echo_mir" }
 echo_lsp = { path = "../echo_lsp" }
 echo_codegen = { path = "../echo_codegen" }
 echo_reflection = { path = "../echo_reflection" }
 echo_runtime = { path = "../echo_runtime" }
 echo_semantics = { path = "../echo_semantics" }
+
+[dev-dependencies]
+serde_json = "1"

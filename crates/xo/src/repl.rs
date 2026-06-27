@@ -427,6 +427,7 @@ fn is_repl_persistent_statement(statement: &Stmt) -> bool {
             | Stmt::Namespace(_)
             | Stmt::Use(_)
             | Stmt::Import(_)
+            | Stmt::UnnamedExport(_)
             | Stmt::FunctionDecl(_)
             | Stmt::ClassDecl(_)
             | Stmt::TypeDecl(_)
@@ -616,6 +617,9 @@ fn const_eval_expr(expr: &Expr, session_statements: &[Stmt]) -> Option<ConstValu
             }
         }
         Expr::Variable(variable) => const_eval_variable(&variable.name, session_statements),
+        Expr::Constant(constant) if constant.name == "PHP_VERSION_ID" => {
+            Some(ConstValue::Int(80200))
+        }
         Expr::Unary(value) => {
             let value = const_eval_expr(&value.expr, session_statements)?;
             match value.as_number()? {
@@ -677,7 +681,28 @@ fn const_eval_binary(left: ConstValue, op: BinaryOp, right: ConstValue) -> Optio
             const_value_as_string(left)?,
             const_value_as_string(right)?
         ))),
+        BinaryOp::LessThan => match (left, right) {
+            (ConstValue::Int(left), ConstValue::Int(right)) => Some(ConstValue::Bool(left < right)),
+            _ => None,
+        },
+        BinaryOp::GreaterThanOrEqual => match (left, right) {
+            (ConstValue::Int(left), ConstValue::Int(right)) => {
+                Some(ConstValue::Bool(left >= right))
+            }
+            _ => None,
+        },
         BinaryOp::Identical => Some(ConstValue::Bool(left == right)),
+        BinaryOp::NotIdentical => Some(ConstValue::Bool(left != right)),
+        BinaryOp::Equal => Some(ConstValue::Bool(left == right)),
+        BinaryOp::NotEqual => Some(ConstValue::Bool(left != right)),
+        BinaryOp::InstanceOf => None,
+        BinaryOp::Coalesce => Some(left),
+        BinaryOp::And => Some(ConstValue::Bool(
+            const_value_as_bool(left)? && const_value_as_bool(right)?,
+        )),
+        BinaryOp::Or => Some(ConstValue::Bool(
+            const_value_as_bool(left)? || const_value_as_bool(right)?,
+        )),
         BinaryOp::Is => Some(ConstValue::Bool(
             matches!(right, ConstValue::Null) && left == right,
         )),
@@ -718,6 +743,16 @@ fn const_value_as_string(value: ConstValue) -> Option<String> {
     }
 }
 
+fn const_value_as_bool(value: ConstValue) -> Option<bool> {
+    match value {
+        ConstValue::Null => Some(false),
+        ConstValue::Bool(value) => Some(value),
+        ConstValue::Int(value) => Some(value != 0),
+        ConstValue::Float(value) => Some(value != 0.0),
+        ConstValue::String(value) => Some(!value.is_empty() && value != "0"),
+    }
+}
+
 fn print_expression_metadata(info: &ExpressionInfo) {
     println!(
         "{ANSI_DIM}   kind:{ANSI_RESET} {}  {ANSI_DIM}type:{ANSI_RESET} {}  {ANSI_DIM}span:{ANSI_RESET} {}..{}",
@@ -743,14 +778,23 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::String(_) => "string literal",
         Expr::Number(_) => "number literal",
         Expr::Variable(_) => "variable",
+        Expr::Constant(_) => "constant",
         Expr::ReceiverConst(_) => "receiver constant",
+        Expr::StaticPropertyFetch(_) => "static property fetch",
+        Expr::StaticPropertyAssign(_) => "static property assignment",
+        Expr::StaticPropertyCoalesceAssign(_) => "static property coalesce assignment",
+        Expr::ClassConstantFetch(_) => "class constant fetch",
         Expr::FunctionCall(_) => "function call",
+        Expr::DynamicFunctionCall(_) => "dynamic function call",
+        Expr::DynamicCall(_) => "dynamic call",
         Expr::MethodCall(_) => "method call",
         Expr::StaticCall(_) => "static call",
         Expr::New(_) => "constructor expression",
+        Expr::Closure(_) => "closure expression",
+        Expr::ArrowFunction(_) => "arrow function expression",
         Expr::Assign(_) => "assignment expression",
         Expr::MagicConstant(_) => "magic constant",
-        Expr::Require(_) => "require expression",
+        Expr::Include(_) => "include expression",
         Expr::Defer(_) => "defer expression",
         Expr::Run(_) => "run expression",
         Expr::Fork(_) => "fork expression",
@@ -760,7 +804,9 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::Unary(expr) => match expr.op {
             echo_ast::UnaryOp::Plus => "numeric identity expression",
             echo_ast::UnaryOp::Minus => "negate expression",
+            echo_ast::UnaryOp::Not => "not expression",
         },
+        Expr::Cast(_) => "cast expression",
         Expr::Binary(expr) => match expr.op {
             BinaryOp::Add => "add expression",
             BinaryOp::Sub => "subtract expression",
@@ -769,12 +815,24 @@ fn expression_kind(expr: &Expr) -> &'static str {
             BinaryOp::Mod => "modulo expression",
             BinaryOp::Pow => "exponent expression",
             BinaryOp::Concat => "concat expression",
+            BinaryOp::LessThan => "less-than expression",
+            BinaryOp::GreaterThanOrEqual => "greater-than-or-equal expression",
             BinaryOp::Identical => "identity comparison expression",
+            BinaryOp::NotIdentical => "non-identity comparison expression",
+            BinaryOp::Equal => "equality comparison expression",
+            BinaryOp::NotEqual => "not-equal comparison expression",
+            BinaryOp::InstanceOf => "instanceof expression",
+            BinaryOp::Coalesce => "coalesce expression",
+            BinaryOp::And => "and expression",
+            BinaryOp::Or => "or expression",
             BinaryOp::Is | BinaryOp::IsNot => "null test expression",
         },
+        Expr::Ternary(_) => "ternary expression",
+        Expr::Match(_) => "match expression",
         Expr::TypeAscription(_) => "type ascription expression",
         Expr::Field(_) => "field expression",
         Expr::Index(_) => "index expression",
+        Expr::TargetAssign(_) => "target assignment expression",
         Expr::Object(_) => "object expression",
         Expr::List(_) => "list expression",
         Expr::Array(_) => "array expression",
@@ -790,7 +848,11 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::List(_) => "list".to_string(),
         Expr::Array(_) => "array".to_string(),
         Expr::Object(_) => "object".to_string(),
-        Expr::Unary(_) => "number".to_string(),
+        Expr::Unary(expr) => match expr.op {
+            echo_ast::UnaryOp::Plus | echo_ast::UnaryOp::Minus => "number".to_string(),
+            echo_ast::UnaryOp::Not => "bool".to_string(),
+        },
+        Expr::Cast(expr) => expr.ty.clone(),
         Expr::Binary(expr) => match expr.op {
             BinaryOp::Add
             | BinaryOp::Sub
@@ -799,22 +861,45 @@ fn expression_static_type(expr: &Expr) -> String {
             | BinaryOp::Mod
             | BinaryOp::Pow => "number".to_string(),
             BinaryOp::Concat => "string".to_string(),
+            BinaryOp::LessThan => "bool".to_string(),
+            BinaryOp::GreaterThanOrEqual => "bool".to_string(),
             BinaryOp::Identical => "bool".to_string(),
+            BinaryOp::NotIdentical => "bool".to_string(),
+            BinaryOp::Equal => "bool".to_string(),
+            BinaryOp::NotEqual => "bool".to_string(),
+            BinaryOp::InstanceOf => "bool".to_string(),
+            BinaryOp::Coalesce => "unknown".to_string(),
+            BinaryOp::And => "bool".to_string(),
+            BinaryOp::Or => "bool".to_string(),
             BinaryOp::Is | BinaryOp::IsNot => "bool".to_string(),
         },
+        Expr::Ternary(_) | Expr::Match(_) => "unknown".to_string(),
         Expr::FunctionCall(call) => echo_reflection::function(&call.name)
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
-        Expr::MethodCall(_) | Expr::StaticCall(_) => "unknown".to_string(),
-        Expr::New(expr) => expr.class_name.as_string(),
+        Expr::DynamicFunctionCall(_)
+        | Expr::DynamicCall(_)
+        | Expr::MethodCall(_)
+        | Expr::StaticCall(_)
+        | Expr::StaticPropertyFetch(_)
+        | Expr::StaticPropertyAssign(_)
+        | Expr::StaticPropertyCoalesceAssign(_)
+        | Expr::ClassConstantFetch(_)
+        | Expr::TargetAssign(_) => "unknown".to_string(),
+        Expr::New(expr) => match &expr.target {
+            echo_ast::NewTarget::Class(class_name) => class_name.as_string(),
+            echo_ast::NewTarget::Expr(_) => "unknown".to_string(),
+        },
+        Expr::Closure(_) | Expr::ArrowFunction(_) => "unknown".to_string(),
         Expr::TypeAscription(expr) => expr.ty.clone(),
         Expr::Assign(expr) => expression_static_type(&expr.value),
         Expr::MagicConstant(_) => "string".to_string(),
-        Expr::Require(_) => "bool".to_string(),
+        Expr::Include(_) => "bool".to_string(),
         Expr::Defer(_) | Expr::Run(_) => "task".to_string(),
         Expr::Fork(_) => "thread".to_string(),
         Expr::Spawn(_) => "process".to_string(),
         Expr::Variable(_)
+        | Expr::Constant(_)
         | Expr::ReceiverConst(_)
         | Expr::Index(_)
         | Expr::Join(_)
