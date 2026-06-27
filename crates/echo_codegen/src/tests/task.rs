@@ -10,7 +10,7 @@ fn task_sleep_lowers_to_timer_continuation() {
                 body: vec![
                     Stmt::FunctionCall(FunctionCallStmt {
                         name: "time.sleep".to_string(),
-                        args: vec![Expr::Number(echo_ast::NumberLiteral {
+                        args: echo_ast::call_args![Expr::Number(echo_ast::NumberLiteral {
                             value: "50".to_string(),
                             span: Span::new(0, 2),
                         })],

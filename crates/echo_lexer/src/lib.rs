@@ -31,6 +31,7 @@ pub enum TokenKind {
     Dot,
     Pipe,
     Ampersand,
+    Bang,
     Equals,
     Backslash,
     Question,
@@ -112,6 +113,9 @@ enum RawToken {
 
     #[token("&")]
     Ampersand,
+
+    #[token("!")]
+    Bang,
 
     #[token("=")]
     Equals,
@@ -197,6 +201,7 @@ impl RawToken {
             RawToken::Dot => TokenKind::Dot,
             RawToken::Pipe => TokenKind::Pipe,
             RawToken::Ampersand => TokenKind::Ampersand,
+            RawToken::Bang => TokenKind::Bang,
             RawToken::Equals => TokenKind::Equals,
             RawToken::Backslash => TokenKind::Backslash,
             RawToken::Question => TokenKind::Question,

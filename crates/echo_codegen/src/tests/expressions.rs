@@ -36,7 +36,7 @@ fn dynamic_concat_uses_echo_value_concat() {
         }),
         Stmt::FunctionCall(FunctionCallStmt {
             name: "greet".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "Echo".to_string(),
                 span: Span::new(45, 51),
             })],
@@ -76,4 +76,25 @@ fn integer_subtraction_lowers_to_echo_value_sub() {
         "{ir}"
     );
     assert!(ir.contains("call %EchoValue @echo_value_sub"), "{ir}");
+}
+
+#[test]
+fn instanceof_literal_class_name_does_not_lower_rhs_as_constant_lookup() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::Binary(Box::new(echo_ast::BinaryExpr {
+            left: Expr::Null(NullLiteral {
+                span: Span::new(5, 9),
+            }),
+            op: BinaryOp::InstanceOf,
+            right: Expr::Constant(echo_ast::ConstantExpr {
+                name: "Closure".to_string(),
+                span: Span::new(21, 28),
+            }),
+            span: Span::new(5, 28),
+        }))],
+        span: Span::new(0, 29),
+    })]))
+    .expect("instanceof literal class-name operand should compile");
+
+    assert!(!ir.contains("Closure"), "{ir}");
 }

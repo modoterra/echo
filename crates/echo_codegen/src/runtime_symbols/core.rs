@@ -76,9 +76,23 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_value_not",
+            echo_runtime::echo_value_not
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_value_bool",
             echo_runtime::echo_value_bool as extern "C" fn(echo_runtime::EchoValue) -> bool
                 as usize,
+        ),
+        (
+            "echo_value_less_than",
+            echo_runtime::echo_value_less_than
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
         ),
         (
             "echo_value_concat",
@@ -91,6 +105,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
         (
             "echo_value_identical",
             echo_runtime::echo_value_identical
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_or",
+            echo_runtime::echo_value_or
                 as extern "C" fn(
                     echo_runtime::EchoValue,
                     echo_runtime::EchoValue,
@@ -132,12 +154,35 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_value_array_len",
+            echo_runtime::echo_value_array_len as extern "C" fn(echo_runtime::EchoValue) -> i64
+                as usize,
+        ),
+        (
+            "echo_value_array_key_at",
+            echo_runtime::echo_value_array_key_at
+                as extern "C" fn(echo_runtime::EchoValue, i64) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_value_array_value_at",
+            echo_runtime::echo_value_array_value_at
+                as extern "C" fn(echo_runtime::EchoValue, i64) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_value_index_get",
             echo_runtime::echo_value_index_get
                 as extern "C" fn(
                     echo_runtime::EchoValue,
                     echo_runtime::EchoValue,
                 ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_value_string_equals_ptr",
+            echo_runtime::echo_value_string_equals_ptr
+                as unsafe extern "C" fn(echo_runtime::EchoValue, *const u8, usize) -> bool
+                as usize,
         ),
         (
             "echo_value_object_new",

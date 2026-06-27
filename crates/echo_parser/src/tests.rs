@@ -38,6 +38,71 @@ function greet($name) { return $name }
 }
 
 #[test]
+fn echo_compat_mode_keeps_parent_self_static_as_php_variables() {
+    let program = parse_with_mode(
+        r#"<?php
+$parent = $class->getParentClass();
+$self = "value";
+$static = $parent->getName();
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP-compatible dollar-prefixed names parse as variables");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if statement.name == "parent"
+                && matches!(
+                    &statement.value,
+                    Expr::MethodCall(call)
+                        if matches!(
+                            &call.object,
+                            Expr::Variable(variable) if variable.name == "class"
+                        )
+                )
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::Assign(statement)
+            if statement.name == "static"
+                && matches!(
+                    &statement.value,
+                    Expr::MethodCall(call)
+                        if matches!(
+                            &call.object,
+                            Expr::Variable(variable) if variable.name == "parent"
+                        )
+                )
+    ));
+}
+
+#[test]
+fn echo_compat_mode_parses_php_trait_declaration() {
+    let program = parse_with_mode(
+        r#"<?php
+trait ReflectsClosures {
+    protected function closureReturnTypes(Closure $closure) {
+        return [];
+    }
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP trait declaration parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::TraitDecl(statement)
+            if statement.name == "ReflectsClosures"
+                && matches!(
+                    &statement.members[0],
+                    ClassMember::Method(method) if method.name == "closureReturnTypes"
+                )
+    ));
+}
+
+#[test]
 fn preserves_multiline_concat_expressions() {
     let program = parse_with_mode(
         r#"<?php
@@ -145,7 +210,7 @@ fn parses_dotted_std_function_call() {
         r#"from std use time
 time.sleep(300)
 "#,
-        SourceMode::Strict,
+        SourceMode::Echo,
     )
     .expect("dotted function call parses");
 
@@ -158,12 +223,12 @@ time.sleep(300)
 #[test]
 fn parses_echo_module_and_direct_dotted_imports() {
     let program = parse_with_mode(
-        r#"module modoterra.laravel_echo.server
+        r#"module acme.http_server.runtime
 use std.http
 use std.net
-use modoterra.laravel_echo.LaravelEcho
+use acme.http_server.ServerKernel
 "#,
-        SourceMode::Strict,
+        SourceMode::Echo,
     )
     .expect("Echo module and direct dotted imports parse");
 
@@ -171,7 +236,7 @@ use modoterra.laravel_echo.LaravelEcho
         &program.statements[0],
         Stmt::Namespace(statement)
             if statement.source == NamespaceSource::Php
-                && statement.name.parts == ["modoterra", "laravel_echo", "server"]
+                && statement.name.parts == ["acme", "http_server", "runtime"]
     ));
     assert!(matches!(
         &program.statements[1],
@@ -188,21 +253,33 @@ use modoterra.laravel_echo.LaravelEcho
     assert!(matches!(
         &program.statements[3],
         Stmt::Use(statement)
-            if statement.name.parts == ["modoterra", "laravel_echo", "LaravelEcho"]
+            if statement.name.parts == ["acme", "http_server", "ServerKernel"]
     ));
 }
 
 #[test]
-fn parses_laravel_echo_server_surface() {
+fn parses_include_and_include_once_expressions() {
     parse_with_mode(
-        r#"module modoterra.laravel_echo.server
+        r#"<?php
+include __DIR__ . "/config.php";
+$loaded = include_once __DIR__ . "/config.php";
+"#,
+        SourceMode::Echo,
+    )
+    .expect("include and include_once expressions should parse");
+}
+
+#[test]
+fn parses_echo_http_server_surface() {
+    parse_with_mode(
+        r#"module acme.http_server.runtime
 
 use std.http
 use std.net
-use modoterra.laravel_echo.LaravelEcho
+use acme.http_server.ServerKernel
 
-let $app = require_once config("echo.paths.laravel_bootstrap")
-let $kernel = LaravelEcho.kernel($app)
+let $app = require_once config("server.paths.bootstrap")
+let $kernel = ServerKernel.from($app)
 let $address = config("echo.server.host", "127.0.0.1") . ":" . config("echo.server.port", 8080)
 let $server = net.listen($address)
 
@@ -215,40 +292,53 @@ loop {
     net.close($connection)
 }
 "#,
-        SourceMode::Strict,
+        SourceMode::Echo,
     )
-    .expect("Laravel Echo server syntax parses for LSP diagnostics");
+    .expect("Echo HTTP server syntax parses for LSP diagnostics");
 }
 
 #[test]
-fn parses_laravel_echo_service_provider_surface() {
+fn parses_echo_package_provider_surface() {
     parse_with_mode(
-        r#"module modoterra.laravel_echo
-
-use illuminate.support.ServiceProvider
-use modoterra.laravel_echo.console.EchoStartCommand
-
-class EchoServiceProvider extends ServiceProvider {
-    pub fn register(): void {
-        $this.mergeConfigFrom(__DIR__ . "/../config/echo.php", "echo")
+        r#"class ReportFormatter {
+    fn slug($name): string {
+        return $name
     }
 
-    pub fn boot(): void {
-        $this.publishes({
-            __DIR__ . "/../config/echo.php": config_path("echo.php"),
-        }, "echo-config")
-
-        if $this.app.runningInConsole() {
-            $this.commands({
-                EchoStartCommand,
-            })
-        }
+    pub fn title($name): string {
+        return $this.slug($name)
     }
 }
 "#,
         SourceMode::Strict,
     )
-    .expect("Laravel Echo service provider syntax parses for LSP diagnostics");
+    .expect("Echo package provider syntax parses for LSP diagnostics");
+}
+
+#[test]
+fn parses_class_method_bodies_as_statements() {
+    let program = parse_with_mode(
+        r#"<?php
+class Example {
+    public static function getLoader()
+    {
+        return "loader";
+    }
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("class method body should parse");
+
+    let Stmt::ClassDecl(class) = &program.statements[0] else {
+        panic!("expected class declaration");
+    };
+    let echo_ast::ClassMember::Method(method) = &class.members[0] else {
+        panic!("expected method declaration");
+    };
+    assert_eq!(method.name, "getLoader");
+    assert_eq!(method.body.len(), 1);
+    assert!(matches!(method.body[0], Stmt::Return(_)));
 }
 
 #[test]
@@ -295,7 +385,7 @@ fn parses_negative_numeric_function_arguments() {
                 &statement.exprs[0],
                 Expr::FunctionCall(call)
                     if matches!(
-                        &call.args[2],
+                        &call.args[2].value,
                         Expr::Unary(expr)
                             if expr.op == UnaryOp::Minus
                                 && matches!(&expr.expr, Expr::Number(number) if number.value == "2")
@@ -345,8 +435,425 @@ $status = $app->handleCommand(new ArgvInput);
                 &statement.value,
                 Expr::MethodCall(call)
                     if call.method == "handleCommand"
-                        && matches!(&call.args[0], Expr::New(new_expr) if new_expr.class_name.as_string() == "ArgvInput")
+                        && matches!(
+                            &call.args[0].value,
+                            Expr::New(new_expr)
+                                if matches!(
+                                    &new_expr.target,
+                                    echo_ast::NewTarget::Class(class_name)
+                                        if class_name.as_string() == "ArgvInput"
+                                )
+                        )
             )
+    ));
+}
+
+#[test]
+fn parses_php_dynamic_new_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+$instance = new $provider($app);
+"#,
+        SourceMode::Echo,
+    )
+    .expect("dynamic new expression parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(
+                &statement.value,
+                Expr::New(new_expr)
+                    if matches!(
+                        &new_expr.target,
+                        echo_ast::NewTarget::Expr(target)
+                            if matches!(target.as_ref(), Expr::Variable(variable) if variable.name == "provider")
+                    )
+            )
+    ));
+}
+
+#[test]
+fn parses_php_not_equal_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+return $manifest['providers'] != $providers;
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP != expression parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Return(statement)
+            if matches!(
+                &statement.value,
+                Some(Expr::Binary(expr)) if expr.op == BinaryOp::NotEqual
+            )
+    ));
+}
+
+#[test]
+fn parses_php_index_append_assignment() {
+    let program = parse_with_mode(
+        r#"<?php
+$manifest['eager'][] = $provider;
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP indexed append assignment parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Append(statement)
+            if matches!(&statement.target, Expr::Index(_))
+                && matches!(&statement.value, Expr::Variable(variable) if variable.name == "provider")
+    ));
+}
+
+#[test]
+fn parses_php_shorthand_ternary_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+$vendorPath = Env::get('COMPOSER_VENDOR_DIR') ?: $basePath.'/vendor';
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP shorthand ternary parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(&statement.value, Expr::Ternary(expr) if expr.condition == expr.if_true)
+    ));
+}
+
+#[test]
+fn parses_php_null_coalesce_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+return $configuration[$key] ?? [];
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP null coalesce parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Return(statement)
+            if matches!(
+                &statement.value,
+                Some(Expr::Binary(expr)) if expr.op == BinaryOp::Coalesce
+            )
+    ));
+}
+
+#[test]
+fn parses_php_named_static_call_argument() {
+    let program = parse_with_mode(
+        r#"<?php return Bootstrapper::configure(basePath: dirname(__DIR__));"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP named static call argument parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Return(statement)
+            if matches!(
+                &statement.value,
+                Some(Expr::StaticCall(call))
+                    if call.class_name.as_string() == "Bootstrapper"
+                        && call.method == "configure"
+                        && matches!(call.args[0].name.as_deref(), Some("basePath"))
+                        && matches!(&call.args[0].value, Expr::FunctionCall(inner) if inner.name == "dirname")
+            )
+    ));
+}
+
+#[test]
+fn parses_php_closure_expression_as_method_argument() {
+    let program = parse_with_mode(
+        r#"<?php
+return Bootstrapper::configure(basePath: dirname(__DIR__))
+    ->withMiddleware(function (Pipeline $middleware): void {
+    })
+    ->create();
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP closure expression parses as a method argument");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Return(statement)
+            if matches!(
+                &statement.value,
+                Some(Expr::MethodCall(create))
+                    if create.method == "create"
+                        && matches!(
+                            &create.object,
+                            Expr::MethodCall(with_middleware)
+                                if with_middleware.method == "withMiddleware"
+                                    && matches!(
+                                        &with_middleware.args[0].value,
+                                        Expr::Closure(closure)
+                                            if closure.params[0].name == "middleware"
+                                                && closure.params[0].ty.as_deref() == Some("Pipeline")
+                                                && closure.return_type.as_deref() == Some("void")
+                                    )
+                        )
+            )
+    ));
+}
+
+#[test]
+fn parses_php_closure_with_default_param_and_captures() {
+    let program = parse_with_mode(
+        r#"<?php
+return function ($container, $parameters = []) use ($abstract, $concrete) {
+    return $container->build($concrete);
+};
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP closure default params and captures parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Return(statement)
+            if matches!(
+                &statement.value,
+                Some(Expr::Closure(closure))
+                    if closure.params.len() == 2
+                        && closure.params[1].default_value.is_some()
+                        && closure.captures == ["abstract", "concrete"]
+            )
+    ));
+}
+
+#[test]
+fn parses_php_dynamic_method_call_name() {
+    let program = parse_with_mode(
+        r#"<?php
+$target->{$method}($instance);
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP dynamic method call names parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Expr(statement)
+            if matches!(
+                &statement.expr,
+                Expr::MethodCall(call)
+                    if call.method == "${method}"
+            )
+    ));
+}
+
+#[test]
+fn parses_php_assignment_expression_in_condition() {
+    let program = parse_with_mode(
+        r#"<?php
+if (! $callbacks = $this->getCallbacks()) {
+    return;
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP assignment expressions parse in conditions");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::If(statement)
+            if matches!(
+                &statement.condition,
+                Expr::Unary(unary)
+                    if matches!(&unary.expr, Expr::Assign(assign) if assign.name == "callbacks")
+            )
+    ));
+}
+
+#[test]
+fn parses_php_first_class_callable_placeholder() {
+    let program = parse_with_mode(
+        r#"<?php
+$reflector = new ReflectionFunction($callback(...));
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP first-class callable placeholder parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(&statement.value, Expr::New(_))
+    ));
+}
+
+#[test]
+fn parses_php_argument_unpacking() {
+    let program = parse_with_mode(
+        r#"<?php
+$instance = new $concrete(...$instances);
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP argument unpacking parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(&statement.value, Expr::New(_))
+    ));
+}
+
+#[test]
+fn parses_php_continue_statement() {
+    let program = parse_with_mode(
+        r#"<?php
+foreach ($items as $item) {
+    continue;
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP continue statement parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Foreach(statement)
+            if matches!(statement.body.first(), Some(Stmt::Continue(_)))
+    ));
+}
+
+#[test]
+fn parses_php_null_coalescing_assignment_statement() {
+    let program = parse_with_mode(
+        r#"<?php
+$result ??= fallback();
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP null-coalescing assignment parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::CoalesceAssign(statement) if statement.name == "result"
+    ));
+}
+
+#[test]
+fn parses_php_static_property_null_coalescing_assignment_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+class C {
+    public static function getInstance() {
+        return static::$instance ??= new static;
+    }
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP static property null-coalescing assignment parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(class)
+            if matches!(
+                &class.members[0],
+                ClassMember::Method(method)
+                    if matches!(
+                        &method.body[0],
+                        Stmt::Return(statement)
+                            if matches!(
+                                &statement.value,
+                                Some(Expr::StaticPropertyCoalesceAssign(_))
+                            )
+                    )
+            )
+    ));
+}
+
+#[test]
+fn parses_php_global_qualified_parameter_type() {
+    let program = parse_with_mode(
+        r#"<?php
+class Hooks {
+    public function register(\Closure $callback): void {}
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP global-qualified parameter types parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(class)
+            if matches!(
+                &class.members[0],
+                ClassMember::Method(method)
+                    if method.params[0].ty.as_deref() == Some("Closure")
+            )
+    ));
+}
+
+#[test]
+fn parses_php_arrow_function_expression_as_argument() {
+    let program = parse_with_mode(
+        r#"<?php
+$exceptions->shouldRenderJsonWhen(
+    fn (Request $request) => $request->is('api/*'),
+);
+"#,
+        SourceMode::Echo,
+    )
+    .expect("PHP arrow function expression parses as a method argument");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Expr(statement)
+            if matches!(
+                &statement.expr,
+                Expr::MethodCall(call)
+                    if call.method == "shouldRenderJsonWhen"
+                        && matches!(
+                            &call.args[0].value,
+                            Expr::ArrowFunction(arrow)
+                                if arrow.params[0].name == "request"
+                                    && arrow.params[0].ty.as_deref() == Some("Request")
+                                    && matches!(&arrow.body, Expr::MethodCall(body) if body.method == "is")
+                        )
+            )
+    ));
+}
+
+#[test]
+fn parses_elseif_as_explicit_clause() {
+    let program = parse_with_mode(
+        r#"<?php
+if ($a) {
+    echo "a";
+} elseif ($b) {
+    echo "b";
+} else {
+    echo "c";
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("elseif parses as an explicit clause");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::If(statement)
+            if statement.elseif_clauses.len() == 1
+                && matches!(
+                    &statement.elseif_clauses[0].condition,
+                    Expr::Variable(variable) if variable.name == "b"
+                )
+                && statement.else_body.len() == 1
     ));
 }
 
@@ -613,20 +1120,421 @@ $fn("Echo");
 #[test]
 fn echo_mode_accepts_php_class_method_with_visibility_and_body() {
     let program = parse_with_mode(
-            "<?php namespace Illuminate\\Foundation; class Application { public function handleRequest($request) { } }",
-            SourceMode::Echo,
-        )
-        .expect("Echo superset mode accepts PHP method bodies");
+        "<?php namespace Acme\\Runtime; class Kernel { public function dispatch($request) { } }",
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP method bodies");
 
     assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
     assert!(matches!(
         &program.statements[1],
         Stmt::ClassDecl(statement)
-            if statement.name == "Application"
+            if statement.name == "Kernel"
                 && matches!(
                     &statement.members[0],
-                    ClassMember::Method(method) if method.name == "handleRequest"
+                    ClassMember::Method(method) if method.name == "dispatch"
                 )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_typed_class_properties_and_implements_list() {
+    let program = parse_with_mode(
+        r#"<?php
+class Kernel extends Container implements KernelContract, HttpKernelInterface {
+    protected array $pendingProviders = [];
+    public static string $name = "app";
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP typed properties and implements lists");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if statement.name == "Kernel"
+                && statement.interfaces.len() == 2
+                && matches!(
+                    &statement.members[0],
+                    ClassMember::Property(property)
+                        if property.name == "pendingProviders"
+                            && property.visibility == MethodVisibility::Protected
+                            && !property.is_static
+                )
+                && matches!(
+                    &statement.members[1],
+                    ClassMember::Property(property)
+                        if property.name == "name"
+                            && property.visibility == MethodVisibility::Public
+                            && property.is_static
+                )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_class_constants() {
+    let program = parse_with_mode(
+        r#"<?php
+class Kernel {
+    public const VERSION = '1.2.3';
+    protected const FLAGS = [];
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP class constants");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if statement.name == "Kernel"
+                && matches!(
+                    &statement.members[0],
+                    ClassMember::Const(constant)
+                        if constant.name == "VERSION"
+                            && constant.visibility == MethodVisibility::Public
+                )
+                && matches!(
+                    &statement.members[1],
+                    ClassMember::Const(constant)
+                        if constant.name == "FLAGS"
+                            && constant.visibility == MethodVisibility::Protected
+                )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_typed_class_property_with_empty_array_default() {
+    let program = parse_with_mode(
+        r#"<?php
+class RuntimeBuilder
+{
+    protected array $pendingProviders = [];
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP typed properties with [] defaults");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if statement.name == "RuntimeBuilder"
+                && matches!(
+                    &statement.members[0],
+                    ClassMember::Property(property) if property.name == "pendingProviders"
+                )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_promoted_constructor_parameters() {
+    let program = parse_with_mode(
+        r#"<?php
+class RuntimeBuilder
+{
+    public function __construct(protected Kernel $app)
+    {
+    }
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP constructor-promoted parameters");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if matches!(
+                &statement.members[0],
+                ClassMember::Method(method)
+                    if method.name == "__construct"
+                        && method.params.len() == 1
+                        && method.params[0].name == "app"
+                        && method.params[0].ty.as_deref() == Some("Kernel")
+            )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_variadic_parameters() {
+    let program = parse_with_mode(
+        r#"<?php
+class Kernel {
+    public function environment(...$environments) {
+        return $environments;
+    }
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP variadic parameters");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if matches!(
+                &statement.members[0],
+                ClassMember::Method(method)
+                    if method.name == "environment"
+                        && method.params.len() == 1
+                        && method.params[0].name == "environments"
+            )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_multiline_php_ternary_condition() {
+    let program = parse_with_mode(
+        r#"<?php
+$args = $this->runningInConsole() && isset($_SERVER['argv'])
+    ? $_SERVER['argv']
+    : null;
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts multiline PHP ternaries");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement) if matches!(&statement.value, Expr::Ternary(_))
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_fully_qualified_php_constants() {
+    let program = parse_with_mode(
+        r#"<?php
+$running = \PHP_SAPI === 'cli';
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts fully-qualified PHP constants");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(&statement.value, Expr::Binary(expr) if matches!(&expr.left, Expr::Constant(constant) if constant.name == "PHP_SAPI"))
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_instanceof_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+$ok = $value instanceof $name;
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP instanceof expressions");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(&statement.value, Expr::Binary(expr) if expr.op == BinaryOp::InstanceOf)
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_loose_equality_expression() {
+    let program = parse_with_mode(
+        r#"<?php
+if ($code == 404) {
+    throw $e;
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP loose equality expressions");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::If(statement)
+            if matches!(&statement.condition, Expr::Binary(expr) if expr.op == BinaryOp::Equal)
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_dynamic_expression_call() {
+    let program = parse_with_mode(
+        r#"<?php
+$callbacks[$index]($this);
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts dynamic expression calls");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Expr(statement) if matches!(&statement.expr, Expr::DynamicCall(_))
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_by_ref_parameter_and_post_increment() {
+    let program = parse_with_mode(
+        r#"<?php
+class Kernel {
+    protected function fire(array &$callbacks) {
+        $index = 0;
+        $index++;
+    }
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts by-ref params and post-increment");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if matches!(
+                &statement.members[0],
+                ClassMember::Method(method)
+                    if method.params[0].name == "callbacks"
+                        && matches!(method.body[1], Stmt::Expr(_))
+            )
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_try_catch_statement() {
+    let program = parse_with_mode(
+        r#"<?php
+try {
+    throw $e;
+} catch (\Throwable|RuntimeException $e) {
+    echo "failed";
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP try/catch statements");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Try(statement)
+            if statement.catches.len() == 1
+                && statement.catches[0].types.len() == 2
+                && statement.catches[0].variable.as_deref() == Some("e")
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_try_finally_statement() {
+    let program = parse_with_mode(
+        r#"<?php
+try {
+    work();
+} finally {
+    cleanup();
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP try/finally statements");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Try(statement)
+            if statement.catches.is_empty() && statement.finally_body.len() == 1
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_list_destructuring_assignment() {
+    let program = parse_with_mode(
+        r#"<?php
+[$commands, $paths] = $collection->partition(fn ($command) => class_exists($command));
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP list destructuring assignment");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ListAssign(statement)
+            if statement.targets == ["commands", "paths"]
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_keyed_list_destructuring_assignment() {
+    let program = parse_with_mode(
+        r#"<?php
+['queue' => $queue, 'job' => $job, 'command' => $command] = $array;
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP keyed list destructuring assignment");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ListAssign(statement)
+            if statement.targets == ["queue", "job", "command"]
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_arrow_function_as_call_argument() {
+    let program = parse_with_mode(
+        r#"<?php
+$this->app->afterResolving(Schedule::class, fn ($schedule) => $callback($schedule));
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP arrow functions as call arguments");
+
+    assert!(matches!(&program.statements[0], Stmt::Expr(_)));
+}
+
+#[test]
+fn echo_mode_accepts_php_use_before_class_declaration() {
+    let program = parse_with_mode(
+        r#"<?php
+use Acme\Routing\Router;
+
+class RuntimeBuilder
+{
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP use statements before classes");
+
+    assert!(matches!(&program.statements[0], Stmt::Use(_)));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::ClassDecl(statement) if statement.name == "RuntimeBuilder"
+    ));
+}
+
+#[test]
+fn echo_mode_accepts_php_use_alias_and_function_import_before_class() {
+    let program = parse_with_mode(
+        r#"<?php
+namespace Acme\Runtime;
+
+use Closure;
+use Acme\Console\CommandApplication as ConsoleApplication;
+use function Acme\Filesystem\join_paths;
+
+class Kernel
+{
+}
+"#,
+        SourceMode::Echo,
+    )
+    .expect("Echo superset mode accepts PHP aliased and function imports before classes");
+
+    assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
+    assert!(matches!(&program.statements[1], Stmt::Use(_)));
+    assert!(matches!(&program.statements[2], Stmt::Use(_)));
+    assert!(matches!(&program.statements[3], Stmt::Use(_)));
+    assert!(matches!(
+        &program.statements[4],
+        Stmt::ClassDecl(statement) if statement.name == "Kernel"
     ));
 }
 

@@ -98,6 +98,9 @@ pub mod keywords {
         Keyword::new("define", KeywordRole::Expression, SyntaxMode::PhpCompat);
     pub const DEFER: Keyword = Keyword::new("defer", KeywordRole::Expression, SyntaxMode::Echo);
     pub const ECHO: Keyword = Keyword::new("echo", KeywordRole::Statement, SyntaxMode::PhpCompat);
+    pub const ELSE: Keyword = Keyword::new("else", KeywordRole::Statement, SyntaxMode::PhpCompat);
+    pub const ELSEIF: Keyword =
+        Keyword::new("elseif", KeywordRole::Statement, SyntaxMode::PhpCompat);
     pub const FALSE: Keyword = Keyword::new("false", KeywordRole::Literal, SyntaxMode::PhpCompat);
     pub const FN: Keyword = Keyword::new("fn", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const FORK: Keyword = Keyword::new("fork", KeywordRole::Expression, SyntaxMode::Echo);
@@ -106,6 +109,13 @@ pub mod keywords {
         Keyword::new("function", KeywordRole::Declaration, SyntaxMode::PhpCompat);
     pub const GEN: Keyword = Keyword::new("gen", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const IF: Keyword = Keyword::new("if", KeywordRole::Statement, SyntaxMode::PhpCompat);
+    pub const INCLUDE: Keyword =
+        Keyword::new("include", KeywordRole::Expression, SyntaxMode::PhpCompat);
+    pub const INCLUDE_ONCE: Keyword = Keyword::new(
+        "include_once",
+        KeywordRole::Expression,
+        SyntaxMode::PhpCompat,
+    );
     pub const INTRINSIC: Keyword =
         Keyword::new("intrinsic", KeywordRole::Modifier, SyntaxMode::Echo);
     pub const IS: Keyword = Keyword::new("is", KeywordRole::Expression, SyntaxMode::Echo);
@@ -139,6 +149,7 @@ pub mod keywords {
     pub const STATIC: Keyword =
         Keyword::new("static", KeywordRole::Modifier, SyntaxMode::PhpCompat);
     pub const STD: Keyword = Keyword::new("std", KeywordRole::Namespace, SyntaxMode::Echo);
+    pub const THROW: Keyword = Keyword::new("throw", KeywordRole::Statement, SyntaxMode::PhpCompat);
     pub const TRUE: Keyword = Keyword::new("true", KeywordRole::Literal, SyntaxMode::PhpCompat);
     pub const TYPE: Keyword = Keyword::new("type", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const USE: Keyword = Keyword::new("use", KeywordRole::Import, SyntaxMode::PhpCompat);
@@ -152,6 +163,8 @@ pub mod keywords {
         DEFINE,
         DEFER,
         ECHO,
+        ELSE,
+        ELSEIF,
         FALSE,
         FN,
         FORK,
@@ -159,6 +172,8 @@ pub mod keywords {
         FUNCTION,
         GEN,
         IF,
+        INCLUDE,
+        INCLUDE_ONCE,
         INTRINSIC,
         IS,
         JOIN,
@@ -180,6 +195,7 @@ pub mod keywords {
         SPAWN,
         STATIC,
         STD,
+        THROW,
         TRUE,
         TYPE,
         USE,

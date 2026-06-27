@@ -29,6 +29,23 @@ impl IrModule {
                 self.locals.insert(name, value);
                 Ok(())
             }
+            echo_mir::MirStmt::CoalesceAssign { name, value, .. } => {
+                let value = self.render_mir_expr(body, value)?;
+                let name = self.resolve_alias(name);
+                self.locals.insert(name, value);
+                Ok(())
+            }
+            echo_mir::MirStmt::ListAssign { targets, value, .. } => {
+                self.render_mir_expr_as_echo_value(body, value)?;
+                for target in targets {
+                    let target = self.resolve_alias(target);
+                    self.locals.insert(
+                        target,
+                        RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()),
+                    );
+                }
+                Ok(())
+            }
             echo_mir::MirStmt::Let { name, value, .. } => {
                 let value = self.render_mir_expr(body, value)?;
                 let name = self.resolve_alias(name);
@@ -36,10 +53,18 @@ impl IrModule {
                 Ok(())
             }
             echo_mir::MirStmt::Return { value, .. } => {
-                let value = self.render_mir_expr_as_echo_value(body, value)?;
+                let value = if let Some(value) = value {
+                    self.render_mir_expr_as_echo_value(body, value)?
+                } else {
+                    "{ i32 0, i64 0 }".to_string()
+                };
                 body.push_str(&format!("  ret {value}\n"));
                 self.returned = true;
                 self.terminated = true;
+                Ok(())
+            }
+            echo_mir::MirStmt::Throw { value, .. } => {
+                self.render_mir_expr_as_echo_value(body, value)?;
                 Ok(())
             }
             echo_mir::MirStmt::Expr { expr, .. } => {
@@ -49,13 +74,53 @@ impl IrModule {
             echo_mir::MirStmt::Loop {
                 body: loop_body, ..
             } => self.render_mir_loop_stmt(body, loop_body),
+            echo_mir::MirStmt::While {
+                source, condition, ..
+            } => {
+                self.render_mir_expr_as_echo_value(body, condition)?;
+                Err(Diagnostic::new(
+                    "unsupported while statement in LLVM codegen",
+                    stmt_span(source),
+                ))
+            }
+            echo_mir::MirStmt::Foreach {
+                iterable,
+                key,
+                value,
+                body: foreach_body,
+                ..
+            } => self.render_mir_foreach_stmt(body, iterable, key.as_deref(), value, foreach_body),
             echo_mir::MirStmt::If {
                 condition,
                 body: if_body,
+                elseif_clauses,
+                else_body,
                 ..
-            } => self.render_mir_if_stmt(body, condition, if_body),
+            } => self.render_mir_if_stmt(body, condition, if_body, elseif_clauses, else_body),
+            echo_mir::MirStmt::Try {
+                body: try_body,
+                finally_body,
+                ..
+            } => {
+                for statement in try_body {
+                    if self.terminated {
+                        break;
+                    }
+                    self.render_mir_stmt(body, statement)?;
+                }
+                for statement in finally_body {
+                    if self.terminated {
+                        break;
+                    }
+                    self.render_mir_stmt(body, statement)?;
+                }
+                Ok(())
+            }
             echo_mir::MirStmt::Break { source, value } => {
                 self.render_mir_break_stmt(body, source, value.as_ref())
+            }
+            echo_mir::MirStmt::Continue { source, value } => {
+                self.render_mir_continue_stmt(body, source, value.as_ref())
             }
             echo_mir::MirStmt::Append {
                 source,
@@ -71,8 +136,46 @@ impl IrModule {
                 "unsupported yield statement in LLVM codegen",
                 stmt_span(source),
             )),
-            echo_mir::MirStmt::Noop { .. } => Ok(()),
+            echo_mir::MirStmt::Noop { source } => self.render_noop_source_stmt(body, source),
         }
+    }
+
+    fn render_noop_source_stmt(
+        &mut self,
+        body: &mut String,
+        source: &Stmt,
+    ) -> Result<(), Diagnostic> {
+        let members = match source {
+            Stmt::ClassDecl(class_decl) => &class_decl.members,
+            Stmt::TraitDecl(trait_decl) => &trait_decl.members,
+            _ => return Ok(()),
+        };
+
+        for member in members {
+            let echo_ast::ClassMember::Property(property) = member else {
+                continue;
+            };
+            if !property.is_static {
+                continue;
+            }
+
+            let value = match &property.value {
+                Some(value) => {
+                    self.render_mir_expr_as_echo_value(body, &echo_mir::lower_expr(value))?
+                }
+                None => "%EchoValue { i32 0, i64 0 }".to_string(),
+            };
+            let type_name = match source {
+                Stmt::ClassDecl(class_decl) => &class_decl.name,
+                Stmt::TraitDecl(trait_decl) => &trait_decl.name,
+                _ => unreachable!("guarded above"),
+            };
+            let key = format!("{}::${}", type_name, property.name);
+            let global = self.ensure_static_property_global(&key);
+            body.push_str(&format!("  store {value}, ptr @{global}\n"));
+        }
+
+        Ok(())
     }
 
     fn render_mir_function_call_stmt(
@@ -152,13 +255,135 @@ impl IrModule {
         }
     }
 
+    fn render_mir_foreach_stmt(
+        &mut self,
+        body: &mut String,
+        iterable: &echo_mir::MirExpr,
+        key: Option<&str>,
+        value: &str,
+        foreach_body: &[echo_mir::MirStmt],
+    ) -> Result<(), Diagnostic> {
+        let iterable = self.render_mir_expr_as_echo_value(body, iterable)?;
+        let loop_id = self.next_loop_id;
+        self.next_loop_id += 1;
+        let index_slot = format!("%foreach_index_slot_{loop_id}");
+        let len_name = format!("%foreach_len_{loop_id}");
+        let index_name = format!("%foreach_index_{loop_id}");
+        let condition_name = format!("%foreach_keep_going_{loop_id}");
+        let next_name = format!("%foreach_next_{loop_id}");
+        let value_name = format!("%foreach_value_{loop_id}");
+
+        body.push_str(&format!("  {index_slot} = alloca i64\n"));
+        body.push_str(&format!("  store i64 0, ptr {index_slot}\n"));
+        body.push_str(&format!(
+            "  {len_name} = call i64 @{}({iterable})\n",
+            CoreRuntimeSymbol::ValueArrayLen.symbol()
+        ));
+        body.push_str(&format!("  br label %foreach_condition_{loop_id}\n"));
+        body.push_str(&format!("foreach_condition_{loop_id}:\n"));
+        body.push_str(&format!("  {index_name} = load i64, ptr {index_slot}\n"));
+        body.push_str(&format!(
+            "  {condition_name} = icmp slt i64 {index_name}, {len_name}\n"
+        ));
+        body.push_str(&format!(
+            "  br i1 {condition_name}, label %foreach_body_{loop_id}, label %foreach_done_{loop_id}\n"
+        ));
+        body.push_str(&format!("foreach_body_{loop_id}:\n"));
+        self.break_labels.push(format!("foreach_done_{loop_id}"));
+        self.continue_labels.push(format!("foreach_continue_{loop_id}"));
+        self.break_value_slots.push(None);
+
+        if let Some(key) = key {
+            let key_name = format!("%foreach_key_{loop_id}");
+            body.push_str(&format!(
+                "  {key_name} = call %EchoValue @{}({iterable}, i64 {index_name})\n",
+                CoreRuntimeSymbol::ValueArrayKeyAt.symbol()
+            ));
+            self.locals
+                .insert(self.resolve_alias(key), RuntimeValue::EchoValue(key_name));
+        }
+
+        body.push_str(&format!(
+            "  {value_name} = call %EchoValue @{}({iterable}, i64 {index_name})\n",
+            CoreRuntimeSymbol::ValueArrayValueAt.symbol()
+        ));
+        self.locals.insert(
+            self.resolve_alias(value),
+            RuntimeValue::EchoValue(value_name),
+        );
+
+        for statement in foreach_body {
+            if self.terminated {
+                break;
+            }
+            self.render_mir_stmt(body, statement)?;
+        }
+
+        if !self.terminated {
+            body.push_str(&format!("  br label %foreach_continue_{loop_id}\n"));
+        }
+        self.break_labels.pop();
+        self.continue_labels.pop();
+        self.break_value_slots.pop();
+        self.terminated = false;
+        body.push_str(&format!("foreach_continue_{loop_id}:\n"));
+        body.push_str(&format!("  {next_name} = add i64 {index_name}, 1\n"));
+        body.push_str(&format!("  store i64 {next_name}, ptr {index_slot}\n"));
+        body.push_str(&format!("  br label %foreach_condition_{loop_id}\n"));
+        body.push_str(&format!("foreach_done_{loop_id}:\n"));
+
+        Ok(())
+    }
+
     fn render_mir_dynamic_function_call(
         &mut self,
         body: &mut String,
         source: &Stmt,
         name: &str,
-        args: &[echo_mir::MirExpr],
+        args: &[echo_mir::MirCallArg],
     ) -> Result<(), Diagnostic> {
+        if let Some(RuntimeValue::Closure {
+            params,
+            body: closure_body,
+        }) = self.locals.get(&self.resolve_alias(name)).cloned()
+        {
+            if args.len() != params.len() {
+                return Err(Diagnostic::new(
+                    format!(
+                        "unsupported argument count for dynamic function call `${name}` in LLVM codegen"
+                    ),
+                    stmt_span(source),
+                ));
+            }
+
+            let mut rendered_args = Vec::new();
+            for arg in args {
+                rendered_args.push(self.render_mir_expr_as_echo_value(body, arg)?);
+            }
+
+            let saved_locals = self.locals.clone();
+            let saved_aliases = self.aliases.clone();
+            for (param, rendered_arg) in params.iter().zip(rendered_args) {
+                self.locals.insert(
+                    param.name.clone(),
+                    RuntimeValue::EchoValue(
+                        rendered_arg.trim_start_matches("%EchoValue ").to_string(),
+                    ),
+                );
+            }
+
+            for statement in &closure_body {
+                if self.terminated {
+                    break;
+                }
+                self.render_mir_stmt(body, statement)?;
+            }
+
+            self.locals = saved_locals;
+            self.aliases = saved_aliases;
+            return Ok(());
+        }
+
         if !args.is_empty() {
             return Err(Diagnostic::new(
                 format!(

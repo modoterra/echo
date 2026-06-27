@@ -2,7 +2,7 @@ use echo_ast::{
     AppendStmt, ArrayExpr, AssignStmt, ClassDeclStmt, ClassMember, Expr, ExprStmt, ForkExpr,
     IndexExpr, JoinExpr, LetStmt, ListExpr, MethodDecl, MethodVisibility, NumberLiteral,
     ObjectExpr, ObjectField, Program, ReceiverConst, ReceiverConstExpr, RunExpr, SpawnExpr, Stmt,
-    StringLiteral, VariableExpr,
+    StringLiteral, UnnamedExportStmt, VariableExpr,
 };
 use echo_source::Span;
 
@@ -83,6 +83,34 @@ fn reports_undefined_variable() {
 }
 
 #[test]
+fn rejects_duplicate_unnamed_exports() {
+    let diagnostics = analyze(&program(vec![
+        Stmt::UnnamedExport(UnnamedExportStmt {
+            value: Expr::Object(ObjectExpr {
+                name: String::new(),
+                fields: Vec::new(),
+                span: Span::new(0, 2),
+            }),
+            span: Span::new(0, 8),
+        }),
+        Stmt::UnnamedExport(UnnamedExportStmt {
+            value: Expr::Object(ObjectExpr {
+                name: String::new(),
+                fields: Vec::new(),
+                span: Span::new(9, 11),
+            }),
+            span: Span::new(9, 17),
+        }),
+    ]))
+    .expect_err("duplicate unnamed exports should be diagnostic");
+
+    assert_eq!(
+        diagnostics[0].message,
+        "only one unnamed export is allowed per module."
+    );
+}
+
+#[test]
 fn rejects_this_outside_instance_receiver_context() {
     let diagnostics = analyze(&program(vec![Stmt::Expr(ExprStmt {
         expr: receiver(ReceiverConst::This),
@@ -99,7 +127,7 @@ fn rejects_this_outside_instance_receiver_context() {
 #[test]
 fn rejects_receiver_constant_assignment() {
     let diagnostics = analyze(&program(vec![Stmt::Assign(AssignStmt {
-        name: "self".to_string(),
+        name: "this".to_string(),
         value: Expr::Variable(VariableExpr {
             name: "Other".to_string(),
             span: Span::new(8, 13),
@@ -109,7 +137,7 @@ fn rejects_receiver_constant_assignment() {
     .expect_err("receiver constant assignment should be diagnostic");
 
     assert!(diagnostics.iter().any(|diagnostic| diagnostic.message
-        == "$self is a compiler-provided receiver constant and cannot be assigned."));
+        == "$this is a compiler-provided receiver constant and cannot be assigned."));
 }
 
 #[test]
@@ -117,6 +145,7 @@ fn rejects_static_receiver_until_late_static_binding_exists() {
     let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
         parent: None,
+        interfaces: Vec::new(),
         members: vec![method(
             "make",
             true,
@@ -140,6 +169,7 @@ fn rejects_parent_without_lexical_parent() {
     let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
         parent: None,
+        interfaces: Vec::new(),
         members: vec![method(
             "boot",
             false,
@@ -163,6 +193,7 @@ fn accepts_this_and_self_inside_instance_method() {
     analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
         parent: None,
+        interfaces: Vec::new(),
         members: vec![method(
             "save",
             false,
@@ -338,7 +369,10 @@ fn allows_php_append_syntax_for_arrays() {
             span: Span::new(0, 11),
         }),
         Stmt::Append(AppendStmt {
-            target: "a".to_string(),
+            target: Expr::Variable(VariableExpr {
+                name: "a".to_string(),
+                span: Span::new(12, 14),
+            }),
             value: Expr::Number(NumberLiteral {
                 value: "1".to_string(),
                 span: Span::new(19, 20),
@@ -347,6 +381,34 @@ fn allows_php_append_syntax_for_arrays() {
         }),
     ]))
     .expect("array append should analyze");
+}
+
+#[test]
+fn allows_php_append_syntax_for_unknown_targets() {
+    analyze(&program(vec![
+        Stmt::Let(LetStmt {
+            name: "a".to_string(),
+            ty: None,
+            value: Expr::FunctionCall(echo_ast::FunctionCallExpr {
+                name: "make_array".to_string(),
+                args: vec![],
+                span: Span::new(8, 20),
+            }),
+            span: Span::new(0, 20),
+        }),
+        Stmt::Append(AppendStmt {
+            target: Expr::Variable(VariableExpr {
+                name: "a".to_string(),
+                span: Span::new(21, 23),
+            }),
+            value: Expr::Number(NumberLiteral {
+                value: "1".to_string(),
+                span: Span::new(28, 29),
+            }),
+            span: Span::new(21, 30),
+        }),
+    ]))
+    .expect("unknown append target should analyze in PHP-compatible mode");
 }
 
 #[test]
@@ -362,7 +424,10 @@ fn rejects_php_append_syntax_for_lists() {
             span: Span::new(0, 11),
         }),
         Stmt::Append(AppendStmt {
-            target: "a".to_string(),
+            target: Expr::Variable(VariableExpr {
+                name: "a".to_string(),
+                span: Span::new(12, 14),
+            }),
             value: Expr::Number(NumberLiteral {
                 value: "1".to_string(),
                 span: Span::new(19, 20),
@@ -391,7 +456,10 @@ fn rejects_php_append_syntax_for_fixed_size_arrays() {
             span: Span::new(0, 24),
         }),
         Stmt::Append(AppendStmt {
-            target: "a".to_string(),
+            target: Expr::Variable(VariableExpr {
+                name: "a".to_string(),
+                span: Span::new(25, 27),
+            }),
             value: Expr::Number(NumberLiteral {
                 value: "1".to_string(),
                 span: Span::new(32, 33),
@@ -440,6 +508,88 @@ fn allows_index_access_for_arrays_and_lists() {
         }),
     ]))
     .expect("array and list index access should analyze");
+}
+
+#[test]
+fn allows_index_access_for_strings() {
+    analyze(&program(vec![Stmt::Expr(ExprStmt {
+        expr: Expr::Index(Box::new(IndexExpr {
+            collection: Expr::String(StringLiteral {
+                value: "echo".to_string(),
+                span: Span::new(0, 6),
+            }),
+            index: Expr::Number(NumberLiteral {
+                value: "0".to_string(),
+                span: Span::new(7, 8),
+            }),
+            span: Span::new(0, 9),
+        })),
+        span: Span::new(0, 9),
+    })]))
+    .expect("PHP string offset access should analyze");
+}
+
+#[test]
+fn allows_index_access_for_named_strings() {
+    analyze(&program(vec![
+        Stmt::Let(LetStmt {
+            name: "value".to_string(),
+            ty: Some("string".to_string()),
+            value: Expr::String(StringLiteral {
+                value: "echo".to_string(),
+                span: Span::new(20, 26),
+            }),
+            span: Span::new(0, 26),
+        }),
+        Stmt::Expr(ExprStmt {
+            expr: Expr::Index(Box::new(IndexExpr {
+                collection: Expr::Variable(VariableExpr {
+                    name: "value".to_string(),
+                    span: Span::new(27, 33),
+                }),
+                index: Expr::Number(NumberLiteral {
+                    value: "0".to_string(),
+                    span: Span::new(34, 35),
+                }),
+                span: Span::new(27, 36),
+            })),
+            span: Span::new(27, 36),
+        }),
+    ]))
+    .expect("PHP typed string offset access should analyze");
+}
+
+#[test]
+fn allows_unset_index_targets_without_reading_collection_type() {
+    analyze(&program(vec![
+        Stmt::Let(LetStmt {
+            name: "value".to_string(),
+            ty: Some("bool".to_string()),
+            value: Expr::Bool(echo_ast::BoolLiteral {
+                value: true,
+                span: Span::new(13, 17),
+            }),
+            span: Span::new(0, 17),
+        }),
+        Stmt::FunctionCall(echo_ast::FunctionCallStmt {
+            name: "unset".to_string(),
+            args: vec![echo_ast::CallArg::positional(Expr::Index(Box::new(
+                IndexExpr {
+                    collection: Expr::Variable(VariableExpr {
+                        name: "value".to_string(),
+                        span: Span::new(24, 30),
+                    }),
+                    index: Expr::Number(NumberLiteral {
+                        value: "0".to_string(),
+                        span: Span::new(31, 32),
+                    }),
+                    span: Span::new(24, 33),
+                },
+            )))],
+            span: Span::new(18, 34),
+        }),
+    ]))
+    .expect("unset index targets should not be analyzed as value reads");
 }
 
 #[test]

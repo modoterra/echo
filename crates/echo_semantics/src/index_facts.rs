@@ -152,6 +152,7 @@ impl IndexFactExtractor {
                     target_range: span_range(statement.span),
                 });
             }
+            Stmt::UnnamedExport(statement) => self.extract_expr_dependencies(&statement.value),
             Stmt::FunctionDecl(statement) => {
                 self.declarations.push(SymbolFact {
                     name: SymbolName::new(statement.name.as_str()),
@@ -178,46 +179,212 @@ impl IndexFactExtractor {
                 });
 
                 for member in &statement.members {
-                    let ClassMember::Method(method) = member;
-                    self.declarations.push(SymbolFact {
-                        name: SymbolName::new(method.name.as_str()),
-                        fq_name: Some(
-                            self.fq_name(&format!("{}::{}", statement.name, method.name)),
-                        ),
-                        kind: SymbolKind::Method,
-                        range: span_range(method.span),
-                        selection_range: self
-                            .span_range_for_text(method.span, &method.name)
-                            .unwrap_or_else(|| span_range(method.span)),
-                        visibility: None,
-                        signature: Some(Signature {
-                            text: method_signature(&method.params, method.return_type.as_deref()),
-                        }),
-                    });
-                    self.extract_statements(&method.body);
+                    match member {
+                        ClassMember::Method(method) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(method.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, method.name)),
+                                ),
+                                kind: SymbolKind::Method,
+                                range: span_range(method.span),
+                                selection_range: self
+                                    .span_range_for_text(method.span, &method.name)
+                                    .unwrap_or_else(|| span_range(method.span)),
+                                visibility: None,
+                                signature: Some(Signature {
+                                    text: method_signature(
+                                        &method.params,
+                                        method.return_type.as_deref(),
+                                    ),
+                                }),
+                            });
+                            self.extract_statements(&method.body);
+                        }
+                        ClassMember::Property(property) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(property.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!(
+                                        "{}::${}",
+                                        statement.name, property.name
+                                    )),
+                                ),
+                                kind: SymbolKind::Property,
+                                range: span_range(property.span),
+                                selection_range: self
+                                    .span_range_for_text(property.span, &property.name)
+                                    .unwrap_or_else(|| span_range(property.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            if let Some(value) = &property.value {
+                                self.extract_expr_dependencies(value);
+                            }
+                        }
+                        ClassMember::Const(constant) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(constant.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, constant.name)),
+                                ),
+                                kind: SymbolKind::Constant,
+                                range: span_range(constant.span),
+                                selection_range: self
+                                    .span_range_for_text(constant.span, &constant.name)
+                                    .unwrap_or_else(|| span_range(constant.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            self.extract_expr_dependencies(&constant.value);
+                        }
+                        ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::TraitDecl(statement) => {
+                self.declarations.push(SymbolFact {
+                    name: SymbolName::new(statement.name.as_str()),
+                    fq_name: Some(self.fq_name(&statement.name)),
+                    kind: SymbolKind::Trait,
+                    range: span_range(statement.span),
+                    selection_range: self
+                        .span_range_for_text(statement.span, &statement.name)
+                        .unwrap_or_else(|| span_range(statement.span)),
+                    visibility: None,
+                    signature: None,
+                });
+
+                for member in &statement.members {
+                    match member {
+                        ClassMember::Method(method) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(method.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, method.name)),
+                                ),
+                                kind: SymbolKind::Method,
+                                range: span_range(method.span),
+                                selection_range: self
+                                    .span_range_for_text(method.span, &method.name)
+                                    .unwrap_or_else(|| span_range(method.span)),
+                                visibility: None,
+                                signature: Some(Signature {
+                                    text: method_signature(
+                                        &method.params,
+                                        method.return_type.as_deref(),
+                                    ),
+                                }),
+                            });
+                            self.extract_statements(&method.body);
+                        }
+                        ClassMember::Property(property) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(property.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!(
+                                        "{}::${}",
+                                        statement.name, property.name
+                                    )),
+                                ),
+                                kind: SymbolKind::Property,
+                                range: span_range(property.span),
+                                selection_range: self
+                                    .span_range_for_text(property.span, &property.name)
+                                    .unwrap_or_else(|| span_range(property.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            if let Some(value) = &property.value {
+                                self.extract_expr_dependencies(value);
+                            }
+                        }
+                        ClassMember::Const(constant) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(constant.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, constant.name)),
+                                ),
+                                kind: SymbolKind::Constant,
+                                range: span_range(constant.span),
+                                selection_range: self
+                                    .span_range_for_text(constant.span, &constant.name)
+                                    .unwrap_or_else(|| span_range(constant.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            self.extract_expr_dependencies(&constant.value);
+                        }
+                        ClassMember::TraitUse(_) => {}
+                    }
                 }
             }
             Stmt::ExtendDecl(statement) => {
                 for member in &statement.members {
-                    let ClassMember::Method(method) = member;
-                    self.declarations.push(SymbolFact {
-                        name: SymbolName::new(method.name.as_str()),
-                        fq_name: Some(self.fq_name(&format!(
-                            "{}::{}",
-                            statement.target.as_string(),
-                            method.name
-                        ))),
-                        kind: SymbolKind::Method,
-                        range: span_range(method.span),
-                        selection_range: self
-                            .span_range_for_text(method.span, &method.name)
-                            .unwrap_or_else(|| span_range(method.span)),
-                        visibility: None,
-                        signature: Some(Signature {
-                            text: method_signature(&method.params, method.return_type.as_deref()),
-                        }),
-                    });
-                    self.extract_statements(&method.body);
+                    match member {
+                        ClassMember::Method(method) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(method.name.as_str()),
+                                fq_name: Some(self.fq_name(&format!(
+                                    "{}::{}",
+                                    statement.target.as_string(),
+                                    method.name
+                                ))),
+                                kind: SymbolKind::Method,
+                                range: span_range(method.span),
+                                selection_range: self
+                                    .span_range_for_text(method.span, &method.name)
+                                    .unwrap_or_else(|| span_range(method.span)),
+                                visibility: None,
+                                signature: Some(Signature {
+                                    text: method_signature(
+                                        &method.params,
+                                        method.return_type.as_deref(),
+                                    ),
+                                }),
+                            });
+                            self.extract_statements(&method.body);
+                        }
+                        ClassMember::Property(property) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(property.name.as_str()),
+                                fq_name: Some(self.fq_name(&format!(
+                                    "{}::${}",
+                                    statement.target.as_string(),
+                                    property.name
+                                ))),
+                                kind: SymbolKind::Property,
+                                range: span_range(property.span),
+                                selection_range: self
+                                    .span_range_for_text(property.span, &property.name)
+                                    .unwrap_or_else(|| span_range(property.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            if let Some(value) = &property.value {
+                                self.extract_expr_dependencies(value);
+                            }
+                        }
+                        ClassMember::Const(constant) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(constant.name.as_str()),
+                                fq_name: Some(self.fq_name(&format!(
+                                    "{}::{}",
+                                    statement.target.as_string(),
+                                    constant.name
+                                ))),
+                                kind: SymbolKind::Constant,
+                                range: span_range(constant.span),
+                                selection_range: self
+                                    .span_range_for_text(constant.span, &constant.name)
+                                    .unwrap_or_else(|| span_range(constant.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            self.extract_expr_dependencies(&constant.value);
+                        }
+                        ClassMember::TraitUse(_) => {}
+                    }
                 }
             }
             Stmt::TypeDecl(statement) => {
@@ -232,9 +399,29 @@ impl IndexFactExtractor {
                 });
             }
             Stmt::Loop(statement) => self.extract_statements(&statement.body),
+            Stmt::While(statement) => {
+                self.extract_expr_dependencies(&statement.condition);
+                self.extract_statements(&statement.body);
+            }
+            Stmt::Foreach(statement) => {
+                self.extract_expr_dependencies(&statement.iterable);
+                self.extract_statements(&statement.body);
+            }
             Stmt::If(statement) => {
                 self.extract_expr_dependencies(&statement.condition);
                 self.extract_statements(&statement.body);
+                for clause in &statement.elseif_clauses {
+                    self.extract_expr_dependencies(&clause.condition);
+                    self.extract_statements(&clause.body);
+                }
+                self.extract_statements(&statement.else_body);
+            }
+            Stmt::Try(statement) => {
+                self.extract_statements(&statement.body);
+                for catch in &statement.catches {
+                    self.extract_statements(&catch.body);
+                }
+                self.extract_statements(&statement.finally_body);
             }
             Stmt::Echo(statement) => {
                 for expr in &statement.exprs {
@@ -242,22 +429,32 @@ impl IndexFactExtractor {
                 }
             }
             Stmt::FunctionCall(statement) => {
-                for expr in &statement.args {
-                    self.extract_expr_dependencies(expr);
+                for arg in &statement.args {
+                    self.extract_expr_dependencies(&arg.value);
                 }
             }
             Stmt::DynamicFunctionCall(statement) => {
-                for expr in &statement.args {
-                    self.extract_expr_dependencies(expr);
+                for arg in &statement.args {
+                    self.extract_expr_dependencies(&arg.value);
                 }
             }
             Stmt::Assign(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::CoalesceAssign(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::ListAssign(statement) => self.extract_expr_dependencies(&statement.value),
             Stmt::Let(statement) => self.extract_expr_dependencies(&statement.value),
-            Stmt::AssignRef(_) | Stmt::Break(_) => {}
-            Stmt::Return(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::AssignRef(_) | Stmt::Break(_) | Stmt::Continue(_) => {}
+            Stmt::Return(statement) => {
+                if let Some(value) = &statement.value {
+                    self.extract_expr_dependencies(value);
+                }
+            }
+            Stmt::Throw(statement) => self.extract_expr_dependencies(&statement.value),
             Stmt::Yield(statement) => self.extract_expr_dependencies(&statement.value),
             Stmt::Expr(statement) => self.extract_expr_dependencies(&statement.expr),
-            Stmt::Append(statement) => self.extract_expr_dependencies(&statement.value),
+            Stmt::Append(statement) => {
+                self.extract_expr_dependencies(&statement.target);
+                self.extract_expr_dependencies(&statement.value);
+            }
         }
     }
 

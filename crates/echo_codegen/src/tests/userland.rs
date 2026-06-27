@@ -20,7 +20,7 @@ fn userland_call_emits_function_definition_and_call() {
         }),
         Stmt::FunctionCall(FunctionCallStmt {
             name: "say_after".to_string(),
-            args: vec![],
+            args: echo_ast::call_args![],
             span: Span::new(41, 53),
         }),
     ]))
@@ -60,7 +60,7 @@ fn userland_call_passes_string_argument_as_echo_value() {
         }),
         Stmt::FunctionCall(FunctionCallStmt {
             name: "say".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "hello\n".to_string(),
                 span: Span::new(45, 53),
             })],
@@ -97,10 +97,10 @@ fn userland_return_value_can_be_echoed() {
             is_intrinsic: false,
             is_generator: false,
             body: vec![Stmt::Return(ReturnStmt {
-                value: Expr::String(StringLiteral {
+                value: Some(Expr::String(StringLiteral {
                     value: "hello\n".to_string(),
                     span: Span::new(0, 8),
-                }),
+                })),
                 span: Span::new(0, 16),
             })],
             span: Span::new(0, 40),
@@ -108,7 +108,7 @@ fn userland_return_value_can_be_echoed() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "greeting".to_string(),
-                args: vec![],
+                args: echo_ast::call_args![],
                 span: Span::new(45, 55),
             })],
             span: Span::new(41, 56),

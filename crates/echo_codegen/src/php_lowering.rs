@@ -8,7 +8,7 @@ impl IrModule {
         &mut self,
         body: &mut String,
         builtin: PhpBuiltin,
-        args: &[echo_mir::MirExpr],
+        args: &[echo_mir::MirCallArg],
         span: Span,
     ) -> Result<(), Diagnostic> {
         match builtin.codegen {
@@ -22,7 +22,7 @@ impl IrModule {
                         builtin.symbol
                     ));
                 }
-                [echo_mir::MirExpr::Null { .. }] => {
+                [arg] if matches!(&arg.value, echo_mir::MirExpr::Null { .. }) => {
                     let helper = builtin
                         .helper_symbol
                         .expect("ob_start value helper must be declared");
@@ -34,7 +34,10 @@ impl IrModule {
                         helper
                     ));
                 }
-                [echo_mir::MirExpr::String { value, .. }] => {
+                [arg] if matches!(&arg.value, echo_mir::MirExpr::String { .. }) => {
+                    let echo_mir::MirExpr::String { value, .. } = &arg.value else {
+                        unreachable!("matches! checked string argument")
+                    };
                     let helper = builtin
                         .helper_symbol
                         .expect("ob_start value helper must be declared");

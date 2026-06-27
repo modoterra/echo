@@ -90,7 +90,7 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: php_name.to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "Echo".to_string(),
                     span: Span::new(11, 17),
                 })],
@@ -122,7 +122,7 @@ fn nl2br_lowers_optional_xhtml_flag_to_true() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "nl2br".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "line\nnext".to_string(),
                 span: Span::new(7, 19),
             })],
@@ -177,7 +177,7 @@ fn string_predicate_builtins_lower_to_php_builtin_with_two_echo_value_arguments(
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: php_name.to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::String(StringLiteral {
                         value: "Echo PHP".to_string(),
                         span: Span::new(13, 23),

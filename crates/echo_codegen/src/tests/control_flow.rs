@@ -12,6 +12,8 @@ fn loop_statement_lowers_to_control_flow_labels() {
                 value: None,
                 span: Span::new(12, 17),
             })],
+            elseif_clauses: Vec::new(),
+            else_body: Vec::new(),
             span: Span::new(2, 19),
         })],
         span: Span::new(0, 20),
@@ -78,6 +80,8 @@ fn is_null_condition_lowers_to_kind_check() {
                 })],
                 span: Span::new(35, 45),
             })],
+            elseif_clauses: Vec::new(),
+            else_body: Vec::new(),
             span: Span::new(17, 46),
         }),
     ]))
@@ -87,4 +91,52 @@ fn is_null_condition_lowers_to_kind_check() {
     assert!(ir.contains("%is_null_0 = icmp eq i32 %value_kind_0, 0"));
     assert!(ir.contains("br i1 %is_null_0, label %if_then_0, label %if_after_0"));
     assert!(!ir.contains("call i1 @echo_value_bool(%EchoValue { i32 0, i64 0 })"));
+}
+
+#[test]
+fn false_static_condition_prunes_unreachable_branch() {
+    let ir = compile_to_ir(&program(vec![
+        Stmt::If(IfStmt {
+            condition: Expr::Binary(Box::new(BinaryExpr {
+                left: Expr::Constant(echo_ast::ConstantExpr {
+                    name: "PHP_VERSION_ID".to_string(),
+                    span: Span::new(4, 18),
+                }),
+                op: BinaryOp::LessThan,
+                right: Expr::Number(NumberLiteral {
+                    value: "50600".to_string(),
+                    span: Span::new(21, 26),
+                }),
+                span: Span::new(4, 26),
+            })),
+            body: vec![Stmt::Expr(ExprStmt {
+                expr: Expr::MethodCall(Box::new(MethodCallExpr {
+                    object: Expr::Object(ObjectExpr {
+                        name: String::new(),
+                        fields: Vec::new(),
+                        span: Span::new(31, 35),
+                    }),
+                    method: "unsupported".to_string(),
+                    method_span: Span::new(37, 48),
+                    args: echo_ast::call_args![],
+                    span: Span::new(31, 50),
+                })),
+                span: Span::new(31, 51),
+            })],
+            elseif_clauses: Vec::new(),
+            else_body: Vec::new(),
+            span: Span::new(0, 53),
+        }),
+        Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::String(StringLiteral {
+                value: "loaded".to_string(),
+                span: Span::new(59, 67),
+            })],
+            span: Span::new(54, 68),
+        }),
+    ]))
+    .expect("false static branch should not lower unreachable unsupported statements");
+
+    assert!(!ir.contains("if_then_"));
+    assert!(ir.contains("loaded"));
 }

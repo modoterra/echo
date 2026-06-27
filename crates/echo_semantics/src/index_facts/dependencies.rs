@@ -1,4 +1,4 @@
-use echo_ast::{BinaryOp, Expr, MagicConstantKind, RequireKind};
+use echo_ast::{BinaryOp, Expr, IncludeKind, MagicConstantKind};
 use echo_index::{DependencyFact, DependencyKind, ReferenceFact, ReferenceKind, TextRange};
 
 use super::{IndexFactExtractor, span_range};
@@ -8,7 +8,18 @@ impl IndexFactExtractor {
         match expr {
             Expr::FunctionCall(expr) => {
                 for arg in &expr.args {
-                    self.extract_expr_dependencies(arg);
+                    self.extract_expr_dependencies(&arg.value);
+                }
+            }
+            Expr::DynamicFunctionCall(expr) => {
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(&arg.value);
+                }
+            }
+            Expr::DynamicCall(expr) => {
+                self.extract_expr_dependencies(&expr.callee);
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(&arg.value);
                 }
             }
             Expr::MethodCall(expr) => {
@@ -26,7 +37,7 @@ impl IndexFactExtractor {
                 }
                 self.extract_expr_dependencies(&expr.object);
                 for arg in &expr.args {
-                    self.extract_expr_dependencies(arg);
+                    self.extract_expr_dependencies(&arg.value);
                 }
             }
             Expr::StaticCall(expr) => {
@@ -51,32 +62,84 @@ impl IndexFactExtractor {
                     ),
                 });
                 for arg in &expr.args {
-                    self.extract_expr_dependencies(arg);
+                    self.extract_expr_dependencies(&arg.value);
                 }
             }
             Expr::New(expr) => {
-                let name = expr.class_name.as_string();
+                match &expr.target {
+                    echo_ast::NewTarget::Class(class_name) => {
+                        let name = class_name.as_string();
+                        self.references.push(ReferenceFact {
+                            kind: ReferenceKind::ClassLike,
+                            range: TextRange::new(
+                                expr.span.start.saturating_add(4) as u32,
+                                expr.span.start.saturating_add(4 + name.len()) as u32,
+                            ),
+                            name,
+                            qualifier: None,
+                        });
+                    }
+                    echo_ast::NewTarget::Expr(target) => {
+                        self.extract_expr_dependencies(target);
+                    }
+                }
+                for arg in &expr.args {
+                    self.extract_expr_dependencies(&arg.value);
+                }
+            }
+            Expr::Closure(expr) => self.extract_statements(&expr.body),
+            Expr::ArrowFunction(expr) => self.extract_expr_dependencies(&expr.body),
+            Expr::Assign(expr) => self.extract_expr_dependencies(&expr.value),
+            Expr::StaticPropertyFetch(expr) => {
                 self.references.push(ReferenceFact {
                     kind: ReferenceKind::ClassLike,
                     range: TextRange::new(
-                        expr.span.start.saturating_add(4) as u32,
-                        expr.span.start.saturating_add(4 + name.len()) as u32,
+                        expr.span.start as u32,
+                        expr.span
+                            .start
+                            .saturating_add(expr.class_name.as_string().len())
+                            as u32,
                     ),
-                    name,
+                    name: expr.class_name.as_string(),
                     qualifier: None,
                 });
-                for arg in &expr.args {
-                    self.extract_expr_dependencies(arg);
-                }
             }
-            Expr::Assign(expr) => self.extract_expr_dependencies(&expr.value),
-            Expr::Require(expr) => {
+            Expr::StaticPropertyAssign(expr) | Expr::StaticPropertyCoalesceAssign(expr) => {
+                self.references.push(ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    range: TextRange::new(
+                        expr.span.start as u32,
+                        expr.span
+                            .start
+                            .saturating_add(expr.class_name.as_string().len())
+                            as u32,
+                    ),
+                    name: expr.class_name.as_string(),
+                    qualifier: None,
+                });
+                self.extract_expr_dependencies(&expr.value);
+            }
+            Expr::ClassConstantFetch(expr) => {
+                self.references.push(ReferenceFact {
+                    kind: ReferenceKind::ClassLike,
+                    range: TextRange::new(
+                        expr.span.start as u32,
+                        expr.span
+                            .start
+                            .saturating_add(expr.class_name.as_string().len())
+                            as u32,
+                    ),
+                    name: expr.class_name.as_string(),
+                    qualifier: None,
+                });
+            }
+            Expr::Include(expr) => {
                 let target = self
                     .const_string_expr(&expr.path)
                     .map(|target| self.resolve_source_path(&target))
                     .unwrap_or_else(|| expr_path_label(&expr.path));
                 self.dependencies.push(DependencyFact {
-                    kind: require_dependency_kind(expr.kind, &target),
+                    kind: include_dependency_kind(&expr.kind, &target),
                     target,
                     alias: None,
                     range: span_range(expr.span),
@@ -102,6 +165,7 @@ impl IndexFactExtractor {
             Expr::Join(expr) => self.extract_expr_dependencies(&expr.handle),
             Expr::Loop(expr) => self.extract_statements(&expr.body),
             Expr::Unary(expr) => self.extract_expr_dependencies(&expr.expr),
+            Expr::Cast(expr) => self.extract_expr_dependencies(&expr.expr),
             Expr::Binary(expr) => {
                 if let Some(target) = self.const_dir_path_binary(expr) {
                     self.references.push(ReferenceFact {
@@ -114,11 +178,29 @@ impl IndexFactExtractor {
                 self.extract_expr_dependencies(&expr.left);
                 self.extract_expr_dependencies(&expr.right);
             }
+            Expr::Ternary(expr) => {
+                self.extract_expr_dependencies(&expr.condition);
+                self.extract_expr_dependencies(&expr.if_true);
+                self.extract_expr_dependencies(&expr.if_false);
+            }
+            Expr::Match(expr) => {
+                self.extract_expr_dependencies(&expr.subject);
+                for arm in &expr.arms {
+                    for condition in &arm.conditions {
+                        self.extract_expr_dependencies(condition);
+                    }
+                    self.extract_expr_dependencies(&arm.value);
+                }
+            }
             Expr::TypeAscription(expr) => self.extract_expr_dependencies(&expr.expr),
             Expr::Field(expr) => self.extract_expr_dependencies(&expr.object),
             Expr::Index(expr) => {
                 self.extract_expr_dependencies(&expr.collection);
                 self.extract_expr_dependencies(&expr.index);
+            }
+            Expr::TargetAssign(expr) => {
+                self.extract_expr_dependencies(&expr.target);
+                self.extract_expr_dependencies(&expr.value);
             }
             Expr::Object(expr) => {
                 for field in &expr.fields {
@@ -143,6 +225,7 @@ impl IndexFactExtractor {
             | Expr::String(_)
             | Expr::Number(_)
             | Expr::Variable(_)
+            | Expr::Constant(_)
             | Expr::ReceiverConst(_)
             | Expr::MagicConstant(_) => {}
         }
@@ -203,13 +286,15 @@ fn binary_contains_dir_magic_constant(expr: &echo_ast::BinaryExpr) -> bool {
     expr_contains_dir_magic_constant(&expr.left) || expr_contains_dir_magic_constant(&expr.right)
 }
 
-fn require_dependency_kind(kind: RequireKind, target: &str) -> DependencyKind {
+fn include_dependency_kind(kind: &IncludeKind, target: &str) -> DependencyKind {
     if target.ends_with("/vendor/autoload.php") || target.ends_with("\\vendor\\autoload.php") {
         DependencyKind::ComposerAutoload
     } else {
         match kind {
-            RequireKind::Require => DependencyKind::Require,
-            RequireKind::RequireOnce => DependencyKind::RequireOnce,
+            IncludeKind::Require => DependencyKind::Require,
+            IncludeKind::RequireOnce => DependencyKind::RequireOnce,
+            IncludeKind::Include => DependencyKind::Include,
+            IncludeKind::IncludeOnce => DependencyKind::IncludeOnce,
         }
     }
 }

@@ -94,7 +94,10 @@ fn append_statement_lowers_to_array_append_runtime() {
             span: Span::new(0, 12),
         }),
         Stmt::Append(echo_ast::AppendStmt {
-            target: "a".to_string(),
+            target: Expr::Variable(echo_ast::VariableExpr {
+                name: "a".to_string(),
+                span: Span::new(13, 15),
+            }),
             value: Expr::Number(NumberLiteral {
                 value: "2".to_string(),
                 span: Span::new(20, 21),
@@ -128,7 +131,8 @@ fn list_push_method_lowers_to_list_append_runtime() {
                     span: Span::new(30, 36),
                 }),
                 method: "push".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                method_span: Span::new(37, 41),
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "first".to_string(),
                     span: Span::new(42, 49),
                 })],
@@ -163,7 +167,8 @@ fn list_push_lowers_type_ascribed_structural_literal() {
                     span: Span::new(27, 33),
                 }),
                 method: "push".to_string(),
-                args: vec![Expr::TypeAscription(Box::new(TypeAscriptionExpr {
+                method_span: Span::new(34, 38),
+                args: echo_ast::call_args![Expr::TypeAscription(Box::new(TypeAscriptionExpr {
                     expr: Expr::Object(ObjectExpr {
                         name: String::new(),
                         fields: vec![ObjectField {
@@ -195,7 +200,7 @@ fn array_keys_lowers_optional_filter_and_strict_defaults() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "array_keys".to_string(),
-            args: vec![Expr::Array(ArrayExpr {
+            args: echo_ast::call_args![Expr::Array(ArrayExpr {
                 elements: vec![ArrayElement {
                     key: Some(Expr::String(StringLiteral {
                         value: "id".to_string(),
@@ -230,7 +235,7 @@ fn in_array_lowers_optional_strict_default() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "in_array".to_string(),
-            args: vec![
+            args: echo_ast::call_args![
                 Expr::Number(NumberLiteral {
                     value: "2".to_string(),
                     span: Span::new(9, 10),
@@ -265,7 +270,7 @@ fn array_fill_lowers_to_three_echo_value_arguments() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "array_fill".to_string(),
-            args: vec![
+            args: echo_ast::call_args![
                 Expr::Number(NumberLiteral {
                     value: "-2".to_string(),
                     span: Span::new(11, 13),
@@ -297,7 +302,7 @@ fn array_reverse_lowers_optional_preserve_keys_default() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "array_reverse".to_string(),
-            args: vec![Expr::Array(ArrayExpr {
+            args: echo_ast::call_args![Expr::Array(ArrayExpr {
                 elements: vec![ArrayElement {
                     key: None,
                     value: Expr::String(StringLiteral {
@@ -327,7 +332,7 @@ fn array_combine_and_pad_lower_to_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_combine".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::Array(ArrayExpr {
                         elements: vec![ArrayElement {
                             key: None,
@@ -358,7 +363,7 @@ fn array_combine_and_pad_lower_to_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_pad".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::Array(ArrayExpr {
                         elements: vec![ArrayElement {
                             key: None,
@@ -407,7 +412,7 @@ fn array_slice_and_chunk_lower_optional_arguments_to_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_slice".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::Array(ArrayExpr {
                         elements: vec![ArrayElement {
                             key: None,
@@ -431,7 +436,7 @@ fn array_slice_and_chunk_lower_optional_arguments_to_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_chunk".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::Array(ArrayExpr {
                         elements: vec![ArrayElement {
                             key: None,
@@ -483,7 +488,7 @@ fn array_merge_and_replace_pack_variadic_arguments_for_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_merge".to_string(),
-                args: vec![],
+                args: echo_ast::call_args![],
                 span: Span::new(0, 13),
             })],
             span: Span::new(0, 14),
@@ -491,7 +496,7 @@ fn array_merge_and_replace_pack_variadic_arguments_for_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_replace".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::Array(ArrayExpr {
                         elements: vec![ArrayElement {
                             key: Some(Expr::String(StringLiteral {
@@ -554,7 +559,7 @@ fn array_search_and_count_values_lower_to_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_search".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::String(StringLiteral {
                         value: "active".to_string(),
                         span: Span::new(13, 21),
@@ -578,7 +583,7 @@ fn array_search_and_count_values_lower_to_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "array_count_values".to_string(),
-                args: vec![Expr::Array(ArrayExpr {
+                args: echo_ast::call_args![Expr::Array(ArrayExpr {
                     elements: vec![ArrayElement {
                         key: None,
                         value: Expr::String(StringLiteral {

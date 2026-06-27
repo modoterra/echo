@@ -1,4 +1,4 @@
-use crate::{Expr, QualifiedName};
+use crate::{CallArg, Expr, QualifiedName};
 use echo_source::Span;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,20 +8,29 @@ pub enum Stmt {
     DynamicFunctionCall(DynamicFunctionCallStmt),
     FunctionDecl(FunctionDeclStmt),
     Assign(AssignStmt),
+    CoalesceAssign(CoalesceAssignStmt),
+    ListAssign(ListAssignStmt),
     Let(LetStmt),
     AssignRef(AssignRefStmt),
     Return(ReturnStmt),
+    Throw(ThrowStmt),
     Yield(YieldStmt),
     Expr(ExprStmt),
     Namespace(NamespaceStmt),
     Use(UseStmt),
     Import(ImportStmt),
+    UnnamedExport(UnnamedExportStmt),
     ClassDecl(ClassDeclStmt),
+    TraitDecl(TraitDeclStmt),
     ExtendDecl(ExtendDeclStmt),
     TypeDecl(TypeDeclStmt),
     Loop(LoopStmt),
+    While(WhileStmt),
+    Foreach(ForeachStmt),
     If(IfStmt),
+    Try(TryStmt),
     Break(BreakStmt),
+    Continue(ContinueStmt),
     Append(AppendStmt),
 }
 
@@ -34,14 +43,14 @@ pub struct EchoStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionCallStmt {
     pub name: String,
-    pub args: Vec<Expr>,
+    pub args: Vec<CallArg>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DynamicFunctionCallStmt {
     pub name: String,
-    pub args: Vec<Expr>,
+    pub args: Vec<CallArg>,
     pub span: Span,
 }
 
@@ -64,6 +73,20 @@ pub struct AssignStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CoalesceAssignStmt {
+    pub name: String,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ListAssignStmt {
+    pub targets: Vec<String>,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct LetStmt {
     pub name: String,
     pub ty: Option<String>,
@@ -80,6 +103,12 @@ pub struct AssignRefStmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnStmt {
+    pub value: Option<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThrowStmt {
     pub value: Expr,
     pub span: Span,
 }
@@ -131,9 +160,23 @@ pub enum ImportSource {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct UnnamedExportStmt {
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ClassDeclStmt {
     pub name: String,
     pub parent: Option<QualifiedName>,
+    pub interfaces: Vec<QualifiedName>,
+    pub members: Vec<ClassMember>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraitDeclStmt {
+    pub name: String,
     pub members: Vec<ClassMember>,
     pub span: Span,
 }
@@ -167,7 +210,48 @@ pub struct LoopStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct WhileStmt {
+    pub condition: Expr,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForeachStmt {
+    pub iterable: Expr,
+    pub key: Option<String>,
+    pub value: String,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct IfStmt {
+    pub condition: Expr,
+    pub body: Vec<Stmt>,
+    pub elseif_clauses: Vec<ElseIfClause>,
+    pub else_body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TryStmt {
+    pub body: Vec<Stmt>,
+    pub catches: Vec<CatchClause>,
+    pub finally_body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatchClause {
+    pub types: Vec<QualifiedName>,
+    pub variable: Option<String>,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ElseIfClause {
     pub condition: Expr,
     pub body: Vec<Stmt>,
     pub span: Span,
@@ -180,8 +264,14 @@ pub struct BreakStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ContinueStmt {
+    pub value: Option<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct AppendStmt {
-    pub target: String,
+    pub target: Expr,
     pub value: Expr,
     pub span: Span,
 }
@@ -189,6 +279,9 @@ pub struct AppendStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClassMember {
     Method(MethodDecl),
+    Property(PropertyDecl),
+    Const(ClassConstDecl),
+    TraitUse(QualifiedName),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -210,8 +303,27 @@ pub struct MethodDecl {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropertyDecl {
+    pub name: String,
+    pub value: Option<Expr>,
+    pub visibility: MethodVisibility,
+    pub is_static: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassConstDecl {
+    pub name: String,
+    pub value: Expr,
+    pub visibility: MethodVisibility,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypedParam {
     pub name: String,
     pub ty: Option<String>,
+    pub default_value: Option<Expr>,
+    pub promoted_visibility: Option<MethodVisibility>,
 }

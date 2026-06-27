@@ -28,6 +28,7 @@ struct Analyzer {
     variables: HashMap<String, VariableInfo>,
     diagnostics: Vec<Diagnostic>,
     receiver_context: ReceiverContext,
+    unnamed_export_span: Option<Span>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -52,14 +53,20 @@ impl Analyzer {
                 }
             }
             Stmt::FunctionCall(statement) => {
-                for expr in &statement.args {
-                    self.analyze_expr(expr);
+                if statement.name.eq_ignore_ascii_case("unset") {
+                    for arg in &statement.args {
+                        self.analyze_unset_target(&arg.value);
+                    }
+                } else {
+                    for arg in &statement.args {
+                        self.analyze_call_arg(&arg.value);
+                    }
                 }
             }
             Stmt::DynamicFunctionCall(statement) => {
                 self.resolve_variable(&statement.name, statement.span);
-                for expr in &statement.args {
-                    self.analyze_expr(expr);
+                for arg in &statement.args {
+                    self.analyze_call_arg(&arg.value);
                 }
             }
             Stmt::FunctionDecl(statement) => self.analyze_function_decl(statement),
@@ -67,6 +74,20 @@ impl Analyzer {
                 let ty = self.analyze_expr(&statement.value);
                 if !self.reject_receiver_assignment(&statement.name, statement.span) {
                     self.bind_variable(&statement.name, ty, statement.span);
+                }
+            }
+            Stmt::CoalesceAssign(statement) => {
+                let ty = self.analyze_expr(&statement.value);
+                if !self.reject_receiver_assignment(&statement.name, statement.span) {
+                    self.bind_variable(&statement.name, ty, statement.span);
+                }
+            }
+            Stmt::ListAssign(statement) => {
+                self.analyze_expr(&statement.value);
+                for target in &statement.targets {
+                    if !self.reject_receiver_assignment(target, statement.span) {
+                        self.bind_variable(target, Type::Unknown, statement.span);
+                    }
                 }
             }
             Stmt::Let(statement) => {
@@ -89,6 +110,11 @@ impl Analyzer {
                 }
             }
             Stmt::Return(statement) => {
+                if let Some(value) = &statement.value {
+                    self.analyze_expr(value);
+                }
+            }
+            Stmt::Throw(statement) => {
                 self.analyze_expr(&statement.value);
             }
             Stmt::Yield(statement) => {
@@ -97,54 +123,140 @@ impl Analyzer {
             Stmt::Expr(statement) => {
                 self.analyze_expr(&statement.expr);
             }
+            Stmt::UnnamedExport(statement) => {
+                if self.unnamed_export_span.replace(statement.span).is_some() {
+                    self.diagnostics.push(Diagnostic::new(
+                        "only one unnamed export is allowed per module.",
+                        statement.span,
+                    ));
+                }
+                self.analyze_expr(&statement.value);
+            }
             Stmt::ClassDecl(statement) => {
                 for member in &statement.members {
-                    let ClassMember::Method(method) = member;
-                    self.analyze_method_decl(
-                        method,
-                        ReceiverContext {
-                            has_instance: !method.is_static,
-                            has_self_type: true,
-                            has_parent: statement.parent.is_some(),
-                        },
-                    );
+                    match member {
+                        ClassMember::Method(method) => self.analyze_method_decl(
+                            method,
+                            ReceiverContext {
+                                has_instance: !method.is_static,
+                                has_self_type: true,
+                                has_parent: statement.parent.is_some(),
+                            },
+                        ),
+                        ClassMember::Property(property) => {
+                            if let Some(value) = &property.value {
+                                self.analyze_expr(value);
+                            }
+                        }
+                        ClassMember::Const(constant) => {
+                            self.analyze_expr(&constant.value);
+                        }
+                        ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::TraitDecl(statement) => {
+                for member in &statement.members {
+                    match member {
+                        ClassMember::Method(method) => self.analyze_method_decl(
+                            method,
+                            ReceiverContext {
+                                has_instance: !method.is_static,
+                                has_self_type: true,
+                                has_parent: false,
+                            },
+                        ),
+                        ClassMember::Property(property) => {
+                            if let Some(value) = &property.value {
+                                self.analyze_expr(value);
+                            }
+                        }
+                        ClassMember::Const(constant) => {
+                            self.analyze_expr(&constant.value);
+                        }
+                        ClassMember::TraitUse(_) => {}
+                    }
                 }
             }
             Stmt::ExtendDecl(statement) => {
                 for member in &statement.members {
-                    let ClassMember::Method(method) = member;
-                    self.analyze_method_decl(
-                        method,
-                        ReceiverContext {
-                            has_instance: !method.is_static,
-                            has_self_type: true,
-                            has_parent: false,
-                        },
-                    );
+                    match member {
+                        ClassMember::Method(method) => self.analyze_method_decl(
+                            method,
+                            ReceiverContext {
+                                has_instance: !method.is_static,
+                                has_self_type: true,
+                                has_parent: false,
+                            },
+                        ),
+                        ClassMember::Property(property) => {
+                            if let Some(value) = &property.value {
+                                self.analyze_expr(value);
+                            }
+                        }
+                        ClassMember::Const(constant) => {
+                            self.analyze_expr(&constant.value);
+                        }
+                        ClassMember::TraitUse(_) => {}
+                    }
                 }
             }
             Stmt::Namespace(_)
             | Stmt::Use(_)
             | Stmt::Import(_)
             | Stmt::TypeDecl(_)
-            | Stmt::Break(_) => {}
+            | Stmt::Break(_)
+            | Stmt::Continue(_) => {}
             Stmt::Loop(statement) => self.analyze_statements(&statement.body),
-            Stmt::If(statement) => {
+            Stmt::While(statement) => {
                 self.analyze_expr(&statement.condition);
                 self.analyze_statements(&statement.body);
             }
-            Stmt::Append(statement) => {
-                let target_ty = self.resolve_variable(&statement.target, statement.span);
-                if let Some(ty) = target_ty {
-                    if !ty.allows_php_append_syntax() {
-                        self.diagnostics.push(Diagnostic::new(
-                            format!(
-                                "PHP array append syntax requires array target, found {}",
-                                ty.display_name()
-                            ),
-                            statement.span,
-                        ));
+            Stmt::Foreach(statement) => {
+                self.analyze_expr(&statement.iterable);
+                if let Some(key) = &statement.key {
+                    self.bind_variable(key, Type::Unknown, statement.span);
+                }
+                self.bind_variable(&statement.value, Type::Unknown, statement.span);
+                self.analyze_statements(&statement.body);
+            }
+            Stmt::If(statement) => {
+                self.analyze_expr(&statement.condition);
+                self.analyze_statements(&statement.body);
+                for clause in &statement.elseif_clauses {
+                    self.analyze_expr(&clause.condition);
+                    self.analyze_statements(&clause.body);
+                }
+                self.analyze_statements(&statement.else_body);
+            }
+            Stmt::Try(statement) => {
+                self.analyze_statements(&statement.body);
+                for catch in &statement.catches {
+                    let saved_variables = self.variables.clone();
+                    if let Some(variable) = &catch.variable {
+                        self.bind_variable(variable, Type::Unknown, catch.span);
                     }
+                    self.analyze_statements(&catch.body);
+                    self.variables = saved_variables;
+                }
+                self.analyze_statements(&statement.finally_body);
+            }
+            Stmt::Append(statement) => {
+                if let Expr::Variable(target) = &statement.target {
+                    let target_ty = self.resolve_variable(&target.name, statement.span);
+                    if let Some(ty) = target_ty {
+                        if !ty.allows_php_append_syntax() {
+                            self.diagnostics.push(Diagnostic::new(
+                                format!(
+                                    "PHP array append syntax requires array target, found {}",
+                                    ty.display_name()
+                                ),
+                                statement.span,
+                            ));
+                        }
+                    }
+                } else {
+                    self.analyze_expr(&statement.target);
                 }
                 self.analyze_expr(&statement.value);
             }
@@ -154,6 +266,9 @@ impl Analyzer {
     fn analyze_function_decl(&mut self, statement: &FunctionDeclStmt) {
         let saved_variables = self.variables.clone();
         for param in &statement.params {
+            if let Some(default_value) = &param.default_value {
+                self.analyze_expr(default_value);
+            }
             let ty = param
                 .ty
                 .as_ref()
@@ -167,11 +282,31 @@ impl Analyzer {
         self.variables = saved_variables;
     }
 
+    fn analyze_unset_target(&mut self, target: &Expr) {
+        match target {
+            Expr::Variable(_) => {}
+            Expr::Field(expr) => {
+                self.analyze_expr(&expr.object);
+            }
+            Expr::Index(expr) => {
+                self.analyze_unset_target(&expr.collection);
+                self.analyze_expr(&expr.index);
+            }
+            _ => {
+                self.analyze_expr(target);
+                ()
+            }
+        }
+    }
+
     fn analyze_method_decl(&mut self, method: &MethodDecl, context: ReceiverContext) {
         let saved_variables = self.variables.clone();
         let saved_context = self.receiver_context;
         self.receiver_context = context;
         for param in &method.params {
+            if let Some(default_value) = &param.default_value {
+                self.analyze_expr(default_value);
+            }
             let ty = param
                 .ty
                 .as_ref()
@@ -196,34 +331,113 @@ impl Analyzer {
             Expr::Variable(expr) => self
                 .resolve_variable(&expr.name, expr.span)
                 .unwrap_or(Type::Unknown),
+            Expr::Constant(expr) if expr.name == "PHP_VERSION_ID" => Type::Int,
+            Expr::Constant(expr)
+                if matches!(
+                    expr.name.as_str(),
+                    "PHP_VERSION" | "PHP_SAPI" | "PHP_EOL" | "STDERR"
+                ) =>
+            {
+                Type::String
+            }
+            Expr::Constant(_) => Type::Unknown,
             Expr::ReceiverConst(expr) => self.analyze_receiver_const(expr.kind, expr.span),
+            Expr::StaticPropertyFetch(_) => Type::Unknown,
+            Expr::StaticPropertyAssign(expr) => {
+                self.analyze_expr(&expr.value);
+                Type::Unknown
+            }
+            Expr::StaticPropertyCoalesceAssign(expr) => {
+                self.analyze_expr(&expr.value);
+                Type::Unknown
+            }
+            Expr::ClassConstantFetch(_) => Type::Unknown,
             Expr::FunctionCall(expr) => {
                 for arg in &expr.args {
-                    self.analyze_expr(arg);
+                    self.analyze_call_arg(&arg.value);
                 }
                 echo_reflection::function(&expr.name)
                     .and_then(|function| function.return_type.clone())
                     .map(Type::Named)
                     .unwrap_or(Type::Unknown)
             }
+            Expr::DynamicFunctionCall(expr) => {
+                self.resolve_variable(&expr.name, expr.span);
+                for arg in &expr.args {
+                    self.analyze_call_arg(&arg.value);
+                }
+                Type::Unknown
+            }
+            Expr::DynamicCall(expr) => {
+                self.analyze_expr(&expr.callee);
+                for arg in &expr.args {
+                    self.analyze_call_arg(&arg.value);
+                }
+                Type::Unknown
+            }
             Expr::MethodCall(expr) => {
                 self.analyze_expr(&expr.object);
                 for arg in &expr.args {
-                    self.analyze_expr(arg);
+                    self.analyze_call_arg(&arg.value);
                 }
                 Type::Unknown
             }
             Expr::StaticCall(expr) => {
                 for arg in &expr.args {
-                    self.analyze_expr(arg);
+                    self.analyze_call_arg(&arg.value);
                 }
                 Type::Unknown
             }
             Expr::New(expr) => {
+                let ty = match &expr.target {
+                    echo_ast::NewTarget::Class(class_name) => Some(class_name.as_string()),
+                    echo_ast::NewTarget::Expr(target) => {
+                        self.analyze_expr(target);
+                        None
+                    }
+                };
                 for arg in &expr.args {
-                    self.analyze_expr(arg);
+                    self.analyze_call_arg(&arg.value);
                 }
-                Type::Object(Some(expr.class_name.as_string()))
+                Type::Object(ty)
+            }
+            Expr::Closure(expr) => {
+                let saved_variables = self.variables.clone();
+                for param in &expr.params {
+                    if let Some(default_value) = &param.default_value {
+                        self.analyze_expr(default_value);
+                    }
+                    let ty = param
+                        .ty
+                        .as_ref()
+                        .map(|ty| Type::Named(ty.clone()))
+                        .unwrap_or(Type::Unknown);
+                    if !self.reject_receiver_binding(&param.name, expr.span) {
+                        self.bind_variable(&param.name, ty, expr.span);
+                    }
+                }
+                self.analyze_statements(&expr.body);
+                self.variables = saved_variables;
+                Type::Unknown
+            }
+            Expr::ArrowFunction(expr) => {
+                let saved_variables = self.variables.clone();
+                for param in &expr.params {
+                    if let Some(default_value) = &param.default_value {
+                        self.analyze_expr(default_value);
+                    }
+                    let ty = param
+                        .ty
+                        .as_ref()
+                        .map(|ty| Type::Named(ty.clone()))
+                        .unwrap_or(Type::Unknown);
+                    if !self.reject_receiver_binding(&param.name, expr.span) {
+                        self.bind_variable(&param.name, ty, expr.span);
+                    }
+                }
+                self.analyze_expr(&expr.body);
+                self.variables = saved_variables;
+                Type::Unknown
             }
             Expr::Assign(expr) => {
                 let ty = self.analyze_expr(&expr.value);
@@ -240,7 +454,7 @@ impl Analyzer {
                 ty
             }
             Expr::MagicConstant(_) => Type::String,
-            Expr::Require(expr) => {
+            Expr::Include(expr) => {
                 self.analyze_expr(&expr.path);
                 Type::Bool
             }
@@ -289,6 +503,17 @@ impl Analyzer {
                 self.analyze_expr(&expr.expr);
                 match expr.op {
                     UnaryOp::Plus | UnaryOp::Minus => Type::Number,
+                    UnaryOp::Not => Type::Bool,
+                }
+            }
+            Expr::Cast(expr) => {
+                self.analyze_expr(&expr.expr);
+                match expr.ty.as_str() {
+                    "array" => Type::Array,
+                    "string" => Type::String,
+                    "int" | "integer" | "float" | "double" => Type::Number,
+                    "bool" | "boolean" => Type::Bool,
+                    _ => Type::Unknown,
                 }
             }
             Expr::Binary(expr) => {
@@ -302,8 +527,35 @@ impl Analyzer {
                     | BinaryOp::Mod
                     | BinaryOp::Pow => Type::Number,
                     BinaryOp::Concat => Type::String,
-                    BinaryOp::Identical | BinaryOp::Is | BinaryOp::IsNot => Type::Bool,
+                    BinaryOp::Coalesce => Type::Unknown,
+                    BinaryOp::LessThan
+                    | BinaryOp::GreaterThanOrEqual
+                    | BinaryOp::Identical
+                    | BinaryOp::NotIdentical
+                    | BinaryOp::Equal
+                    | BinaryOp::NotEqual
+                    | BinaryOp::InstanceOf
+                    | BinaryOp::And
+                    | BinaryOp::Or
+                    | BinaryOp::Is
+                    | BinaryOp::IsNot => Type::Bool,
                 }
+            }
+            Expr::Ternary(expr) => {
+                self.analyze_expr(&expr.condition);
+                self.analyze_expr(&expr.if_true);
+                self.analyze_expr(&expr.if_false);
+                Type::Unknown
+            }
+            Expr::Match(expr) => {
+                self.analyze_expr(&expr.subject);
+                for arm in &expr.arms {
+                    for condition in &arm.conditions {
+                        self.analyze_expr(condition);
+                    }
+                    self.analyze_expr(&arm.value);
+                }
+                Type::Unknown
             }
             Expr::Field(expr) => {
                 self.analyze_expr(&expr.object);
@@ -321,6 +573,11 @@ impl Analyzer {
                         expr.span,
                     ));
                 }
+                Type::Unknown
+            }
+            Expr::TargetAssign(expr) => {
+                self.analyze_expr(&expr.target);
+                self.analyze_expr(&expr.value);
                 Type::Unknown
             }
             Expr::TypeAscription(expr) => {
@@ -365,6 +622,16 @@ impl Analyzer {
         );
     }
 
+    fn analyze_call_arg(&mut self, expr: &Expr) {
+        if let Expr::Variable(variable) = expr {
+            if !self.variables.contains_key(&variable.name) {
+                self.bind_variable(&variable.name, Type::Unknown, variable.span);
+                return;
+            }
+        }
+        self.analyze_expr(expr);
+    }
+
     fn analyze_receiver_const(&mut self, kind: ReceiverConst, span: Span) -> Type {
         match kind {
             ReceiverConst::This if !self.receiver_context.has_instance => {
@@ -397,7 +664,7 @@ impl Analyzer {
     }
 
     fn reject_receiver_binding(&mut self, name: &str, span: Span) -> bool {
-        if ReceiverConst::from_variable_name(name).is_none() {
+        if name != ReceiverConst::This.variable_name() {
             return false;
         }
         self.diagnostics.push(Diagnostic::new(
@@ -408,7 +675,7 @@ impl Analyzer {
     }
 
     fn reject_receiver_assignment(&mut self, name: &str, span: Span) -> bool {
-        if ReceiverConst::from_variable_name(name).is_none() {
+        if name != ReceiverConst::This.variable_name() {
             return false;
         }
         self.diagnostics.push(Diagnostic::new(
@@ -419,6 +686,9 @@ impl Analyzer {
     }
 
     fn resolve_variable(&mut self, name: &str, span: Span) -> Option<Type> {
+        if is_php_superglobal(name) {
+            return Some(Type::Array);
+        }
         let ty = self.variables.get(name).map(|variable| variable.ty.clone());
         if ty.is_none() {
             self.diagnostics.push(Diagnostic::new(
@@ -430,10 +700,25 @@ impl Analyzer {
     }
 }
 
+fn is_php_superglobal(name: &str) -> bool {
+    matches!(
+        name,
+        "GLOBALS"
+            | "_SERVER"
+            | "_GET"
+            | "_POST"
+            | "_FILES"
+            | "_COOKIE"
+            | "_SESSION"
+            | "_REQUEST"
+            | "_ENV"
+    )
+}
+
 impl Type {
     fn allows_php_append_syntax(&self) -> bool {
         match self {
-            Self::Array => true,
+            Self::Array | Self::Unknown => true,
             Self::Named(name) => !name.contains('[') && name.starts_with("array"),
             _ => false,
         }
@@ -441,8 +726,10 @@ impl Type {
 
     fn allows_index_access(&self) -> bool {
         match self {
-            Self::Array | Self::List => true,
-            Self::Named(name) => name.starts_with("array") || name.starts_with("list"),
+            Self::Array | Self::List | Self::String => true,
+            Self::Named(name) => {
+                name == "string" || name.starts_with("array") || name.starts_with("list")
+            }
             Self::Unknown => true,
             _ => false,
         }

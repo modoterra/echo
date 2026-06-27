@@ -107,6 +107,10 @@ pub(crate) fn virtualize_statement_terminators(source: &str) -> String {
                 let next = next_significant_byte(bytes, index + 1);
                 if paren_depth == 0
                     && bracket_depth == 0
+                    && !next_significant_starts_with_keyword(bytes, index + 1, b"else")
+                    && !next_significant_starts_with_keyword(bytes, index + 1, b"elseif")
+                    && !next_significant_starts_with_keyword(bytes, index + 1, b"catch")
+                    && !next_significant_starts_with_keyword(bytes, index + 1, b"finally")
                     && should_end_statement(&source[line_start..index], next)
                 {
                     output[index] = b';';
@@ -120,6 +124,10 @@ pub(crate) fn virtualize_statement_terminators(source: &str) -> String {
                     let next = next_significant_byte(bytes, index + 2);
                     if paren_depth == 0
                         && bracket_depth == 0
+                        && !next_significant_starts_with_keyword(bytes, index + 2, b"else")
+                        && !next_significant_starts_with_keyword(bytes, index + 2, b"elseif")
+                        && !next_significant_starts_with_keyword(bytes, index + 2, b"catch")
+                        && !next_significant_starts_with_keyword(bytes, index + 2, b"finally")
                         && should_end_statement(&source[line_start..index], next)
                     {
                         output[index + 1] = b';';
@@ -129,6 +137,10 @@ pub(crate) fn virtualize_statement_terminators(source: &str) -> String {
                     let next = next_significant_byte(bytes, index + 1);
                     if paren_depth == 0
                         && bracket_depth == 0
+                        && !next_significant_starts_with_keyword(bytes, index + 1, b"else")
+                        && !next_significant_starts_with_keyword(bytes, index + 1, b"elseif")
+                        && !next_significant_starts_with_keyword(bytes, index + 1, b"catch")
+                        && !next_significant_starts_with_keyword(bytes, index + 1, b"finally")
                         && should_end_statement(&source[line_start..index], next)
                     {
                         output[index] = b';';
@@ -152,7 +164,7 @@ fn should_end_statement(line: &str, next: Option<u8>) -> bool {
 
     if matches!(
         next,
-        Some(b'.' | b'+' | b'-' | b'*' | b'/' | b',' | b'{' | b')' | b']')
+        Some(b'.' | b'+' | b'-' | b'*' | b'/' | b',' | b'{' | b')' | b']' | b'?' | b':')
     ) {
         return false;
     }
@@ -185,8 +197,24 @@ fn next_significant_byte(source: &[u8], start: usize) -> Option<u8> {
         .find(|byte| !byte.is_ascii_whitespace())
 }
 
+fn next_significant_starts_with_keyword(source: &[u8], start: usize, keyword: &[u8]) -> bool {
+    let Some(offset) = source[start..]
+        .iter()
+        .position(|byte| !byte.is_ascii_whitespace())
+    else {
+        return false;
+    };
+    let start = start + offset;
+    source[start..].starts_with(keyword)
+        && source
+            .get(start + keyword.len())
+            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+}
+
 fn virtualize_before_close_brace(output: &mut [u8], source: &[u8], close_brace: usize) {
-    let Some(previous) = previous_significant_byte(source, close_brace) else {
+    let Some((previous_index, previous)) =
+        previous_significant_byte_with_index(source, close_brace)
+    else {
         return;
     };
 
@@ -194,22 +222,21 @@ fn virtualize_before_close_brace(output: &mut [u8], source: &[u8], close_brace: 
         return;
     }
 
-    for index in (0..close_brace).rev() {
+    for index in previous_index + 1..close_brace {
         if !source[index].is_ascii_whitespace() {
-            return;
+            break;
         }
-
         output[index] = b';';
         return;
     }
 }
 
-fn previous_significant_byte(source: &[u8], end: usize) -> Option<u8> {
+fn previous_significant_byte_with_index(source: &[u8], end: usize) -> Option<(usize, u8)> {
     source[..end]
         .iter()
+        .enumerate()
         .rev()
-        .copied()
-        .find(|byte| !byte.is_ascii_whitespace())
+        .find_map(|(index, byte)| (!byte.is_ascii_whitespace()).then_some((index, *byte)))
 }
 
 pub(crate) fn normalize_heredoc_literals(source: &str) -> String {

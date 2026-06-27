@@ -1,4 +1,4 @@
-use crate::{MirExpr, MirFunctionCall};
+use crate::{MirCallArg, MirExpr, MirFunctionCall};
 use echo_ast::Stmt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,11 +14,21 @@ pub enum MirStmt {
     DynamicFunctionCall {
         source: Stmt,
         name: String,
-        args: Vec<MirExpr>,
+        args: Vec<MirCallArg>,
     },
     Assign {
         source: Stmt,
         name: String,
+        value: MirExpr,
+    },
+    CoalesceAssign {
+        source: Stmt,
+        name: String,
+        value: MirExpr,
+    },
+    ListAssign {
+        source: Stmt,
+        targets: Vec<String>,
         value: MirExpr,
     },
     Let {
@@ -27,6 +37,10 @@ pub enum MirStmt {
         value: MirExpr,
     },
     Return {
+        source: Stmt,
+        value: Option<MirExpr>,
+    },
+    Throw {
         source: Stmt,
         value: MirExpr,
     },
@@ -38,18 +52,42 @@ pub enum MirStmt {
         source: Stmt,
         body: Vec<MirStmt>,
     },
+    While {
+        source: Stmt,
+        condition: MirExpr,
+        body: Vec<MirStmt>,
+    },
+    Foreach {
+        source: Stmt,
+        iterable: MirExpr,
+        key: Option<String>,
+        value: String,
+        body: Vec<MirStmt>,
+    },
     If {
         source: Stmt,
         condition: MirExpr,
         body: Vec<MirStmt>,
+        elseif_clauses: Vec<MirElseIfClause>,
+        else_body: Vec<MirStmt>,
+    },
+    Try {
+        source: Stmt,
+        body: Vec<MirStmt>,
+        catches: Vec<MirCatchClause>,
+        finally_body: Vec<MirStmt>,
     },
     Break {
         source: Stmt,
         value: Option<MirExpr>,
     },
+    Continue {
+        source: Stmt,
+        value: Option<MirExpr>,
+    },
     Append {
         source: Stmt,
-        target: String,
+        target: MirExpr,
         value: MirExpr,
     },
     AssignRef {
@@ -66,6 +104,13 @@ pub enum MirStmt {
     },
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MirElseIfClause {
+    pub condition: MirExpr,
+    pub body: Vec<MirStmt>,
+    pub span: echo_source::Span,
+}
+
 impl MirStmt {
     pub fn syntax(&self) -> &Stmt {
         match self {
@@ -73,16 +118,31 @@ impl MirStmt {
             | Self::FunctionCall { source, .. }
             | Self::DynamicFunctionCall { source, .. }
             | Self::Assign { source, .. }
+            | Self::CoalesceAssign { source, .. }
+            | Self::ListAssign { source, .. }
             | Self::Let { source, .. }
             | Self::Return { source, .. }
+            | Self::Throw { source, .. }
             | Self::Expr { source, .. }
             | Self::Loop { source, .. }
+            | Self::While { source, .. }
+            | Self::Foreach { source, .. }
             | Self::If { source, .. }
+            | Self::Try { source, .. }
             | Self::Break { source, .. }
+            | Self::Continue { source, .. }
             | Self::Append { source, .. }
             | Self::AssignRef { source, .. }
             | Self::Yield { source, .. }
             | Self::Noop { source } => source,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MirCatchClause {
+    pub types: Vec<echo_ast::QualifiedName>,
+    pub variable: Option<String>,
+    pub body: Vec<MirStmt>,
+    pub span: echo_source::Span,
 }

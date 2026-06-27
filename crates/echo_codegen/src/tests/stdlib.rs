@@ -6,7 +6,7 @@ fn time_sleep_lowers_to_core_runtime_call() {
         std_import("time"),
         Stmt::FunctionCall(FunctionCallStmt {
             name: "time.sleep".to_string(),
-            args: vec![Expr::Number(echo_ast::NumberLiteral {
+            args: echo_ast::call_args![Expr::Number(echo_ast::NumberLiteral {
                 value: "50".to_string(),
                 span: Span::new(11, 13),
             })],
@@ -27,7 +27,7 @@ fn net_listen_lowers_to_std_intrinsic_call() {
             name: "server".to_string(),
             value: Expr::FunctionCall(FunctionCallExpr {
                 name: "net.listen".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "127.0.0.1:39183".to_string(),
                     span: Span::new(11, 30),
                 })],
@@ -56,7 +56,7 @@ fn net_read_lowers_numeric_length_as_int_value() {
             name: "connection".to_string(),
             value: Expr::FunctionCall(FunctionCallExpr {
                 name: "net.connect".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "127.0.0.1:39183".to_string(),
                     span: Span::new(0, 17),
                 })],
@@ -67,7 +67,7 @@ fn net_read_lowers_numeric_length_as_int_value() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "net.read".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::Variable(echo_ast::VariableExpr {
                         name: "connection".to_string(),
                         span: Span::new(19, 30),
@@ -99,7 +99,7 @@ fn http_response_text_lowers_to_std_intrinsic_call() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "http.responseText".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "hello".to_string(),
                     span: Span::new(18, 25),
                 })],
@@ -127,7 +127,7 @@ fn reflect_lowers_to_std_intrinsic_call() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "reflect.params".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "strlen".to_string(),
                     span: Span::new(18, 26),
                 })],
@@ -138,7 +138,7 @@ fn reflect_lowers_to_std_intrinsic_call() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "reflect.returnType".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "strlen".to_string(),
                     span: Span::new(46, 54),
                 })],
@@ -149,7 +149,7 @@ fn reflect_lowers_to_std_intrinsic_call() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "reflect.typeOf".to_string(),
-                args: vec![Expr::Number(NumberLiteral {
+                args: echo_ast::call_args![Expr::Number(NumberLiteral {
                     value: "1".to_string(),
                     span: Span::new(72, 73),
                 })],

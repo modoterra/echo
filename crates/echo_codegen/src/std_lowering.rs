@@ -7,19 +7,23 @@ impl IrModule {
     pub(super) fn mir_time_sleep_call(
         &mut self,
         body: &mut String,
-        args: &[echo_mir::MirExpr],
+        args: &[echo_mir::MirCallArg],
         span: Span,
     ) -> Result<(), Diagnostic> {
-        let [
-            echo_mir::MirExpr::Number {
-                source: expr,
-                value,
-            },
-        ] = args
-        else {
+        let [arg] = args else {
             return Err(Diagnostic::new(
                 "unsupported argument for time.sleep in LLVM codegen",
                 span,
+            ));
+        };
+        let echo_mir::MirExpr::Number {
+            source: expr,
+            value,
+        } = &arg.value
+        else {
+            return Err(Diagnostic::new(
+                "unsupported argument for time.sleep in LLVM codegen",
+                arg.span,
             ));
         };
 
@@ -42,7 +46,7 @@ impl IrModule {
         &mut self,
         body: &mut String,
         intrinsic: StdIntrinsic,
-        args: &[echo_mir::MirExpr],
+        args: &[echo_mir::MirCallArg],
         span: Span,
     ) -> Result<RuntimeValue, Diagnostic> {
         if args.len() != intrinsic.arity {

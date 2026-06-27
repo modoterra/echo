@@ -4,7 +4,7 @@ use super::*;
 fn ob_start_null_uses_named_echo_value_abi() {
     let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
         name: "ob_start".to_string(),
-        args: vec![Expr::Null(NullLiteral {
+        args: echo_ast::call_args![Expr::Null(NullLiteral {
             span: Span::new(0, 4),
         })],
         span: Span::new(0, 15),
@@ -23,7 +23,7 @@ fn ob_start_null_uses_named_echo_value_abi() {
 fn ob_start_string_constructs_echo_value_callback() {
     let ir = compile_to_ir(&program(vec![Stmt::FunctionCall(FunctionCallStmt {
         name: "ob_start".to_string(),
-        args: vec![Expr::String(StringLiteral {
+        args: echo_ast::call_args![Expr::String(StringLiteral {
             value: "filter".to_string(),
             span: Span::new(9, 17),
         })],
@@ -42,7 +42,7 @@ fn strlen_lowers_to_php_builtin_with_echo_value_argument() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "strlen".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "hello".to_string(),
                 span: Span::new(7, 14),
             })],
@@ -71,7 +71,7 @@ fn pi_lowers_to_php_builtin_with_no_arguments() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "pi".to_string(),
-            args: vec![],
+            args: echo_ast::call_args![],
             span: Span::new(5, 9),
         })],
         span: Span::new(0, 10),
@@ -91,7 +91,7 @@ fn logarithm_builtins_lower_optional_base_to_e() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "log".to_string(),
-            args: vec![Expr::Number(NumberLiteral {
+            args: echo_ast::call_args![Expr::Number(NumberLiteral {
                 value: "8".to_string(),
                 span: Span::new(4, 5),
             })],
@@ -117,7 +117,7 @@ fn digest_builtins_lower_optional_binary_flag_to_false() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "md5".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "Echo".to_string(),
                     span: Span::new(4, 10),
                 })],
@@ -128,7 +128,7 @@ fn digest_builtins_lower_optional_binary_flag_to_false() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "sha1".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::String(StringLiteral {
                         value: "Echo".to_string(),
                         span: Span::new(17, 23),

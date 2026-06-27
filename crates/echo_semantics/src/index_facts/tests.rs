@@ -1,9 +1,9 @@
 use super::*;
 use echo_ast::{
     AssignExpr, AssignStmt, BinaryExpr, BinaryOp, ClassDeclStmt, ClassMember, Expr, ExprStmt,
-    FunctionCallExpr, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, MagicConstantExpr,
-    MagicConstantKind, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, QualifiedName,
-    RequireExpr, RequireKind, StaticCallExpr, Stmt, StringLiteral, TypeDeclStmt, UseStmt,
+    FunctionCallExpr, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind,
+    MagicConstantExpr, MagicConstantKind, MethodDecl, MethodVisibility, NamespaceSource,
+    NamespaceStmt, QualifiedName, StaticCallExpr, Stmt, StringLiteral, TypeDeclStmt, UseStmt,
     VariableExpr,
 };
 
@@ -37,6 +37,7 @@ fn extracts_declaration_facts_with_namespace() {
             Stmt::ClassDecl(ClassDeclStmt {
                 name: "UserController".to_string(),
                 parent: None,
+                interfaces: Vec::new(),
                 members: vec![ClassMember::Method(MethodDecl {
                     name: "show".to_string(),
                     params: vec![],
@@ -153,7 +154,7 @@ fn extracts_require_dependency_facts_from_expressions() {
         Stmt::If(IfStmt {
             condition: Expr::FunctionCall(FunctionCallExpr {
                 name: "file_exists".to_string(),
-                args: vec![Expr::Assign(Box::new(AssignExpr {
+                args: echo_ast::call_args![Expr::Assign(Box::new(AssignExpr {
                     name: "maintenance".to_string(),
                     value: Expr::Binary(Box::new(BinaryExpr {
                         left: Expr::MagicConstant(MagicConstantExpr {
@@ -172,8 +173,8 @@ fn extracts_require_dependency_facts_from_expressions() {
                 span: Span::new(0, 68),
             }),
             body: vec![Stmt::Expr(ExprStmt {
-                expr: Expr::Require(Box::new(RequireExpr {
-                    kind: RequireKind::Require,
+                expr: Expr::Include(Box::new(IncludeExpr {
+                    kind: IncludeKind::Require,
                     path: Expr::Variable(VariableExpr {
                         name: "maintenance".to_string(),
                         span: Span::new(82, 94),
@@ -182,11 +183,13 @@ fn extracts_require_dependency_facts_from_expressions() {
                 })),
                 span: Span::new(74, 95),
             })],
+            elseif_clauses: Vec::new(),
+            else_body: Vec::new(),
             span: Span::new(0, 100),
         }),
         Stmt::Expr(ExprStmt {
-            expr: Expr::Require(Box::new(RequireExpr {
-                kind: RequireKind::Require,
+            expr: Expr::Include(Box::new(IncludeExpr {
+                kind: IncludeKind::Require,
                 path: Expr::Binary(Box::new(BinaryExpr {
                     left: Expr::MagicConstant(MagicConstantExpr {
                         kind: MagicConstantKind::Dir,
@@ -205,8 +208,8 @@ fn extracts_require_dependency_facts_from_expressions() {
         }),
         Stmt::Assign(AssignStmt {
             name: "app".to_string(),
-            value: Expr::Require(Box::new(RequireExpr {
-                kind: RequireKind::RequireOnce,
+            value: Expr::Include(Box::new(IncludeExpr {
+                kind: IncludeKind::RequireOnce,
                 path: Expr::Binary(Box::new(BinaryExpr {
                     left: Expr::MagicConstant(MagicConstantExpr {
                         kind: MagicConstantKind::Dir,
@@ -300,8 +303,8 @@ fn extracts_static_class_reference_facts() {
 #[test]
 fn resolves_plain_require_string_relative_to_source_dir() {
     let mut source = program(vec![Stmt::Expr(ExprStmt {
-        expr: Expr::Require(Box::new(RequireExpr {
-            kind: RequireKind::RequireOnce,
+        expr: Expr::Include(Box::new(IncludeExpr {
+            kind: IncludeKind::RequireOnce,
             path: Expr::String(StringLiteral {
                 value: "../bootstrap/app.php".to_string(),
                 span: Span::new(14, 36),
@@ -327,8 +330,8 @@ fn resolves_plain_require_string_relative_to_source_dir() {
 fn extracts_phpdoc_var_local_variable_fact_from_source() {
     let program = program(vec![Stmt::Assign(AssignStmt {
         name: "app".to_string(),
-        value: Expr::Require(Box::new(RequireExpr {
-            kind: RequireKind::RequireOnce,
+        value: Expr::Include(Box::new(IncludeExpr {
+            kind: IncludeKind::RequireOnce,
             path: Expr::String(StringLiteral {
                 value: "/bootstrap/app.php".to_string(),
                 span: Span::new(49, 69),

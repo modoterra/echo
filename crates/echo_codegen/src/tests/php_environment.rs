@@ -6,7 +6,7 @@ fn environment_process_builtins_lower_to_php_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "getenv".to_string(),
-                args: vec![],
+                args: echo_ast::call_args![],
                 span: Span::new(0, 8),
             })],
             span: Span::new(0, 9),
@@ -14,7 +14,7 @@ fn environment_process_builtins_lower_to_php_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "getenv".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "APP_ENV".to_string(),
                     span: Span::new(18, 27),
                 })],
@@ -25,7 +25,7 @@ fn environment_process_builtins_lower_to_php_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "getenv".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::String(StringLiteral {
                         value: "APP_ENV".to_string(),
                         span: Span::new(38, 47),
@@ -63,7 +63,7 @@ fn environment_process_builtins_lower_to_php_runtime_calls() {
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: name.to_string(),
-                args: vec![],
+                args: echo_ast::call_args![],
                 span: Span::new(0, name.len()),
             })],
             span: Span::new(0, name.len() + 1),
@@ -81,7 +81,7 @@ fn environment_process_builtins_lower_to_php_runtime_calls() {
     let putenv_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "putenv".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "APP_ENV=local".to_string(),
                 span: Span::new(7, 22),
             })],

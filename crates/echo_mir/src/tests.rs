@@ -53,10 +53,10 @@ fn lower_program_extracts_import_and_user_function_sections() {
             is_intrinsic: false,
             is_generator: false,
             body: vec![Stmt::Return(echo_ast::ReturnStmt {
-                value: Expr::String(StringLiteral {
+                value: Some(Expr::String(StringLiteral {
                     value: "hi".to_string(),
                     span: Span::new(26, 30),
-                }),
+                })),
                 span: Span::new(19, 31),
             })],
             span: Span::new(16, 29),
@@ -193,7 +193,10 @@ fn lower_program_lowers_control_statement_shapes() {
         Stmt::Loop(LoopStmt {
             body: vec![
                 Stmt::Append(AppendStmt {
-                    target: "items".to_string(),
+                    target: Expr::Variable(VariableExpr {
+                        name: "items".to_string(),
+                        span: Span::new(34, 40),
+                    }),
                     value: Expr::Variable(VariableExpr {
                         name: "item".to_string(),
                         span: Span::new(42, 47),
@@ -216,6 +219,8 @@ fn lower_program_lowers_control_statement_shapes() {
                         value: None,
                         span: Span::new(69, 75),
                     })],
+                    elseif_clauses: Vec::new(),
+                    else_body: Vec::new(),
                     span: Span::new(50, 77),
                 }),
             ],
@@ -229,7 +234,13 @@ fn lower_program_lowers_control_statement_shapes() {
         panic!("loop statement should lower to MIR loop");
     };
 
-    assert!(matches!(&body[0], MirStmt::Append { target, .. } if target == "items"));
+    assert!(matches!(
+        &body[0],
+        MirStmt::Append {
+            target: MirExpr::Variable { name, .. },
+            ..
+        } if name == "items"
+    ));
     assert!(matches!(
         &body[1],
         MirStmt::If {

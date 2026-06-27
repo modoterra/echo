@@ -5,7 +5,7 @@ fn filesystem_content_builtins_lower_optional_arguments() {
     let file_get_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "file_get_contents".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "report.txt".to_string(),
                 span: Span::new(18, 30),
             })],
@@ -27,7 +27,7 @@ fn filesystem_content_builtins_lower_optional_arguments() {
     let file_put_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "file_put_contents".to_string(),
-            args: vec![
+            args: echo_ast::call_args![
                 Expr::String(StringLiteral {
                     value: "report.txt".to_string(),
                     span: Span::new(18, 30),
@@ -55,7 +55,7 @@ fn filesystem_content_builtins_lower_optional_arguments() {
     let readfile_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "readfile".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "report.txt".to_string(),
                 span: Span::new(9, 21),
             })],
@@ -81,7 +81,7 @@ fn getcwd_lowers_to_php_builtin_with_no_arguments() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "getcwd".to_string(),
-            args: vec![],
+            args: echo_ast::call_args![],
             span: Span::new(5, 13),
         })],
         span: Span::new(0, 14),
@@ -101,7 +101,7 @@ fn temporary_name_builtins_lower_to_php_runtime_calls() {
     let sys_temp_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "sys_get_temp_dir".to_string(),
-            args: vec![],
+            args: echo_ast::call_args![],
             span: Span::new(0, 18),
         })],
         span: Span::new(0, 19),
@@ -120,7 +120,7 @@ fn temporary_name_builtins_lower_to_php_runtime_calls() {
     let tempnam_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "tempnam".to_string(),
-            args: vec![
+            args: echo_ast::call_args![
                 Expr::String(StringLiteral {
                     value: "/tmp".to_string(),
                     span: Span::new(8, 14),
@@ -151,7 +151,7 @@ fn temporary_name_builtins_lower_to_php_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "uniqid".to_string(),
-                args: vec![],
+                args: echo_ast::call_args![],
                 span: Span::new(0, 8),
             })],
             span: Span::new(0, 9),
@@ -159,7 +159,7 @@ fn temporary_name_builtins_lower_to_php_runtime_calls() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "uniqid".to_string(),
-                args: vec![
+                args: echo_ast::call_args![
                     Expr::String(StringLiteral {
                         value: "job_".to_string(),
                         span: Span::new(17, 23),
@@ -199,7 +199,7 @@ fn filesystem_mutation_builtins_lower_optional_arguments() {
     let touch_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "touch".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "cache.marker".to_string(),
                 span: Span::new(6, 20),
             })],
@@ -221,7 +221,7 @@ fn filesystem_mutation_builtins_lower_optional_arguments() {
     let copy_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "copy".to_string(),
-            args: vec![
+            args: echo_ast::call_args![
                 Expr::String(StringLiteral {
                     value: "import.csv".to_string(),
                     span: Span::new(5, 17),
@@ -249,7 +249,7 @@ fn filesystem_mutation_builtins_lower_optional_arguments() {
     let unlink_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "unlink".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "import.csv.bak".to_string(),
                 span: Span::new(7, 23),
             })],
@@ -271,7 +271,7 @@ fn filesystem_mutation_builtins_lower_optional_arguments() {
     let mkdir_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "mkdir".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "storage/cache".to_string(),
                 span: Span::new(6, 21),
             })],
@@ -295,7 +295,7 @@ fn filesystem_mutation_builtins_lower_optional_arguments() {
     let rmdir_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "rmdir".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "storage/cache".to_string(),
                 span: Span::new(6, 21),
             })],
@@ -320,7 +320,7 @@ fn basename_lowers_optional_suffix_to_empty_string() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "basename".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "/etc/passwd".to_string(),
                 span: Span::new(9, 22),
             })],
@@ -342,7 +342,7 @@ fn dirname_lowers_optional_levels_to_one() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
             name: "dirname".to_string(),
-            args: vec![Expr::String(StringLiteral {
+            args: echo_ast::call_args![Expr::String(StringLiteral {
                 value: "/etc/passwd".to_string(),
                 span: Span::new(8, 21),
             })],

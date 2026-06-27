@@ -1,16 +1,22 @@
+use chumsky::input::MapExtra;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AppendStmt, ArrayElement, ArrayExpr, AssignExpr, AssignRefStmt, AssignStmt, BinaryExpr,
-    BinaryOp, BoolLiteral, BreakStmt, ClassDeclStmt, ClassMember, DeferExpr,
-    DynamicFunctionCallStmt, EchoStmt, Expr, ExtendDeclStmt, FieldExpr, ForkExpr, FunctionCallExpr,
-    FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IndexExpr, JoinExpr,
-    LetStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MethodCallExpr,
-    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, Program, QualifiedName, ReceiverConst,
-    ReceiverConstExpr, RequireExpr, RequireKind, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
-    Stmt, StringLiteral, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
-    UnaryOp, UseStmt, VariableExpr, YieldStmt,
+    AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr, AssignRefStmt, AssignStmt,
+    BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
+    ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClosureExpr, CoalesceAssignStmt,
+    ConstantExpr, ContinueStmt, DeferExpr,
+    DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause,
+    Expr, ExtendDeclStmt, FieldExpr, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt,
+    FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr,
+    JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr,
+    MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility,
+    NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr,
+    ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst, ReceiverConstExpr,
+    ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
+    TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
+    UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceMode, Span};
@@ -26,6 +32,9 @@ use preprocess::{
     unescape_single_quoted_string, virtualize_statement_terminators,
 };
 use validation::{ValidationMode, validate_mode};
+
+type ParseExtra<'src> = extra::Err<Rich<'src, char>>;
+type BoxedParser<'src, O> = chumsky::Boxed<'src, 'src, &'src str, O, ParseExtra<'src>>;
 
 pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
     parse_with_mode(source, SourceMode::Echo)
@@ -47,7 +56,7 @@ fn parse_with_validation(source: &str, mode: ValidationMode) -> Result<Program, 
     let source = normalize_heredoc_literals(source);
     let source = virtualize_statement_terminators(&strip_comments_preserving_spans(&source));
 
-    let program = parser().parse(&source).into_result().map_err(|errors| {
+    let mut program = parser().parse(&source).into_result().map_err(|errors| {
         errors
             .into_iter()
             .map(|error| {
@@ -57,27 +66,349 @@ fn parse_with_validation(source: &str, mode: ValidationMode) -> Result<Program, 
             .collect::<Vec<_>>()
     })?;
 
+    if mode == ValidationMode::Echo {
+        normalize_php_compat_receiver_variables(&mut program);
+    }
+
     validate_mode(&program, mode)?;
 
     Ok(program)
 }
 
-fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src, char>>> {
-    let open_php = just("<?php")
-        .or(just("<?PHP"))
-        .map_with(|_, extra| {
-            let span: SimpleSpan = extra.span();
-            Span::new(span.start, span.end)
-        })
-        .padded()
-        .or_not();
+fn normalize_php_compat_receiver_variables(program: &mut Program) {
+    for statement in &mut program.statements {
+        normalize_php_compat_statement(statement);
+    }
+}
 
-    let type_expr = recursive(|type_expr| {
-        let type_name = text::ident()
+fn normalize_php_compat_statement(statement: &mut Stmt) {
+    match statement {
+        Stmt::Echo(statement) => {
+            for expr in &mut statement.exprs {
+                normalize_php_compat_expr(expr);
+            }
+        }
+        Stmt::FunctionCall(statement) => {
+            for arg in &mut statement.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Stmt::DynamicFunctionCall(statement) => {
+            for arg in &mut statement.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Stmt::FunctionDecl(statement) => {
+            for param in &mut statement.params {
+                if let Some(value) = &mut param.default_value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::Assign(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::CoalesceAssign(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::ListAssign(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::Let(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::AssignRef(_) | Stmt::Break(_) | Stmt::Continue(_) => {}
+        Stmt::Return(statement) => {
+            if let Some(value) = &mut statement.value {
+                normalize_php_compat_expr(value);
+            }
+        }
+        Stmt::Throw(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::Yield(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::Expr(statement) => normalize_php_compat_expr(&mut statement.expr),
+        Stmt::Loop(statement) => {
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::While(statement) => {
+            normalize_php_compat_expr(&mut statement.condition);
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::Foreach(statement) => {
+            normalize_php_compat_expr(&mut statement.iterable);
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::Try(statement) => {
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+            for catch in &mut statement.catches {
+                for statement in &mut catch.body {
+                    normalize_php_compat_statement(statement);
+                }
+            }
+            for statement in &mut statement.finally_body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::If(statement) => {
+            normalize_php_compat_expr(&mut statement.condition);
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+            for clause in &mut statement.elseif_clauses {
+                normalize_php_compat_expr(&mut clause.condition);
+                for statement in &mut clause.body {
+                    normalize_php_compat_statement(statement);
+                }
+            }
+            for statement in &mut statement.else_body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::Append(statement) => {
+            normalize_php_compat_expr(&mut statement.target);
+            normalize_php_compat_expr(&mut statement.value);
+        }
+        Stmt::UnnamedExport(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::ClassDecl(statement) => {
+            for member in &mut statement.members {
+                normalize_php_compat_class_member(member);
+            }
+        }
+        Stmt::TraitDecl(statement) => {
+            for member in &mut statement.members {
+                normalize_php_compat_class_member(member);
+            }
+        }
+        Stmt::ExtendDecl(statement) => {
+            for member in &mut statement.members {
+                normalize_php_compat_class_member(member);
+            }
+        }
+        Stmt::Use(_) | Stmt::Import(_) | Stmt::Namespace(_) | Stmt::TypeDecl(_) => {}
+    }
+}
+
+fn normalize_php_compat_class_member(member: &mut ClassMember) {
+    match member {
+        ClassMember::Method(method) => {
+            for param in &mut method.params {
+                if let Some(value) = &mut param.default_value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+            for statement in &mut method.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        ClassMember::Property(property) => {
+            if let Some(value) = &mut property.value {
+                normalize_php_compat_expr(value);
+            }
+        }
+        ClassMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
+        ClassMember::TraitUse(_) => {}
+    }
+}
+
+fn normalize_php_compat_expr(expr: &mut Expr) {
+    match expr {
+        Expr::ReceiverConst(receiver)
+            if matches!(
+                receiver.kind,
+                ReceiverConst::SelfType | ReceiverConst::Parent | ReceiverConst::Static
+            ) =>
+        {
+            *expr = Expr::Variable(VariableExpr {
+                name: receiver.kind.variable_name().to_string(),
+                span: receiver.span,
+            });
+        }
+        Expr::ReceiverConst(_) => {}
+        Expr::Defer(expr) => {
+            for statement in &mut expr.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Expr::Run(RunExpr::Task { expr, .. }) | Expr::Fork(ForkExpr::Task { expr, .. }) => {
+            normalize_php_compat_expr(expr);
+        }
+        Expr::Run(RunExpr::Block { body, .. })
+        | Expr::Fork(ForkExpr::Block { body, .. })
+        | Expr::Loop(LoopExpr { body, .. }) => {
+            for statement in body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Expr::Run(RunExpr::Group { entries, .. }) => {
+            for entry in entries {
+                for statement in entry {
+                    normalize_php_compat_statement(statement);
+                }
+            }
+        }
+        Expr::Spawn(expr) => normalize_php_compat_expr(&mut expr.command),
+        Expr::Join(expr) => normalize_php_compat_expr(&mut expr.handle),
+        Expr::FunctionCall(expr) => {
+            for arg in &mut expr.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Expr::DynamicFunctionCall(expr) => {
+            for arg in &mut expr.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Expr::DynamicCall(expr) => {
+            normalize_php_compat_expr(&mut expr.callee);
+            for arg in &mut expr.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Expr::MethodCall(expr) => {
+            normalize_php_compat_expr(&mut expr.object);
+            for arg in &mut expr.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Expr::StaticCall(expr) => {
+            for arg in &mut expr.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Expr::Closure(expr) => {
+            for param in &mut expr.params {
+                if let Some(value) = &mut param.default_value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+            for statement in &mut expr.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Expr::ArrowFunction(expr) => {
+            for param in &mut expr.params {
+                if let Some(value) = &mut param.default_value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+            normalize_php_compat_expr(&mut expr.body);
+        }
+        Expr::Assign(expr) => normalize_php_compat_expr(&mut expr.value),
+        Expr::StaticPropertyAssign(expr) | Expr::StaticPropertyCoalesceAssign(expr) => {
+            normalize_php_compat_expr(&mut expr.value);
+        }
+        Expr::Include(expr) => normalize_php_compat_expr(&mut expr.path),
+        Expr::Binary(expr) => {
+            normalize_php_compat_expr(&mut expr.left);
+            normalize_php_compat_expr(&mut expr.right);
+        }
+        Expr::Ternary(expr) => {
+            normalize_php_compat_expr(&mut expr.condition);
+            normalize_php_compat_expr(&mut expr.if_true);
+            normalize_php_compat_expr(&mut expr.if_false);
+        }
+        Expr::Match(expr) => {
+            normalize_php_compat_expr(&mut expr.subject);
+            for arm in &mut expr.arms {
+                for condition in &mut arm.conditions {
+                    normalize_php_compat_expr(condition);
+                }
+                normalize_php_compat_expr(&mut arm.value);
+            }
+        }
+        Expr::Unary(expr) => normalize_php_compat_expr(&mut expr.expr),
+        Expr::Cast(expr) => normalize_php_compat_expr(&mut expr.expr),
+        Expr::TypeAscription(expr) => normalize_php_compat_expr(&mut expr.expr),
+        Expr::Field(expr) => normalize_php_compat_expr(&mut expr.object),
+        Expr::Index(expr) => {
+            normalize_php_compat_expr(&mut expr.collection);
+            normalize_php_compat_expr(&mut expr.index);
+        }
+        Expr::TargetAssign(expr) => {
+            normalize_php_compat_expr(&mut expr.target);
+            normalize_php_compat_expr(&mut expr.value);
+        }
+        Expr::Object(expr) => {
+            for field in &mut expr.fields {
+                normalize_php_compat_expr(&mut field.value);
+            }
+        }
+        Expr::List(expr) => {
+            for value in &mut expr.values {
+                normalize_php_compat_expr(value);
+            }
+        }
+        Expr::Array(expr) => {
+            for element in &mut expr.elements {
+                if let Some(key) = &mut element.key {
+                    normalize_php_compat_expr(key);
+                }
+                normalize_php_compat_expr(&mut element.value);
+            }
+        }
+        Expr::New(expr) => {
+            if let NewTarget::Expr(target) = &mut expr.target {
+                normalize_php_compat_expr(target);
+            }
+            for arg in &mut expr.args {
+                normalize_php_compat_expr(&mut arg.value);
+            }
+        }
+        Expr::Null(_)
+        | Expr::Bool(_)
+        | Expr::String(_)
+        | Expr::Number(_)
+        | Expr::Variable(_)
+        | Expr::Constant(_)
+        | Expr::StaticPropertyFetch(_)
+        | Expr::ClassConstantFetch(_)
+        | Expr::MagicConstant(_) => {}
+    }
+}
+
+fn qualified_name<'src>(separator: char) -> BoxedParser<'src, QualifiedName> {
+    let name = text::ident()
+        .separated_by(just(separator))
+        .at_least(1)
+        .collect::<Vec<_>>();
+
+    if separator == '\\' {
+        just(separator)
+            .or_not()
+            .ignore_then(name)
+            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()))
+            .boxed()
+    } else {
+        name.map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()))
+            .boxed()
+    }
+}
+
+fn dotted_function_name<'src>() -> BoxedParser<'src, String> {
+    just('\\')
+        .or_not()
+        .ignore_then(
+            text::ident()
+                .separated_by(just('.'))
+                .at_least(1)
+                .collect::<Vec<_>>(),
+        )
+        .map(|parts| parts.join("."))
+        .boxed()
+}
+
+fn type_expr_parser<'src>() -> BoxedParser<'src, String> {
+    recursive(|type_expr| {
+        let type_name = just('\\')
+            .or_not()
+            .ignore_then(text::ident()
             .separated_by(just('\\'))
             .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| parts.join("\\"));
+            .collect::<Vec<_>>())
+            .map(|parts| parts.join("\\"))
+            .boxed();
 
         let generic_type = type_name
             .clone()
@@ -109,9 +440,93 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(just('?')
                 .ignore_then(generic_type.clone())
                 .map(|inner| format!("{inner}|null")))
-    });
+    })
+    .boxed()
+}
 
-    let expr = recursive(|expr| {
+fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
+    let open_php = just("<?php")
+        .or(just("<?PHP"))
+        .map_with(|_, extra| {
+            let span: SimpleSpan = extra.span();
+            Span::new(span.start, span.end)
+        })
+        .padded()
+        .or_not();
+
+    let type_expr = type_expr_parser();
+    let prefix_typed_param = type_expr
+        .clone()
+        .padded()
+        .or_not()
+        .then_ignore(just("...").padded().or_not())
+        .then_ignore(just('&').padded().or_not())
+        .then_ignore(just('$'))
+        .then(text::ident().padded())
+        .map(|(ty, name): (Option<String>, &str)| TypedParam {
+            name: name.to_string(),
+            ty,
+            default_value: None,
+            promoted_visibility: None,
+        });
+
+    let suffix_typed_param = just("...")
+        .padded()
+        .or_not()
+        .then_ignore(just('&').padded().or_not())
+        .ignore_then(just('$'))
+        .ignore_then(text::ident().padded())
+        .then(
+            just(':')
+                .padded()
+                .ignore_then(type_expr.clone().padded())
+                .or_not(),
+        )
+        .map(|(name, ty): (&str, Option<String>)| TypedParam {
+            name: name.to_string(),
+            ty,
+            default_value: None,
+            promoted_visibility: None,
+        });
+
+    let param_default_expr = just('[')
+        .padded()
+        .then_ignore(just(']').padded())
+        .map_with(|_, extra| {
+            let span: SimpleSpan = extra.span();
+            Expr::Array(ArrayExpr {
+                elements: Vec::new(),
+                span: Span::new(span.start, span.end),
+            })
+        })
+        .or(text::keyword(kw::NULL.text).map_with(|_, extra| {
+            let span: SimpleSpan = extra.span();
+            Expr::Null(NullLiteral {
+                span: Span::new(span.start, span.end),
+            })
+        }));
+
+    let typed_param = suffix_typed_param
+        .or(prefix_typed_param)
+        .then(
+            just('=')
+                .padded()
+                .ignore_then(param_default_expr)
+                .or_not(),
+        )
+        .map(|(mut param, default_value)| {
+            param.default_value = default_value;
+            param
+        })
+        .boxed();
+
+    let mut expr = Recursive::declare();
+    let mut statement = Recursive::declare();
+
+    expr.define({
+        let expr = expr.clone();
+        let statement = statement.clone();
+
         let null = text::keyword(kw::NULL.text)
             .or(text::keyword("NULL"))
             .map_with(|_, extra| {
@@ -175,7 +590,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
-        let string = double_quoted_string.or(single_quoted_string);
+        let string = double_quoted_string.or(single_quoted_string).boxed();
 
         let number = text::digits(10)
             .then(just('.').then(text::digits(10)).or_not())
@@ -194,7 +609,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     value: value.to_string(),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let variable = just('$')
             .ignore_then(text::ident())
@@ -211,29 +627,83 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     },
                     |kind| Expr::ReceiverConst(ReceiverConstExpr { kind, span }),
                 )
+            })
+            .boxed();
+
+        let php_qualified_name = qualified_name('\\');
+
+        let magic_dir = just("__DIR__")
+            .map_with(|_, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::MagicConstant(MagicConstantExpr {
+                    kind: MagicConstantKind::Dir,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let constant_expr = php_qualified_name
+            .clone()
+            .map_with(|name: QualifiedName, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Constant(ConstantExpr {
+                    name: name.as_string(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let named_arg = text::ident()
+            .padded()
+            .then_ignore(just(':').padded())
+            .then(expr.clone())
+            .map_with(|(name, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                CallArg {
+                    name: Some(name.to_string()),
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
             });
 
-        let magic_dir = just("__DIR__").map_with(|_, extra| {
+        let positional_arg = just("...")
+            .padded()
+            .or_not()
+            .ignore_then(expr.clone())
+            .map_with(|value, extra| {
             let span: SimpleSpan = extra.span();
 
-            Expr::MagicConstant(MagicConstantExpr {
-                kind: MagicConstantKind::Dir,
+            CallArg {
+                name: None,
+                value,
                 span: Span::new(span.start, span.end),
-            })
+            }
+            });
+
+        let first_class_callable_placeholder_arg = just("...").map_with(|_, extra| {
+            let span: SimpleSpan = extra.span();
+            CallArg {
+                name: None,
+                value: Expr::Null(NullLiteral {
+                    span: Span::new(span.start, span.end),
+                }),
+                span: Span::new(span.start, span.end),
+            }
         });
 
-        let args = expr
-            .clone()
+        let args = named_arg
+            .or(positional_arg)
+            .or(first_class_callable_placeholder_arg)
             .padded()
             .separated_by(just(',').padded())
             .allow_trailing()
-            .collect::<Vec<_>>();
-
-        let function_name = text::ident()
-            .separated_by(just('.'))
-            .at_least(1)
             .collect::<Vec<_>>()
-            .map(|parts| parts.join("."));
+            .boxed();
+
+        let function_name = dotted_function_name();
 
         let function_call_expr = function_name
             .clone()
@@ -241,7 +711,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then_ignore(just('(').padded())
             .then(args.clone())
             .then_ignore(just(')').padded())
-            .map_with(|(name, args): (String, Vec<Expr>), extra| {
+            .map_with(|(name, args): (String, Vec<CallArg>), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Expr::FunctionCall(FunctionCallExpr {
@@ -249,20 +719,34 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     args,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
-        let static_call_expr = text::ident()
-            .separated_by(just('\\'))
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()))
+        let dynamic_function_call_expr = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just('(').padded())
+            .then(args.clone())
+            .then_ignore(just(')').padded())
+            .map_with(|(name, args): (&str, Vec<CallArg>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::DynamicFunctionCall(DynamicFunctionCallExpr {
+                    name: name.to_string(),
+                    args,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let static_call_expr = php_qualified_name
+            .clone()
             .then_ignore(just("::").padded())
             .then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(args.clone())
             .then_ignore(just(')').padded())
             .map_with(
-                |((class_name, method), args): ((QualifiedName, &str), Vec<Expr>), extra| {
+                |((class_name, method), args): ((QualifiedName, &str), Vec<CallArg>), extra| {
                     let span: SimpleSpan = extra.span();
 
                     Expr::StaticCall(StaticCallExpr {
@@ -272,36 +756,170 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
-        let new_expr = text::keyword(kw::NEW.text)
-            .padded()
-            .ignore_then(
-                text::ident()
-                    .separated_by(just('\\'))
-                    .at_least(1)
-                    .collect::<Vec<_>>()
-                    .map(|parts| {
-                        QualifiedName::new(parts.into_iter().map(str::to_string).collect())
-                    })
-                    .padded(),
-            )
-            .then(
-                just('(')
-                    .padded()
-                    .then_ignore(just(')').padded())
-                    .to(())
-                    .or_not(),
-            )
-            .map_with(|(class_name, _): (QualifiedName, Option<()>), extra| {
+        let static_property_fetch_expr = php_qualified_name
+            .clone()
+            .then_ignore(just("::").padded())
+            .then_ignore(just('$').padded())
+            .then(text::ident().padded())
+            .map_with(|(class_name, property): (QualifiedName, &str), extra| {
                 let span: SimpleSpan = extra.span();
 
-                Expr::New(Box::new(NewExpr {
+                Expr::StaticPropertyFetch(Box::new(StaticPropertyFetchExpr {
                     class_name,
-                    args: Vec::new(),
+                    property: property.to_string(),
                     span: Span::new(span.start, span.end),
                 }))
             })
+            .boxed();
+
+        let class_constant_fetch_expr = php_qualified_name
+            .clone()
+            .then_ignore(just("::").padded())
+            .then(text::ident().padded())
+            .map_with(|(class_name, constant): (QualifiedName, &str), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::ClassConstantFetch(Box::new(ClassConstantFetchExpr {
+                    class_name,
+                    constant: constant.to_string(),
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
+
+        let dynamic_new_target = just('$')
+            .ignore_then(text::ident().padded())
+            .map_with(|name: &str, extra| {
+                let span: SimpleSpan = extra.span();
+                NewTarget::Expr(Box::new(Expr::Variable(VariableExpr {
+                    name: name.to_string(),
+                    span: Span::new(span.start, span.end),
+                })))
+            });
+
+        let new_target = dynamic_new_target
+            .or(variable.clone().map(|expr| NewTarget::Expr(Box::new(expr))))
+            .or(php_qualified_name.clone().map(NewTarget::Class));
+
+        let new_expr = text::keyword(kw::NEW.text)
+            .padded()
+            .ignore_then(new_target.padded())
+            .then(
+                args.clone()
+                    .delimited_by(just('(').padded(), just(')').padded())
+                    .or_not(),
+            )
+            .map_with(|(target, args): (NewTarget, Option<Vec<CallArg>>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::New(Box::new(NewExpr {
+                    target,
+                    args: args.unwrap_or_default(),
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
+
+        let closure_expr = text::keyword(kw::STATIC.text)
+            .padded()
+            .or_not()
+            .ignore_then(text::keyword(kw::FUNCTION.text))
+            .padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(
+                typed_param
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then(
+                text::keyword(kw::USE.text)
+                    .padded()
+                    .ignore_then(
+                        just('&')
+                            .padded()
+                            .or_not()
+                            .ignore_then(just('$'))
+                            .ignore_then(text::ident().padded())
+                            .separated_by(just(',').padded())
+                            .allow_trailing()
+                            .collect::<Vec<_>>()
+                            .delimited_by(just('(').padded(), just(')').padded()),
+                    )
+                    .map(|captures| captures.into_iter().map(str::to_string).collect::<Vec<_>>())
+                    .or_not(),
+            )
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then(
+                statement
+                    .clone()
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(
+                |(((params, captures), return_type), body): (
+                    ((Vec<TypedParam>, Option<Vec<String>>), Option<String>),
+                    Vec<Stmt>,
+                ),
+                 extra: &mut MapExtra<'src, '_, &'src str, ParseExtra<'src>>| {
+                    let span: SimpleSpan = extra.span();
+
+                    Expr::Closure(Box::new(ClosureExpr {
+                        params,
+                        captures: captures.unwrap_or_default(),
+                        return_type,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }))
+                },
+            )
+            .boxed();
+
+        let arrow_function_expr = text::keyword(kw::FN.text)
+            .padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(
+                typed_param
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(')').padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then_ignore(just("=>").padded())
+            .then(expr.clone())
+            .map_with(
+                |((params, return_type), body): ((Vec<TypedParam>, Option<String>), Expr),
+                 extra: &mut MapExtra<'src, '_, &'src str, ParseExtra<'src>>| {
+                    let span: SimpleSpan = extra.span();
+
+                    Expr::ArrowFunction(Box::new(ArrowFunctionExpr {
+                        params,
+                        return_type,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }))
+                },
+            )
             .boxed();
 
         let run_expr = text::keyword(kw::RUN.text)
@@ -314,7 +932,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     expr: Box::new(task),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let spawn_expr = text::keyword(kw::SPAWN.text)
             .padded()
@@ -326,7 +945,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     command: Box::new(command),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let fork_expr = text::keyword(kw::FORK.text)
             .padded()
@@ -338,7 +958,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     expr: Box::new(task),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let join_expr = text::keyword(kw::JOIN.text)
             .padded()
@@ -350,22 +971,26 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     handle: Box::new(handle),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
-        let require_expr = text::keyword(kw::REQUIRE_ONCE.text)
-            .to(RequireKind::RequireOnce)
-            .or(text::keyword(kw::REQUIRE.text).to(RequireKind::Require))
+        let include_expr = text::keyword(kw::REQUIRE_ONCE.text)
+            .to(IncludeKind::RequireOnce)
+            .or(text::keyword(kw::REQUIRE.text).to(IncludeKind::Require))
+            .or(text::keyword(kw::INCLUDE_ONCE.text).to(IncludeKind::IncludeOnce))
+            .or(text::keyword(kw::INCLUDE.text).to(IncludeKind::Include))
             .padded()
             .then(expr.clone())
             .map_with(|(kind, path), extra| {
                 let span: SimpleSpan = extra.span();
 
-                Expr::Require(Box::new(RequireExpr {
+                Expr::Include(Box::new(IncludeExpr {
                     kind,
                     path,
                     span: Span::new(span.start, span.end),
                 }))
-            });
+            })
+            .boxed();
 
         let list_expr = expr
             .clone()
@@ -381,7 +1006,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     values,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let array_element = expr
             .clone()
@@ -408,9 +1034,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     },
                 }
-            });
+            })
+            .boxed();
 
         let array_expr = array_element
+            .clone()
             .padded()
             .separated_by(just(',').padded())
             .allow_trailing()
@@ -423,7 +1051,42 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     elements,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let empty_array_expr = just('[')
+            .padded()
+            .then_ignore(just(']').padded())
+            .map_with(|_, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Array(ArrayExpr {
+                    elements: Vec::new(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let array_function_expr = text::keyword("array")
+            .padded()
+            .ignore_then(
+                array_element
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .map_with(|elements, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Array(ArrayExpr {
+                    elements,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
 
         let object_field = text::ident()
             .padded()
@@ -433,7 +1096,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map(|(name, value): (&str, Expr)| ObjectField {
                 name: name.to_string(),
                 value,
-            });
+            })
+            .boxed();
 
         let structural_object_expr = object_field
             .clone()
@@ -449,7 +1113,23 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     fields,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let type_ascribed_structural_object_expr = structural_object_expr
+            .clone()
+            .then_ignore(just(':').padded())
+            .then(type_expr.clone().padded())
+            .map_with(|(expr, ty), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::TypeAscription(Box::new(TypeAscriptionExpr {
+                    expr,
+                    ty,
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
 
         let object_expr = text::ident()
             .padded()
@@ -467,125 +1147,234 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     fields,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let parenthesized = expr
             .clone()
-            .delimited_by(just('(').padded(), just(')').padded());
+            .delimited_by(just('(').padded(), just(')').padded())
+            .boxed();
 
-        let atom = choice((
+        let match_condition = text::keyword("default")
+            .padded()
+            .to(Vec::<Expr>::new())
+            .or(expr
+                .clone()
+                .separated_by(just(',').padded())
+                .at_least(1)
+                .collect::<Vec<_>>())
+            .boxed();
+        let match_arm = match_condition
+            .then_ignore(just("=>").padded())
+            .then(expr.clone())
+            .then_ignore(just(',').padded().or_not())
+            .map_with(|(conditions, value): (Vec<Expr>, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                MatchArm {
+                    conditions,
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
+            })
+            .boxed();
+        let match_expr = text::keyword("match")
+            .padded()
+            .ignore_then(
+                expr.clone()
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .then(
+                match_arm
+                    .repeated()
+                    .at_least(1)
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(|(subject, arms): (Expr, Vec<MatchArm>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Match(Box::new(MatchExpr {
+                    subject,
+                    arms,
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
+
+        let callable_expr = dynamic_function_call_expr.or(function_call_expr).boxed();
+
+        let primary_atom = choice((
+            match_expr,
             run_expr,
             fork_expr,
             spawn_expr,
             join_expr,
-            require_expr,
+            include_expr,
+            closure_expr,
+            arrow_function_expr,
             new_expr,
             parenthesized,
+            type_ascribed_structural_object_expr,
             structural_object_expr,
             object_expr,
             static_call_expr,
-            function_call_expr,
+            static_property_fetch_expr,
+            class_constant_fetch_expr,
+            array_function_expr,
+            callable_expr,
             variable,
+        ))
+        .boxed();
+
+        let literal_atom = choice((
             magic_dir,
             null,
             bool_literal,
+            empty_array_expr,
             array_expr,
             list_expr,
             string,
             number,
+            constant_expr,
         ))
         .boxed();
 
+        let atom = primary_atom.or(literal_atom).boxed();
+
         #[derive(Clone)]
         enum Postfix {
-            MethodCall { method: String, args: Vec<Expr> },
-            TypeAscription(String),
+            MethodCall {
+                method: String,
+                method_span: Span,
+                args: Vec<CallArg>,
+            },
             Field(String),
             Index(Expr),
+            Call(Vec<CallArg>),
         }
 
-        let arrow_method_call_postfix = just("->")
+        let member_name = text::ident().map_with(|method: &str, extra| {
+            let span: SimpleSpan = extra.span();
+            (method.to_string(), Span::new(span.start, span.end))
+        });
+        let dynamic_member_name = just('{')
+            .padded()
+            .ignore_then(just('$'))
             .ignore_then(text::ident().padded())
-            .then_ignore(just('(').padded())
-            .then(args.clone())
-            .then_ignore(just(')').padded())
-            .map(|(method, args): (&str, Vec<Expr>)| Postfix::MethodCall {
-                method: method.to_string(),
-                args,
+            .then_ignore(just('}').padded())
+            .map_with(|method: &str, extra| {
+                let span: SimpleSpan = extra.span();
+                (
+                    format!("${{{method}}}"),
+                    Span::new(span.start, span.end),
+                )
             });
-        let dot_postfix = just('.')
-            .ignore_then(text::ident())
+        let arrow_postfix = just("->")
+            .ignore_then(dynamic_member_name.or(member_name.clone()))
+            .padded()
             .then(
                 args.clone()
                     .delimited_by(just('(').padded(), just(')').padded())
                     .or_not(),
             )
-            .map(|(name, args): (&str, Option<Vec<Expr>>)| match args {
-                Some(args) => Postfix::MethodCall {
-                    method: name.to_string(),
-                    args,
+            .map(
+                |((name, name_span), args): ((String, Span), Option<Vec<CallArg>>)| match args {
+                    Some(args) => Postfix::MethodCall {
+                        method: name,
+                        method_span: name_span,
+                        args,
+                    },
+                    None => Postfix::Field(name),
                 },
-                None => Postfix::Field(name.to_string()),
-            });
-        let type_ascription_postfix = just(':')
-            .padded()
-            .ignore_then(type_expr.clone().padded())
-            .map(Postfix::TypeAscription);
+            );
+        let dot_postfix = just('.')
+            .ignore_then(member_name)
+            .then(
+                args.clone()
+                    .delimited_by(just('(').padded(), just(')').padded())
+                    .or_not(),
+            )
+            .map(
+                |((name, name_span), args): ((String, Span), Option<Vec<CallArg>>)| match args {
+                    Some(args) => Postfix::MethodCall {
+                        method: name,
+                        method_span: name_span,
+                        args,
+                    },
+                    None => Postfix::Field(name),
+                },
+            );
         let index_postfix = expr
             .clone()
             .padded()
             .delimited_by(just('[').padded(), just(']').padded())
             .map(Postfix::Index);
+        let call_postfix = args
+            .clone()
+            .delimited_by(just('(').padded(), just(')').padded())
+            .map(Postfix::Call);
 
-        let fielded = atom.clone().foldl(
-            arrow_method_call_postfix
-                .or(dot_postfix)
-                .or(type_ascription_postfix)
-                .or(index_postfix)
-                .repeated(),
-            |left, postfix| match postfix {
-                Postfix::MethodCall { method, args } => {
-                    let end = args
-                        .last()
-                        .map_or(left.span().end + method.len() + 4, |arg| arg.span().end + 1);
-                    let span = Span::new(left.span().start, end);
-
-                    Expr::MethodCall(Box::new(MethodCallExpr {
-                        object: left,
+        let fielded = atom
+            .clone()
+            .foldl(
+                arrow_postfix
+                    .or(dot_postfix)
+                    .or(index_postfix)
+                    .or(call_postfix)
+                    .repeated(),
+                |left, postfix| match postfix {
+                    Postfix::MethodCall {
                         method,
+                        method_span,
                         args,
-                        span,
-                    }))
-                }
-                Postfix::TypeAscription(ty) => {
-                    let span = Span::new(left.span().start, left.span().end + ty.len() + 2);
+                    } => {
+                        let end = args
+                            .last()
+                            .map_or(left.span().end + method.len() + 4, |arg| arg.span.end + 1);
+                        let span = Span::new(left.span().start, end);
 
-                    Expr::TypeAscription(Box::new(TypeAscriptionExpr {
-                        expr: left,
-                        ty,
-                        span,
-                    }))
-                }
-                Postfix::Field(field) => {
-                    let span = Span::new(left.span().start, left.span().end + field.len() + 1);
+                        Expr::MethodCall(Box::new(MethodCallExpr {
+                            object: left,
+                            method,
+                            method_span,
+                            args,
+                            span,
+                        }))
+                    }
+                    Postfix::Field(field) => {
+                        let span = Span::new(left.span().start, left.span().end + field.len() + 1);
 
-                    Expr::Field(Box::new(FieldExpr {
-                        object: left,
-                        field,
-                        span,
-                    }))
-                }
-                Postfix::Index(index) => {
-                    let span = Span::new(left.span().start, index.span().end + 1);
+                        Expr::Field(Box::new(FieldExpr {
+                            object: left,
+                            field,
+                            span,
+                        }))
+                    }
+                    Postfix::Index(index) => {
+                        let span = Span::new(left.span().start, index.span().end + 1);
 
-                    Expr::Index(Box::new(IndexExpr {
-                        collection: left,
-                        index,
-                        span,
-                    }))
-                }
-            },
-        );
+                        Expr::Index(Box::new(IndexExpr {
+                            collection: left,
+                            index,
+                            span,
+                        }))
+                    }
+                    Postfix::Call(args) => {
+                        let end = args
+                            .last()
+                            .map_or(left.span().end + 2, |arg| arg.span.end + 1);
+                        let span = Span::new(left.span().start, end);
+
+                        Expr::DynamicCall(Box::new(DynamicCallExpr {
+                            callee: left,
+                            args,
+                            span,
+                        }))
+                    }
+                },
+            )
+            .boxed();
 
         let powered = fielded
             .clone()
@@ -600,115 +1389,140 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     right,
                     span,
                 }))
-            });
+            })
+            .boxed();
 
         let unary_op = just('+')
             .to(UnaryOp::Plus)
             .or(just('-').to(UnaryOp::Minus))
+            .or(just('!').to(UnaryOp::Not))
             .padded();
 
-        let signed = unary_op.repeated().foldr(powered, |op, expr| {
-            let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
-            Expr::Unary(Box::new(UnaryExpr { op, expr, span }))
-        });
+        let cast_type = text::keyword("array")
+            .or(text::keyword("string"))
+            .or(text::keyword("int"))
+            .or(text::keyword("integer"))
+            .or(text::keyword("bool"))
+            .or(text::keyword("boolean"))
+            .or(text::keyword("float"))
+            .or(text::keyword("double"))
+            .padded()
+            .delimited_by(just('(').padded(), just(')').padded());
 
-        let multiplicative = signed.clone().foldl(
-            just('*')
-                .to(BinaryOp::Mul)
-                .or(just('/').to(BinaryOp::Div))
-                .or(just('%').to(BinaryOp::Mod))
-                .padded()
-                .then(signed)
-                .repeated(),
-            |left, (op, right)| {
-                let span = Span::new(left.span().start, right.span().end);
-
-                Expr::Binary(Box::new(BinaryExpr {
-                    left,
-                    op,
-                    right,
+        let casted = cast_type
+            .repeated()
+            .foldr(powered, |ty: &str, expr| {
+                let span = Span::new(
+                    expr.span().start.saturating_sub(ty.len() + 2),
+                    expr.span().end,
+                );
+                Expr::Cast(Box::new(CastExpr {
+                    ty: ty.to_string(),
+                    expr,
                     span,
                 }))
-            },
-        );
+            })
+            .boxed();
 
-        let dotted = multiplicative.clone().foldl(
-            just('.')
-                .padded()
-                .ignore_then(multiplicative.clone())
-                .repeated(),
-            |left, right| {
-                let span = Span::new(left.span().start, right.span().end);
+        let signed = unary_op
+            .repeated()
+            .foldr(casted, |op, expr| {
+                let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
+                Expr::Unary(Box::new(UnaryExpr { op, expr, span }))
+            })
+            .boxed();
 
-                Expr::Binary(Box::new(BinaryExpr {
-                    left,
-                    op: BinaryOp::Concat,
-                    right,
-                    span,
-                }))
-            },
-        );
+        let multiplicative = signed
+            .clone()
+            .foldl(
+                just('*')
+                    .to(BinaryOp::Mul)
+                    .or(just('/').to(BinaryOp::Div))
+                    .or(just('%').to(BinaryOp::Mod))
+                    .padded()
+                    .then(signed)
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
 
-        let additive = dotted.clone().foldl(
-            just('+')
-                .to(BinaryOp::Add)
-                .or(just('-').to(BinaryOp::Sub))
-                .padded()
-                .then(dotted)
-                .repeated(),
-            |left, (op, right)| {
-                let span = Span::new(left.span().start, right.span().end);
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
 
-                Expr::Binary(Box::new(BinaryExpr {
-                    left,
-                    op,
-                    right,
-                    span,
-                }))
-            },
-        );
+        let dotted = multiplicative
+            .clone()
+            .foldl(
+                just('.')
+                    .padded()
+                    .ignore_then(multiplicative.clone())
+                    .repeated(),
+                |left, right| {
+                    let span = Span::new(left.span().start, right.span().end);
 
-        let is_expr = additive.clone().foldl(
-            text::keyword(kw::IS.text)
-                .padded()
-                .ignore_then(text::keyword(kw::NOT.text).padded().to(true).or_not())
-                .then_ignore(text::keyword(kw::NULL.text).padded())
-                .repeated(),
-            |left, is_not| {
-                let span = left.span();
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op: BinaryOp::Concat,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
 
-                Expr::Binary(Box::new(BinaryExpr {
-                    left,
-                    op: if is_not.unwrap_or(false) {
-                        BinaryOp::IsNot
-                    } else {
-                        BinaryOp::Is
-                    },
-                    right: Expr::Null(NullLiteral { span }),
-                    span,
-                }))
-            },
-        );
+        let additive = dotted
+            .clone()
+            .foldl(
+                just('+')
+                    .to(BinaryOp::Add)
+                    .or(just('-').to(BinaryOp::Sub))
+                    .padded()
+                    .then(dotted)
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
 
-        let comparison = is_expr.clone().foldl(
-            just("===")
-                .to(BinaryOp::Identical)
-                .padded()
-                .then(is_expr)
-                .repeated(),
-            |left, (op, right)| {
-                let span = Span::new(left.span().start, right.span().end);
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
 
-                Expr::Binary(Box::new(BinaryExpr {
-                    left,
-                    op,
-                    right,
-                    span,
-                }))
-            },
-        );
+        let is_expr = additive
+            .clone()
+            .foldl(
+                text::keyword(kw::IS.text)
+                    .padded()
+                    .ignore_then(text::keyword(kw::NOT.text).padded().to(true).or_not())
+                    .then_ignore(text::keyword(kw::NULL.text).padded())
+                    .repeated(),
+                |left, is_not| {
+                    let span = left.span();
 
-        just('$')
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op: if is_not.unwrap_or(false) {
+                            BinaryOp::IsNot
+                        } else {
+                            BinaryOp::Is
+                        },
+                        right: Expr::Null(NullLiteral { span }),
+                        span,
+                    }))
+                },
+            )
+            .boxed();
+
+        let variable_assign = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('=').padded())
             .then(expr.clone())
@@ -720,24 +1534,211 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     value,
                     span: Span::new(span.start, span.end),
                 }))
+            });
+
+        let not_variable_assign = just('!')
+            .padded()
+            .ignore_then(variable_assign.clone())
+            .map(|expr| {
+                let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
+                Expr::Unary(Box::new(UnaryExpr {
+                    op: UnaryOp::Not,
+                    expr,
+                    span,
+                }))
+            });
+
+        let comparison_operand = not_variable_assign
+            .clone()
+            .or(variable_assign.clone())
+            .or(is_expr.clone())
+            .boxed();
+
+        let comparison = comparison_operand
+            .clone()
+            .foldl(
+                just("!==")
+                    .to(BinaryOp::NotIdentical)
+                    .or(just("===").to(BinaryOp::Identical))
+                    .or(just("==").to(BinaryOp::Equal))
+                    .or(just("!=").to(BinaryOp::NotEqual))
+                    .or(text::keyword("instanceof").to(BinaryOp::InstanceOf))
+                    .or(just(">=").to(BinaryOp::GreaterThanOrEqual))
+                    .or(just('<').to(BinaryOp::LessThan))
+                    .padded()
+                    .then(comparison_operand)
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
+
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
+
+        let static_property_assign = php_qualified_name
+            .clone()
+            .then_ignore(just("::").padded())
+            .then_ignore(just('$').padded())
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .map_with(
+                |((class_name, property), value): ((QualifiedName, &str), Expr), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Expr::StaticPropertyAssign(Box::new(StaticPropertyAssignExpr {
+                        class_name,
+                        property: property.to_string(),
+                        value,
+                        span: Span::new(span.start, span.end),
+                    }))
+                },
+            );
+
+        let static_property_coalesce_assign = php_qualified_name
+            .clone()
+            .then_ignore(just("::").padded())
+            .then_ignore(just('$').padded())
+            .then(text::ident().padded())
+            .then_ignore(just("??=").padded())
+            .then(expr.clone())
+            .map_with(
+                |((class_name, property), value): ((QualifiedName, &str), Expr), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Expr::StaticPropertyCoalesceAssign(Box::new(StaticPropertyAssignExpr {
+                        class_name,
+                        property: property.to_string(),
+                        value,
+                        span: Span::new(span.start, span.end),
+                    }))
+                },
+            );
+
+        let index_assign = fielded
+            .clone()
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .map_with(|(target, value): (Expr, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::TargetAssign(Box::new(TargetAssignExpr {
+                    target,
+                    value,
+                    span: Span::new(span.start, span.end),
+                }))
+            });
+
+        let logical_and = comparison
+            .clone()
+            .foldl(
+                just("&&")
+                    .to(BinaryOp::And)
+                    .padded()
+                    .then(variable_assign.clone().or(comparison.clone()))
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
+
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
+
+        let logical_or = logical_and
+            .clone()
+            .foldl(
+                just("||")
+                    .to(BinaryOp::Or)
+                    .padded()
+                    .then(variable_assign.clone().or(logical_and.clone()))
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
+
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
+
+        let coalesce = logical_or
+            .clone()
+            .foldl(
+                just("??")
+                    .to(BinaryOp::Coalesce)
+                    .padded()
+                    .then(logical_or.clone())
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
+
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
+
+        let ternary = coalesce
+            .clone()
+            .then(
+                just('?')
+                    .padded()
+                    .ignore_then(coalesce.clone().or_not())
+                    .then_ignore(just(':').padded())
+                    .then(coalesce.clone())
+                    .or_not(),
+            )
+            .map(|(condition, branches)| match branches {
+                Some((if_true, if_false)) => {
+                    let if_true = if_true.unwrap_or_else(|| condition.clone());
+                    let span = Span::new(condition.span().start, if_false.span().end);
+                    Expr::Ternary(Box::new(TernaryExpr {
+                        condition,
+                        if_true,
+                        if_false,
+                        span,
+                    }))
+                }
+                None => condition,
             })
-            .or(comparison)
+            .boxed();
+
+        static_property_coalesce_assign
+            .or(static_property_assign)
+            .or(variable_assign)
+            .or(index_assign)
+            .or(ternary)
+            .boxed()
     });
 
-    let statement = recursive(|statement| {
+    statement.define({
+        let statement = statement.clone();
+        let expr = expr.clone();
+
         let terminator = just(';').padded().ignored().or(end().ignored());
 
-        let qualified_name = text::ident()
-            .separated_by(just('\\'))
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
-
-        let dotted_name = text::ident()
-            .separated_by(just('.'))
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()));
+        let php_name = qualified_name('\\');
+        let dotted_name = qualified_name('.');
 
         let module_stmt = text::keyword(kw::MODULE.text)
             .padded()
@@ -751,18 +1752,17 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     name,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let namespace_stmt = text::keyword(kw::NAMESPACE.text)
             .padded()
             .ignore_then(
                 text::keyword(kw::STD.text)
                     .padded()
-                    .ignore_then(qualified_name.clone())
+                    .ignore_then(php_name.clone())
                     .map(|name| (NamespaceSource::Std, name))
-                    .or(qualified_name
-                        .clone()
-                        .map(|name| (NamespaceSource::Php, name))),
+                    .or(php_name.clone().map(|name| (NamespaceSource::Php, name))),
             )
             .then_ignore(terminator.clone())
             .map_with(|(source, name), extra| {
@@ -773,11 +1773,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     name,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let use_stmt = text::keyword(kw::USE.text)
             .padded()
-            .ignore_then(qualified_name.clone())
+            .ignore_then(text::keyword("function").padded().or_not())
+            .ignore_then(php_name.clone())
             .then(
                 text::keyword(kw::AS.text)
                     .padded()
@@ -793,7 +1795,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     alias: alias.map(str::to_string),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let echo_std_use_stmt = text::keyword(kw::USE.text)
             .padded()
@@ -816,7 +1819,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     alias: alias.map(str::to_string),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let dotted_use_stmt = text::keyword(kw::USE.text)
             .padded()
@@ -836,7 +1840,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     alias: alias.map(str::to_string),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let import_source = text::keyword(kw::STD.text)
             .padded()
@@ -845,13 +1850,14 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 .ignore_then(none_of('"').repeated().collect::<String>())
                 .then_ignore(just('"'))
                 .padded()
-                .map(ImportSource::File));
+                .map(ImportSource::File))
+            .boxed();
 
         let import_stmt = text::keyword(kw::FROM.text)
             .padded()
             .ignore_then(import_source)
             .then_ignore(text::keyword(kw::USE.text).padded())
-            .then(qualified_name.clone())
+            .then(php_name.clone())
             .then(
                 text::keyword(kw::AS.text)
                     .padded()
@@ -870,7 +1876,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let echo_exprs = expr
             .clone()
@@ -890,11 +1897,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     exprs,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let return_stmt = just("return")
             .padded()
-            .ignore_then(expr.clone().padded())
+            .ignore_then(expr.clone().padded().or_not())
             .then_ignore(terminator.clone())
             .map_with(|value, extra| {
                 let span: SimpleSpan = extra.span();
@@ -903,7 +1911,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     value,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let throw_stmt = text::keyword(kw::THROW.text)
+            .padded()
+            .ignore_then(expr.clone().padded())
+            .then_ignore(terminator.clone())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Throw(ThrowStmt {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
 
         let yield_stmt = text::keyword(kw::YIELD.text)
             .padded()
@@ -916,27 +1939,65 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     value,
                     span: Span::new(span.start, span.end),
                 })
+            })
+            .boxed();
+
+        let statement_function_name = dotted_function_name();
+
+        let statement_named_arg = text::ident()
+            .padded()
+            .then_ignore(just(':').padded())
+            .then(expr.clone())
+            .map_with(|(name, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                CallArg {
+                    name: Some(name.to_string()),
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
             });
 
-        let statement_function_name = text::ident()
-            .separated_by(just('.'))
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|parts| parts.join("."));
+        let statement_positional_arg = just("...")
+            .padded()
+            .or_not()
+            .ignore_then(expr.clone())
+            .map_with(|value, extra| {
+            let span: SimpleSpan = extra.span();
+
+            CallArg {
+                name: None,
+                value,
+                span: Span::new(span.start, span.end),
+            }
+            });
+
+        let statement_first_class_callable_placeholder_arg = just("...").map_with(|_, extra| {
+            let span: SimpleSpan = extra.span();
+            CallArg {
+                name: None,
+                value: Expr::Null(NullLiteral {
+                    span: Span::new(span.start, span.end),
+                }),
+                span: Span::new(span.start, span.end),
+            }
+        });
+
+        let statement_args = statement_named_arg
+            .or(statement_positional_arg)
+            .or(statement_first_class_callable_placeholder_arg)
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .collect::<Vec<_>>();
 
         let function_call_stmt = statement_function_name
             .padded()
             .then_ignore(just('(').padded())
-            .then(
-                expr.clone()
-                    .padded()
-                    .separated_by(just(',').padded())
-                    .allow_trailing()
-                    .collect::<Vec<_>>(),
-            )
+            .then(statement_args.clone())
             .then_ignore(just(')').padded())
             .then_ignore(terminator.clone())
-            .map_with(|(name, args): (String, Vec<Expr>), extra| {
+            .map_with(|(name, args): (String, Vec<CallArg>), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::FunctionCall(FunctionCallStmt {
@@ -944,21 +2005,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     args,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let dynamic_function_call_stmt = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just('(').padded())
-            .then(
-                expr.clone()
-                    .padded()
-                    .separated_by(just(',').padded())
-                    .allow_trailing()
-                    .collect::<Vec<_>>(),
-            )
+            .then(statement_args.clone())
             .then_ignore(just(')').padded())
             .then_ignore(terminator.clone())
-            .map_with(|(name, args): (&str, Vec<Expr>), extra| {
+            .map_with(|(name, args): (&str, Vec<CallArg>), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::DynamicFunctionCall(DynamicFunctionCallStmt {
@@ -966,7 +2022,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     args,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let params = just('$')
             .ignore_then(text::ident())
@@ -979,14 +2036,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .clone()
             .padded()
             .or_not()
+            .then_ignore(just("...").padded().or_not())
+            .then_ignore(just('&').padded().or_not())
             .then_ignore(just('$'))
             .then(text::ident().padded())
             .map(|(ty, name): (Option<String>, &str)| TypedParam {
                 name: name.to_string(),
                 ty,
+                default_value: None,
+                promoted_visibility: None,
             });
 
-        let suffix_typed_param = just('$')
+        let suffix_typed_param = just("...")
+            .padded()
+            .or_not()
+            .then_ignore(just('&').padded().or_not())
+            .ignore_then(just('$'))
             .ignore_then(text::ident().padded())
             .then(
                 just(':')
@@ -997,25 +2062,25 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map(|(name, ty): (&str, Option<String>)| TypedParam {
                 name: name.to_string(),
                 ty,
+                default_value: None,
+                promoted_visibility: None,
             });
 
-        let typed_param = suffix_typed_param.or(prefix_typed_param);
+        let typed_param = suffix_typed_param
+            .or(prefix_typed_param)
+            .then(just('=').padded().ignore_then(expr.clone()).or_not())
+            .map(|(mut param, default_value)| {
+                param.default_value = default_value;
+                param
+            })
+            .boxed();
 
-        let method_param = typed_param.clone();
-
-        let method_body = recursive(|body| {
-            none_of("{}")
-                .ignored()
-                .or(body)
-                .repeated()
-                .ignored()
-                .delimited_by(just('{').padded(), just('}').padded())
-                .ignored()
-        });
-        let method_end = method_body
-            .then_ignore(terminator.clone().or_not())
-            .or(terminator.clone())
-            .ignored();
+        let method_body = statement
+            .clone()
+            .repeated()
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded())
+            .boxed();
 
         let method_visibility = text::keyword(kw::PUB.text)
             .to(MethodVisibility::Public)
@@ -1023,13 +2088,26 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(text::keyword(kw::PROTECTED.text).to(MethodVisibility::Protected))
             .or(text::keyword(kw::PRIVATE.text).to(MethodVisibility::Private))
             .padded()
-            .or_not();
+            .or_not()
+            .boxed();
+
+        let method_param = method_visibility
+            .clone()
+            .then(typed_param.clone())
+            .map(|(visibility, mut param)| {
+                param.promoted_visibility = visibility;
+                param
+            })
+            .or(typed_param.clone())
+            .boxed();
 
         let function_keyword = text::keyword(kw::FN.text)
             .or(text::keyword(kw::FUNCTION.text))
-            .padded();
+            .padded()
+            .boxed();
 
         let method_decl = method_visibility
+            .clone()
             .then(
                 text::keyword(kw::INTRINSIC.text)
                     .padded()
@@ -1062,14 +2140,21 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .ignore_then(type_expr.clone().padded())
                     .or_not(),
             )
-            .then_ignore(method_end)
+            .then(method_body.or_not())
+            .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(((((visibility, is_intrinsic), is_static), name), params), return_type): (
+                |(
+                    (((((visibility, is_intrinsic), is_static), name), params), return_type),
+                    body,
+                ): (
                     (
-                        (((Option<MethodVisibility>, bool), bool), &str),
-                        Vec<TypedParam>,
+                        (
+                            (((Option<MethodVisibility>, bool), bool), &str),
+                            Vec<TypedParam>,
+                        ),
+                        Option<String>,
                     ),
-                    Option<String>,
+                    Option<Vec<Stmt>>,
                 ),
                  extra| {
                     let span: SimpleSpan = extra.span();
@@ -1078,14 +2163,82 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         name: name.to_string(),
                         params,
                         return_type,
-                        body: Vec::new(),
+                        body: body.unwrap_or_default(),
                         visibility: visibility.unwrap_or(MethodVisibility::Private),
                         is_static,
                         is_intrinsic,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
+
+        let property_decl = method_visibility
+            .clone()
+            .then(
+                text::keyword(kw::STATIC.text)
+                    .padded()
+                    .to(true)
+                    .or_not()
+                    .map(|is_static| is_static.unwrap_or(false)),
+            )
+            .then_ignore(type_expr.clone().padded().or_not())
+            .then_ignore(just('$').padded())
+            .then(text::ident().padded())
+            .then(just('=').padded().ignore_then(expr.clone()).or_not())
+            .then_ignore(terminator.clone())
+            .map_with(
+                |(((visibility, is_static), name), value): (
+                    ((Option<MethodVisibility>, bool), &str),
+                    Option<Expr>,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    ClassMember::Property(PropertyDecl {
+                        name: name.to_string(),
+                        value,
+                        visibility: visibility.unwrap_or(MethodVisibility::Private),
+                        is_static,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            )
+            .boxed();
+
+        let class_const_decl = method_visibility
+            .clone()
+            .then_ignore(text::keyword("const").padded())
+            .then(text::ident().padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then_ignore(terminator.clone())
+            .map_with(
+                |((visibility, name), value): ((Option<MethodVisibility>, &str), Expr), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    ClassMember::Const(ClassConstDecl {
+                        name: name.to_string(),
+                        value,
+                        visibility: visibility.unwrap_or(MethodVisibility::Public),
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            )
+            .boxed();
+
+        let trait_use_member = text::keyword(kw::USE.text)
+            .padded()
+            .ignore_then(php_name.clone().or(dotted_name.clone()))
+            .then_ignore(terminator.clone())
+            .map(ClassMember::TraitUse)
+            .boxed();
+
+        let class_member = trait_use_member
+            .or(method_decl.clone())
+            .or(class_const_decl)
+            .or(property_decl)
+            .boxed();
 
         let class_decl_stmt = just(kw::CLASS.text)
             .padded()
@@ -1093,32 +2246,70 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .then(
                 text::keyword("extends")
                     .padded()
-                    .ignore_then(qualified_name.clone().or(dotted_name.clone()))
+                    .ignore_then(php_name.clone().or(dotted_name.clone()))
+                    .or_not(),
+            )
+            .then(
+                text::keyword("implements")
+                    .padded()
+                    .ignore_then(
+                        php_name
+                            .clone()
+                            .or(dotted_name.clone())
+                            .separated_by(just(',').padded())
+                            .at_least(1)
+                            .collect::<Vec<_>>(),
+                    )
                     .or_not(),
             )
             .then_ignore(just('{').padded())
-            .then(method_decl.clone().repeated().collect::<Vec<_>>())
+            .then(class_member.clone().repeated().collect::<Vec<_>>())
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((name, parent), members): ((&str, Option<QualifiedName>), Vec<ClassMember>),
+                |(((name, parent), interfaces), members): (
+                    ((&str, Option<QualifiedName>), Option<Vec<QualifiedName>>),
+                    Vec<ClassMember>,
+                ),
                  extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::ClassDecl(ClassDeclStmt {
                         name: name.to_string(),
                         parent,
+                        interfaces: interfaces.unwrap_or_default(),
                         members,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
+
+        let trait_decl_stmt = text::keyword("trait")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then(
+                class_member
+                    .clone()
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(|(name, members): (&str, Vec<ClassMember>), extra| {
+                let span: SimpleSpan = extra.span();
+                Stmt::TraitDecl(TraitDeclStmt {
+                    name: name.to_string(),
+                    members,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
 
         let extend_decl_stmt = just("extend")
             .padded()
-            .ignore_then(qualified_name.clone().or(dotted_name.clone()))
+            .ignore_then(php_name.clone().or(dotted_name.clone()))
             .then_ignore(just('{').padded())
-            .then(method_decl.repeated().collect::<Vec<_>>())
+            .then(class_member.repeated().collect::<Vec<_>>())
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
@@ -1131,7 +2322,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let type_field = text::keyword(kw::CONST.text)
             .padded()
@@ -1152,7 +2344,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         is_optional: is_optional.unwrap_or(false),
                     }
                 },
-            );
+            )
+            .boxed();
 
         let type_decl_stmt = text::keyword(kw::TYPE.text)
             .padded()
@@ -1173,7 +2366,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     fields,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let unnamed_export_stmt = text::keyword(kw::PUB.text)
+            .padded()
+            .ignore_then(expr.clone().padded())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::UnnamedExport(UnnamedExportStmt {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
 
         let function_decl_stmt = just("function")
             .padded()
@@ -1196,6 +2404,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                             .map(|name| TypedParam {
                                 name: name.to_string(),
                                 ty: None,
+                                default_value: None,
+                                promoted_visibility: None,
                             })
                             .collect(),
                         return_type: None,
@@ -1205,7 +2415,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let fn_decl_stmt = text::keyword(kw::FN.text)
             .padded()
@@ -1248,7 +2459,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let intrinsic_function_decl_stmt = text::keyword(kw::INTRINSIC.text)
             .padded()
@@ -1290,7 +2502,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let gen_fn_decl_stmt = text::keyword(kw::GEN.text)
             .padded()
@@ -1334,7 +2547,23 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
+
+        let coalesce_assign_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just("??=").padded())
+            .then(expr.clone())
+            .then_ignore(terminator.clone())
+            .map_with(|(name, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::CoalesceAssign(CoalesceAssignStmt {
+                    name: name.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
 
         let assign_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -1351,6 +2580,35 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                 })
             });
 
+        let list_assign_target = expr
+            .clone()
+            .then_ignore(just("=>").padded())
+            .or_not()
+            .ignore_then(just('$'))
+            .ignore_then(text::ident().padded());
+
+        let list_assign_stmt = just('[')
+            .padded()
+            .ignore_then(
+                list_assign_target
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(']').padded())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then_ignore(terminator.clone())
+            .map_with(|(targets, value): (Vec<&str>, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::ListAssign(ListAssignStmt {
+                    targets: targets.into_iter().map(str::to_string).collect(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            });
+
         let stray_terminators = just(';').padded().repeated();
         let block = stray_terminators
             .clone()
@@ -1362,7 +2620,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     .collect::<Vec<_>>(),
             )
             .then_ignore(stray_terminators.clone())
-            .delimited_by(just('{').padded(), just('}').padded());
+            .delimited_by(just('{').padded(), just('}').padded())
+            .boxed();
 
         let let_binding = just('$').ignore_then(text::ident().padded()).then(
             just(':')
@@ -1388,7 +2647,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let let_join_run_block_stmt = text::keyword(kw::LET.text)
             .padded()
@@ -1416,7 +2676,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: run_span,
                     })
                 },
-            );
+            )
+            .boxed();
 
         let let_loop_block_stmt = text::keyword(kw::LET.text)
             .padded()
@@ -1439,7 +2700,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let let_run_block_stmt = text::keyword(kw::LET.text)
             .padded()
@@ -1462,7 +2724,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let run_group_entries = block
             .clone()
@@ -1471,7 +2734,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .allow_trailing()
             .at_least(1)
             .collect::<Vec<_>>()
-            .delimited_by(just('[').padded(), just(']').padded());
+            .delimited_by(just('[').padded(), just(']').padded())
+            .boxed();
 
         let let_run_group_stmt = text::keyword(kw::LET.text)
             .padded()
@@ -1494,7 +2758,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                         span: Span::new(span.start, span.end),
                     })
                 },
-            );
+            )
+            .boxed();
 
         let run_block_stmt = text::keyword(kw::RUN.text)
             .padded()
@@ -1510,24 +2775,27 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     }),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
-        let append_stmt = just('$')
-            .ignore_then(text::ident().padded())
+        let append_stmt = expr
+            .clone()
+            .padded()
             .then_ignore(just('[').padded())
             .then_ignore(just(']').padded())
             .then_ignore(just('=').padded())
             .then(expr.clone())
             .then_ignore(terminator.clone())
-            .map_with(|(target, value): (&str, Expr), extra| {
+            .map_with(|(target, value): (Expr, Expr), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::Append(AppendStmt {
-                    target: target.to_string(),
+                    target,
                     value,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let loop_stmt = text::keyword(kw::LOOP.text)
             .padded()
@@ -1540,9 +2808,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     body,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
-        let if_stmt = text::keyword(kw::IF.text)
+        let while_stmt = text::keyword("while")
             .padded()
             .ignore_then(expr.clone())
             .then(block.clone())
@@ -1550,12 +2819,148 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .map_with(|(condition, body), extra| {
                 let span: SimpleSpan = extra.span();
 
-                Stmt::If(IfStmt {
+                Stmt::While(WhileStmt {
                     condition,
                     body,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let foreach_value = just('$').ignore_then(text::ident().padded());
+        let foreach_key_value = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just("=>").padded())
+            .then(just('$').ignore_then(text::ident().padded()))
+            .map(|(key, value): (&str, &str)| (Some(key.to_string()), value.to_string()));
+        let foreach_stmt = text::keyword("foreach")
+            .padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(expr.clone())
+            .then_ignore(text::keyword("as").padded())
+            .then(foreach_key_value.or(foreach_value.map(|value: &str| (None, value.to_string()))))
+            .then_ignore(just(')').padded())
+            .then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|((iterable, (key, value)), body), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Foreach(ForeachStmt {
+                    iterable,
+                    key,
+                    value,
+                    body,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let elseif_clause = text::keyword(kw::ELSEIF.text)
+            .padded()
+            .or(text::keyword(kw::ELSE.text)
+                .padded()
+                .then_ignore(text::keyword(kw::IF.text).padded()))
+            .ignore_then(expr.clone())
+            .then(block.clone())
+            .map_with(|(condition, body), extra| {
+                let span: SimpleSpan = extra.span();
+                ElseIfClause {
+                    condition,
+                    body,
+                    span: Span::new(span.start, span.end),
+                }
+            })
+            .boxed();
+
+        let else_clause = text::keyword(kw::ELSE.text)
+            .padded()
+            .ignore_then(block.clone())
+            .boxed();
+
+        let if_stmt = text::keyword(kw::IF.text)
+            .padded()
+            .ignore_then(expr.clone())
+            .then(block.clone())
+            .then(elseif_clause.repeated().collect::<Vec<_>>())
+            .then(else_clause.or_not())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|(((condition, body), elseif_clauses), else_body), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::If(IfStmt {
+                    condition,
+                    body,
+                    elseif_clauses,
+                    else_body: else_body.unwrap_or_default(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let catch_type = just('\\')
+            .or_not()
+            .ignore_then(
+                text::ident()
+                    .separated_by(just('\\'))
+                    .at_least(1)
+                    .collect::<Vec<_>>(),
+            )
+            .map(|parts| QualifiedName::new(parts.into_iter().map(str::to_string).collect()))
+            .boxed();
+
+        let catch_clause = just("catch")
+            .padded()
+            .ignore_then(
+                catch_type
+                    .clone()
+                    .separated_by(just('|').padded())
+                    .at_least(1)
+                    .collect::<Vec<_>>()
+                    .padded()
+                    .then(just('$').ignore_then(text::ident().padded()).or_not())
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .then(block.clone())
+            .map_with(|((types, variable), body), extra| {
+                let span: SimpleSpan = extra.span();
+                CatchClause {
+                    types,
+                    variable: variable.map(str::to_string),
+                    body,
+                    span: Span::new(span.start, span.end),
+                }
+            })
+            .boxed();
+
+        let try_stmt = just("try")
+            .padded()
+            .ignore_then(block.clone())
+            .then_ignore(terminator.clone().repeated())
+            .then(catch_clause.repeated().collect::<Vec<_>>())
+            .then(
+                text::keyword("finally")
+                    .padded()
+                    .ignore_then(block.clone())
+                    .or_not(),
+            )
+            .then_ignore(terminator.clone().or_not())
+            .try_map(|((body, catches), finally_body), span: SimpleSpan| {
+                if catches.is_empty() && finally_body.is_none() {
+                    return Err(Rich::custom(span, "expected catch or finally after try block"));
+                }
+
+                Ok((body, catches, finally_body))
+            })
+            .map_with(|(body, catches, finally_body), extra| {
+                let span: SimpleSpan = extra.span();
+                Stmt::Try(TryStmt {
+                    body,
+                    catches,
+                    finally_body: finally_body.unwrap_or_default(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
 
         let break_stmt = text::keyword(kw::BREAK.text)
             .padded()
@@ -1568,7 +2973,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     value,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let continue_stmt = text::keyword("continue")
+            .padded()
+            .ignore_then(expr.clone().padded().or_not())
+            .then_ignore(terminator.clone())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Continue(ContinueStmt {
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
 
         let assign_defer_block_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -1587,7 +3007,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     }),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let assign_run_block_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -1606,7 +3027,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     }),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let assign_run_group_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -1625,7 +3047,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     }),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let assign_fork_block_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -1644,7 +3067,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     }),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
         let assign_ref_stmt = just('$')
             .ignore_then(text::ident().padded())
@@ -1661,7 +3085,40 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     target: target.to_string(),
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
+
+        let post_increment_stmt = just('$')
+            .ignore_then(text::ident().padded())
+            .then_ignore(just("++").padded())
+            .then_ignore(terminator.clone())
+            .map_with(|name: &str, extra| {
+                let span: SimpleSpan = extra.span();
+                let span = Span::new(span.start, span.end);
+                let variable = Expr::Variable(VariableExpr {
+                    name: name.to_string(),
+                    span,
+                });
+                let one = Expr::Number(NumberLiteral {
+                    value: "1".to_string(),
+                    span,
+                });
+
+                Stmt::Expr(echo_ast::ExprStmt {
+                    expr: Expr::Assign(Box::new(AssignExpr {
+                        name: name.to_string(),
+                        value: Expr::Binary(Box::new(BinaryExpr {
+                            left: variable,
+                            op: BinaryOp::Add,
+                            right: one,
+                            span,
+                        })),
+                        span,
+                    })),
+                    span,
+                })
+            })
+            .boxed();
 
         let expr_stmt = expr
             .clone()
@@ -1673,28 +3130,44 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
                     expr,
                     span: Span::new(span.start, span.end),
                 })
-            });
+            })
+            .boxed();
 
-        class_decl_stmt
+        let declaration_stmt = class_decl_stmt
+            .or(trait_decl_stmt)
             .or(extend_decl_stmt)
             .or(gen_fn_decl_stmt)
             .or(fn_decl_stmt)
             .or(function_decl_stmt)
             .or(intrinsic_function_decl_stmt)
             .or(type_decl_stmt)
-            .or(module_stmt)
+            .or(unnamed_export_stmt)
+            .then_ignore(terminator.clone().or_not())
+            .boxed();
+
+        let module_import_stmt = module_stmt
             .or(echo_std_use_stmt)
-            .or(dotted_use_stmt)
             .or(namespace_stmt)
             .or(use_stmt)
+            .or(dotted_use_stmt)
             .or(import_stmt)
+            .boxed();
+
+        let flow_stmt = try_stmt
+            .clone()
             .or(echo_stmt)
             .or(return_stmt)
+            .or(throw_stmt)
             .or(yield_stmt)
             .or(loop_stmt)
+            .or(while_stmt)
+            .or(foreach_stmt)
             .or(if_stmt)
             .or(break_stmt)
-            .or(let_join_run_block_stmt)
+            .or(continue_stmt)
+            .boxed();
+
+        let binding_stmt = let_join_run_block_stmt
             .or(let_loop_block_stmt)
             .or(let_run_group_stmt)
             .or(let_run_block_stmt)
@@ -1706,10 +3179,24 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, extra::Err<Rich<'src,
             .or(run_block_stmt)
             .or(append_stmt)
             .or(assign_ref_stmt)
+            .or(post_increment_stmt)
+            .or(list_assign_stmt)
+            .or(coalesce_assign_stmt)
             .or(assign_stmt)
-            .or(dynamic_function_call_stmt)
+            .boxed();
+
+        let call_or_expr_stmt = dynamic_function_call_stmt
             .or(function_call_stmt)
             .or(expr_stmt)
+            .boxed();
+
+        try_stmt
+            .or(declaration_stmt)
+            .or(module_import_stmt)
+            .or(flow_stmt)
+            .or(binding_stmt)
+            .or(call_or_expr_stmt)
+            .boxed()
     });
 
     open_php

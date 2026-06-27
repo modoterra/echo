@@ -4,7 +4,7 @@ mod program;
 mod stmt;
 
 pub use expr::*;
-pub use lowering::lower_program;
+pub use lowering::{lower_expr, lower_program};
 pub use program::*;
 pub use stmt::*;
 

@@ -255,7 +255,10 @@ fn mir_task_sleep_millis(statement: &echo_mir::MirStmt) -> Option<i64> {
     if call.name != "time.sleep" {
         return None;
     }
-    let [echo_mir::MirExpr::Number { value, .. }] = call.args.as_slice() else {
+    let [arg] = call.args.as_slice() else {
+        return None;
+    };
+    let echo_mir::MirExpr::Number { value, .. } = &arg.value else {
         return None;
     };
 

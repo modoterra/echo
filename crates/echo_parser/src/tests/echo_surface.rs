@@ -71,7 +71,7 @@ fn parses_receiver_constants_as_special_expressions() {
         &program.statements[0],
         Stmt::FunctionCall(call)
             if matches!(
-                &call.args[0],
+                &call.args[0].value,
                 Expr::MethodCall(method_call)
                     if matches!(
                         &method_call.object,
@@ -80,10 +80,51 @@ fn parses_receiver_constants_as_special_expressions() {
                     )
             )
             && matches!(
-                &call.args[1],
+                &call.args[1].value,
                 Expr::ReceiverConst(receiver)
                     if receiver.kind == ReceiverConst::This
             )
+    ));
+}
+
+#[test]
+fn rejects_strict_receiver_constant_assignment() {
+    let diagnostics = parse_with_mode("$self = Other", SourceMode::Strict)
+        .expect_err("strict receiver constant assignment should fail");
+
+    assert!(diagnostics.iter().any(|diagnostic| diagnostic.message
+        == "$self is a compiler-provided receiver constant and cannot be assigned."));
+}
+
+#[test]
+fn rejects_strict_receiver_constant_parameter() {
+    let diagnostics = parse_with_mode("fn bad($parent): void {}", SourceMode::Strict)
+        .expect_err("strict receiver constant parameter should fail");
+
+    assert!(diagnostics.iter().any(|diagnostic| diagnostic.message
+        == "$parent is a compiler-provided receiver constant and cannot be declared."));
+}
+
+#[test]
+fn parses_unnamed_export_object() {
+    let program = parse_with_mode(
+        r#"module app.config
+
+pub {
+    server: {
+        host: "127.0.0.1"
+        port: 8080
+    }
+}
+"#,
+        SourceMode::Strict,
+    )
+    .expect("unnamed export object parses");
+
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::UnnamedExport(statement)
+            if matches!(&statement.value, Expr::Object(object) if object.fields.len() == 1)
     ));
 }
 
@@ -132,7 +173,7 @@ fn parses_type_ascribed_structural_literal_argument() {
                 &statement.expr,
                 Expr::MethodCall(expr)
                     if expr.method == "push"
-                        && matches!(&expr.args[0], Expr::TypeAscription(ascription) if ascription.ty == "User")
+                        && matches!(&expr.args[0].value, Expr::TypeAscription(ascription) if ascription.ty == "User")
             )
     ));
 }

@@ -9,15 +9,17 @@ fn userland_function_declaration_registers_reflection_metadata() {
             params: vec![TypedParam {
                 name: "name".to_string(),
                 ty: Some("string".to_string()),
+                default_value: None,
+                promoted_visibility: None,
             }],
             return_type: Some("string".to_string()),
             is_intrinsic: false,
             is_generator: false,
             body: vec![Stmt::Return(ReturnStmt {
-                value: Expr::String(StringLiteral {
+                value: Some(Expr::String(StringLiteral {
                     value: "hello\n".to_string(),
                     span: Span::new(0, 8),
-                }),
+                })),
                 span: Span::new(0, 15),
             })],
             span: Span::new(0, 40),
@@ -25,7 +27,7 @@ fn userland_function_declaration_registers_reflection_metadata() {
         Stmt::Echo(EchoStmt {
             exprs: vec![Expr::FunctionCall(FunctionCallExpr {
                 name: "reflect.params".to_string(),
-                args: vec![Expr::String(StringLiteral {
+                args: echo_ast::call_args![Expr::String(StringLiteral {
                     value: "greet".to_string(),
                     span: Span::new(50, 57),
                 })],
