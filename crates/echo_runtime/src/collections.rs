@@ -241,6 +241,53 @@ pub extern "C" fn echo_value_array_set(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_value_array_len(array: EchoValue) -> i64 {
+    if !array.is_array() {
+        return 0;
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return 0;
+    };
+
+    array.values.len() as i64
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_array_key_at(array: EchoValue, index: i64) -> EchoValue {
+    if !array.is_array() || index < 0 {
+        return EchoValue::null();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::null();
+    };
+
+    array
+        .keys
+        .get(index as usize)
+        .map(EchoArrayKey::to_value)
+        .unwrap_or_else(EchoValue::null)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_array_value_at(array: EchoValue, index: i64) -> EchoValue {
+    if !array.is_array() || index < 0 {
+        return EchoValue::null();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::null();
+    };
+
+    array
+        .values
+        .get(index as usize)
+        .copied()
+        .unwrap_or_else(EchoValue::null)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_value_index_get(collection: EchoValue, index: EchoValue) -> EchoValue {
     if collection.is_array() {
         let Some(key) = EchoArrayKey::from_value(index) else {

@@ -35,8 +35,9 @@ pub use collections::{
     echo_php_array_keys, echo_php_array_merge, echo_php_array_pad, echo_php_array_product,
     echo_php_array_replace, echo_php_array_reverse, echo_php_array_search, echo_php_array_slice,
     echo_php_array_sum, echo_php_array_values, echo_php_count, echo_php_in_array,
-    echo_value_array_append, echo_value_array_new, echo_value_array_set, echo_value_index_get,
-    echo_value_list_append, echo_value_list_new,
+    echo_value_array_append, echo_value_array_key_at, echo_value_array_len, echo_value_array_new,
+    echo_value_array_set, echo_value_array_value_at, echo_value_index_get, echo_value_list_append,
+    echo_value_list_new,
 };
 pub use encoding::{
     echo_php_base64_decode, echo_php_base64_encode, echo_php_bin2hex, echo_php_crc32,
@@ -116,9 +117,10 @@ pub use value::{
     echo_php_is_array, echo_php_is_bool, echo_php_is_countable, echo_php_is_float, echo_php_is_int,
     echo_php_is_iterable, echo_php_is_null, echo_php_is_numeric, echo_php_is_object,
     echo_php_is_resource, echo_php_is_scalar, echo_php_is_string, echo_php_octdec, echo_value_add,
-    echo_value_bool, echo_value_div, echo_value_exit_status, echo_value_identical, echo_value_mod,
-    echo_value_mul, echo_value_object_get, echo_value_object_new, echo_value_object_set,
-    echo_value_pow, echo_value_sub, echo_value_unary_minus, echo_value_unary_plus,
+    echo_value_bool, echo_value_div, echo_value_exit_status, echo_value_identical,
+    echo_value_less_than, echo_value_mod, echo_value_mul, echo_value_not, echo_value_object_get,
+    echo_value_object_new, echo_value_object_set, echo_value_or, echo_value_pow,
+    echo_value_string_equals_ptr, echo_value_sub, echo_value_unary_minus, echo_value_unary_plus,
 };
 pub(crate) use value::{
     PhpNumber, echo_values_equal, format_php_float, php_number_add, php_number_mul,

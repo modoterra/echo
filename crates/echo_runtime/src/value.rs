@@ -347,6 +347,24 @@ impl EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_value_string_equals_ptr(
+    value: EchoValue,
+    expected_ptr: *const u8,
+    expected_len: usize,
+) -> bool {
+    if expected_ptr.is_null() && expected_len != 0 {
+        return false;
+    }
+
+    let Some(bytes) = value.string_bytes() else {
+        return false;
+    };
+    let expected = unsafe { std::slice::from_raw_parts(expected_ptr, expected_len) };
+
+    bytes == expected
+}
+
 pub(crate) fn echo_values_equal(left: EchoValue, right: EchoValue) -> bool {
     if left.kind != right.kind {
         return false;
@@ -488,6 +506,27 @@ pub extern "C" fn echo_php_floatval(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_value_bool(value: EchoValue) -> bool {
     value.bool_value().unwrap_or(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_not(value: EchoValue) -> EchoValue {
+    EchoValue::bool(!value.bool_value().unwrap_or(false))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_less_than(left: EchoValue, right: EchoValue) -> EchoValue {
+    let Some(left) = PhpNumber::coerce(left) else {
+        return EchoValue::error();
+    };
+    let Some(right) = PhpNumber::coerce(right) else {
+        return EchoValue::error();
+    };
+    EchoValue::bool(left.as_float() < right.as_float())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_value_or(left: EchoValue, right: EchoValue) -> EchoValue {
+    EchoValue::bool(left.bool_value().unwrap_or(false) || right.bool_value().unwrap_or(false))
 }
 
 #[unsafe(no_mangle)]

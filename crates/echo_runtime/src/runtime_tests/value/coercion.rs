@@ -74,6 +74,47 @@ fn boolval_preserves_php_scalar_truthiness() {
 }
 
 #[test]
+fn logical_not_uses_php_scalar_truthiness() {
+    let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
+    let zero = Box::into_raw(Box::new(EchoString {
+        bytes: "0".as_bytes().to_vec(),
+    }));
+    let false_text = Box::into_raw(Box::new(EchoString {
+        bytes: "false".as_bytes().to_vec(),
+    }));
+
+    assert_eq!(echo_value_not(EchoValue::null()), EchoValue::bool(true));
+    assert_eq!(
+        echo_value_not(EchoValue::bool(false)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_value_not(EchoValue::bool(true)),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_value_not(EchoValue::int(0)), EchoValue::bool(true));
+    assert_eq!(echo_value_not(EchoValue::int(42)), EchoValue::bool(false));
+    assert_eq!(
+        echo_value_not(EchoValue::string(empty)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_value_not(EchoValue::string(zero)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_value_not(EchoValue::string(false_text)),
+        EchoValue::bool(false)
+    );
+
+    unsafe {
+        drop(Box::from_raw(empty));
+        drop(Box::from_raw(zero));
+        drop(Box::from_raw(false_text));
+    }
+}
+
+#[test]
 fn intval_preserves_php_default_base_scalar_coercion() {
     let empty = Box::into_raw(Box::new(EchoString { bytes: Vec::new() }));
     let prefixed = Box::into_raw(Box::new(EchoString {
