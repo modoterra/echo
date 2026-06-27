@@ -46,14 +46,14 @@ class UserController {
 #[test]
 fn echo_module_server_surface_produces_index_facts() {
     let facts = parse_index_facts(
-        r#"module modoterra.laravel_echo.server
+        r#"module acme.http_server.runtime
 
 use std.http
 use std.net
-use modoterra.laravel_echo.LaravelEcho
+use acme.http_server.ServerKernel
 
-let $app = require_once config("echo.paths.laravel_bootstrap")
-let $kernel = LaravelEcho.kernel($app)
+let $app = require_once config("server.paths.bootstrap")
+let $kernel = ServerKernel.from($app)
 let $address = config("echo.server.host", "127.0.0.1") . ":" . config("echo.server.port", 8080)
 let $server = net.listen($address)
 
@@ -74,7 +74,7 @@ loop {
 
     assert!(facts.declarations.iter().any(|symbol| {
         symbol.kind == SymbolKind::Namespace
-            && symbol.name.text.as_str() == "modoterra\\laravel_echo\\server"
+            && symbol.name.text.as_str() == "acme\\http_server\\runtime"
     }));
     assert!(facts.dependencies.iter().any(|dependency| {
         dependency.kind == DependencyKind::EchoStdImport && dependency.target == "http"
@@ -85,28 +85,15 @@ loop {
 }
 
 #[test]
-fn echo_service_provider_surface_produces_index_facts() {
+fn echo_package_provider_surface_produces_index_facts() {
     let facts = parse_index_facts(
-        r#"module modoterra.laravel_echo
-
-use illuminate.support.ServiceProvider
-use modoterra.laravel_echo.console.EchoStartCommand
-
-class EchoServiceProvider extends ServiceProvider {
-    pub fn register(): void {
-        $this.mergeConfigFrom(__DIR__ . "/../config/echo.php", "echo")
+        r#"class ReportFormatter {
+    fn slug($name): string {
+        return $name
     }
 
-    pub fn boot(): void {
-        $this.publishes({
-            __DIR__ . "/../config/echo.php": config_path("echo.php"),
-        }, "echo-config")
-
-        if $this.app.runningInConsole() {
-            $this.commands({
-                EchoStartCommand,
-            })
-        }
+    pub fn title($name): string {
+        return $this.slug($name)
     }
 }
 "#,
@@ -114,23 +101,15 @@ class EchoServiceProvider extends ServiceProvider {
         EchoFileMode::Echo,
         None,
     )
-    .expect("Echo service provider source parses for LSP indexing");
+    .expect("Echo package provider source parses for LSP indexing");
 
-    assert!(facts.declarations.iter().any(|symbol| {
-        symbol.kind == SymbolKind::Namespace
-            && symbol.name.text.as_str() == "modoterra\\laravel_echo"
-    }));
     assert!(
         facts
             .declarations
             .iter()
             .any(|symbol| symbol.kind == SymbolKind::Class
-                && symbol.name.text.as_str() == "EchoServiceProvider")
+                && symbol.name.text.as_str() == "ReportFormatter")
     );
-    assert!(facts.dependencies.iter().any(|dependency| {
-        dependency.kind == DependencyKind::PhpUse
-            && dependency.target == "illuminate\\support\\ServiceProvider"
-    }));
 }
 
 #[test]

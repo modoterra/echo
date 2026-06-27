@@ -1,4 +1,4 @@
-use echo_index::{DependencyFact, DependencyKind, Symbol, SymbolKind, TextOffset};
+use echo_index::{DependencyFact, Symbol, TextOffset};
 use ropey::Rope;
 use tower_lsp_server::ls_types::{
     ParameterInformation, ParameterLabel, SignatureHelp, SignatureHelpOptions,
@@ -33,8 +33,8 @@ pub fn signature_help_at(
 
 fn signature_for_call(
     call: &CallContext,
-    symbols: &[&Symbol],
-    dependencies: &[&DependencyFact],
+    _symbols: &[&Symbol],
+    _dependencies: &[&DependencyFact],
 ) -> Option<SignatureInformation> {
     if call.receiver.is_none() && call.static_class.is_none() {
         if let Some(function) = echo_reflection::php_builtin(&call.name) {
@@ -48,26 +48,6 @@ fn signature_for_call(
                 params,
             ));
         }
-    }
-
-    if call.static_class.as_deref() == Some("Request")
-        && imported_class_exists(dependencies, "Request")
-        && call.name == "capture"
-    {
-        return Some(signature_information(
-            "Request::capture(): Request".to_string(),
-            Vec::new(),
-        ));
-    }
-
-    if call.receiver.as_deref() == Some("$app")
-        && local_variable_type(symbols, "app").is_some_and(|ty| ty.ends_with("Application"))
-        && call.name == "handleRequest"
-    {
-        return Some(signature_information(
-            "Application::handleRequest(Request $request): void".to_string(),
-            vec!["Request $request".to_string()],
-        ));
     }
 
     None
@@ -88,30 +68,6 @@ fn signature_information(label: String, params: Vec<String>) -> SignatureInforma
         ),
         active_parameter: None,
     }
-}
-
-fn imported_class_exists(dependencies: &[&DependencyFact], name: &str) -> bool {
-    dependencies.iter().any(|dependency| {
-        dependency.kind == DependencyKind::PhpUse
-            && (dependency.alias.as_deref() == Some(name)
-                || dependency
-                    .target
-                    .rsplit('\\')
-                    .next()
-                    .is_some_and(|target_name| target_name == name))
-    })
-}
-
-fn local_variable_type(symbols: &[&Symbol], name: &str) -> Option<String> {
-    symbols
-        .iter()
-        .find(|symbol| symbol.kind == SymbolKind::LocalVariable && symbol.name.text == name)
-        .and_then(|symbol| {
-            symbol
-                .signature
-                .as_ref()
-                .map(|signature| signature.text.clone())
-        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -214,8 +170,6 @@ fn is_identifier_byte(byte: u8) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use echo_index::{DependencyFact, FileId, Signature, Symbol, SymbolId, SymbolName, TextRange};
-
     use super::*;
 
     #[test]
@@ -230,55 +184,6 @@ mod tests {
 
         assert_eq!(help.signatures[0].label, "file_exists(string $filename)");
         assert_eq!(help.active_parameter, Some(0));
-    }
-
-    #[test]
-    fn returns_laravel_static_and_method_signature_help() {
-        let dependency = DependencyFact {
-            kind: DependencyKind::PhpUse,
-            target: "Illuminate\\Http\\Request".to_string(),
-            alias: None,
-            range: TextRange::new(0, 30),
-            target_range: TextRange::new(0, 30),
-        };
-        let app = Symbol {
-            id: SymbolId(1),
-            file_id: FileId(1),
-            name: SymbolName::new("app"),
-            fq_name: None,
-            kind: SymbolKind::LocalVariable,
-            range: TextRange::new(0, 25),
-            selection_range: TextRange::new(20, 24),
-            visibility: None,
-            container: None,
-            signature: Some(Signature {
-                text: "Application".to_string(),
-            }),
-        };
-
-        let static_help = signature_help_at(
-            &Rope::from_str("<?php\nRequest::capture();\n"),
-            TextOffset(23),
-            &[],
-            &[&dependency],
-        )
-        .expect("static signature help");
-        assert_eq!(
-            static_help.signatures[0].label,
-            "Request::capture(): Request"
-        );
-
-        let method_help = signature_help_at(
-            &Rope::from_str("<?php\n$app->handleRequest(Request::capture());\n"),
-            TextOffset(30),
-            &[&app],
-            &[&dependency],
-        )
-        .expect("method signature help");
-        assert_eq!(
-            method_help.signatures[0].label,
-            "Application::handleRequest(Request $request): void"
-        );
     }
 
     #[test]

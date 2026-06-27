@@ -79,22 +79,6 @@ pub fn completion_items(
                 ..Default::default()
             },
         );
-
-        if symbol
-            .signature
-            .as_ref()
-            .is_some_and(|signature| signature.text.ends_with("Application"))
-        {
-            items.insert(
-                "m:handleRequest".to_string(),
-                CompletionItem {
-                    label: "handleRequest".to_string(),
-                    kind: Some(CompletionItemKind::METHOD),
-                    detail: Some("Application method".to_string()),
-                    ..Default::default()
-                },
-            );
-        }
     }
 
     items.into_values().collect()
@@ -107,10 +91,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn includes_laravel_entrypoint_completion_items() {
+    fn includes_php_entrypoint_completion_items() {
         let dependency = DependencyFact {
             kind: DependencyKind::PhpUse,
-            target: "Illuminate\\Http\\Request".to_string(),
+            target: "Acme\\Http\\Request".to_string(),
             alias: None,
             range: TextRange::new(0, 30),
             target_range: TextRange::new(0, 30),
@@ -126,7 +110,7 @@ mod tests {
             visibility: None,
             container: None,
             signature: Some(Signature {
-                text: "Application".to_string(),
+                text: "Kernel".to_string(),
             }),
         };
 
@@ -138,7 +122,6 @@ mod tests {
 
         assert!(labels.contains(&"Request"));
         assert!(labels.contains(&"$app"));
-        assert!(labels.contains(&"handleRequest"));
         assert!(labels.contains(&"file_exists"));
         assert!(labels.contains(&"microtime"));
         assert!(labels.contains(&"define"));

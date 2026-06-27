@@ -82,6 +82,7 @@ fn classify_tokens(tokens: &[Token]) -> Vec<SemanticTokenSource> {
                 | TokenKind::Percent
                 | TokenKind::Pipe
                 | TokenKind::Ampersand
+                | TokenKind::Bang
                 | TokenKind::Equals
                 | TokenKind::LessThan
                 | TokenKind::GreaterThan => TOKEN_TYPE_OPERATOR,
@@ -190,11 +191,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn provides_full_semantic_tokens_for_laravel_entrypoint_features() {
+    fn provides_full_semantic_tokens_for_php_entrypoint_features() {
         let tokens = semantic_tokens_for_source(
             r#"<?php
-use Illuminate\Http\Request;
-$app->handleRequest(Request::capture());
+use Acme\Http\Request;
+$kernel->dispatch(Request::capture());
 "#,
         );
 

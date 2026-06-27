@@ -223,13 +223,13 @@ mod tests {
 
     #[test]
     fn returns_dependency_hover() {
-        let text = Rope::from_str("<?php\nuse Illuminate\\Http\\Request;\n");
+        let text = Rope::from_str("<?php\nuse Acme\\Http\\Request;\n");
         let dependency = DependencyFact {
             kind: DependencyKind::PhpUse,
-            target: "Illuminate\\Http\\Request".to_string(),
+            target: "Acme\\Http\\Request".to_string(),
             alias: None,
-            range: TextRange::new(6, 36),
-            target_range: TextRange::new(10, 34),
+            range: TextRange::new(6, 28),
+            target_range: TextRange::new(10, 27),
         };
 
         let hover = hover_at(&text, TextOffset(10), &[], &[&dependency], &[]).expect("hover");
@@ -237,40 +237,40 @@ mod tests {
         let HoverContents::Markup(markup) = hover.contents else {
             panic!("expected markup hover");
         };
-        assert_eq!(markup.value, "PHP use `Illuminate\\Http\\Request`");
+        assert_eq!(markup.value, "PHP use `Acme\\Http\\Request`");
         assert_eq!(
             hover.range.expect("hover range"),
             tower_lsp_server::ls_types::Range {
                 start: tower_lsp_server::ls_types::Position::new(1, 4),
-                end: tower_lsp_server::ls_types::Position::new(1, 28),
+                end: tower_lsp_server::ls_types::Position::new(1, 21),
             }
         );
     }
 
     #[test]
     fn returns_phpdoc_local_variable_hover_for_variable_usage() {
-        let text = Rope::from_str("/** @var Application $app */\n$app->handleRequest();\n");
+        let text = Rope::from_str("/** @var Kernel $app */\n$app->dispatch();\n");
         let symbol = Symbol {
             id: SymbolId(2),
             file_id: FileId(1),
             name: SymbolName::new("app"),
             fq_name: None,
             kind: SymbolKind::LocalVariable,
-            range: TextRange::new(8, 25),
-            selection_range: TextRange::new(21, 25),
+            range: TextRange::new(8, 20),
+            selection_range: TextRange::new(16, 20),
             visibility: None,
             container: None,
             signature: Some(Signature {
-                text: "Application".to_string(),
+                text: "Kernel".to_string(),
             }),
         };
 
-        let hover = hover_at(&text, TextOffset(30), &[&symbol], &[], &[]).expect("hover");
+        let hover = hover_at(&text, TextOffset(25), &[&symbol], &[], &[]).expect("hover");
 
         let HoverContents::Markup(markup) = hover.contents else {
             panic!("expected markup hover");
         };
         assert!(markup.value.contains("variable `app`"));
-        assert!(markup.value.contains("signature `Application`"));
+        assert!(markup.value.contains("signature `Kernel`"));
     }
 }

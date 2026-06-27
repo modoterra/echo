@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 dashmap = "6"
 ropey = "1"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["io-std"] }
 tower-lsp-server = "0.23"
 
 echo_diagnostics = { path = "../echo_diagnostics" }

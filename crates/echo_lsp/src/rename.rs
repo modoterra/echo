@@ -280,11 +280,11 @@ mod tests {
 
     #[test]
     fn renames_php_variable_occurrences() {
-        let text = Rope::from_str("/** @var Application $app */\n$app->handleRequest($app);\n");
+        let text = Rope::from_str("/** @var Kernel $app */\n$app->dispatch($app);\n");
         let edit = rename_workspace_edit(
             &text,
             &"file:///index.php".parse::<Uri>().unwrap(),
-            TextOffset(31),
+            TextOffset(25),
             "$kernel",
             &[],
             &[],
@@ -303,63 +303,63 @@ mod tests {
 
     #[test]
     fn prepares_phpdoc_local_variable_rename() {
-        let text = Rope::from_str("/** @var Application $app */\n");
+        let text = Rope::from_str("/** @var Kernel $app */\n");
         let symbol = Symbol {
             id: SymbolId(1),
             file_id: FileId(1),
             name: SymbolName::new("app"),
             fq_name: None,
             kind: SymbolKind::LocalVariable,
-            range: TextRange::new(8, 25),
-            selection_range: TextRange::new(21, 25),
+            range: TextRange::new(8, 20),
+            selection_range: TextRange::new(16, 20),
             visibility: None,
             container: None,
             signature: Some(Signature {
-                text: "Application".to_string(),
+                text: "Kernel".to_string(),
             }),
         };
 
         let Some(PrepareRenameResponse::RangeWithPlaceholder { range, placeholder }) =
-            prepare_rename_at(&text, TextOffset(22), &[&symbol], &[], &[])
+            prepare_rename_at(&text, TextOffset(17), &[&symbol], &[], &[])
         else {
             panic!("expected prepare rename response");
         };
 
         assert_eq!(placeholder, "$app");
-        assert_eq!(range.start, Position::new(0, 21));
+        assert_eq!(range.start, Position::new(0, 16));
     }
 
     #[test]
     fn renames_imported_class_and_static_reference() {
         let text = Rope::from_str(
-            "<?php\nuse Illuminate\\Foundation\\Application;\nuse Illuminate\\Http\\Request;\nRequest::capture();\n",
+            "<?php\nuse Acme\\Runtime\\Kernel;\nuse Acme\\Http\\Request;\nRequest::capture();\n",
         );
-        let application_dependency = DependencyFact {
+        let kernel_dependency = DependencyFact {
             kind: DependencyKind::PhpUse,
-            target: "Illuminate\\Foundation\\Application".to_string(),
+            target: "Acme\\Runtime\\Kernel".to_string(),
             alias: None,
-            range: TextRange::new(6, 43),
-            target_range: TextRange::new(6, 43),
+            range: TextRange::new(6, 30),
+            target_range: TextRange::new(10, 29),
         };
         let request_dependency = DependencyFact {
             kind: DependencyKind::PhpUse,
-            target: "Illuminate\\Http\\Request".to_string(),
+            target: "Acme\\Http\\Request".to_string(),
             alias: None,
-            range: TextRange::new(44, 74),
-            target_range: TextRange::new(44, 74),
+            range: TextRange::new(31, 53),
+            target_range: TextRange::new(35, 52),
         };
         let reference = ReferenceLocation {
             file_id: FileId(1),
-            range: TextRange::new(74, 81),
+            range: TextRange::new(54, 61),
         };
 
         let edit = rename_workspace_edit(
             &text,
             &"file:///index.php".parse::<Uri>().unwrap(),
-            TextOffset(76),
+            TextOffset(56),
             "ServerRequest",
             &[],
-            &[&application_dependency, &request_dependency],
+            &[&kernel_dependency, &request_dependency],
             &[reference],
         )
         .expect("edit");
@@ -370,7 +370,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(edits.len(), 2);
-        assert_eq!(edits[0].new_text, "use Illuminate\\Http\\ServerRequest;");
+        assert_eq!(edits[0].new_text, "use Acme\\Http\\ServerRequest;");
         assert_eq!(edits[1].new_text, "ServerRequest");
     }
 }
