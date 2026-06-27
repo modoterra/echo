@@ -1,0 +1,7 @@
+if 1 < 2 {
+    echo "lt\n"
+}
+
+if !(2 < 1) {
+    echo "not-lt\n"
+}

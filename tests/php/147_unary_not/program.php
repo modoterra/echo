@@ -1,0 +1,22 @@
+<?php
+if (!true) {
+    echo "not true\n";
+}
+if (!false) {
+    echo "not false\n";
+}
+if (!0) {
+    echo "not zero\n";
+}
+if (!1) {
+    echo "not one\n";
+}
+if (!"") {
+    echo "not empty\n";
+}
+if (!"0") {
+    echo "not string zero\n";
+}
+if (!"hello") {
+    echo "not hello\n";
+}

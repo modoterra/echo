@@ -1,0 +1,4 @@
+not false
+not zero
+not empty
+not string zero
