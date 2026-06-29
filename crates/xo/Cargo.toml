@@ -13,6 +13,7 @@ echo_ast = { path = "../echo_ast" }
 echo_diagnostics = { path = "../echo_diagnostics" }
 echo_lexer = { path = "../echo_lexer" }
 echo_parser = { path = "../echo_parser" }
+echo_resolver = { path = "../echo_resolver" }
 echo_hir = { path = "../echo_hir" }
 echo_mir = { path = "../echo_mir" }
 echo_lsp = { path = "../echo_lsp" }

@@ -5,17 +5,18 @@ use echo_ast::{
     AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr, AssignRefStmt, AssignStmt,
     BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
     ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClosureExpr, CoalesceAssignStmt,
-    ConstantExpr, ContinueStmt, DeferExpr, DynamicCallExpr, DynamicFunctionCallExpr,
-    DynamicFunctionCallStmt, EchoStmt, ElseIfClause, Expr, ExtendDeclStmt, FieldExpr, ForeachStmt,
-    ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource,
-    ImportStmt, IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt, ListAssignStmt, ListExpr,
-    LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
-    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst,
-    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
-    StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
-    TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
-    UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    CompileEntry, CompileStmt, ConstantExpr, ContinueStmt, DeferExpr, DynamicCallExpr,
+    DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, Expr, ExtendDeclStmt,
+    FieldExpr, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt,
+    ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt,
+    ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
+    MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt,
+    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl,
+    QualifiedName, ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr,
+    StaticCallExpr, StaticPropertyAssignExpr, StaticPropertyFetchExpr, Stmt, StringLiteral,
+    TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr,
+    TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt,
+    VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -69,11 +70,12 @@ fn attach_source(source: &SourceFile, diagnostics: Vec<Diagnostic>) -> Vec<Diagn
 }
 
 fn parse_program(source: &str) -> Result<Program, Vec<Diagnostic>> {
+    let (source, mut compile_statements) = extract_compile_declarations(source)?;
     // For now, run the Logos lexer first so lexer errors are caught.
     // The Chumsky parser below still parses the source text directly.
-    echo_lexer::lex(source)?;
+    echo_lexer::lex(&source)?;
 
-    let source = normalize_heredoc_literals(source);
+    let source = normalize_heredoc_literals(&source);
     let source = strip_comments_preserving_spans(&source);
     let source = normalize_bracketed_namespaces(&source);
     let source = virtualize_statement_terminators(&source);
@@ -89,10 +91,174 @@ fn parse_program(source: &str) -> Result<Program, Vec<Diagnostic>> {
     })?;
 
     normalize_php_compat_receiver_variables(&mut program);
+    if !compile_statements.is_empty() {
+        program.statements.append(&mut compile_statements);
+        program.statements.sort_by_key(|statement| {
+            (
+                statement_span(statement).start,
+                statement_sort_rank(statement),
+            )
+        });
+    }
 
     validate_program(&program)?;
 
     Ok(program)
+}
+
+fn extract_compile_declarations(source: &str) -> Result<(String, Vec<Stmt>), Vec<Diagnostic>> {
+    let mut output = source.as_bytes().to_vec();
+    let bytes = source.as_bytes();
+    let mut statements = Vec::new();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if !is_compile_keyword_at(bytes, index) {
+            index += 1;
+            continue;
+        }
+
+        let start = index;
+        let mut cursor = index + kw::COMPILE.text.len();
+        while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+            cursor += 1;
+        }
+        if bytes.get(cursor) != Some(&b'{') {
+            index += 1;
+            continue;
+        }
+        cursor += 1;
+
+        let mut entries = Vec::new();
+        loop {
+            while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+                cursor += 1;
+            }
+            match bytes.get(cursor) {
+                Some(b'}') => {
+                    cursor += 1;
+                    break;
+                }
+                Some(b'"') => {
+                    let entry_start = cursor;
+                    cursor += 1;
+                    let value_start = cursor;
+                    let mut escaped = false;
+                    while cursor < bytes.len() {
+                        let byte = bytes[cursor];
+                        if escaped {
+                            escaped = false;
+                            cursor += 1;
+                            continue;
+                        }
+                        if byte == b'\\' {
+                            escaped = true;
+                            cursor += 1;
+                            continue;
+                        }
+                        if byte == b'"' {
+                            let raw = &source[value_start..cursor];
+                            cursor += 1;
+                            entries.push(CompileEntry {
+                                value: unescape_double_quoted_string(raw.to_string()),
+                                span: Span::new(entry_start, cursor),
+                            });
+                            break;
+                        }
+                        cursor += 1;
+                    }
+                    if cursor > bytes.len() {
+                        return Err(vec![Diagnostic::new(
+                            "unterminated compile string literal",
+                            Span::new(entry_start, bytes.len()),
+                        )]);
+                    }
+                }
+                Some(_) => {
+                    return Err(vec![Diagnostic::new(
+                        "compile declarations accept string literal entries only",
+                        Span::new(cursor, cursor + 1),
+                    )]);
+                }
+                None => {
+                    return Err(vec![Diagnostic::new(
+                        "unterminated compile declaration",
+                        Span::new(start, bytes.len()),
+                    )]);
+                }
+            }
+        }
+
+        for offset in start..cursor {
+            if output[offset] != b'\n' && output[offset] != b'\r' {
+                output[offset] = b' ';
+            }
+        }
+        statements.push(Stmt::Compile(CompileStmt {
+            entries,
+            span: Span::new(start, cursor),
+        }));
+        index = cursor;
+    }
+
+    Ok((
+        String::from_utf8(output).expect("compile extraction preserves UTF-8"),
+        statements,
+    ))
+}
+
+fn is_compile_keyword_at(source: &[u8], index: usize) -> bool {
+    let keyword = kw::COMPILE.text.as_bytes();
+    source.get(index..index + keyword.len()) == Some(keyword)
+        && index
+            .checked_sub(1)
+            .and_then(|before| source.get(before))
+            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+        && source
+            .get(index + keyword.len())
+            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+}
+
+fn statement_sort_rank(statement: &Stmt) -> usize {
+    match statement {
+        Stmt::Compile(_) => 0,
+        _ => 1,
+    }
+}
+
+fn statement_span(statement: &Stmt) -> Span {
+    match statement {
+        Stmt::Compile(statement) => statement.span,
+        Stmt::Echo(statement) => statement.span,
+        Stmt::FunctionCall(statement) => statement.span,
+        Stmt::DynamicFunctionCall(statement) => statement.span,
+        Stmt::FunctionDecl(statement) => statement.span,
+        Stmt::Assign(statement) => statement.span,
+        Stmt::CoalesceAssign(statement) => statement.span,
+        Stmt::ListAssign(statement) => statement.span,
+        Stmt::Let(statement) => statement.span,
+        Stmt::AssignRef(statement) => statement.span,
+        Stmt::Return(statement) => statement.span,
+        Stmt::Throw(statement) => statement.span,
+        Stmt::Yield(statement) => statement.span,
+        Stmt::Expr(statement) => statement.span,
+        Stmt::Namespace(statement) => statement.span,
+        Stmt::Use(statement) => statement.span,
+        Stmt::Import(statement) => statement.span,
+        Stmt::UnnamedExport(statement) => statement.span,
+        Stmt::ClassDecl(statement) => statement.span,
+        Stmt::TraitDecl(statement) => statement.span,
+        Stmt::ExtendDecl(statement) => statement.span,
+        Stmt::TypeDecl(statement) => statement.span,
+        Stmt::Loop(statement) => statement.span,
+        Stmt::While(statement) => statement.span,
+        Stmt::Foreach(statement) => statement.span,
+        Stmt::If(statement) => statement.span,
+        Stmt::Try(statement) => statement.span,
+        Stmt::Break(statement) => statement.span,
+        Stmt::Continue(statement) => statement.span,
+        Stmt::Append(statement) => statement.span,
+    }
 }
 
 fn normalize_php_compat_receiver_variables(program: &mut Program) {
@@ -132,7 +298,7 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
         Stmt::CoalesceAssign(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::ListAssign(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::Let(statement) => normalize_php_compat_expr(&mut statement.value),
-        Stmt::AssignRef(_) | Stmt::Break(_) | Stmt::Continue(_) => {}
+        Stmt::AssignRef(_) | Stmt::Break(_) | Stmt::Continue(_) | Stmt::Compile(_) => {}
         Stmt::Return(statement) => {
             if let Some(value) = &mut statement.value {
                 normalize_php_compat_expr(value);
@@ -1755,7 +1921,6 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let php_name = qualified_name('\\');
         let dotted_name = qualified_name('.');
-
         let module_stmt = text::keyword(kw::MODULE.text)
             .padded()
             .ignore_then(dotted_name.clone())
@@ -1764,7 +1929,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::Namespace(NamespaceStmt {
-                    source: NamespaceSource::Php,
+                    source: NamespaceSource::Echo,
                     name,
                     span: Span::new(span.start, span.end),
                 })
@@ -3224,7 +3389,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .boxed()
     });
 
-    open_php
+    text::whitespace()
+        .ignored()
+        .or_not()
+        .ignore_then(open_php)
         .then(statement.repeated().at_least(1).collect::<Vec<_>>())
         .then_ignore(end())
         .map_with(|(open_tag, statements), extra| {

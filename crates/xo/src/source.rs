@@ -465,6 +465,7 @@ fn collect_statement_contextual_class_references(
             collect_expr_contextual_class_references(&statement.value, namespace, uses, names);
         }
         Stmt::AssignRef(_)
+        | Stmt::Compile(_)
         | Stmt::Namespace(_)
         | Stmt::Use(_)
         | Stmt::Import(_)
@@ -744,6 +745,7 @@ fn collect_statement_class_references(
         Stmt::CoalesceAssign(statement) => collect_expr_class_references(&statement.value, names),
         Stmt::ListAssign(statement) => collect_expr_class_references(&statement.value, names),
         Stmt::Let(statement) => collect_expr_class_references(&statement.value, names),
+        Stmt::Compile(_) => {}
         Stmt::AssignRef(_) => {}
         Stmt::Return(statement) => {
             if let Some(value) = &statement.value {
@@ -1108,11 +1110,57 @@ fn parse_source_bundle(
         &mut includes,
         Vec::new(),
     )?;
+    discover_compile_entries(source, &entry, mode, &mut seen, &mut includes)?;
     discover_composer_autoload_files(source, mode, &mut seen, &mut includes)?;
     discover_composer_classmap_files(source, &entry, mode, &mut seen, &mut includes)?;
     discover_composer_psr4_roots(source, &entry, mode, &mut seen, &mut includes)?;
 
     Ok(SourceBundle { entry, includes })
+}
+
+fn discover_compile_entries(
+    entry_source: &SourceFile,
+    entry_program: &Program,
+    mode: SourceOptions,
+    seen: &mut std::collections::HashSet<PathBuf>,
+    includes: &mut Vec<IncludeProgram>,
+) -> Result<(), Vec<SourceDiagnostic>> {
+    let entries = echo_resolver::compile_entries(entry_source, entry_program)
+        .map_err(|diagnostics| source_diagnostics(entry_source, diagnostics, Vec::new()))?;
+
+    for entry in entries {
+        let canonical = fs::canonicalize(&entry.path).map_err(|err| {
+            source_diagnostics(
+                entry_source,
+                vec![Diagnostic::new(
+                    format!(
+                        "failed to resolve compile entry `{}`: {err}",
+                        entry.path.display()
+                    ),
+                    entry.span,
+                )],
+                Vec::new(),
+            )
+        })?;
+        if !seen.insert(canonical.clone()) {
+            continue;
+        }
+
+        let include_source = read_source_file(&canonical, mode);
+        let include_program = parse_source_program(&include_source)
+            .map_err(|diagnostics| source_diagnostics(&include_source, diagnostics, Vec::new()))?;
+        let class_names = class_names_for_program(&include_program);
+        includes.push(IncludeProgram {
+            path: entry.dispatch_path,
+            source: include_source,
+            program: include_program,
+            include_stack: Vec::new(),
+            dynamic_require: true,
+            class_names,
+        });
+    }
+
+    Ok(())
 }
 
 fn discover_composer_autoload_files(
@@ -1878,6 +1926,7 @@ fn collect_static_include_paths(
                 collect_static_include_expr(&mut statement.value, source_dir, paths)
             }
             Stmt::AssignRef(_)
+            | Stmt::Compile(_)
             | Stmt::Namespace(_)
             | Stmt::Use(_)
             | Stmt::Import(_)

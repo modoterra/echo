@@ -136,6 +136,7 @@ fn dependency_hover_text(dependency: &DependencyFact) -> String {
         DependencyKind::RequireOnce => "PHP require_once",
         DependencyKind::Include => "PHP include",
         DependencyKind::IncludeOnce => "PHP include_once",
+        DependencyKind::Compile => "Echo compile entry",
         DependencyKind::ComposerAutoload => "Composer autoload",
     };
 

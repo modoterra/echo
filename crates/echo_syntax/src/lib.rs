@@ -91,6 +91,8 @@ pub mod keywords {
     pub const AS: Keyword = Keyword::new("as", KeywordRole::Import, SyntaxMode::Echo);
     pub const BREAK: Keyword = Keyword::new("break", KeywordRole::Statement, SyntaxMode::Php);
     pub const CLASS: Keyword = Keyword::new("class", KeywordRole::Declaration, SyntaxMode::Php);
+    pub const COMPILE: Keyword =
+        Keyword::new("compile", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const CONST: Keyword = Keyword::new("const", KeywordRole::Declaration, SyntaxMode::Php);
     pub const DEFINE: Keyword = Keyword::new("define", KeywordRole::Expression, SyntaxMode::Php);
     pub const DEFER: Keyword = Keyword::new("defer", KeywordRole::Expression, SyntaxMode::Echo);
@@ -143,6 +145,7 @@ pub mod keywords {
         AS,
         BREAK,
         CLASS,
+        COMPILE,
         CONST,
         DEFINE,
         DEFER,

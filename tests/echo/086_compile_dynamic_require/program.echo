@@ -1,0 +1,10 @@
+compile {
+    "./child.php"
+}
+
+$target = __DIR__ . "/child.php";
+$first = require $target;
+$second = require $target;
+
+echo $first . "\n";
+echo $second . "\n";

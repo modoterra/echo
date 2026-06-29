@@ -202,6 +202,7 @@ impl Analyzer {
                 }
             }
             Stmt::Namespace(_)
+            | Stmt::Compile(_)
             | Stmt::Use(_)
             | Stmt::Import(_)
             | Stmt::TypeDecl(_)

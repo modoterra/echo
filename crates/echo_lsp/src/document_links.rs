@@ -21,6 +21,7 @@ pub(crate) fn document_links_for_paths(
                 | DependencyKind::RequireOnce
                 | DependencyKind::Include
                 | DependencyKind::IncludeOnce
+                | DependencyKind::Compile
                 | DependencyKind::ComposerAutoload
         ) {
             continue;

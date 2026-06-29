@@ -401,6 +401,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "echo_resolver"
+version = "0.1.0"
+dependencies = [
+ "echo_ast",
+ "echo_diagnostics",
+ "echo_source",
+]
+
+[[package]]
 name = "echo_runtime"
 version = "0.1.0"
 dependencies = [
@@ -1437,6 +1446,7 @@ dependencies = [
  "echo_mir",
  "echo_parser",
  "echo_reflection",
+ "echo_resolver",
  "echo_runtime",
  "echo_semantics",
  "echo_source",

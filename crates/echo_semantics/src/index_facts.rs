@@ -84,9 +84,20 @@ impl IndexFactExtractor {
 
     fn extract_statement(&mut self, statement: &Stmt) {
         match statement {
+            Stmt::Compile(statement) => {
+                for entry in &statement.entries {
+                    self.dependencies.push(DependencyFact {
+                        kind: DependencyKind::Compile,
+                        target: entry.value.clone(),
+                        alias: None,
+                        range: span_range(statement.span),
+                        target_range: span_range(entry.span),
+                    });
+                }
+            }
             Stmt::Namespace(statement) => {
                 self.namespace = match statement.source {
-                    NamespaceSource::Php => statement
+                    NamespaceSource::Php | NamespaceSource::Echo => statement
                         .name
                         .parts
                         .iter()

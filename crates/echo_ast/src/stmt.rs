@@ -3,6 +3,7 @@ use echo_source::Span;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
+    Compile(CompileStmt),
     Echo(EchoStmt),
     FunctionCall(FunctionCallStmt),
     DynamicFunctionCall(DynamicFunctionCallStmt),
@@ -32,6 +33,18 @@ pub enum Stmt {
     Break(BreakStmt),
     Continue(ContinueStmt),
     Append(AppendStmt),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompileStmt {
+    pub entries: Vec<CompileEntry>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompileEntry {
+    pub value: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -135,6 +148,7 @@ pub struct NamespaceStmt {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NamespaceSource {
     Php,
+    Echo,
     Std,
 }
 

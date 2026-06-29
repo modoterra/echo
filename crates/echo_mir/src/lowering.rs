@@ -215,6 +215,7 @@ pub(crate) fn lower_syntax_statement(
             value: lower_expr(&statement.value),
         },
         Stmt::FunctionDecl(_)
+        | Stmt::Compile(_)
         | Stmt::Namespace(_)
         | Stmt::Use(_)
         | Stmt::Import(_)

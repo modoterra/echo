@@ -47,6 +47,7 @@ fn index_required_files_inner(
                     | DependencyKind::RequireOnce
                     | DependencyKind::Include
                     | DependencyKind::IncludeOnce
+                    | DependencyKind::Compile
                     | DependencyKind::ComposerAutoload
             )
         })

@@ -9,6 +9,7 @@ members = [
   "crates/echo_parser",
   "crates/echo_semantics",
   "crates/echo_index",
+  "crates/echo_resolver",
   "crates/echo_lsp",
   "crates/echo_hir",
   "crates/echo_mir",

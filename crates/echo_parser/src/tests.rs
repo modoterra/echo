@@ -224,7 +224,7 @@ use acme.http_server.ServerKernel
     assert!(matches!(
         &program.statements[0],
         Stmt::Namespace(statement)
-            if statement.source == NamespaceSource::Php
+            if statement.source == NamespaceSource::Echo
                 && statement.name.parts == ["acme", "http_server", "runtime"]
     ));
     assert!(matches!(
@@ -244,6 +244,62 @@ use acme.http_server.ServerKernel
         Stmt::Use(statement)
             if statement.name.parts == ["acme", "http_server", "ServerKernel"]
     ));
+}
+
+#[test]
+fn parses_compile_declaration_entries() {
+    let program = parse(
+        r#"module app.bootstrap
+compile {
+    "./routes/*.php"
+    "/srv/app/shared/bootstrap.php"
+    "modoterra/laravel-echo"
+}
+echo "ready"
+"#,
+    )
+    .expect("compile declaration parses");
+
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Compile(statement)
+            if statement.entries.iter().map(|entry| entry.value.as_str()).collect::<Vec<_>>()
+                == ["./routes/*.php", "/srv/app/shared/bootstrap.php", "modoterra/laravel-echo"]
+    ));
+}
+
+#[test]
+fn rejects_compile_after_executable_statement() {
+    let diagnostics = parse(
+        r#"echo "ready"
+compile { "./routes/*.php" }
+"#,
+    )
+    .expect_err("compile after executable statement is rejected");
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("before executable statements")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejects_compile_before_module_declaration() {
+    let diagnostics = parse(
+        r#"compile { "./routes/*.php" }
+module app.bootstrap
+"#,
+    )
+    .expect_err("module after compile should still violate the module prelude rule");
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("module")),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

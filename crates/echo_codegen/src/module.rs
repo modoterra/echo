@@ -21,6 +21,7 @@ pub(crate) enum RuntimeValue {
 pub(crate) fn stmt_span(statement: &Stmt) -> Span {
     match statement {
         Stmt::Echo(statement) => statement.span,
+        Stmt::Compile(statement) => statement.span,
         Stmt::FunctionCall(statement) => statement.span,
         Stmt::DynamicFunctionCall(statement) => statement.span,
         Stmt::FunctionDecl(statement) => statement.span,

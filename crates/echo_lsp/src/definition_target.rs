@@ -23,6 +23,7 @@ pub(super) fn dependency_target_location(
         | DependencyKind::RequireOnce
         | DependencyKind::Include
         | DependencyKind::IncludeOnce
+        | DependencyKind::Compile
         | DependencyKind::ComposerAutoload => file_location(
             index,
             std::path::Path::new(&dependency.target),

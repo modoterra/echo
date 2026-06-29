@@ -65,5 +65,6 @@ pub enum DependencyKind {
     RequireOnce,
     Include,
     IncludeOnce,
+    Compile,
     ComposerAutoload,
 }
