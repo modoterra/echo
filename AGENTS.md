@@ -151,7 +151,7 @@ Benchmark shortcuts default `ECHO_BENCH_ITERATIONS` to `2`; set the variable exp
 - Keep unsupported PHP behavior explicit with diagnostics rather than silently approximating semantics.
 
 ## Current Gotchas
-- Parser currently parses source text directly with Chumsky after first calling `echo_lexer::lex(source)?` only to surface lexer errors.
+- Parser entrypoints accept registered `echo_source::SourceFile` values through `echo_parser::parse_source_file`; low-level raw string parsing remains for parser tests and compatibility scaffolding. Parsing still uses Chumsky after first calling `echo_lexer::lex(source)?` to surface lexer errors.
 - `xo run` and `xo build` share the same binary build path: generated LLVM IR is linked with `target/debug/libecho_runtime.a` via `clang -x ir`. This is transitional build plumbing; avoid adding any C/C++ runtime libraries or language semantics through that path. Full end-to-end tests need `clang` on `PATH`; PHP benchmarks also need `php` on `PATH`.
 
 ## Source Notes

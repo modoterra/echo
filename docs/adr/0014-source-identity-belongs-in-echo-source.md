@@ -24,7 +24,7 @@ The migration must be phased:
 1. Add `SourceId` and `SourceMap` to `echo_source` while keeping `Span` and `SourceFile::new` compatible with current callers. This phase is complete.
 2. Add `SourceSpan` and use it first in diagnostics and LSP conversion paths, where cross-file identity matters most. This phase is complete.
 3. Migrate diagnostics from bare `Span` to `SourceSpan`, preserving CLI output and LSP ranges. This phase is complete at the API boundary: diagnostic consumers use accessors for local and source spans, while producers can still emit local spans until parser entrypoints receive registered sources.
-4. Migrate parser entrypoints to accept registered `SourceFile` values instead of anonymous source text, so parsed programs have a source identity before AST construction.
+4. Migrate parser entrypoints to accept registered `SourceFile` values instead of anonymous source text, so parsed programs have a source identity before AST construction. This phase is complete for orchestration entrypoints: `xo` and LSP indexing call `parse_source_file`, while raw string parsing remains for low-level parser tests and compatibility scaffolding.
 5. Decide whether AST nodes store `SourceSpan` directly or keep local `Span` plus a program-level `SourceId`. That decision should be based on memory profile, AST ergonomics, and LSP/index needs after diagnostics and parser entrypoints have moved.
 
 This is separate from language mode. `.php`, `.echo`, and `.xo` files still enter the same language pipeline; source identity records where text came from, not which syntax or semantic mode should apply. REPL snippets, std modules, package files, and anonymous test sources can all receive stable source identities without adding source-specific language rules.

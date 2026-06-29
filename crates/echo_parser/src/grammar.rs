@@ -18,7 +18,7 @@ use echo_ast::{
     UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
-use echo_source::Span;
+use echo_source::{SourceFile, Span};
 use echo_syntax::keywords as kw;
 
 #[path = "preprocess.rs"]
@@ -39,8 +39,27 @@ pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
     parse_program(source)
 }
 
+pub fn parse_source_file(source: &SourceFile) -> Result<Program, Vec<Diagnostic>> {
+    parse_program(&source.text).map_err(|diagnostics| attach_source(source, diagnostics))
+}
+
 pub fn parse_trusted_std(source: &str) -> Result<Program, Vec<Diagnostic>> {
     parse_program(source)
+}
+
+pub fn parse_trusted_std_source(source: &SourceFile) -> Result<Program, Vec<Diagnostic>> {
+    parse_program(&source.text).map_err(|diagnostics| attach_source(source, diagnostics))
+}
+
+fn attach_source(source: &SourceFile, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    let Some(source_id) = source.id else {
+        return diagnostics;
+    };
+
+    diagnostics
+        .into_iter()
+        .map(|diagnostic| diagnostic.with_source_id(source_id))
+        .collect()
 }
 
 fn parse_program(source: &str) -> Result<Program, Vec<Diagnostic>> {

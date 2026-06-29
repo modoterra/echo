@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use echo_diagnostics::Diagnostic as EchoDiagnostic;
 use echo_index::{DependencyKind, DependencyQuery, EchoIndex, FileId, IndexFacts, IndexedFile};
+use echo_source::{SourceFile, SourceId};
 use tower_lsp_server::ls_types::Uri;
 
 pub(crate) fn parse_index_facts(
@@ -10,11 +11,20 @@ pub(crate) fn parse_index_facts(
     file_id: FileId,
     source_dir: Option<&Path>,
 ) -> std::result::Result<IndexFacts, Vec<EchoDiagnostic>> {
-    let mut program = echo_parser::parse(source)?;
+    let path = source_dir
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("<lsp>"));
+    let source_file =
+        SourceFile::new(path, source.to_string()).with_id(source_id_for_file(file_id));
+    let mut program = echo_parser::parse_source_file(&source_file)?;
     program.source_dir = source_dir.map(|path| path.to_string_lossy().to_string());
     Ok(echo_semantics::index_facts_from_source(
         source, &program, file_id,
     ))
+}
+
+fn source_id_for_file(file_id: FileId) -> SourceId {
+    SourceId::new(file_id.0)
 }
 
 pub(crate) fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {

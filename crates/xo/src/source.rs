@@ -2044,7 +2044,7 @@ fn static_string_expr(expr: &Expr, source_dir: &Path) -> Option<String> {
 pub fn parse_source_program(
     source: &SourceFile,
 ) -> Result<Program, Vec<echo_diagnostics::Diagnostic>> {
-    let mut program = echo_parser::parse(&source.text)?;
+    let mut program = echo_parser::parse_source_file(source)?;
     program.source_dir = source_dir_for(&source.path);
     Ok(program)
 }

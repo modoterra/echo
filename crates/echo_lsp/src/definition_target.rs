@@ -119,7 +119,9 @@ pub(super) fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileI
         return Some(file_id);
     }
     let source = std::fs::read_to_string(&path).ok()?;
-    let Ok(mut program) = echo_parser::parse(&source) else {
+    let source_file = echo_source::SourceFile::new(path.clone(), source.clone())
+        .with_id(echo_source::SourceId::new(file_id.0));
+    let Ok(mut program) = echo_parser::parse_source_file(&source_file) else {
         return Some(file_id);
     };
     program.source_dir = path.parent().map(|path| path.to_string_lossy().to_string());

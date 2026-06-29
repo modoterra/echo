@@ -22,7 +22,6 @@ use crate::definition::{
     definition_location_to_lsp, dependency_target_link_at, method_definition_at,
     receiver_method_definition_at, reference_target_link_at,
 };
-use crate::diagnostics::diagnostics_to_lsp;
 use crate::document::Document;
 use crate::document_links::document_links_for_paths;
 use crate::hover::hover_at;
@@ -72,7 +71,11 @@ impl Backend {
                         references: Vec::new(),
                     },
                 );
-                diagnostics_to_lsp(&document.text, &diagnostics)
+                crate::diagnostics::diagnostics_to_lsp_for_source(
+                    &document.text,
+                    Some(echo_source::SourceId::new(document.file_id.0)),
+                    &diagnostics,
+                )
             }
         };
 
