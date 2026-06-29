@@ -15,14 +15,12 @@ fn resolves_file_path_reference_to_target_file() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: Vec::new(),
             references: vec![ReferenceFact {
@@ -58,14 +56,12 @@ fn file_path_reference_link_uses_full_origin_expression() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: Vec::new(),
             references: vec![ReferenceFact {
@@ -108,14 +104,12 @@ fn file_path_reference_link_skips_missing_dir_target() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: Vec::new(),
             references: vec![ReferenceFact {

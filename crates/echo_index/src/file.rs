@@ -22,19 +22,12 @@ impl TextRange {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TextOffset(pub u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum EchoFileMode {
-    Echo,
-    PhpCompat,
-}
-
 #[derive(Debug, Clone)]
 pub struct IndexedFile {
     pub file_id: FileId,
     pub uri: String,
     pub path: Option<PathBuf>,
     pub version: Option<i32>,
-    pub mode: EchoFileMode,
     pub content_hash: Option<u64>,
 }
 

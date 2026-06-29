@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
 
 use crate::build::{OptimizationLevel, build_ir_binary, temp_path, verify_ir};
-use crate::source::{ModeOverride, compile_ir};
+use crate::source::{SourceOptions, compile_ir};
 
-pub fn run_tests(path: &Path, mode: ModeOverride) {
+pub fn run_tests(path: &Path, mode: SourceOptions) {
     let tests = collect_test_files(path);
     if tests.is_empty() {
         eprintln!("error: no .echo tests found in {}", path.display());
@@ -41,7 +41,7 @@ pub fn run_tests(path: &Path, mode: ModeOverride) {
     }
 }
 
-fn build_binary(file: &Path, mode: ModeOverride, output: &Path) {
+fn build_binary(file: &Path, mode: SourceOptions, output: &Path) {
     let ir = compile_ir(file, mode);
     verify_ir(file, &ir);
     build_ir_binary(file, &ir, OptimizationLevel::O0, output);

@@ -47,7 +47,6 @@ fn run_reports_source_snippet_and_include_stack_for_compile_errors() {
     command
         .current_dir(workspace_root())
         .arg("run")
-        .arg("--unsafe")
         .arg("--diagnostics")
         .arg("json")
         .arg(&main);

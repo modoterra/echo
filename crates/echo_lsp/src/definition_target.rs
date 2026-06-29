@@ -1,10 +1,9 @@
 use std::path::Path;
 
 use echo_index::{
-    DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexedFile,
-    ReferenceKind, SymbolKind, TextRange,
+    DependencyFact, DependencyKind, DependencyQuery, EchoIndex, FileId, IndexedFile, ReferenceKind,
+    SymbolKind, TextRange,
 };
-use echo_source::SourceMode;
 use ropey::Rope;
 use tower_lsp_server::ls_types::{Location, Uri};
 
@@ -120,16 +119,11 @@ pub(super) fn index_php_file(index: &mut EchoIndex, path: &Path) -> Option<FileI
         return Some(file_id);
     }
     let source = std::fs::read_to_string(&path).ok()?;
-    let Ok(mut program) = echo_parser::parse_with_mode(&source, SourceMode::Echo) else {
+    let Ok(mut program) = echo_parser::parse(&source) else {
         return Some(file_id);
     };
     program.source_dir = path.parent().map(|path| path.to_string_lossy().to_string());
-    let facts = echo_semantics::index_facts_from_source(
-        &source,
-        &program,
-        file_id,
-        EchoFileMode::PhpCompat,
-    );
+    let facts = echo_semantics::index_facts_from_source(&source, &program, file_id);
     index.update_file(file_id, facts);
     Some(file_id)
 }
@@ -248,7 +242,6 @@ fn ensure_index_file(index: &mut EchoIndex, path: &Path) -> FileId {
         uri,
         path: Some(path.to_path_buf()),
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     file_id

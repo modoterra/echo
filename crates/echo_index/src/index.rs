@@ -4,28 +4,21 @@ mod lookup;
 mod storage;
 
 use crate::{
-    DependencyFact, EchoFileMode, FileId, FqName, IndexedFile, ReferenceFact, Symbol, SymbolFact,
-    SymbolId,
+    DependencyFact, FileId, FqName, IndexedFile, ReferenceFact, Symbol, SymbolFact, SymbolId,
 };
 
 #[derive(Debug, Clone)]
 pub struct IndexFacts {
     pub file_id: FileId,
-    pub mode: EchoFileMode,
     pub declarations: Vec<SymbolFact>,
     pub dependencies: Vec<DependencyFact>,
     pub references: Vec<ReferenceFact>,
 }
 
 impl IndexFacts {
-    pub fn declarations(
-        file_id: FileId,
-        mode: EchoFileMode,
-        declarations: Vec<SymbolFact>,
-    ) -> Self {
+    pub fn declarations(file_id: FileId, declarations: Vec<SymbolFact>) -> Self {
         Self {
             file_id,
-            mode,
             declarations,
             dependencies: Vec::new(),
             references: Vec::new(),

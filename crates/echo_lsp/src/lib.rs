@@ -16,5 +16,5 @@ mod server;
 mod signature_help;
 mod symbols;
 
-pub use document::{Document, mode_from_uri};
+pub use document::Document;
 pub use server::{Backend, run_stdio};

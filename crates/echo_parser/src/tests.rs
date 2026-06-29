@@ -9,7 +9,7 @@ mod strings;
 
 #[test]
 fn parses_optional_statement_semicolons() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 namespace App\Http
 use Psr\Log\LoggerInterface
@@ -20,7 +20,6 @@ strlen($name)
 $fn()
 function greet($name) { return $name }
 "#,
-        SourceMode::Echo,
     )
     .expect("program parses without semicolons");
 
@@ -39,13 +38,12 @@ function greet($name) { return $name }
 
 #[test]
 fn echo_compat_mode_keeps_parent_self_static_as_php_variables() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $parent = $class->getParentClass();
 $self = "value";
 $static = $parent->getName();
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP-compatible dollar-prefixed names parse as variables");
 
@@ -79,7 +77,7 @@ $static = $parent->getName();
 
 #[test]
 fn echo_compat_mode_parses_php_trait_declaration() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 trait ReflectsClosures {
     protected function closureReturnTypes(Closure $closure) {
@@ -87,7 +85,6 @@ trait ReflectsClosures {
     }
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP trait declaration parses");
 
@@ -104,14 +101,13 @@ trait ReflectsClosures {
 
 #[test]
 fn preserves_multiline_concat_expressions() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $body = "Hello "
     . $name
     . "\n"
 echo $body
 "#,
-        SourceMode::Echo,
     )
     .expect("multiline concat parses");
 
@@ -124,13 +120,12 @@ echo $body
 
 #[test]
 fn preserves_multiline_assignment_rhs() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $body =
     "Hello " . $name
 echo $body
 "#,
-        SourceMode::Echo,
     )
     .expect("multiline assignment parses");
 
@@ -140,14 +135,13 @@ echo $body
 
 #[test]
 fn preserves_multiline_function_calls() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 strlen(
     "Echo"
 )
 echo "done"
 "#,
-        SourceMode::Echo,
     )
     .expect("multiline function call parses");
 
@@ -163,8 +157,7 @@ fn parses_std_net_module_source() {
     assert!(matches!(
         &program.statements[0],
             Stmt::Namespace(statement)
-                if statement.source == NamespaceSource::Std
-                && statement.name.as_string() == "net"
+                if statement.name.parts == ["std", "net"]
     ));
     assert!(matches!(
         &program.statements[7],
@@ -184,8 +177,7 @@ fn parses_std_time_module_source() {
     assert!(matches!(
         &program.statements[0],
         Stmt::Namespace(statement)
-            if statement.source == NamespaceSource::Std
-                && statement.name.as_string() == "time"
+            if statement.name.parts == ["std", "time"]
     ));
     assert!(matches!(&program.statements[1], Stmt::FunctionDecl(_)));
 }
@@ -198,19 +190,17 @@ fn parses_std_http_module_source() {
     assert!(matches!(
         &program.statements[0],
         Stmt::Namespace(statement)
-            if statement.source == NamespaceSource::Std
-                && statement.name.as_string() == "http"
+            if statement.name.parts == ["std", "http"]
     ));
     assert!(matches!(&program.statements[1], Stmt::FunctionDecl(_)));
 }
 
 #[test]
 fn parses_dotted_std_function_call() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"from std use time
 time.sleep(300)
 "#,
-        SourceMode::Echo,
     )
     .expect("dotted function call parses");
 
@@ -222,13 +212,12 @@ time.sleep(300)
 
 #[test]
 fn parses_echo_module_and_direct_dotted_imports() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"module acme.http_server.runtime
 use std.http
 use std.net
 use acme.http_server.ServerKernel
 "#,
-        SourceMode::Echo,
     )
     .expect("Echo module and direct dotted imports parse");
 
@@ -259,19 +248,18 @@ use acme.http_server.ServerKernel
 
 #[test]
 fn parses_include_and_include_once_expressions() {
-    parse_with_mode(
+    parse(
         r#"<?php
 include __DIR__ . "/config.php";
 $loaded = include_once __DIR__ . "/config.php";
 "#,
-        SourceMode::Echo,
     )
     .expect("include and include_once expressions should parse");
 }
 
 #[test]
 fn parses_echo_http_server_surface() {
-    parse_with_mode(
+    parse(
         r#"module acme.http_server.runtime
 
 use std.http
@@ -292,14 +280,13 @@ loop {
     net.close($connection)
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("Echo HTTP server syntax parses for LSP diagnostics");
 }
 
 #[test]
 fn parses_echo_package_provider_surface() {
-    parse_with_mode(
+    parse(
         r#"class ReportFormatter {
     fn slug($name): string {
         return $name
@@ -310,14 +297,13 @@ fn parses_echo_package_provider_surface() {
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("Echo package provider syntax parses for LSP diagnostics");
 }
 
 #[test]
 fn parses_class_method_bodies_as_statements() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 class Example {
     public static function getLoader()
@@ -326,7 +312,6 @@ class Example {
     }
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("class method body should parse");
 
@@ -343,22 +328,20 @@ class Example {
 
 #[test]
 fn rejects_plain_use_std_module_import_spelling() {
-    parse_with_mode(
+    parse(
         r#"use std time
 time.sleep(300)
 "#,
-        SourceMode::Strict,
     )
     .expect_err("std imports must use `from std use ...`");
 }
 
 #[test]
 fn parses_php_use_std_namespace_as_php_use_statement() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"use std\time
 time.sleep(300)
 "#,
-        SourceMode::Strict,
     )
     .expect("PHP namespace use syntax remains parseable");
 
@@ -372,11 +355,8 @@ time.sleep(300)
 
 #[test]
 fn parses_negative_numeric_function_arguments() {
-    let program = parse_with_mode(
-        r#"<?php echo substr_compare("abcde", "de", -2, 2);"#,
-        SourceMode::Echo,
-    )
-    .expect("negative numeric argument parses");
+    let program = parse(r#"<?php echo substr_compare("abcde", "de", -2, 2);"#)
+        .expect("negative numeric argument parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -396,7 +376,7 @@ fn parses_negative_numeric_function_arguments() {
 
 #[test]
 fn parses_strict_identity_comparison_in_if_condition() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"$payload = "signed:user-42";
 $parts = explode(":", $payload);
 
@@ -404,7 +384,6 @@ if (count($parts) === 2) {
     echo strtoupper($parts[1]) . "\n";
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("strict identity comparison in if condition parses");
 
@@ -420,11 +399,10 @@ if (count($parts) === 2) {
 
 #[test]
 fn parses_php_new_expression_as_method_argument() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $status = $app->handleCommand(new ArgvInput);
 "#,
-        SourceMode::Echo,
     )
     .expect("new expression parses as a normal expression");
 
@@ -450,11 +428,10 @@ $status = $app->handleCommand(new ArgvInput);
 
 #[test]
 fn parses_php_dynamic_new_expression() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $instance = new $provider($app);
 "#,
-        SourceMode::Echo,
     )
     .expect("dynamic new expression parses");
 
@@ -475,11 +452,10 @@ $instance = new $provider($app);
 
 #[test]
 fn parses_php_not_equal_expression() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 return $manifest['providers'] != $providers;
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP != expression parses");
 
@@ -495,11 +471,10 @@ return $manifest['providers'] != $providers;
 
 #[test]
 fn parses_php_index_append_assignment() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $manifest['eager'][] = $provider;
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP indexed append assignment parses");
 
@@ -513,11 +488,10 @@ $manifest['eager'][] = $provider;
 
 #[test]
 fn parses_php_shorthand_ternary_expression() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $vendorPath = Env::get('COMPOSER_VENDOR_DIR') ?: $basePath.'/vendor';
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP shorthand ternary parses");
 
@@ -530,11 +504,10 @@ $vendorPath = Env::get('COMPOSER_VENDOR_DIR') ?: $basePath.'/vendor';
 
 #[test]
 fn parses_php_null_coalesce_expression() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 return $configuration[$key] ?? [];
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP null coalesce parses");
 
@@ -550,11 +523,8 @@ return $configuration[$key] ?? [];
 
 #[test]
 fn parses_php_named_static_call_argument() {
-    let program = parse_with_mode(
-        r#"<?php return Bootstrapper::configure(basePath: dirname(__DIR__));"#,
-        SourceMode::Echo,
-    )
-    .expect("PHP named static call argument parses");
+    let program = parse(r#"<?php return Bootstrapper::configure(basePath: dirname(__DIR__));"#)
+        .expect("PHP named static call argument parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -572,14 +542,13 @@ fn parses_php_named_static_call_argument() {
 
 #[test]
 fn parses_php_closure_expression_as_method_argument() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 return Bootstrapper::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Pipeline $middleware): void {
     })
     ->create();
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP closure expression parses as a method argument");
 
@@ -608,13 +577,12 @@ return Bootstrapper::configure(basePath: dirname(__DIR__))
 
 #[test]
 fn parses_php_closure_with_default_param_and_captures() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 return function ($container, $parameters = []) use ($abstract, $concrete) {
     return $container->build($concrete);
 };
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP closure default params and captures parse");
 
@@ -633,11 +601,10 @@ return function ($container, $parameters = []) use ($abstract, $concrete) {
 
 #[test]
 fn parses_php_dynamic_method_call_name() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $target->{$method}($instance);
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP dynamic method call names parse");
 
@@ -654,13 +621,12 @@ $target->{$method}($instance);
 
 #[test]
 fn parses_php_assignment_expression_in_condition() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 if (! $callbacks = $this->getCallbacks()) {
     return;
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP assignment expressions parse in conditions");
 
@@ -677,11 +643,10 @@ if (! $callbacks = $this->getCallbacks()) {
 
 #[test]
 fn parses_php_first_class_callable_placeholder() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $reflector = new ReflectionFunction($callback(...));
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP first-class callable placeholder parses");
 
@@ -694,11 +659,10 @@ $reflector = new ReflectionFunction($callback(...));
 
 #[test]
 fn parses_php_argument_unpacking() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $instance = new $concrete(...$instances);
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP argument unpacking parses");
 
@@ -711,13 +675,12 @@ $instance = new $concrete(...$instances);
 
 #[test]
 fn parses_php_continue_statement() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 foreach ($items as $item) {
     continue;
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP continue statement parses");
 
@@ -730,11 +693,10 @@ foreach ($items as $item) {
 
 #[test]
 fn parses_php_null_coalescing_assignment_statement() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $result ??= fallback();
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP null-coalescing assignment parses");
 
@@ -746,7 +708,7 @@ $result ??= fallback();
 
 #[test]
 fn parses_php_static_property_null_coalescing_assignment_expression() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 class C {
     public static function getInstance() {
@@ -754,7 +716,6 @@ class C {
     }
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP static property null-coalescing assignment parses");
 
@@ -778,13 +739,12 @@ class C {
 
 #[test]
 fn parses_php_global_qualified_parameter_type() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 class Hooks {
     public function register(\Closure $callback): void {}
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP global-qualified parameter types parse");
 
@@ -801,13 +761,12 @@ class Hooks {
 
 #[test]
 fn parses_php_arrow_function_expression_as_argument() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $exceptions->shouldRenderJsonWhen(
     fn (Request $request) => $request->is('api/*'),
 );
 "#,
-        SourceMode::Echo,
     )
     .expect("PHP arrow function expression parses as a method argument");
 
@@ -831,7 +790,7 @@ $exceptions->shouldRenderJsonWhen(
 
 #[test]
 fn parses_elseif_as_explicit_clause() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 if ($a) {
     echo "a";
@@ -841,7 +800,6 @@ if ($a) {
     echo "c";
 }
 "#,
-        SourceMode::Echo,
     )
     .expect("elseif parses as an explicit clause");
 
@@ -859,7 +817,7 @@ if ($a) {
 
 #[test]
 fn parses_subtraction_expression() {
-    let program = parse_with_mode("3-5", SourceMode::Strict).expect("subtraction parses");
+    let program = parse("3-5").expect("subtraction parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -876,7 +834,7 @@ fn parses_subtraction_expression() {
 
 #[test]
 fn parses_php_arithmetic_precedence() {
-    let program = parse_with_mode("2+3*4", SourceMode::Strict).expect("arithmetic parses");
+    let program = parse("2+3*4").expect("arithmetic parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -892,8 +850,7 @@ fn parses_php_arithmetic_precedence() {
 
 #[test]
 fn parses_parenthesized_and_unary_arithmetic() {
-    let program =
-        parse_with_mode("-(2+3)", SourceMode::Strict).expect("parenthesized unary parses");
+    let program = parse("-(2+3)").expect("parenthesized unary parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -909,14 +866,14 @@ fn parses_parenthesized_and_unary_arithmetic() {
 
 #[test]
 fn parses_brace_values_as_lists_or_structural_objects() {
-    let list = parse_with_mode("{1, 2, 3}", SourceMode::Strict).expect("list literal parses");
+    let list = parse("{1, 2, 3}").expect("list literal parses");
     assert!(matches!(
         &list.statements[0],
         Stmt::Expr(statement)
             if matches!(&statement.expr, Expr::List(expr) if expr.values.len() == 3)
     ));
 
-    let object = parse_with_mode("{ test: 5 }", SourceMode::Strict).expect("object literal parses");
+    let object = parse("{ test: 5 }").expect("object literal parses");
     assert!(matches!(
         &object.statements[0],
         Stmt::Expr(statement)
@@ -931,7 +888,7 @@ fn parses_brace_values_as_lists_or_structural_objects() {
 
 #[test]
 fn parses_bracket_values_as_arrays() {
-    let program = parse_with_mode("[1, 2, 3]", SourceMode::Strict).expect("array parses");
+    let program = parse("[1, 2, 3]").expect("array parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -942,7 +899,7 @@ fn parses_bracket_values_as_arrays() {
 
 #[test]
 fn parses_index_access_expressions() {
-    let program = parse_with_mode("$a[0]", SourceMode::Strict).expect("index access parses");
+    let program = parse("$a[0]").expect("index access parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -957,9 +914,8 @@ fn parses_index_access_expressions() {
 }
 
 #[test]
-fn echo_mode_accepts_php_compat_keyed_arrays() {
-    let program = parse_with_mode(r#"["asdf" => 5]"#, SourceMode::Echo)
-        .expect("PHP keyed array parses in Echo mode");
+fn parses_php_keyed_arrays() {
+    let program = parse(r#"["asdf" => 5]"#).expect("PHP keyed array parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -973,47 +929,38 @@ fn echo_mode_accepts_php_compat_keyed_arrays() {
 }
 
 #[test]
-fn strict_mode_rejects_php_compat_keyed_arrays() {
-    let diagnostics = parse_with_mode(r#"["asdf" => 5]"#, SourceMode::Strict)
-        .expect_err("strict mode rejects keyed arrays");
-
-    assert_eq!(
-        diagnostics[0].message,
-        "keyed array elements are not allowed in strict mode"
-    );
-}
-
-#[test]
-fn strict_mode_rejects_user_std_namespace_declaration() {
-    let diagnostics = parse_with_mode("namespace std net", SourceMode::Strict)
-        .expect_err("user std namespace should be rejected");
-
-    assert_eq!(
-        diagnostics[0].message,
-        "std namespace declarations are only allowed in trusted stdlib source"
-    );
-}
-
-#[test]
-fn strict_mode_allows_php_namespace_named_std_net() {
-    let program = parse_with_mode("namespace std\\Net", SourceMode::Strict)
-        .expect("PHP namespace should stay valid");
+fn parses_keyed_arrays_in_single_language_mode() {
+    let program = parse(r#"["asdf" => 5]"#).expect("keyed arrays parse");
 
     assert!(matches!(
         &program.statements[0],
-        Stmt::Namespace(statement)
-            if statement.source == NamespaceSource::Php
-                && statement.name.as_string() == "std\\Net"
+        Stmt::Expr(statement) if matches!(statement.expr, Expr::Array(_))
     ));
 }
 
 #[test]
+fn parses_legacy_std_namespace_declaration_for_now() {
+    let program = parse("namespace std net").expect("std namespace parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Namespace(statement) if statement.source == NamespaceSource::Std
+    ));
+}
+
+#[test]
+fn parses_reserved_std_backslash_namespace_for_semantic_rejection() {
+    let program = parse("namespace std\\Net").expect("std backslash namespace should parse");
+
+    assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
+}
+
+#[test]
 fn parses_concurrency_expression_statements() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"run $task
 join $task
 "#,
-        SourceMode::Strict,
     )
     .expect("concurrency expression statements parse");
 
@@ -1028,14 +975,13 @@ join $task
 }
 
 #[test]
-fn echo_mode_accepts_concurrency_keywords_in_php_files() {
-    let program = parse_with_mode(
+fn single_language_accepts_concurrency_keywords_in_php_files() {
+    let program = parse(
         r#"<?php
 $task = run $deferred;
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts concurrency syntax");
+    .expect("single language parser accepts concurrency syntax");
 
     assert!(matches!(
         &program.statements[0],
@@ -1044,72 +990,52 @@ $task = run $deferred;
 }
 
 #[test]
-fn echo_mode_accepts_php_reference_assignment() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_reference_assignment() {
+    let program = parse(
         r#"<?php
 $a = "x";
 $b =& $a;
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP references");
+    .expect("single language parser accepts PHP references");
 
     assert!(matches!(&program.statements[1], Stmt::AssignRef(_)));
 }
 
 #[test]
-fn strict_mode_rejects_php_reference_assignment() {
-    let diagnostics = parse_with_mode(
-        r#"let $a = "x"
-$b =& $a
-"#,
-        SourceMode::Strict,
-    )
-    .expect_err("strict mode rejects PHP references");
-
-    assert_eq!(
-        diagnostics[0].message,
-        "PHP references are not allowed in strict mode"
-    );
-}
-
-#[test]
-fn echo_mode_accepts_php_array_append_assignment() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_array_append_assignment() {
+    let program = parse(
         r#"<?php
 $a = [];
 $a[] = 1;
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP append syntax");
+    .expect("single language parser accepts PHP append syntax");
 
     assert!(matches!(&program.statements[1], Stmt::Append(_)));
 }
 
 #[test]
-fn strict_mode_parses_php_array_append_assignment_for_semantic_validation() {
-    let program = parse_with_mode(
+fn parses_php_array_append_assignment_for_semantic_validation() {
+    let program = parse(
         r#"let $a = []
 $a[] = 1
 "#,
-        SourceMode::Strict,
     )
-    .expect("strict parser accepts append syntax for semantic validation");
+    .expect("parser accepts append syntax for semantic validation");
 
     assert!(matches!(&program.statements[1], Stmt::Append(_)));
 }
 
 #[test]
-fn echo_mode_accepts_dynamic_function_calls() {
-    let program = parse_with_mode(
+fn single_language_accepts_dynamic_function_calls() {
+    let program = parse(
         r#"<?php
 $fn = "strlen";
 $fn("Echo");
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts dynamic calls");
+    .expect("single language parser accepts dynamic calls");
 
     assert!(matches!(
         &program.statements[1],
@@ -1118,12 +1044,11 @@ $fn("Echo");
 }
 
 #[test]
-fn echo_mode_accepts_php_class_method_with_visibility_and_body() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_class_method_with_visibility_and_body() {
+    let program = parse(
         "<?php namespace Acme\\Runtime; class Kernel { public function dispatch($request) { } }",
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP method bodies");
+    .expect("single language parser accepts PHP method bodies");
 
     assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
     assert!(matches!(
@@ -1138,17 +1063,16 @@ fn echo_mode_accepts_php_class_method_with_visibility_and_body() {
 }
 
 #[test]
-fn echo_mode_accepts_php_typed_class_properties_and_implements_list() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_typed_class_properties_and_implements_list() {
+    let program = parse(
         r#"<?php
 class Kernel extends Container implements KernelContract, HttpKernelInterface {
     protected array $pendingProviders = [];
     public static string $name = "app";
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP typed properties and implements lists");
+    .expect("single language parser accepts PHP typed properties and implements lists");
 
     assert!(matches!(
         &program.statements[0],
@@ -1173,17 +1097,16 @@ class Kernel extends Container implements KernelContract, HttpKernelInterface {
 }
 
 #[test]
-fn echo_mode_accepts_php_class_constants() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_class_constants() {
+    let program = parse(
         r#"<?php
 class Kernel {
     public const VERSION = '1.2.3';
     protected const FLAGS = [];
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP class constants");
+    .expect("single language parser accepts PHP class constants");
 
     assert!(matches!(
         &program.statements[0],
@@ -1205,17 +1128,16 @@ class Kernel {
 }
 
 #[test]
-fn echo_mode_accepts_php_typed_class_property_with_empty_array_default() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_typed_class_property_with_empty_array_default() {
+    let program = parse(
         r#"<?php
 class RuntimeBuilder
 {
     protected array $pendingProviders = [];
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP typed properties with [] defaults");
+    .expect("single language parser accepts PHP typed properties with [] defaults");
 
     assert!(matches!(
         &program.statements[0],
@@ -1229,8 +1151,8 @@ class RuntimeBuilder
 }
 
 #[test]
-fn echo_mode_accepts_php_promoted_constructor_parameters() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_promoted_constructor_parameters() {
+    let program = parse(
         r#"<?php
 class RuntimeBuilder
 {
@@ -1239,9 +1161,8 @@ class RuntimeBuilder
     }
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP constructor-promoted parameters");
+    .expect("single language parser accepts PHP constructor-promoted parameters");
 
     assert!(matches!(
         &program.statements[0],
@@ -1258,8 +1179,8 @@ class RuntimeBuilder
 }
 
 #[test]
-fn echo_mode_accepts_php_variadic_parameters() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_variadic_parameters() {
+    let program = parse(
         r#"<?php
 class Kernel {
     public function environment(...$environments) {
@@ -1267,9 +1188,8 @@ class Kernel {
     }
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP variadic parameters");
+    .expect("single language parser accepts PHP variadic parameters");
 
     assert!(matches!(
         &program.statements[0],
@@ -1285,16 +1205,15 @@ class Kernel {
 }
 
 #[test]
-fn echo_mode_accepts_multiline_php_ternary_condition() {
-    let program = parse_with_mode(
+fn single_language_accepts_multiline_php_ternary_condition() {
+    let program = parse(
         r#"<?php
 $args = $this->runningInConsole() && isset($_SERVER['argv'])
     ? $_SERVER['argv']
     : null;
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts multiline PHP ternaries");
+    .expect("single language parser accepts multiline PHP ternaries");
 
     assert!(matches!(
         &program.statements[0],
@@ -1303,14 +1222,13 @@ $args = $this->runningInConsole() && isset($_SERVER['argv'])
 }
 
 #[test]
-fn echo_mode_accepts_fully_qualified_php_constants() {
-    let program = parse_with_mode(
+fn single_language_accepts_fully_qualified_php_constants() {
+    let program = parse(
         r#"<?php
 $running = \PHP_SAPI === 'cli';
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts fully-qualified PHP constants");
+    .expect("single language parser accepts fully-qualified PHP constants");
 
     assert!(matches!(
         &program.statements[0],
@@ -1320,14 +1238,13 @@ $running = \PHP_SAPI === 'cli';
 }
 
 #[test]
-fn echo_mode_accepts_php_instanceof_expression() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_instanceof_expression() {
+    let program = parse(
         r#"<?php
 $ok = $value instanceof $name;
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP instanceof expressions");
+    .expect("single language parser accepts PHP instanceof expressions");
 
     assert!(matches!(
         &program.statements[0],
@@ -1337,16 +1254,15 @@ $ok = $value instanceof $name;
 }
 
 #[test]
-fn echo_mode_accepts_php_loose_equality_expression() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_loose_equality_expression() {
+    let program = parse(
         r#"<?php
 if ($code == 404) {
     throw $e;
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP loose equality expressions");
+    .expect("single language parser accepts PHP loose equality expressions");
 
     assert!(matches!(
         &program.statements[0],
@@ -1356,14 +1272,13 @@ if ($code == 404) {
 }
 
 #[test]
-fn echo_mode_accepts_dynamic_expression_call() {
-    let program = parse_with_mode(
+fn single_language_accepts_dynamic_expression_call() {
+    let program = parse(
         r#"<?php
 $callbacks[$index]($this);
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts dynamic expression calls");
+    .expect("single language parser accepts dynamic expression calls");
 
     assert!(matches!(
         &program.statements[0],
@@ -1372,8 +1287,8 @@ $callbacks[$index]($this);
 }
 
 #[test]
-fn echo_mode_accepts_by_ref_parameter_and_post_increment() {
-    let program = parse_with_mode(
+fn single_language_accepts_by_ref_parameter_and_post_increment() {
+    let program = parse(
         r#"<?php
 class Kernel {
     protected function fire(array &$callbacks) {
@@ -1382,9 +1297,8 @@ class Kernel {
     }
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts by-ref params and post-increment");
+    .expect("single language parser accepts by-ref params and post-increment");
 
     assert!(matches!(
         &program.statements[0],
@@ -1399,8 +1313,8 @@ class Kernel {
 }
 
 #[test]
-fn echo_mode_accepts_php_try_catch_statement() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_try_catch_statement() {
+    let program = parse(
         r#"<?php
 try {
     throw $e;
@@ -1408,9 +1322,8 @@ try {
     echo "failed";
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP try/catch statements");
+    .expect("single language parser accepts PHP try/catch statements");
 
     assert!(matches!(
         &program.statements[0],
@@ -1422,8 +1335,8 @@ try {
 }
 
 #[test]
-fn echo_mode_accepts_php_try_finally_statement() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_try_finally_statement() {
+    let program = parse(
         r#"<?php
 try {
     work();
@@ -1431,9 +1344,8 @@ try {
     cleanup();
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP try/finally statements");
+    .expect("single language parser accepts PHP try/finally statements");
 
     assert!(matches!(
         &program.statements[0],
@@ -1443,14 +1355,13 @@ try {
 }
 
 #[test]
-fn echo_mode_accepts_php_list_destructuring_assignment() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_list_destructuring_assignment() {
+    let program = parse(
         r#"<?php
 [$commands, $paths] = $collection->partition(fn ($command) => class_exists($command));
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP list destructuring assignment");
+    .expect("single language parser accepts PHP list destructuring assignment");
 
     assert!(matches!(
         &program.statements[0],
@@ -1460,14 +1371,13 @@ fn echo_mode_accepts_php_list_destructuring_assignment() {
 }
 
 #[test]
-fn echo_mode_accepts_php_keyed_list_destructuring_assignment() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_keyed_list_destructuring_assignment() {
+    let program = parse(
         r#"<?php
 ['queue' => $queue, 'job' => $job, 'command' => $command] = $array;
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP keyed list destructuring assignment");
+    .expect("single language parser accepts PHP keyed list destructuring assignment");
 
     assert!(matches!(
         &program.statements[0],
@@ -1477,21 +1387,20 @@ fn echo_mode_accepts_php_keyed_list_destructuring_assignment() {
 }
 
 #[test]
-fn echo_mode_accepts_arrow_function_as_call_argument() {
-    let program = parse_with_mode(
+fn single_language_accepts_arrow_function_as_call_argument() {
+    let program = parse(
         r#"<?php
 $this->app->afterResolving(Schedule::class, fn ($schedule) => $callback($schedule));
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP arrow functions as call arguments");
+    .expect("single language parser accepts PHP arrow functions as call arguments");
 
     assert!(matches!(&program.statements[0], Stmt::Expr(_)));
 }
 
 #[test]
-fn echo_mode_accepts_php_use_before_class_declaration() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_use_before_class_declaration() {
+    let program = parse(
         r#"<?php
 use Acme\Routing\Router;
 
@@ -1499,9 +1408,8 @@ class RuntimeBuilder
 {
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP use statements before classes");
+    .expect("single language parser accepts PHP use statements before classes");
 
     assert!(matches!(&program.statements[0], Stmt::Use(_)));
     assert!(matches!(
@@ -1511,8 +1419,8 @@ class RuntimeBuilder
 }
 
 #[test]
-fn echo_mode_accepts_php_use_alias_and_function_import_before_class() {
-    let program = parse_with_mode(
+fn single_language_accepts_php_use_alias_and_function_import_before_class() {
+    let program = parse(
         r#"<?php
 namespace Acme\Runtime;
 
@@ -1524,9 +1432,8 @@ class Kernel
 {
 }
 "#,
-        SourceMode::Echo,
     )
-    .expect("Echo superset mode accepts PHP aliased and function imports before classes");
+    .expect("single language parser accepts PHP aliased and function imports before classes");
 
     assert!(matches!(&program.statements[0], Stmt::Namespace(_)));
     assert!(matches!(&program.statements[1], Stmt::Use(_)));
@@ -1539,8 +1446,8 @@ class Kernel
 }
 
 #[test]
-fn echo_mode_accepts_fn_class_methods_with_private_default() {
-    let program = parse_with_mode(
+fn single_language_accepts_fn_class_methods_with_private_default() {
+    let program = parse(
         r#"class ReportFormatter {
     fn slug($name): string {
         return $name
@@ -1551,7 +1458,6 @@ fn echo_mode_accepts_fn_class_methods_with_private_default() {
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("Echo class fn methods parse");
 
@@ -1575,17 +1481,16 @@ fn echo_mode_accepts_fn_class_methods_with_private_default() {
 }
 
 #[test]
-fn strict_mode_rejects_dynamic_function_calls() {
-    let diagnostics = parse_with_mode(
+fn parses_dynamic_function_calls_in_single_language_mode() {
+    let program = parse(
         r#"let $fn = "strlen"
 $fn("Echo")
 "#,
-        SourceMode::Strict,
     )
-    .expect_err("strict mode rejects dynamic calls");
+    .expect("dynamic calls parse");
 
-    assert_eq!(
-        diagnostics[0].message,
-        "dynamic function calls are not allowed in strict mode"
-    );
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::DynamicFunctionCall(_)
+    ));
 }

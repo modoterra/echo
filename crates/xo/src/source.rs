@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use echo_ast::{BinaryOp, Expr, Program, QualifiedName, Stmt, StringLiteral};
 use echo_diagnostics::Diagnostic;
-use echo_source::{SourceFile, SourceMode, Span};
+use echo_source::{SourceFile, Span};
 
 #[derive(Debug, Clone)]
 pub struct SourceDiagnostic {
@@ -56,33 +56,13 @@ pub struct IncludeFrame {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, Copy, clap::Args)]
-pub struct ModeOverride {
-    /// Force strict mode, rejecting unsafe PHP compatibility patterns.
-    #[arg(long, conflicts_with = "unsafe_mode")]
-    pub strict: bool,
-
-    /// Force Echo unsafe/superset mode, allowing PHP compatibility patterns.
-    #[arg(long = "unsafe", conflicts_with = "strict")]
-    pub unsafe_mode: bool,
-}
+#[derive(Debug, Clone, Copy, Default, clap::Args)]
+pub struct SourceOptions {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum DiagnosticFormat {
     Human,
     Json,
-}
-
-impl ModeOverride {
-    fn apply(self, default: SourceMode) -> SourceMode {
-        if self.strict {
-            SourceMode::Strict
-        } else if self.unsafe_mode {
-            SourceMode::Echo
-        } else {
-            default
-        }
-    }
 }
 
 pub fn read_source(file: &Path) -> String {
@@ -92,23 +72,21 @@ pub fn read_source(file: &Path) -> String {
     })
 }
 
-pub fn read_source_file(file: &Path, mode: ModeOverride) -> SourceFile {
+pub fn read_source_file(file: &Path, mode: SourceOptions) -> SourceFile {
     source_file_from_text(file.to_path_buf(), read_source(file), mode)
 }
 
-pub fn source_file_from_text(file: PathBuf, text: String, mode: ModeOverride) -> SourceFile {
-    let mut source = SourceFile::new(file, text);
-    source.mode = mode.apply(source.mode);
-    source
+pub fn source_file_from_text(file: PathBuf, text: String, _mode: SourceOptions) -> SourceFile {
+    SourceFile::new(file, text)
 }
 
-pub fn compile_ir(file: &Path, mode: ModeOverride) -> String {
+pub fn compile_ir(file: &Path, mode: SourceOptions) -> String {
     compile_ir_with_diagnostics(file, mode, DiagnosticFormat::Human)
 }
 
 pub fn compile_ir_with_diagnostics(
     file: &Path,
-    mode: ModeOverride,
+    mode: SourceOptions,
     diagnostic_format: DiagnosticFormat,
 ) -> String {
     let source = read_source_file(file, mode);
@@ -122,7 +100,7 @@ pub fn compile_ir_with_diagnostics(
     }
 }
 
-pub fn run_jit(file: &Path, mode: ModeOverride) {
+pub fn run_jit(file: &Path, mode: SourceOptions) {
     let source = read_source_file(file, mode);
 
     match try_run_jit(&source) {
@@ -146,7 +124,7 @@ pub fn try_run_jit(source: &SourceFile) -> Result<i32, Vec<echo_diagnostics::Dia
 
 pub fn try_compile_ir_bundle(
     source: &SourceFile,
-    mode: ModeOverride,
+    mode: SourceOptions,
 ) -> Result<String, Vec<SourceDiagnostic>> {
     let bundle = parse_source_bundle(source, mode)?;
     let entry_hir = echo_hir::lower_program(&bundle.entry)
@@ -429,12 +407,7 @@ fn collect_statement_contextual_class_references(
                 collect_statement_contextual_class_references(statement, namespace, uses, names);
             }
             for clause in &statement.elseif_clauses {
-                collect_expr_contextual_class_references(
-                    &clause.condition,
-                    namespace,
-                    uses,
-                    names,
-                );
+                collect_expr_contextual_class_references(&clause.condition, namespace, uses, names);
                 for statement in &clause.body {
                     collect_statement_contextual_class_references(
                         statement, namespace, uses, names,
@@ -868,7 +841,9 @@ fn collect_expr_class_references(expr: &Expr, names: &mut std::collections::Hash
         | Expr::Constant(_)
         | Expr::ReceiverConst(_)
         | Expr::MagicConstant(_) => {}
-        Expr::StaticPropertyFetch(expr) => collect_qualified_name_references(&expr.class_name, names),
+        Expr::StaticPropertyFetch(expr) => {
+            collect_qualified_name_references(&expr.class_name, names)
+        }
         Expr::StaticPropertyAssign(expr) => {
             collect_qualified_name_references(&expr.class_name, names);
             collect_expr_class_references(&expr.value, names);
@@ -877,7 +852,9 @@ fn collect_expr_class_references(expr: &Expr, names: &mut std::collections::Hash
             collect_qualified_name_references(&expr.class_name, names);
             collect_expr_class_references(&expr.value, names);
         }
-        Expr::ClassConstantFetch(expr) => collect_qualified_name_references(&expr.class_name, names),
+        Expr::ClassConstantFetch(expr) => {
+            collect_qualified_name_references(&expr.class_name, names)
+        }
         Expr::FunctionCall(expr) => {
             for arg in &expr.args {
                 collect_call_arg_class_references(arg, names);
@@ -1103,7 +1080,7 @@ struct StaticIncludePath {
 
 fn parse_source_bundle(
     source: &SourceFile,
-    mode: ModeOverride,
+    mode: SourceOptions,
 ) -> Result<SourceBundle, Vec<SourceDiagnostic>> {
     let mut seen = std::collections::HashSet::new();
     let mut includes = Vec::new();
@@ -1126,7 +1103,7 @@ fn parse_source_bundle(
 
 fn discover_composer_autoload_files(
     entry_source: &SourceFile,
-    mode: ModeOverride,
+    mode: SourceOptions,
     seen: &mut std::collections::HashSet<PathBuf>,
     includes: &mut Vec<IncludeProgram>,
 ) -> Result<(), Vec<SourceDiagnostic>> {
@@ -1195,7 +1172,7 @@ fn discover_composer_autoload_files(
 fn discover_composer_classmap_files(
     entry_source: &SourceFile,
     entry_program: &Program,
-    mode: ModeOverride,
+    mode: SourceOptions,
     seen: &mut std::collections::HashSet<PathBuf>,
     includes: &mut Vec<IncludeProgram>,
 ) -> Result<(), Vec<SourceDiagnostic>> {
@@ -1296,7 +1273,7 @@ fn classmap_match_aliases(
 fn classmap_include_program(
     class_name: &str,
     path: &Path,
-    mode: ModeOverride,
+    mode: SourceOptions,
     seen: &mut std::collections::HashSet<PathBuf>,
     parse_body: bool,
 ) -> Option<IncludeProgram> {
@@ -1348,7 +1325,7 @@ fn classmap_include_program(
 
 fn discover_composer_psr4_roots(
     entry_source: &SourceFile,
-    mode: ModeOverride,
+    mode: SourceOptions,
     seen: &mut std::collections::HashSet<PathBuf>,
     includes: &mut Vec<IncludeProgram>,
 ) -> Result<(), Vec<SourceDiagnostic>> {
@@ -1659,7 +1636,7 @@ fn php_generated_string_literal(value: &str) -> Option<String> {
 fn resolve_static_includes(
     program: &mut Program,
     source: &SourceFile,
-    mode: ModeOverride,
+    mode: SourceOptions,
     seen: &mut std::collections::HashSet<PathBuf>,
     includes: &mut Vec<IncludeProgram>,
     include_stack: Vec<IncludeFrame>,
@@ -2067,7 +2044,7 @@ fn static_string_expr(expr: &Expr, source_dir: &Path) -> Option<String> {
 pub fn parse_source_program(
     source: &SourceFile,
 ) -> Result<Program, Vec<echo_diagnostics::Diagnostic>> {
-    let mut program = echo_parser::parse_with_mode(&source.text, source.mode)?;
+    let mut program = echo_parser::parse(&source.text)?;
     program.source_dir = source_dir_for(&source.path);
     Ok(program)
 }
@@ -2476,34 +2453,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn repl_source_defaults_to_strict_mode() {
-        let source = source_file_from_text(
-            PathBuf::from("repl.echo"),
-            "echo \"hello\";".to_string(),
-            ModeOverride {
-                strict: false,
-                unsafe_mode: false,
-            },
-        );
-
-        assert_eq!(source.mode, SourceMode::Strict);
-    }
-
-    #[test]
-    fn repl_source_can_use_unsafe_mode() {
-        let source = source_file_from_text(
-            PathBuf::from("repl.echo"),
-            "<?php echo \"hello\";".to_string(),
-            ModeOverride {
-                strict: false,
-                unsafe_mode: true,
-            },
-        );
-
-        assert_eq!(source.mode, SourceMode::Echo);
-    }
-
-    #[test]
     fn echo_module_classes_have_php_namespace_aliases_for_composer() {
         let program = Program {
             open_tag: None,
@@ -2557,10 +2506,7 @@ mod tests {
         )
         .expect("echo provider source");
 
-        let mode = ModeOverride {
-            strict: false,
-            unsafe_mode: true,
-        };
+        let mode = SourceOptions::default();
         let entry = read_source_file(&root.join("public/index.php"), mode);
         let bundle = parse_source_bundle(&entry, mode).expect("source bundle parses");
 
@@ -2620,10 +2566,7 @@ mod tests {
         )
         .expect("echo provider source");
 
-        let mode = ModeOverride {
-            strict: false,
-            unsafe_mode: true,
-        };
+        let mode = SourceOptions::default();
         let entry = read_source_file(&root.join("public/index.php"), mode);
         let bundle = parse_source_bundle(&entry, mode).expect("source bundle parses");
 
@@ -2664,10 +2607,7 @@ mod tests {
         .expect("autoload_classmap metadata");
         fs::write(app_dir.join("AppServiceProvider.php"), "<?php\n").expect("classmap source");
 
-        let mode = ModeOverride {
-            strict: false,
-            unsafe_mode: true,
-        };
+        let mode = SourceOptions::default();
         let entry = read_source_file(&root.join("public/index.php"), mode);
         let bundle = parse_source_bundle(&entry, mode).expect("source bundle parses");
 

@@ -15,14 +15,12 @@ fn resolves_require_dependency_to_target_file() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![DependencyFact {
                 kind: DependencyKind::ComposerAutoload,
@@ -59,14 +57,12 @@ fn resolves_php_use_dependency_through_composer_psr4() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![
                 DependencyFact {
@@ -120,14 +116,12 @@ fn resolves_class_reference_through_composer_psr4() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![
                 DependencyFact {
@@ -197,14 +191,12 @@ fn resolves_class_reference_to_source_line_when_target_php_is_not_parseable() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![
                 DependencyFact {
@@ -259,14 +251,12 @@ fn resolves_static_method_reference_to_composer_class_declaration() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![
                 DependencyFact {
@@ -333,14 +323,12 @@ fn resolves_static_method_reference_to_source_line_when_target_php_is_not_parsea
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![
                 DependencyFact {

@@ -22,14 +22,12 @@ fn php_compatibility_fixtures_parse() {
         let source = fs::read_to_string(&program_path)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", program_path.display()));
 
-        echo_parser::parse_with_mode(&source, echo_source::SourceMode::Echo).unwrap_or_else(
-            |diagnostics| {
-                panic!(
-                    "{} failed to parse: {diagnostics:#?}",
-                    program_path.display()
-                )
-            },
-        );
+        echo_parser::parse(&source).unwrap_or_else(|diagnostics| {
+            panic!(
+                "{} failed to parse: {diagnostics:#?}",
+                program_path.display()
+            )
+        });
     }
 }
 
@@ -53,14 +51,12 @@ fn echo_language_fixtures_parse() {
         let source = fs::read_to_string(&program_path)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", program_path.display()));
 
-        echo_parser::parse_with_mode(&source, echo_source::SourceMode::Strict).unwrap_or_else(
-            |diagnostics| {
-                panic!(
-                    "{} failed to parse: {diagnostics:#?}",
-                    program_path.display()
-                )
-            },
-        );
+        echo_parser::parse(&source).unwrap_or_else(|diagnostics| {
+            panic!(
+                "{} failed to parse: {diagnostics:#?}",
+                program_path.display()
+            )
+        });
     }
 }
 

@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyntaxMode {
-    PhpCompat,
+    Php,
     Echo,
 }
 
@@ -89,33 +89,25 @@ pub mod keywords {
     use super::{Keyword, KeywordRole, SyntaxMode};
 
     pub const AS: Keyword = Keyword::new("as", KeywordRole::Import, SyntaxMode::Echo);
-    pub const BREAK: Keyword = Keyword::new("break", KeywordRole::Statement, SyntaxMode::PhpCompat);
-    pub const CLASS: Keyword =
-        Keyword::new("class", KeywordRole::Declaration, SyntaxMode::PhpCompat);
-    pub const CONST: Keyword =
-        Keyword::new("const", KeywordRole::Declaration, SyntaxMode::PhpCompat);
-    pub const DEFINE: Keyword =
-        Keyword::new("define", KeywordRole::Expression, SyntaxMode::PhpCompat);
+    pub const BREAK: Keyword = Keyword::new("break", KeywordRole::Statement, SyntaxMode::Php);
+    pub const CLASS: Keyword = Keyword::new("class", KeywordRole::Declaration, SyntaxMode::Php);
+    pub const CONST: Keyword = Keyword::new("const", KeywordRole::Declaration, SyntaxMode::Php);
+    pub const DEFINE: Keyword = Keyword::new("define", KeywordRole::Expression, SyntaxMode::Php);
     pub const DEFER: Keyword = Keyword::new("defer", KeywordRole::Expression, SyntaxMode::Echo);
-    pub const ECHO: Keyword = Keyword::new("echo", KeywordRole::Statement, SyntaxMode::PhpCompat);
-    pub const ELSE: Keyword = Keyword::new("else", KeywordRole::Statement, SyntaxMode::PhpCompat);
-    pub const ELSEIF: Keyword =
-        Keyword::new("elseif", KeywordRole::Statement, SyntaxMode::PhpCompat);
-    pub const FALSE: Keyword = Keyword::new("false", KeywordRole::Literal, SyntaxMode::PhpCompat);
+    pub const ECHO: Keyword = Keyword::new("echo", KeywordRole::Statement, SyntaxMode::Php);
+    pub const ELSE: Keyword = Keyword::new("else", KeywordRole::Statement, SyntaxMode::Php);
+    pub const ELSEIF: Keyword = Keyword::new("elseif", KeywordRole::Statement, SyntaxMode::Php);
+    pub const FALSE: Keyword = Keyword::new("false", KeywordRole::Literal, SyntaxMode::Php);
     pub const FN: Keyword = Keyword::new("fn", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const FORK: Keyword = Keyword::new("fork", KeywordRole::Expression, SyntaxMode::Echo);
     pub const FROM: Keyword = Keyword::new("from", KeywordRole::Import, SyntaxMode::Echo);
     pub const FUNCTION: Keyword =
-        Keyword::new("function", KeywordRole::Declaration, SyntaxMode::PhpCompat);
+        Keyword::new("function", KeywordRole::Declaration, SyntaxMode::Php);
     pub const GEN: Keyword = Keyword::new("gen", KeywordRole::Declaration, SyntaxMode::Echo);
-    pub const IF: Keyword = Keyword::new("if", KeywordRole::Statement, SyntaxMode::PhpCompat);
-    pub const INCLUDE: Keyword =
-        Keyword::new("include", KeywordRole::Expression, SyntaxMode::PhpCompat);
-    pub const INCLUDE_ONCE: Keyword = Keyword::new(
-        "include_once",
-        KeywordRole::Expression,
-        SyntaxMode::PhpCompat,
-    );
+    pub const IF: Keyword = Keyword::new("if", KeywordRole::Statement, SyntaxMode::Php);
+    pub const INCLUDE: Keyword = Keyword::new("include", KeywordRole::Expression, SyntaxMode::Php);
+    pub const INCLUDE_ONCE: Keyword =
+        Keyword::new("include_once", KeywordRole::Expression, SyntaxMode::Php);
     pub const INTRINSIC: Keyword =
         Keyword::new("intrinsic", KeywordRole::Modifier, SyntaxMode::Echo);
     pub const IS: Keyword = Keyword::new("is", KeywordRole::Expression, SyntaxMode::Echo);
@@ -124,36 +116,28 @@ pub mod keywords {
     pub const LOOP: Keyword = Keyword::new("loop", KeywordRole::Statement, SyntaxMode::Echo);
     pub const MODULE: Keyword = Keyword::new("module", KeywordRole::Namespace, SyntaxMode::Echo);
     pub const NAMESPACE: Keyword =
-        Keyword::new("namespace", KeywordRole::Namespace, SyntaxMode::PhpCompat);
-    pub const NEW: Keyword = Keyword::new("new", KeywordRole::Expression, SyntaxMode::PhpCompat);
+        Keyword::new("namespace", KeywordRole::Namespace, SyntaxMode::Php);
+    pub const NEW: Keyword = Keyword::new("new", KeywordRole::Expression, SyntaxMode::Php);
     pub const NOT: Keyword = Keyword::new("not", KeywordRole::Expression, SyntaxMode::Echo);
-    pub const NULL: Keyword = Keyword::new("null", KeywordRole::Literal, SyntaxMode::PhpCompat);
-    pub const PRIVATE: Keyword =
-        Keyword::new("private", KeywordRole::Modifier, SyntaxMode::PhpCompat);
+    pub const NULL: Keyword = Keyword::new("null", KeywordRole::Literal, SyntaxMode::Php);
+    pub const PRIVATE: Keyword = Keyword::new("private", KeywordRole::Modifier, SyntaxMode::Php);
     pub const PROTECTED: Keyword =
-        Keyword::new("protected", KeywordRole::Modifier, SyntaxMode::PhpCompat);
+        Keyword::new("protected", KeywordRole::Modifier, SyntaxMode::Php);
     pub const PUB: Keyword = Keyword::new("pub", KeywordRole::Modifier, SyntaxMode::Echo);
-    pub const PUBLIC: Keyword =
-        Keyword::new("public", KeywordRole::Modifier, SyntaxMode::PhpCompat);
-    pub const REQUIRE: Keyword =
-        Keyword::new("require", KeywordRole::Expression, SyntaxMode::PhpCompat);
-    pub const REQUIRE_ONCE: Keyword = Keyword::new(
-        "require_once",
-        KeywordRole::Expression,
-        SyntaxMode::PhpCompat,
-    );
-    pub const RETURN: Keyword =
-        Keyword::new("return", KeywordRole::Statement, SyntaxMode::PhpCompat);
+    pub const PUBLIC: Keyword = Keyword::new("public", KeywordRole::Modifier, SyntaxMode::Php);
+    pub const REQUIRE: Keyword = Keyword::new("require", KeywordRole::Expression, SyntaxMode::Php);
+    pub const REQUIRE_ONCE: Keyword =
+        Keyword::new("require_once", KeywordRole::Expression, SyntaxMode::Php);
+    pub const RETURN: Keyword = Keyword::new("return", KeywordRole::Statement, SyntaxMode::Php);
     pub const RUN: Keyword = Keyword::new("run", KeywordRole::Expression, SyntaxMode::Echo);
     pub const SPAWN: Keyword = Keyword::new("spawn", KeywordRole::Expression, SyntaxMode::Echo);
-    pub const STATIC: Keyword =
-        Keyword::new("static", KeywordRole::Modifier, SyntaxMode::PhpCompat);
+    pub const STATIC: Keyword = Keyword::new("static", KeywordRole::Modifier, SyntaxMode::Php);
     pub const STD: Keyword = Keyword::new("std", KeywordRole::Namespace, SyntaxMode::Echo);
-    pub const THROW: Keyword = Keyword::new("throw", KeywordRole::Statement, SyntaxMode::PhpCompat);
-    pub const TRUE: Keyword = Keyword::new("true", KeywordRole::Literal, SyntaxMode::PhpCompat);
+    pub const THROW: Keyword = Keyword::new("throw", KeywordRole::Statement, SyntaxMode::Php);
+    pub const TRUE: Keyword = Keyword::new("true", KeywordRole::Literal, SyntaxMode::Php);
     pub const TYPE: Keyword = Keyword::new("type", KeywordRole::Declaration, SyntaxMode::Echo);
-    pub const USE: Keyword = Keyword::new("use", KeywordRole::Import, SyntaxMode::PhpCompat);
-    pub const YIELD: Keyword = Keyword::new("yield", KeywordRole::Statement, SyntaxMode::PhpCompat);
+    pub const USE: Keyword = Keyword::new("use", KeywordRole::Import, SyntaxMode::Php);
+    pub const YIELD: Keyword = Keyword::new("yield", KeywordRole::Statement, SyntaxMode::Php);
 
     pub const ALL: &[Keyword] = &[
         AS,
@@ -213,27 +197,16 @@ pub mod operators {
     use super::{Associativity, Operator, SyntaxMode};
 
     pub const CONCAT: Operator =
-        Operator::new(".", "concat", 6, Associativity::Left, SyntaxMode::PhpCompat);
-    pub const ADD: Operator =
-        Operator::new("+", "add", 7, Associativity::Left, SyntaxMode::PhpCompat);
-    pub const SUBTRACT: Operator = Operator::new(
-        "-",
-        "subtract",
-        7,
-        Associativity::Left,
-        SyntaxMode::PhpCompat,
-    );
-    pub const MULTIPLY: Operator = Operator::new(
-        "*",
-        "multiply",
-        8,
-        Associativity::Left,
-        SyntaxMode::PhpCompat,
-    );
+        Operator::new(".", "concat", 6, Associativity::Left, SyntaxMode::Php);
+    pub const ADD: Operator = Operator::new("+", "add", 7, Associativity::Left, SyntaxMode::Php);
+    pub const SUBTRACT: Operator =
+        Operator::new("-", "subtract", 7, Associativity::Left, SyntaxMode::Php);
+    pub const MULTIPLY: Operator =
+        Operator::new("*", "multiply", 8, Associativity::Left, SyntaxMode::Php);
     pub const DIVIDE: Operator =
-        Operator::new("/", "divide", 8, Associativity::Left, SyntaxMode::PhpCompat);
+        Operator::new("/", "divide", 8, Associativity::Left, SyntaxMode::Php);
     pub const MODULO: Operator =
-        Operator::new("%", "modulo", 8, Associativity::Left, SyntaxMode::PhpCompat);
+        Operator::new("%", "modulo", 8, Associativity::Left, SyntaxMode::Php);
 
     pub const ALL: &[Operator] = &[CONCAT, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO];
 }
@@ -241,11 +214,8 @@ pub mod operators {
 pub mod rules {
     use super::{SyntaxMode, SyntaxRule, SyntaxRuleKind};
 
-    pub const PROGRAM: SyntaxRule = SyntaxRule::new(
-        "program",
-        SyntaxRuleKind::Declaration,
-        SyntaxMode::PhpCompat,
-    );
+    pub const PROGRAM: SyntaxRule =
+        SyntaxRule::new("program", SyntaxRuleKind::Declaration, SyntaxMode::Php);
     pub const MODULE_DECLARATION: SyntaxRule = SyntaxRule::new(
         "module_declaration",
         SyntaxRuleKind::Declaration,
@@ -254,12 +224,12 @@ pub mod rules {
     pub const NAMESPACE_DECLARATION: SyntaxRule = SyntaxRule::new(
         "namespace_declaration",
         SyntaxRuleKind::Declaration,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const USE_DECLARATION: SyntaxRule = SyntaxRule::new(
         "use_declaration",
         SyntaxRuleKind::Declaration,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const FROM_USE_DECLARATION: SyntaxRule = SyntaxRule::new(
         "from_use_declaration",
@@ -269,12 +239,12 @@ pub mod rules {
     pub const FUNCTION_DECLARATION: SyntaxRule = SyntaxRule::new(
         "function_declaration",
         SyntaxRuleKind::Declaration,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const CLASS_DECLARATION: SyntaxRule = SyntaxRule::new(
         "class_declaration",
         SyntaxRuleKind::Declaration,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const TYPE_DECLARATION: SyntaxRule = SyntaxRule::new(
         "type_declaration",
@@ -283,16 +253,10 @@ pub mod rules {
     );
     pub const LET_STATEMENT: SyntaxRule =
         SyntaxRule::new("let_statement", SyntaxRuleKind::Statement, SyntaxMode::Echo);
-    pub const ECHO_STATEMENT: SyntaxRule = SyntaxRule::new(
-        "echo_statement",
-        SyntaxRuleKind::Statement,
-        SyntaxMode::PhpCompat,
-    );
-    pub const IF_STATEMENT: SyntaxRule = SyntaxRule::new(
-        "if_statement",
-        SyntaxRuleKind::Statement,
-        SyntaxMode::PhpCompat,
-    );
+    pub const ECHO_STATEMENT: SyntaxRule =
+        SyntaxRule::new("echo_statement", SyntaxRuleKind::Statement, SyntaxMode::Php);
+    pub const IF_STATEMENT: SyntaxRule =
+        SyntaxRule::new("if_statement", SyntaxRuleKind::Statement, SyntaxMode::Php);
     pub const LOOP_STATEMENT: SyntaxRule = SyntaxRule::new(
         "loop_statement",
         SyntaxRuleKind::Statement,
@@ -301,41 +265,41 @@ pub mod rules {
     pub const BREAK_STATEMENT: SyntaxRule = SyntaxRule::new(
         "break_statement",
         SyntaxRuleKind::Statement,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const RETURN_STATEMENT: SyntaxRule = SyntaxRule::new(
         "return_statement",
         SyntaxRuleKind::Statement,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const YIELD_STATEMENT: SyntaxRule = SyntaxRule::new(
         "yield_statement",
         SyntaxRuleKind::Statement,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const EXPRESSION_STATEMENT: SyntaxRule = SyntaxRule::new(
         "expression_statement",
         SyntaxRuleKind::Statement,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const BINARY_EXPRESSION: SyntaxRule = SyntaxRule::new(
         "binary_expression",
         SyntaxRuleKind::Expression,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const CALL_EXPRESSION: SyntaxRule = SyntaxRule::new(
         "call_expression",
         SyntaxRuleKind::Expression,
-        SyntaxMode::PhpCompat,
+        SyntaxMode::Php,
     );
     pub const VARIABLE: SyntaxRule =
-        SyntaxRule::new("variable", SyntaxRuleKind::Name, SyntaxMode::PhpCompat);
+        SyntaxRule::new("variable", SyntaxRuleKind::Name, SyntaxMode::Php);
     pub const IDENTIFIER: SyntaxRule =
-        SyntaxRule::new("identifier", SyntaxRuleKind::Name, SyntaxMode::PhpCompat);
+        SyntaxRule::new("identifier", SyntaxRuleKind::Name, SyntaxMode::Php);
     pub const STRING: SyntaxRule =
-        SyntaxRule::new("string", SyntaxRuleKind::Literal, SyntaxMode::PhpCompat);
+        SyntaxRule::new("string", SyntaxRuleKind::Literal, SyntaxMode::Php);
     pub const NUMBER: SyntaxRule =
-        SyntaxRule::new("number", SyntaxRuleKind::Literal, SyntaxMode::PhpCompat);
+        SyntaxRule::new("number", SyntaxRuleKind::Literal, SyntaxMode::Php);
 
     pub const ALL: &[SyntaxRule] = &[
         PROGRAM,

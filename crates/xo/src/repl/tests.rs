@@ -10,10 +10,7 @@ fn repl_expression_info_describes_addition() {
     let source = source_file_from_text(
         PathBuf::from("repl.echo"),
         "5+3".to_string(),
-        ModeOverride {
-            strict: false,
-            unsafe_mode: false,
-        },
+        SourceOptions::default(),
     );
     let parsed = try_parse_repl_input(&source).expect("expression should parse");
     let ReplInput::Expression(info) = parsed.input else {
@@ -28,10 +25,7 @@ fn repl_expression_info_describes_addition() {
 
 #[test]
 fn repl_live_hint_previews_constant_arithmetic() {
-    let mode = ModeOverride {
-        strict: false,
-        unsafe_mode: false,
-    };
+    let mode = SourceOptions::default();
 
     assert_eq!(
         repl_live_hint("4 + 4", mode, &[]),
@@ -41,10 +35,7 @@ fn repl_live_hint_previews_constant_arithmetic() {
 
 #[test]
 fn repl_live_hint_previews_persisted_variable_arithmetic() {
-    let mode = ModeOverride {
-        strict: false,
-        unsafe_mode: false,
-    };
+    let mode = SourceOptions::default();
     let source = source_file_from_text(
         PathBuf::from("repl.echo"),
         "let $base = 4".to_string(),
@@ -60,10 +51,7 @@ fn repl_live_hint_previews_persisted_variable_arithmetic() {
 
 #[test]
 fn repl_live_hint_shows_type_for_non_constant_calls() {
-    let mode = ModeOverride {
-        strict: false,
-        unsafe_mode: false,
-    };
+    let mode = SourceOptions::default();
 
     assert_eq!(
         repl_live_hint("count($items)", mode, &[]),
@@ -76,10 +64,7 @@ fn repl_expression_info_describes_subtraction() {
     let source = source_file_from_text(
         PathBuf::from("repl.echo"),
         "3-5".to_string(),
-        ModeOverride {
-            strict: false,
-            unsafe_mode: false,
-        },
+        SourceOptions::default(),
     );
     let parsed = try_parse_repl_input(&source).expect("expression should parse");
     let ReplInput::Expression(info) = parsed.input else {
@@ -97,10 +82,7 @@ fn repl_expression_info_reflects_bare_function_call_return_type() {
     let source = source_file_from_text(
         PathBuf::from("repl.echo"),
         "is_float(42)".to_string(),
-        ModeOverride {
-            strict: false,
-            unsafe_mode: false,
-        },
+        SourceOptions::default(),
     );
     let parsed = try_parse_repl_input(&source).expect("function call should parse");
     let ReplInput::Expression(info) = parsed.input else {
@@ -125,10 +107,7 @@ fn repl_expression_info_distinguishes_collection_literals() {
         let source = source_file_from_text(
             PathBuf::from("repl.echo"),
             source.to_string(),
-            ModeOverride {
-                strict: false,
-                unsafe_mode: false,
-            },
+            SourceOptions::default(),
         );
         let parsed = try_parse_repl_input(&source).expect("expression should parse");
         let ReplInput::Expression(info) = parsed.input else {
@@ -145,18 +124,12 @@ fn repl_expression_info_uses_shared_semantics_for_variables() {
     let first = source_file_from_text(
         PathBuf::from("repl.echo"),
         "let $a = [];".to_string(),
-        ModeOverride {
-            strict: false,
-            unsafe_mode: false,
-        },
+        SourceOptions::default(),
     );
     let second = source_file_from_text(
         PathBuf::from("repl.echo"),
         "$a".to_string(),
-        ModeOverride {
-            strict: false,
-            unsafe_mode: false,
-        },
+        SourceOptions::default(),
     );
     let first = try_parse_repl_input(&first).expect("let should parse");
     let mut second = try_parse_repl_input(&second).expect("variable should parse");
@@ -177,10 +150,7 @@ fn repl_expression_info_uses_shared_semantics_for_variables() {
 
 #[test]
 fn repl_live_process_join_reports_int_type() {
-    let mode = ModeOverride {
-        strict: false,
-        unsafe_mode: false,
-    };
+    let mode = SourceOptions::default();
     let first = source_file_from_text(
         PathBuf::from("repl.echo"),
         "$proc = spawn \"exit 7\"".to_string(),

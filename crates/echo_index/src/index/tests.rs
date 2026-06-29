@@ -1,7 +1,7 @@
 use crate::{
-    DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoFileMode, EchoIndex,
-    FileId, FqName, IndexFacts, IndexedFile, ReferenceFact, ReferenceKind, SymbolFact, SymbolKind,
-    SymbolName, TextOffset, TextRange,
+    DefinitionLocation, DependencyFact, DependencyKind, DependencyQuery, EchoIndex, FileId, FqName,
+    IndexFacts, IndexedFile, ReferenceFact, ReferenceKind, SymbolFact, SymbolKind, SymbolName,
+    TextOffset, TextRange,
 };
 use smol_str::SmolStr;
 
@@ -11,7 +11,6 @@ fn file(file_id: FileId, uri: &str) -> IndexedFile {
         uri: uri.to_owned(),
         path: None,
         version: None,
-        mode: EchoFileMode::Echo,
         content_hash: None,
     }
 }
@@ -47,7 +46,6 @@ fn returns_document_symbols_for_one_file() {
         file_id,
         IndexFacts::declarations(
             file_id,
-            EchoFileMode::Echo,
             vec![
                 symbol("foo", SymbolKind::Function),
                 symbol("User", SymbolKind::Class),
@@ -73,19 +71,11 @@ fn returns_workspace_symbols_across_files() {
     index.insert_file(file(second, "file:///two.echo"));
     index.update_file(
         first,
-        IndexFacts::declarations(
-            first,
-            EchoFileMode::Echo,
-            vec![symbol("foo", SymbolKind::Function)],
-        ),
+        IndexFacts::declarations(first, vec![symbol("foo", SymbolKind::Function)]),
     );
     index.update_file(
         second,
-        IndexFacts::declarations(
-            second,
-            EchoFileMode::Echo,
-            vec![symbol("User", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(second, vec![symbol("User", SymbolKind::Class)]),
     );
 
     let symbols = index.workspace_symbols("User", 10);
@@ -103,28 +93,16 @@ fn update_replaces_only_symbols_from_that_file() {
     index.insert_file(file(second, "file:///two.echo"));
     index.update_file(
         first,
-        IndexFacts::declarations(
-            first,
-            EchoFileMode::Echo,
-            vec![symbol("Old", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(first, vec![symbol("Old", SymbolKind::Class)]),
     );
     index.update_file(
         second,
-        IndexFacts::declarations(
-            second,
-            EchoFileMode::Echo,
-            vec![symbol("Other", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(second, vec![symbol("Other", SymbolKind::Class)]),
     );
 
     index.update_file(
         first,
-        IndexFacts::declarations(
-            first,
-            EchoFileMode::Echo,
-            vec![symbol("New", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(first, vec![symbol("New", SymbolKind::Class)]),
     );
 
     assert!(index.workspace_symbols("Old", 10).is_empty());
@@ -139,11 +117,7 @@ fn remove_file_removes_its_symbols() {
     index.insert_file(file(file_id, "file:///one.echo"));
     index.update_file(
         file_id,
-        IndexFacts::declarations(
-            file_id,
-            EchoFileMode::Echo,
-            vec![symbol("User", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(file_id, vec![symbol("User", SymbolKind::Class)]),
     );
 
     index.remove_file(file_id);
@@ -162,19 +136,11 @@ fn fully_qualified_name_lookup_preserves_ambiguous_candidates() {
     index.insert_file(file(second, "file:///two.php"));
     index.update_file(
         first,
-        IndexFacts::declarations(
-            first,
-            EchoFileMode::PhpCompat,
-            vec![fq_symbol(&["App"], "User", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(first, vec![fq_symbol(&["App"], "User", SymbolKind::Class)]),
     );
     index.update_file(
         second,
-        IndexFacts::declarations(
-            second,
-            EchoFileMode::PhpCompat,
-            vec![fq_symbol(&["App"], "User", SymbolKind::Class)],
-        ),
+        IndexFacts::declarations(second, vec![fq_symbol(&["App"], "User", SymbolKind::Class)]),
     );
 
     let candidates = index.symbols_by_fq_name(&fq_name);
@@ -193,7 +159,6 @@ fn stores_dependency_facts_for_later_resolution() {
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![DependencyFact {
                 kind: DependencyKind::PhpUse,
@@ -222,7 +187,6 @@ fn resolves_class_reference_to_php_use_dependency() {
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![DependencyFact {
                 kind: DependencyKind::PhpUse,
@@ -263,7 +227,6 @@ fn returns_references_for_imported_class_reference() {
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![DependencyFact {
                 kind: DependencyKind::PhpUse,
@@ -307,7 +270,6 @@ fn resolves_method_definition_by_fully_qualified_class_name() {
         file_id,
         IndexFacts::declarations(
             file_id,
-            EchoFileMode::PhpCompat,
             vec![fq_symbol(
                 &["Illuminate", "Foundation"],
                 "Application::handleRequest",

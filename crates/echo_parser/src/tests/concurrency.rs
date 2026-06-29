@@ -2,14 +2,13 @@ use super::*;
 
 #[test]
 fn parses_concurrency_keyword_expressions() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $task = run $deferred;
 $worker = fork $job;
 $process = spawn "worker";
 $value = join $task;
 "#,
-        SourceMode::Echo,
     )
     .expect("program parses");
 
@@ -33,13 +32,12 @@ $value = join $task;
 
 #[test]
 fn parses_concurrency_block_assignments() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $deferred = defer { return "later"; };
 $task = run { return "soon"; };
 $worker = fork { return "parallel"; };
 "#,
-        SourceMode::Echo,
     )
     .expect("program parses");
 
@@ -59,7 +57,7 @@ $worker = fork { return "parallel"; };
 
 #[test]
 fn parses_run_group_assignments() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $tasks = run [
     { return "user"; },
@@ -69,7 +67,6 @@ let $more = run [
     { return "audit"; },
 ];
 "#,
-        SourceMode::Echo,
     )
     .expect("program parses");
 
@@ -87,13 +84,12 @@ let $more = run [
 
 #[test]
 fn parses_optional_semicolons_after_concurrency_blocks() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 $deferred = defer { return "later" }
 $task = run { return "soon" }
 $worker = fork { return "parallel" }
 "#,
-        SourceMode::Echo,
     )
     .expect("concurrency block assignments parse without semicolons");
 

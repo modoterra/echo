@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parses_php_string_literal_forms() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"<?php
 echo 'single quoted';
 echo "double quoted\n";
@@ -13,7 +13,6 @@ echo <<<HTML
 heredoc body
 HTML;
 "#,
-        SourceMode::Echo,
     )
     .expect("program parses");
 
@@ -42,8 +41,7 @@ HTML;
 
 #[test]
 fn parses_php_single_quoted_string_escapes() {
-    let program = parse_with_mode(r#"<?php echo 'c:\path\n and \'quote\'';"#, SourceMode::Echo)
-        .expect("program parses");
+    let program = parse(r#"<?php echo 'c:\path\n and \'quote\'';"#).expect("program parses");
 
     assert!(matches!(
         &program.statements[0],

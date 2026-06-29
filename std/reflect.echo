@@ -1,4 +1,4 @@
-namespace std reflect
+module std.reflect
 
 intrinsic fn exists(string $name): bool
 intrinsic fn params(string $name): string

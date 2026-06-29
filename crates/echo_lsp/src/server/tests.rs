@@ -1,4 +1,4 @@
-use echo_index::{DependencyKind, EchoFileMode, FileId, ReferenceKind, SymbolKind, TextRange};
+use echo_index::{DependencyKind, FileId, ReferenceKind, SymbolKind, TextRange};
 use ropey::Rope;
 
 use crate::position::range_to_lsp_range;
@@ -19,7 +19,6 @@ class UserController {
 }
 "#,
         FileId(3),
-        EchoFileMode::PhpCompat,
         None,
     )
     .expect("source parses");
@@ -67,7 +66,6 @@ loop {
 }
 "#,
         FileId(9),
-        EchoFileMode::Echo,
         None,
     )
     .expect("Echo module server source parses for LSP indexing");
@@ -98,7 +96,6 @@ fn echo_package_provider_surface_produces_index_facts() {
 }
 "#,
         FileId(10),
-        EchoFileMode::Echo,
         None,
     )
     .expect("Echo package provider source parses for LSP indexing");
@@ -132,13 +129,8 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 
 $app->handleRequest(Request::capture());
 "#;
-    let facts = parse_index_facts(
-        source,
-        FileId(4),
-        EchoFileMode::PhpCompat,
-        Some(Path::new("/project/public")),
-    )
-    .expect("source parses");
+    let facts = parse_index_facts(source, FileId(4), Some(Path::new("/project/public")))
+        .expect("source parses");
 
     assert!(facts.dependencies.iter().any(|dependency| {
         dependency.kind == DependencyKind::PhpUse
@@ -225,17 +217,11 @@ fn indexes_required_php_files_from_laravel_fixture() {
         uri: Uri::from_file_path(&public_index).unwrap().to_string(),
         path: Some(public_index.clone()),
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
 
-    let facts = parse_index_facts(
-        &public_source,
-        file_id,
-        EchoFileMode::PhpCompat,
-        public_index.parent(),
-    )
-    .expect("public source parses");
+    let facts = parse_index_facts(&public_source, file_id, public_index.parent())
+        .expect("public source parses");
     index.update_file(file_id, facts);
     index_required_files(&mut index, file_id);
 
@@ -276,16 +262,10 @@ fn document_links_cover_whole_dir_path_expression() {
         uri: Uri::from_file_path(&public_index).unwrap().to_string(),
         path: Some(public_index.clone()),
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
-    let facts = parse_index_facts(
-        &public_source,
-        file_id,
-        EchoFileMode::PhpCompat,
-        public_index.parent(),
-    )
-    .expect("public source parses");
+    let facts = parse_index_facts(&public_source, file_id, public_index.parent())
+        .expect("public source parses");
     index.update_file(file_id, facts);
 
     let dependencies = index.dependencies(DependencyQuery::in_file(file_id));

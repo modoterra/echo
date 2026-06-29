@@ -2,30 +2,19 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use echo_diagnostics::Diagnostic as EchoDiagnostic;
-use echo_index::{
-    DependencyKind, DependencyQuery, EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile,
-};
-use echo_source::SourceMode;
+use echo_index::{DependencyKind, DependencyQuery, EchoIndex, FileId, IndexFacts, IndexedFile};
 use tower_lsp_server::ls_types::Uri;
 
 pub(crate) fn parse_index_facts(
     source: &str,
     file_id: FileId,
-    mode: EchoFileMode,
     source_dir: Option<&Path>,
 ) -> std::result::Result<IndexFacts, Vec<EchoDiagnostic>> {
-    let mut program = echo_parser::parse_with_mode(source, source_mode(mode))?;
+    let mut program = echo_parser::parse(source)?;
     program.source_dir = source_dir.map(|path| path.to_string_lossy().to_string());
     Ok(echo_semantics::index_facts_from_source(
-        source, &program, file_id, mode,
+        source, &program, file_id,
     ))
-}
-
-fn source_mode(mode: EchoFileMode) -> SourceMode {
-    match mode {
-        EchoFileMode::Echo => SourceMode::Strict,
-        EchoFileMode::PhpCompat => SourceMode::Echo,
-    }
 }
 
 pub(crate) fn index_required_files(index: &mut EchoIndex, root_file_id: FileId) {
@@ -77,7 +66,6 @@ fn index_required_files_inner(
                     uri,
                     path: Some(path.clone()),
                     version: None,
-                    mode: EchoFileMode::PhpCompat,
                     content_hash: None,
                 });
                 file_id
@@ -88,12 +76,7 @@ fn index_required_files_inner(
             continue;
         };
         let source_dir = path.parent();
-        if let Ok(facts) = parse_index_facts(
-            &source,
-            included_file_id,
-            EchoFileMode::PhpCompat,
-            source_dir,
-        ) {
+        if let Ok(facts) = parse_index_facts(&source, included_file_id, source_dir) {
             index.update_file(included_file_id, facts);
             index_required_files_inner(index, included_file_id, visited);
         }

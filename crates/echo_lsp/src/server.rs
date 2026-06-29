@@ -53,12 +53,8 @@ impl Backend {
     async fn publish_document_diagnostics(&self, document: &Document) {
         let source = document.text_string();
         let source_dir = document_source_dir(document);
-        let diagnostics = match parse_index_facts(
-            &source,
-            document.file_id,
-            document.mode,
-            source_dir.as_deref(),
-        ) {
+        let diagnostics = match parse_index_facts(&source, document.file_id, source_dir.as_deref())
+        {
             Ok(facts) => {
                 let mut index = self.index.lock().expect("echo index mutex poisoned");
                 index.update_file(document.file_id, facts);
@@ -71,7 +67,6 @@ impl Backend {
                     document.file_id,
                     echo_index::IndexFacts {
                         file_id: document.file_id,
-                        mode: document.mode,
                         declarations: Vec::new(),
                         dependencies: Vec::new(),
                         references: Vec::new(),
@@ -150,7 +145,6 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let text_document = params.text_document;
-        let mode = crate::document::mode_from_uri(&text_document.uri);
         let file_id = {
             let mut index = self.index.lock().expect("echo index mutex poisoned");
             let file_id = index.alloc_file_id();
@@ -162,7 +156,6 @@ impl LanguageServer for Backend {
                     .to_file_path()
                     .map(|path| path.into_owned()),
                 version: Some(text_document.version),
-                mode,
                 content_hash: None,
             });
             file_id

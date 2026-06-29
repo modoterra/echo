@@ -5,8 +5,8 @@ mod query;
 mod symbol;
 
 pub use file::{
-    DependencyFact, DependencyKind, EchoFileMode, FileId, IndexedFile, ReferenceFact,
-    ReferenceKind, TextOffset, TextRange,
+    DependencyFact, DependencyKind, FileId, IndexedFile, ReferenceFact, ReferenceKind, TextOffset,
+    TextRange,
 };
 pub use index::{EchoIndex, IndexFacts};
 pub use name::{FqName, SymbolName};

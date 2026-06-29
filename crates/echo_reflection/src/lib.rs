@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 mod php_builtins;
 
-use echo_ast::{NamespaceSource, Stmt, TypedParam};
+use echo_ast::{NamespaceSource, QualifiedName, Stmt, TypedParam};
 
 const STD_MODULE_SOURCES: &[(&str, &str)] = &[
     ("http", include_str!("../../../std/http.echo")),
@@ -111,9 +111,7 @@ pub fn reflect_functions(source: &str, function_source: FunctionSource) -> Vec<F
         .statements
         .iter()
         .find_map(|statement| match statement {
-            Stmt::Namespace(namespace) if namespace.source == NamespaceSource::Std => {
-                Some(namespace.name.as_string())
-            }
+            Stmt::Namespace(namespace) => std_module_namespace(&namespace.name, namespace.source),
             _ => None,
         });
 
@@ -146,6 +144,16 @@ pub fn reflect_functions(source: &str, function_source: FunctionSource) -> Vec<F
             _ => None,
         })
         .collect()
+}
+
+fn std_module_namespace(name: &QualifiedName, source: NamespaceSource) -> Option<String> {
+    match source {
+        NamespaceSource::Std => Some(name.as_string()),
+        NamespaceSource::Php if name.parts.first().is_some_and(|part| part == "std") => {
+            Some(name.parts.iter().skip(1).cloned().collect::<Vec<_>>().join("."))
+        }
+        NamespaceSource::Php => None,
+    }
 }
 
 impl FunctionReflection {

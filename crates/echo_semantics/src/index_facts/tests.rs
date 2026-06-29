@@ -57,11 +57,9 @@ fn extracts_declaration_facts_with_namespace() {
             }),
         ]),
         FileId(7),
-        EchoFileMode::PhpCompat,
     );
 
     assert_eq!(facts.file_id, FileId(7));
-    assert_eq!(facts.mode, EchoFileMode::PhpCompat);
     assert_eq!(
         facts
             .declarations
@@ -119,7 +117,6 @@ fn extracts_import_dependency_facts() {
             }),
         ]),
         FileId(9),
-        EchoFileMode::Echo,
     );
 
     assert_eq!(
@@ -229,7 +226,7 @@ fn extracts_require_dependency_facts_from_expressions() {
     ]);
     source.source_dir = Some("/project/public".to_string());
 
-    let facts = index_facts(&source, FileId(10), EchoFileMode::PhpCompat);
+    let facts = index_facts(&source, FileId(10));
 
     assert_eq!(
         facts
@@ -287,7 +284,6 @@ fn extracts_static_class_reference_facts() {
             }),
         ]),
         FileId(11),
-        EchoFileMode::PhpCompat,
     );
 
     assert_eq!(facts.references.len(), 2);
@@ -315,7 +311,7 @@ fn resolves_plain_require_string_relative_to_source_dir() {
     })]);
     source.source_dir = Some("/project/public".to_string());
 
-    let facts = index_facts(&source, FileId(13), EchoFileMode::PhpCompat);
+    let facts = index_facts(&source, FileId(13));
 
     assert_eq!(facts.dependencies.len(), 1);
     assert_eq!(facts.dependencies[0].kind, DependencyKind::RequireOnce);
@@ -344,7 +340,6 @@ fn extracts_phpdoc_var_local_variable_fact_from_source() {
         "/** @var Application $app */\n$app = require_once '/bootstrap/app.php';",
         &program,
         FileId(12),
-        EchoFileMode::PhpCompat,
     );
 
     let symbol = facts

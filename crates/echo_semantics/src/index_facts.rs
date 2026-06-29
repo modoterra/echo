@@ -1,7 +1,7 @@
 use echo_ast::{ClassMember, FunctionDeclStmt, ImportSource, NamespaceSource, Program, Stmt};
 use echo_index::{
-    DependencyFact, DependencyKind, EchoFileMode, FileId, FqName, IndexFacts, ReferenceFact,
-    ReferenceKind, Signature, SymbolFact, SymbolKind, SymbolName, TextRange,
+    DependencyFact, DependencyKind, FileId, FqName, IndexFacts, ReferenceFact, ReferenceKind,
+    Signature, SymbolFact, SymbolKind, SymbolName, TextRange,
 };
 use echo_source::Span;
 use smol_str::SmolStr;
@@ -11,19 +11,14 @@ mod phpdoc;
 
 use phpdoc::phpdoc_var_annotations;
 
-pub fn index_facts(program: &Program, file_id: FileId, mode: EchoFileMode) -> IndexFacts {
-    let mut extractor = IndexFactExtractor::new(file_id, mode);
+pub fn index_facts(program: &Program, file_id: FileId) -> IndexFacts {
+    let mut extractor = IndexFactExtractor::new(file_id);
     extractor.extract(program);
     extractor.into_facts()
 }
 
-pub fn index_facts_from_source(
-    source: &str,
-    program: &Program,
-    file_id: FileId,
-    mode: EchoFileMode,
-) -> IndexFacts {
-    let mut extractor = IndexFactExtractor::new(file_id, mode);
+pub fn index_facts_from_source(source: &str, program: &Program, file_id: FileId) -> IndexFacts {
+    let mut extractor = IndexFactExtractor::new(file_id);
     extractor.source_text = Some(source.to_string());
     extractor.source_dir.clone_from(&program.source_dir);
     extractor.extract_phpdoc_var_source_facts(source);
@@ -33,7 +28,6 @@ pub fn index_facts_from_source(
 
 struct IndexFactExtractor {
     file_id: FileId,
-    mode: EchoFileMode,
     source_text: Option<String>,
     source_dir: Option<String>,
     namespace: Vec<SmolStr>,
@@ -43,10 +37,9 @@ struct IndexFactExtractor {
 }
 
 impl IndexFactExtractor {
-    fn new(file_id: FileId, mode: EchoFileMode) -> Self {
+    fn new(file_id: FileId) -> Self {
         Self {
             file_id,
-            mode,
             source_text: None,
             source_dir: None,
             namespace: Vec::new(),
@@ -472,7 +465,6 @@ impl IndexFactExtractor {
     fn into_facts(self) -> IndexFacts {
         IndexFacts {
             file_id: self.file_id,
-            mode: self.mode,
             declarations: self.declarations,
             dependencies: self.dependencies,
             references: self.references,

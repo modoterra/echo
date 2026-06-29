@@ -2,4 +2,4 @@
 
 mod grammar;
 
-pub use grammar::{parse, parse_trusted_std, parse_with_mode};
+pub use grammar::{parse, parse_trusted_std};

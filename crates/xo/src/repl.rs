@@ -14,7 +14,9 @@ use rustyline::history::DefaultHistory;
 use rustyline::validate::{ValidationContext, ValidationResult, Validator};
 use rustyline::{Context, Editor, Helper};
 
-use crate::source::{ModeOverride, parse_source_program, print_diagnostics, source_file_from_text};
+use crate::source::{
+    SourceOptions, parse_source_program, print_diagnostics, source_file_from_text,
+};
 
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_DIM: &str = "\x1b[2m";
@@ -24,7 +26,7 @@ const ANSI_BLUE: &str = "\x1b[34m";
 const ANSI_MAGENTA: &str = "\x1b[35m";
 const ANSI_YELLOW: &str = "\x1b[33m";
 
-pub fn run_repl(mode: ModeOverride) {
+pub fn run_repl(mode: SourceOptions) {
     let interactive = io::stdin().is_terminal();
     let mut session = ReplSession::default();
 
@@ -35,7 +37,7 @@ pub fn run_repl(mode: ModeOverride) {
     }
 }
 
-fn run_interactive_repl(session: &mut ReplSession, mode: ModeOverride) {
+fn run_interactive_repl(session: &mut ReplSession, mode: SourceOptions) {
     let mut editor: Editor<ReplHelper, DefaultHistory> = Editor::new().unwrap_or_else(|err| {
         eprintln!("error: failed to initialize REPL editor: {err}");
         std::process::exit(1);
@@ -85,12 +87,12 @@ fn run_interactive_repl(session: &mut ReplSession, mode: ModeOverride) {
 }
 
 struct ReplHelper {
-    mode: ModeOverride,
+    mode: SourceOptions,
     statements: Vec<Stmt>,
 }
 
 impl ReplHelper {
-    fn new(mode: ModeOverride) -> Self {
+    fn new(mode: SourceOptions) -> Self {
         Self {
             mode,
             statements: Vec::new(),
@@ -136,7 +138,7 @@ impl Validator for ReplHelper {
     }
 }
 
-fn run_piped_repl(session: &mut ReplSession, mode: ModeOverride) {
+fn run_piped_repl(session: &mut ReplSession, mode: SourceOptions) {
     let mut line = String::new();
     let mut pending = String::new();
     let mut pending_brace_depth = 0i32;
@@ -222,7 +224,7 @@ struct ReplSession {
     processes: HashMap<String, Child>,
 }
 
-fn run_repl_input(session: &mut ReplSession, input: &str, mode: ModeOverride, interactive: bool) {
+fn run_repl_input(session: &mut ReplSession, input: &str, mode: SourceOptions, interactive: bool) {
     let file = PathBuf::from("repl.echo");
     let source = source_file_from_text(file.clone(), input.to_string(), mode);
 
@@ -546,7 +548,7 @@ fn apply_repl_semantics(input: &mut ReplInput, analysis: &echo_semantics::Analys
     }
 }
 
-fn repl_live_hint(line: &str, mode: ModeOverride, session_statements: &[Stmt]) -> Option<String> {
+fn repl_live_hint(line: &str, mode: SourceOptions, session_statements: &[Stmt]) -> Option<String> {
     let input = line.trim();
     if input.is_empty() || input.starts_with(':') || brace_delta(input) > 0 {
         return None;
@@ -572,6 +574,13 @@ fn live_expression_type(program: &Program, expr: &Expr, session_statements: &[St
 
     echo_semantics::analyze(&program)
         .map(|analysis| analysis.expression_type_at(expr.span()).display_name())
+        .map(|ty| {
+            if ty == "unknown" {
+                expression_static_type(expr)
+            } else {
+                ty
+            }
+        })
         .unwrap_or_else(|_| expression_static_type(expr))
 }
 

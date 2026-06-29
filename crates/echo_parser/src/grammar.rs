@@ -5,21 +5,20 @@ use echo_ast::{
     AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr, AssignRefStmt, AssignStmt,
     BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
     ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClosureExpr, CoalesceAssignStmt,
-    ConstantExpr, ContinueStmt, DeferExpr,
-    DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause,
-    Expr, ExtendDeclStmt, FieldExpr, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt,
-    FunctionDeclStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr,
-    JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr,
-    MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility,
-    NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr,
-    ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst, ReceiverConstExpr,
-    ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    ConstantExpr, ContinueStmt, DeferExpr, DynamicCallExpr, DynamicFunctionCallExpr,
+    DynamicFunctionCallStmt, EchoStmt, ElseIfClause, Expr, ExtendDeclStmt, FieldExpr, ForeachStmt,
+    ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource,
+    ImportStmt, IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt, ListAssignStmt, ListExpr,
+    LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
+    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
+    NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst,
+    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
     StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
     TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
     UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
-use echo_source::{SourceMode, Span};
+use echo_source::Span;
 use echo_syntax::keywords as kw;
 
 #[path = "preprocess.rs"]
@@ -31,24 +30,20 @@ use preprocess::{
     normalize_heredoc_literals, strip_comments_preserving_spans, unescape_double_quoted_string,
     unescape_single_quoted_string, virtualize_statement_terminators,
 };
-use validation::{ValidationMode, validate_mode};
+use validation::validate_program;
 
 type ParseExtra<'src> = extra::Err<Rich<'src, char>>;
 type BoxedParser<'src, O> = chumsky::Boxed<'src, 'src, &'src str, O, ParseExtra<'src>>;
 
 pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
-    parse_with_mode(source, SourceMode::Echo)
-}
-
-pub fn parse_with_mode(source: &str, mode: SourceMode) -> Result<Program, Vec<Diagnostic>> {
-    parse_with_validation(source, ValidationMode::from_source_mode(mode))
+    parse_program(source)
 }
 
 pub fn parse_trusted_std(source: &str) -> Result<Program, Vec<Diagnostic>> {
-    parse_with_validation(source, ValidationMode::TrustedStd)
+    parse_program(source)
 }
 
-fn parse_with_validation(source: &str, mode: ValidationMode) -> Result<Program, Vec<Diagnostic>> {
+fn parse_program(source: &str) -> Result<Program, Vec<Diagnostic>> {
     // For now, run the Logos lexer first so lexer errors are caught.
     // The Chumsky parser below still parses the source text directly.
     echo_lexer::lex(source)?;
@@ -66,11 +61,9 @@ fn parse_with_validation(source: &str, mode: ValidationMode) -> Result<Program, 
             .collect::<Vec<_>>()
     })?;
 
-    if mode == ValidationMode::Echo {
-        normalize_php_compat_receiver_variables(&mut program);
-    }
+    normalize_php_compat_receiver_variables(&mut program);
 
-    validate_mode(&program, mode)?;
+    validate_program(&program)?;
 
     Ok(program)
 }
@@ -403,10 +396,12 @@ fn type_expr_parser<'src>() -> BoxedParser<'src, String> {
     recursive(|type_expr| {
         let type_name = just('\\')
             .or_not()
-            .ignore_then(text::ident()
-            .separated_by(just('\\'))
-            .at_least(1)
-            .collect::<Vec<_>>())
+            .ignore_then(
+                text::ident()
+                    .separated_by(just('\\'))
+                    .at_least(1)
+                    .collect::<Vec<_>>(),
+            )
             .map(|parts| parts.join("\\"))
             .boxed();
 
@@ -508,12 +503,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
     let typed_param = suffix_typed_param
         .or(prefix_typed_param)
-        .then(
-            just('=')
-                .padded()
-                .ignore_then(param_default_expr)
-                .or_not(),
-        )
+        .then(just('=').padded().ignore_then(param_default_expr).or_not())
         .map(|(mut param, default_value)| {
             param.default_value = default_value;
             param
@@ -674,13 +664,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or_not()
             .ignore_then(expr.clone())
             .map_with(|value, extra| {
-            let span: SimpleSpan = extra.span();
+                let span: SimpleSpan = extra.span();
 
-            CallArg {
-                name: None,
-                value,
-                span: Span::new(span.start, span.end),
-            }
+                CallArg {
+                    name: None,
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
             });
 
         let first_class_callable_placeholder_arg = just("...").map_with(|_, extra| {
@@ -790,15 +780,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
-        let dynamic_new_target = just('$')
-            .ignore_then(text::ident().padded())
-            .map_with(|name: &str, extra| {
-                let span: SimpleSpan = extra.span();
-                NewTarget::Expr(Box::new(Expr::Variable(VariableExpr {
-                    name: name.to_string(),
-                    span: Span::new(span.start, span.end),
-                })))
-            });
+        let dynamic_new_target =
+            just('$')
+                .ignore_then(text::ident().padded())
+                .map_with(|name: &str, extra| {
+                    let span: SimpleSpan = extra.span();
+                    NewTarget::Expr(Box::new(Expr::Variable(VariableExpr {
+                        name: name.to_string(),
+                        span: Span::new(span.start, span.end),
+                    })))
+                });
 
         let new_target = dynamic_new_target
             .or(variable.clone().map(|expr| NewTarget::Expr(Box::new(expr))))
@@ -1265,10 +1256,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just('}').padded())
             .map_with(|method: &str, extra| {
                 let span: SimpleSpan = extra.span();
-                (
-                    format!("${{{method}}}"),
-                    Span::new(span.start, span.end),
-                )
+                (format!("${{{method}}}"), Span::new(span.start, span.end))
             });
         let arrow_postfix = just("->")
             .ignore_then(dynamic_member_name.or(member_name.clone()))
@@ -1536,17 +1524,18 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 }))
             });
 
-        let not_variable_assign = just('!')
-            .padded()
-            .ignore_then(variable_assign.clone())
-            .map(|expr| {
-                let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
-                Expr::Unary(Box::new(UnaryExpr {
-                    op: UnaryOp::Not,
-                    expr,
-                    span,
-                }))
-            });
+        let not_variable_assign =
+            just('!')
+                .padded()
+                .ignore_then(variable_assign.clone())
+                .map(|expr| {
+                    let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
+                    Expr::Unary(Box::new(UnaryExpr {
+                        op: UnaryOp::Not,
+                        expr,
+                        span,
+                    }))
+                });
 
         let comparison_operand = not_variable_assign
             .clone()
@@ -1963,13 +1952,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or_not()
             .ignore_then(expr.clone())
             .map_with(|value, extra| {
-            let span: SimpleSpan = extra.span();
+                let span: SimpleSpan = extra.span();
 
-            CallArg {
-                name: None,
-                value,
-                span: Span::new(span.start, span.end),
-            }
+                CallArg {
+                    name: None,
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
             });
 
         let statement_first_class_callable_placeholder_arg = just("...").map_with(|_, extra| {
@@ -2946,7 +2935,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(terminator.clone().or_not())
             .try_map(|((body, catches), finally_body), span: SimpleSpan| {
                 if catches.is_empty() && finally_body.is_none() {
-                    return Err(Rich::custom(span, "expected catch or finally after try block"));
+                    return Err(Rich::custom(
+                        span,
+                        "expected catch or finally after try block",
+                    ));
                 }
 
                 Ok((body, catches, finally_body))

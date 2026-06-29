@@ -16,7 +16,7 @@ use build::{
 };
 use repl::run_repl;
 use source::{
-    DiagnosticFormat, ModeOverride, compile_ir, compile_ir_with_diagnostics, parse_source_program,
+    DiagnosticFormat, SourceOptions, compile_ir, compile_ir_with_diagnostics, parse_source_program,
     print_diagnostics, read_source, read_source_file, run_jit,
 };
 
@@ -36,17 +36,17 @@ enum Command {
     },
     Ast {
         #[command(flatten)]
-        mode: ModeOverride,
+        mode: SourceOptions,
         file: PathBuf,
     },
     Ir {
         #[command(flatten)]
-        mode: ModeOverride,
+        mode: SourceOptions,
         file: PathBuf,
     },
     Run {
         #[command(flatten)]
-        mode: ModeOverride,
+        mode: SourceOptions,
         #[arg(long, value_enum, default_value_t = DiagnosticFormat::Human)]
         diagnostics: DiagnosticFormat,
         /// Execute with the in-process LLVM JIT instead of a temporary native binary.
@@ -58,11 +58,11 @@ enum Command {
     },
     Repl {
         #[command(flatten)]
-        mode: ModeOverride,
+        mode: SourceOptions,
     },
     Test {
         #[command(flatten)]
-        mode: ModeOverride,
+        mode: SourceOptions,
         path: PathBuf,
     },
     Tools {
@@ -71,7 +71,7 @@ enum Command {
     },
     Build {
         #[command(flatten)]
-        mode: ModeOverride,
+        mode: SourceOptions,
         #[command(flatten)]
         optimization: OptimizationOptions,
         file: PathBuf,
@@ -227,7 +227,7 @@ fn main() {
 
 fn build_binary(
     file: &PathBuf,
-    mode: ModeOverride,
+    mode: SourceOptions,
     diagnostic_format: DiagnosticFormat,
     optimization: OptimizationLevel,
     output: &PathBuf,

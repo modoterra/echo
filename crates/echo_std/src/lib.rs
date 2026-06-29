@@ -227,7 +227,7 @@ mod tests {
             .expect("std.net module is packaged");
 
         assert_eq!(module.path, "std/net.echo");
-        assert!(module.source.contains("namespace std net"));
+        assert!(module.source.contains("module std.net"));
         assert!(module.source.contains("intrinsic fn listen"));
         assert!(module.source.contains("class TcpServer"));
         assert!(module.source.contains("pub intrinsic static fn listen"));
@@ -241,7 +241,7 @@ mod tests {
             .expect("std.time module is packaged");
 
         assert_eq!(module.path, "std/time.echo");
-        assert!(module.source.contains("namespace std time"));
+        assert!(module.source.contains("module std.time"));
         assert!(module.source.contains("intrinsic fn sleep"));
     }
 
@@ -253,7 +253,7 @@ mod tests {
             .expect("std.http module is packaged");
 
         assert_eq!(module.path, "std/http.echo");
-        assert!(module.source.contains("namespace std http"));
+        assert!(module.source.contains("module std.http"));
         assert!(module.source.contains("intrinsic fn responseText"));
     }
 
@@ -265,7 +265,7 @@ mod tests {
             .expect("std.assert module is packaged");
 
         assert_eq!(module.path, "std/assert.echo");
-        assert!(module.source.contains("namespace std assert"));
+        assert!(module.source.contains("module std.assert"));
         assert!(module.source.contains("intrinsic fn ok"));
         assert!(module.source.contains("intrinsic fn equals"));
     }
@@ -278,7 +278,7 @@ mod tests {
             .expect("std.reflect module is packaged");
 
         assert_eq!(module.path, "std/reflect.echo");
-        assert!(module.source.contains("namespace std reflect"));
+        assert!(module.source.contains("module std.reflect"));
         assert!(module.source.contains("intrinsic fn params"));
         assert!(module.source.contains("intrinsic fn returnType"));
         assert!(module.source.contains("intrinsic fn typeOf"));

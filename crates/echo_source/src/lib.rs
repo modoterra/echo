@@ -1,12 +1,6 @@
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SourceMode {
-    Echo,
-    Strict,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
@@ -22,16 +16,10 @@ impl Span {
 pub struct SourceFile {
     pub path: PathBuf,
     pub text: String,
-    pub mode: SourceMode,
 }
 
 impl SourceFile {
     pub fn new(path: PathBuf, text: String) -> Self {
-        let mode = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("echo") | Some("xo") => SourceMode::Strict,
-            _ => SourceMode::Echo,
-        };
-
-        Self { path, text, mode }
+        Self { path, text }
     }
 }

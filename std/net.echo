@@ -1,4 +1,4 @@
-namespace std net
+module std.net
 
 intrinsic fn listen(string $address): TcpServer
 intrinsic fn connect(string $address): TcpConnection

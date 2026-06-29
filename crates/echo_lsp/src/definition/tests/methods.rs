@@ -10,7 +10,6 @@ fn resolves_phpdoc_receiver_method_to_indexed_class_method() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.insert_file(IndexedFile {
@@ -19,14 +18,12 @@ fn resolves_phpdoc_receiver_method_to_indexed_class_method() {
             .to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         vendor_file_id,
         IndexFacts::declarations(
             vendor_file_id,
-            EchoFileMode::PhpCompat,
             vec![SymbolFact {
                 name: SymbolName::new("handleRequest"),
                 fq_name: Some(FqName::new(
@@ -96,14 +93,12 @@ fn resolves_phpdoc_receiver_method_through_composer_psr4() {
         uri: "file:///project/public/index.php".to_string(),
         path: None,
         version: None,
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
     index.update_file(
         file_id,
         IndexFacts {
             file_id,
-            mode: EchoFileMode::PhpCompat,
             declarations: Vec::new(),
             dependencies: vec![
                 DependencyFact {

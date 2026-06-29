@@ -2,13 +2,12 @@ use super::super::*;
 
 #[test]
 fn parses_echo_fn_declaration() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"fn responseBody($request, list<User> $users): string {
     let $body = "Hello " . $request.path . "\n"
     return $body
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("fn declaration parses");
 
@@ -17,13 +16,12 @@ fn parses_echo_fn_declaration() {
 
 #[test]
 fn parses_response_body_fn() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"fn responseBody($request, list<User> $users): string {
     let $body = "Hello from Echo at " . $request.path . "\n"
     return $body . "Users seen: " . count($users) . "\n"
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("response body function parses");
 
@@ -32,11 +30,10 @@ fn parses_response_body_fn() {
 
 #[test]
 fn parses_field_access_in_concat() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"let $body = "Hello from Echo at " . $request.path . "\n"
 return $body . "Users seen: " . count($users) . "\n"
 "#,
-        SourceMode::Strict,
     )
     .expect("field access in concat parses");
 
@@ -46,8 +43,7 @@ return $body . "Users seen: " . count($users) . "\n"
 
 #[test]
 fn parses_dot_receiver_method_call() {
-    let program = parse_with_mode(r#"$items.push("first")"#, SourceMode::Strict)
-        .expect("dot receiver method call parses");
+    let program = parse(r#"$items.push("first")"#).expect("dot receiver method call parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -64,7 +60,7 @@ fn parses_dot_receiver_method_call() {
 
 #[test]
 fn parses_receiver_constants_as_special_expressions() {
-    let program = parse_with_mode(r#"db.insert($self.table(), $this)"#, SourceMode::Strict)
+    let program = parse(r#"db.insert($self.table(), $this)"#)
         .expect("receiver constants parse in expressions");
 
     assert!(matches!(
@@ -75,8 +71,8 @@ fn parses_receiver_constants_as_special_expressions() {
                 Expr::MethodCall(method_call)
                     if matches!(
                         &method_call.object,
-                        Expr::ReceiverConst(receiver)
-                            if receiver.kind == ReceiverConst::SelfType
+                        Expr::Variable(variable)
+                            if variable.name == "self"
                     )
             )
             && matches!(
@@ -88,26 +84,29 @@ fn parses_receiver_constants_as_special_expressions() {
 }
 
 #[test]
-fn rejects_strict_receiver_constant_assignment() {
-    let diagnostics = parse_with_mode("$self = Other", SourceMode::Strict)
-        .expect_err("strict receiver constant assignment should fail");
+fn parses_receiver_constant_name_assignment_as_php_variable() {
+    let program = parse("$self = Other").expect("$self assignment parses as a PHP variable");
 
-    assert!(diagnostics.iter().any(|diagnostic| diagnostic.message
-        == "$self is a compiler-provided receiver constant and cannot be assigned."));
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement) if statement.name == "self"
+    ));
 }
 
 #[test]
-fn rejects_strict_receiver_constant_parameter() {
-    let diagnostics = parse_with_mode("fn bad($parent): void {}", SourceMode::Strict)
-        .expect_err("strict receiver constant parameter should fail");
+fn parses_receiver_constant_name_parameter_as_php_variable() {
+    let program =
+        parse("fn bad($parent): void {}").expect("$parent parameter parses as a PHP parameter");
 
-    assert!(diagnostics.iter().any(|diagnostic| diagnostic.message
-        == "$parent is a compiler-provided receiver constant and cannot be declared."));
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::FunctionDecl(statement) if statement.params[0].name == "parent"
+    ));
 }
 
 #[test]
 fn parses_unnamed_export_object() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"module app.config
 
 pub {
@@ -117,7 +116,6 @@ pub {
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("unnamed export object parses");
 
@@ -130,14 +128,13 @@ pub {
 
 #[test]
 fn parses_extend_methods_with_receiver_constants() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"extend Instant {
     pub fn add($duration: Duration): Instant {
         return time.add($this, $duration)
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("extend methods parse");
 
@@ -157,12 +154,11 @@ fn parses_extend_methods_with_receiver_constants() {
 
 #[test]
 fn parses_type_ascribed_structural_literal_argument() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"$users.push({
     id: 1
     email: "first@example.test"
 }: User)"#,
-        SourceMode::Strict,
     )
     .expect("type-ascribed structural literal parses");
 
@@ -180,7 +176,7 @@ fn parses_type_ascribed_structural_literal_argument() {
 
 #[test]
 fn parses_type_declaration_before_fn() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"type User = {
     const id: int
     email: string
@@ -191,7 +187,6 @@ fn responseBody($request, list<User> $users): string {
     return "ok"
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("type followed by fn parses");
 
@@ -201,8 +196,7 @@ fn responseBody($request, list<User> $users): string {
 
 #[test]
 fn preserves_typed_let_annotation() {
-    let program = parse_with_mode("let $users: list<User> = {}", SourceMode::Strict)
-        .expect("typed let parses");
+    let program = parse("let $users: list<User> = {}").expect("typed let parses");
 
     assert!(matches!(
         &program.statements[0],
@@ -212,13 +206,12 @@ fn preserves_typed_let_annotation() {
 
 #[test]
 fn rejects_legacy_prefix_typed_let_annotation() {
-    parse_with_mode("let list<User> $users = {}", SourceMode::Strict)
-        .expect_err("typed let annotations must follow the symbol");
+    parse("let list<User> $users = {}").expect_err("typed let annotations must follow the symbol");
 }
 
 #[test]
 fn parses_target_namespace_import_type_fn_prefix() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"namespace app\http
 
 from std use net
@@ -234,7 +227,6 @@ fn responseBody($request, list<User> $users): string {
     return "ok"
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("target prefix parses");
 
@@ -243,10 +235,9 @@ fn responseBody($request, list<User> $users): string {
 
 #[test]
 fn parses_http_server_target_fixture() {
-    let program = parse_with_mode(
-        include_str!("../../../../tests/echo/011_http_server_target/program.echo"),
-        SourceMode::Strict,
-    )
+    let program = parse(include_str!(
+        "../../../../tests/echo/011_http_server_target/program.echo"
+    ))
     .expect("HTTP server target fixture parses");
 
     assert!(matches!(program.statements.last(), Some(Stmt::Loop(_))));
@@ -254,7 +245,7 @@ fn parses_http_server_target_fixture() {
 
 #[test]
 fn parses_target_server_loop() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"loop {
     let $conn = join run {
         return net.accept($server)
@@ -273,7 +264,6 @@ fn parses_target_server_loop() {
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("target server loop parses");
 
@@ -282,12 +272,11 @@ fn parses_target_server_loop() {
 
 #[test]
 fn parses_simple_loop() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"loop {
     echo "x"
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("simple loop parses");
 
@@ -296,14 +285,13 @@ fn parses_simple_loop() {
 
 #[test]
 fn parses_loop_with_join_run() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"loop {
     let $conn = join run {
         return net.accept($server)
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("loop with join run parses");
 
@@ -312,14 +300,13 @@ fn parses_loop_with_join_run() {
 
 #[test]
 fn parses_loop_with_run_block() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"loop {
     run {
         net.close($conn)
     }
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("loop with run block parses");
 
@@ -328,12 +315,11 @@ fn parses_loop_with_run_block() {
 
 #[test]
 fn parses_let_join_run_block() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"let $conn = join run {
     return net.accept($server)
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("let join run block parses");
 
@@ -342,7 +328,7 @@ fn parses_let_join_run_block() {
 
 #[test]
 fn parses_target_run_block() {
-    let program = parse_with_mode(
+    let program = parse(
         r#"run {
     let $request = http.readRequest($conn)
 
@@ -355,7 +341,6 @@ fn parses_target_run_block() {
     net.close($conn)
 }
 "#,
-        SourceMode::Strict,
     )
     .expect("target run block parses");
 

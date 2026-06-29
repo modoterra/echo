@@ -1,7 +1,7 @@
 use echo_index::{
-    DefinitionLocation, DependencyFact, DependencyKind, EchoFileMode, EchoIndex, FileId, FqName,
-    IndexFacts, IndexedFile, ReferenceFact, ReferenceKind, Signature, SymbolFact, SymbolKind,
-    SymbolName, TextRange,
+    DefinitionLocation, DependencyFact, DependencyKind, EchoIndex, FileId, FqName, IndexFacts,
+    IndexedFile, ReferenceFact, ReferenceKind, Signature, SymbolFact, SymbolKind, SymbolName,
+    TextRange,
 };
 use tower_lsp_server::ls_types::{Position, Range};
 
@@ -24,7 +24,6 @@ fn converts_same_document_dependency_definition_location() {
         uri: uri.to_string(),
         path: None,
         version: Some(1),
-        mode: EchoFileMode::PhpCompat,
         content_hash: None,
     });
 

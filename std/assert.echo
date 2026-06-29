@@ -1,4 +1,4 @@
-namespace std assert
+module std.assert
 
 intrinsic fn ok(bool $condition): bool
 intrinsic fn equals(mixed $actual, mixed $expected): bool

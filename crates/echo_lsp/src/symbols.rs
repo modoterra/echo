@@ -79,8 +79,8 @@ pub(crate) fn symbol_kind_to_lsp(kind: EchoSymbolKind) -> SymbolKind {
 #[cfg(test)]
 mod tests {
     use echo_index::{
-        EchoFileMode, EchoIndex, FileId, IndexFacts, IndexedFile, Signature, Symbol, SymbolFact,
-        SymbolId, SymbolKind as EchoSymbolKind, SymbolName, TextRange,
+        EchoIndex, FileId, IndexFacts, IndexedFile, Signature, Symbol, SymbolFact, SymbolId,
+        SymbolKind as EchoSymbolKind, SymbolName, TextRange,
     };
 
     use super::*;
@@ -120,14 +120,12 @@ mod tests {
             uri: "file:///project/public/index.php".to_string(),
             path: None,
             version: Some(1),
-            mode: EchoFileMode::PhpCompat,
             content_hash: None,
         });
         index.update_file(
             file_id,
             IndexFacts::declarations(
                 file_id,
-                EchoFileMode::PhpCompat,
                 vec![SymbolFact {
                     name: SymbolName::new("Application"),
                     fq_name: None,
