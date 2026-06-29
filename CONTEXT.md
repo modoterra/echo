@@ -76,6 +76,11 @@ autoload metadata, Echo package metadata, std metadata, and source roots, then
 produce resolved imports, resolved symbols, canonical names, ambiguity
 diagnostics, and dependency edges for semantics, LSP, `xo`, and codegen.
 
+`echo_diagnostics` owns the shared diagnostic contract. Diagnostics should grow
+from the current message/span bootstrap shape into stable codes, severity,
+primary and related spans, and owning-layer metadata that CLI, LSP, tests, and
+docs can all consume.
+
 `echo_hir` owns the first compiler-friendly representation after parsing. HIR
 is derived from AST plus `echo_semantics` facts and preserves enough source
 structure for diagnostics, tooling, and language-level reasoning.

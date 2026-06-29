@@ -5540,6 +5540,14 @@ export const docsPages: DocsPage[] = [
               "Use the LSP check when changing diagnostics, source mapping, semantic analysis, or editor-facing index behavior.",
             ],
           },
+          {
+            kind: "paragraph",
+            text: [
+              "Diagnostic codes, severity, primary spans, and related spans belong in ",
+              { code: "echo_diagnostics" },
+              ". The language server should translate that shared model to LSP diagnostics instead of inventing editor-only categories.",
+            ],
+          },
         ],
       },
     ],

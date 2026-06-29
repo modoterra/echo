@@ -190,15 +190,18 @@ pub struct ParseResult {
 }
 ```
 
-Shared diagnostic shape should eventually live outside `echo_lsp`, likely in
-`echo_diagnostics`:
+Shared diagnostic shape belongs in `echo_diagnostics`, not `echo_lsp`. The
+current compiler diagnostic shape is still a bootstrap message/span pair, but
+the target contract is:
 
 ```rust
 pub struct EchoDiagnostic {
-    pub message: String,
-    pub span: TextRange,
+    pub code: DiagnosticCode,
     pub severity: EchoSeverity,
-    pub code: Option<String>,
+    pub message: String,
+    pub primary_span: TextRange,
+    pub related: Vec<RelatedDiagnostic>,
+    pub owner: DiagnosticOwner,
 }
 
 pub enum EchoSeverity {
@@ -219,6 +222,9 @@ Hint        -> DiagnosticSeverity::HINT
 ```
 
 This mapping keeps internal diagnostic vocabulary stable while translating to the severity values expected by editors.
+
+LSP may translate diagnostics and ranges, but it should not invent diagnostic
+codes or categories locally.
 
 ## Capabilities
 
