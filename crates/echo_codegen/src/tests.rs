@@ -557,6 +557,80 @@ fn dynamic_require_dispatches_only_to_bundled_include_units() {
 }
 
 #[test]
+fn include_returned_object_dispatches_to_unambiguous_method() {
+    let entry = program(vec![
+        Stmt::Assign(AssignStmt {
+            name: "app".to_string(),
+            value: Expr::Include(Box::new(IncludeExpr {
+                kind: IncludeKind::RequireOnce,
+                path: Expr::String(StringLiteral {
+                    value: "/bootstrap/app.php".to_string(),
+                    span: Span::new(20, 40),
+                }),
+                span: Span::new(5, 41),
+            })),
+            span: Span::new(0, 42),
+        }),
+        Stmt::Expr(ExprStmt {
+            expr: Expr::MethodCall(Box::new(MethodCallExpr {
+                object: Expr::Variable(VariableExpr {
+                    name: "app".to_string(),
+                    span: Span::new(43, 47),
+                }),
+                method: "handleRequest".to_string(),
+                method_span: Span::new(49, 62),
+                args: echo_ast::call_args![],
+                span: Span::new(43, 64),
+            })),
+            span: Span::new(43, 65),
+        }),
+    ]);
+    let include = program(vec![
+        Stmt::ClassDecl(ClassDeclStmt {
+            name: "Application".to_string(),
+            parent: None,
+            interfaces: Vec::new(),
+            members: vec![ClassMember::Method(MethodDecl {
+                name: "handleRequest".to_string(),
+                params: Vec::new(),
+                return_type: None,
+                body: Vec::new(),
+                visibility: MethodVisibility::Public,
+                is_static: false,
+                is_intrinsic: false,
+                span: Span::new(0, 20),
+            })],
+            span: Span::new(0, 30),
+        }),
+        Stmt::Return(ReturnStmt {
+            value: Some(Expr::New(Box::new(NewExpr {
+                target: NewTarget::Class(QualifiedName::new(vec!["Application".to_string()])),
+                args: Vec::new(),
+                span: Span::new(40, 57),
+            }))),
+            span: Span::new(33, 58),
+        }),
+    ]);
+    let entry_hir = echo_hir::lower_program(&entry).expect("entry lowers to HIR");
+    let include_hir = echo_hir::lower_program(&include).expect("include lowers to HIR");
+    let entry_mir = echo_mir::lower_program(&entry_hir).expect("entry lowers to MIR");
+    let include_mir = echo_mir::lower_program(&include_hir).expect("include lowers to MIR");
+
+    let ir = compile_mir_bundle_to_ir_detailed(
+        &entry_mir,
+        &[MirIncludeUnit {
+            path: "/bootstrap/app.php".to_string(),
+            program: include_mir,
+            dynamic_require: false,
+            class_names: vec!["Application".to_string()],
+        }],
+    )
+    .expect("include-returned object should dispatch to known class method");
+
+    assert!(ir.contains("@echo_user_Application__handleRequest"), "{ir}");
+}
+
+#[test]
 fn validates_known_std_import() {
     compile_to_ir(&program(vec![Stmt::Import(ImportStmt {
         source: ImportSource::Std,

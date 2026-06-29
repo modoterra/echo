@@ -59,6 +59,81 @@ pub(crate) fn strip_comments_preserving_spans(source: &str) -> String {
     String::from_utf8(output).expect("comment stripping preserves UTF-8")
 }
 
+pub(crate) fn normalize_bracketed_namespaces(source: &str) -> String {
+    let mut output = source.as_bytes().to_vec();
+    let bytes = source.as_bytes();
+    let mut index = 0;
+    let mut namespace_block_depths = Vec::new();
+    let mut brace_depth = 0usize;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'"' | b'\'' => {
+                let quote = bytes[index];
+                index += 1;
+                while index < bytes.len() {
+                    match bytes[index] {
+                        b'\\' => index = (index + 2).min(bytes.len()),
+                        byte if byte == quote => {
+                            index += 1;
+                            break;
+                        }
+                        _ => index += 1,
+                    }
+                }
+            }
+            b'n' if is_keyword_at(bytes, index, b"namespace") => {
+                let mut cursor = index + b"namespace".len();
+                while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+                    cursor += 1;
+                }
+                while bytes.get(cursor).is_some_and(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'\\')
+                }) {
+                    cursor += 1;
+                }
+                while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+                    cursor += 1;
+                }
+                if bytes.get(cursor) == Some(&b'{') {
+                    output[cursor] = b';';
+                    brace_depth += 1;
+                    namespace_block_depths.push(brace_depth);
+                    index = cursor + 1;
+                } else {
+                    index += 1;
+                }
+            }
+            b'{' => {
+                brace_depth += 1;
+                index += 1;
+            }
+            b'}' => {
+                if namespace_block_depths.last() == Some(&brace_depth) {
+                    output[index] = b' ';
+                    namespace_block_depths.pop();
+                }
+                brace_depth = brace_depth.saturating_sub(1);
+                index += 1;
+            }
+            _ => index += 1,
+        }
+    }
+
+    String::from_utf8(output).expect("namespace normalization preserves UTF-8")
+}
+
+fn is_keyword_at(source: &[u8], index: usize, keyword: &[u8]) -> bool {
+    source.get(index..index + keyword.len()) == Some(keyword)
+        && index
+            .checked_sub(1)
+            .and_then(|before| source.get(before))
+            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+        && source
+            .get(index + keyword.len())
+            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+}
+
 pub(crate) fn virtualize_statement_terminators(source: &str) -> String {
     let mut output = source.as_bytes().to_vec();
     let mut line_start = 0;

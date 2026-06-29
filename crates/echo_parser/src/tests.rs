@@ -1494,3 +1494,34 @@ $fn("Echo")
         Stmt::DynamicFunctionCall(_)
     ));
 }
+
+#[test]
+fn parses_php_bracketed_namespace_blocks() {
+    let program = parse(
+        r#"<?php
+namespace Illuminate\Http {
+class Request {}
+}
+
+namespace {
+return new Illuminate\Foundation\Application();
+}
+"#,
+    )
+    .expect("bracketed PHP namespace blocks parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Namespace(statement)
+            if statement.name.as_string() == "Illuminate\\Http"
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::ClassDecl(statement) if statement.name == "Request"
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::Namespace(statement) if statement.name.parts.is_empty()
+    ));
+    assert!(matches!(&program.statements[3], Stmt::Return(_)));
+}

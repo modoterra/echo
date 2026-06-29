@@ -73,7 +73,8 @@ pub fn read_source(file: &Path) -> String {
 }
 
 pub fn read_source_file(file: &Path, mode: SourceOptions) -> SourceFile {
-    source_file_from_text(file.to_path_buf(), read_source(file), mode)
+    let path = fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    source_file_from_text(path, read_source(file), mode)
 }
 
 pub fn source_file_from_text(file: PathBuf, text: String, _mode: SourceOptions) -> SourceFile {
@@ -117,9 +118,21 @@ pub fn run_jit(file: &Path, mode: SourceOptions) {
 }
 
 pub fn try_run_jit(source: &SourceFile) -> Result<i32, Vec<echo_diagnostics::Diagnostic>> {
-    let program = parse_source_program(source)?;
+    let ir = try_compile_ir_bundle(source, SourceOptions::default()).map_err(|diagnostics| {
+        diagnostics
+            .into_iter()
+            .map(|diagnostic| diagnostic.diagnostic)
+            .collect::<Vec<_>>()
+    })?;
+    let output = echo_codegen::run_ir_jit_with_options(
+        &ir,
+        echo_codegen::JitOptions {
+            capture_stdout: false,
+            repl_inspect: false,
+        },
+    )?;
 
-    echo_codegen::run_program_jit(&program)
+    Ok(output.status)
 }
 
 pub fn try_compile_ir_bundle(
@@ -233,6 +246,7 @@ fn collect_contextual_class_references(
         match statement {
             Stmt::Namespace(statement) => namespace = Some(statement.name.clone()),
             Stmt::Use(statement) => {
+                collect_qualified_name_references(&statement.name, names);
                 if let Some(alias) = &statement.alias {
                     uses.insert(alias.clone(), statement.name.clone());
                 } else if let Some(short) = statement.name.parts.last() {
@@ -1096,7 +1110,7 @@ fn parse_source_bundle(
     )?;
     discover_composer_autoload_files(source, mode, &mut seen, &mut includes)?;
     discover_composer_classmap_files(source, &entry, mode, &mut seen, &mut includes)?;
-    discover_composer_psr4_roots(source, mode, &mut seen, &mut includes)?;
+    discover_composer_psr4_roots(source, &entry, mode, &mut seen, &mut includes)?;
 
     Ok(SourceBundle { entry, includes })
 }
@@ -1328,6 +1342,7 @@ fn classmap_include_program(
 
 fn discover_composer_psr4_roots(
     entry_source: &SourceFile,
+    entry_program: &Program,
     mode: SourceOptions,
     seen: &mut std::collections::HashSet<PathBuf>,
     includes: &mut Vec<IncludeProgram>,
@@ -1356,12 +1371,25 @@ fn discover_composer_psr4_roots(
     let vendor_dir = composer_dir.parent().unwrap_or(&composer_dir);
     let base_dir = vendor_dir.parent().unwrap_or(vendor_dir);
     let canonical_base_dir = fs::canonicalize(base_dir).unwrap_or_else(|_| base_dir.to_path_buf());
+    let mut referenced = referenced_class_names_for_program(entry_program);
+    referenced = includes.iter().fold(referenced, |mut referenced, include| {
+        referenced.extend(referenced_class_names_for_program(&include.program));
+        referenced
+    });
 
     for (prefix, root) in composer_psr4_roots(&metadata, &composer_dir) {
         let Ok(canonical_root) = fs::canonicalize(&root) else {
             continue;
         };
         if !is_project_psr4_root(&canonical_root, &canonical_base_dir) {
+            for class_name in referenced.iter().filter(|name| name.starts_with(&prefix)) {
+                let Some(include) =
+                    psr4_include_program_for_class(&prefix, class_name, &root, mode, seen)
+                else {
+                    continue;
+                };
+                includes.push(include);
+            }
             continue;
         }
 
@@ -1423,10 +1451,61 @@ fn discover_composer_psr4_roots(
                 dynamic_require: false,
                 class_names,
             });
+            if let Some(include) = includes.last() {
+                referenced.extend(referenced_class_names_for_program(&include.program));
+            }
         }
     }
 
     Ok(())
+}
+
+fn psr4_include_program_for_class(
+    prefix: &str,
+    class_name: &str,
+    root: &Path,
+    mode: SourceOptions,
+    seen: &mut std::collections::HashSet<PathBuf>,
+) -> Option<IncludeProgram> {
+    let suffix = class_name.strip_prefix(prefix)?;
+    let mut relative = PathBuf::new();
+    for segment in suffix.split('\\').filter(|segment| !segment.is_empty()) {
+        relative.push(segment);
+    }
+    relative.set_extension("php");
+
+    let dispatch_path = root.join(&relative).display().to_string();
+    let canonical = fs::canonicalize(root.join(&relative)).ok()?;
+    if !seen.insert(canonical.clone()) {
+        return None;
+    }
+
+    let include_source = read_source_file(&canonical, mode);
+    let include_program = parse_source_program(&include_source)
+        .ok()
+        .filter(program_has_type_declaration)
+        .unwrap_or_else(|| Program {
+            open_tag: None,
+            statements: Vec::new(),
+            source_id: include_source.id,
+            source_dir: source_dir_for(&include_source.path),
+            span: Span::new(0, 0),
+        });
+    let mut class_names = class_name_aliases(class_name);
+    for parsed_name in class_names_for_program(&include_program) {
+        if !class_names.contains(&parsed_name) {
+            class_names.push(parsed_name);
+        }
+    }
+
+    Some(IncludeProgram {
+        path: dispatch_path,
+        source: include_source,
+        program: include_program,
+        include_stack: Vec::new(),
+        dynamic_require: false,
+        class_names,
+    })
 }
 
 fn composer_psr4_roots(metadata: &str, composer_dir: &Path) -> Vec<(String, PathBuf)> {
@@ -2589,6 +2668,76 @@ mod tests {
                 .class_names
                 .contains(&"Acme\\HttpServer\\ServerProvider".to_string())
         );
+
+        fs::remove_dir_all(&root).expect("cleanup temp composer tree");
+    }
+
+    #[test]
+    fn composer_psr4_discovery_loads_referenced_vendor_class_on_demand() {
+        let root = std::env::temp_dir().join(format!(
+            "echo-composer-vendor-psr4-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+
+        let composer_dir = root.join("vendor/composer");
+        let framework_dir = root.join("vendor/laravel/framework/src/Illuminate/Foundation");
+        fs::create_dir_all(&composer_dir).expect("composer dir");
+        fs::create_dir_all(&framework_dir).expect("framework dir");
+        fs::create_dir_all(root.join("public")).expect("public dir");
+
+        fs::write(
+            root.join("public/index.php"),
+            "<?php\nuse Illuminate\\Foundation\\Application;\n$app = require_once __DIR__.'/../bootstrap.php';\n$app->handleRequest();\n",
+        )
+        .expect("entry source");
+        fs::write(
+            composer_dir.join("autoload_psr4.php"),
+            "<?php\nreturn array(\n    'Illuminate\\\\' => array($vendorDir . '/laravel/framework/src/Illuminate'),\n);\n",
+        )
+        .expect("autoload_psr4 metadata");
+        fs::write(
+            root.join("bootstrap.php"),
+            "<?php return new Illuminate\\Foundation\\Application();\n",
+        )
+        .expect("bootstrap source");
+        fs::write(
+            framework_dir.join("Application.php"),
+            "<?php namespace Illuminate\\Foundation; class Application { public function handleRequest() {} }\n",
+        )
+        .expect("application source");
+
+        let mode = SourceOptions::default();
+        let entry = read_source_file(&root.join("public/index.php"), mode);
+        let bundle = parse_source_bundle(&entry, mode).expect("source bundle parses");
+
+        let application = bundle
+            .includes
+            .iter()
+            .find(|include| {
+                include
+                    .class_names
+                    .contains(&"Illuminate\\Foundation\\Application".to_string())
+            })
+            .expect("referenced vendor PSR-4 class should be included");
+
+        assert!(
+            application
+                .program
+                .statements
+                .iter()
+                .any(|statement| matches!(
+                    statement,
+                    Stmt::ClassDecl(class)
+                        if class.name == "Application"
+                            && class.members.iter().any(|member| matches!(
+                                member,
+                                echo_ast::ClassMember::Method(method)
+                                    if method.name == "handleRequest"
+                            ))
+                ))
+        );
+        assert!(!application.dynamic_require);
 
         fs::remove_dir_all(&root).expect("cleanup temp composer tree");
     }

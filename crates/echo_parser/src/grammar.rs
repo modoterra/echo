@@ -27,8 +27,8 @@ mod preprocess;
 mod validation;
 
 use preprocess::{
-    normalize_heredoc_literals, strip_comments_preserving_spans, unescape_double_quoted_string,
-    unescape_single_quoted_string, virtualize_statement_terminators,
+    normalize_bracketed_namespaces, normalize_heredoc_literals, strip_comments_preserving_spans,
+    unescape_double_quoted_string, unescape_single_quoted_string, virtualize_statement_terminators,
 };
 use validation::validate_program;
 
@@ -74,7 +74,9 @@ fn parse_program(source: &str) -> Result<Program, Vec<Diagnostic>> {
     echo_lexer::lex(source)?;
 
     let source = normalize_heredoc_literals(source);
-    let source = virtualize_statement_terminators(&strip_comments_preserving_spans(&source));
+    let source = strip_comments_preserving_spans(&source);
+    let source = normalize_bracketed_namespaces(&source);
+    let source = virtualize_statement_terminators(&source);
 
     let mut program = parser().parse(&source).into_result().map_err(|errors| {
         errors
@@ -1776,7 +1778,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .padded()
                     .ignore_then(php_name.clone())
                     .map(|name| (NamespaceSource::Std, name))
-                    .or(php_name.clone().map(|name| (NamespaceSource::Php, name))),
+                    .or(php_name.clone().map(|name| (NamespaceSource::Php, name)))
+                    .or_not()
+                    .map(|namespace| {
+                        namespace.unwrap_or_else(|| {
+                            (NamespaceSource::Php, QualifiedName::new(Vec::new()))
+                        })
+                    }),
             )
             .then_ignore(terminator.clone())
             .map_with(|(source, name), extra| {
