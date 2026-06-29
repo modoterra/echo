@@ -12,6 +12,7 @@ echo_lexer
   -> echo_parser
   -> echo_semantics
   -> echo_index
+  -> echo_resolver
   -> echo_lsp
   -> editor
 ```
@@ -247,6 +248,10 @@ Go-to definition on PHP `use` imports consults Composer `autoload_classmap.php`
 and `autoload_psr4.php` beside the indexed `vendor/autoload.php`, so imports
 such as `use Illuminate\Http\Request;` can open their concrete vendor class file
 even when that vendor file is not yet fully parseable by Echo.
+That Composer and file-target lookup is transitional LSP plumbing. Project-wide
+import and package resolution should move to `echo_resolver`, and future
+go-to definition, completion, diagnostics, and rename behavior should consume
+resolved imports and symbols rather than reading Composer metadata locally.
 References are initially same-file and import-aware, so finding references for
 that imported `Request` name returns both the `use` dependency and static class
 reference.

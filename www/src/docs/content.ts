@@ -5414,7 +5414,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "The source prefix decides resolution. ",
               { code: "from std use ..." },
-              " binds compiler-known standard library modules and never reserves a PHP namespace.",
+              " binds compiler-known standard library modules and never exposes Rust ABI symbols directly. Project-wide import and package lookup belongs in Echo's resolver layer so LSP, semantic analysis, xo, and codegen consume the same resolved symbols.",
             ],
           },
         ],

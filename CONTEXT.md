@@ -70,6 +70,12 @@ facts, scope rules, symbol resolution, and diagnostics that require meaning
 rather than syntax alone. It should serve file compilation, REPL introspection,
 LLVM JIT execution, and future LSP features.
 
+`echo_resolver` is the planned crate for project-wide name and import resolution
+policy. It should consume `echo_index` facts plus package roots, Composer
+autoload metadata, Echo package metadata, std metadata, and source roots, then
+produce resolved imports, resolved symbols, canonical names, ambiguity
+diagnostics, and dependency edges for semantics, LSP, `xo`, and codegen.
+
 `echo_hir` owns the first compiler-friendly representation after parsing. HIR
 is derived from AST plus `echo_semantics` facts and preserves enough source
 structure for diagnostics, tooling, and language-level reasoning.

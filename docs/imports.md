@@ -43,7 +43,7 @@ from "./config.json" use config
   File-backed data import. The file extension selects the loader.
 ```
 
-This block is the resolver contract: the import prefix determines whether Echo follows PHP namespace rules, stdlib module rules, package/module rules, local Echo module loading, or data-loader behavior.
+This block is the resolver contract: the import prefix determines whether Echo follows PHP namespace rules, stdlib module rules, package/module rules, local Echo module loading, or data-loader behavior. That policy belongs in the planned `echo_resolver` crate, not in parser, LSP, CLI, or codegen-specific lookup.
 
 The file extension stays in the import source because it is part of loader selection.
 
@@ -115,6 +115,20 @@ from std use http\Response as HttpResponse
 Aliases are for avoiding local naming conflicts while still resolving through the same stdlib module graph.
 
 `from std use ...` must not consult PHP namespace resolution or Composer autoloading. It resolves only against the compiler-known stdlib surface. Other `from <package> use ...` sources, such as `from illuminate/http use ...`, can use Echo package resolution later without changing the import grammar.
+
+The resolver should expose resolved import artifacts rather than requiring each
+consumer to reinterpret imports:
+
+```rust
+pub struct ResolvedImport {
+    pub local_name: String,
+    pub canonical_name: CanonicalName,
+    pub target: ResolvedSymbol,
+}
+```
+
+Semantic analysis, LSP, `xo`, and codegen should consume this resolved form once
+available.
 
 The stdlib surface can be implemented by a mix of Echo source and trusted intrinsic declarations. See [Echo Standard Library](stdlib.md) for the interop model.
 

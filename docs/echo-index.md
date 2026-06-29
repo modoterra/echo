@@ -52,6 +52,9 @@ This boundary keeps ownership clear:
 - `echo_semantics` owns meaning: scopes, declarations, local references,
   semantic diagnostics, and fact production.
 - `echo_index` owns storage and queries over project-wide facts.
+- `echo_resolver` owns project-wide resolution policy over indexed facts,
+  package roots, Composer metadata, Echo package metadata, std metadata, and
+  source roots.
 - `echo_lsp` owns protocol conversion and editor communication.
 
 ## Crate Shape
@@ -326,7 +329,7 @@ dead symbol IDs from lookup maps.
 Fully qualified lookup intentionally returns multiple symbols. PHP-compatible
 autoload, conditional declarations, and include order can make a name ambiguous,
 so the index should preserve candidates and leave resolution policy to
-`echo_semantics` or a future project resolver.
+`echo_resolver`.
 
 ## First-Slice Tests
 
