@@ -6,10 +6,6 @@ use tower_lsp_server::ls_types::{Diagnostic, DiagnosticSeverity};
 use crate::position::range_to_lsp_range;
 use echo_source::SourceId;
 
-pub fn diagnostics_to_lsp(text: &Rope, diagnostics: &[EchoDiagnostic]) -> Vec<Diagnostic> {
-    diagnostics_to_lsp_for_source(text, None, diagnostics)
-}
-
 pub fn diagnostics_to_lsp_for_source(
     text: &Rope,
     source_id: Option<SourceId>,
@@ -63,8 +59,9 @@ mod tests {
     #[test]
     fn converts_echo_diagnostics_to_lsp_diagnostics() {
         let text = Rope::from_str("echo \"ok\"\nerror\n");
-        let diagnostics = diagnostics_to_lsp(
+        let diagnostics = diagnostics_to_lsp_for_source(
             &text,
+            None,
             &[EchoDiagnostic::new("expected statement", Span::new(10, 15))],
         );
 

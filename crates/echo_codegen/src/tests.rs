@@ -91,7 +91,7 @@ fn unsupported_method_call_reports_codegen_error() {
         err[0].message,
         "unsupported method call `doSomethingUnsupported` in LLVM codegen"
     );
-    assert_eq!(err[0].span, Span::new(20, 42));
+    assert_eq!(err[0].span(), Span::new(20, 42));
 }
 
 #[test]
@@ -578,7 +578,7 @@ fn rejects_unknown_std_import() {
     .expect_err("unknown std import should fail");
 
     assert_eq!(diagnostics[0].message, "unknown std import `potato`");
-    assert_eq!(diagnostics[0].span, Span::new(0, 19));
+    assert_eq!(diagnostics[0].span(), Span::new(0, 19));
 }
 
 #[test]
