@@ -149,9 +149,14 @@ pub fn reflect_functions(source: &str, function_source: FunctionSource) -> Vec<F
 fn std_module_namespace(name: &QualifiedName, source: NamespaceSource) -> Option<String> {
     match source {
         NamespaceSource::Std => Some(name.as_string()),
-        NamespaceSource::Php if name.parts.first().is_some_and(|part| part == "std") => {
-            Some(name.parts.iter().skip(1).cloned().collect::<Vec<_>>().join("."))
-        }
+        NamespaceSource::Php if name.parts.first().is_some_and(|part| part == "std") => Some(
+            name.parts
+                .iter()
+                .skip(1)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("."),
+        ),
         NamespaceSource::Php => None,
     }
 }
