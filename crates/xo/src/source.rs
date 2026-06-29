@@ -1152,6 +1152,7 @@ fn discover_composer_autoload_files(
         let include_program = Program {
             open_tag: None,
             statements: Vec::new(),
+            source_id: include_source.id,
             source_dir: source_dir_for(&include_source.path),
             span: Span::new(0, 0),
         };
@@ -1295,6 +1296,7 @@ fn classmap_include_program(
             .unwrap_or_else(|| Program {
                 open_tag: None,
                 statements: Vec::new(),
+                source_id: include_source.id,
                 source_dir: source_dir_for(&include_source.path),
                 span: Span::new(0, 0),
             })
@@ -1302,6 +1304,7 @@ fn classmap_include_program(
         Program {
             open_tag: None,
             statements: Vec::new(),
+            source_id: include_source.id,
             source_dir: source_dir_for(&include_source.path),
             span: Span::new(0, 0),
         }
@@ -1385,6 +1388,7 @@ fn discover_composer_psr4_roots(
                         Program {
                             open_tag: None,
                             statements: Vec::new(),
+                            source_id: include_source.id,
                             source_dir: source_dir_for(&include_source.path),
                             span: Span::new(0, 0),
                         }
@@ -1393,6 +1397,7 @@ fn discover_composer_psr4_roots(
                 _ => Program {
                     open_tag: None,
                     statements: Vec::new(),
+                    source_id: include_source.id,
                     source_dir: source_dir_for(&include_source.path),
                     span: Span::new(0, 0),
                 },
@@ -2458,6 +2463,7 @@ mod tests {
     fn echo_module_classes_have_php_namespace_aliases_for_composer() {
         let program = Program {
             open_tag: None,
+            source_id: None,
             statements: vec![
                 Stmt::Namespace(echo_ast::NamespaceStmt {
                     source: echo_ast::NamespaceSource::Php,

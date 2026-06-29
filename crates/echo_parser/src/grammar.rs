@@ -40,7 +40,10 @@ pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>> {
 }
 
 pub fn parse_source_file(source: &SourceFile) -> Result<Program, Vec<Diagnostic>> {
-    parse_program(&source.text).map_err(|diagnostics| attach_source(source, diagnostics))
+    let mut program =
+        parse_program(&source.text).map_err(|diagnostics| attach_source(source, diagnostics))?;
+    program.source_id = source.id;
+    Ok(program)
 }
 
 pub fn parse_trusted_std(source: &str) -> Result<Program, Vec<Diagnostic>> {
@@ -48,7 +51,10 @@ pub fn parse_trusted_std(source: &str) -> Result<Program, Vec<Diagnostic>> {
 }
 
 pub fn parse_trusted_std_source(source: &SourceFile) -> Result<Program, Vec<Diagnostic>> {
-    parse_program(&source.text).map_err(|diagnostics| attach_source(source, diagnostics))
+    let mut program =
+        parse_program(&source.text).map_err(|diagnostics| attach_source(source, diagnostics))?;
+    program.source_id = source.id;
+    Ok(program)
 }
 
 fn attach_source(source: &SourceFile, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
@@ -3219,10 +3225,46 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             Program {
                 open_tag,
                 statements,
+                source_id: None,
                 source_dir: None,
                 span: Span::new(span.start, span.end),
             }
         })
+}
+
+#[cfg(test)]
+mod source_file_tests {
+    use std::path::PathBuf;
+
+    use echo_source::{SourceFile, SourceId, Span};
+
+    use super::*;
+
+    #[test]
+    fn parse_source_file_records_program_source_id() {
+        let source_id = SourceId::new(42);
+        let source = SourceFile::new(PathBuf::from("app.echo"), "echo \"ok\"".to_string())
+            .with_id(source_id);
+
+        let program = parse_source_file(&source).expect("source file should parse");
+
+        assert_eq!(program.source_id, Some(source_id));
+        assert_eq!(
+            program.source_span(Span::new(0, 4)),
+            Some(echo_source::SourceSpan::new(source_id, Span::new(0, 4)))
+        );
+    }
+
+    #[test]
+    fn parse_source_file_attaches_source_id_to_diagnostics() {
+        let source_id = SourceId::new(9);
+        let source =
+            SourceFile::new(PathBuf::from("broken.echo"), "!".to_string()).with_id(source_id);
+
+        let diagnostics = parse_source_file(&source).expect_err("source file should fail");
+
+        assert_eq!(diagnostics[0].source_span().unwrap().source_id, source_id);
+    }
 }
 
 #[cfg(test)]

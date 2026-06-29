@@ -12,6 +12,7 @@ fn program(statements: Vec<Stmt>) -> Program {
     Program {
         open_tag: None,
         statements,
+        source_id: None,
         source_dir: None,
         span: Span::new(0, 0),
     }
@@ -79,7 +80,7 @@ fn reports_undefined_variable() {
     .expect_err("undefined variable should be diagnostic");
 
     assert_eq!(diagnostics[0].message, "undefined variable `$missing`");
-    assert_eq!(diagnostics[0].span, Span::new(0, 8));
+    assert_eq!(diagnostics[0].span(), Span::new(0, 8));
 }
 
 #[test]

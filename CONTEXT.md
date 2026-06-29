@@ -28,7 +28,10 @@ may expose or format behavior, but should not define language semantics locally.
 ## Module Ownership
 
 `echo_ast` owns syntax tree shape. AST nodes represent parsed source syntax and
-source-level structure, not lowered semantic, runtime, or backend meaning.
+source-level structure, not lowered semantic, runtime, or backend meaning. AST
+nodes keep local byte `Span` values; `Program` carries the optional source
+identity for the whole parsed source and can form `SourceSpan` values at API
+boundaries that need source-aware ranges.
 
 Collection syntax has distinct meanings and must not be conflated:
 

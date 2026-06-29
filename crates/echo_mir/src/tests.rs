@@ -13,6 +13,7 @@ fn program(statements: Vec<Stmt>) -> Program {
     Program {
         open_tag: None,
         statements,
+        source_id: None,
         source_dir: None,
         span: Span::new(0, 0),
     }
