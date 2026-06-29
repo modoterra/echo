@@ -83,9 +83,10 @@ docs can all consume.
 
 `echo_source` owns source identity and local byte spans. `Span` is a byte-offset
 range within one source text. `SourceId` identifies a registered source file,
-REPL snippet, std module, or anonymous test source through `SourceMap`. The
-compiler should migrate diagnostics, LSP, resolver facts, parser entrypoints,
-and later AST/HIR/MIR references toward `SourceSpan` instead of recreating
+REPL snippet, std module, or anonymous test source through `SourceMap`.
+`SourceSpan` pairs a `SourceId` with a local `Span`. Diagnostics and LSP paths
+can already carry that pair; resolver facts, parser entrypoints, and later
+AST/HIR/MIR references should migrate toward `SourceSpan` instead of recreating
 path/text identity in each layer.
 
 `echo_hir` owns the first compiler-friendly representation after parsing. HIR

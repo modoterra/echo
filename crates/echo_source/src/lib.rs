@@ -13,6 +13,18 @@ impl Span {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceSpan {
+    pub source_id: SourceId,
+    pub span: Span,
+}
+
+impl SourceSpan {
+    pub const fn new(source_id: SourceId, span: Span) -> Self {
+        Self { source_id, span }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SourceId(u32);
 
