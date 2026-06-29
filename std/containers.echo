@@ -1,0 +1,10 @@
+module std.containers
+
+class Dict {
+}
+
+class Map {
+}
+
+class Set {
+}

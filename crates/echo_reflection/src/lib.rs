@@ -10,6 +10,7 @@ const STD_MODULE_SOURCES: &[(&str, &str)] = &[
     ("net", include_str!("../../../std/net.echo")),
     ("reflect", include_str!("../../../std/reflect.echo")),
     ("time", include_str!("../../../std/time.echo")),
+    ("containers", include_str!("../../../std/containers.echo")),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]

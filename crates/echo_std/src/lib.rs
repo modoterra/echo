@@ -58,6 +58,11 @@ pub const MODULES: &[StdModule] = &[
         path: "std/reflect.echo",
         source: include_str!("../../../std/reflect.echo"),
     },
+    StdModule {
+        name: "std.containers",
+        path: "std/containers.echo",
+        source: include_str!("../../../std/containers.echo"),
+    },
 ];
 
 pub const INTRINSICS: &[IntrinsicBinding] = &[
@@ -282,6 +287,20 @@ mod tests {
         assert!(module.source.contains("intrinsic fn params"));
         assert!(module.source.contains("intrinsic fn returnType"));
         assert!(module.source.contains("intrinsic fn typeOf"));
+    }
+
+    #[test]
+    fn packages_containers_module_source() {
+        let module = modules()
+            .iter()
+            .find(|module| module.name == "std.containers")
+            .expect("std.containers module is packaged");
+
+        assert_eq!(module.path, "std/containers.echo");
+        assert!(module.source.contains("module std.containers"));
+        assert!(module.source.contains("class Dict"));
+        assert!(module.source.contains("class Map"));
+        assert!(module.source.contains("class Set"));
     }
 
     #[test]
