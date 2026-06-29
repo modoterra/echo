@@ -1,0 +1,3 @@
+# Package Module Identity Is Canonicalized
+
+Echo resolves Echo `module app.http` declarations and PHP `namespace App\Http` declarations into the same internal package/module identity when they denote the same package boundary. Source spelling remains meaningful for diagnostics, formatting, package conventions, and PHP ecosystem compatibility, but resolver, index, semantic analysis, lowering, codegen, and LSP features should consume the canonical identity rather than maintaining parallel Echo and PHP namespace models. The trade-off is that Echo gives up strict surface separation between Echo modules and PHP namespaces to avoid duplicated resolution policy and ad hoc bridges across tools.
