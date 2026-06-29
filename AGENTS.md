@@ -3,19 +3,20 @@
 ## Workspace
 - Rust workspace with resolver `2`; all crates use edition `2024`.
 - Crate flow is `echo_source`/`echo_diagnostics` -> `echo_lexer` -> `echo_ast` -> `echo_parser` -> `echo_semantics` -> `echo_codegen`; `xo` is the CLI entrypoint.
-- `echo_codegen` is a separate LLVM backend stub using `inkwell` with feature `llvm22-1`; clean environments need LLVM 22 available for full workspace builds.
+- `echo_codegen` is the LLVM backend using `inkwell` with feature `llvm22-1`; clean environments need LLVM 22 available for full workspace builds.
 
 ## Product Direction
 - Echo is a Rust implementation of a PHP superset: existing PHP programs should remain valid while Echo adds modern runtime and language features.
 - When changing syntax, parsing, diagnostics, or runtime behavior, preserve PHP compatibility unless the task explicitly says otherwise.
 - Output buffering semantics are tracked in `docs/output-buffering.md`; consult it before changing `echo_runtime` or `ob_*` codegen.
 - Echo source files should use `snake_case.echo` file names and directories should use lowercase names with underscores when needed. Keep PHP/Composer package directory names as required by their ecosystem, but do not carry PHP class-file naming into Echo source. Use `PascalCase` for class/type/enum/trait/interface names and `snake_case` for functions, variables, modules, and file/module identifiers.
-- Echo package code should declare and import Echo modules with lower-dot names such as `module modoterra.laravel_echo.console` and `from illuminate.console use Command`. When interoperating with PHP, that module maps to the PHP namespace `Modoterra\LaravelEcho\Console`; package segments use lowercase/snake_case in Echo and PascalCase namespace segments in PHP.
+- Echo package code should declare and import Echo modules with lower-dot names such as `module modoterra.laravel_echo.console` and `from illuminate.console use Command`. Echo module declarations and PHP namespace declarations that denote the same package boundary should resolve to the same internal identity and lower through the same compiler path; package segments use lowercase/snake_case in Echo and PascalCase namespace segments in PHP.
 - Canonical Echo imports have two forms: `use illuminate.console.Command` for a single direct import, and `from illuminate.console use Command, AndThis, AndThat` for multiple imports from the same module. `from illuminate.console use Command` remains legal for one item, but prefer direct `use ...` when importing exactly one symbol.
 - Echo imports may alias imported symbols with `as`: `use illuminate.console.Command as LaravelCommand` and `from illuminate.console use Command, AndThis as ThisThing, AndThat`. Use aliases for name conflicts or clearer local names. Do not use module aliases such as `use illuminate.console as console` yet; reserve that for a later module-import design.
 - Whole-module imports use `use some.long.module` and bind the module under its final segment, so `use std.process` enables `process.run(...)` and `use modoterra.laravel_echo.console` enables `console.EchoStartCommand`. Whole-module imports may be aliased with `as`, for example `use std.process as proc` enables `proc.run(...)`. The same module aliasing rule applies to std imports through the grouped form, for example `from std use process as proc`.
 - Echo-native files may optionally start with one module declaration such as `module modoterra.laravel_echo.console`. If present, `module` must be the first declaration before imports and other statements; `use std.time` followed by `module app.console` is invalid. Only one module declaration is allowed per file. If omitted, the file belongs to the package root or to an anonymous script module. An Echo package file can be imported only when it declares a module; PHP-compat files can be imported through their PHP namespace instead.
 - Echo module names use dot paths such as `module modoterra.laravel_echo.console`, `module std.time`, and `module app.http.router`. Each path part must be a simple identifier containing letters, numbers, and underscores, and may not start with a number. Valid: `module app.http_v2.router`. Invalid: `module app.http-router`, `module app.2http.router`, and `module app..router`. Module paths are case-sensitive; lowercase is the package lint convention, not a parser error, so `module App.Http.Router` may parse but should warn.
+- The canonical `std` root is reserved for Echo's compiler-owned standard library after module/namespace canonicalization. Packaged stdlib source declares `module std.net`-style modules; user/package code must not declare `module std.*`, `namespace std\*`, or `namespace Std\*`.
 
 ## Documentation Quality
 - Documentation for code behavior, built-ins, APIs, CLI commands, or terminal workflows must include at least one useful snippet when a snippet can make the behavior concrete.
@@ -27,23 +28,32 @@
 ## Module Ownership Invariants
 - Global domain vocabulary and module ownership are defined in `CONTEXT.md`; read it before changing compiler, runtime, or REPL behavior.
 - REPL examples are language-development inputs. Do not solve them with REPL-only lookup tables, evaluators, type environments, or ad hoc value semantics; implement behavior in the shared language pipeline first.
-- Semantic facts such as variable bindings, expression types, scope rules, and undefined-variable diagnostics belong in `echo_semantics`; `xo`, `echo_codegen`, future VM code, and future LSP code should consume that shared analysis rather than reimplementing it.
+- Semantic facts such as variable bindings, expression types, scope rules, and undefined-variable diagnostics belong in `echo_semantics`; `xo`, `echo_codegen`, future LLVM JIT code, and future LSP code should consume that shared analysis rather than reimplementing it.
 - AST shape must truthfully represent source semantics. Do not add PHP-compatible parse support by smuggling syntax into an unrelated existing AST shape, such as representing `elseif`/`else` as statements appended to an `if` true-body. Add the proper AST structure and lower it through semantics/MIR/codegen instead.
 - Keep collection kinds distinct: `[]` is PHP array syntax, `{}` is an Echo list, `{ field: value }` is an Echo structural object, `()` is reserved for tuples, and fixed-size arrays are their own array form. PHP `$value[] = item` append syntax may grow non-fixed arrays only; do not use it for Echo lists or fixed-size arrays.
 - Runtime and executable semantics should be owned by Rust code in this workspace. Do not add C/C++ runtime implementations, `libm`/`-lm`, libc math calls, or new non-Rust link dependencies for language behavior. The current `clang` native-link driver is a bootstrap path, not a license to add C runtime semantics; replacing it with a Rust-owned link path is preferred when touching build plumbing.
 
 ## Agent skills
 
+### Issue tracker
+
+Issues live as GitHub issues via the `gh` CLI; external PRs are also a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles use their default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
 ### Domain docs
 
-This repo uses a single-context domain documentation layout. See `docs/agents/domain.md`.
+Single-context layout: one `CONTEXT.md` at the root plus `docs/adr/` for ADRs. See `docs/agents/domain.md`.
 
 ## Commands
 - Fast agent checks: `scripts/check-fast changed --list`, `scripts/check-fast changed`, `scripts/check-fast source`, `scripts/check-fast diagnostics`, `scripts/check-fast lexer`, `scripts/check-fast ast`, `scripts/check-fast runtime`, `scripts/check-fast runtime-collections`, `scripts/check-fast runtime-execution`, `scripts/check-fast runtime-output`, `scripts/check-fast runtime-reflection`, `scripts/check-fast runtime-math`, `scripts/check-fast runtime-encoding`, `scripts/check-fast parser <fixture-filter>`, `scripts/check-fast parser-concurrency`, `scripts/check-fast parser-echo-surface`, `scripts/check-fast parser-strings`, `scripts/check-fast semantics`, `scripts/check-fast hir`, `scripts/check-fast mir`, `scripts/check-fast pipeline`, `scripts/check-fast index`, `scripts/check-fast lsp`, `scripts/check-fast std`, `scripts/check-fast reflection`, `scripts/check-fast codegen`, `scripts/check-fast xo`, `scripts/check-fast repl`, `scripts/check-fast jit <fixture-filter>`, `scripts/check-fast fixture <fixture-filter>`, `scripts/check-fast bench-echo <fixture-filter>`, `scripts/check-fast bench-php <fixture-filter>`, `scripts/check-fast fmt`, `scripts/check-fast script`, `scripts/check-fast workspace`, and `scripts/check-fast web`.
 - Check all crates: `cargo check --workspace`.
 - Run all tests/doc-tests: `cargo test --workspace`.
-- Check formatting: `cargo fmt --all -- --check`.
-- Quiet final verification: `scripts/check-fast workspace` runs format, `cargo check --workspace`, and `cargo test --workspace` with successful output suppressed.
+- Check formatting: `cargo fmt-check` or `scripts/fmt --check`.
+- Focus formatting specific Rust files with `scripts/fmt <file>...`; direct `rustfmt` defaults can ignore the workspace edition unless `--edition 2024` is passed.
+- Quiet final verification: `scripts/check-fast workspace` runs `scripts/fmt --check`, `cargo check --workspace`, and `cargo test --workspace` with successful output suppressed.
 - Focus one crate: `cargo test -p echo_parser` or `cargo check -p xo`.
 - Benchmark PHP fixtures against system PHP: `cargo test -p xo --test php_bench -- --ignored --nocapture`; use `ECHO_BENCH_ITERATIONS=2 cargo test -p xo --test php_bench -- --ignored --nocapture` for intermediate smoke checks, and larger counts such as 100 for final benchmark reports.
 - Run CLI examples: `cargo run -p xo -- ast examples/hello.php`, `cargo run -p xo -- ir examples/hello.php`, `cargo run -p xo -- run examples/hello.php`, and `cargo run -p xo -- build examples/hello.php -o /tmp/hello`.
@@ -105,6 +115,8 @@ The optional fixture filter sets `ECHO_FIXTURE` for that command. Filters are co
 Benchmark shortcuts default `ECHO_BENCH_ITERATIONS` to `2`; set the variable explicitly for larger runs.
 
 ## Slice Workflow
+- Keep git hygiene visible while working: check `git status --short` before broad edits, keep ADR changes synchronized with `CONTEXT.md`, `AGENTS.md`, and `www/` when the decision is user-facing, and do not mix unrelated cleanup into a slice. When website docs change direction, prefer clean current URLs and labels over legacy aliases. If the worktree already has unrelated user changes, leave them alone and call out any verification limits they create.
+- Commit completed work in logical slices with conventional commit subjects such as `docs: record single language mode` or `feat(parser): remove source modes`. Commit bodies should be rich enough for later review: explain the architectural decision or behavior change, list the important implementation/docs surfaces touched, and mention the focused verification that passed. Avoid vague subjects such as `update docs`, mixed grab-bag commits, and commits that combine unrelated refactors with user-visible behavior.
 - Use a separate git worktree for each implementation slice. Keep the main checkout clean and use a descriptive branch/worktree name for the slice.
 - Make slices vertical and observable: syntax/parser, AST, codegen/runtime, fixtures, docs, tests, and commit should land together when the behavior needs the full path.
 - Do not stop at a parser-only or runtime-only partial unless the user explicitly asks for that boundary; prefer a coherent end-to-end slice that proves the behavior through `xo ast`, `xo ir`, `xo run`, and `xo build`.
@@ -141,6 +153,6 @@ Benchmark shortcuts default `ECHO_BENCH_ITERATIONS` to `2`; set the variable exp
 - `xo run` and `xo build` share the same binary build path: generated LLVM IR is linked with `target/debug/libecho_runtime.a` via `clang -x ir`. This is transitional build plumbing; avoid adding any C/C++ runtime libraries or language semantics through that path. Full end-to-end tests need `clang` on `PATH`; PHP benchmarks also need `php` on `PATH`.
 
 ## Source Notes
-- `echo_source::SourceFile::new` classifies `.echo` and `.xo` as strict mode; every other extension defaults to Echo superset mode.
+- `echo_source::SourceFile::new` stores source text and path metadata; file extension does not select a parser or semantic mode.
 - `examples/hello.echo` has no PHP open tag; `examples/hello.php` includes `<?php`. The parser accepts both forms.
 - Parser currently accepts `echo` statements, no-argument function-call statements, string/number literals, and `.` concat expressions for the supported fixture subset.

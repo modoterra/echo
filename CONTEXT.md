@@ -5,24 +5,30 @@ This is the global glossary and domain context for Echo.
 ## Project Shape
 
 Echo is a Rust implementation of a PHP superset. Existing PHP programs should
-remain valid while Echo adds stricter modes, modern runtime features, and new
-language constructs.
+remain valid while Echo adds modern runtime features and new language
+constructs.
+
+The compatibility promise means valid PHP remains valid Echo. It does not mean
+every Echo-accepted `.php` file remains runnable by stock PHP after using
+Echo-only syntax.
 
 The regular language pipeline is:
 
-1. source mode
-2. lexer/parser
-3. AST
-4. semantic and type analysis
-5. IR/codegen or VM execution
-6. runtime behavior
+1. lexer/parser
+2. AST
+3. semantic and type analysis
+4. HIR and MIR lowering
+5. LLVM IR/codegen
+6. native binary or LLVM JIT execution
+7. runtime behavior
 
 Behavior belongs in the earliest shared layer that owns it. User-facing tools
 may expose or format behavior, but should not define language semantics locally.
 
 ## Module Ownership
 
-`echo_ast` owns syntax tree shape.
+`echo_ast` owns syntax tree shape. AST nodes represent parsed source syntax and
+source-level structure, not lowered semantic, runtime, or backend meaning.
 
 Collection syntax has distinct meanings and must not be conflated:
 
@@ -34,16 +40,47 @@ Collection syntax has distinct meanings and must not be conflated:
 PHP `$value[] = item` append syntax applies only to non-fixed arrays, not Echo
 lists or fixed-size arrays.
 
-`echo_parser` owns source parsing and source-mode validation.
+`echo_parser` owns source parsing. Echo has one language mode for `.php`,
+`.echo`, and `.xo` files; extensions do not enable or disable syntax or
+semantic validity.
+
+Opt-in modernization policies are source-level semantic declarations, not file
+modes. A future declaration such as `semantics { strict }` should be represented
+in the AST and enforced by `echo_semantics`.
+
+Echo `module acme.http` declarations and PHP-compatible `namespace Acme\Http`
+declarations are source syntaxes that can denote the same internal package or
+module identity. The compiler may preserve source spelling for diagnostics,
+formatting, package conventions, and PHP compatibility, but corresponding module
+and namespace declarations should resolve to one symbol model and lower to the
+same HIR, MIR, LLVM IR, and runtime behavior.
+
+The canonical `std` root is reserved for Echo's compiler-owned standard
+library. User and package code must not declare modules or namespaces that
+canonicalize to `std`, including `module std.net` and `namespace Std\Net`.
 
 `echo_semantics` owns semantic and type analysis: variable bindings, expression
 facts, scope rules, symbol resolution, and diagnostics that require meaning
 rather than syntax alone. It should serve file compilation, REPL introspection,
-future VM execution, and future LSP features.
+LLVM JIT execution, and future LSP features.
 
-`echo_codegen` owns LLVM lowering.
+`echo_hir` owns the first compiler-friendly representation after parsing. HIR
+is derived from AST plus `echo_semantics` facts and preserves enough source
+structure for diagnostics, tooling, and language-level reasoning.
 
-`echo_runtime` owns executable value and runtime behavior.
+`echo_mir` owns backend-neutral executable lowering between HIR and LLVM IR. MIR
+may desugar source constructs and regularize control flow, calls, imports,
+functions, classes, and runtime operations for code generation, but it must not
+become VM bytecode, an interpreter format, or a second semantic engine.
+
+`echo_codegen` owns MIR to LLVM IR lowering and ABI routing. It may choose
+stable runtime symbols for known operations, but it does not own PHP built-in,
+stdlib intrinsic, dynamic-call, collection, reflection, or value semantics.
+
+`echo_runtime` owns executable value and runtime behavior in Rust: PHP/Echo
+values, collections, output buffering, reflection dispatch, dynamic calls,
+built-ins, standard-library intrinsics, process/task behavior, and other
+observable runtime operations.
 
 `xo` owns CLI orchestration and presentation.
 
@@ -57,10 +94,10 @@ parser, evaluator, type environment, reflection lookup table, or value rules.
 When REPL examples expose missing behavior, implement that behavior in the
 shared language pipeline so the same source works from a file.
 
-Long term, the REPL should execute through an open IR/VM session instead of
-shelling out through `clang` for each input. That VM is an execution strategy for
-the same IR/runtime semantics used by regular programs, not a separate
-interpreter.
+Long term, the REPL should execute through an open LLVM JIT session instead of
+shelling out through `clang` for each input. That JIT session is an execution
+strategy for the same LLVM IR and runtime semantics used by regular programs,
+not a separate interpreter.
 
 ## Open Program Session
 
@@ -77,9 +114,8 @@ programs cannot use.
 - REPL examples are language-development inputs. Do not solve them with
   REPL-only hacks.
 - If a REPL input should be valid Echo, the equivalent source file should work
-  through `xo ast`, `xo ir`, `xo run`, and `xo build`, unless the feature is
-  explicitly documented as VM-only.
-- REPL state should eventually be a live IR/VM session over the shared runtime
-  model.
+  through `xo ast`, `xo ir`, `xo run --jit`, `xo run`, and `xo build`.
+- REPL state should eventually be a live LLVM JIT session over the shared
+  runtime model.
 - Missing type, reflection, or value behavior should be added to shared
   semantic, IR, or runtime layers before the REPL displays it.

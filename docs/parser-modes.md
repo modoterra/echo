@@ -1,8 +1,8 @@
-# Parser Modes and AST to HIR Direction
+# Single Parser Pipeline and AST to HIR Direction
 
-Echo should support PHP-compatible files and Echo source files through one
-shared parser pipeline. Source mode is parser configuration, not a separate
-grammar implementation.
+Echo supports `.php`, `.echo`, and `.xo` files through one shared parser
+pipeline. File extension is not parser configuration: valid PHP syntax and Echo
+extensions are accepted by the same language parser.
 
 ```text
 source text
@@ -14,108 +14,51 @@ source text
   -> AOT/native build or LLVM JIT
 ```
 
-This pipeline is the architectural boundary for parser-mode work: the parser records source facts, and later compiler stages own semantic lowering and execution.
+This pipeline is the architectural boundary for parser work: the parser records
+source facts, and later compiler stages own semantic lowering and execution.
 
-This document describes the parser-mode foundation and the required long-term
-compiler stages. It is not a request to implement HIR, MIR, or JIT in the
-parser-mode slice.
+Module and namespace syntax is also a source fact at this layer. Echo
+`module acme.http` and PHP-compatible `namespace Acme\Http` may preserve their
+original spelling in the AST, but corresponding declarations should resolve to
+the same internal identity before HIR/MIR/codegen.
+
+Opt-in modernization policies are source declarations, not parser modes. A
+future form such as `semantics { strict }` should parse as normal Echo syntax
+and be enforced later by semantic analysis.
+
+This document describes the parser foundation and the required long-term
+compiler stages.
 
 ## Goals
 
-- Parse `.php` and `.echo` files without duplicating the parser.
-- Preserve PHP compatibility by requiring `<?php` in PHP mode.
-- Allow Echo files to omit `<?php`.
-- Record source-level facts in the AST, including source mode and opening-tag
-  presence.
-- Keep future Echo-only syntax behind source-mode configuration.
+- Parse `.php`, `.echo`, and `.xo` files without duplicating the parser.
+- Preserve PHP compatibility while making Echo extensions available everywhere.
+- Allow the `<?php` opening tag to be present or omitted.
+- Record source-level facts in the AST when they are semantically relevant.
 - Leave HIR lowering as a later pass after AST construction.
-
-## Source Modes
-
-The parser should be configured with a small source-mode object. Naming may
-follow existing crate conventions, but the shape should be equivalent to:
-
-```rust
-pub enum SourceKind {
-    Php,
-    Echo,
-}
-
-pub struct ParserConfig {
-    pub source_kind: SourceKind,
-    pub require_opening_tag: bool,
-    pub allow_echo_extensions: bool,
-}
-```
-
-This shape keeps source-mode decisions explicit and passable through shared parser APIs instead of spreading extension checks across call sites.
-
-Recommended constructors:
-
-```rust
-impl ParserConfig {
-    pub fn php() -> Self {
-        Self {
-            source_kind: SourceKind::Php,
-            require_opening_tag: true,
-            allow_echo_extensions: false,
-        }
-    }
-
-    pub fn echo() -> Self {
-        Self {
-            source_kind: SourceKind::Echo,
-            require_opening_tag: false,
-            allow_echo_extensions: true,
-        }
-    }
-}
-```
-
-The constructors make the two policy bundles obvious: PHP mode requires PHP compatibility constraints, while Echo mode enables Echo extensions.
-
-`SourceKind` should live where shared syntax data can use it without creating
-dependency cycles. If `Program` stores the mode, `echo_ast` is the preferred
-home.
 
 ## Parser API
 
-The parser should expose a config-aware entrypoint:
+The parser exposes one language entrypoint:
 
 ```rust
-pub fn parse_source(source: &str, config: ParserConfig) -> Result<Program, Vec<Diagnostic>>;
+pub fn parse(source: &str) -> Result<Program, Vec<Diagnostic>>;
 ```
 
-This entrypoint forces every parser caller to state its mode instead of relying on filename guesses inside the parser.
-
-Convenience wrappers may preserve simpler call sites:
-
-```rust
-pub fn parse_echo_source(source: &str) -> Result<Program, Vec<Diagnostic>> {
-    parse_source(source, ParserConfig::echo())
-}
-
-pub fn parse_php_source(source: &str) -> Result<Program, Vec<Diagnostic>> {
-    parse_source(source, ParserConfig::php())
-}
-```
-
-The wrappers are useful at edges such as tests and CLI commands, while still preserving one parser implementation underneath.
-
-There must still be one parser implementation. PHP and Echo behavior should
-branch from configuration flags at validation points and extension grammar
-points, not from separate parsers.
+Callers should not infer parser behavior from file extension. Ecosystem code may
+still use extensions for discovery, editor activation, package layout, or
+stock-PHP expectations, but not to decide which syntax is legal.
 
 ## AST Requirements
 
 The AST represents source syntax and source-level facts. It should not lower
 `echo` statements into write operations or backend concepts.
 
-`Program` should include source mode and opening-tag information:
+`Program` should include opening-tag information only when downstream tools need
+to explain the original source spelling:
 
 ```rust
 pub struct Program {
-    pub source_kind: SourceKind,
     pub opening_tag: Option<OpeningTag>,
     pub statements: Vec<Stmt>,
 }
@@ -125,49 +68,26 @@ pub struct OpeningTag {
 }
 ```
 
-This AST shape lets downstream tools explain whether a file was parsed as PHP or Echo and whether the opening tag was present in the original source.
+This AST shape lets downstream tools explain whether the opening tag was present
+in the original source without creating a separate PHP/Echo language mode.
 
 `OpeningTag` can stay minimal until the parser needs to distinguish forms such
 as `<?php`, `<?=`, or surrounding trivia.
 
 ## Required Behavior
 
-PHP mode:
-
-- requires an opening `<?php` tag;
-- parses currently supported PHP-compatible syntax;
-- rejects missing opening tags with a clear diagnostic;
-- does not allow future Echo-only syntax by default.
-
-Echo mode:
-
-- allows the opening `<?php` tag to be omitted;
-- records `Some(OpeningTag)` when the tag is present;
-- records `None` when the tag is absent;
-- parses currently supported PHP-compatible syntax;
-- enables future Echo-only syntax through `allow_echo_extensions`.
-
-The CLI should choose mode from the input file extension:
-
-```text
-*.php  -> ParserConfig::php()
-*.echo -> ParserConfig::echo()
-```
-
-This mapping is the minimum user-visible rule: extension selection feeds parser configuration, and the chosen mode should be visible in diagnostics and AST output.
-
-Unknown extensions should follow the current CLI/source-file convention, but the
-choice must be explicit in code. Today `echo_source::SourceFile::new` treats
-`.echo` and `.xo` as strict-mode source and other extensions as Echo superset
-source, so parser-mode selection should be reviewed against that behavior before
-changing defaults.
+- `.php`, `.echo`, `.xo`, and unknown extensions parse through the same grammar.
+- `<?php` may be present or omitted.
+- PHP-compatible syntax remains valid.
+- Echo extensions remain available regardless of extension.
+- Parser diagnostics should describe syntax problems, not file-mode policy.
 
 ## Test Coverage
 
 Add or update tests for:
 
 - `.php` with `<?php` succeeds;
-- `.php` without `<?php` fails with a useful parser diagnostic;
+- `.php` without `<?php` succeeds when the source is otherwise valid Echo;
 - `.echo` without `<?php` succeeds;
 - `.echo` with `<?php` succeeds;
 - AST output includes `source_kind`;
@@ -187,19 +107,18 @@ These commands compare both extension defaults through the same `xo ast` surface
 Suggested slice:
 
 1. Inspect `echo_ast` and `echo_parser` public APIs.
-2. Add source-mode/config types.
-3. Extend `Program` with source mode, optional opening tag, and existing
-   statements.
-4. Add the config-aware parser entrypoint.
-5. Update opening-tag parsing and diagnostics.
-6. Update `xo ast` and other parser call sites to select parser mode.
+2. Keep one parser entrypoint for all supported file extensions.
+3. Extend `Program` with optional opening tag and existing statements when
+   downstream tools need that source fact.
+4. Update opening-tag parsing and diagnostics.
+5. Update `xo ast` and other parser call sites to use the shared parser.
 7. Add focused tests.
 8. Run formatting, checks, tests, and the two example `xo ast` commands.
 
 Validation commands:
 
 ```sh
-cargo fmt --all -- --check
+cargo fmt-check
 cargo check --workspace
 cargo test --workspace
 cargo run -p xo -- ast examples/hello.echo
@@ -283,25 +202,26 @@ MIR should be built from HIR as the compiler-owned representation that makes
 LLVM lowering regular and testable. It is required, but it is not an execution
 engine and it is not VM bytecode.
 
-Do not add broad HIR or MIR implementation as part of the parser-mode slice
+Do not add broad HIR or MIR implementation as part of the parser-pipeline slice
 unless the current code already has a natural, tiny stub location.
 
-## Why Not a Custom VM Now?
+## LLVM IR as the Execution Boundary
 
-A custom Echo VM is optional future work, not part of the current compiler
-architecture. A VM would create a second execution engine beside LLVM codegen,
-which increases the risk of semantic drift.
+Echo does not plan a custom bytecode VM or interpreter as a second execution
+engine. LLVM IR is the execution boundary for both native builds and in-process
+LLVM JIT execution.
 
-For example, the same Echo program could accidentally behave differently under a
-custom VM and LLVM codegen if both independently implement language behavior.
+For example, the same Echo program could accidentally behave differently if a
+custom bytecode engine and LLVM codegen both independently implemented language
+behavior.
 
-LLVM JIT gives Echo most of the near-term benefits of an embedded execution mode
-while preserving the same LLVM backend used for native builds.
+LLVM JIT gives Echo most of the near-term benefits of embedded execution while
+preserving the same LLVM backend used for native builds.
 
-A custom VM may be reconsidered later if Echo needs portable bytecode, stronger
-sandboxing, a tiny interpreter, deterministic debugger stepping, or plugin
-scripts without native code execution. Until then, the architecture remains
-LLVM-first.
+This means portable bytecode, a tiny interpreter, deterministic bytecode
+debugger stepping, and plugin scripts without native code execution are outside
+the planned architecture unless Echo deliberately revisits the execution
+boundary.
 
 ## Runtime Contract
 
@@ -377,10 +297,11 @@ This later step adds faster embedded execution without creating a second semanti
 The central decision is:
 
 ```text
-multiple parser configurations, not multiple parsers
+one parser configuration, not per-extension parsers
 ```
 
-This is the core rule for future parser work: add mode-aware checks to the shared parser rather than forking PHP and Echo grammars.
+This is the core rule for future parser work: add supported syntax to the
+shared parser rather than forking PHP and Echo grammars.
 
 Echo should evolve as a shared PHP-compatible grammar with Echo extensions
-enabled only in Echo mode.
+available in every supported source file.

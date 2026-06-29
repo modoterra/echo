@@ -105,28 +105,19 @@ tokio::task::spawn_blocking(move || {
 
 Use this only at the LSP boundary if parsing needs to move off the async worker. Parser APIs should stay synchronous and reusable by the CLI, tests, and future tools.
 
-## File Modes
+## File Handling
 
-The LSP must select source mode from the URI and pass it into the shared parser
-or frontend. It must not duplicate parser-mode rules.
+The LSP uses the same parser and semantic pipeline for `.php`, `.echo`, `.xo`,
+and unknown files. URI extensions may guide editor activation or ecosystem file
+discovery, but they are not compiler modes.
 
 ```rust
-pub fn mode_from_uri(uri: &Url) -> EchoFileMode {
-    match uri.path().rsplit('.').next() {
-        Some("php") => EchoFileMode::PhpCompat,
-        Some("echo") => EchoFileMode::Echo,
-        _ => EchoFileMode::Echo,
-    }
-}
+let program = echo_parser::parse(source)?;
+let facts = echo_semantics::index_facts_from_source(source, &program, file_id);
 ```
 
-Mode behavior:
-
-- `.echo`: native Echo mode; opening `<?php` may be omitted.
-- `.php`: PHP compatibility mode; opening `<?php` is required.
-- unknown extension: default to Echo mode for now.
-
-This should stay aligned with [Parser Modes](parser-modes.md).
+This keeps editor behavior aligned with CLI behavior: tools may present facts
+from the shared pipeline, but they do not decide a separate language mode.
 
 ## Document Store
 
@@ -139,7 +130,6 @@ use lsp_types::Url;
 pub struct Document {
     pub uri: Url,
     pub version: i32,
-    pub mode: EchoFileMode,
     pub text: Rope,
     pub file_id: echo_index::FileId,
 }
@@ -178,11 +168,10 @@ visible.
 On `didOpen` and full `didChange`:
 
 1. Update the document text.
-2. Determine `EchoFileMode` from the URI.
-3. Call the shared parser or frontend.
-4. Convert Echo diagnostics and ranges to LSP diagnostics and ranges.
-5. Publish diagnostics.
-6. Update `echo_index` with declaration facts when those facts are available.
+2. Call the shared parser or frontend.
+3. Convert Echo diagnostics and ranges to LSP diagnostics and ranges.
+4. Publish diagnostics.
+5. Update `echo_index` with declaration facts when those facts are available.
 
 If the parser currently returns `Result<Program, Error>`, adapt temporarily in
 `echo_lsp`:

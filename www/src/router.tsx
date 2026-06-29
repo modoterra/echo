@@ -1061,7 +1061,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
   {
     title: "Explore",
     links: [
-      { label: "Source Modes", href: "/docs/source-modes" },
+      { label: "Single Language Mode", href: "/docs/single-language-mode" },
       { label: "PHP Built-ins", href: "/docs/php-built-ins" },
       { label: "Compatibility", href: "/docs/php-compatibility" },
       { label: "Examples", href: "/docs/examples" },
@@ -1784,10 +1784,10 @@ const quickstartRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/quickstart")} />,
 });
 
-const sourceModesRoute = createRoute({
+const singleLanguageModeRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "source-modes",
-  component: () => <DocsContentPage page={docsPage("/docs/source-modes")} />,
+  path: "single-language-mode",
+  component: () => <DocsContentPage page={docsPage("/docs/single-language-mode")} />,
 });
 
 const roadmapRoute = createRoute({
@@ -1964,10 +1964,10 @@ const benchmarksRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/benchmarks")} />,
 });
 
-const strictModeRoute = createRoute({
+const semanticProfilesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "strict-mode",
-  component: () => <DocsContentPage page={docsPage("/docs/strict-mode")} />,
+  path: "semantic-profiles",
+  component: () => <DocsContentPage page={docsPage("/docs/semantic-profiles")} />,
 });
 
 const importsRoute = createRoute({
@@ -2011,7 +2011,7 @@ const routeTree = rootRoute.addChildren([
   docsLayoutRoute.addChildren([
     docsRoute,
     quickstartRoute,
-    sourceModesRoute,
+    singleLanguageModeRoute,
     roadmapRoute,
     dataStructuresRoute,
     dataStructuresListRoute,
@@ -2041,7 +2041,7 @@ const routeTree = rootRoute.addChildren([
     phpCompatibilityRoute,
     examplesRoute,
     benchmarksRoute,
-    strictModeRoute,
+    semanticProfilesRoute,
     importsRoute,
     commandLineRoute,
     languageServerRoute,

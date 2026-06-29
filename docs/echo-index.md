@@ -22,7 +22,7 @@ This pipeline shows the ownership boundary: parser and semantics produce facts, 
 
 ## Goals
 
-- Track files and source modes.
+- Track files and source-derived facts.
 - Store declarations with stable IDs.
 - Answer document-symbol and workspace-symbol queries.
 - Support incremental updates without leaving stale symbols.
@@ -38,7 +38,6 @@ workspace dependency invalidation are future work.
 ```rust
 pub struct IndexFacts {
     pub file_id: FileId,
-    pub mode: EchoFileMode,
     pub declarations: Vec<SymbolFact>,
     pub dependencies: Vec<DependencyFact>,
     pub references: Vec<ReferenceFact>,
@@ -121,18 +120,6 @@ pub struct TextOffset(pub u32);
 
 Offset-based ranges are enough for index storage; protocol-specific line and UTF-16 conversion belongs in LSP code.
 
-File mode should match parser/frontend source-mode behavior:
-
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum EchoFileMode {
-    Echo,
-    PhpCompat,
-}
-```
-
-Storing mode with the file lets tools answer questions differently for PHP-compatible and Echo source without guessing from URI suffixes later.
-
 `echo_index` may store URIs as `String` to avoid depending on LSP types:
 
 ```rust
@@ -141,7 +128,6 @@ pub struct IndexedFile {
     pub uri: String,
     pub path: Option<std::path::PathBuf>,
     pub version: Option<i32>,
-    pub mode: EchoFileMode,
     pub content_hash: Option<u64>,
 }
 ```

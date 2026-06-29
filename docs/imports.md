@@ -2,7 +2,9 @@
 
 ## Decision
 
-Echo keeps PHP imports and Echo-owned imports separate.
+Echo keeps PHP imports and Echo-owned imports distinct at the source and
+resolver-entry level, then converges successful resolutions into the same
+internal symbol model.
 
 ```php
 use Psr\Log\LoggerInterface
@@ -14,11 +16,11 @@ from "./routes.echo" use route
 from "./config.json" use config satisfies Config
 ```
 
-This example shows the import lanes side by side: PHP namespace imports stay PHP-compatible, package-style Echo imports bind module exports, `std` imports bind Echo-owned library modules, and file imports can validate external data at compile time.
+This example shows the import lanes side by side: PHP namespace imports stay PHP-compatible, package-style Echo imports bind module exports, `std` imports bind Echo-owned library modules, and file imports can validate external data at compile time. Once resolved, declarations that denote the same package/module identity should lower through the same compiler path.
 
-Plain `use ...` remains PHP namespace import syntax. Composer/autoloaded PHP classes, interfaces, functions, and constants continue to use PHP-compatible resolution.
+Plain `use ...` remains PHP namespace import syntax. Composer/autoloaded PHP classes, interfaces, functions, and constants continue to use PHP-compatible resolution, but successful resolution should feed the shared symbol model rather than a PHP-only lowering path.
 
-`from ... use ...` is Echo-owned import syntax. It is for standard library imports, vendor or package modules, local Echo modules, and file-backed data modules.
+`from ... use ...` is Echo-owned import syntax. It is for standard library imports, vendor or package modules, local Echo modules, and file-backed data modules. When it resolves to the same declaration identity as PHP-compatible source, it should lower identically.
 
 `from std use ...` is intended to be real import syntax, not documentation sugar. The resolver must bind it to compiler-known standard library modules supplied by `echo_std`.
 
@@ -116,10 +118,10 @@ Aliases are for avoiding local naming conflicts while still resolving through th
 
 The stdlib surface can be implemented by a mix of Echo source and trusted intrinsic declarations. See [Echo Standard Library](stdlib.md) for the interop model.
 
-Stdlib source declares its module with the matching `namespace std ...` form:
+Stdlib source declares its module with normal Echo module syntax:
 
-```php
-namespace std net
+```echo
+module std.net
 
 class TcpServer {
     pub intrinsic static fn listen(string $address): TcpServer
@@ -128,12 +130,16 @@ class TcpServer {
 
 This declaration is trusted stdlib source: it names the Echo module and declares the public API that the compiler can bind to runtime intrinsics.
 
-`namespace std net` means `std.net`. It is not the same as `namespace std\Net`.
+Because Echo module and PHP namespace spellings converge before lowering, user
+code may not declare any namespace or module that canonicalizes to the reserved
+`std` root.
 
-- `namespace std net`: trusted Echo stdlib module declaration.
-- `namespace std\Net`: ordinary PHP namespace declaration named `std\Net`.
+- `module std.net`: trusted Echo stdlib module declaration.
+- `namespace std\Net`: rejected for user/package code because it canonicalizes
+  to the reserved standard-library root.
+- `namespace Std\Net`: rejected for user/package code for the same reason.
 
-Only trusted stdlib files may use `namespace std ...`. User files that need a PHP namespace named `std\Net` can still use normal PHP namespace syntax.
+Only trusted stdlib files may declare under the canonical `std` root.
 
 ## Why `satisfies`
 

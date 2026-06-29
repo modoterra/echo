@@ -57,7 +57,7 @@ loop {
 }
 ```
 
-The exact syntax will evolve, but the design goals are stable: PHP compatibility in Echo mode, stricter safety in strict mode, first-class `echo_std`, Echo-owned `loop`/`run` concurrency, and one lazy Echo event loop per thread.
+The exact syntax will evolve, but the design goals are stable: PHP compatibility, Echo extensions available in every supported file type, first-class `echo_std`, Echo-owned `loop`/`run` concurrency, and one lazy Echo event loop per thread.
 
 ## Workspace
 
@@ -88,10 +88,13 @@ Check the Rust workspace before sending a compiler/runtime change.
 ```bash
 cargo check --workspace
 cargo test --workspace
-cargo fmt --all -- --check
+cargo fmt-check
 ```
 
 This is the normal pre-commit loop for compiler and runtime edits: typecheck the whole workspace, run tests, then make sure formatting is stable.
+
+For focused formatting of specific Rust files, use `scripts/fmt <file>...`; it
+passes the workspace's Rust 2024 edition to `rustfmt`.
 
 Run and compile the same example when validating the CLI path.
 
@@ -125,12 +128,11 @@ cargo run -p xo -- test tests/echo
 
 The single-file command is useful while iterating on one behavior. The directory command checks the same assertion harness across every Echo fixture.
 
-Mode defaults:
+Source files:
 
-- `.php` files use Echo superset mode by default.
-- `.echo` and `.xo` files use strict mode by default.
-- `--strict` forces strict mode.
-- `--unsafe` forces Echo superset mode and still keeps Echo language features enabled.
+- `.php`, `.echo`, and `.xo` files compile as the same Echo language.
+- File extensions guide ecosystem conventions and tooling, not compiler mode.
+- Echo does not expose parser-mode switches.
 
 Build the website after documentation or UI changes.
 

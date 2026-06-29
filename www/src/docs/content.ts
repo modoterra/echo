@@ -3715,28 +3715,41 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
-    id: "source-modes",
-    path: "/docs/source-modes",
+    id: "single-language-mode",
+    path: "/docs/single-language-mode",
     navGroup: "Getting Started",
     category: "Getting Started",
-    title: "Source Modes",
-    summary: "Understand how file extensions choose Echo superset mode or strict mode.",
-    tags: ["source", "mode", "strict", "php", "echo", "xo"],
-    aliases: ["strict mode", "superset mode", "file extension"],
+    title: "Single Language Mode",
+    summary: "Understand why .php, .echo, and .xo use one shared Echo/PHP language pipeline.",
+    tags: ["source", "single language", "php", "echo", "xo"],
+    aliases: ["single language", "shared parser", "php echo xo"],
     sections: [
       {
-        title: "Source Modes",
+        title: "One Parser",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Files ending in ",
+              "Echo compiles ",
               { code: ".php" },
-              " use Echo superset mode by default. Files ending in ",
+              ", ",
               { code: ".echo" },
-              " or ",
+              ", and ",
               { code: ".xo" },
-              " use strict mode by default.",
+              " files as the same language. File extension affects ecosystem expectations and editor tooling, not parser rules or semantic validity.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "xo run app.php\nxo run app.echo\nxo run app.xo",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "These commands enter the same compiler pipeline. A ",
+              { code: ".php" },
+              " file that uses Echo-only syntax may no longer run on stock PHP, but valid PHP remains valid Echo.",
             ],
           },
         ],
@@ -4125,7 +4138,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Enum matches can destructure payloads and should be exhaustive in strict mode.",
+              "Enum matches can destructure payloads and should become exhaustive under an explicit semantic profile.",
             ],
           },
           {
@@ -5228,7 +5241,7 @@ export const docsPages: DocsPage[] = [
       },
       {
         title: "Echo Standard Library",
-        tags: ["std", "time", "strict mode"],
+        tags: ["std", "time", "semantic profiles"],
         blocks: [
           {
             kind: "paragraph",
@@ -5312,36 +5325,34 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
-    id: "strict-mode",
-    path: "/docs/strict-mode",
+    id: "semantic-profiles",
+    path: "/docs/semantic-profiles",
     navGroup: "Language",
     category: "Language",
-    title: "Strict Mode",
-    summary: "Use Echo-first syntax in .echo and .xo files while PHP files stay compatible.",
-    tags: ["strict", "echo", "source mode", "types", "let"],
-    aliases: ["echo mode", "strict echo", "xo files"],
+    title: "Semantic Profiles",
+    summary: "Plan explicit source declarations for stricter Echo semantics without file-extension modes.",
+    tags: ["semantics", "strict", "echo", "types", "let"],
+    aliases: ["semantic profiles", "modernization profiles", "explicit semantics"],
     sections: [
       {
-        title: "Strict Files",
+        title: "Explicit Profiles",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Files ending in ",
-              { code: ".echo" },
-              " or ",
-              { code: ".xo" },
-              " use strict mode. Strict mode is where Echo-first syntax can rely on inference, typed declarations, and standard library imports without PHP open tags.",
+              "Echo no longer chooses strictness from file extension. Future modernization policies should be explicit source declarations consumed by semantic analysis, while the base parser remains the shared PHP-compatible Echo superset.",
             ],
           },
           {
             kind: "code",
-            code: "from std use time\n\nlet $timer = time.timer()\ntime.sleep(25ms)\necho $timer.elapsed().total_millis()",
+            code: "module app.orders\n\nsemantics {\n    strict\n}\n\nuse std.time\n\nlet started_at = time.now()\necho started_at.format()",
           },
           {
             kind: "paragraph",
             text: [
-              "The example uses Echo-owned imports and receiver methods, which belong to strict Echo code rather than PHP namespace syntax.",
+              "The profile declaration is Echo syntax. It gives the compiler a place to enforce stronger rules and expose better optimization facts without reviving ",
+              { code: "--strict" },
+              " flags or extension-driven modes.",
             ],
           },
         ],
@@ -5473,18 +5484,12 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "Source Mode",
+        title: "CLI Behavior",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "The CLI chooses source mode from the file extension. ",
-              { code: ".php" },
-              " files use Echo superset mode; ",
-              { code: ".echo" },
-              " and ",
-              { code: ".xo" },
-              " files use strict mode.",
+              "The CLI compiles the same language regardless of extension. Use the extension that fits package conventions and stock-PHP expectations, not to select parser or semantic policy.",
             ],
           },
           {
@@ -5495,7 +5500,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "This pairing is useful when comparing PHP-compatible source with strict Echo source that uses newer language features.",
+              "This pairing is useful when comparing source styles. Both commands use the same parser, semantic pipeline, HIR/MIR lowering, LLVM backend, and Rust runtime.",
             ],
           },
         ],
@@ -5642,7 +5647,7 @@ export const docsNavigation: DocsNavGroup[] = [
     links: [
       { label: "Installation", to: "/docs" },
       { label: "Quickstart", to: "/docs/quickstart" },
-      { label: "Source Modes", to: "/docs/source-modes" },
+      { label: "Single Language Mode", to: "/docs/single-language-mode" },
       { label: "Roadmap", to: "/docs/roadmap" },
     ],
   },
@@ -5682,7 +5687,7 @@ export const docsNavigation: DocsNavGroup[] = [
       { label: "PHP Compatibility", to: "/docs/php-compatibility" },
       { label: "Examples", to: "/docs/examples" },
       { label: "Benchmarks", to: "/docs/benchmarks" },
-      { label: "Strict Mode", to: "/docs/strict-mode" },
+      { label: "Semantic Profiles", to: "/docs/semantic-profiles" },
       { label: "Imports", to: "/docs/imports" },
     ],
   },

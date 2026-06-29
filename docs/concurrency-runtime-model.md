@@ -322,7 +322,7 @@ pub struct JoinExpr {
 
 These AST nodes keep concurrency constructs explicit after parsing. Later compiler stages should not recover `run`, `fork`, or `join` behavior from generic calls or ad hoc strings.
 
-Parser support should be careful with PHP compatibility, but Echo features are always available. In Echo mode, valid PHP stays valid while `run`, `fork`, `spawn`, and `join` can also be used as Echo syntax where unambiguous. Strict mode may reject unsafe PHP patterns, but it must not be the only way to use Echo concurrency features.
+Parser support should be careful with PHP compatibility, but Echo features are always available. In Echo, valid PHP stays valid while `run`, `fork`, `spawn`, and `join` can also be used as Echo syntax where unambiguous. Typed Echo may reject unsafe PHP patterns, but it must not be the only way to use Echo concurrency features.
 
 The first parser slices support `run $task`, `fork $worker`, `spawn "cmd"`, `join $task`, and assignment block forms such as `$task = defer { ... };`, `$task = run { ... };`, and `$worker = fork { ... };`. General block expressions in every expression position still need a broader parser refactor.
 

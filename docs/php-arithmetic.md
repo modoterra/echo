@@ -2,7 +2,7 @@
 
 Source: https://www.php.net/manual/en/language.operators.arithmetic.php
 
-Echo arithmetic should follow PHP compatibility semantics in Echo superset mode.
+Echo arithmetic should follow PHP compatibility semantics in the base language.
 The PHP arithmetic operator set includes unary identity and negation, binary
 addition, subtraction, multiplication, division, modulo, and exponentiation.
 

@@ -108,7 +108,11 @@ Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: 
 
 Trusted stdlib Echo source may declare intrinsic `fn` functions and methods. Public class methods use `pub fn` or `pub intrinsic fn`; unprefixed Echo class methods are private by default. Those declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` ABI symbols.
 
-Trusted stdlib source declares modules with `namespace std ...`, for example `namespace std net`. This is a stdlib module declaration, not a PHP namespace declaration.
+Trusted stdlib source declares modules with Echo module syntax such as
+`module std.net`.
+User/package code may not declare modules or PHP-compatible namespaces that
+canonicalize to the reserved `std` root, including `module std.net`,
+`namespace std\Net`, and `namespace Std\Net`.
 
 Example:
 
@@ -131,38 +135,24 @@ The binding shape is compiler-owned metadata that connects the trusted declarati
 
 `echo_std_*` symbols are not looked up from arbitrary user source. User code cannot name Rust symbols, and non-stdlib files cannot declare `intrinsic` bindings.
 
-## Compatibility And Safety Modes
+## Single Language Mode
 
-Echo should support both always-on Echo superset behavior and stricter safety over time.
+Echo compiles `.php`, `.echo`, and `.xo` files as one language. Valid PHP remains
+valid, and Echo language features are available without opting into a separate
+mode.
 
-Strict Echo's type-system direction is documented in [Strict-Mode Type System](strict-mode-type-system.md).
-
-Default direction:
-
-- `.php`: Echo mode by default. Valid PHP stays valid, and Echo language features are still available.
-- `.xo` and `.echo`: Strict mode by default. Echo features are available, but unsafe or ambiguous PHP compatibility patterns can become compile-time diagnostics.
-
-The CLI can override the extension default:
+The CLI does not provide parser-mode switches. Commands compile the same
+language regardless of extension:
 
 ```sh
-xo run --strict file.php
-xo run --unsafe file.echo
+xo run file.php
+xo run file.echo
+xo build file.xo -o /tmp/app
 ```
 
-These commands show how CLI mode policy overrides extension defaults without changing the ABI namespace used by generated calls.
-
-`--strict` forces strict mode. `--unsafe` forces Echo superset mode, allowing PHP compatibility patterns. `--unsafe` does not disable Echo features; it only disables strict-mode safety rejections. The important design point is that compatibility and safety are policy inputs to semantic analysis, not ABI naming rules.
-
-In strict mode, Echo may diagnose cases such as:
-
-```php
-$fn = "ob__start";
-$fn();
-```
-
-In strict mode, this pattern can become a compile-time diagnostic because the compiler can see the literal target and prove it is misspelled.
-
-when the compiler can prove the target is a literal and no known builtin or userland function exists in the compilation unit. In Echo mode, this remains a runtime call and should fail only if executed.
+The ABI namespace still separates core runtime symbols, PHP builtins, stdlib
+intrinsics, and future extensions. That separation is about symbol ownership,
+not parser mode.
 
 ## Current Output-Buffering ABI
 

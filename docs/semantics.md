@@ -12,7 +12,7 @@ echo_parser -> echo_ast -> echo_semantics -> echo_codegen
                                       |
                                       +-> xo repl metadata
                                       +-> future LLVM JIT execution
-                                      +-> future echo_lsp
+                                      +-> echo_lsp
 ```
 
 Use this flow when adding language facts: parser output should stay syntactic, and shared semantic analysis should feed every execution or presentation surface.
@@ -31,7 +31,7 @@ Current scope:
 
 Future scope:
 
-- source-mode-aware strict typing;
+- typed Echo analysis;
 - import and standard-library resolution;
 - richer object, array, function, and callable types;
 - expression identifiers that are stable across repeated REPL snippets;

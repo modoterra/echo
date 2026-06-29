@@ -51,7 +51,7 @@ Pure value APIs should be written in Echo source. Echo stdlib declarations use
 be explicitly prefixed with `pub fn` or `pub intrinsic fn`.
 
 ```echo
-namespace std http
+module std.http
 
 type Response = {
     status: int
@@ -73,7 +73,7 @@ This example is the preferred shape for pure stdlib helpers: public Echo types a
 Resource and syscall APIs should be declared in trusted stdlib Echo source as intrinsics and implemented by Rust runtime primitives:
 
 ```echo
-namespace std net
+module std.net
 
 class TcpServer {
     pub intrinsic static fn listen(address: string): TcpServer
@@ -92,7 +92,7 @@ This example keeps the user-facing socket API in Echo source while routing the a
 Lowercase stdlib modules may also expose module-style intrinsic functions for value-like APIs:
 
 ```echo
-namespace std net
+module std.net
 
 intrinsic fn listen(address: string): TcpServer
 intrinsic fn connect(address: string): TcpConnection
@@ -131,7 +131,7 @@ value.
 Tests can use the tiny assertion stdlib module:
 
 ```echo
-namespace std assert
+module std.assert
 
 intrinsic fn ok(condition: bool): bool
 intrinsic fn equals(actual: mixed, expected: mixed): bool
@@ -148,7 +148,7 @@ programs can inspect available functions without calling PHP reflection APIs
 directly:
 
 ```echo
-namespace std reflect
+module std.reflect
 
 intrinsic fn exists(name: string): bool
 intrinsic fn params(name: string): string
@@ -169,27 +169,31 @@ declared by an Echo source file and are not importable std symbols. Echo std
 function metadata is derived from packaged `std/*.echo` module declarations,
 and userland function metadata is derived from parsed function declarations.
 
-The `namespace std ...` form declares the compiler's internal stdlib module identity. User code imports it with `from std use ...`; it is not a PHP namespace and does not reserve `std\...`, `Std\...`, `Echo\...`, or `EchoStd\...`.
+Standard-library source declares the compiler's internal stdlib module identity
+with Echo module syntax. User code imports it with `from std use ...`. The
+canonical `std` root is reserved after module/namespace canonicalization, so
+user/package code may not declare `module std...`, `namespace std\...`, or
+`namespace Std\...`.
 
 This distinction is intentional:
 
 ```echo
-namespace std net
+module std.net
 ```
 
-This declaration names trusted module identity for the compiler and is valid only in packaged stdlib source.
-
-declares trusted stdlib module `std.net`, while:
+This declaration names trusted module identity for the compiler and is valid
+only in packaged stdlib source, while:
 
 ```php
 namespace std\Net
 ```
 
-This declaration remains ordinary PHP namespace syntax and should not be captured by Echo's stdlib resolver.
+This declaration canonicalizes to the reserved `std` root and should be rejected
+for user/package code.
 
-declares an ordinary PHP namespace named `std\Net`.
-
-Only trusted stdlib files may use `namespace std ...`. Ordinary user files that write `namespace std net` should receive a diagnostic. Ordinary user files may still use `namespace std\Net` for PHP compatibility.
+Only trusted stdlib files may declare under `std`. Ordinary user files that
+write `module std.net`, `namespace std\Net`, or `namespace Std\Net` should
+receive a diagnostic.
 
 ## Intrinsic Binding Rules
 

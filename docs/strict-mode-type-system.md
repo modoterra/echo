@@ -1,14 +1,17 @@
-# Strict-Mode Type System
+# Typed Echo Type System
 
 ## Goal
 
-Echo mode is the true PHP superset: PHP compatibility plus Echo language features. Strict mode is Echo-only safety mode: it keeps Echo features on, but rejects unsafe or ambiguous PHP compatibility patterns. Strict mode adds a cleaner compiler-native type model that separates arrays, lists, tuples, structural objects, classes, and receiver extensions.
+Echo is the true PHP superset: PHP compatibility plus Echo language features.
+Typed Echo is a future type-system direction, not a parser mode. It adds a
+cleaner compiler-native type model that separates arrays, lists, tuples,
+structural objects, classes, and receiver extensions.
 
-The strict-mode goal is to avoid PHP associative-array ambiguity and give the compiler strong layout and access guarantees.
+The typed Echo goal is to avoid PHP associative-array ambiguity and give the compiler strong layout and access guarantees.
 
-## Modes
+## Baseline Echo
 
-Echo mode:
+Echo:
 
 - Valid PHP stays valid.
 - Echo language features are available.
@@ -18,7 +21,7 @@ Echo mode:
 - PHP object/class access remains `->`.
 - PHP array access remains `$value["key"]` and `$value[0]` according to PHP semantics.
 
-Strict mode:
+Future typed Echo:
 
 - Echo language features remain available.
 - Stronger semantics are enforced.
@@ -34,38 +37,16 @@ Strict mode:
 - `()` is reserved for tuple values.
 - Fixed-size arrays are distinct from dynamic arrays and lists.
 
-File extension defaults:
-
-```text
-.php          Echo mode by default
-.echo/.xo     Strict mode by default
-```
-
-This table is the user-facing default: PHP files preserve compatibility first, while Echo source files opt into strict safety unless overridden.
-
-CLI overrides:
-
-```sh
-xo run --strict file.php  # strict safety on a PHP file
-xo run --unsafe file.echo # Echo superset mode on an Echo file
-```
-
-These commands let a project test strict diagnostics on PHP input or temporarily run Echo source with PHP-compatible unsafe patterns enabled.
-
-`--unsafe` means unsafe PHP compatibility patterns are allowed. It does not disable Echo language features.
-
 ## Current Coverage
 
-- `.echo` and `.xo` files default to strict mode; `.php` files default to Echo superset mode.
-- `xo` supports `--strict` and `--unsafe` mode overrides.
-- Strict mode currently rejects PHP reference assignment (`$b =& $a`) as an unsafe PHP compatibility pattern.
-- Strict mode rejects dynamic function-call statements (`$fn()`) as unsafe dynamic dispatch.
-- Strict mode rejects user `namespace std ...` declarations; only trusted packaged stdlib source may declare std modules. PHP namespaces such as `namespace std\Net` remain valid.
-- Echo superset mode still accepts PHP reference assignment for compatibility.
+- `.php`, `.echo`, and `.xo` files currently compile as the same Echo language.
+- Echo does not expose parser-mode switches.
+- PHP reference assignment, keyed arrays, dynamic calls, and Echo extensions are parsed in the same language.
+- The stronger typed model in this document is not currently enforced as a file mode.
 
 ## Language Data Structures
 
-Strict Echo separates these families:
+Typed Echo separates these families:
 
 ```echo
 [1, 2, 3]              // array literal
@@ -75,7 +56,7 @@ Strict Echo separates these families:
 {id: 1, email: "x"}    // object/record literal
 ```
 
-This example shows why strict mode needs separate literal families: the delimiter and keyed/unkeyed shape tell the compiler which value model is intended.
+This example shows why typed Echo needs separate literal families: the delimiter and keyed/unkeyed shape tell the compiler which value model is intended.
 
 Type families:
 
@@ -95,7 +76,7 @@ range<T>            iterable range value such as 1..30
 buffer              byte-oriented storage built from string prefixes such as x"...", b"...", bb"..."
 ```
 
-The type-family table is the vocabulary for diagnostics and hover text; strict mode should name the collection kind rather than collapsing everything into PHP arrays.
+The type-family table is the vocabulary for diagnostics and hover text; typed Echo should name the collection kind rather than collapsing everything into PHP arrays.
 
 ## Arrays
 
@@ -117,9 +98,9 @@ no explicit keys
 no associative behavior
 ```
 
-The expanded meaning is the invariant codegen and diagnostics can rely on when strict mode accepts an array.
+The expanded meaning is the invariant codegen and diagnostics can rely on when typed Echo accepts an array.
 
-Strict mode rejects associative arrays and explicit keys:
+Typed Echo rejects associative arrays and explicit keys:
 
 ```echo
 let $user = ["id" => 1]
@@ -138,7 +119,7 @@ let $user = {
 }
 ```
 
-This replacement is the strict-mode modeling path for named data: fields belong to object types, not array keys.
+This replacement is the typed Echoling path for named data: fields belong to object types, not array keys.
 
 Array reads use indexes:
 
@@ -148,7 +129,7 @@ let $first: int = $a[0]
 
 Indexed reads are valid because strict arrays preserve contiguous zero-based positions.
 
-Echo superset mode follows PHP square-bracket array element access:
+Echo's base PHP-compatible language follows PHP square-bracket array element access:
 https://www.php.net/manual/en/language.types.array.php
 
 Indexed assignment is replacement only:
@@ -165,7 +146,7 @@ Append is valid for non-fixed arrays:
 $a[] = 4
 ```
 
-Append is the only strict-mode growth operation for dynamic arrays.
+Append is the only typed Echo growth operation for dynamic arrays.
 
 Reject indexed assignment as growth:
 
@@ -176,7 +157,7 @@ $a[1] = 3  // reject
 $a[5] = 9  // reject
 ```
 
-These assignments would create new slots through indexed replacement syntax, so strict mode rejects them instead of allowing sparse growth.
+These assignments would create new slots through indexed replacement syntax, so typed Echo rejects them instead of allowing sparse growth.
 
 Rule:
 
@@ -334,7 +315,7 @@ let $bad = {
 }
 ```
 
-Mixed literals are rejected because they do not have a single strict-mode value family.
+Mixed literals are rejected because they do not have a single typed Echo value family.
 
 Lists use list-specific receiver functions for mutation. PHP array append syntax
 is not list append:
@@ -395,7 +376,7 @@ Tuples do not use dot access.
 Tuples are not extendable in v1.
 ```
 
-These rules keep tuple support small and statically checkable in the first strict-mode implementation.
+These rules keep tuple support small and statically checkable in the first typed Echo implementation.
 
 ## Enums
 
@@ -586,7 +567,7 @@ Field access:
 echo $user.email
 ```
 
-Dot access is the strict-mode path for structural fields and should power IDE definition and hover on object shapes.
+Dot access is the typed Echo path for structural fields and should power IDE definition and hover on object shapes.
 
 Field mutation:
 
@@ -738,7 +719,7 @@ numeric-string   // reject as native type syntax
 class-string<T>  // reject as native type syntax
 ```
 
-These are rejected as native syntax so strict mode can define its own type grammar rather than importing docblock pseudo-type names.
+These are rejected as native syntax so typed Echo can define its own type grammar rather than importing docblock pseudo-type names.
 
 Use aliases for now:
 
@@ -877,19 +858,19 @@ let UserPayload $payload = UserPayload {
 echo $payload.email;
 ```
 
-This example is the canonical strict-mode data-transfer shape: construct a structural object, then read named fields through dot access.
+This example is the canonical typed Echo data-transfer shape: construct a structural object, then read named fields through dot access.
 
 ## Implementation Plan
 
-1. Add strict-mode parsing support for declarations, array/list/object/tuple literals, structural type aliases, and extend blocks.
+1. Add typed Echo parsing support for declarations, array/list/object/tuple literals, structural type aliases, and extend blocks.
 2. Add AST nodes for `TypeExpr`, structural fields, array/list/object/tuple literals, field/index access, receiver calls, and extend blocks.
-3. Add strict-mode semantic validation.
+3. Add typed Echo semantic validation.
 4. Add type inference for arrays, lists, empty braces, objects, tuples, and contextual object construction.
 5. Add object field checking for required fields, optional fields, unknown fields, and const fields.
 6. Add extend-block method resolution for dot receiver calls.
-7. Lower strict-mode values to compiler/runtime representations.
+7. Lower typed Echo values to compiler/runtime representations.
 
-Strict-mode validation must reject:
+Typed Echo validation must reject:
 
 ```php
 ["id" => 1]
@@ -903,11 +884,11 @@ $obj.unknown
 $obj.constField = x
 ```
 
-This rejection list is the minimum strict-mode diagnostic surface for ambiguous PHP array behavior and unsafe structural-object access.
+This rejection list is the minimum typed Echo diagnostic surface for ambiguous PHP array behavior and unsafe structural-object access.
 
 ## Acceptance Criteria
 
-These parse in strict mode:
+These parse in typed Echo:
 
 ```php
 let $a: array<int>[3] = [1, 2, 3];
@@ -935,9 +916,9 @@ extend list<T> as $list {
 }
 ```
 
-This acceptance block groups the syntax families that must parse together before strict-mode collection and object support is credible.
+This acceptance block groups the syntax families that must parse together before typed Echo collection and object support is credible.
 
-These reject in strict mode:
+These reject in typed Echo:
 
 ```php
 let $bad = ["id" => 1];
@@ -971,9 +952,9 @@ $user.id = 2;
 $user.unknown = true;
 ```
 
-This rejection block proves strict mode is enforcing the intended safety boundary rather than accepting PHP's dynamic array/object patterns.
+This rejection block proves typed Echo is enforcing the intended safety boundary rather than accepting PHP's dynamic array/object patterns.
 
-Echo mode still allows PHP associative arrays:
+Echo still allows PHP associative arrays:
 
 ```php
 $user = [
@@ -984,9 +965,9 @@ $user = [
 echo $user["email"];
 ```
 
-This example guards compatibility: the same associative array pattern remains valid when a file is intentionally using Echo superset mode.
+This example guards compatibility: the same associative array pattern remains valid in Echo's base PHP-compatible language.
 
-Strict mode rejects the same associative array syntax.
+Typed Echo rejects the same associative array syntax.
 
 ## Notes
 

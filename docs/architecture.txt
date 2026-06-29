@@ -23,18 +23,14 @@ Compilation Pipeline
                      +-------------------------+
                      | echo_source             |
                      | SourceFile              |
-                     | source-mode selection   |
+                     | source text metadata    |
                      +------------+------------+
                                   |
                                   v
                      +-------------------------+
-                     | ParserConfig            |
-                     | - Php mode              |
-                     |   require <?php         |
-                     |   no Echo extensions    |
-                     | - Echo mode             |
-                     |   optional <?php        |
-                     |   Echo extensions ok    |
+                     | Parser                 |
+                     | one Echo language for  |
+                     | .php, .echo, and .xo   |
                      +------------+------------+
                                   |
                                   v
@@ -154,40 +150,40 @@ AOT and JIT both use the same runtime contract:
     LLVM IR -> in-process execution -> registered echo_runtime symbols
 
 
-Why Not a Custom VM Now?
-------------------------
+LLVM IR as the Execution Boundary
+---------------------------------
 
-A custom Echo VM is optional future work, not part of the current compiler
-architecture. A VM would create a second execution engine beside LLVM codegen,
-which increases the risk of semantic drift.
+Echo does not plan a custom bytecode VM or interpreter as a second execution
+engine. LLVM IR is the execution boundary for both native builds and in-process
+LLVM JIT execution.
 
-For example, the same Echo program could accidentally behave differently under a
-custom VM and LLVM codegen if both independently implement language behavior.
+For example, the same Echo program could accidentally behave differently if a
+custom bytecode engine and LLVM codegen both independently implemented language
+behavior.
 
-LLVM JIT gives Echo most of the near-term benefits of an embedded execution mode
-while preserving the same LLVM backend used for native builds.
+LLVM JIT gives Echo most of the near-term benefits of embedded execution while
+preserving the same LLVM backend used for native builds.
 
-A custom VM may be reconsidered later if Echo needs portable bytecode, stronger
-sandboxing, a tiny interpreter, deterministic debugger stepping, or plugin
-scripts without native code execution. Until then, the architecture remains
-LLVM-first.
+This means portable bytecode, a tiny interpreter, deterministic bytecode
+debugger stepping, and plugin scripts without native code execution are outside
+the planned architecture unless Echo deliberately revisits the execution
+boundary.
 
 
-Source-Mode Rule
-----------------
+Single Language Rule
+--------------------
 
-There are multiple parser configurations, not multiple parsers.
+There is one parser configuration, not per-extension parsers.
 
-  *.php   -> PHP mode
-             opening <?php required
-             Echo-only syntax disabled
+  *.php
+  *.echo
+  *.xo
 
-  *.echo  -> Echo mode
-             opening <?php optional
-             Echo-only syntax enabled
+All compile as the same Echo language. File extensions guide ecosystem
+conventions and tooling, not syntax or semantic validity.
 
-The AST records source-level facts such as source mode and opening-tag
-presence. It does not lower syntax into runtime or LLVM concepts.
+The AST records source-level facts when later tools need them. It does not lower
+syntax into runtime or LLVM concepts.
 
 
 Ownership Boundaries
@@ -200,34 +196,39 @@ Ownership Boundaries
       Owns tokenization and lexer diagnostics.
 
   echo_parser
-      Owns parsing, source-mode validation, and parser diagnostics. It should
-      remain one shared parser for PHP-compatible syntax plus gated Echo
-      extensions.
+      Owns parsing and parser diagnostics. It should remain one shared parser
+      for PHP-compatible syntax plus Echo extensions.
 
   echo_ast
       Owns syntax tree shape. AST nodes preserve source syntax and source-level
       facts.
 
   echo_hir
-      Owns lowering from AST plus semantic facts into resolved PHP/Echo
-      meaning. HIR should not have its own parser.
+      Owns the first compiler-friendly representation after parsing. HIR is
+      derived from AST plus shared semantic facts and preserves enough source
+      structure for diagnostics, tooling, and language-level reasoning.
 
   echo_mir
-      Owns the required compiler IR between HIR and LLVM IR. MIR exists to make
-      lowering regular and testable; it is not VM bytecode and does not execute
-      Echo programs.
+      Owns the required backend-neutral executable lowering layer between HIR
+      and LLVM IR. MIR exists to make code generation regular and testable; it
+      is not VM bytecode, an interpreter format, or a second semantic engine.
 
   echo_semantics
       Owns meaning that requires analysis: variable bindings, expression types,
       scope rules, symbol resolution, and semantic diagnostics.
 
   echo_codegen
-      Owns MIR to LLVM IR generation through inkwell. LLVM is the single
-      compiler backend target.
+      Owns MIR to LLVM IR generation and ABI routing through inkwell. LLVM is
+      the single compiler backend target. Codegen may select stable runtime
+      symbols, but it does not own built-in, intrinsic, dynamic-call,
+      collection, reflection, or value semantics.
 
   echo_runtime
-      Owns executable value and runtime behavior in Rust. AOT links it; JIT
-      registers its symbols in the host process.
+      Owns executable value and runtime behavior in Rust: PHP/Echo values,
+      collections, output buffering, reflection dispatch, dynamic calls,
+      built-ins, standard-library intrinsics, process/task behavior, and other
+      observable runtime operations. AOT links it; JIT registers its symbols in
+      the host process.
 
   xo
       Owns CLI orchestration, command presentation, REPL hosting, and display
@@ -267,7 +268,6 @@ Future Shape
 The target flow is:
 
   source text
-    -> parser config from source mode
     -> shared lexer/parser
     -> AST
     -> HIR
