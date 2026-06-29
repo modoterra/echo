@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/fmt [--check]
+  scripts/fmt <rust-file>...
+
+Formats Rust with the workspace edition. With no file arguments, this formats
+the full workspace through Cargo. With file arguments, this runs rustfmt with
+the workspace's Rust 2024 edition so focused formatting does not fall back to
+rustfmt's direct-invocation defaults.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  --check)
+    shift
+    if (($# != 0)); then
+      printf 'scripts/fmt --check does not accept file arguments\n\n' >&2
+      usage >&2
+      exit 2
+    fi
+    exec cargo fmt --all -- --check
+    ;;
+esac
+
+if (($# == 0)); then
+  exec cargo fmt --all
+fi
+
+exec rustfmt --edition 2024 "$@"

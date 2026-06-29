@@ -1,0 +1,2 @@
+[alias]
+fmt-check = "fmt --all -- --check"
