@@ -68,6 +68,11 @@ PHP names and compatibility metadata; std APIs live under the reserved `std`
 root and may be regular Echo source or trusted intrinsics; user/package
 declarations resolve through the shared module/namespace symbol model.
 
+The `CompilationGraph` is the closed set of source files and packages that form
+one Echo program. Static includes, package metadata, std metadata, and
+source-level `compile { ... }` declarations may admit graph members; dynamic
+include execution may only target files already in the graph.
+
 `echo_semantics` owns semantic and type analysis: variable bindings, expression
 facts, scope rules, symbol resolution, and diagnostics that require meaning
 rather than syntax alone. It should serve file compilation, REPL introspection,

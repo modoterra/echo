@@ -1013,8 +1013,7 @@ function DocsNotFoundPage() {
   return (
     <DocsShell category="Documentation" headings={["Page Not Found"]} title="Page Not Found">
       <section className="mt-16 scroll-mt-28" id="page-not-found">
-        <h2 className="text-3xl font-semibold tracking-normal text-slate-950">Page Not Found</h2>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+        <p className="max-w-2xl text-lg leading-8 text-slate-600">
           There is no Echo documentation page at{" "}
           <code className="font-mono text-slate-950">{location.pathname}</code>. Use the
           documentation menu or search to find the current page.
@@ -1976,6 +1975,12 @@ const importsRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/imports")} />,
 });
 
+const compilationGraphRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "compilation-graph",
+  component: () => <DocsContentPage page={docsPage("/docs/compilation-graph")} />,
+});
+
 const commandLineRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "command-line",
@@ -2043,6 +2048,7 @@ const routeTree = rootRoute.addChildren([
     benchmarksRoute,
     semanticProfilesRoute,
     importsRoute,
+    compilationGraphRoute,
     commandLineRoute,
     languageServerRoute,
     testingRoute,

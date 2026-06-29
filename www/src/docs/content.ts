@@ -5446,6 +5446,75 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "compilation-graph",
+    path: "/docs/compilation-graph",
+    navGroup: "Language",
+    category: "Language",
+    title: "Compilation Graph",
+    summary: "Declare the closed set of files and packages that an Echo program may compile and require.",
+    tags: ["compile", "graph", "require", "include", "composer", "packages"],
+    sections: [
+      {
+        title: "Closed Program Boundary",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo compiles a closed graph of source files and packages. Static ",
+              { code: "require" },
+              " and ",
+              { code: "include" },
+              " statements add graph edges automatically. When runtime code must choose a file dynamically, a ",
+              { code: "compile { ... }" },
+              " declaration admits the possible targets before execution.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'compile {\n    "./routes/*.php"\n    "./plugins/**/*.php"\n    "modoterra/laravel-echo"\n}\n\nlet $name = $_GET["plugin"] ?? "default"\nrequire_once __DIR__ . "/plugins/" . $name . ".php"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The dynamic ",
+              { code: "require_once" },
+              " can only execute a file already admitted by the compile block. If the requested plugin file is outside the graph, Echo reports an error instead of searching the filesystem at runtime.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Entry Resolution",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A compile block entry is a compile-time path or package reference. ",
+              { code: "\"./relative\"" },
+              " resolves from the declaring file's ",
+              { code: "__DIR__" },
+              "; ",
+              { code: "\"/absolute\"" },
+              " is a host filesystem path; ",
+              { code: "\"name/package\"" },
+              " loads that whole package through package metadata.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'compile {\n    "./config/*.php"\n    "/srv/app/shared/bootstrap.php"\n    "psr/log"\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This gives Echo a static whole-program boundary without requiring a separate manifest. Composer can still acquire packages and provide compatibility metadata, but compiled Echo programs should not depend on Composer's generated runtime autoload file for discovery.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "command-line",
     path: "/docs/command-line",
     navGroup: "Tooling",
@@ -5721,6 +5790,7 @@ export const docsNavigation: DocsNavGroup[] = [
       { label: "Benchmarks", to: "/docs/benchmarks" },
       { label: "Semantic Profiles", to: "/docs/semantic-profiles" },
       { label: "Imports", to: "/docs/imports" },
+      { label: "Compilation Graph", to: "/docs/compilation-graph" },
     ],
   },
   {
