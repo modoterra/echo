@@ -3691,6 +3691,30 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
+        title: "Source Identity",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo tracks source identity separately from language mode. A registered source can be a PHP file, an Echo file, an ",
+              { code: "xo" },
+              " input, a standard-library module, a REPL snippet, or an anonymous test source.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "xo ast app.php\nxo ast app.echo\nxo ast app.xo",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "These commands preserve where diagnostics and editor locations should point without changing which parser or semantic rules are used.",
+            ],
+          },
+        ],
+      },
+      {
         title: "Inspect and Build",
         blocks: [
           {

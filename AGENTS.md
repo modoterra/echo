@@ -156,5 +156,6 @@ Benchmark shortcuts default `ECHO_BENCH_ITERATIONS` to `2`; set the variable exp
 
 ## Source Notes
 - `echo_source::SourceFile::new` stores source text and path metadata; file extension does not select a parser or semantic mode.
+- `echo_source` owns source identity. Use `SourceMap`/`SourceId` for registered files, REPL snippets, std modules, and anonymous test sources instead of adding layer-local path/text registries. `Span` remains a byte-offset range within one source; migrate cross-file APIs toward `SourceSpan` as that type lands.
 - `examples/hello.echo` has no PHP open tag; `examples/hello.php` includes `<?php`. The parser accepts both forms.
 - Parser currently accepts `echo` statements, no-argument function-call statements, string/number literals, and `.` concat expressions for the supported fixture subset.

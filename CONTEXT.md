@@ -81,6 +81,13 @@ from the current message/span bootstrap shape into stable codes, severity,
 primary and related spans, and owning-layer metadata that CLI, LSP, tests, and
 docs can all consume.
 
+`echo_source` owns source identity and local byte spans. `Span` is a byte-offset
+range within one source text. `SourceId` identifies a registered source file,
+REPL snippet, std module, or anonymous test source through `SourceMap`. The
+compiler should migrate diagnostics, LSP, resolver facts, parser entrypoints,
+and later AST/HIR/MIR references toward `SourceSpan` instead of recreating
+path/text identity in each layer.
+
 `echo_hir` owns the first compiler-friendly representation after parsing. HIR
 is derived from AST plus `echo_semantics` facts and preserves enough source
 structure for diagnostics, tooling, and language-level reasoning.
