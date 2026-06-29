@@ -3,8 +3,8 @@ use echo_source::{SourceId, SourceSpan, Span};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     pub message: String,
-    pub span: Span,
-    pub source_span: Option<SourceSpan>,
+    span: Span,
+    source_span: Option<SourceSpan>,
 }
 
 impl Diagnostic {
@@ -27,6 +27,14 @@ impl Diagnostic {
     pub fn with_source_id(self, source_id: SourceId) -> Self {
         Self::new_at_source(self.message, SourceSpan::new(source_id, self.span))
     }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    pub fn source_span(&self) -> Option<SourceSpan> {
+        self.source_span
+    }
 }
 
 #[cfg(test)]
@@ -38,8 +46,8 @@ mod tests {
         let source_span = SourceSpan::new(SourceId::new(7), Span::new(3, 8));
         let diagnostic = Diagnostic::new_at_source("expected expression", source_span);
 
-        assert_eq!(diagnostic.span, Span::new(3, 8));
-        assert_eq!(diagnostic.source_span, Some(source_span));
+        assert_eq!(diagnostic.span(), Span::new(3, 8));
+        assert_eq!(diagnostic.source_span(), Some(source_span));
     }
 
     #[test]
@@ -48,7 +56,7 @@ mod tests {
             .with_source_id(SourceId::new(2));
 
         assert_eq!(
-            diagnostic.source_span,
+            diagnostic.source_span(),
             Some(SourceSpan::new(SourceId::new(2), Span::new(10, 15)))
         );
     }

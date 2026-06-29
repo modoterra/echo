@@ -2053,7 +2053,9 @@ pub fn print_diagnostics(diagnostics: Vec<echo_diagnostics::Diagnostic>) {
     for diagnostic in diagnostics {
         eprintln!(
             "error: {} at {}..{}",
-            diagnostic.message, diagnostic.span.start, diagnostic.span.end
+            diagnostic.message,
+            diagnostic.span().start,
+            diagnostic.span().end
         );
     }
 }
@@ -2164,7 +2166,7 @@ fn normalized_message(message: &str) -> String {
 }
 
 fn diagnostic_occurrence(diagnostic: &SourceDiagnostic) -> DiagnosticOccurrence {
-    let span = diagnostic.diagnostic.span;
+    let span = diagnostic.diagnostic.span();
     let (line, column) = line_column(&diagnostic.source, span.start);
     DiagnosticOccurrence {
         line,

@@ -44,12 +44,12 @@ fn diagnostic_span_for_source(
     diagnostic: &EchoDiagnostic,
     source_id: Option<SourceId>,
 ) -> Option<echo_source::Span> {
-    match (source_id, diagnostic.source_span) {
+    match (source_id, diagnostic.source_span()) {
         (Some(source_id), Some(source_span)) if source_span.source_id == source_id => {
             Some(source_span.span)
         }
         (Some(_), Some(_)) => None,
-        _ => Some(diagnostic.span),
+        _ => Some(diagnostic.span()),
     }
 }
 
