@@ -59,6 +59,12 @@ The canonical `std` root is reserved for Echo's compiler-owned standard
 library. User and package code must not declare modules or namespaces that
 canonicalize to `std`, including `module std.net` and `namespace Std\Net`.
 
+Callable resolution has three source surfaces that converge after resolution:
+PHP globals, Echo std modules, and user/package declarations. PHP globals keep
+PHP names and compatibility metadata; std APIs live under the reserved `std`
+root and may be regular Echo source or trusted intrinsics; user/package
+declarations resolve through the shared module/namespace symbol model.
+
 `echo_semantics` owns semantic and type analysis: variable bindings, expression
 facts, scope rules, symbol resolution, and diagnostics that require meaning
 rather than syntax alone. It should serve file compilation, REPL introspection,

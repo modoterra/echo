@@ -22,7 +22,7 @@ Plain `use ...` remains PHP namespace import syntax. Composer/autoloaded PHP cla
 
 `from ... use ...` is Echo-owned import syntax. It is for standard library imports, vendor or package modules, local Echo modules, and file-backed data modules. When it resolves to the same declaration identity as PHP-compatible source, it should lower identically.
 
-`from std use ...` is intended to be real import syntax, not documentation sugar. The resolver must bind it to compiler-known standard library modules supplied by `echo_std`.
+`from std use ...` is intended to be real import syntax, not documentation sugar. The resolver must bind it to compiler-known standard library modules supplied by `echo_std`. Those modules may contain regular Echo declarations or trusted intrinsics; import syntax does not expose Rust ABI symbols directly.
 
 ## Import Sources
 

@@ -100,13 +100,13 @@ The codegen registry is an ABI-routing table, not a compile-time proof that ever
 
 ## Standard Library Boundary
 
-`echo_std` is the Echo-facing standard library layer. It should expose APIs such as networking and HTTP to Echo programs while depending on lower-level runtime primitives. PHP compatibility builtins remain in the `echo_php_*` ABI, and future optional modules should use the `echo_ext_*` ABI.
+`echo_std` is the Echo-facing standard library layer. It should expose APIs such as networking and HTTP to Echo programs while depending on lower-level runtime primitives where needed. PHP compatibility builtins remain in the `echo_php_*` ABI, and future optional modules should use the `echo_ext_*` ABI.
 
 The first HTTP server should be written as an Echo program using `echo_std`, not as an `xo serve` command.
 
 Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: codegen depends on the small core runtime ABI, PHP-compatible functions use `echo_php_*`, Echo-native library APIs live in `echo_std`, optional modules use `echo_ext_*`, and runtime internals stay private.
 
-Trusted stdlib Echo source may declare intrinsic `fn` functions and methods. Public class methods use `pub fn` or `pub intrinsic fn`; unprefixed Echo class methods are private by default. Those declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` ABI symbols.
+Trusted stdlib Echo source may contain regular Echo functions/classes and may also declare intrinsic `fn` functions and methods. Regular std declarations compile through the normal Echo pipeline. Intrinsic declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` or core runtime ABI symbols. Public class methods use `pub fn` or `pub intrinsic fn`; unprefixed Echo class methods are private by default.
 
 Trusted stdlib source declares modules with Echo module syntax such as
 `module std.net`.

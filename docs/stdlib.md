@@ -1,11 +1,11 @@
 # Echo Standard Library
 
-`echo_std` is the Echo-facing standard library layer. It is where user-facing APIs such as networking and HTTP should live.
+`echo_std` is the Echo-facing standard library layer. It is where user-facing APIs such as networking and HTTP should live. The standard library is a real Echo module graph: APIs may be regular Echo source compiled through the normal pipeline, or trusted intrinsic declarations that lower to approved runtime ABI symbols.
 
 ## Layering
 
 - `echo_runtime`: low-level implementation primitives for values, output, tasks, I/O, networking, scheduling, and process integration.
-- `echo_std`: standard library APIs exposed to Echo programs, built on top of runtime primitives.
+- `echo_std`: standard library APIs exposed to Echo programs, built on top of runtime primitives where needed. APIs may be regular Echo declarations or trusted intrinsics.
 - `echo_php_*`: PHP builtin compatibility exports, such as `ob_start()` and future builtins like `strlen()`.
 - `echo_ext_*`: future extension/module ABI for optional modules.
 - `echo_internal_*`: runtime-private implementation details, never emitted by codegen.
@@ -15,7 +15,7 @@
 | Layer | Owns | Must Not Own |
 | --- | --- | --- |
 | `echo_runtime` | Low-level execution machinery: values, allocation, output, dynamic calls, task scheduling, polling, sockets, files, timers, process handles. | User-facing library design, PHP compatibility naming, high-level HTTP server APIs. |
-| `echo_std` | Echo-facing standard APIs such as `net_listen`, `http_response_text`, and `http_serve`. | Runtime scheduler internals, PHP builtin compatibility shims, optional extension packaging. |
+| `echo_std` | Echo-facing standard APIs such as networking, HTTP, time, assertions, and reflection. Regular APIs compile as Echo source; trusted intrinsics bind to runtime primitives. | Runtime scheduler internals, PHP builtin compatibility shims, optional extension packaging. |
 | `echo_php_*` | PHP builtin compatibility functions with PHP source-level names and behavior, such as `ob_start()` and `strlen()`. | Echo-native standard library APIs or runtime-private helpers. |
 | `echo_ext_*` | Future optional extension/module ABI for features that are not part of the core runtime or standard library. | Core language semantics, PHP builtins that are required for compatibility. |
 | `echo_internal_*` | Private runtime implementation details. | Anything generated LLVM IR calls directly. |
@@ -41,10 +41,10 @@ std/                 Echo-facing source files
 echo_std             Rust crate that packages/embeds std source and exposes std metadata
 echo_runtime         Rust crate that implements low-level runtime primitives
 compiler resolver    imports std symbols and validates intrinsic bindings
-codegen              lowers resolved intrinsic calls to approved ABI symbols
+codegen              compiles regular std Echo code and lowers resolved intrinsic calls to approved ABI symbols
 ```
 
-This layout separates public Echo source, packaged std metadata, Rust runtime implementation, resolver validation, and final ABI lowering.
+This layout separates public Echo source, packaged std metadata, Rust runtime implementation, resolver validation, normal std compilation, and final ABI lowering.
 
 Pure value APIs should be written in Echo source. Echo stdlib declarations use
 `fn` for functions. Class members are private by default, so public methods must

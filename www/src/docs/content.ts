@@ -4202,7 +4202,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "Echo packages standard library modules under the ",
               { code: "std" },
-              " namespace. Import a package when program behavior should come from Echo's runtime-owned APIs rather than from PHP compatibility built-ins.",
+              " module root. Import a module when program behavior should come from Echo's standard library rather than PHP compatibility built-ins.",
             ],
           },
           {
@@ -4212,9 +4212,9 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. PHP built-ins remain available for compatibility code, while ",
+              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. A std API can be regular Echo source compiled through the normal pipeline or a trusted intrinsic that lowers to an approved runtime ABI. PHP built-ins remain available for compatibility code, while ",
               { code: "std" },
-              " modules mark code that intentionally targets Echo's runtime surface.",
+              " modules mark code that intentionally targets Echo's standard library surface.",
             ],
           },
         ],
@@ -5248,7 +5248,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "Echo-native examples can use ",
               { code: "from ... use ..." },
-              " imports, duration literals, and receiver methods in strict source files.",
+              " imports, duration literals, and receiver methods. Std imports bind Echo modules, not PHP namespaces.",
             ],
           },
           {
