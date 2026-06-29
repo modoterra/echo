@@ -401,10 +401,9 @@ impl IrModule {
                 source.span(),
             )),
             echo_mir::MirExpr::ReceiverConst { source, kind } => match kind {
-                echo_ast::ReceiverConst::This => Ok(self.render_runtime_object_new_with_class(
-                    body,
-                    self.current_class.clone(),
-                )),
+                echo_ast::ReceiverConst::This => {
+                    Ok(self.render_runtime_object_new_with_class(body, self.current_class.clone()))
+                }
                 echo_ast::ReceiverConst::Static => Err(Diagnostic::new(
                     "$static is reserved for late static binding and is not implemented yet.",
                     source.span(),

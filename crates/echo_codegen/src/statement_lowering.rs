@@ -290,7 +290,8 @@ impl IrModule {
         ));
         body.push_str(&format!("foreach_body_{loop_id}:\n"));
         self.break_labels.push(format!("foreach_done_{loop_id}"));
-        self.continue_labels.push(format!("foreach_continue_{loop_id}"));
+        self.continue_labels
+            .push(format!("foreach_continue_{loop_id}"));
         self.break_value_slots.push(None);
 
         if let Some(key) = key {
