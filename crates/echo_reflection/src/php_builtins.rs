@@ -31,6 +31,12 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("gethostname", &[], Some("string|false")),
         php_builtin_reflection("getmypid", &[], Some("int|false")),
+        php_builtin_reflection("cli_get_process_title", &[], Some("?string")),
+        php_builtin_reflection(
+            "cli_set_process_title",
+            &[("title", Some("string"))],
+            Some("bool"),
+        ),
         php_builtin_reflection(
             "phpversion",
             &[("extension", Some("?string"))],

@@ -1241,6 +1241,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns a high-resolution timestamp as parts or nanoseconds.",
       },
       {
+        name: "cli_get_process_title",
+        signature: "cli_get_process_title(): ?string",
+        description: "Returns the current CLI process title tracked by the runtime.",
+      },
+      {
+        name: "cli_set_process_title",
+        signature: "cli_set_process_title(string $title): bool",
+        description: "Sets the CLI process title tracked by the runtime.",
+      },
+      {
         name: "phpversion",
         signature: "phpversion(?string $extension): string|false",
         description: "Returns the PHP compatibility version or false for unknown extensions.",
@@ -2030,6 +2040,18 @@ echo "timestamp seconds: " . $time["sec"] . "\\n"`,
     `let $stamp = hrtime()
 
 echo "hrtime parts: " . count($stamp) . "\\n"`,
+  ],
+  [
+    "cli_set_process_title",
+    `cli_set_process_title("queue:emails")
+
+echo "worker: " . cli_get_process_title() . "\\n"`,
+  ],
+  [
+    "cli_get_process_title",
+    `cli_set_process_title("queue:emails")
+
+echo "worker: " . cli_get_process_title() . "\\n"`,
   ],
   [
     "phpversion",
@@ -4064,6 +4086,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "hrtime",
     "Use `hrtime()` when compatibility code expects PHP's high-resolution timestamp shape. New Echo code should prefer `std.time` timers for elapsed-duration measurement.",
+  ],
+  [
+    "cli_set_process_title",
+    "Use `cli_set_process_title()` when compatibility code labels a long-running CLI worker. Echo stores the title in process-local state; host OS process-title mutation is deferred.",
+  ],
+  [
+    "cli_get_process_title",
+    "Use `cli_get_process_title()` when compatibility code reads back a CLI worker label set earlier in the process.",
   ],
   [
     "phpversion",

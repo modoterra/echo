@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::{EchoValue, echo_runtime_string, echo_value_array_new, echo_value_array_set};
@@ -12,6 +13,7 @@ pub const ZEND_COMPAT_VERSION: &str = "8.2.0";
 
 static HTTP_RESPONSE_CODE: AtomicI64 = AtomicI64::new(0);
 static IGNORE_USER_ABORT: AtomicI64 = AtomicI64::new(0);
+static CLI_PROCESS_TITLE: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getenv(name: EchoValue, _local_only: EchoValue) -> EchoValue {
@@ -54,6 +56,31 @@ pub extern "C" fn echo_php_gethostname() -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_cli_get_process_title() -> EchoValue {
+    let Ok(title) = CLI_PROCESS_TITLE.lock() else {
+        return EchoValue::null();
+    };
+
+    title
+        .clone()
+        .map(echo_runtime_string)
+        .unwrap_or_else(EchoValue::null)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_cli_set_process_title(title: EchoValue) -> EchoValue {
+    let Some(bytes) = title.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Ok(mut stored_title) = CLI_PROCESS_TITLE.lock() else {
+        return EchoValue::bool(false);
+    };
+
+    *stored_title = Some(bytes);
+    EchoValue::bool(true)
 }
 
 #[unsafe(no_mangle)]

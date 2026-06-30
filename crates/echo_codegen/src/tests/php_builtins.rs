@@ -478,6 +478,50 @@ fn hrtime_lowers_default_as_number_to_null() {
 }
 
 #[test]
+fn cli_process_title_builtins_lower_to_runtime_calls() {
+    let get_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "cli_get_process_title".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 23),
+        })],
+        span: Span::new(0, 24),
+    })]))
+    .expect("IR");
+
+    assert!(
+        get_ir.contains("declare %EchoValue @echo_php_cli_get_process_title()"),
+        "{get_ir}"
+    );
+    assert!(
+        get_ir.contains("call %EchoValue @echo_php_cli_get_process_title()"),
+        "{get_ir}"
+    );
+
+    let set_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "cli_set_process_title".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "echo worker".to_string(),
+                span: Span::new(22, 35),
+            })],
+            span: Span::new(0, 36),
+        })],
+        span: Span::new(0, 37),
+    })]))
+    .expect("IR");
+
+    assert!(
+        set_ir.contains("declare %EchoValue @echo_php_cli_set_process_title(%EchoValue)"),
+        "{set_ir}"
+    );
+    assert!(
+        set_ir.contains("call %EchoValue @echo_php_cli_set_process_title("),
+        "{set_ir}"
+    );
+}
+
+#[test]
 fn connection_aborted_lowers_to_no_argument_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

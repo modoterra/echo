@@ -68,6 +68,15 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_get_extension_funcs(test_string_value(b"JSON")),
         EchoValue::bool(false)
     );
+    assert!(echo_php_cli_get_process_title().is_null());
+    assert_eq!(
+        echo_php_cli_set_process_title(test_string_value(b"echo worker")),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_php_cli_get_process_title().string_bytes(),
+        Some(b"echo worker".to_vec())
+    );
     assert_eq!(
         echo_php_get_cfg_var(test_string_value(b"include_path")),
         EchoValue::bool(false)
