@@ -26,6 +26,7 @@ pub enum BuiltinCodegen {
     Getenv,
     Header,
     HeaderRemove,
+    Hrtime,
     HttpResponseCode,
     IgnoreUserAbort,
     IniGetAll,
@@ -115,6 +116,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "hrtime",
+            symbol: "echo_php_hrtime",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::Hrtime,
         },
         PhpBuiltin {
             php_name: "phpversion",

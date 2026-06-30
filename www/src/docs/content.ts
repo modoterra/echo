@@ -1226,6 +1226,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current Unix timestamp with microseconds.",
       },
       {
+        name: "hrtime",
+        signature: "hrtime(bool $as_number): array|int|float",
+        description: "Returns a high-resolution timestamp as parts or nanoseconds.",
+      },
+      {
         name: "phpversion",
         signature: "phpversion(?string $extension): string|false",
         description: "Returns the PHP compatibility version or false for unknown extensions.",
@@ -1995,6 +2000,12 @@ echo $routeKey . "\\n"`,
     `let $started = microtime(true)
 
 echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "hrtime",
+    `let $stamp = hrtime()
+
+echo "hrtime parts: " . count($stamp) . "\\n"`,
   ],
   [
     "phpversion",
@@ -4017,6 +4028,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "microtime",
     "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
+  ],
+  [
+    "hrtime",
+    "Use `hrtime()` when compatibility code expects PHP's high-resolution timestamp shape. New Echo code should prefer `std.time` timers for elapsed-duration measurement.",
   ],
   [
     "phpversion",

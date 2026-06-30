@@ -434,6 +434,28 @@ fn get_include_path_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn hrtime_lowers_default_as_number_to_null() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "hrtime".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 8),
+        })],
+        span: Span::new(0, 9),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_hrtime(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_hrtime(%EchoValue { i32 0, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn connection_aborted_lowers_to_no_argument_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

@@ -342,7 +342,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `hexdec` | implemented | Converts hexadecimal strings to unsigned decimal int or float values while ignoring non-hexadecimal characters. Source: https://www.php.net/manual/en/function.hexdec.php |
 | `highlight_file` | missing |  |
 | `highlight_string` | missing |  |
-| `hrtime` | missing |  |
+| `hrtime` | implemented | Returns a two-element `[seconds, nanoseconds]` array by default or an integer/float nanosecond count when `as_number` is true. Source: https://www.php.net/manual/en/function.hrtime.php |
 | `html_entity_decode` | missing |  |
 | `htmlentities` | missing |  |
 | `htmlspecialchars` | implemented | Escapes `&`, `"`, `'`, `<`, and `>` using PHP's default `ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401` shape; optional flags, encoding, and double-encode control are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars.php |
