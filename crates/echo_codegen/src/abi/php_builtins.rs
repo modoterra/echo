@@ -26,6 +26,7 @@ pub enum BuiltinCodegen {
     Getenv,
     Header,
     HeaderRemove,
+    HttpResponseCode,
     IniGetAll,
     GetLoadedExtensions,
     InArray,
@@ -233,6 +234,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::VoidEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::HeaderRemove,
+        },
+        PhpBuiltin {
+            php_name: "http_response_code",
+            symbol: "echo_php_http_response_code",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::HttpResponseCode,
         },
         PhpBuiltin {
             php_name: "ini_set",

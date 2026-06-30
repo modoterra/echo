@@ -146,6 +146,26 @@ fn environment_process_builtins_follow_php_shapes() {
     echo_php_header_remove(EchoValue::null());
     echo_php_header_remove(test_string_value(b"X-Test"));
     assert_eq!(
+        echo_php_http_response_code(EchoValue::null()),
+        EchoValue::bool(false)
+    );
+    assert_eq!(
+        echo_php_http_response_code(EchoValue::int(201)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_php_http_response_code(EchoValue::null()),
+        EchoValue::int(201)
+    );
+    assert_eq!(
+        echo_php_http_response_code(EchoValue::int(404)),
+        EchoValue::int(201)
+    );
+    assert_eq!(
+        echo_php_http_response_code(EchoValue::null()),
+        EchoValue::int(404)
+    );
+    assert_eq!(
         echo_php_ini_set(
             test_string_value(b"memory_limit"),
             test_string_value(b"128M")

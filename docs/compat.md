@@ -350,7 +350,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `http_build_query` | missing |  |
 | `http_clear_last_response_headers` | missing |  |
 | `http_get_last_response_headers` | missing |  |
-| `http_response_code` | missing |  |
+| `http_response_code` | implemented | Tracks the process-local response code; returns `false` before a code is set, `true` for the first set, and the previous/current code as documented for CLI-style use. Source: https://www.php.net/manual/en/function.http-response-code.php |
 | `hypot` | implemented | Returns the Euclidean distance for two numeric values using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.hypot.php |
 | `ignore_user_abort` | missing |  |
 | `image_type_to_extension` | missing |  |

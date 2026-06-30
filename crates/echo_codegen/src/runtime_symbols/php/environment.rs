@@ -120,6 +120,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_header_remove as extern "C" fn(echo_runtime::EchoValue) as usize,
         ),
         (
+            "echo_php_http_response_code",
+            echo_runtime::echo_php_http_response_code
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_ini_set",
             echo_runtime::echo_php_ini_set
                 as extern "C" fn(

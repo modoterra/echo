@@ -3,11 +3,14 @@ use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::{EchoValue, echo_runtime_string, echo_value_array_new, echo_value_array_set};
 
 pub const PHP_COMPAT_VERSION: &str = "8.2.0";
 pub const ZEND_COMPAT_VERSION: &str = "8.2.0";
+
+static HTTP_RESPONSE_CODE: AtomicI64 = AtomicI64::new(0);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getenv(name: EchoValue, _local_only: EchoValue) -> EchoValue {
@@ -177,6 +180,29 @@ pub extern "C" fn echo_php_header_remove(name: EchoValue) {
     let Some(_name) = name.string_bytes() else {
         return;
     };
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_http_response_code(response_code: EchoValue) -> EchoValue {
+    if response_code.is_null() {
+        let current = HTTP_RESPONSE_CODE.load(Ordering::SeqCst);
+
+        if current == 0 {
+            EchoValue::bool(false)
+        } else {
+            EchoValue::int(current)
+        }
+    } else if let Some(code) = response_code.int_value() {
+        let previous = HTTP_RESPONSE_CODE.swap(code, Ordering::SeqCst);
+
+        if previous == 0 {
+            EchoValue::bool(true)
+        } else {
+            EchoValue::int(previous)
+        }
+    } else {
+        EchoValue::bool(false)
+    }
 }
 
 #[unsafe(no_mangle)]

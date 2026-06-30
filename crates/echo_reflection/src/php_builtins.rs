@@ -77,6 +77,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("header_remove", &[("name", Some("?string"))], Some("void")),
         php_builtin_reflection(
+            "http_response_code",
+            &[("response_code", Some("int"))],
+            Some("int|bool"),
+        ),
+        php_builtin_reflection(
             "ini_set",
             &[("option", Some("string")), ("value", Some("string"))],
             Some("string|false"),

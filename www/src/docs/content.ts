@@ -1301,6 +1301,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Removes a queued HTTP response header, or all headers when no name is given.",
       },
       {
+        name: "http_response_code",
+        signature: "http_response_code(?int $response_code): int|bool",
+        description: "Gets or sets the HTTP response status code.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2083,6 +2088,14 @@ echo "response body\\n"`,
     `header_remove("X-Debug")
 
 echo "debug header cleared\\n"`,
+  ],
+  [
+    "http_response_code",
+    `if (http_response_code() === false) {
+    http_response_code(404)
+}
+
+echo "status: " . http_response_code() . "\\n"`,
   ],
   [
     "ini_set",
@@ -4035,6 +4048,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "header_remove",
     "Use `header_remove()` when compatibility code clears queued response headers before switching response paths. Echo currently treats it as a no-op because it does not model an HTTP header layer.",
+  ],
+  [
+    "http_response_code",
+    "Use `http_response_code()` when compatibility code records or inspects an HTTP status before writing a body. Echo tracks this process-local status value but does not send a status line because it does not model an HTTP header layer.",
   ],
   [
     "ini_set",

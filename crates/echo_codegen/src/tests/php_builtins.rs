@@ -522,6 +522,28 @@ fn header_remove_lowers_default_name_to_null() {
 }
 
 #[test]
+fn http_response_code_lowers_default_code_to_null() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "http_response_code".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 20),
+        })],
+        span: Span::new(0, 21),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_http_response_code(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_http_response_code(%EchoValue { i32 0, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn ini_set_lowers_to_binary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
