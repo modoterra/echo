@@ -98,6 +98,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Applies the ROT13 substitution cipher to the string.",
       },
       {
+        name: "soundex",
+        signature: "soundex(string $string): string",
+        description: "Calculates a four-character phonetic Soundex key.",
+      },
+      {
         name: "ord",
         signature: "ord(string $character): int",
         description: "Returns the byte value of the first character in the string.",
@@ -2158,6 +2163,13 @@ let $decoded = str_rot13($stored)
 echo $decoded . "\\n"`,
   ],
   [
+    "soundex",
+    `let $left = soundex("Euler")
+let $right = soundex("Ellery")
+
+echo "Same bucket: " . ($left === $right ? "yes" : "no") . "\\n"`,
+  ],
+  [
     "str_starts_with",
     `let $command = "deploy:production"
 
@@ -3086,6 +3098,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "str_rot13",
     "Use `str_rot13()` only for PHP-compatible ROT13 text transformations such as old fixtures, examples, or reversible non-secret obfuscation.",
+  ],
+  [
+    "soundex",
+    "Use `soundex()` as a coarse PHP-compatible phonetic key for short ASCII names in legacy matching workflows. It is not a general fuzzy search algorithm.",
   ],
   [
     "ord",

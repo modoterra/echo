@@ -17,6 +17,7 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         ("lcfirst", "echo_php_lcfirst"),
         ("ord", "echo_php_ord"),
         ("str_rot13", "echo_php_str_rot13"),
+        ("soundex", "echo_php_soundex"),
         ("chr", "echo_php_chr"),
         ("decbin", "echo_php_decbin"),
         ("dechex", "echo_php_dechex"),

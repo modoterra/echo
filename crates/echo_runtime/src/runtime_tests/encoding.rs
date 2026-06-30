@@ -117,6 +117,30 @@ fn base_to_decimal_builtins_preserve_php_unsigned_string_behavior() {
 }
 
 #[test]
+fn soundex_preserves_php_phonetic_key_examples() {
+    for (word, key) in [
+        (b"Euler".as_slice(), b"E460".as_slice()),
+        (b"Ellery".as_slice(), b"E460".as_slice()),
+        (b"Gauss".as_slice(), b"G200".as_slice()),
+        (b"Ghosh".as_slice(), b"G200".as_slice()),
+        (b"Hilbert".as_slice(), b"H416".as_slice()),
+        (b"Heilbronn".as_slice(), b"H416".as_slice()),
+        (b"Knuth".as_slice(), b"K530".as_slice()),
+        (b"Kant".as_slice(), b"K530".as_slice()),
+        (b"Lloyd".as_slice(), b"L300".as_slice()),
+        (b"Ladd".as_slice(), b"L300".as_slice()),
+        (b"Ashcraft".as_slice(), b"A261".as_slice()),
+        (b"1Robert".as_slice(), b"R163".as_slice()),
+        (b"1234".as_slice(), b"0000".as_slice()),
+    ] {
+        assert_eq!(
+            echo_php_soundex(test_string_value(word)).string_bytes(),
+            Some(key.to_vec())
+        );
+    }
+}
+
+#[test]
 fn string_escape_builtins_preserve_php_byte_behavior() {
     let quoted = Box::into_raw(Box::new(EchoString {
         bytes: vec![b'A', b'\'', b'"', b'\\', b'B'],

@@ -282,7 +282,19 @@ Examples:
 - `echo_php_strtoupper(...)` and `echo_php_strtolower(...)` are PHP builtin ABI because `strtoupper()` and `strtolower()` are PHP compatibility functions.
 - `echo_php_ucwords(...)` is PHP builtin ABI because `ucwords()` is a PHP compatibility function.
 - `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are PHP builtin ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
-- `echo_php_ord(...)`, `echo_php_str_rot13(...)`, and `echo_php_crc32(...)` are PHP builtin ABI because `ord()`, `str_rot13()`, and `crc32()` are PHP compatibility functions.
+- `echo_php_ord(...)`, `echo_php_str_rot13(...)`, `echo_php_soundex(...)`, and `echo_php_crc32(...)` are PHP builtin ABI because `ord()`, `str_rot13()`, `soundex()`, and `crc32()` are PHP compatibility functions.
+
+`soundex()` is useful for PHP-compatible phonetic bucketing of short ASCII names:
+
+```php
+<?php
+let $left = soundex("Euler")
+let $right = soundex("Ellery")
+
+echo "Same bucket: " . ($left === $right ? "yes" : "no") . "\n"
+```
+
+Use it only as a coarse compatibility key for legacy matching workflows. It is not a general fuzzy search algorithm, and many distinct names intentionally collide into the same four-character code.
 - `echo_php_chr(...)`, `echo_php_bin2hex(...)`, `echo_php_hex2bin(...)`, `echo_php_md5(...)`, and `echo_php_sha1(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, `hex2bin()`, `md5()`, and `sha1()` are PHP compatibility functions.
 - `echo_php_bindec(...)`, `echo_php_hexdec(...)`, `echo_php_octdec(...)`, and `echo_php_base_convert(...)` are PHP builtin ABI because PHP exposes explicit binary, hexadecimal, octal, and arbitrary-base conversion functions.
 - `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.

@@ -280,6 +280,67 @@ pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_soundex(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, soundex_bytes)
+}
+
+fn soundex_bytes(bytes: &[u8]) -> Vec<u8> {
+    let Some((first_index, first_letter)) = bytes
+        .iter()
+        .copied()
+        .enumerate()
+        .find(|(_, byte)| byte.is_ascii_alphabetic())
+    else {
+        return b"0000".to_vec();
+    };
+
+    let mut code = Vec::with_capacity(4);
+    code.push(first_letter.to_ascii_uppercase());
+
+    let mut previous_digit = soundex_digit(first_letter);
+    for byte in bytes[first_index + 1..].iter().copied() {
+        if !byte.is_ascii_alphabetic() {
+            previous_digit = None;
+            continue;
+        }
+        if matches!(byte.to_ascii_uppercase(), b'H' | b'W') {
+            continue;
+        }
+
+        let digit = soundex_digit(byte);
+        if let Some(digit) = digit
+            && Some(digit) != previous_digit
+            && code.len() < 4
+        {
+            code.push(digit);
+        }
+
+        previous_digit = digit;
+        if code.len() == 4 {
+            break;
+        }
+    }
+
+    while code.len() < 4 {
+        code.push(b'0');
+    }
+
+    code
+}
+
+fn soundex_digit(byte: u8) -> Option<u8> {
+    match byte.to_ascii_uppercase() {
+        b'B' | b'F' | b'P' | b'V' => Some(b'1'),
+        b'C' | b'G' | b'J' | b'K' | b'Q' | b'S' | b'X' | b'Z' => Some(b'2'),
+        b'D' | b'T' => Some(b'3'),
+        b'L' => Some(b'4'),
+        b'M' | b'N' => Some(b'5'),
+        b'R' => Some(b'6'),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_str_repeat(value: EchoValue, times: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::error();
