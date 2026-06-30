@@ -346,7 +346,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `html_entity_decode` | missing |  |
 | `htmlentities` | missing |  |
 | `htmlspecialchars` | implemented | Escapes `&`, `"`, `'`, `<`, and `>` using PHP's default `ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401` shape; optional flags, encoding, and double-encode control are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars.php |
-| `htmlspecialchars_decode` | missing |  |
+| `htmlspecialchars_decode` | implemented | Decodes the default `htmlspecialchars()` entity set for `&amp;`, `&quot;`, `&#039;`, `&lt;`, and `&gt;`; optional flags are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars-decode.php |
 | `http_build_query` | missing |  |
 | `http_clear_last_response_headers` | missing |  |
 | `http_get_last_response_headers` | missing |  |

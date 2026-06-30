@@ -106,6 +106,17 @@ fn string_rewrite_builtins_preserve_php_byte_behavior() {
         Some(b"&lt;a href=&quot;/?q=Tom &amp; Jerry&quot;&gt;Tom&#039;s link&lt;/a&gt;".to_vec())
     );
     assert_eq!(
+        echo_php_htmlspecialchars_decode(test_string_value(
+            b"&lt;a href=&quot;/?q=Tom &amp; Jerry&quot;&gt;Tom&#039;s link&lt;/a&gt;",
+        ))
+        .string_bytes(),
+        Some(b"<a href=\"/?q=Tom & Jerry\">Tom's link</a>".to_vec())
+    );
+    assert_eq!(
+        echo_php_htmlspecialchars_decode(test_string_value(b"&copy; stays named")).string_bytes(),
+        Some(b"&copy; stays named".to_vec())
+    );
+    assert_eq!(
         echo_php_str_replace(
             EchoValue::string(search),
             EchoValue::string(replace),

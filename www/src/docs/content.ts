@@ -198,6 +198,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Escapes special HTML characters in a string.",
       },
       {
+        name: "htmlspecialchars_decode",
+        signature: "htmlspecialchars_decode(string $string): string",
+        description: "Decodes special HTML character entities in a string.",
+      },
+      {
         name: "str_replace",
         signature:
           "str_replace(array|string $search, array|string $replace, string|array $subject): string|array",
@@ -2066,6 +2071,13 @@ let $html = "<strong>" . htmlspecialchars($name) . "</strong>"
 echo $html . "\\n"`,
   ],
   [
+    "htmlspecialchars_decode",
+    `let $stored = "&lt;strong&gt;Tom &amp; Jerry&lt;/strong&gt;"
+let $preview = htmlspecialchars_decode($stored)
+
+echo $preview . "\\n"`,
+  ],
+  [
     "str_replace",
     `let $template = "Hello {{name}}, status: pending"
 let $message = str_replace("{{name}}", "Ada", $template)
@@ -2800,6 +2812,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "htmlspecialchars",
     "Use `htmlspecialchars()` before inserting plain text into an HTML fragment so names, labels, or messages cannot be interpreted as markup.",
+  ],
+  [
+    "htmlspecialchars_decode",
+    "Use `htmlspecialchars_decode()` when compatibility code receives text that was escaped with `htmlspecialchars()` and needs the original display text back.",
   ],
   [
     "str_replace",

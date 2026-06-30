@@ -86,6 +86,10 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
             "echo_php_quoted_printable_decode",
         ),
         ("htmlspecialchars", "echo_php_htmlspecialchars"),
+        (
+            "htmlspecialchars_decode",
+            "echo_php_htmlspecialchars_decode",
+        ),
         ("quotemeta", "echo_php_quotemeta"),
     ] {
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {

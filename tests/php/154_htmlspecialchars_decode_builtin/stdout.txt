@@ -1,0 +1,4 @@
+decoded:[<a href="/?q=Tom & Jerry">Tom's link</a>]
+amp:[Tom & Jerry]
+unchanged:[&copy; stays named]
+exists:[1]

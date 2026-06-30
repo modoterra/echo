@@ -570,6 +570,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection(
+            "htmlspecialchars_decode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "nl2br",
             &[("string", Some("string")), ("use_xhtml", Some("bool"))],
             Some("string"),

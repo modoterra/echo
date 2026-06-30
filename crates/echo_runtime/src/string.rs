@@ -337,6 +337,43 @@ pub extern "C" fn echo_php_htmlspecialchars(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_htmlspecialchars_decode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, php_htmlspecialchars_decode)
+}
+
+fn php_htmlspecialchars_decode(bytes: &[u8]) -> Vec<u8> {
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        let remaining = &bytes[index..];
+        let decoded_byte = if remaining.starts_with(b"&amp;") {
+            Some((b'&', 5))
+        } else if remaining.starts_with(b"&quot;") {
+            Some((b'"', 6))
+        } else if remaining.starts_with(b"&#039;") {
+            Some((b'\'', 6))
+        } else if remaining.starts_with(b"&lt;") {
+            Some((b'<', 4))
+        } else if remaining.starts_with(b"&gt;") {
+            Some((b'>', 4))
+        } else {
+            None
+        };
+
+        if let Some((byte, consumed)) = decoded_byte {
+            decoded.push(byte);
+            index += consumed;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+
+    decoded
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_nl2br(value: EchoValue, use_xhtml: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::error();

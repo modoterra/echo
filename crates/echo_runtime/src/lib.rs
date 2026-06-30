@@ -89,8 +89,8 @@ pub use reflection::{
 pub use require::{echo_php_require, echo_php_require_once};
 pub use string::{
     echo_php_addslashes, echo_php_chr, echo_php_chunk_split, echo_php_decbin, echo_php_dechex,
-    echo_php_decoct, echo_php_explode, echo_php_htmlspecialchars, echo_php_implode,
-    echo_php_lcfirst, echo_php_ltrim, echo_php_nl2br, echo_php_ord,
+    echo_php_decoct, echo_php_explode, echo_php_htmlspecialchars, echo_php_htmlspecialchars_decode,
+    echo_php_implode, echo_php_lcfirst, echo_php_ltrim, echo_php_nl2br, echo_php_ord,
     echo_php_quoted_printable_decode, echo_php_quoted_printable_encode, echo_php_quotemeta,
     echo_php_rtrim, echo_php_str_contains, echo_php_str_ends_with, echo_php_str_ireplace,
     echo_php_str_pad, echo_php_str_repeat, echo_php_str_replace, echo_php_str_rot13,
