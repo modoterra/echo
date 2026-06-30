@@ -44,6 +44,10 @@ module.exports = grammar({{
 
   word: $ => $.identifier,
 
+  conflicts: $ => [
+    [$.facet_declaration, $.module_path],
+  ],
+
   rules: {{
 {grammar_rules}
   }},

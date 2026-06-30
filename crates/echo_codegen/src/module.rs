@@ -40,7 +40,7 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::UnnamedExport(statement) => statement.span,
         Stmt::ClassDecl(statement) => statement.span,
         Stmt::TraitDecl(statement) => statement.span,
-        Stmt::ExtendDecl(statement) => statement.span,
+        Stmt::FacetDecl(statement) => statement.span,
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
         Stmt::While(statement) => statement.span,

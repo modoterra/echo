@@ -106,7 +106,7 @@ time.period(...)
 time.seconds(...)
 ```
 
-Receiver methods operate on existing values and are defined with `extend`:
+Receiver methods operate on existing values and are defined with `facet`:
 
 ```echo
 let $now = time.now()
@@ -132,20 +132,20 @@ time.elapsed($timer)           // invalid style
 time.total_seconds($duration)  // invalid style
 ```
 
-Canonical `extend` shape:
+Canonical `facet` shape:
 
 ```echo
 type Instant = {}
 
-extend Instant {
-    pub fn to_unix(self): i64 {
+facet Instant as $instant {
+    pub fn to_unix(): i64 {
         // seconds since Unix epoch
     }
 }
 ```
 
 Construction and factory functions live on the module. Behavior on values lives
-on `extend` receiver methods.
+on `facet` receiver methods.
 
 ## Core Types
 
@@ -204,7 +204,7 @@ Those fields are implementation details.
 
 Later `time` work can add `Date`, `Clock`, `DateTime`, `Zone`, and `Span`.
 Those calendar and clock abstractions should build on the same split: module
-functions construct or access values, while `extend` receiver methods express
+functions construct or access values, while `facet` receiver methods express
 behavior on values.
 
 ## Instant
@@ -252,11 +252,11 @@ fn unix_nanos(nanoseconds: i128): Instant
 Required receiver methods:
 
 ```echo
-extend Instant {
-    pub fn to_unix(self): i64
-    pub fn to_unix_millis(self): i64
-    pub fn to_unix_micros(self): i64
-    pub fn to_unix_nanos(self): i128
+facet Instant as $instant {
+    pub fn to_unix(): i64
+    pub fn to_unix_millis(): i64
+    pub fn to_unix_micros(): i64
+    pub fn to_unix_nanos(): i128
 }
 ```
 
@@ -434,16 +434,16 @@ Duration >= Duration
 Required receiver methods:
 
 ```echo
-extend Duration {
-    pub fn total_nanos(self): i128
-    pub fn total_micros(self): i128
-    pub fn total_millis(self): i128
-    pub fn total_seconds(self): f64
-    pub fn whole_seconds(self): i64
-    pub fn whole_minutes(self): i64
-    pub fn whole_hours(self): i64
-    pub fn whole_days(self): i64
-    pub fn abs(self): Duration
+facet Duration as $duration {
+    pub fn total_nanos(): i128
+    pub fn total_micros(): i128
+    pub fn total_millis(): i128
+    pub fn total_seconds(): f64
+    pub fn whole_seconds(): i64
+    pub fn whole_minutes(): i64
+    pub fn whole_hours(): i64
+    pub fn whole_days(): i64
+    pub fn abs(): Duration
 }
 ```
 
@@ -503,10 +503,10 @@ fn timer(): Timer
 Required receiver methods:
 
 ```echo
-extend Timer {
-    pub fn elapsed(self): time.Duration
+facet Timer as $timer {
+    pub fn elapsed(): time.Duration
 
-    pub fn reset(mut self): time.Duration
+    pub fn reset(): time.Duration
 }
 ```
 
@@ -581,8 +581,8 @@ time.period(years: 1)
 Potential future receiver method:
 
 ```echo
-extend Period {
-    pub fn is_zero(self): bool
+facet Period as $period {
+    pub fn is_zero(): bool
 }
 ```
 
@@ -764,7 +764,7 @@ Use the receiver method form instead: $instant.to_unix().
 4. Type duration literals as opaque `time.Duration` values in semantic analysis.
 5. Implement plural single-unit constructors and `time.duration(...)` as typed constructors.
 6. Change `time.sleep` from raw integer milliseconds to `time.sleep(Duration)`.
-7. Add `extend` receiver-method syntax and dot-call typing for time values.
+7. Add `facet` receiver-method syntax and dot-call typing for time values.
 8. Add semantic facts for opaque `time` core types and typed constructor returns.
 9. Add monotonic clock, timer construction, and `Timer.elapsed()` / `Timer.reset()`.
 10. Add `Instant` Unix constructors and conversion receiver methods.
@@ -792,7 +792,7 @@ monotonic ticks.
 | `time.duration(...)` | optional named units default to zero |
 | `time.period(...)` | optional named calendar units default to zero |
 | `time.nanoseconds(...)` through `time.weeks(...)` | plural single-unit `Duration` constructors |
-| `Instant`, `Duration`, and `Timer` receiver methods | implemented through `extend` method declarations |
+| `Instant`, `Duration`, and `Timer` receiver methods | implemented through `facet` method declarations |
 
 Example target stdlib shape:
 
@@ -816,9 +816,9 @@ pub fn duration(
     nanoseconds: i64 = 0,
 ): Duration
 
-extend Timer {
-    pub fn elapsed(self): Duration
-    pub fn reset(mut self): Duration
+facet Timer as $timer {
+    pub fn elapsed(): Duration
+    pub fn reset(): Duration
 }
 ```
 

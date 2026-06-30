@@ -346,8 +346,7 @@ fn collect_statement_contextual_class_references(
                 collect_class_member_contextual_class_references(member, namespace, uses, names);
             }
         }
-        Stmt::ExtendDecl(statement) => {
-            collect_contextual_name_references(&statement.target, namespace, uses, names);
+        Stmt::FacetDecl(statement) => {
             for member in &statement.members {
                 collect_class_member_contextual_class_references(member, namespace, uses, names);
             }
@@ -775,8 +774,7 @@ fn collect_statement_class_references(
                 collect_class_member_class_references(member, names);
             }
         }
-        Stmt::ExtendDecl(statement) => {
-            collect_qualified_name_references(&statement.target, names);
+        Stmt::FacetDecl(statement) => {
             for member in &statement.members {
                 collect_class_member_class_references(member, names);
             }
@@ -1973,7 +1971,7 @@ fn collect_static_include_paths(
                     }
                 }
             }
-            Stmt::ExtendDecl(statement) => {
+            Stmt::FacetDecl(statement) => {
                 for member in &mut statement.members {
                     match member {
                         echo_ast::ClassMember::Method(method) => {

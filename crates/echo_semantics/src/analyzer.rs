@@ -178,7 +178,7 @@ impl Analyzer {
                     }
                 }
             }
-            Stmt::ExtendDecl(statement) => {
+            Stmt::FacetDecl(statement) => {
                 for member in &statement.members {
                     match member {
                         ClassMember::Method(method) => self.analyze_method_decl(
@@ -643,7 +643,7 @@ impl Analyzer {
             }
             ReceiverConst::SelfType if !self.receiver_context.has_self_type => {
                 self.diagnostics.push(Diagnostic::new(
-                    "$self is only available inside class, type, and extend methods.",
+                    "$self is not a strict Echo receiver; facet methods use the explicit receiver alias.",
                     span,
                 ));
             }

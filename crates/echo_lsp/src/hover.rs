@@ -183,7 +183,7 @@ fn symbol_kind_label(kind: EchoSymbolKind) -> &'static str {
         EchoSymbolKind::Namespace => "namespace",
         EchoSymbolKind::TypeAlias => "type",
         EchoSymbolKind::ErrorType => "error type",
-        EchoSymbolKind::Extension => "extension",
+        EchoSymbolKind::Facet => "facet",
     }
 }
 

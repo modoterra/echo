@@ -623,7 +623,7 @@ Strict Echo's array/list/object/tuple/type model is documented in [Strict-Mode T
 
 Echo-owned imports, including `from std use ...`, are documented in [Imports](imports.md).
 
-The target Echo-native time surface is documented in [Echo Standard Library Time Foundation](time-foundation.md). That design makes `time.Duration`, `time.Instant`, `time.MonoInstant`, `time.Period`, and `time.Timer` opaque stdlib types; construction stays on dot-notation module functions such as `time.now()`, `time.timer()`, and `time.duration(...)`, while value behavior is defined through `extend` receiver methods such as `$timer.elapsed()` and `$duration.total_millis()`. Echo stdlib calls should use `time.sleep(...)`, not PHP namespace-call spelling such as `time\sleep(...)`.
+The target Echo-native time surface is documented in [Echo Standard Library Time Foundation](time-foundation.md). That design makes `time.Duration`, `time.Instant`, `time.MonoInstant`, `time.Period`, and `time.Timer` opaque stdlib types; construction stays on dot-notation module functions such as `time.now()`, `time.timer()`, and `time.duration(...)`, while value behavior is defined through `facet` receiver methods such as `$timer.elapsed()` and `$duration.total_millis()`. Echo stdlib calls should use `time.sleep(...)`, not PHP namespace-call spelling such as `time\sleep(...)`.
 
 The planned time API uses duration values rather than raw integers:
 

@@ -23,7 +23,7 @@ pub enum Stmt {
     UnnamedExport(UnnamedExportStmt),
     ClassDecl(ClassDeclStmt),
     TraitDecl(TraitDeclStmt),
-    ExtendDecl(ExtendDeclStmt),
+    FacetDecl(FacetDeclStmt),
     TypeDecl(TypeDeclStmt),
     Loop(LoopStmt),
     While(WhileStmt),
@@ -196,8 +196,9 @@ pub struct TraitDeclStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExtendDeclStmt {
-    pub target: QualifiedName,
+pub struct FacetDeclStmt {
+    pub target: String,
+    pub receiver: String,
     pub members: Vec<ClassMember>,
     pub span: Span,
 }

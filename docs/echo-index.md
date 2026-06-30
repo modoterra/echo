@@ -195,14 +195,14 @@ pub enum SymbolKind {
     Namespace,
     TypeAlias,
     ErrorType,
-    Extension,
+    Facet,
 }
 ```
 
-This initial enum covers PHP declarations, Echo-specific type/error concepts, and future extension blocks in one symbol vocabulary.
+This initial enum covers PHP declarations, Echo-specific type/error concepts, and future facet blocks in one symbol vocabulary.
 
-`ErrorType` is included for Echo's first-class error values. `Extension` is
-included for future extension blocks.
+`ErrorType` is included for Echo's first-class error values. `Facet` is
+included for future facet blocks.
 
 ```rust
 pub enum Visibility {

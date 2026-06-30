@@ -6,7 +6,7 @@ use echo_ast::{
     BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
     ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClosureExpr, CoalesceAssignStmt,
     CompileEntry, CompileStmt, ConstantExpr, ContinueStmt, DeferExpr, DynamicCallExpr,
-    DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, Expr, ExtendDeclStmt,
+    DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, Expr, FacetDeclStmt,
     FieldExpr, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt,
     ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt,
     ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
@@ -248,7 +248,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::UnnamedExport(statement) => statement.span,
         Stmt::ClassDecl(statement) => statement.span,
         Stmt::TraitDecl(statement) => statement.span,
-        Stmt::ExtendDecl(statement) => statement.span,
+        Stmt::FacetDecl(statement) => statement.span,
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
         Stmt::While(statement) => statement.span,
@@ -367,7 +367,7 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
                 normalize_php_compat_class_member(member);
             }
         }
-        Stmt::ExtendDecl(statement) => {
+        Stmt::FacetDecl(statement) => {
             for member in &mut statement.members {
                 normalize_php_compat_class_member(member);
             }
@@ -2492,19 +2492,23 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
-        let extend_decl_stmt = just("extend")
+        let facet_decl_stmt = just("facet")
             .padded()
-            .ignore_then(php_name.clone().or(dotted_name.clone()))
+            .ignore_then(type_expr.clone().padded())
+            .then_ignore(text::keyword("as").padded())
+            .then_ignore(just('$').padded())
+            .then(text::ident().padded())
             .then_ignore(just('{').padded())
             .then(class_member.repeated().collect::<Vec<_>>())
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(target, members): (QualifiedName, Vec<ClassMember>), extra| {
+                |((target, receiver), members): ((String, &str), Vec<ClassMember>), extra| {
                     let span: SimpleSpan = extra.span();
 
-                    Stmt::ExtendDecl(ExtendDeclStmt {
+                    Stmt::FacetDecl(FacetDeclStmt {
                         target,
+                        receiver: receiver.to_string(),
                         members,
                         span: Span::new(span.start, span.end),
                     })
@@ -3325,7 +3329,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let declaration_stmt = class_decl_stmt
             .or(trait_decl_stmt)
-            .or(extend_decl_stmt)
+            .or(facet_decl_stmt)
             .or(gen_fn_decl_stmt)
             .or(fn_decl_stmt)
             .or(function_decl_stmt)

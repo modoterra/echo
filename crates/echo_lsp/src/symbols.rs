@@ -72,7 +72,7 @@ pub(crate) fn symbol_kind_to_lsp(kind: EchoSymbolKind) -> SymbolKind {
         EchoSymbolKind::Namespace => SymbolKind::NAMESPACE,
         EchoSymbolKind::TypeAlias => SymbolKind::TYPE_PARAMETER,
         EchoSymbolKind::ErrorType => SymbolKind::OBJECT,
-        EchoSymbolKind::Extension => SymbolKind::MODULE,
+        EchoSymbolKind::Facet => SymbolKind::MODULE,
     }
 }
 

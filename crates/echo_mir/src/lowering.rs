@@ -222,7 +222,7 @@ pub(crate) fn lower_syntax_statement(
         | Stmt::UnnamedExport(_)
         | Stmt::ClassDecl(_)
         | Stmt::TraitDecl(_)
-        | Stmt::ExtendDecl(_)
+        | Stmt::FacetDecl(_)
         | Stmt::TypeDecl(_) => MirStmt::Noop {
             source: statement.clone(),
         },

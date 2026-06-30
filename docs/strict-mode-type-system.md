@@ -28,7 +28,7 @@ Future typed Echo:
 - Associative arrays are rejected.
 - Explicit array keys are rejected, including numeric keys.
 - Arrays, lists, objects, tuples, and classes are separate concepts.
-- Dot access is for Echo structural objects and extension receiver members.
+- Dot access is for Echo structural objects and facet receiver members.
 - `->` remains for PHP/class member access.
 - `[]` is a PHP-compatible array literal and indexed access delimiter.
 - `$value[] = item` grows non-fixed arrays only; it is not list append syntax.
@@ -738,22 +738,22 @@ type Port = int where $ >= 1 && $ <= 65535;
 
 This sketch shows the likely future direction while keeping v1 focused on simpler aliases and structural types.
 
-## Receiver Functions And `extend`
+## Receiver Functions And `facet`
 
-Current preferred keyword: `extend`.
+Current preferred keyword: `facet`.
 
 Rationale:
 
 - It can apply multiple times to the same type or alias.
-- It extends the surface of a type without making everything a class.
+- It defines a method surface for a type without making everything a class.
 - It works for aliases such as `type UserList = list<User>`.
 - Alternatives like `on`, `impl`, `with`, `attach`, and `methods` were considered but are not chosen.
 
 Syntax:
 
 ```php
-extend list<T> as $list {
-    fn push(T $value): void {
+facet list<T> as $list {
+    fn push($value: T): void {
         // implementation
     }
 
@@ -763,40 +763,40 @@ extend list<T> as $list {
 }
 ```
 
-This is the extension-method shape for collection APIs: the receiver type is extended without converting the value family into a class.
+This is the facet-method shape for collection APIs: the receiver type gains a method surface without converting the value family into a class.
 
-Receiver binding is explicit through `as $name`:
+Receiver binding is explicit through `as $alias`:
 
 ```php
-extend UserList as $users {
+facet UserList as $users {
     fn active(): UserList {
-        // implementation
+        return $users.filter(fn ($user: User): bool => $user.active)
     }
 }
 ```
 
-The explicit receiver name makes method bodies clear and avoids implicit `$this` for non-class values.
+The explicit receiver alias keeps method bodies clear and avoids `$this` for non-class values.
 
-Using `$this` is allowed only when explicitly bound:
+Using `$this` is not allowed in facet blocks:
 
 ```php
-extend UserList as $this {
+facet UserList as $users {
     fn active(): UserList {
-        // $this is the receiver because the block declared it
+        return $this.filter(fn ($user: User): bool => $user.active)
     }
 }
 ```
 
-This form supports familiar method-body spelling while still requiring the receiver to be declared.
+The `$this` example is invalid because `$this` is reserved for class instances.
 
 Rule:
 
 ```text
-The receiver variable is declared by `as $name`.
-No receiver variable exists unless declared.
+The receiver variable is declared by `as $alias`.
+Methods do not declare an explicit receiver parameter.
 ```
 
-The rule keeps extension methods lexically explicit and prevents hidden receiver bindings.
+The rule keeps facet methods distinct from class methods while preserving direct method-call syntax at call sites.
 
 ## Access Model
 
@@ -804,7 +804,7 @@ Strict Echo separates access operators:
 
 ```php
 $value.field       // Echo structural object field access
-$value.method()    // Echo receiver function from extend block
+$value.method()    // Echo receiver function from facet block
 $value->member     // PHP/class property or method access
 $value[index]      // array, fixed-size array, or list index access
 $value[] = item    // non-fixed array append only
@@ -825,7 +825,7 @@ $array[] = 4;      // ok when $array is a non-fixed array
 
 The examples show how the access contract reads in real code and where PHP/class access remains separate from Echo structural access.
 
-`->` remains PHP/class-oriented. Dot access is Echo member access for structural object fields and receiver functions from `extend` blocks.
+`->` remains PHP/class-oriented. Dot access is Echo member access for structural object fields and receiver functions from `facet` blocks.
 
 Classes continue to use PHP-style `->`:
 
@@ -862,12 +862,12 @@ This example is the canonical typed Echo data-transfer shape: construct a struct
 
 ## Implementation Plan
 
-1. Add typed Echo parsing support for declarations, array/list/object/tuple literals, structural type aliases, and extend blocks.
-2. Add AST nodes for `TypeExpr`, structural fields, array/list/object/tuple literals, field/index access, receiver calls, and extend blocks.
+1. Add typed Echo parsing support for declarations, array/list/object/tuple literals, structural type aliases, and facet blocks.
+2. Add AST nodes for `TypeExpr`, structural fields, array/list/object/tuple literals, field/index access, receiver calls, and facet blocks.
 3. Add typed Echo semantic validation.
 4. Add type inference for arrays, lists, empty braces, objects, tuples, and contextual object construction.
 5. Add object field checking for required fields, optional fields, unknown fields, and const fields.
-6. Add extend-block method resolution for dot receiver calls.
+6. Add facet-block method resolution for dot receiver calls.
 7. Lower typed Echo values to compiler/runtime representations.
 
 Typed Echo validation must reject:
@@ -909,7 +909,7 @@ let $user: User = User {
     email: "a@example.com"
 }
 
-extend list<T> as $list {
+facet list<T> as $list {
     fn pop(): ?T {
         // placeholder
     }
@@ -972,11 +972,11 @@ Typed Echo rejects the same associative array syntax.
 ## Notes
 
 - Keep `->` for PHP/class access.
-- Use `.` for Echo structural field access and extension receiver calls.
+- Use `.` for Echo structural field access and facet receiver calls.
 - Use `[]` for array/list indexing and non-fixed array append.
 - `list<T>` is distinct from `array<T>` because list is linked and heap-backed.
 - `{}` defaults to empty list, but can satisfy an expected empty/optional-field object type.
 - Object fields are mutable by default.
 - `const` fields are immutable after construction.
 - Non-existing fields are hard errors.
-- `extend Type as $receiver { ... }` is the current receiver-function design, but the keyword can remain open if a stronger term is discovered.
+- `facet Type as $receiver { ... }` is the current receiver-function design, but the keyword can remain open if a stronger term is discovered.

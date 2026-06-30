@@ -18,7 +18,7 @@ pub enum SymbolKind {
     Namespace,
     TypeAlias,
     ErrorType,
-    Extension,
+    Facet,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

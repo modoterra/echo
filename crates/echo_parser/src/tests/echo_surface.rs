@@ -127,21 +127,22 @@ pub {
 }
 
 #[test]
-fn parses_extend_methods_with_receiver_constants() {
+fn parses_facet_methods_with_receiver_alias() {
     let program = parse(
-        r#"extend Instant {
+        r#"facet Instant as $instant {
     pub fn add($duration: Duration): Instant {
-        return time.add($this, $duration)
+        return time.add($instant, $duration)
     }
 }
 "#,
     )
-    .expect("extend methods parse");
+    .expect("facet methods parse");
 
     assert!(matches!(
         &program.statements[0],
-        Stmt::ExtendDecl(statement)
-            if statement.target.as_string() == "Instant"
+        Stmt::FacetDecl(statement)
+            if statement.target == "Instant"
+                && statement.receiver == "instant"
                 && matches!(
                     &statement.members[0],
                     ClassMember::Method(method)

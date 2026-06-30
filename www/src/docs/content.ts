@@ -4840,14 +4840,14 @@ export const docsPages: DocsPage[] = [
       },
       {
         title: "Receiver Methods",
-        tags: ["extend", "receiver", "method"],
+        tags: ["facet", "receiver", "method"],
         aliases: ["timer elapsed", "duration total_millis", "instant unix"],
         blocks: [
           {
             kind: "paragraph",
             text: [
               "Receiver methods operate on existing time values and are defined with ",
-              { code: "extend" },
+              { code: "facet" },
               ". Do not model this behavior as module functions like ",
               { code: "time.elapsed($timer)" },
               ".",
@@ -4855,7 +4855,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "extend Instant {\n    pub fn to_unix(self): i64 {\n        // seconds since Unix epoch\n    }\n}\n\nlet $unix = time.now().to_unix()\nlet $elapsed = time.timer().elapsed()",
+            code: "facet Instant as $instant {\n    pub fn to_unix(): i64 {\n        // seconds since Unix epoch\n    }\n}\n\nlet $unix = time.now().to_unix()\nlet $elapsed = time.timer().elapsed()",
           },
           {
             kind: "paragraph",
@@ -4873,7 +4873,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "extend Duration {\n    pub fn total_millis(self): i128 {\n        // total milliseconds\n    }\n\n    pub fn whole_seconds(self): i64 {\n        // whole elapsed seconds\n    }\n}\n\nlet $elapsed = time.timer().elapsed()\necho $elapsed.total_millis()",
+            code: "facet Duration as $duration {\n    pub fn total_millis(): i128 {\n        // total milliseconds\n    }\n\n    pub fn whole_seconds(): i64 {\n        // whole elapsed seconds\n    }\n}\n\nlet $elapsed = time.timer().elapsed()\necho $elapsed.total_millis()",
           },
         ],
       },

@@ -100,6 +100,7 @@ pub mod keywords {
     pub const ELSE: Keyword = Keyword::new("else", KeywordRole::Statement, SyntaxMode::Php);
     pub const ELSEIF: Keyword = Keyword::new("elseif", KeywordRole::Statement, SyntaxMode::Php);
     pub const FALSE: Keyword = Keyword::new("false", KeywordRole::Literal, SyntaxMode::Php);
+    pub const FACET: Keyword = Keyword::new("facet", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const FN: Keyword = Keyword::new("fn", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const FORK: Keyword = Keyword::new("fork", KeywordRole::Expression, SyntaxMode::Echo);
     pub const FROM: Keyword = Keyword::new("from", KeywordRole::Import, SyntaxMode::Echo);
@@ -153,6 +154,7 @@ pub mod keywords {
         ELSE,
         ELSEIF,
         FALSE,
+        FACET,
         FN,
         FORK,
         FROM,
@@ -358,6 +360,7 @@ pub mod tree_sitter {
       $.from_use_declaration,
       $.function_declaration,
       $.class_declaration,
+      $.facet_declaration,
       $.type_declaration,
       $.let_statement,
       $.echo_statement,
@@ -426,6 +429,16 @@ pub mod tree_sitter {
         GrammarRule::new(
             "type_declaration",
             r#"seq("type", field("name", $.identifier), field("body", $.class_body))"#,
+        ),
+        GrammarRule::new(
+            "facet_declaration",
+            r#"seq(
+      "facet",
+      field("target", choice($.module_path, $.qualified_name, $.identifier)),
+      "as",
+      field("receiver", seq("$", $.identifier)),
+      field("body", $.class_body),
+    )"#,
         ),
         GrammarRule::new(
             "class_body",

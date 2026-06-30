@@ -323,17 +323,15 @@ impl IndexFactExtractor {
                     }
                 }
             }
-            Stmt::ExtendDecl(statement) => {
+            Stmt::FacetDecl(statement) => {
                 for member in &statement.members {
                     match member {
                         ClassMember::Method(method) => {
                             self.declarations.push(SymbolFact {
                                 name: SymbolName::new(method.name.as_str()),
-                                fq_name: Some(self.fq_name(&format!(
-                                    "{}::{}",
-                                    statement.target.as_string(),
-                                    method.name
-                                ))),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.target, method.name)),
+                                ),
                                 kind: SymbolKind::Method,
                                 range: span_range(method.span),
                                 selection_range: self
@@ -352,11 +350,12 @@ impl IndexFactExtractor {
                         ClassMember::Property(property) => {
                             self.declarations.push(SymbolFact {
                                 name: SymbolName::new(property.name.as_str()),
-                                fq_name: Some(self.fq_name(&format!(
-                                    "{}::${}",
-                                    statement.target.as_string(),
-                                    property.name
-                                ))),
+                                fq_name: Some(
+                                    self.fq_name(&format!(
+                                        "{}::${}",
+                                        statement.target, property.name
+                                    )),
+                                ),
                                 kind: SymbolKind::Property,
                                 range: span_range(property.span),
                                 selection_range: self
@@ -372,11 +371,12 @@ impl IndexFactExtractor {
                         ClassMember::Const(constant) => {
                             self.declarations.push(SymbolFact {
                                 name: SymbolName::new(constant.name.as_str()),
-                                fq_name: Some(self.fq_name(&format!(
-                                    "{}::{}",
-                                    statement.target.as_string(),
-                                    constant.name
-                                ))),
+                                fq_name: Some(
+                                    self.fq_name(&format!(
+                                        "{}::{}",
+                                        statement.target, constant.name
+                                    )),
+                                ),
                                 kind: SymbolKind::Constant,
                                 range: span_range(constant.span),
                                 selection_range: self
