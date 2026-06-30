@@ -363,6 +363,34 @@ fn ini_get_lowers_to_unary_runtime_call() {
 }
 
 #[test]
+fn ini_set_lowers_to_binary_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "ini_set".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "memory_limit".to_string(),
+                    span: Span::new(8, 22),
+                }),
+                Expr::String(StringLiteral {
+                    value: "128M".to_string(),
+                    span: Span::new(24, 30),
+                })
+            ],
+            span: Span::new(0, 31),
+        })],
+        span: Span::new(0, 32),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_ini_set(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("call %EchoValue @echo_php_ini_set("), "{ir}");
+}
+
+#[test]
 fn get_loaded_extensions_lowers_default_false_argument() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

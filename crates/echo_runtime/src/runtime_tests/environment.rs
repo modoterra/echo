@@ -84,6 +84,20 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_ini_get(test_string_value(b"memory_limit")),
         EchoValue::bool(false)
     );
+    assert_eq!(
+        echo_php_ini_set(
+            test_string_value(b"memory_limit"),
+            test_string_value(b"128M")
+        ),
+        EchoValue::bool(false)
+    );
+    assert_eq!(
+        echo_php_ini_set(
+            test_string_value(b"include_path"),
+            test_string_value(b".:/app")
+        ),
+        EchoValue::bool(false)
+    );
     assert_eq!(echo_php_php_ini_loaded_file(), EchoValue::bool(false));
     assert_eq!(echo_php_php_ini_scanned_files(), EchoValue::bool(false));
 }

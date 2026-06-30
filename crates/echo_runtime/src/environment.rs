@@ -117,6 +117,18 @@ pub extern "C" fn echo_php_ini_get(option: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
+    let Some(_option) = option.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Some(_value) = value.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_php_ini_loaded_file() -> EchoValue {
     EchoValue::bool(false)
 }
