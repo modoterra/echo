@@ -360,7 +360,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `inet_ntop` | missing |  |
 | `inet_pton` | missing |  |
 | `ini_alter` | missing |  |
-| `ini_get` | missing |  |
+| `ini_get` | implemented | Returns `false` for configuration options because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get.php |
 | `ini_get_all` | missing |  |
 | `ini_parse_quantity` | missing |  |
 | `ini_restore` | missing |  |

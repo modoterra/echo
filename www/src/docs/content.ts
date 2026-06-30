@@ -1261,6 +1261,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns a PHP configuration option value, or false when it is unavailable.",
       },
       {
+        name: "ini_get",
+        signature: "ini_get(string $option): string|false",
+        description: "Returns a PHP ini option value, or false when it is unavailable.",
+      },
+      {
         name: "php_ini_loaded_file",
         signature: "php_ini_loaded_file(): string|false",
         description: "Returns the loaded PHP configuration file path, or false when none is loaded.",
@@ -1973,6 +1978,14 @@ if ($ini === false) {
 
 if ($includePath === false) {
     echo "No include_path config value\\n"
+}`,
+  ],
+  [
+    "ini_get",
+    `let $memoryLimit = ini_get("memory_limit")
+
+if ($memoryLimit === false) {
+    echo "No memory_limit config value\\n"
 }`,
   ],
   [
@@ -3871,6 +3884,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "get_cfg_var",
     "Use `get_cfg_var()` for compatibility checks around PHP configuration options. Echo currently returns false because it does not load PHP configuration values.",
+  ],
+  [
+    "ini_get",
+    "Use `ini_get()` for compatibility checks around PHP ini options. Echo currently returns false because it does not model PHP ini option values.",
   ],
   [
     "php_ini_scanned_files",

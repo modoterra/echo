@@ -328,7 +328,6 @@ fn is_platform_check_utility_call(name: &str) -> bool {
         name,
         "headers_sent"
             | "declare"
-            | "ini_get"
             | "implode"
             | "str_replace"
             | "defined"
