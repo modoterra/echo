@@ -338,6 +338,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Binary-safe case-insensitive string comparison.",
       },
       {
+        name: "strnatcmp",
+        signature: "strnatcmp(string $string1, string $string2): int",
+        description: "Natural-order string comparison.",
+      },
+      {
+        name: "strnatcasecmp",
+        signature: "strnatcasecmp(string $string1, string $string2): int",
+        description: "Case-insensitive natural-order string comparison.",
+      },
+      {
         name: "strncmp",
         signature: "strncmp(string $string1, string $string2, int $length): int",
         description: "Binary-safe string comparison up to a fixed length.",
@@ -2056,6 +2066,18 @@ let $result = strcasecmp($submitted, $known)
 echo "Case-insensitive compare: " . $result . "\\n"`,
   ],
   [
+    "strnatcmp",
+    `let $before = strnatcmp("file9", "file10")
+
+echo "Natural compare: " . $before . "\\n"`,
+  ],
+  [
+    "strnatcasecmp",
+    `let $same = strnatcasecmp("Image2", "image2")
+
+echo "Natural case compare: " . $same . "\\n"`,
+  ],
+  [
     "strcmp",
     `let $expected = "sha256"
 let $actual = "sha256"
@@ -3212,6 +3234,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "strcasecmp",
     "Use `strcasecmp()` for case-insensitive ordering of ASCII-style labels such as headers, command names, or status values.",
+  ],
+  [
+    "strnatcmp",
+    "Use `strnatcmp()` when labels contain numeric suffixes and `file9` should sort before `file10`. Treat only the sign of the return value as meaningful.",
+  ],
+  [
+    "strnatcasecmp",
+    "Use `strnatcasecmp()` for natural ordering when ASCII capitalization should not affect label order.",
   ],
   [
     "strncmp",

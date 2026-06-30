@@ -767,6 +767,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection(
+            "strnatcmp",
+            &[("string1", Some("string")), ("string2", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
+            "strnatcasecmp",
+            &[("string1", Some("string")), ("string2", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "strncmp",
             &[
                 ("string1", Some("string")),

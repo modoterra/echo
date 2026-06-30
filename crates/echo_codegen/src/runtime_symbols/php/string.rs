@@ -459,6 +459,22 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_strnatcmp",
+            echo_runtime::echo_php_strnatcmp
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_strnatcasecmp",
+            echo_runtime::echo_php_strnatcasecmp
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_strncmp",
             echo_runtime::echo_php_strncmp
                 as extern "C" fn(

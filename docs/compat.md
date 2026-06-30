@@ -609,8 +609,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `stripos` | implemented | Finds the first case-insensitive ASCII byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.stripos.php |
 | `stripslashes` | implemented | Removes backslash quoting from escaped strings, including PHP's `\0` NUL handling. Source: https://www.php.net/manual/en/function.stripslashes.php |
 | `stristr` | implemented | Case-insensitive `strstr()` that returns the matching tail or `false`; before-needle mode is deferred. Source: https://www.php.net/manual/en/function.stristr.php |
-| `strnatcasecmp` | missing |  |
-| `strnatcmp` | missing |  |
+| `strnatcasecmp` | implemented | Compares strings in natural order with ASCII case folding. Source: https://www.php.net/manual/en/function.strnatcasecmp.php |
+| `strnatcmp` | implemented | Compares strings in natural order so digit runs sort by numeric value. Source: https://www.php.net/manual/en/function.strnatcmp.php |
 | `strpbrk` | implemented | Searches for the first byte from a character mask and returns the matching tail or `false`. Source: https://www.php.net/manual/en/function.strpbrk.php |
 | `strpos` | implemented | Finds the first binary-safe byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.strpos.php |
 | `strptime` | missing |  |

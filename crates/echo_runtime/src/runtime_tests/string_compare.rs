@@ -162,6 +162,34 @@ fn strcasecmp_preserves_php_ascii_case_insensitive_behavior() {
 }
 
 #[test]
+fn natural_compare_builtins_preserve_php_number_aware_ordering() {
+    assert_eq!(
+        echo_php_strnatcmp(test_string_value(b"img2"), test_string_value(b"img10")),
+        EchoValue::int(-1)
+    );
+    assert_eq!(
+        echo_php_strnatcmp(test_string_value(b"img10"), test_string_value(b"img2")),
+        EchoValue::int(1)
+    );
+    assert_eq!(
+        echo_php_strnatcmp(test_string_value(b"img10"), test_string_value(b"img10")),
+        EchoValue::int(0)
+    );
+    assert_eq!(
+        echo_php_strnatcmp(test_string_value(b"Image2"), test_string_value(b"image2")),
+        EchoValue::int(-1)
+    );
+    assert_eq!(
+        echo_php_strnatcasecmp(test_string_value(b"Image2"), test_string_value(b"image2")),
+        EchoValue::int(0)
+    );
+    assert_eq!(
+        echo_php_strnatcasecmp(test_string_value(b"file9"), test_string_value(b"file10")),
+        EchoValue::int(-1)
+    );
+}
+
+#[test]
 fn strncmp_builtins_preserve_php_prefix_behavior() {
     let abc = Box::into_raw(Box::new(EchoString {
         bytes: b"abc".to_vec(),

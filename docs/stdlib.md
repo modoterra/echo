@@ -341,6 +341,20 @@ Use it at the input boundary for PHP-compatible escaped byte strings, then keep 
 - `echo_php_substr_replace(...)` is PHP builtin ABI because `substr_replace()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
+- `echo_php_strnatcmp(...)` and `echo_php_strnatcasecmp(...)` are PHP builtin ABI because `strnatcmp()` and `strnatcasecmp()` are PHP compatibility functions for natural-order string comparisons.
+
+Natural-order comparisons are useful when labels contain numeric suffixes that should sort by number rather than byte order:
+
+```php
+<?php
+let $before = strnatcmp("file9", "file10")
+let $same = strnatcasecmp("Image2", "image2")
+
+echo "natural before: " . $before . "\n"
+echo "case-insensitive same: " . $same . "\n"
+```
+
+Use `strnatcmp()` when case should remain significant, and `strnatcasecmp()` when labels should compare the same across ASCII capitalization. Only the sign of the integer matters for ordering decisions.
 - `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_str_word_count(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite, HTML escaping, tag stripping, word-counting, and transfer-encoding helpers are PHP compatibility functions.
 
 `str_word_count()` is useful when an import or summary pipeline needs a quick scalar measure of plain-text content before heavier processing:
