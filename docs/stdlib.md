@@ -290,6 +290,7 @@ Examples:
 - `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
 - `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
+- `echo_php_intdiv(...)` is PHP builtin ABI because `intdiv()` is a PHP compatibility function for integer quotient division.
 - `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are PHP builtin ABI because PHP exposes hyperbolic math helpers as compatibility functions.
 - `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_round(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
 - `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, `echo_php_pow(...)`, `echo_php_fdiv(...)`, and `echo_php_fpow(...)` are PHP builtin ABI because PHP exposes exponential, logarithmic, IEEE division, and IEEE power helpers as compatibility functions.
@@ -481,15 +482,17 @@ let $width = 257
 let $height = 143
 let $columns = ceil($width / $tile_size)
 let $rows = ceil($height / $tile_size)
+let $full_rows = intdiv($height, $tile_size)
 let $billing_units = round(12.345, 2)
 let $diagonal = intval(hypot($width, $height))
 
 echo "tiles:" . $columns . "x" . $rows . "\n"
+echo "full rows:" . $full_rows . "\n"
 echo "billing:" . $billing_units . "\n"
 echo "diagonal:" . $diagonal . "\n"
 ```
 
-Use `ceil()` when a partial unit still needs a whole allocation, such as enough tiles, pages, or batches to cover all input. Use `round()` when a fractional value needs a fixed display or reporting precision. Use `floor()` when extra fractional capacity should be ignored, and use `sqrt()` or `hypot()` for geometry, distance checks, and vector lengths without open-coding the square-root calculation.
+Use `ceil()` when a partial unit still needs a whole allocation, such as enough tiles, pages, or batches to cover all input. Use `intdiv()` when only complete integer groups should count, such as full rows, batches, or pages consumed. Use `round()` when a fractional value needs a fixed display or reporting precision. Use `floor()` when extra fractional capacity should be ignored, and use `sqrt()` or `hypot()` for geometry, distance checks, and vector lengths without open-coding the square-root calculation.
 
 Float conversion and remainder helpers make user-provided scalar settings usable in recurring numeric code:
 

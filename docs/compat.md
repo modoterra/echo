@@ -365,7 +365,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ini_parse_quantity` | missing |  |
 | `ini_restore` | missing |  |
 | `ini_set` | missing |  |
-| `intdiv` | missing |  |
+| `intdiv` | implemented | Divides integer-compatible operands and returns the quotient truncated toward zero; division by zero and overflow currently surface as runtime errors. Source: https://www.php.net/manual/en/function.intdiv.php |
 | `intval` | implemented | Converts current scalar values to integers using PHP-style bool, null, float, and numeric-string coercion. Source: https://www.php.net/manual/en/function.intval.php |
 | `ip2long` | missing |  |
 | `iptcembed` | missing |  |

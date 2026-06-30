@@ -1,0 +1,6 @@
+positive:[3]
+negative-left:[-3]
+negative-right:[-3]
+both-negative:[3]
+string-numbers:[7]
+exists:[1]

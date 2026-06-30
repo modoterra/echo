@@ -223,6 +223,7 @@ fn string_predicate_builtins_lower_to_php_builtin_with_two_echo_value_arguments(
         ("strcmp", "echo_php_strcmp"),
         ("strcasecmp", "echo_php_strcasecmp"),
         ("atan2", "echo_php_atan2"),
+        ("intdiv", "echo_php_intdiv"),
         ("fdiv", "echo_php_fdiv"),
         ("fpow", "echo_php_fpow"),
         ("hypot", "echo_php_hypot"),

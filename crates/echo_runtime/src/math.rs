@@ -66,6 +66,21 @@ pub extern "C" fn echo_php_atan2(y: EchoValue, x: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_intdiv(num1: EchoValue, num2: EchoValue) -> EchoValue {
+    let Some(num1) = num1.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(num2) = num2.php_int_value() else {
+        return EchoValue::error();
+    };
+
+    match num1.checked_div(num2) {
+        Some(result) => EchoValue::int(result),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sinh(value: EchoValue) -> EchoValue {
     php_unary_float_builtin(value, echo_math_sinh)
 }

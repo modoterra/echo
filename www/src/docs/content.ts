@@ -741,6 +741,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the inverse hyperbolic tangent.",
       },
       {
+        name: "intdiv",
+        signature: "intdiv(int $num1, int $num2): int",
+        description: "Returns the integer quotient of a division.",
+      },
+      {
         name: "ceil",
         signature: "ceil(int|float $num): float",
         description: "Rounds a number up.",
@@ -2616,6 +2621,14 @@ echo "Inverse hyperbolic value: " . $value . "\\n"`,
 echo "Inverse hyperbolic value: " . $value . "\\n"`,
   ],
   [
+    "intdiv",
+    `let $items = 47
+let $boxSize = 12
+let $fullBoxes = intdiv($items, $boxSize)
+
+echo "Full boxes: " . $fullBoxes . "\\n"`,
+  ],
+  [
     "ceil",
     `let $pages = ceil(41 / 20)
 
@@ -3423,6 +3436,10 @@ export const builtinExampleNotes = new Map<string, string>([
   ],
   ["acosh", "Use `acosh()` to invert hyperbolic cosine after checking the input is at least `1`."],
   ["atanh", "Use `atanh()` to invert hyperbolic tangent for inputs strictly between `-1` and `1`."],
+  [
+    "intdiv",
+    "Use `intdiv()` when only complete integer groups should count, such as full boxes, consumed pages, or batch slots, and fractional remainders must be discarded toward zero.",
+  ],
   [
     "ceil",
     "Use `ceil()` when partial units must round upward, such as pages, billing blocks, or chunk counts.",

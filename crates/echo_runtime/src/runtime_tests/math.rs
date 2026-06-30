@@ -115,6 +115,38 @@ fn rounding_and_magnitude_builtins_preserve_php_float_behavior() {
 }
 
 #[test]
+fn intdiv_preserves_php_integer_quotient_behavior() {
+    assert_eq!(
+        echo_php_intdiv(EchoValue::int(17), EchoValue::int(5)),
+        EchoValue::int(3)
+    );
+    assert_eq!(
+        echo_php_intdiv(EchoValue::int(-17), EchoValue::int(5)),
+        EchoValue::int(-3)
+    );
+    assert_eq!(
+        echo_php_intdiv(EchoValue::int(17), EchoValue::int(-5)),
+        EchoValue::int(-3)
+    );
+    assert_eq!(
+        echo_php_intdiv(EchoValue::int(-17), EchoValue::int(-5)),
+        EchoValue::int(3)
+    );
+    assert_eq!(
+        echo_php_intdiv(test_string_value(b"42"), test_string_value(b"6")),
+        EchoValue::int(7)
+    );
+    assert_eq!(
+        echo_php_intdiv(EchoValue::int(1), EchoValue::int(0)),
+        EchoValue::error()
+    );
+    assert_eq!(
+        echo_php_intdiv(EchoValue::int(i64::MIN), EchoValue::int(-1)),
+        EchoValue::error()
+    );
+}
+
+#[test]
 fn exponential_and_logarithm_builtins_preserve_php_float_behavior() {
     assert_float_value(echo_php_exp(EchoValue::int(0)), 1.0);
     assert_float_value(echo_php_expm1(EchoValue::int(0)), 0.0);

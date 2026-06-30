@@ -275,6 +275,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("y", Some("float")), ("x", Some("float"))],
             Some("float"),
         ),
+        php_builtin_reflection(
+            "intdiv",
+            &[("num1", Some("int")), ("num2", Some("int"))],
+            Some("int"),
+        ),
         php_builtin_reflection("sinh", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection("cosh", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection("tanh", &[("num", Some("float"))], Some("float")),
