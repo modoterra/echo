@@ -454,3 +454,44 @@ pub extern "C" fn echo_php_substr(value: EchoValue, offset: EchoValue) -> EchoVa
 
     echo_runtime_string(bytes[start as usize..].to_vec())
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_substr_replace(
+    value: EchoValue,
+    replacement: EchoValue,
+    offset: EchoValue,
+    length: EchoValue,
+) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(replacement) = replacement.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(offset) = offset.int_value() else {
+        return EchoValue::error();
+    };
+
+    let len = bytes.len() as i64;
+    let start = if offset >= 0 { offset } else { len + offset }.clamp(0, len);
+    let end = if length.is_null() {
+        len
+    } else {
+        let Some(length) = length.int_value() else {
+            return EchoValue::error();
+        };
+        if length >= 0 {
+            start.saturating_add(length).min(len)
+        } else {
+            (len + length).clamp(start, len)
+        }
+    };
+
+    let start = start as usize;
+    let end = end as usize;
+    let mut result = Vec::with_capacity(bytes.len() - (end - start) + replacement.len());
+    result.extend_from_slice(&bytes[..start]);
+    result.extend_from_slice(&replacement);
+    result.extend_from_slice(&bytes[end..]);
+    echo_runtime_string(result)
+}

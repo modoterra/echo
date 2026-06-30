@@ -99,8 +99,8 @@ pub use string::{
     echo_php_strncmp, echo_php_strpbrk, echo_php_strpos, echo_php_strrchr, echo_php_strrev,
     echo_php_strripos, echo_php_strrpos, echo_php_strspn, echo_php_strstr, echo_php_strtolower,
     echo_php_strtoupper, echo_php_strtr, echo_php_strval, echo_php_substr, echo_php_substr_compare,
-    echo_php_substr_count, echo_php_trim, echo_php_ucfirst, echo_php_ucwords, echo_value_concat,
-    echo_value_string,
+    echo_php_substr_count, echo_php_substr_replace, echo_php_trim, echo_php_ucfirst,
+    echo_php_ucwords, echo_value_concat, echo_value_string,
 };
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};

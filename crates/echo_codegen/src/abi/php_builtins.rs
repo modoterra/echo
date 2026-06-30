@@ -49,6 +49,7 @@ pub enum BuiltinCodegen {
     Uniqid,
     Explode,
     SubstrCompare,
+    SubstrReplace,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

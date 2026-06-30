@@ -313,6 +313,7 @@ Examples:
 - `echo_php_strcspn(...)` is PHP builtin ABI because `strcspn()` is a PHP compatibility function.
 - `echo_php_substr_count(...)` is PHP builtin ABI because `substr_count()` is a PHP compatibility function.
 - `echo_php_substr_compare(...)` is PHP builtin ABI because `substr_compare()` is a PHP compatibility function.
+- `echo_php_substr_replace(...)` is PHP builtin ABI because `substr_replace()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
 - `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite and transfer-encoding helpers are PHP compatibility functions.

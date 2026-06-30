@@ -475,6 +475,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::SubstrCompare,
     },
     PhpBuiltin {
+        php_name: "substr_replace",
+        symbol: "echo_php_substr_replace",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::SubstrReplace,
+    },
+    PhpBuiltin {
         php_name: "strcmp",
         symbol: "echo_php_strcmp",
         helper_symbol: None,

@@ -1,0 +1,6 @@
+token:[Bearer redacted]
+insert:[invoice-2026-draft-final.txt]
+replace-window:[abXXf]
+negative-length:[abYYf]
+past-end:[abc!]
+exists:[1]

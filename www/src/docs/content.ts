@@ -302,6 +302,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Compares a substring against another string.",
       },
       {
+        name: "substr_replace",
+        signature:
+          "substr_replace(string $string, string $replace, int $offset, int|null $length): string",
+        description: "Replaces part of a string at a byte offset.",
+      },
+      {
         name: "strcmp",
         signature: "strcmp(string $string1, string $string2): int",
         description: "Binary-safe string comparison.",
@@ -2221,6 +2227,13 @@ let $depth = substr_count($route, "/")
 echo "Route depth: " . $depth . "\\n"`,
   ],
   [
+    "substr_replace",
+    `let $filename = "invoice-2026-draft.txt"
+let $finalName = substr_replace($filename, "-final", -4, 0)
+
+echo $finalName . "\\n"`,
+  ],
+  [
     "trim",
     `let $rawEmail = " admin@example.com "
 let $email = trim($rawEmail)
@@ -3074,6 +3087,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "substr_compare",
     "Use `substr_compare()` when a specific byte range must be compared without first allocating a separate substring.",
+  ],
+  [
+    "substr_replace",
+    "Use `substr_replace()` for byte-position rewrites such as inserting a suffix before an extension, redacting a known token range, or replacing a fixed-width field.",
   ],
   [
     "strcmp",

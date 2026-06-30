@@ -699,6 +699,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection(
+            "substr_replace",
+            &[
+                ("string", Some("string")),
+                ("replace", Some("string")),
+                ("offset", Some("int")),
+                ("length", Some("int|null")),
+            ],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "substr_compare",
             &[
                 ("haystack", Some("string")),

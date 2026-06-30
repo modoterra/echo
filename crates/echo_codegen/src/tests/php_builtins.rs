@@ -213,6 +213,82 @@ fn string_predicate_builtins_lower_to_php_builtin_with_two_echo_value_arguments(
 }
 
 #[test]
+fn substr_replace_lowers_optional_length_to_null() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "substr_replace".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "Bearer abc123".to_string(),
+                    span: Span::new(15, 30),
+                }),
+                Expr::String(StringLiteral {
+                    value: "redacted".to_string(),
+                    span: Span::new(32, 42),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "7".to_string(),
+                    span: Span::new(44, 45),
+                }),
+            ],
+            span: Span::new(0, 46),
+        })],
+        span: Span::new(0, 47),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "declare %EchoValue @echo_php_substr_replace(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+        ),
+        "{ir}"
+    );
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_substr_replace(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 2, i64 7 }, %EchoValue { i32 0, i64 0 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
+fn substr_replace_lowers_explicit_length_argument() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "substr_replace".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "abcdef".to_string(),
+                    span: Span::new(15, 23),
+                }),
+                Expr::String(StringLiteral {
+                    value: "XX".to_string(),
+                    span: Span::new(25, 29),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "2".to_string(),
+                    span: Span::new(31, 32),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "3".to_string(),
+                    span: Span::new(34, 35),
+                }),
+            ],
+            span: Span::new(0, 36),
+        })],
+        span: Span::new(0, 37),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_substr_replace(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 2, i64 2 }, %EchoValue { i32 2, i64 3 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
 fn runtime_declarations_deduplicate_alias_symbols() {
     let declarations = runtime_declarations();
 

@@ -178,7 +178,8 @@ impl IrModule {
             | BuiltinCodegen::Touch
             | BuiltinCodegen::Uniqid
             | BuiltinCodegen::Explode
-            | BuiltinCodegen::SubstrCompare => {
+            | BuiltinCodegen::SubstrCompare
+            | BuiltinCodegen::SubstrReplace => {
                 unreachable!("expression builtin used as statement call")
             }
         }
