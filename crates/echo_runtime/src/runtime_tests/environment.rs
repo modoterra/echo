@@ -131,6 +131,7 @@ fn environment_process_builtins_follow_php_shapes() {
         EchoValue::int(0)
     );
     assert_eq!(echo_php_get_include_path(), EchoValue::bool(false));
+    assert_eq!(echo_php_count(echo_php_headers_list()), EchoValue::int(0));
     assert_eq!(
         echo_php_ini_set(
             test_string_value(b"memory_limit"),

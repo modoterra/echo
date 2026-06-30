@@ -148,6 +148,11 @@ pub extern "C" fn echo_php_get_include_path() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_headers_list() -> EchoValue {
+    echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
     let Some(_option) = option.string_bytes() else {
         return EchoValue::bool(false);

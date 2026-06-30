@@ -1281,6 +1281,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns PHP's current include_path configuration value.",
       },
       {
+        name: "headers_list",
+        signature: "headers_list(): array",
+        description: "Returns the list of queued HTTP response headers.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2037,6 +2042,12 @@ echo "memory bytes: " . $bytes . "\\n"`,
 if ($path === false) {
     echo "No include_path config value\\n"
 }`,
+  ],
+  [
+    "headers_list",
+    `let $headers = headers_list()
+
+echo "headers: " . count($headers) . "\\n"`,
   ],
   [
     "ini_set",
@@ -3973,6 +3984,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "get_include_path",
     "Use `get_include_path()` when compatibility code checks PHP's include search path before resolving legacy includes. Echo currently returns false because it does not model PHP ini option values.",
+  ],
+  [
+    "headers_list",
+    "Use `headers_list()` when compatibility diagnostics inspect queued HTTP response headers. Echo currently returns an empty array because it does not model an HTTP header layer.",
   ],
   [
     "ini_set",
