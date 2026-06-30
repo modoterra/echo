@@ -1271,6 +1271,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
       },
       {
+        name: "ini_restore",
+        signature: "ini_restore(string $option): void",
+        description: "Restores a PHP ini option to its original value.",
+      },
+      {
         name: "php_ini_loaded_file",
         signature: "php_ini_loaded_file(): string|false",
         description: "Returns the loaded PHP configuration file path, or false when none is loaded.",
@@ -2000,6 +2005,13 @@ if ($memoryLimit === false) {
 if ($previous === false) {
     echo "memory_limit could not be changed\\n"
 }`,
+  ],
+  [
+    "ini_restore",
+    `ini_set("memory_limit", "128M")
+ini_restore("memory_limit")
+
+echo "memory_limit restored\\n"`,
   ],
   [
     "php_ini_scanned_files",
@@ -3905,6 +3917,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ini_set",
     "Use `ini_set()` when compatibility code attempts to change a PHP ini option and needs a fallback. Echo currently returns false because it does not model mutable PHP ini option values.",
+  ],
+  [
+    "ini_restore",
+    "Use `ini_restore()` to preserve compatibility cleanup around localized PHP ini overrides. Echo currently treats it as a no-op because it does not model mutable PHP ini option values.",
   ],
   [
     "php_ini_scanned_files",

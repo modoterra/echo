@@ -363,7 +363,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ini_get` | implemented | Returns `false` for configuration options because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get.php |
 | `ini_get_all` | missing |  |
 | `ini_parse_quantity` | missing |  |
-| `ini_restore` | missing |  |
+| `ini_restore` | implemented | No-op because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-restore.php |
 | `ini_set` | implemented | Returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-set.php |
 | `intdiv` | implemented | Divides integer-compatible operands and returns the quotient truncated toward zero; division by zero and overflow currently surface as runtime errors. Source: https://www.php.net/manual/en/function.intdiv.php |
 | `intval` | implemented | Converts current scalar values to integers using PHP-style bool, null, float, and numeric-string coercion. Source: https://www.php.net/manual/en/function.intval.php |

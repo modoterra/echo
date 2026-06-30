@@ -391,6 +391,28 @@ fn ini_set_lowers_to_binary_runtime_call() {
 }
 
 #[test]
+fn ini_restore_lowers_to_void_unary_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Expr(echo_ast::ExprStmt {
+        expr: Expr::FunctionCall(FunctionCallExpr {
+            name: "ini_restore".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "memory_limit".to_string(),
+                span: Span::new(12, 26),
+            })],
+            span: Span::new(0, 27),
+        }),
+        span: Span::new(0, 28),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare void @echo_php_ini_restore(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("call void @echo_php_ini_restore("), "{ir}");
+}
+
+#[test]
 fn get_loaded_extensions_lowers_default_false_argument() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

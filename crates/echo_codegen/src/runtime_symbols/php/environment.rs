@@ -86,6 +86,10 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_ini_restore",
+            echo_runtime::echo_php_ini_restore as extern "C" fn(echo_runtime::EchoValue) as usize,
+        ),
+        (
             "echo_php_php_ini_loaded_file",
             echo_runtime::echo_php_php_ini_loaded_file as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

@@ -58,6 +58,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("option", Some("string")), ("value", Some("string"))],
             Some("string|false"),
         ),
+        php_builtin_reflection("ini_restore", &[("option", Some("string"))], Some("void")),
         php_builtin_reflection("php_ini_loaded_file", &[], Some("string|false")),
         php_builtin_reflection("php_ini_scanned_files", &[], Some("string|false")),
         php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),
