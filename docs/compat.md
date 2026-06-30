@@ -113,7 +113,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `trait_exists` | missing |  |
 | `trigger_error` | missing |  |
 | `user_error` | missing |  |
-| `zend_version` | missing |  |
+| `zend_version` | implemented | Returns Echo's Zend Engine compatibility version string. Source: https://www.php.net/manual/en/function.zend-version.php |
 
 ### standard (175/528)
 

@@ -27,6 +27,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string|false"),
         ),
         php_builtin_reflection("php_sapi_name", &[], Some("string|false")),
+        php_builtin_reflection("zend_version", &[], Some("string")),
         php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),
         php_builtin_reflection(
             "ob_implicit_flush",

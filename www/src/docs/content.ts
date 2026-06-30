@@ -1236,6 +1236,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the PHP Server API name for the current runtime.",
       },
       {
+        name: "zend_version",
+        signature: "zend_version(): string",
+        description: "Returns the Zend Engine compatibility version.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1897,6 +1902,12 @@ echo "PHP compatibility: " . $version . "\\n"`,
     `if (php_sapi_name() === "cli") {
     echo "running command-line bootstrap\\n"
 }`,
+  ],
+  [
+    "zend_version",
+    `let $engine = zend_version()
+
+echo "Zend compatibility: " . $engine . "\\n"`,
   ],
   [
     "getenv",
@@ -3762,6 +3773,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "php_sapi_name",
     "Use `php_sapi_name()` for legacy compatibility branches that distinguish command-line execution from other PHP Server API names.",
+  ],
+  [
+    "zend_version",
+    "Use `zend_version()` for legacy diagnostics and version banners that expect a Zend Engine version label.",
   ],
 ]);
 

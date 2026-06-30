@@ -40,4 +40,8 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_php_sapi_name().string_bytes(),
         Some(b"cli".to_vec())
     );
+    assert_eq!(
+        echo_php_zend_version().string_bytes(),
+        Some(b"8.2.0".to_vec())
+    );
 }

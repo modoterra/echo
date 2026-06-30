@@ -248,6 +248,28 @@ fn php_sapi_name_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn zend_version_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "zend_version".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 14),
+        })],
+        span: Span::new(0, 15),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_zend_version()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_zend_version()"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn number_format_lowers_php_default_separators() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
