@@ -319,6 +319,24 @@ pub extern "C" fn echo_php_quoted_printable_decode(value: EchoValue) -> EchoValu
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_htmlspecialchars(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| {
+        let mut escaped = Vec::with_capacity(bytes.len());
+        for byte in bytes {
+            match byte {
+                b'&' => escaped.extend_from_slice(b"&amp;"),
+                b'"' => escaped.extend_from_slice(b"&quot;"),
+                b'\'' => escaped.extend_from_slice(b"&#039;"),
+                b'<' => escaped.extend_from_slice(b"&lt;"),
+                b'>' => escaped.extend_from_slice(b"&gt;"),
+                other => escaped.push(*other),
+            }
+        }
+        escaped
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_nl2br(value: EchoValue, use_xhtml: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::error();

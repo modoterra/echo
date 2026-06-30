@@ -1,0 +1,4 @@
+amp:[Tom &amp; Jerry]
+tag:[&lt;a href=&quot;/?q=Tom &amp; Jerry&quot;&gt;Tom&#039;s link&lt;/a&gt;]
+plain:[already safe]
+exists:[1]

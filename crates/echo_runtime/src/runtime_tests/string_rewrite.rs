@@ -99,6 +99,13 @@ fn string_rewrite_builtins_preserve_php_byte_behavior() {
         Some(b"line1<br>\nline2".to_vec())
     );
     assert_eq!(
+        echo_php_htmlspecialchars(test_string_value(
+            b"<a href=\"/?q=Tom & Jerry\">Tom's link</a>",
+        ))
+        .string_bytes(),
+        Some(b"&lt;a href=&quot;/?q=Tom &amp; Jerry&quot;&gt;Tom&#039;s link&lt;/a&gt;".to_vec())
+    );
+    assert_eq!(
         echo_php_str_replace(
             EchoValue::string(search),
             EchoValue::string(replace),

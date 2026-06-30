@@ -193,6 +193,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns true when a string ends with another string.",
       },
       {
+        name: "htmlspecialchars",
+        signature: "htmlspecialchars(string $string): string",
+        description: "Escapes special HTML characters in a string.",
+      },
+      {
         name: "str_replace",
         signature:
           "str_replace(array|string $search, array|string $replace, string|array $subject): string|array",
@@ -2054,6 +2059,13 @@ let $safe = str_ireplace("token", "redacted", $message)
 echo $safe . "\\n"`,
   ],
   [
+    "htmlspecialchars",
+    `let $name = "Tom & Jerry"
+let $html = "<strong>" . htmlspecialchars($name) . "</strong>"
+
+echo $html . "\\n"`,
+  ],
+  [
     "str_replace",
     `let $template = "Hello {{name}}, status: pending"
 let $message = str_replace("{{name}}", "Ada", $template)
@@ -2784,6 +2796,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "nl2br",
     "Use `nl2br()` when plain-text notes, comments, or logs need an HTML preview while preserving where the original newline boundaries were.",
+  ],
+  [
+    "htmlspecialchars",
+    "Use `htmlspecialchars()` before inserting plain text into an HTML fragment so names, labels, or messages cannot be interpreted as markup.",
   ],
   [
     "str_replace",
