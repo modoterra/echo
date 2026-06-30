@@ -235,6 +235,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("ord", &[("character", Some("string"))], Some("int")),
         php_builtin_reflection("str_rot13", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("soundex", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "wordwrap",
+            &[
+                ("string", Some("string")),
+                ("width", Some("int")),
+                ("break", Some("string")),
+                ("cut_long_words", Some("bool")),
+            ],
+            Some("string"),
+        ),
         php_builtin_reflection("chr", &[("codepoint", Some("int"))], Some("string")),
         php_builtin_reflection("decbin", &[("num", Some("int"))], Some("string")),
         php_builtin_reflection("dechex", &[("num", Some("int"))], Some("string")),

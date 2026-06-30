@@ -411,6 +411,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ChunkSplit,
     },
     PhpBuiltin {
+        php_name: "wordwrap",
+        symbol: "echo_php_wordwrap",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Wordwrap,
+    },
+    PhpBuiltin {
         php_name: "substr",
         symbol: "echo_php_substr",
         helper_symbol: None,

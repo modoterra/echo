@@ -329,6 +329,72 @@ fn levenshtein_lowers_explicit_cost_arguments() {
 }
 
 #[test]
+fn wordwrap_lowers_php_default_arguments() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "wordwrap".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "The quick brown fox".to_string(),
+                span: Span::new(9, 30),
+            })],
+            span: Span::new(0, 31),
+        })],
+        span: Span::new(0, 32),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "declare %EchoValue @echo_php_wordwrap(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+        ),
+        "{ir}"
+    );
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_wordwrap(%EchoValue %runtime_call_0, %EchoValue { i32 2, i64 75 }, %EchoValue %runtime_call_1, %EchoValue { i32 1, i64 0 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
+fn wordwrap_lowers_explicit_arguments() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "wordwrap".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "abcdefghij".to_string(),
+                    span: Span::new(9, 21),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "4".to_string(),
+                    span: Span::new(23, 24),
+                }),
+                Expr::String(StringLiteral {
+                    value: "|".to_string(),
+                    span: Span::new(26, 29),
+                }),
+                Expr::Bool(BoolLiteral {
+                    value: true,
+                    span: Span::new(31, 35),
+                }),
+            ],
+            span: Span::new(0, 36),
+        })],
+        span: Span::new(0, 37),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_wordwrap(%EchoValue %runtime_call_0, %EchoValue { i32 2, i64 4 }, %EchoValue %runtime_call_1, %EchoValue { i32 1, i64 1 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
 fn nl2br_lowers_optional_xhtml_flag_to_true() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

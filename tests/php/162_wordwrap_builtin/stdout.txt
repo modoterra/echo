@@ -1,0 +1,11 @@
+The quick
+brown fox
+jumps
+---
+The quick|brown fox
+---
+abcdefghij
+---
+abcd
+efgh
+ij

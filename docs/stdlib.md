@@ -382,7 +382,7 @@ echo "distance: " . $distance . "\n"
 
 Use `levenshtein()` for small labels, names, and compatibility checks where byte-based edit distance is enough. Pass custom costs when replacement should be more expensive than an insert/delete pair.
 
-- `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_str_word_count(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite, HTML escaping, tag stripping, word-counting, and transfer-encoding helpers are PHP compatibility functions.
+- `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_str_word_count(...)`, `echo_php_wordwrap(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite, HTML escaping, tag stripping, word-counting, word-wrapping, and transfer-encoding helpers are PHP compatibility functions.
 
 `str_word_count()` is useful when an import or summary pipeline needs a quick scalar measure of plain-text content before heavier processing:
 
@@ -395,6 +395,19 @@ echo "Summary words: " . $words . "\n"
 ```
 
 Use the default count mode for simple validation thresholds, such as rejecting an empty description after tags are removed or flagging unusually short summaries. Echo currently implements the scalar count form; PHP's array return modes and extra `characters` parameter should be treated as a separate compatibility surface.
+
+`wordwrap()` is useful when legacy output needs fixed-width lines before it is written to a text file or terminal:
+
+```php
+<?php
+let $body = "The quick brown fox jumps"
+let $wrapped = wordwrap($body, 10)
+
+echo $wrapped . "\n"
+```
+
+Use the default break string for terminal-oriented text, or pass a custom break string when preparing pipe-delimited previews. Set `cut_long_words` only when long tokens must be split instead of preserved.
+
 - `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, and process-ID helpers are PHP compatibility functions for process-local state.
 - `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
 - `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.

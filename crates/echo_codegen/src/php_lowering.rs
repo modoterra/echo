@@ -180,6 +180,7 @@ impl IrModule {
             | BuiltinCodegen::Mkdir
             | BuiltinCodegen::Touch
             | BuiltinCodegen::Uniqid
+            | BuiltinCodegen::Wordwrap
             | BuiltinCodegen::Explode
             | BuiltinCodegen::SubstrCompare
             | BuiltinCodegen::SubstrReplace => {

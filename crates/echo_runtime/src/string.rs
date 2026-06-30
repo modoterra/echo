@@ -116,6 +116,40 @@ pub extern "C" fn echo_php_str_word_count(value: EchoValue) -> EchoValue {
     php_string_to_number_builtin(value, |bytes| EchoValue::int(count_php_words(bytes) as i64))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_wordwrap(
+    string: EchoValue,
+    width: EchoValue,
+    break_string: EchoValue,
+    cut_long_words: EchoValue,
+) -> EchoValue {
+    let Some(string) = string.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(width) = width.int_value() else {
+        return EchoValue::error();
+    };
+    let Ok(width) = usize::try_from(width) else {
+        return EchoValue::error();
+    };
+    let Some(break_string) = break_string.string_bytes() else {
+        return EchoValue::error();
+    };
+    if break_string.is_empty() {
+        return EchoValue::error();
+    }
+    let Some(cut_long_words) = cut_long_words.bool_value() else {
+        return EchoValue::error();
+    };
+
+    echo_runtime_string(wordwrap_bytes(
+        &string,
+        width,
+        &break_string,
+        cut_long_words,
+    ))
+}
+
 fn count_php_words(bytes: &[u8]) -> usize {
     let mut count = 0;
     let mut in_word = false;
@@ -139,6 +173,98 @@ fn count_php_words(bytes: &[u8]) -> usize {
     }
 
     count
+}
+
+fn wordwrap_bytes(
+    bytes: &[u8],
+    width: usize,
+    break_string: &[u8],
+    cut_long_words: bool,
+) -> Vec<u8> {
+    if width == 0 || bytes.is_empty() {
+        return bytes.to_vec();
+    }
+
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut first_line = true;
+
+    for line in bytes.split(|byte| *byte == b'\n') {
+        if !first_line {
+            output.push(b'\n');
+        }
+        first_line = false;
+        wrap_line(line, width, break_string, cut_long_words, &mut output);
+    }
+
+    output
+}
+
+fn wrap_line(
+    mut line: &[u8],
+    width: usize,
+    break_string: &[u8],
+    cut_long_words: bool,
+    output: &mut Vec<u8>,
+) {
+    let mut first_segment = true;
+
+    while line.len() > width {
+        if let Some(space_index) = line[..=width.min(line.len() - 1)]
+            .iter()
+            .rposition(|byte| *byte == b' ')
+        {
+            push_wrapped_segment(
+                &line[..space_index],
+                break_string,
+                &mut first_segment,
+                output,
+            );
+            line = trim_leading_spaces(&line[space_index + 1..]);
+            continue;
+        }
+
+        if cut_long_words {
+            push_wrapped_segment(&line[..width], break_string, &mut first_segment, output);
+            line = &line[width..];
+            continue;
+        }
+
+        if let Some(space_index) = line[width..].iter().position(|byte| *byte == b' ') {
+            let break_index = width + space_index;
+            push_wrapped_segment(
+                &line[..break_index],
+                break_string,
+                &mut first_segment,
+                output,
+            );
+            line = trim_leading_spaces(&line[break_index + 1..]);
+        } else {
+            break;
+        }
+    }
+
+    push_wrapped_segment(line, break_string, &mut first_segment, output);
+}
+
+fn push_wrapped_segment(
+    segment: &[u8],
+    break_string: &[u8],
+    first_segment: &mut bool,
+    output: &mut Vec<u8>,
+) {
+    if !*first_segment {
+        output.extend_from_slice(break_string);
+    }
+    *first_segment = false;
+    output.extend_from_slice(segment);
+}
+
+fn trim_leading_spaces(bytes: &[u8]) -> &[u8] {
+    let start = bytes
+        .iter()
+        .position(|byte| *byte != b' ')
+        .unwrap_or(bytes.len());
+    &bytes[start..]
 }
 
 #[unsafe(no_mangle)]

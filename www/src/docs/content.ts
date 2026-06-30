@@ -103,6 +103,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Calculates a four-character phonetic Soundex key.",
       },
       {
+        name: "wordwrap",
+        signature:
+          "wordwrap(string $string, int $width, string $break, bool $cut_long_words): string",
+        description: "Wraps a string at word boundaries.",
+      },
+      {
         name: "ord",
         signature: "ord(string $character): int",
         description: "Returns the byte value of the first character in the string.",
@@ -2184,6 +2190,13 @@ let $right = soundex("Ellery")
 echo "Same bucket: " . ($left === $right ? "yes" : "no") . "\\n"`,
   ],
   [
+    "wordwrap",
+    `let $body = "The quick brown fox jumps"
+let $wrapped = wordwrap($body, 10)
+
+echo $wrapped . "\\n"`,
+  ],
+  [
     "str_starts_with",
     `let $command = "deploy:production"
 
@@ -3116,6 +3129,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "soundex",
     "Use `soundex()` as a coarse PHP-compatible phonetic key for short ASCII names in legacy matching workflows. It is not a general fuzzy search algorithm.",
+  ],
+  [
+    "wordwrap",
+    "Use `wordwrap()` when text needs fixed-width lines for terminal output, legacy files, or previews before it leaves the runtime.",
   ],
   [
     "ord",

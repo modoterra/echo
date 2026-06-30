@@ -53,6 +53,7 @@ pub enum BuiltinCodegen {
     Explode,
     SubstrCompare,
     SubstrReplace,
+    Wordwrap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,6 +1,50 @@
 use super::*;
 
 #[test]
+fn wordwrap_preserves_php_word_boundaries_and_cut_mode() {
+    assert_eq!(
+        echo_php_wordwrap(
+            test_string_value(b"The quick brown fox jumps"),
+            EchoValue::int(10),
+            test_string_value(b"\n"),
+            EchoValue::bool(false),
+        )
+        .string_bytes(),
+        Some(b"The quick\nbrown fox\njumps".to_vec())
+    );
+    assert_eq!(
+        echo_php_wordwrap(
+            test_string_value(b"The quick brown fox"),
+            EchoValue::int(12),
+            test_string_value(b"|"),
+            EchoValue::bool(false),
+        )
+        .string_bytes(),
+        Some(b"The quick|brown fox".to_vec())
+    );
+    assert_eq!(
+        echo_php_wordwrap(
+            test_string_value(b"abcdefghij"),
+            EchoValue::int(4),
+            test_string_value(b"\n"),
+            EchoValue::bool(false),
+        )
+        .string_bytes(),
+        Some(b"abcdefghij".to_vec())
+    );
+    assert_eq!(
+        echo_php_wordwrap(
+            test_string_value(b"abcdefghij"),
+            EchoValue::int(4),
+            test_string_value(b"\n"),
+            EchoValue::bool(true),
+        )
+        .string_bytes(),
+        Some(b"abcd\nefgh\nij".to_vec())
+    );
+}
+
+#[test]
 fn str_repeat_preserves_php_byte_behavior() {
     let repeated = Box::into_raw(Box::new(EchoString {
         bytes: "xo".as_bytes().to_vec(),

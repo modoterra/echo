@@ -664,7 +664,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `vfprintf` | missing |  |
 | `vprintf` | missing |  |
 | `vsprintf` | missing |  |
-| `wordwrap` | missing |  |
+| `wordwrap` | implemented | Wraps strings at word boundaries with optional width, break string, and long-word cutting. Source: https://www.php.net/manual/en/function.wordwrap.php |
 
 ## Optional Extension Counts
 
