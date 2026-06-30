@@ -106,6 +106,18 @@ pub extern "C" fn echo_php_floor(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_round(value: EchoValue, precision: EchoValue) -> EchoValue {
+    let Some(value) = php_float_coercion(value) else {
+        return EchoValue::error();
+    };
+    let Some(precision) = precision.php_int_value() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::float(php_round_half_away_from_zero(value, precision))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sqrt(value: EchoValue) -> EchoValue {
     php_unary_float_builtin(value, echo_math_sqrt)
 }
@@ -193,6 +205,21 @@ fn php_binary_float_builtin(
     match (php_float_coercion(left), php_float_coercion(right)) {
         (Some(left), Some(right)) => EchoValue::float(f(left, right)),
         _ => EchoValue::error(),
+    }
+}
+
+fn php_round_half_away_from_zero(value: f64, precision: i64) -> f64 {
+    if !value.is_finite() {
+        return value;
+    }
+
+    let precision = precision.clamp(-308, 308) as i32;
+    if precision >= 0 {
+        let factor = 10_f64.powi(precision);
+        (value * factor).round() / factor
+    } else {
+        let factor = 10_f64.powi(-precision);
+        (value / factor).round() * factor
     }
 }
 

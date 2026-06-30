@@ -510,7 +510,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rewind` | missing |  |
 | `rewinddir` | missing |  |
 | `rmdir` | implemented | Removes empty local directories and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rmdir.php |
-| `round` | missing |  |
+| `round` | implemented | Rounds numeric values to a precision using PHP's default half-away-from-zero mode; explicit rounding mode constants are deferred. Source: https://www.php.net/manual/en/function.round.php |
 | `rsort` | missing |  |
 | `rtrim` | implemented | Removes PHP's default trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.rtrim.php |
 | `scandir` | missing |  |

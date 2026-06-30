@@ -80,6 +80,30 @@ fn rounding_and_magnitude_builtins_preserve_php_float_behavior() {
     );
     assert_float_value(echo_php_ceil(test_string_value(b"12.2")), 13.0);
     assert_float_value(echo_php_floor(EchoValue::bool(true)), 1.0);
+    assert_float_value(
+        echo_php_round(EchoValue::float(3.4), EchoValue::int(0)),
+        3.0,
+    );
+    assert_float_value(
+        echo_php_round(EchoValue::float(3.5), EchoValue::int(0)),
+        4.0,
+    );
+    assert_float_value(
+        echo_php_round(EchoValue::float(-1.5), EchoValue::int(0)),
+        -2.0,
+    );
+    assert_float_value(
+        echo_php_round(EchoValue::float(5.055), EchoValue::int(2)),
+        5.06,
+    );
+    assert_float_value(
+        echo_php_round(EchoValue::int(678), EchoValue::int(-2)),
+        700.0,
+    );
+    assert_float_value(
+        echo_php_round(test_string_value(b"12.6"), EchoValue::int(0)),
+        13.0,
+    );
     assert_float_value(echo_php_sqrt(EchoValue::int(9)), 3.0);
     assert_float_value(echo_php_sqrt(EchoValue::float(10.0)), 3.162277660168379);
     assert!(f64::from_bits(echo_php_sqrt(EchoValue::int(-1)).payload).is_nan());

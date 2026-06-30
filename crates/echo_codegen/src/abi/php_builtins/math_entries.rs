@@ -203,6 +203,14 @@ pub(super) const MATH_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "round",
+        symbol: "echo_php_round",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Round,
+    },
+    PhpBuiltin {
         php_name: "sqrt",
         symbol: "echo_php_sqrt",
         helper_symbol: None,

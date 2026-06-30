@@ -1,0 +1,7 @@
+default-low:[3]
+default-half:[4]
+default-negative-half:[-2]
+precision-positive:[5.06]
+precision-negative:[700]
+string-num:[13]
+exists:[1]

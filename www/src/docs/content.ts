@@ -751,6 +751,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Rounds a number down.",
       },
       {
+        name: "round",
+        signature: "round(int|float $num, int $precision): float",
+        description: "Rounds a number to a requested decimal precision.",
+      },
+      {
         name: "sqrt",
         signature: "sqrt(float $num): float",
         description: "Returns the square root.",
@@ -2623,6 +2628,13 @@ echo "Pages: " . $pages . "\\n"`,
 echo "Complete batches: " . $completeBatches . "\\n"`,
   ],
   [
+    "round",
+    `let $subtotal = 12.345
+let $display = round($subtotal, 2)
+
+echo "Subtotal: " . $display . "\\n"`,
+  ],
+  [
     "sqrt",
     `let $distance = sqrt(3 * 3 + 4 * 4)
 
@@ -3418,6 +3430,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "floor",
     "Use `floor()` when partial units should be discarded, such as whole completed steps or lower-bound bucket numbers.",
+  ],
+  [
+    "round",
+    "Use `round()` when a measurement, subtotal, or score needs a fixed decimal precision for display or reporting while retaining PHP's default half-away-from-zero behavior.",
   ],
   [
     "sqrt",

@@ -165,6 +165,7 @@ impl IrModule {
             | BuiltinCodegen::Implode
             | BuiltinCodegen::Log
             | BuiltinCodegen::Nl2br
+            | BuiltinCodegen::Round
             | BuiltinCodegen::StrPad
             | BuiltinCodegen::StrSplit
             | BuiltinCodegen::ValueUnaryOptionalContextExpression

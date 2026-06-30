@@ -63,8 +63,8 @@ pub use math::{
     echo_php_atanh, echo_php_ceil, echo_php_cos, echo_php_cosh, echo_php_deg2rad, echo_php_exp,
     echo_php_expm1, echo_php_fdiv, echo_php_floor, echo_php_fmod, echo_php_fpow, echo_php_hypot,
     echo_php_is_finite, echo_php_is_infinite, echo_php_is_nan, echo_php_log, echo_php_log1p,
-    echo_php_log10, echo_php_pi, echo_php_pow, echo_php_rad2deg, echo_php_sin, echo_php_sinh,
-    echo_php_sqrt, echo_php_tan, echo_php_tanh,
+    echo_php_log10, echo_php_pi, echo_php_pow, echo_php_rad2deg, echo_php_round, echo_php_sin,
+    echo_php_sinh, echo_php_sqrt, echo_php_tan, echo_php_tanh,
 };
 pub use net::{
     echo_std_http_read_request, echo_std_http_response_text, echo_std_net_accept,

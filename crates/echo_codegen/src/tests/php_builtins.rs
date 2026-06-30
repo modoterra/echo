@@ -118,6 +118,62 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
 }
 
 #[test]
+fn round_lowers_optional_precision_to_zero() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "round".to_string(),
+            args: echo_ast::call_args![Expr::Number(NumberLiteral {
+                value: "3.5".to_string(),
+                span: Span::new(6, 9),
+            })],
+            span: Span::new(0, 10),
+        })],
+        span: Span::new(0, 11),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_round(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_round(%EchoValue { i32 11, i64 4615063718147915776 }, %EchoValue { i32 2, i64 0 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
+fn round_lowers_explicit_precision_argument() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "round".to_string(),
+            args: echo_ast::call_args![
+                Expr::Number(NumberLiteral {
+                    value: "5.055".to_string(),
+                    span: Span::new(6, 11),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "2".to_string(),
+                    span: Span::new(13, 14),
+                }),
+            ],
+            span: Span::new(0, 15),
+        })],
+        span: Span::new(0, 16),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_round(%EchoValue { i32 11, i64 4617377442456477368 }, %EchoValue { i32 2, i64 2 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
 fn nl2br_lowers_optional_xhtml_flag_to_true() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
