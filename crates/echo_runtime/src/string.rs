@@ -112,6 +112,36 @@ pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_word_count(value: EchoValue) -> EchoValue {
+    php_string_to_number_builtin(value, |bytes| EchoValue::int(count_php_words(bytes) as i64))
+}
+
+fn count_php_words(bytes: &[u8]) -> usize {
+    let mut count = 0;
+    let mut in_word = false;
+
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        let word_byte = byte.is_ascii_alphabetic()
+            || ((byte == b'\'' || byte == b'-')
+                && in_word
+                && bytes
+                    .get(index + 1)
+                    .is_some_and(|next| next.is_ascii_alphabetic()));
+
+        if word_byte {
+            if !in_word {
+                count += 1;
+                in_word = true;
+            }
+        } else {
+            in_word = false;
+        }
+    }
+
+    count
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_trim(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| trim_bytes(bytes, true, true))
 }

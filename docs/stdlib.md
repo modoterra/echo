@@ -317,7 +317,19 @@ Examples:
 - `echo_php_substr_replace(...)` is PHP builtin ABI because `substr_replace()` is a PHP compatibility function.
 - `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
 - `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
-- `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite, HTML escaping, tag stripping, and transfer-encoding helpers are PHP compatibility functions.
+- `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_str_word_count(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite, HTML escaping, tag stripping, word-counting, and transfer-encoding helpers are PHP compatibility functions.
+
+`str_word_count()` is useful when an import or summary pipeline needs a quick scalar measure of plain-text content before heavier processing:
+
+```php
+<?php
+let $summary = strip_tags("<p>O'Reilly-Smith shipped invoice A-100.</p>")
+let $words = str_word_count($summary)
+
+echo "Summary words: " . $words . "\n"
+```
+
+Use the default count mode for simple validation thresholds, such as rejecting an empty description after tags are removed or flagging unusually short summaries. Echo currently implements the scalar count form; PHP's array return modes and extra `characters` parameter should be treated as a separate compatibility surface.
 - `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, and process-ID helpers are PHP compatibility functions for process-local state.
 - `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
 - `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.

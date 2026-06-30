@@ -8,6 +8,7 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         ("intval", "echo_php_intval"),
         ("floatval", "echo_php_floatval"),
         ("doubleval", "echo_php_floatval"),
+        ("str_word_count", "echo_php_str_word_count"),
         ("strtoupper", "echo_php_strtoupper"),
         ("strtolower", "echo_php_strtolower"),
         ("ucwords", "echo_php_ucwords"),

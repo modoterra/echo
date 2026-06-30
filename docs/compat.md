@@ -554,7 +554,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_shuffle` | missing |  |
 | `str_split` | implemented | Splits byte strings into an array of fixed-size chunks, with a default chunk length of one byte. Source: https://www.php.net/manual/en/function.str-split.php |
 | `str_starts_with` | implemented | Performs binary-safe prefix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-starts-with.php |
-| `str_word_count` | missing |  |
+| `str_word_count` | partial | Default count mode for ASCII words is implemented; PHP array return modes and the `characters` parameter are not implemented yet. See <https://www.php.net/manual/en/function.str-word-count.php>. |
 | `strchr` | implemented | Alias of `strstr`. |
 | `strcoll` | missing |  |
 | `strcspn` | implemented | Counts the initial byte span containing none of the bytes from the mask string. Source: https://www.php.net/manual/en/function.strcspn.php |

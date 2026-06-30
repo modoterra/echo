@@ -2002,6 +2002,13 @@ let $body = quoted_printable_decode($stored)
 echo $body . "\\n"`,
   ],
   [
+    "str_word_count",
+    `let $summary = strip_tags("<p>O'Reilly-Smith shipped invoice A-100.</p>")
+let $words = str_word_count($summary)
+
+echo "Summary words: " . $words . "\\n"`,
+  ],
+  [
     "realpath",
     `let $report = realpath("storage/../storage/report.csv")
 
@@ -2844,6 +2851,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "strtr",
     "Use the three-argument `strtr()` form for byte-for-byte translation tables, such as compact label encodings or legacy character maps where each source byte maps to one target byte.",
+  ],
+  [
+    "str_word_count",
+    "Use the default scalar `str_word_count()` form for simple plain-text validation thresholds, such as detecting empty summaries after tags are removed. Echo currently implements the count return mode; PHP's array return modes and extra character list are separate compatibility work.",
   ],
   [
     "file_exists",

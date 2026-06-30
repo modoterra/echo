@@ -38,6 +38,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("ob_get_length", &[], Some("int|false")),
         php_builtin_reflection("ob_get_level", &[], Some("int")),
         php_builtin_reflection("strlen", &[("string", Some("string"))], Some("int")),
+        php_builtin_reflection("str_word_count", &[("string", Some("string"))], Some("int")),
         php_builtin_reflection(
             "basename",
             &[("path", Some("string")), ("suffix", Some("string"))],

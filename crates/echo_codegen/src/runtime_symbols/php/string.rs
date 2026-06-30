@@ -7,6 +7,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_str_word_count",
+            echo_runtime::echo_php_str_word_count
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_strtoupper",
             echo_runtime::echo_php_strtoupper
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

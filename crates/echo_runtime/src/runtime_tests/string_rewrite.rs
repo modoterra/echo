@@ -129,6 +129,17 @@ fn string_rewrite_builtins_preserve_php_byte_behavior() {
         Some(b"AB".to_vec())
     );
     assert_eq!(
+        echo_php_str_word_count(test_string_value(
+            b"Invoice #A-100 shipped to O'Reilly-Smith on 2026-06-30",
+        ))
+        .int_value(),
+        Some(6)
+    );
+    assert_eq!(
+        echo_php_str_word_count(test_string_value(b"12345")).int_value(),
+        Some(0)
+    );
+    assert_eq!(
         echo_php_str_replace(
             EchoValue::string(search),
             EchoValue::string(replace),
