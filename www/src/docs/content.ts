@@ -3572,14 +3572,14 @@ export const docsPages: DocsPage[] = [
       },
       {
         title: "Installation",
-        tags: ["install", "path", "source build"],
+        tags: ["install", "path"],
         blocks: [
           {
             kind: "paragraph",
             text: [
               "Install the ",
               { code: "xo" },
-              " command and keep it on your path. The public installer flow is still being designed, so current releases are source-built by contributors.",
+              " command and keep it on your path. Echo is still early, so the public installer and release flow are evolving.",
             ],
           },
           {
@@ -3799,17 +3799,6 @@ export const docsPages: DocsPage[] = [
             kind: "paragraph",
             text: [
               "Echo grows by proving vertical slices through parser, AST, semantic analysis, lowering, runtime behavior, CLI execution, docs, and tests. PHP compatibility remains the floor while Echo-native features are added on top.",
-            ],
-          },
-          {
-            kind: "code",
-            code: "scripts/check-fast changed --list\nscripts/check-fast parser-echo-surface\nscripts/check-fast pipeline\nscripts/check-fast web",
-            language: "shellscript",
-          },
-          {
-            kind: "paragraph",
-            text: [
-              "Use these checks while landing roadmap work so syntax, compiler facts, executable behavior, and website docs stay aligned instead of drifting across separate changes.",
             ],
           },
         ],
@@ -5290,65 +5279,6 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
-    id: "benchmarks",
-    path: "/docs/benchmarks",
-    navGroup: "Language",
-    category: "Language",
-    title: "Benchmarks",
-    summary:
-      "Run PHP and Echo benchmark harnesses when a change affects runtime behavior or executable performance.",
-    tags: ["benchmarks", "performance", "fixtures", "php", "echo"],
-    aliases: ["performance", "bench", "timing"],
-    sections: [
-      {
-        title: "Benchmark Fixtures",
-        tags: ["php_bench", "echo_bench", "fixtures"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              "Benchmark harnesses compare fixture behavior and timing through PHP and Echo paths. Use a low iteration count while developing, then raise it when preparing a report.",
-            ],
-          },
-          {
-            kind: "code",
-            code: "ECHO_BENCH_ITERATIONS=2 cargo test -p xo --test php_bench -- --ignored --nocapture\nECHO_BENCH_ITERATIONS=2 cargo test -p xo --test echo_bench -- --ignored --nocapture",
-            language: "shellscript",
-          },
-          {
-            kind: "paragraph",
-            text: [
-              "Run these when a slice changes executable behavior, runtime data structures, codegen, or benchmark reports. The low count is a smoke check, not a final performance claim.",
-            ],
-          },
-        ],
-      },
-      {
-        title: "Focused Fixture Timing",
-        tags: ["check-fast", "fixture", "reports"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              "Use the fast benchmark shortcuts for focused fixture timing while keeping successful command noise out of the terminal.",
-            ],
-          },
-          {
-            kind: "code",
-            code: "scripts/check-fast bench-php 017_object_append_count\nscripts/check-fast bench-echo 017_object_append_count",
-            language: "shellscript",
-          },
-          {
-            kind: "paragraph",
-            text: [
-              "The fixture filter keeps the timing run local to the behavior under review and writes reports under the test-results benchmark directories.",
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: "semantic-profiles",
     path: "/docs/semantic-profiles",
     navGroup: "Language",
@@ -5623,17 +5553,6 @@ export const docsPages: DocsPage[] = [
             ],
           },
           {
-            kind: "code",
-            code: "scripts/check-fast lsp",
-            language: "shellscript",
-          },
-          {
-            kind: "paragraph",
-            text: [
-              "Use the LSP check when changing diagnostics, source mapping, semantic analysis, or editor-facing index behavior.",
-            ],
-          },
-          {
             kind: "paragraph",
             text: [
               "Diagnostic codes, severity, primary spans, and related spans belong in ",
@@ -5645,59 +5564,47 @@ export const docsPages: DocsPage[] = [
       },
     ],
   },
+];
+
+export const bookPages: DocsPage[] = [
   {
-    id: "testing",
-    path: "/docs/testing",
-    navGroup: "Tooling",
-    category: "Tooling",
-    title: "Testing",
-    summary:
-      "Run focused Echo checks while developing and use workspace verification before commits.",
-    tags: ["testing", "fixtures", "check-fast", "cargo", "php"],
-    aliases: ["test commands", "fixtures", "verification"],
+    id: "book",
+    path: "/book",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "The Echo Language",
+    summary: "A readable walkthrough of Echo syntax, values, modules, and strict language rules.",
+    tags: ["book", "language", "syntax", "echo"],
+    aliases: ["echo book", "language book", "syntax guide"],
     sections: [
       {
-        title: "Fast Checks",
+        title: "What Echo Is",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Use ",
-              { code: "scripts/check-fast" },
-              " for targeted checks while iterating. It keeps successful output quiet and replays bounded failure logs when a command fails.",
+              "Echo is a PHP-compatible language path with a stricter Echo surface layered on top. Existing PHP remains part of the language story, while Echo syntax gives programs explicit modules, typed bindings, closed compilation graphs, structural data, classes, facets, effects, and checked numeric behavior.",
             ],
           },
           {
             kind: "code",
-            code: "scripts/check-fast changed --list\nscripts/check-fast changed\nscripts/check-fast parser-echo-surface\nscripts/check-fast web",
-            language: "shellscript",
+            code: 'module app.orders\n\nsemantics {\n    strict\n}\n\nuse std.time\n\nlet $started_at = time.now()\necho "started {$started_at.format()}"',
           },
           {
             kind: "paragraph",
             text: [
-              "The changed check is the fastest first pass for a dirty tree; focused checks are better when you already know the affected subsystem.",
+              "The rest of this book walks through the canonical strict Echo style. The reference remains useful when you need a precise rule; the book is meant to be read front to back.",
             ],
           },
         ],
       },
       {
-        title: "Workspace Verification",
+        title: "Chapters",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Before committing a broad compiler or docs slice, use the quiet workspace check. It runs formatting, workspace check, and workspace tests with successful output suppressed.",
-            ],
-          },
-          {
-            kind: "code",
-            code: "scripts/check-fast workspace",
-            language: "shellscript",
-          },
-          {
-            kind: "paragraph",
-            text: [
-              "Run this before committing broad slices because it catches formatting, compile, and test failures without flooding successful output.",
+              "Start with files and modules, then move into values, types, control flow, and program boundaries. Each chapter introduces the surface syntax through complete examples and explains the design pressure behind the rule.",
             ],
           },
         ],
@@ -5705,34 +5612,569 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
-    id: "source-builds",
-    path: "/docs/source-builds",
-    navGroup: "Tooling",
-    category: "Tooling",
-    title: "Source Builds",
-    summary: "Build the Echo command line from source and run the workspace verification commands.",
-    tags: ["source", "build", "cargo", "llvm", "clang", "php", "test"],
-    aliases: ["build from source", "cargo build", "workspace tests"],
+    id: "book-files-and-modules",
+    path: "/book/files-and-modules",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Files And Modules",
+    summary: "Name Echo files and modules, order the prelude, and import code canonically.",
+    tags: ["book", "module", "imports", "compile", "semantics"],
+    aliases: ["modules", "imports", "file order"],
     sections: [
       {
-        title: "Source Builds",
+        title: "Module Identity",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Contributors can build the current command line from source. Full workspace builds require Rust, LLVM 22, clang, and PHP for compatibility fixture generation.",
+              "Echo files that are imported by module identity declare a module. Module names use lowercase snake_case segments separated by dots, which gives packages one stable spelling independent of PHP namespace casing.",
             ],
           },
           {
             kind: "code",
-            code: "git clone https://github.com/modoterra/echo.git\ncd echo\ncargo build -p xo\ncargo test --workspace\ncargo run -p xo -- run examples/hello.php",
-            language: "shellscript",
+            code: "module app.http.router\n\npub fn route($request: Request): Response {\n    return Response.ok()\n}",
           },
           {
             kind: "paragraph",
             text: [
-              "This path builds the current command line from source, runs the workspace test suite, and then exercises the resulting CLI on a small example.",
+              "Entry scripts may omit a module declaration. Importable package files should include one so the resolver can identify the source without guessing from paths.",
             ],
+          },
+        ],
+      },
+      {
+        title: "Prelude Order",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A strict Echo file starts with its declarations about the file itself, then imports, then declarations and executable statements. The canonical order is module, semantics, compile, imports, declarations, and finally executable code.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'module app.orders\n\nsemantics {\n    strict\n}\n\ncompile {\n    "./routes/*.php"\n    "modoterra/laravel-echo"\n}\n\nuse std.time\nfrom app.orders use Order\n\nlet $started_at = time.now()',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Keeping the prelude stable makes the top of a file scannable and gives tools a predictable place to find semantic and graph declarations.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Imports",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use direct imports for one symbol and grouped imports when several symbols come from the same module. Filesystem paths stay quoted; bare names belong to the module system.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'use std.time\nuse illuminate.console.Command\nfrom app.orders use Order, OrderStatus\nfrom "./contracts.echo" use HandlesOrder',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-bindings-and-types",
+    path: "/book/bindings-and-types",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Bindings And Types",
+    summary: "Use let, const, primitive types, nullable values, unknown, and safe numeric conversion.",
+    tags: ["book", "let", "const", "types", "unknown", "numeric"],
+    aliases: ["bindings", "primitive types", "const"],
+    sections: [
+      {
+        title: "Variables",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo keeps PHP's ",
+              { code: "$" },
+              " sigil for runtime variables. Use ",
+              { code: "let" },
+              " to introduce a binding and plain assignment to reassign it. Use local ",
+              { code: "const" },
+              " when the variable must keep pointing at the same value location.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $count = 0\n$count = $count + 1\n\nconst $config = load_config()\n$config.cache.enabled = true',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Local ",
+              { code: "const" },
+              " is a binding rule, not a deep freeze. Fields inside the value still follow the value's normal mutation rules.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Primitive Types",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The ergonomic numeric defaults are ",
+              { code: "int" },
+              ", ",
+              { code: "uint" },
+              ", and ",
+              { code: "float" },
+              ". They alias ",
+              { code: "int64" },
+              ", ",
+              { code: "uint64" },
+              ", and ",
+              { code: "float64" },
+              ". Use sized types at binary and protocol boundaries.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $ok: bool = true\nlet $name: string = \"Ada\"\nlet $payload: bytes = b'hello'\nlet $port: uint16 = 443\nlet $exact = 340282366920938463463374607431768211456n",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Echo has no ",
+              { code: "mixed" },
+              ", ",
+              { code: "any" },
+              ", ",
+              { code: "scalar" },
+              ", ",
+              { code: "resource" },
+              ", or broad ",
+              { code: "object" },
+              " top type. Use concrete unions, interfaces, structural types, generics, errors, or ",
+              { code: "unknown" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Null And Unknown",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "null" },
+              " is a literal value, not a type name. Nullable values use ",
+              { code: "?T" },
+              ". External data that must be checked before use should enter as ",
+              { code: "unknown" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $user: ?User = null\nlet $value: unknown = json.decode($body)\n\nif $value is UserPayload {\n    save_user($value)\n}",
+          },
+        ],
+      },
+      {
+        title: "Conversions",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Safe numeric widening is allowed, but narrowing and lossy conversions are explicit. Integers do not silently become floats, and ",
+              { code: "string" },
+              " and ",
+              { code: "bytes" },
+              " never implicitly convert.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $small: int32 = 10\nlet $large: int64 = $small\n\nlet $count: int = get_count()\nlet $ratio = float64.from_int($count)\n\nlet $encoded = encoding.utf8.encode(\"Ada\")\nlet $decoded = encoding.utf8.decode($encoded)",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-data-and-destructuring",
+    path: "/book/data-and-destructuring",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Data And Destructuring",
+    summary: "Work with lists, arrays, tuples, structural objects, object literals, and destructuring patterns.",
+    tags: ["book", "objects", "lists", "arrays", "tuples", "destructuring"],
+    aliases: ["data structures", "object literals", "destructuring"],
+    sections: [
+      {
+        title: "Collections",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo gives collection delimiters distinct meanings. ",
+              { code: "{}" },
+              " creates a list when untyped, ",
+              { code: "{ field: value }" },
+              " creates a structural object, ",
+              { code: "[]" },
+              " is an array, and ",
+              { code: "()" },
+              " is a tuple.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $ids: array<int> = [1, 2, 3]\nlet $fixed: array<int>[3] = [255, 128, 0]\nlet $names: list<string> = {\"Ada\", \"Grace\"}\nlet $pair = (\"Ada\", 36)",
+          },
+        ],
+      },
+      {
+        title: "Structural Objects",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Structural objects are plain public data. Fields always exist, can be read and assigned with dot access, and cannot be added dynamically.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "type UserPayload = {\n    name: string\n    nickname: ?string = null\n}\n\nlet $payload: UserPayload = { name: \"Echo\" }\n$payload.name = \"Ada\"",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "There are no undefined fields in strict Echo. If a field can lack a real value, model that with ",
+              { code: "?T" },
+              " and assign ",
+              { code: "null" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Destructuring",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Destructuring patterns are separate from declaration keywords. ",
+              { code: "let" },
+              " declares reassignable bindings, ",
+              { code: "const" },
+              " declares non-reassignable bindings, and a bare pattern assigns existing variables.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let ($user, $posts) = join $tasks\n($user, $posts) = refresh()\n\nlet { $name, $email } = $user\nlet { name: $display_name } = $user\n{ $name, $email } = refresh_user()",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Tuple destructuring requires exact arity. Object destructuring is partial by default. Patterns bind or assign variables only, not fields, properties, or indexes.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-classes-facets-and-enums",
+    path: "/book/classes-facets-and-enums",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Classes, Facets, And Enums",
+    summary: "Use classes for identity and encapsulation, facets for receiver methods, and enums for variants.",
+    tags: ["book", "classes", "facets", "enums", "factory"],
+    aliases: ["classes", "facets", "enums"],
+    sections: [
+      {
+        title: "Classes",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Classes are for identity, private state, and instance behavior. They use ",
+              { code: "$this" },
+              " and ",
+              { code: "->" },
+              " for instance access. Construction goes through public factories, not ",
+              { code: "new" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "pub class User {\n    pub $name: string\n    $email: string\n\n    factory {\n        pub create($name: string, $email: string) {\n            $this->name = $name\n            $this->email = $email\n        }\n    }\n\n    pub fn rename($name: string): void {\n        $this->name = $name\n    }\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "pub" },
+              " is the visibility keyword for classes, properties, methods, factories, constants, types, enums, traits, interfaces, and facet methods. Private is the default.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Facets",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A facet defines receiver methods for a type or object value surface. It does not add class instance methods and does not use ",
+              { code: "->" },
+              ". The receiver alias is declared once with ",
+              { code: "as $alias" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "facet UserPayload as $payload {\n    pub fn display_name(): string {\n        return $payload.name\n    }\n}\n\nfacet int as $n {\n    pub fn label(): string {\n        return $n.as_str()\n    }\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Public facet methods admitted into the closed compilation graph are globally visible for receiver lookup. Duplicate target type and method names fail compilation.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Enums",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Enums name a closed set of variants. Cases use PascalCase and dot access. Backed cases are checked against the enum backing type; payload cases carry typed data.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "pub enum OrderStatus: string {\n    Pending = \"pending\"\n    Paid = \"paid\"\n}\n\npub enum Result<T, E> {\n    Ok(T)\n    Err(E)\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Enum bodies declare cases only. Add behavior with facets and branch with exhaustive ",
+              { code: "match" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-control-flow-and-effects",
+    path: "/book/control-flow-and-effects",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Control Flow And Effects",
+    summary: "Write strict Echo conditions, matches, loops, effects, and concurrent work.",
+    tags: ["book", "if", "match", "loop", "effect", "concurrency"],
+    aliases: ["control flow", "effects", "loop"],
+    sections: [
+      {
+        title: "Conditions And Match",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Strict Echo conditions do not use PHP-style parentheses. Boolean operators are words, and ",
+              { code: "match" },
+              " is the expression form for multi-branch value selection.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "if not $user.active or $user.locked {\n    return false\n}\n\nlet $message = match $result {\n    Result.Ok($user) => \"Saved {$user.name}\",\n    Result.Err($error) => $error.message\n}",
+          },
+        ],
+      },
+      {
+        title: "Loops",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The strict Echo loop construct is ",
+              { code: "loop" },
+              ". It can run forever, iterate over values, and produce a value through ",
+              { code: "break value" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $found = loop $users as $user {\n    if $user.id == $target_id {\n        break $user\n    }\n}: ?User",
+          },
+        ],
+      },
+      {
+        title: "Effects And Concurrency",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "effect" },
+              " is a direct-style expression for effectful code. Concurrent work uses ",
+              { code: "defer" },
+              ", ",
+              { code: "run" },
+              ", ",
+              { code: "fork" },
+              ", ",
+              { code: "spawn" },
+              ", and ",
+              { code: "join" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $tasks = run {\n    fetch_user($id),\n    fetch_posts($id)\n}\n\nlet ($user, $posts) = join $tasks",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-strings-bytes-and-numbers",
+    path: "/book/strings-bytes-and-numbers",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Strings, Bytes, And Numbers",
+    summary: "Understand interpolation, raw strings, byte literals, checked arithmetic, and delete.",
+    tags: ["book", "strings", "bytes", "numbers", "delete"],
+    aliases: ["strings", "bytes", "numbers"],
+    sections: [
+      {
+        title: "Strings And Bytes",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Double-quoted strings interpolate. Single-quoted strings are raw text. Interpolation accepts normal Echo expressions, but each expression must produce ",
+              { code: "string" },
+              "; Echo does not format values implicitly.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $message = \"Count {$count.as_str()}\"\nlet $template = 'Hello {$name}'\nlet $bytes = b'hello'\nlet $fire = x'f09f94a5'",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "b'...'" },
+              " creates UTF-8 bytes from raw text. ",
+              { code: "x'...'" },
+              " creates exact bytes from static hex pairs. Use encoding APIs for dynamic conversion.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Operators",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Integer arithmetic is checked by default. Assignment, compound assignment, increment, and decrement are statements, not expressions.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "$count++\n$count += 1\nlet $whole = 5 // 2\nlet $ratio = 5 / 2\nlet $huge = 2n ** 256",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use word boolean operators for logic and symbolic operators for bitwise work. There is no relaxed equality in strict Echo; ",
+              { code: "==" },
+              " is strict value equality, and ",
+              { code: "is same" },
+              " checks identity.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Delete",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "delete" },
+              " removes entries from primitive deletable containers and returns whether removal happened. It does not delete variables, fields, properties, or memory.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $removed = delete $users[2]\n\n$items.append($item)\n$dict.remove($key)",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-errors-and-programs",
+    path: "/book/errors-and-programs",
+    navGroup: "Book",
+    category: "The Echo Book",
+    title: "Errors And Programs",
+    summary: "Declare errors, recover from panics, and define the closed compilation graph.",
+    tags: ["book", "errors", "panic", "recover", "compile"],
+    aliases: ["errors", "compile graph", "programs"],
+    sections: [
+      {
+        title: "Errors",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "error" },
+              " declares a nominal failure type. Construct errors like normal type objects, then use ",
+              { code: "panic" },
+              " to raise them and ",
+              { code: "recover" },
+              " to handle them.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "pub error FileNotFound {\n    path: string\n    message: string = \"file not found\"\n}\n\nlet $result = try {\n    open_file($path)\n} recover {\n    FileNotFound as $err => fallback_file()\n} ensure {\n    close_handles()\n}",
+          },
+        ],
+      },
+      {
+        title: "Closed Programs",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo compiles a closed graph. Static includes add edges automatically; dynamic includes may execute only files admitted by the graph. Use ",
+              { code: "compile { ... }" },
+              " for known dynamic targets and packages.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'compile {\n    "./routes/*.php"\n    "/srv/app/shared/bootstrap.php"\n    "modoterra/laravel-echo"\n}',
           },
         ],
       },
@@ -5740,7 +6182,9 @@ export const docsPages: DocsPage[] = [
   },
 ];
 
-export const docsPageByPath = new Map(docsPages.map((page) => [page.path, page]));
+export const contentPages = [...docsPages, ...bookPages];
+
+export const docsPageByPath = new Map(contentPages.map((page) => [page.path, page]));
 
 export const docsNavigation: DocsNavGroup[] = [
   {
@@ -5787,19 +6231,32 @@ export const docsNavigation: DocsNavGroup[] = [
       },
       { label: "PHP Compatibility", to: "/docs/php-compatibility" },
       { label: "Examples", to: "/docs/examples" },
-      { label: "Benchmarks", to: "/docs/benchmarks" },
       { label: "Semantic Profiles", to: "/docs/semantic-profiles" },
       { label: "Imports", to: "/docs/imports" },
       { label: "Compilation Graph", to: "/docs/compilation-graph" },
     ],
   },
   {
-    title: "Tooling",
+    title: "Tools",
     links: [
       { label: "Command Line", to: "/docs/command-line" },
       { label: "Language Server", to: "/docs/language-server" },
-      { label: "Testing", to: "/docs/testing" },
-      { label: "Source Builds", to: "/docs/source-builds" },
+    ],
+  },
+];
+
+export const bookNavigation: DocsNavGroup[] = [
+  {
+    title: "The Echo Book",
+    links: [
+      { label: "The Echo Language", to: "/book" },
+      { label: "Files And Modules", to: "/book/files-and-modules" },
+      { label: "Bindings And Types", to: "/book/bindings-and-types" },
+      { label: "Data And Destructuring", to: "/book/data-and-destructuring" },
+      { label: "Classes, Facets, And Enums", to: "/book/classes-facets-and-enums" },
+      { label: "Control Flow And Effects", to: "/book/control-flow-and-effects" },
+      { label: "Strings, Bytes, And Numbers", to: "/book/strings-bytes-and-numbers" },
+      { label: "Errors And Programs", to: "/book/errors-and-programs" },
     ],
   },
 ];

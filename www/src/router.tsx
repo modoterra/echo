@@ -53,6 +53,7 @@ import {
   builtinExampleNote,
   builtinFamilies,
   builtinFamilyBySlug,
+  bookNavigation,
   docsNavigation,
   docsPageByPath,
   docsPages,
@@ -60,6 +61,7 @@ import {
   type BuiltinDoc,
   type BuiltinFamily,
   type DocsBlock,
+  type DocsNavGroup,
   type DocsNavLink,
   type DocsPage as DocsPageData,
   type DocsTextPart,
@@ -960,6 +962,9 @@ function Topbar() {
           <Link className="transition hover:text-slate-950" to="/docs">
             Docs
           </Link>
+          <Link className="transition hover:text-slate-950" to="/book">
+            Book
+          </Link>
         </nav>
         <div className="hidden justify-self-end xl:block">
           <DocsSearch />
@@ -1054,6 +1059,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Getting Started", href: "/docs" },
       { label: "Installation", href: "/docs" },
       { label: "Docs", href: "/docs" },
+      { label: "Book", href: "/book" },
       { label: "Roadmap", href: "/docs/roadmap" },
     ],
   },
@@ -1064,16 +1070,13 @@ const footerLinkGroups: FooterLinkGroup[] = [
       { label: "PHP Built-ins", href: "/docs/php-built-ins" },
       { label: "Compatibility", href: "/docs/php-compatibility" },
       { label: "Examples", href: "/docs/examples" },
-      { label: "Benchmarks", href: "/docs/benchmarks" },
     ],
   },
   {
-    title: "Tooling",
+    title: "Tools",
     links: [
-      { label: "Source Builds", href: "/docs/source-builds" },
       { label: "Command Line", href: "/docs/command-line" },
       { label: "Language Server", href: "/docs/language-server" },
-      { label: "Testing", href: "/docs/testing" },
     ],
   },
   {
@@ -1299,15 +1302,17 @@ function DocsNavLinkItem({
 }
 
 function DocsNavigationList({
+  navigation,
   onNavigate,
   pathname,
 }: {
+  navigation: DocsNavGroup[];
   onNavigate?: () => void;
   pathname: string;
 }) {
   return (
     <div className="space-y-10">
-      {docsNavigation.map((group) => (
+      {navigation.map((group) => (
         <section key={group.title}>
           <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
           <ul className="mt-5 space-y-3">
@@ -1338,6 +1343,7 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
 
 function DocsLayout() {
   const location = useLocation();
+  const navigation = location.pathname.startsWith("/book") ? bookNavigation : docsNavigation;
   const [meta, setMeta] = useState<DocsPageMeta>(defaultDocsPageMeta);
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
@@ -1513,6 +1519,7 @@ function DocsLayout() {
                 className="flex-1 overflow-y-auto px-6 py-7 scrollbar-thin scrollbar-nice"
               >
                 <DocsNavigationList
+                  navigation={navigation}
                   onNavigate={() => setIsMobileNavOpen(false)}
                   pathname={location.pathname}
                 />
@@ -1528,7 +1535,7 @@ function DocsLayout() {
             aria-label="Documentation sections"
             className="sticky top-32 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 scrollbar-thin scrollbar-nice"
           >
-            <DocsNavigationList pathname={location.pathname} />
+            <DocsNavigationList navigation={navigation} pathname={location.pathname} />
           </nav>
         </aside>
 
@@ -1771,10 +1778,64 @@ const docsLayoutRoute = createRoute({
   component: DocsLayout,
 });
 
+const bookLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/book",
+  component: DocsLayout,
+});
+
 const docsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "/",
   component: () => <DocsContentPage page={docsPage("/docs")} />,
+});
+
+const bookRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "/",
+  component: () => <DocsContentPage page={docsPage("/book")} />,
+});
+
+const bookFilesAndModulesRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "files-and-modules",
+  component: () => <DocsContentPage page={docsPage("/book/files-and-modules")} />,
+});
+
+const bookBindingsAndTypesRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "bindings-and-types",
+  component: () => <DocsContentPage page={docsPage("/book/bindings-and-types")} />,
+});
+
+const bookDataAndDestructuringRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "data-and-destructuring",
+  component: () => <DocsContentPage page={docsPage("/book/data-and-destructuring")} />,
+});
+
+const bookClassesFacetsAndEnumsRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "classes-facets-and-enums",
+  component: () => <DocsContentPage page={docsPage("/book/classes-facets-and-enums")} />,
+});
+
+const bookControlFlowAndEffectsRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "control-flow-and-effects",
+  component: () => <DocsContentPage page={docsPage("/book/control-flow-and-effects")} />,
+});
+
+const bookStringsBytesAndNumbersRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "strings-bytes-and-numbers",
+  component: () => <DocsContentPage page={docsPage("/book/strings-bytes-and-numbers")} />,
+});
+
+const bookErrorsAndProgramsRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "errors-and-programs",
+  component: () => <DocsContentPage page={docsPage("/book/errors-and-programs")} />,
 });
 
 const quickstartRoute = createRoute({
@@ -1957,11 +2018,6 @@ const examplesRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/examples")} />,
 });
 
-const benchmarksRoute = createRoute({
-  getParentRoute: () => docsLayoutRoute,
-  path: "benchmarks",
-  component: () => <DocsContentPage page={docsPage("/docs/benchmarks")} />,
-});
 
 const semanticProfilesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
@@ -1993,17 +2049,7 @@ const languageServerRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/language-server")} />,
 });
 
-const testingRoute = createRoute({
-  getParentRoute: () => docsLayoutRoute,
-  path: "testing",
-  component: () => <DocsContentPage page={docsPage("/docs/testing")} />,
-});
 
-const sourceBuildsRoute = createRoute({
-  getParentRoute: () => docsLayoutRoute,
-  path: "source-builds",
-  component: () => <DocsContentPage page={docsPage("/docs/source-builds")} />,
-});
 
 const docsNotFoundRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
@@ -2011,8 +2057,25 @@ const docsNotFoundRoute = createRoute({
   component: DocsNotFoundPage,
 });
 
+const bookNotFoundRoute = createRoute({
+  getParentRoute: () => bookLayoutRoute,
+  path: "$",
+  component: DocsNotFoundPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  bookLayoutRoute.addChildren([
+    bookRoute,
+    bookFilesAndModulesRoute,
+    bookBindingsAndTypesRoute,
+    bookDataAndDestructuringRoute,
+    bookClassesFacetsAndEnumsRoute,
+    bookControlFlowAndEffectsRoute,
+    bookStringsBytesAndNumbersRoute,
+    bookErrorsAndProgramsRoute,
+    bookNotFoundRoute,
+  ]),
   docsLayoutRoute.addChildren([
     docsRoute,
     quickstartRoute,
@@ -2045,14 +2108,11 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinCoreRoute,
     phpCompatibilityRoute,
     examplesRoute,
-    benchmarksRoute,
     semanticProfilesRoute,
     importsRoute,
     compilationGraphRoute,
     commandLineRoute,
     languageServerRoute,
-    testingRoute,
-    sourceBuildsRoute,
     docsNotFoundRoute,
   ]),
 ]);

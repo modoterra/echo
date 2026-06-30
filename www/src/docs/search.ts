@@ -3,7 +3,7 @@ import {
   builtinExample,
   builtinExampleNote,
   builtinFamilies,
-  docsPages,
+  contentPages,
   headingId,
   type BuiltinDoc,
   type DocsBlock,
@@ -83,7 +83,7 @@ export function buildDocsSearchAsset(): DocsSearchAsset {
 
 export function buildDocsSearchRecords(): DocsSearchRecord[] {
   return [
-    ...docsPages.flatMap(pageRecords),
+    ...contentPages.flatMap(pageRecords),
     phpBuiltinsOverviewRecord(),
     ...builtinFamilies.flatMap((family) => [
       {
