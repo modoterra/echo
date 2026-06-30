@@ -334,7 +334,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `glob` | missing |  |
 | `header` | missing |  |
 | `header_register_callback` | missing |  |
-| `header_remove` | missing |  |
+| `header_remove` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header-remove.php |
 | `headers_list` | implemented | Returns an empty array because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.headers-list.php |
 | `headers_sent` | implemented | Returns `false` because Echo currently uses CLI-style execution and does not model an HTTP header layer; optional filename/line reference outputs are deferred. Source: https://www.php.net/manual/en/function.headers-sent.php |
 | `hebrev` | missing |  |

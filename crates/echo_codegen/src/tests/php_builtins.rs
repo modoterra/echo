@@ -478,6 +478,26 @@ fn headers_sent_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn header_remove_lowers_default_name_to_null() {
+    let ir = compile_to_ir(&program(vec![Stmt::Expr(echo_ast::ExprStmt {
+        expr: Expr::FunctionCall(FunctionCallExpr {
+            name: "header_remove".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 15),
+        }),
+        span: Span::new(0, 16),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare void @echo_php_header_remove(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("call void @echo_php_header_remove("), "{ir}");
+    assert!(ir.contains("%EchoValue { i32 0, i64 0 }"), "{ir}");
+}
+
+#[test]
 fn ini_set_lowers_to_binary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

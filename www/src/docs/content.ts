@@ -1291,6 +1291,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Reports whether HTTP headers have already been sent.",
       },
       {
+        name: "header_remove",
+        signature: "header_remove(?string $name): void",
+        description: "Removes a queued HTTP response header, or all headers when no name is given.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2059,6 +2064,12 @@ echo "headers: " . count($headers) . "\\n"`,
     `if (headers_sent() === false) {
     echo "headers can still be queued\\n"
 }`,
+  ],
+  [
+    "header_remove",
+    `header_remove("X-Debug")
+
+echo "debug header cleared\\n"`,
   ],
   [
     "ini_set",
@@ -4003,6 +4014,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "headers_sent",
     "Use `headers_sent()` before compatibility code queues response headers after output may have started. Echo currently returns false because it does not model an HTTP header layer.",
+  ],
+  [
+    "header_remove",
+    "Use `header_remove()` when compatibility code clears queued response headers before switching response paths. Echo currently treats it as a no-op because it does not model an HTTP header layer.",
   ],
   [
     "ini_set",
