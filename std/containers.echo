@@ -1,5 +1,15 @@
 module std.containers
 
+facet list<T> as $items {
+    pub fn append($item: T): void {
+    }
+}
+
+facet array<T> as $items {
+    pub fn append($item: T): void {
+    }
+}
+
 class Dict {
 }
 
