@@ -1276,6 +1276,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Parses a PHP ini shorthand quantity into bytes.",
       },
       {
+        name: "get_include_path",
+        signature: "get_include_path(): string|false",
+        description: "Returns PHP's current include_path configuration value.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2024,6 +2029,14 @@ echo "ini options: " . count($options) . "\\n"`,
     `let $bytes = ini_parse_quantity("256M")
 
 echo "memory bytes: " . $bytes . "\\n"`,
+  ],
+  [
+    "get_include_path",
+    `let $path = get_include_path()
+
+if ($path === false) {
+    echo "No include_path config value\\n"
+}`,
   ],
   [
     "ini_set",
@@ -3956,6 +3969,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ini_parse_quantity",
     "Use `ini_parse_quantity()` to normalize PHP shorthand quantities such as memory limits into byte counts. Echo supports PHP's integer bases and K/M/G multipliers.",
+  ],
+  [
+    "get_include_path",
+    "Use `get_include_path()` when compatibility code checks PHP's include search path before resolving legacy includes. Echo currently returns false because it does not model PHP ini option values.",
   ],
   [
     "ini_set",

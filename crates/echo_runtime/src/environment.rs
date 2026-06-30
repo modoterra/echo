@@ -143,6 +143,11 @@ pub extern "C" fn echo_php_ini_parse_quantity(shorthand: EchoValue) -> EchoValue
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_include_path() -> EchoValue {
+    echo_php_ini_get(echo_runtime_string(b"include_path".to_vec()))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
     let Some(_option) = option.string_bytes() else {
         return EchoValue::bool(false);

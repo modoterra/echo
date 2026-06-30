@@ -307,7 +307,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_debug_type` | missing |  |
 | `get_headers` | missing |  |
 | `get_html_translation_table` | missing |  |
-| `get_include_path` | missing |  |
+| `get_include_path` | implemented | Equivalent to `ini_get("include_path")`; returns `false` because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.get-include-path.php |
 | `get_meta_tags` | missing |  |
 | `getcwd` | implemented | Returns the current working directory as a string or `false` if the host cannot report it. Source: https://www.php.net/manual/en/function.getcwd.php |
 | `getenv` | implemented | Returns a named environment value, all environment variables as an associative array when omitted/null, or `false` for a missing name; SAPI-local distinctions are not modeled. Source: https://www.php.net/manual/en/function.getenv.php |

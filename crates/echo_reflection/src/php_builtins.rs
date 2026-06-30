@@ -63,6 +63,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("shorthand", Some("string"))],
             Some("int"),
         ),
+        php_builtin_reflection("get_include_path", &[], Some("string|false")),
         php_builtin_reflection(
             "ini_set",
             &[("option", Some("string")), ("value", Some("string"))],

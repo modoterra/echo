@@ -130,6 +130,7 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_ini_parse_quantity(test_string_value(b"foobar")),
         EchoValue::int(0)
     );
+    assert_eq!(echo_php_get_include_path(), EchoValue::bool(false));
     assert_eq!(
         echo_php_ini_set(
             test_string_value(b"memory_limit"),

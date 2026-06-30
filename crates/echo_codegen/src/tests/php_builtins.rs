@@ -412,6 +412,28 @@ fn ini_parse_quantity_lowers_to_unary_runtime_call() {
 }
 
 #[test]
+fn get_include_path_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "get_include_path".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 18),
+        })],
+        span: Span::new(0, 19),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_get_include_path()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_get_include_path()"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn ini_set_lowers_to_binary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
