@@ -387,6 +387,31 @@ fn ini_get_all_lowers_default_arguments_to_runtime_call() {
 }
 
 #[test]
+fn ini_parse_quantity_lowers_to_unary_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "ini_parse_quantity".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "256M".to_string(),
+                span: Span::new(19, 25),
+            })],
+            span: Span::new(0, 26),
+        })],
+        span: Span::new(0, 27),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_ini_parse_quantity(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_ini_parse_quantity("),
+        "{ir}"
+    );
+}
+
+#[test]
 fn ini_set_lowers_to_binary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

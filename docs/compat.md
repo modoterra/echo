@@ -362,7 +362,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ini_alter` | implemented | Alias of `ini_set`; returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-alter.php |
 | `ini_get` | implemented | Returns `false` for configuration options because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get.php |
 | `ini_get_all` | implemented | Returns an empty array for the core ini registry and `false` for named extensions because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get-all.php |
-| `ini_parse_quantity` | missing |  |
+| `ini_parse_quantity` | implemented | Parses PHP ini shorthand quantities with decimal, binary, octal, hexadecimal, and `K`/`M`/`G` multipliers; invalid leading text returns `0` and unknown suffixes keep the parsed number. Source: https://www.php.net/manual/en/function.ini-parse-quantity.php |
 | `ini_restore` | implemented | No-op because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-restore.php |
 | `ini_set` | implemented | Returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-set.php |
 | `intdiv` | implemented | Divides integer-compatible operands and returns the quotient truncated toward zero; division by zero and overflow currently surface as runtime errors. Source: https://www.php.net/manual/en/function.intdiv.php |

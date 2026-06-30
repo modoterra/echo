@@ -59,6 +59,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array|false"),
         ),
         php_builtin_reflection(
+            "ini_parse_quantity",
+            &[("shorthand", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "ini_set",
             &[("option", Some("string")), ("value", Some("string"))],
             Some("string|false"),

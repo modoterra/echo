@@ -185,6 +185,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::IniGetAll,
         },
         PhpBuiltin {
+            php_name: "ini_parse_quantity",
+            symbol: "echo_php_ini_parse_quantity",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "ini_set",
             symbol: "echo_php_ini_set",
             helper_symbol: None,

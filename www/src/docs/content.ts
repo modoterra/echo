@@ -1271,6 +1271,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns PHP ini option metadata, or false for an unavailable extension.",
       },
       {
+        name: "ini_parse_quantity",
+        signature: "ini_parse_quantity(string $shorthand): int",
+        description: "Parses a PHP ini shorthand quantity into bytes.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2013,6 +2018,12 @@ if ($memoryLimit === false) {
     `let $options = ini_get_all()
 
 echo "ini options: " . count($options) . "\\n"`,
+  ],
+  [
+    "ini_parse_quantity",
+    `let $bytes = ini_parse_quantity("256M")
+
+echo "memory bytes: " . $bytes . "\\n"`,
   ],
   [
     "ini_set",
@@ -3941,6 +3952,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ini_get_all",
     "Use `ini_get_all()` when compatibility diagnostics summarize available PHP ini options. Echo currently returns an empty array for the core registry and false for named extensions.",
+  ],
+  [
+    "ini_parse_quantity",
+    "Use `ini_parse_quantity()` to normalize PHP shorthand quantities such as memory limits into byte counts. Echo supports PHP's integer bases and K/M/G multipliers.",
   ],
   [
     "ini_set",

@@ -134,6 +134,15 @@ pub extern "C" fn echo_php_ini_get_all(extension: EchoValue, _details: EchoValue
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ini_parse_quantity(shorthand: EchoValue) -> EchoValue {
+    let Some(bytes) = shorthand.string_bytes() else {
+        return EchoValue::int(0);
+    };
+
+    EchoValue::int(parse_ini_quantity_bytes(&bytes))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
     let Some(_option) = option.string_bytes() else {
         return EchoValue::bool(false);
@@ -221,4 +230,99 @@ fn hostname_file_bytes(path: &Path) -> Option<Vec<u8>> {
     }
 
     if bytes.is_empty() { None } else { Some(bytes) }
+}
+
+fn parse_ini_quantity_bytes(bytes: &[u8]) -> i64 {
+    let bytes = trim_ascii_start(bytes);
+    let Some((sign, after_sign)) = parse_ini_quantity_sign(bytes) else {
+        return 0;
+    };
+    let Some((base, digits)) = parse_ini_quantity_base(after_sign) else {
+        return 0;
+    };
+
+    let mut value = 0_i64;
+    let mut consumed = 0;
+
+    for &byte in digits {
+        let Some(digit) = ascii_digit_value(byte) else {
+            break;
+        };
+        if digit >= base {
+            break;
+        }
+
+        value = value
+            .saturating_mul(base as i64)
+            .saturating_add(digit as i64);
+        consumed += 1;
+    }
+
+    if consumed == 0 {
+        return 0;
+    }
+
+    let mut value = if sign < 0 {
+        value.saturating_neg()
+    } else {
+        value
+    };
+
+    if let Some(multiplier) = digits
+        .get(consumed)
+        .and_then(|byte| ini_quantity_multiplier(*byte))
+    {
+        value = value.saturating_mul(multiplier);
+    }
+
+    value
+}
+
+fn trim_ascii_start(mut bytes: &[u8]) -> &[u8] {
+    while matches!(
+        bytes.first(),
+        Some(b' ' | b'\t' | b'\n' | b'\r' | 0x0b | 0x0c)
+    ) {
+        bytes = &bytes[1..];
+    }
+
+    bytes
+}
+
+fn parse_ini_quantity_sign(bytes: &[u8]) -> Option<(i8, &[u8])> {
+    match bytes.first() {
+        Some(b'+') => Some((1, &bytes[1..])),
+        Some(b'-') => Some((-1, &bytes[1..])),
+        Some(_) => Some((1, bytes)),
+        None => None,
+    }
+}
+
+fn parse_ini_quantity_base(bytes: &[u8]) -> Option<(u8, &[u8])> {
+    match bytes {
+        [b'0', b'x' | b'X', rest @ ..] => Some((16, rest)),
+        [b'0', b'b' | b'B', rest @ ..] => Some((2, rest)),
+        [b'0', b'o' | b'O', rest @ ..] => Some((8, rest)),
+        [b'0', rest @ ..] => Some((8, rest)),
+        [_, ..] => Some((10, bytes)),
+        [] => None,
+    }
+}
+
+fn ascii_digit_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn ini_quantity_multiplier(byte: u8) -> Option<i64> {
+    match byte {
+        b'k' | b'K' => Some(1024),
+        b'm' | b'M' => Some(1024 * 1024),
+        b'g' | b'G' => Some(1024 * 1024 * 1024),
+        _ => None,
+    }
 }

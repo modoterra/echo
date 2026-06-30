@@ -103,6 +103,34 @@ fn environment_process_builtins_follow_php_shapes() {
         EchoValue::bool(false)
     );
     assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"256M")),
+        EchoValue::int(268_435_456)
+    );
+    assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"4G")),
+        EchoValue::int(4_294_967_296)
+    );
+    assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"0x10")),
+        EchoValue::int(16)
+    );
+    assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"0b1010")),
+        EchoValue::int(10)
+    );
+    assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"010")),
+        EchoValue::int(8)
+    );
+    assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"10F")),
+        EchoValue::int(10)
+    );
+    assert_eq!(
+        echo_php_ini_parse_quantity(test_string_value(b"foobar")),
+        EchoValue::int(0)
+    );
+    assert_eq!(
         echo_php_ini_set(
             test_string_value(b"memory_limit"),
             test_string_value(b"128M")
