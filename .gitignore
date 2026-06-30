@@ -1,4 +1,5 @@
 /target/
+/.scratch/
 /test-results/
 /.worktrees/
 /TODO.coverage.md
