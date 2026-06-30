@@ -27,6 +27,7 @@ pub enum BuiltinCodegen {
     Header,
     HeaderRemove,
     HttpResponseCode,
+    IgnoreUserAbort,
     IniGetAll,
     GetLoadedExtensions,
     InArray,
@@ -218,6 +219,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueNoArgs,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
+            php_name: "ignore_user_abort",
+            symbol: "echo_php_ignore_user_abort",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::IgnoreUserAbort,
         },
         PhpBuiltin {
             php_name: "headers_list",

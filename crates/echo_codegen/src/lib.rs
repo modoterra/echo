@@ -1226,6 +1226,31 @@ impl IrModule {
                 ));
                 Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
             }
+            BuiltinCodegen::IgnoreUserAbort => {
+                if call.args.len() > 1 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let enable = if let Some(arg) = call.args.first() {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 0, i64 0 }".to_string()
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}({enable})\n",
+                    builtin.symbol
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
+            }
             BuiltinCodegen::BoolStatement => {
                 if !call.args.is_empty() {
                     return Err(Diagnostic::new(

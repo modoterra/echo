@@ -11,6 +11,7 @@ pub const PHP_COMPAT_VERSION: &str = "8.2.0";
 pub const ZEND_COMPAT_VERSION: &str = "8.2.0";
 
 static HTTP_RESPONSE_CODE: AtomicI64 = AtomicI64::new(0);
+static IGNORE_USER_ABORT: AtomicI64 = AtomicI64::new(0);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getenv(name: EchoValue, _local_only: EchoValue) -> EchoValue {
@@ -158,6 +159,19 @@ pub extern "C" fn echo_php_connection_aborted() -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_connection_status() -> EchoValue {
     EchoValue::int(0)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ignore_user_abort(enable: EchoValue) -> EchoValue {
+    if enable.is_null() {
+        return EchoValue::int(IGNORE_USER_ABORT.load(Ordering::SeqCst));
+    }
+
+    let previous = IGNORE_USER_ABORT.swap(
+        enable.bool_value().unwrap_or(false) as i64,
+        Ordering::SeqCst,
+    );
+    EchoValue::int(previous)
 }
 
 #[unsafe(no_mangle)]

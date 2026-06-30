@@ -1291,6 +1291,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns PHP's current client connection status bitfield.",
       },
       {
+        name: "ignore_user_abort",
+        signature: "ignore_user_abort(?bool $enable): int",
+        description: "Gets or sets whether execution continues after a client disconnects.",
+      },
+      {
         name: "headers_list",
         signature: "headers_list(): array",
         description: "Returns the list of queued HTTP response headers.",
@@ -2084,6 +2089,12 @@ if ($path === false) {
     `if (connection_status() === 0) {
     echo "connection normal\\n"
 }`,
+  ],
+  [
+    "ignore_user_abort",
+    `let $previous = ignore_user_abort(true)
+
+echo "previous setting: " . $previous . "\\n"`,
   ],
   [
     "headers_list",
@@ -4062,6 +4073,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "connection_status",
     "Use `connection_status()` when compatibility code checks PHP's connection status bitfield. Echo currently returns 0 because it does not model an abortable client connection.",
+  ],
+  [
+    "ignore_user_abort",
+    "Use `ignore_user_abort()` when compatibility code records whether work should continue after a web client disconnects. Echo tracks the setting as process-local state but does not model an abortable client connection.",
   ],
   [
     "headers_list",

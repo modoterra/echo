@@ -478,6 +478,28 @@ fn connection_status_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn ignore_user_abort_lowers_default_enable_to_null() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "ignore_user_abort".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 19),
+        })],
+        span: Span::new(0, 20),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_ignore_user_abort(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_ignore_user_abort(%EchoValue { i32 0, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn headers_list_lowers_to_no_argument_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

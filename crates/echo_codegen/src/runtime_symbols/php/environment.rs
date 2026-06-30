@@ -107,6 +107,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_ignore_user_abort",
+            echo_runtime::echo_php_ignore_user_abort
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_headers_list",
             echo_runtime::echo_php_headers_list as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

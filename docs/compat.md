@@ -352,7 +352,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `http_get_last_response_headers` | missing |  |
 | `http_response_code` | implemented | Tracks the process-local response code; returns `false` before a code is set, `true` for the first set, and the previous/current code as documented for CLI-style use. Source: https://www.php.net/manual/en/function.http-response-code.php |
 | `hypot` | implemented | Returns the Euclidean distance for two numeric values using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.hypot.php |
-| `ignore_user_abort` | missing |  |
+| `ignore_user_abort` | implemented | Tracks process-local ignore-user-abort state and returns the previous/current `0` or `1` setting; Echo does not model an abortable client connection yet. Source: https://www.php.net/manual/en/function.ignore-user-abort.php |
 | `image_type_to_extension` | missing |  |
 | `image_type_to_mime_type` | missing |  |
 | `implode` | implemented | Joins PHP array values in order, supports the optional empty-string separator form, and uses PHP string coercion for scalar elements. Source: https://www.php.net/manual/en/function.implode.php |
