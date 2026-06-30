@@ -1251,6 +1251,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the names of loaded PHP extensions.",
       },
       {
+        name: "get_extension_funcs",
+        signature: "get_extension_funcs(string $extension): array|false",
+        description: "Returns function names for a loaded PHP extension.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1930,6 +1935,14 @@ echo "Zend compatibility: " . $engine . "\\n"`,
     `let $extensions = get_loaded_extensions()
 
 echo "Loaded PHP extensions: " . count($extensions) . "\\n"`,
+  ],
+  [
+    "get_extension_funcs",
+    `let $functions = get_extension_funcs("json")
+
+if ($functions === false) {
+    echo "JSON extension functions are not available\\n"
+}`,
   ],
   [
     "getenv",
@@ -3807,6 +3820,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "get_loaded_extensions",
     "Use `get_loaded_extensions()` when compatibility diagnostics need an extension list. Echo currently returns an empty array until extension metadata is modeled.",
+  ],
+  [
+    "get_extension_funcs",
+    "Use `get_extension_funcs()` for compatibility checks that inspect functions exposed by optional PHP extensions. Echo currently returns false until extension function metadata is modeled.",
   ],
 ]);
 

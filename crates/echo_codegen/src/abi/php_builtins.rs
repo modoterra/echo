@@ -152,6 +152,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::GetLoadedExtensions,
         },
         PhpBuiltin {
+            php_name: "get_extension_funcs",
+            symbol: "echo_php_get_extension_funcs",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "getenv",
             symbol: "echo_php_getenv",
             helper_symbol: None,

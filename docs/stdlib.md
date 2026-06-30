@@ -408,7 +408,7 @@ echo $wrapped . "\n"
 
 Use the default break string for terminal-oriented text, or pass a custom break string when preparing pipe-delimited previews. Set `cut_long_words` only when long tokens must be split instead of preserved.
 
-- `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, `echo_php_zend_version(...)`, `echo_php_extension_loaded(...)`, `echo_php_get_loaded_extensions(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, process-ID, PHP version, Server API name, Zend Engine version, extension availability, extension listing, and environment mutation helpers are PHP compatibility functions for process-local state.
+- `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, `echo_php_zend_version(...)`, `echo_php_extension_loaded(...)`, `echo_php_get_loaded_extensions(...)`, `echo_php_get_extension_funcs(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, process-ID, PHP version, Server API name, Zend Engine version, extension availability, extension listing, extension function listing, and environment mutation helpers are PHP compatibility functions for process-local state.
 - `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
 - `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.
 
@@ -480,6 +480,19 @@ echo "Loaded PHP extensions: " . count($extensions) . "\n"
 ```
 
 Echo currently returns an empty array for regular and Zend-extension listings because extension metadata is not modeled yet. Use the result as a compatibility placeholder until extension packages can publish metadata.
+
+`get_extension_funcs()` is useful when a bootstrap checks whether an extension exposes a specific legacy helper:
+
+```php
+<?php
+let $functions = get_extension_funcs("json")
+
+if ($functions === false) {
+    echo "JSON extension functions are not available\n"
+}
+```
+
+Echo currently returns `false` for named extensions because extension function metadata is not modeled yet. Keep function-level extension checks explicit so later extension metadata can supply real lists.
 
 Array key and lookup helpers are useful when a keyed row needs to be validated, normalized for display, or reduced to totals:
 
