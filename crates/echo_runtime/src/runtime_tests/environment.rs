@@ -85,6 +85,24 @@ fn environment_process_builtins_follow_php_shapes() {
         EchoValue::bool(false)
     );
     assert_eq!(
+        echo_php_count(echo_php_ini_get_all(
+            EchoValue::null(),
+            EchoValue::bool(true)
+        )),
+        EchoValue::int(0)
+    );
+    assert_eq!(
+        echo_php_count(echo_php_ini_get_all(
+            test_string_value(b""),
+            EchoValue::bool(false)
+        )),
+        EchoValue::int(0)
+    );
+    assert_eq!(
+        echo_php_ini_get_all(test_string_value(b"json"), EchoValue::bool(true)),
+        EchoValue::bool(false)
+    );
+    assert_eq!(
         echo_php_ini_set(
             test_string_value(b"memory_limit"),
             test_string_value(b"128M")

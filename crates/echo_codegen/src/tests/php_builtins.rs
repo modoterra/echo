@@ -363,6 +363,30 @@ fn ini_get_lowers_to_unary_runtime_call() {
 }
 
 #[test]
+fn ini_get_all_lowers_default_arguments_to_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "ini_get_all".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 13),
+        })],
+        span: Span::new(0, 14),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_ini_get_all(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_ini_get_all("),
+        "{ir}"
+    );
+    assert!(ir.contains("%EchoValue { i32 0, i64 0 }"), "{ir}");
+    assert!(ir.contains("%EchoValue { i32 1, i64 1 }"), "{ir}");
+}
+
+#[test]
 fn ini_set_lowers_to_binary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

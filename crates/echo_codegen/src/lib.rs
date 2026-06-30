@@ -1305,6 +1305,38 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::IniGetAll => {
+                if call.args.len() > 2 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let extension = if let Some(arg) = call.args.first() {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 0, i64 0 }".to_string()
+                };
+                let details = if let Some(arg) = call.args.get(1) {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 1, i64 1 }".to_string()
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({extension}, {details})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::Basename => {
                 if !(1..=2).contains(&call.args.len()) {
                     return Err(Diagnostic::new(

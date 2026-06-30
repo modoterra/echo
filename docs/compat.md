@@ -361,7 +361,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `inet_pton` | missing |  |
 | `ini_alter` | implemented | Alias of `ini_set`; returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-alter.php |
 | `ini_get` | implemented | Returns `false` for configuration options because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get.php |
-| `ini_get_all` | missing |  |
+| `ini_get_all` | implemented | Returns an empty array for the core ini registry and `false` for named extensions because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get-all.php |
 | `ini_parse_quantity` | missing |  |
 | `ini_restore` | implemented | No-op because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-restore.php |
 | `ini_set` | implemented | Returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-set.php |

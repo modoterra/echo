@@ -1266,6 +1266,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns a PHP ini option value, or false when it is unavailable.",
       },
       {
+        name: "ini_get_all",
+        signature: "ini_get_all(?string $extension, bool $details): array|false",
+        description: "Returns PHP ini option metadata, or false for an unavailable extension.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2002,6 +2007,12 @@ if ($includePath === false) {
 if ($memoryLimit === false) {
     echo "No memory_limit config value\\n"
 }`,
+  ],
+  [
+    "ini_get_all",
+    `let $options = ini_get_all()
+
+echo "ini options: " . count($options) . "\\n"`,
   ],
   [
     "ini_set",
@@ -3926,6 +3937,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ini_get",
     "Use `ini_get()` for compatibility checks around PHP ini options. Echo currently returns false because it does not model PHP ini option values.",
+  ],
+  [
+    "ini_get_all",
+    "Use `ini_get_all()` when compatibility diagnostics summarize available PHP ini options. Echo currently returns an empty array for the core registry and false for named extensions.",
   ],
   [
     "ini_set",

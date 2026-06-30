@@ -117,6 +117,23 @@ pub extern "C" fn echo_php_ini_get(option: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ini_get_all(extension: EchoValue, _details: EchoValue) -> EchoValue {
+    if extension.is_null() {
+        return echo_value_array_new();
+    }
+
+    let Some(bytes) = extension.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    if bytes.is_empty() {
+        echo_value_array_new()
+    } else {
+        EchoValue::bool(false)
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
     let Some(_option) = option.string_bytes() else {
         return EchoValue::bool(false);
