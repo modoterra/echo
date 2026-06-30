@@ -1839,6 +1839,43 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::NumberFormat => {
+                if !(call.args.len() == 1 || call.args.len() == 2 || call.args.len() == 4) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let decimals = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 0 }".to_string(),
+                };
+                let decimal_separator = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => self
+                        .runtime_value_as_echo_value(body, RuntimeValue::StaticString(".".into())),
+                };
+                let thousands_separator = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => self
+                        .runtime_value_as_echo_value(body, RuntimeValue::StaticString(",".into())),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {decimals}, {decimal_separator}, {thousands_separator})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::ChunkSplit => {
                 if !(1..=3).contains(&call.args.len()) {
                     return Err(Diagnostic::new(

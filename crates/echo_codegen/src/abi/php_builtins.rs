@@ -28,6 +28,7 @@ pub enum BuiltinCodegen {
     Implode,
     Log,
     Nl2br,
+    NumberFormat,
     Round,
     ObStart,
     StrPad,

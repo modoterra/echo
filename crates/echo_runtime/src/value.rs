@@ -11,8 +11,8 @@ pub use arithmetic::{
     echo_value_unary_minus, echo_value_unary_plus,
 };
 pub(crate) use arithmetic::{php_number_add, php_number_mul};
-pub(crate) use coercion::{PhpNumber, format_php_float};
-use coercion::{is_php_numeric_string, parse_php_decimal_int, php_float_cast};
+pub(crate) use coercion::{PhpNumber, format_php_float, php_float_cast};
+use coercion::{is_php_numeric_string, parse_php_decimal_int};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

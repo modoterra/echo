@@ -181,6 +181,80 @@ fn round_lowers_explicit_precision_argument() {
 }
 
 #[test]
+fn number_format_lowers_php_default_separators() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "number_format".to_string(),
+            args: echo_ast::call_args![Expr::Number(NumberLiteral {
+                value: "1234.56".to_string(),
+                span: Span::new(14, 21),
+            })],
+            span: Span::new(0, 22),
+        })],
+        span: Span::new(0, 23),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "declare %EchoValue @echo_php_number_format(%EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+        ),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("%runtime_call_0 = call %EchoValue @echo_value_string("),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("%runtime_call_1 = call %EchoValue @echo_value_string("),
+        "{ir}"
+    );
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_number_format(%EchoValue { i32 11, i64 4653144467747100426 }, %EchoValue { i32 2, i64 0 }, %EchoValue %runtime_call_0, %EchoValue %runtime_call_1)"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
+fn number_format_lowers_custom_separator_arguments() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "number_format".to_string(),
+            args: echo_ast::call_args![
+                Expr::Number(NumberLiteral {
+                    value: "1234.5".to_string(),
+                    span: Span::new(14, 20),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "2".to_string(),
+                    span: Span::new(22, 23),
+                }),
+                Expr::String(StringLiteral {
+                    value: ",".to_string(),
+                    span: Span::new(25, 28),
+                }),
+                Expr::String(StringLiteral {
+                    value: " ".to_string(),
+                    span: Span::new(30, 33),
+                }),
+            ],
+            span: Span::new(0, 34),
+        })],
+        span: Span::new(0, 35),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_number_format(%EchoValue { i32 11, i64 4653144203864309760 }, %EchoValue { i32 2, i64 2 }, %EchoValue %runtime_call_0, %EchoValue %runtime_call_1)"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
 fn nl2br_lowers_optional_xhtml_flag_to_true() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

@@ -294,6 +294,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("num", Some("int|float")), ("precision", Some("int"))],
             Some("float"),
         ),
+        php_builtin_reflection(
+            "number_format",
+            &[
+                ("num", Some("float")),
+                ("decimals", Some("int")),
+                ("decimal_separator", Some("?string")),
+                ("thousands_separator", Some("?string")),
+            ],
+            Some("string"),
+        ),
         php_builtin_reflection("sqrt", &[("num", Some("float"))], Some("float")),
         php_builtin_reflection(
             "hypot",

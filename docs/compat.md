@@ -433,7 +433,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `next` | missing |  |
 | `nl2br` | implemented | Inserts `<br />` or `<br>` before newline sequences while preserving the original newline bytes. Source: https://www.php.net/manual/en/function.nl2br.php |
 | `nl_langinfo` | missing |  |
-| `number_format` | missing |  |
+| `number_format` | implemented | Formats a number with grouped thousands, half-up rounding, PHP's 1-, 2-, and 4-argument separator forms, and PHP 8.3 negative decimal precision. Source: https://www.php.net/manual/en/function.number-format.php |
 | `ob_clean` | implemented | Discards the active output buffer contents while keeping the buffer open. Source: https://www.php.net/manual/en/function.ob-clean.php |
 | `ob_end_clean` | implemented | Discards and closes the active output buffer, returning a bool success value. Source: https://www.php.net/manual/en/function.ob-end-clean.php |
 | `ob_end_flush` | implemented | Flushes and closes the active output buffer, returning a bool success value. Source: https://www.php.net/manual/en/function.ob-end-flush.php |

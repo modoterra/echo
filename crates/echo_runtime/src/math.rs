@@ -1,5 +1,5 @@
 use crate::string::trim_ascii;
-use crate::{EchoValue, echo_value_pow};
+use crate::{EchoValue, echo_runtime_string, echo_value_pow, php_float_cast};
 
 mod elementary;
 
@@ -133,6 +133,34 @@ pub extern "C" fn echo_php_round(value: EchoValue, precision: EchoValue) -> Echo
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_number_format(
+    value: EchoValue,
+    decimals: EchoValue,
+    decimal_separator: EchoValue,
+    thousands_separator: EchoValue,
+) -> EchoValue {
+    let Some(value) = php_float_cast(value) else {
+        return EchoValue::error();
+    };
+    let Some(decimals) = decimals.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(decimal_separator) = decimal_separator.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(thousands_separator) = thousands_separator.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    echo_runtime_string(format_number(
+        value,
+        decimals.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
+        &decimal_separator,
+        &thousands_separator,
+    ))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sqrt(value: EchoValue) -> EchoValue {
     php_unary_float_builtin(value, echo_math_sqrt)
 }
@@ -236,6 +264,51 @@ fn php_round_half_away_from_zero(value: f64, precision: i64) -> f64 {
         let factor = 10_f64.powi(-precision);
         (value / factor).round() * factor
     }
+}
+
+fn format_number(
+    value: f64,
+    decimals: i32,
+    decimal_separator: &[u8],
+    thousands_separator: &[u8],
+) -> Vec<u8> {
+    let rounded = php_round_half_away_from_zero(value, decimals as i64);
+    let display_decimals = decimals.max(0) as usize;
+    let sign: &[u8] = if rounded.is_sign_negative() && rounded != 0.0 {
+        b"-"
+    } else {
+        b""
+    };
+    let abs = rounded.abs();
+    let formatted = format!("{abs:.display_decimals$}");
+    let (integer, fraction) = formatted
+        .split_once('.')
+        .map_or((formatted.as_str(), ""), |(integer, fraction)| {
+            (integer, fraction)
+        });
+
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(sign);
+    bytes.extend_from_slice(&group_integer_digits(
+        integer.as_bytes(),
+        thousands_separator,
+    ));
+    if display_decimals > 0 {
+        bytes.extend_from_slice(decimal_separator);
+        bytes.extend_from_slice(fraction.as_bytes());
+    }
+    bytes
+}
+
+fn group_integer_digits(digits: &[u8], thousands_separator: &[u8]) -> Vec<u8> {
+    let mut grouped = Vec::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.iter().copied().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.extend_from_slice(thousands_separator);
+        }
+        grouped.push(digit);
+    }
+    grouped
 }
 
 fn php_float_coercion(value: EchoValue) -> Option<f64> {

@@ -219,6 +219,14 @@ pub(super) const MATH_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::Round,
     },
     PhpBuiltin {
+        php_name: "number_format",
+        symbol: "echo_php_number_format",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::NumberFormat,
+    },
+    PhpBuiltin {
         php_name: "sqrt",
         symbol: "echo_php_sqrt",
         helper_symbol: None,

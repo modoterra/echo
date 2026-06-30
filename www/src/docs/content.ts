@@ -776,6 +776,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Rounds a number to a requested decimal precision.",
       },
       {
+        name: "number_format",
+        signature:
+          "number_format(float $num, int $decimals, ?string $decimal_separator, ?string $thousands_separator): string",
+        description: "Formats a number with grouped thousands and decimal separators.",
+      },
+      {
         name: "sqrt",
         signature: "sqrt(float $num): float",
         description: "Returns the square root.",
@@ -2691,6 +2697,13 @@ let $display = round($subtotal, 2)
 echo "Subtotal: " . $display . "\\n"`,
   ],
   [
+    "number_format",
+    `let $total = 1234.567
+let $display = number_format($total, 2, ".", ",")
+
+echo "Invoice total: $" . $display . "\\n"`,
+  ],
+  [
     "sqrt",
     `let $distance = sqrt(3 * 3 + 4 * 4)
 
@@ -3510,6 +3523,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "round",
     "Use `round()` when a measurement, subtotal, or score needs a fixed decimal precision for display or reporting while retaining PHP's default half-away-from-zero behavior.",
+  ],
+  [
+    "number_format",
+    "Use `number_format()` at display boundaries for invoices, reports, and summaries that need stable thousands grouping. Keep calculations numeric and format only when building output text.",
   ],
   [
     "sqrt",

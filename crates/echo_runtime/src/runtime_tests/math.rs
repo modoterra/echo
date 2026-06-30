@@ -104,6 +104,36 @@ fn rounding_and_magnitude_builtins_preserve_php_float_behavior() {
         echo_php_round(test_string_value(b"12.6"), EchoValue::int(0)),
         13.0,
     );
+    assert_eq!(
+        echo_php_number_format(
+            EchoValue::float(1234.5678),
+            EchoValue::int(2),
+            test_string_value(b"."),
+            test_string_value(b","),
+        )
+        .string_bytes(),
+        Some(b"1,234.57".to_vec())
+    );
+    assert_eq!(
+        echo_php_number_format(
+            EchoValue::float(1234.5),
+            EchoValue::int(2),
+            test_string_value(b","),
+            test_string_value(b" "),
+        )
+        .string_bytes(),
+        Some(b"1 234,50".to_vec())
+    );
+    assert_eq!(
+        echo_php_number_format(
+            EchoValue::float(-9876.5),
+            EchoValue::int(0),
+            test_string_value(b"."),
+            test_string_value(b","),
+        )
+        .string_bytes(),
+        Some(b"-9,877".to_vec())
+    );
     assert_float_value(echo_php_sqrt(EchoValue::int(9)), 3.0);
     assert_float_value(echo_php_sqrt(EchoValue::float(10.0)), 3.162277660168379);
     assert!(f64::from_bits(echo_php_sqrt(EchoValue::int(-1)).payload).is_nan());

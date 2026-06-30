@@ -4,7 +4,7 @@ use super::{
 };
 use crate::string::{trim_ascii, trim_ascii_start};
 
-pub(super) fn php_float_cast(value: EchoValue) -> Option<f64> {
+pub(crate) fn php_float_cast(value: EchoValue) -> Option<f64> {
     if value.is_null() || value.kind == EchoValue::error().kind {
         return Some(0.0);
     }

@@ -292,7 +292,19 @@ Examples:
 - `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
 - `echo_php_intdiv(...)` is PHP builtin ABI because `intdiv()` is a PHP compatibility function for integer quotient division.
 - `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are PHP builtin ABI because PHP exposes hyperbolic math helpers as compatibility functions.
-- `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_round(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding and magnitude helpers as compatibility functions.
+- `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_round(...)`, `echo_php_number_format(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding, numeric display formatting, and magnitude helpers as compatibility functions.
+
+`number_format()` is useful at display boundaries where a numeric subtotal needs stable grouping and decimal separators:
+
+```php
+<?php
+let $total = 1234.567
+let $display = number_format($total, 2, ".", ",")
+
+echo "Invoice total: $" . $display . "\n"
+```
+
+Use it when producing reports, invoices, or status summaries that must match PHP's familiar thousands grouping. Keep calculations in numeric values and format only at the output boundary so separators do not leak back into arithmetic.
 - `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, `echo_php_pow(...)`, `echo_php_fdiv(...)`, and `echo_php_fpow(...)` are PHP builtin ABI because PHP exposes exponential, logarithmic, IEEE division, and IEEE power helpers as compatibility functions.
 - `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
