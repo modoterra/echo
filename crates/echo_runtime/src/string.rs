@@ -339,6 +339,116 @@ pub extern "C" fn echo_php_stripslashes(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stripcslashes(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, strip_c_string_slashes)
+}
+
+fn strip_c_string_slashes(bytes: &[u8]) -> Vec<u8> {
+    let mut stripped = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] != b'\\' || index + 1 == bytes.len() {
+            stripped.push(bytes[index]);
+            index += 1;
+            continue;
+        }
+
+        let escaped = bytes[index + 1];
+        match escaped {
+            b'n' => {
+                stripped.push(b'\n');
+                index += 2;
+            }
+            b'r' => {
+                stripped.push(b'\r');
+                index += 2;
+            }
+            b't' => {
+                stripped.push(b'\t');
+                index += 2;
+            }
+            b'v' => {
+                stripped.push(0x0b);
+                index += 2;
+            }
+            b'f' => {
+                stripped.push(0x0c);
+                index += 2;
+            }
+            b'a' => {
+                stripped.push(0x07);
+                index += 2;
+            }
+            b'b' => {
+                stripped.push(0x08);
+                index += 2;
+            }
+            b'0'..=b'7' => {
+                let (byte, consumed) = parse_c_octal_escape(&bytes[index + 1..]);
+                stripped.push(byte);
+                index += 1 + consumed;
+            }
+            b'x' => {
+                let (byte, consumed) = parse_c_hex_escape(&bytes[index + 2..]);
+                if consumed == 0 {
+                    stripped.push(b'x');
+                    index += 2;
+                } else {
+                    stripped.push(byte);
+                    index += 2 + consumed;
+                }
+            }
+            other => {
+                stripped.push(other);
+                index += 2;
+            }
+        }
+    }
+
+    stripped
+}
+
+fn parse_c_octal_escape(bytes: &[u8]) -> (u8, usize) {
+    let mut value = 0u16;
+    let mut consumed = 0;
+
+    for byte in bytes.iter().copied().take(3) {
+        if !(b'0'..=b'7').contains(&byte) {
+            break;
+        }
+        value = value * 8 + u16::from(byte - b'0');
+        consumed += 1;
+    }
+
+    (value as u8, consumed)
+}
+
+fn parse_c_hex_escape(bytes: &[u8]) -> (u8, usize) {
+    let mut value = 0u16;
+    let mut consumed = 0;
+
+    for byte in bytes.iter().copied().take(2) {
+        let Some(digit) = ascii_hex_digit(byte) else {
+            break;
+        };
+        value = value * 16 + u16::from(digit);
+        consumed += 1;
+    }
+
+    (value as u8, consumed)
+}
+
+fn ascii_hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_quoted_printable_encode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, quoted_printable_encode_bytes)
 }

@@ -308,7 +308,19 @@ Use it when producing reports, invoices, or status summaries that must match PHP
 - `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, `echo_php_pow(...)`, `echo_php_fdiv(...)`, and `echo_php_fpow(...)` are PHP builtin ABI because PHP exposes exponential, logarithmic, IEEE division, and IEEE power helpers as compatibility functions.
 - `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
 - `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
-- `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, and `quotemeta()` are PHP compatibility functions.
+- `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, `echo_php_stripcslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, `stripcslashes()`, and `quotemeta()` are PHP compatibility functions.
+
+`stripcslashes()` is useful when legacy configuration or fixture data stores byte escapes that need to become real control bytes before parsing:
+
+```php
+<?php
+let $encoded = "\\n\\t\\x41"
+let $decoded = stripcslashes($encoded)
+
+echo bin2hex($decoded) . "\n"
+```
+
+Use it at the input boundary for PHP-compatible escaped byte strings, then keep the decoded value as ordinary text or binary data. `bin2hex()` is a practical way to inspect the result when decoded bytes include tabs, newlines, or NUL.
 - `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
 - `echo_php_str_repeat(...)` and `echo_php_str_pad(...)` are PHP builtin ABI because `str_repeat()` and `str_pad()` are PHP compatibility functions for constructing strings with repeated bytes.
 - `echo_php_str_split(...)` and `echo_php_chunk_split(...)` are PHP builtin ABI because `str_split()` and `chunk_split()` are PHP compatibility functions for fixed-width byte chunks.

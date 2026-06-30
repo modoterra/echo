@@ -124,6 +124,9 @@ fn string_escape_builtins_preserve_php_byte_behavior() {
     let slashed_zero = Box::into_raw(Box::new(EchoString {
         bytes: b"\\0".to_vec(),
     }));
+    let c_escaped = Box::into_raw(Box::new(EchoString {
+        bytes: b"\\n\\t\\x41\\101".to_vec(),
+    }));
     let meta = Box::into_raw(Box::new(EchoString {
         bytes: b".\\+*?[^]($)".to_vec(),
     }));
@@ -138,6 +141,10 @@ fn string_escape_builtins_preserve_php_byte_behavior() {
         Some(vec![0])
     );
     assert_eq!(
+        echo_php_stripcslashes(EchoValue::string(c_escaped)).string_bytes(),
+        Some(b"\n\tAA".to_vec())
+    );
+    assert_eq!(
         echo_php_quotemeta(EchoValue::string(meta)).string_bytes(),
         Some(b"\\.\\\\\\+\\*\\?\\[\\^\\]\\(\\$\\)".to_vec())
     );
@@ -149,6 +156,7 @@ fn string_escape_builtins_preserve_php_byte_behavior() {
     unsafe {
         drop(Box::from_raw(quoted));
         drop(Box::from_raw(slashed_zero));
+        drop(Box::from_raw(c_escaped));
         drop(Box::from_raw(meta));
         drop(Box::from_raw(empty));
     }

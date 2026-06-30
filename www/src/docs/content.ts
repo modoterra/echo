@@ -158,6 +158,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Unquotes a string quoted with backslashes.",
       },
       {
+        name: "stripcslashes",
+        signature: "stripcslashes(string $string): string",
+        description: "Unquotes C-style escaped byte sequences.",
+      },
+      {
         name: "quoted_printable_encode",
         signature: "quoted_printable_encode(string $string): string",
         description: "Encodes bytes using quoted-printable transfer encoding.",
@@ -1238,6 +1243,13 @@ echo "Balance delta: " . $displayBalance . "\\n"`,
 let $sqlPreview = "title='" . addslashes($title) . "'"
 
 echo $sqlPreview . "\\n"`,
+  ],
+  [
+    "stripcslashes",
+    `let $encoded = "\\\\n\\\\t\\\\x41"
+let $decoded = stripcslashes($encoded)
+
+echo bin2hex($decoded) . "\\n"`,
   ],
   [
     "array_is_list",
@@ -3096,6 +3108,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stripslashes",
     "Use `stripslashes()` to decode strings that were previously escaped with PHP slash escaping before comparison or display.",
+  ],
+  [
+    "stripcslashes",
+    "Use `stripcslashes()` at input boundaries for legacy configuration or fixture values that encode control bytes with C-style escapes. Inspect decoded control bytes with `bin2hex()` when logs or tests need stable visible output.",
   ],
   [
     "quotemeta",

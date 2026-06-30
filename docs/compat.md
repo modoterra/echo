@@ -605,7 +605,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_wrapper_restore` | missing |  |
 | `stream_wrapper_unregister` | missing |  |
 | `strip_tags` | implemented | Removes NUL bytes and complete `<...>` tag/comment regions for the default no-allowed-tags path; allowed tag preservation and broken-tag edge behavior are deferred. Source: https://www.php.net/manual/en/function.strip-tags.php |
-| `stripcslashes` | missing |  |
+| `stripcslashes` | implemented | Decodes C-style backslash escapes, including common control escapes, octal byte escapes, and two-digit hex byte escapes. Source: https://www.php.net/manual/en/function.stripcslashes.php |
 | `stripos` | implemented | Finds the first case-insensitive ASCII byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.stripos.php |
 | `stripslashes` | implemented | Removes backslash quoting from escaped strings, including PHP's `\0` NUL handling. Source: https://www.php.net/manual/en/function.stripslashes.php |
 | `stristr` | implemented | Case-insensitive `strstr()` that returns the matching tail or `false`; before-needle mode is deferred. Source: https://www.php.net/manual/en/function.stristr.php |

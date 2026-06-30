@@ -566,6 +566,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection(
+            "stripcslashes",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "quoted_printable_encode",
             &[("string", Some("string"))],
             Some("string"),

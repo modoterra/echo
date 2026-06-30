@@ -78,6 +78,7 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         ("chop", "echo_php_rtrim"),
         ("addslashes", "echo_php_addslashes"),
         ("stripslashes", "echo_php_stripslashes"),
+        ("stripcslashes", "echo_php_stripcslashes"),
         (
             "quoted_printable_encode",
             "echo_php_quoted_printable_encode",
