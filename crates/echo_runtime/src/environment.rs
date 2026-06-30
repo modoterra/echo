@@ -151,6 +151,16 @@ pub extern "C" fn echo_php_get_include_path() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_connection_aborted() -> EchoValue {
+    EchoValue::int(0)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_connection_status() -> EchoValue {
+    EchoValue::int(0)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_headers_list() -> EchoValue {
     echo_value_array_new()
 }

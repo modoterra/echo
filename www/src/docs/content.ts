@@ -1281,6 +1281,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns PHP's current include_path configuration value.",
       },
       {
+        name: "connection_aborted",
+        signature: "connection_aborted(): int",
+        description: "Reports whether the client connection has aborted.",
+      },
+      {
+        name: "connection_status",
+        signature: "connection_status(): int",
+        description: "Returns PHP's current client connection status bitfield.",
+      },
+      {
         name: "headers_list",
         signature: "headers_list(): array",
         description: "Returns the list of queued HTTP response headers.",
@@ -2061,6 +2071,18 @@ echo "memory bytes: " . $bytes . "\\n"`,
 
 if ($path === false) {
     echo "No include_path config value\\n"
+}`,
+  ],
+  [
+    "connection_aborted",
+    `if (connection_aborted() === 0 && connection_status() === 0) {
+    echo "connection normal\\n"
+}`,
+  ],
+  [
+    "connection_status",
+    `if (connection_status() === 0) {
+    echo "connection normal\\n"
 }`,
   ],
   [
@@ -4032,6 +4054,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "get_include_path",
     "Use `get_include_path()` when compatibility code checks PHP's include search path before resolving legacy includes. Echo currently returns false because it does not model PHP ini option values.",
+  ],
+  [
+    "connection_aborted",
+    "Use `connection_aborted()` when compatibility code checks whether a web client disconnected before doing more response work. Echo currently returns 0 because it does not model an abortable client connection.",
+  ],
+  [
+    "connection_status",
+    "Use `connection_status()` when compatibility code checks PHP's connection status bitfield. Echo currently returns 0 because it does not model an abortable client connection.",
   ],
   [
     "headers_list",

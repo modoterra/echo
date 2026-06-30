@@ -217,8 +217,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `closedir` | missing |  |
 | `closelog` | missing |  |
 | `compact` | missing |  |
-| `connection_aborted` | missing |  |
-| `connection_status` | missing |  |
+| `connection_aborted` | implemented | Returns `0` because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-aborted.php |
+| `connection_status` | implemented | Returns `0` (`CONNECTION_NORMAL`) because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-status.php |
 | `constant` | missing |  |
 | `convert_uudecode` | missing |  |
 | `convert_uuencode` | missing |  |

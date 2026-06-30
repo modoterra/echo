@@ -97,6 +97,16 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_connection_aborted",
+            echo_runtime::echo_php_connection_aborted as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_connection_status",
+            echo_runtime::echo_php_connection_status as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_headers_list",
             echo_runtime::echo_php_headers_list as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

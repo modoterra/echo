@@ -434,6 +434,50 @@ fn get_include_path_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn connection_aborted_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "connection_aborted".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 20),
+        })],
+        span: Span::new(0, 21),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_connection_aborted()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_connection_aborted()"),
+        "{ir}"
+    );
+}
+
+#[test]
+fn connection_status_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "connection_status".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 19),
+        })],
+        span: Span::new(0, 20),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_connection_status()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_connection_status()"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn headers_list_lowers_to_no_argument_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

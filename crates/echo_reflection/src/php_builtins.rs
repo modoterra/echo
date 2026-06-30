@@ -64,6 +64,8 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection("get_include_path", &[], Some("string|false")),
+        php_builtin_reflection("connection_aborted", &[], Some("int")),
+        php_builtin_reflection("connection_status", &[], Some("int")),
         php_builtin_reflection("headers_list", &[], Some("array")),
         php_builtin_reflection("headers_sent", &[], Some("bool")),
         php_builtin_reflection(
