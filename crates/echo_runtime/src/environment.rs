@@ -99,6 +99,11 @@ pub extern "C" fn echo_php_get_extension_funcs(extension: EchoValue) -> EchoValu
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_php_ini_loaded_file() -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_putenv(assignment: EchoValue) -> EchoValue {
     let Some(bytes) = assignment.string_bytes() else {
         return EchoValue::bool(false);

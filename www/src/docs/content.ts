@@ -1256,6 +1256,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns function names for a loaded PHP extension.",
       },
       {
+        name: "php_ini_loaded_file",
+        signature: "php_ini_loaded_file(): string|false",
+        description: "Returns the loaded PHP configuration file path, or false when none is loaded.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1942,6 +1947,14 @@ echo "Loaded PHP extensions: " . count($extensions) . "\\n"`,
 
 if ($functions === false) {
     echo "JSON extension functions are not available\\n"
+}`,
+  ],
+  [
+    "php_ini_loaded_file",
+    `let $ini = php_ini_loaded_file()
+
+if ($ini === false) {
+    echo "No php.ini file is loaded\\n"
 }`,
   ],
   [
@@ -3824,6 +3837,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "get_extension_funcs",
     "Use `get_extension_funcs()` for compatibility checks that inspect functions exposed by optional PHP extensions. Echo currently returns false until extension function metadata is modeled.",
+  ],
+  [
+    "php_ini_loaded_file",
+    "Use `php_ini_loaded_file()` for diagnostics that need to report PHP configuration input. Echo currently returns false because it does not load php.ini files.",
   ],
 ]);
 

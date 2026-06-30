@@ -68,4 +68,5 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_get_extension_funcs(test_string_value(b"JSON")),
         EchoValue::bool(false)
     );
+    assert_eq!(echo_php_php_ini_loaded_file(), EchoValue::bool(false));
 }
