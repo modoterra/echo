@@ -44,4 +44,12 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_zend_version().string_bytes(),
         Some(b"8.2.0".to_vec())
     );
+    assert_eq!(
+        echo_php_extension_loaded(test_string_value(b"json")),
+        EchoValue::bool(false)
+    );
+    assert_eq!(
+        echo_php_extension_loaded(test_string_value(b"JSON")),
+        EchoValue::bool(false)
+    );
 }

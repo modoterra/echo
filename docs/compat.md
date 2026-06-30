@@ -63,7 +63,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `enum_exists` | missing |  |
 | `error_reporting` | missing |  |
 | `exit` | missing |  |
-| `extension_loaded` | missing |  |
+| `extension_loaded` | implemented | Accepts extension names and returns `false` because Echo does not model PHP extensions yet. Source: https://www.php.net/manual/en/function.extension-loaded.php |
 | `func_get_arg` | missing |  |
 | `func_get_args` | missing |  |
 | `func_num_args` | missing |  |

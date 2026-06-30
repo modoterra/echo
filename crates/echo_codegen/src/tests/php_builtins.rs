@@ -61,6 +61,7 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
         ("is_readable", "echo_php_is_readable"),
         ("is_writable", "echo_php_is_writable"),
         ("is_writeable", "echo_php_is_writable"),
+        ("extension_loaded", "echo_php_extension_loaded"),
         ("is_executable", "echo_php_is_executable"),
         ("filesize", "echo_php_filesize"),
         ("fileatime", "echo_php_fileatime"),

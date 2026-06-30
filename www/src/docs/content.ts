@@ -1241,6 +1241,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the Zend Engine compatibility version.",
       },
       {
+        name: "extension_loaded",
+        signature: "extension_loaded(string $extension): bool",
+        description: "Reports whether a named PHP extension is available.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1908,6 +1913,12 @@ echo "PHP compatibility: " . $version . "\\n"`,
     `let $engine = zend_version()
 
 echo "Zend compatibility: " . $engine . "\\n"`,
+  ],
+  [
+    "extension_loaded",
+    `if (!extension_loaded("json")) {
+    echo "JSON extension is not available\\n"
+}`,
   ],
   [
     "getenv",
@@ -3777,6 +3788,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "zend_version",
     "Use `zend_version()` for legacy diagnostics and version banners that expect a Zend Engine version label.",
+  ],
+  [
+    "extension_loaded",
+    "Use `extension_loaded()` for compatibility branches around optional PHP extensions. Echo currently returns false until extension metadata is modeled.",
   ],
 ]);
 

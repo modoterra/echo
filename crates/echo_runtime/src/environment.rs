@@ -76,6 +76,15 @@ pub extern "C" fn echo_php_zend_version() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_extension_loaded(extension: EchoValue) -> EchoValue {
+    let Some(_extension) = extension.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_putenv(assignment: EchoValue) -> EchoValue {
     let Some(bytes) = assignment.string_bytes() else {
         return EchoValue::bool(false);
