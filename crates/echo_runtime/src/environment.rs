@@ -85,6 +85,11 @@ pub extern "C" fn echo_php_extension_loaded(extension: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_loaded_extensions(_zend_extensions: EchoValue) -> EchoValue {
+    echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_putenv(assignment: EchoValue) -> EchoValue {
     let Some(bytes) = assignment.string_bytes() else {
         return EchoValue::bool(false);

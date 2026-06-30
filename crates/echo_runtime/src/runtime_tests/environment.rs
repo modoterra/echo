@@ -52,4 +52,12 @@ fn environment_process_builtins_follow_php_shapes() {
         echo_php_extension_loaded(test_string_value(b"JSON")),
         EchoValue::bool(false)
     );
+    assert_eq!(
+        echo_php_count(echo_php_get_loaded_extensions(EchoValue::bool(false))),
+        EchoValue::int(0)
+    );
+    assert_eq!(
+        echo_php_count(echo_php_get_loaded_extensions(EchoValue::bool(true))),
+        EchoValue::int(0)
+    );
 }

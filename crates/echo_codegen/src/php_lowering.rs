@@ -161,6 +161,7 @@ impl IrModule {
             | BuiltinCodegen::Dirname
             | BuiltinCodegen::ChunkSplit
             | BuiltinCodegen::Getenv
+            | BuiltinCodegen::GetLoadedExtensions
             | BuiltinCodegen::InArray
             | BuiltinCodegen::Implode
             | BuiltinCodegen::Levenshtein

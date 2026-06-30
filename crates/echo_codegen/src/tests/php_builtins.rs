@@ -271,6 +271,49 @@ fn zend_version_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn get_loaded_extensions_lowers_default_false_argument() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "get_loaded_extensions".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 23),
+        })],
+        span: Span::new(0, 24),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_get_loaded_extensions(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_get_loaded_extensions(%EchoValue { i32 1, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
+fn get_loaded_extensions_lowers_explicit_zend_flag() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "get_loaded_extensions".to_string(),
+            args: echo_ast::call_args![Expr::Bool(BoolLiteral {
+                value: true,
+                span: Span::new(22, 26),
+            })],
+            span: Span::new(0, 27),
+        })],
+        span: Span::new(0, 28),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("call %EchoValue @echo_php_get_loaded_extensions(%EchoValue { i32 1, i64 1 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn number_format_lowers_php_default_separators() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

@@ -33,6 +33,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("extension", Some("string"))],
             Some("bool"),
         ),
+        php_builtin_reflection(
+            "get_loaded_extensions",
+            &[("zend_extensions", Some("bool"))],
+            Some("array"),
+        ),
         php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),
         php_builtin_reflection(
             "ob_implicit_flush",

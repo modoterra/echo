@@ -24,6 +24,7 @@ pub enum BuiltinCodegen {
     Dirname,
     ChunkSplit,
     Getenv,
+    GetLoadedExtensions,
     InArray,
     Implode,
     Levenshtein,
@@ -141,6 +142,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "get_loaded_extensions",
+            symbol: "echo_php_get_loaded_extensions",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::GetLoadedExtensions,
         },
         PhpBuiltin {
             php_name: "getenv",

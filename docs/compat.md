@@ -88,7 +88,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_exception_handler` | missing |  |
 | `get_extension_funcs` | missing |  |
 | `get_included_files` | missing |  |
-| `get_loaded_extensions` | missing |  |
+| `get_loaded_extensions` | implemented | Returns an empty array because Echo does not model PHP extension metadata yet; accepts the optional Zend-extension flag. Source: https://www.php.net/manual/en/function.get-loaded-extensions.php |
 | `get_mangled_object_vars` | missing |  |
 | `get_object_vars` | missing |  |
 | `get_parent_class` | missing |  |

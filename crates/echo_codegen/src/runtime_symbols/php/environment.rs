@@ -54,6 +54,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_get_loaded_extensions",
+            echo_runtime::echo_php_get_loaded_extensions
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_putenv",
             echo_runtime::echo_php_putenv
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
