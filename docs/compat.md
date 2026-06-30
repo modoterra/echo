@@ -359,7 +359,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `in_array` | implemented | Searches array values with loose comparison by default and strict same-type comparison when the third argument is true. Source: https://www.php.net/manual/en/function.in-array.php |
 | `inet_ntop` | missing |  |
 | `inet_pton` | missing |  |
-| `ini_alter` | missing |  |
+| `ini_alter` | implemented | Alias of `ini_set`; returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-alter.php |
 | `ini_get` | implemented | Returns `false` for configuration options because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get.php |
 | `ini_get_all` | missing |  |
 | `ini_parse_quantity` | missing |  |

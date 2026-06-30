@@ -1271,6 +1271,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
       },
       {
+        name: "ini_alter",
+        signature: "ini_alter(string $option, string $value): string|false",
+        description: "Alias of ini_set().",
+      },
+      {
         name: "ini_restore",
         signature: "ini_restore(string $option): void",
         description: "Restores a PHP ini option to its original value.",
@@ -2001,6 +2006,14 @@ if ($memoryLimit === false) {
   [
     "ini_set",
     `let $previous = ini_set("memory_limit", "128M")
+
+if ($previous === false) {
+    echo "memory_limit could not be changed\\n"
+}`,
+  ],
+  [
+    "ini_alter",
+    `let $previous = ini_alter("memory_limit", "128M")
 
 if ($previous === false) {
     echo "memory_limit could not be changed\\n"
@@ -3917,6 +3930,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ini_set",
     "Use `ini_set()` when compatibility code attempts to change a PHP ini option and needs a fallback. Echo currently returns false because it does not model mutable PHP ini option values.",
+  ],
+  [
+    "ini_alter",
+    "Use `ini_alter()` for legacy compatibility code that calls PHP's alias of `ini_set()`. Echo currently returns false because it does not model mutable PHP ini option values.",
   ],
   [
     "ini_restore",

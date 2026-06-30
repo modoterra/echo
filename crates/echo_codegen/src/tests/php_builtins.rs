@@ -391,6 +391,34 @@ fn ini_set_lowers_to_binary_runtime_call() {
 }
 
 #[test]
+fn ini_alter_lowers_to_binary_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "ini_alter".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "memory_limit".to_string(),
+                    span: Span::new(10, 24),
+                }),
+                Expr::String(StringLiteral {
+                    value: "128M".to_string(),
+                    span: Span::new(26, 32),
+                })
+            ],
+            span: Span::new(0, 33),
+        })],
+        span: Span::new(0, 34),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_ini_alter(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("call %EchoValue @echo_php_ini_alter("), "{ir}");
+}
+
+#[test]
 fn ini_restore_lowers_to_void_unary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Expr(echo_ast::ExprStmt {
         expr: Expr::FunctionCall(FunctionCallExpr {
