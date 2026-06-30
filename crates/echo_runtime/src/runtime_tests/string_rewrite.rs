@@ -117,6 +117,18 @@ fn string_rewrite_builtins_preserve_php_byte_behavior() {
         Some(b"&copy; stays named".to_vec())
     );
     assert_eq!(
+        echo_php_strip_tags(test_string_value(b"<p>Hello <strong>Ada</strong></p>")).string_bytes(),
+        Some(b"Hello Ada".to_vec())
+    );
+    assert_eq!(
+        echo_php_strip_tags(test_string_value(b"Keep<!-- hidden -->Visible")).string_bytes(),
+        Some(b"KeepVisible".to_vec())
+    );
+    assert_eq!(
+        echo_php_strip_tags(test_string_value(b"A\0B")).string_bytes(),
+        Some(b"AB".to_vec())
+    );
+    assert_eq!(
         echo_php_str_replace(
             EchoValue::string(search),
             EchoValue::string(replace),

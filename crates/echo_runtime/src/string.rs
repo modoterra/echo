@@ -374,6 +374,37 @@ fn php_htmlspecialchars_decode(bytes: &[u8]) -> Vec<u8> {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strip_tags(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, php_strip_tags_default)
+}
+
+fn php_strip_tags_default(bytes: &[u8]) -> Vec<u8> {
+    let mut stripped = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\0' => index += 1,
+            b'<' => {
+                if let Some(close_offset) = bytes[index + 1..].iter().position(|byte| *byte == b'>')
+                {
+                    index += close_offset + 2;
+                } else {
+                    stripped.push(bytes[index]);
+                    index += 1;
+                }
+            }
+            byte => {
+                stripped.push(byte);
+                index += 1;
+            }
+        }
+    }
+
+    stripped
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_nl2br(value: EchoValue, use_xhtml: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::error();

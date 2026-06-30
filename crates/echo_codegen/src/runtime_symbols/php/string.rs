@@ -208,6 +208,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_strip_tags",
+            echo_runtime::echo_php_strip_tags
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_nl2br",
             echo_runtime::echo_php_nl2br
                 as extern "C" fn(

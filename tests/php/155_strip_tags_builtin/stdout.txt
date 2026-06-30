@@ -1,0 +1,5 @@
+html:[Hello Ada]
+comment:[KeepVisible]
+php:[before  after]
+nul:[AB]
+exists:[1]

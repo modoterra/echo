@@ -574,6 +574,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("string", Some("string"))],
             Some("string"),
         ),
+        php_builtin_reflection("strip_tags", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "nl2br",
             &[("string", Some("string")), ("use_xhtml", Some("bool"))],

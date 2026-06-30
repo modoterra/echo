@@ -203,6 +203,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Decodes special HTML character entities in a string.",
       },
       {
+        name: "strip_tags",
+        signature: "strip_tags(string $string): string",
+        description: "Removes HTML and PHP tags from a string.",
+      },
+      {
         name: "str_replace",
         signature:
           "str_replace(array|string $search, array|string $replace, string|array $subject): string|array",
@@ -2078,6 +2083,13 @@ let $preview = htmlspecialchars_decode($stored)
 echo $preview . "\\n"`,
   ],
   [
+    "strip_tags",
+    `let $html = "<p>Hello <strong>Ada</strong></p>"
+let $plain = strip_tags($html)
+
+echo $plain . "\\n"`,
+  ],
+  [
     "str_replace",
     `let $template = "Hello {{name}}, status: pending"
 let $message = str_replace("{{name}}", "Ada", $template)
@@ -2816,6 +2828,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "htmlspecialchars_decode",
     "Use `htmlspecialchars_decode()` when compatibility code receives text that was escaped with `htmlspecialchars()` and needs the original display text back.",
+  ],
+  [
+    "strip_tags",
+    "Use `strip_tags()` when a compatibility path needs a plain-text summary from trusted HTML-like content before indexing, logging, or comparing labels.",
   ],
   [
     "str_replace",

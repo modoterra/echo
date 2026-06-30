@@ -90,6 +90,7 @@ fn string_case_builtins_lower_to_php_builtin_with_echo_value_argument() {
             "htmlspecialchars_decode",
             "echo_php_htmlspecialchars_decode",
         ),
+        ("strip_tags", "echo_php_strip_tags"),
         ("quotemeta", "echo_php_quotemeta"),
     ] {
         let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
