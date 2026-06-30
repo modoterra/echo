@@ -21,6 +21,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("gethostname", &[], Some("string|false")),
         php_builtin_reflection("getmypid", &[], Some("int|false")),
+        php_builtin_reflection(
+            "phpversion",
+            &[("extension", Some("?string"))],
+            Some("string|false"),
+        ),
         php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),
         php_builtin_reflection(
             "ob_implicit_flush",

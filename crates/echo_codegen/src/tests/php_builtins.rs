@@ -183,6 +183,49 @@ fn round_lowers_explicit_precision_argument() {
 }
 
 #[test]
+fn phpversion_lowers_default_null_extension_argument() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "phpversion".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 12),
+        })],
+        span: Span::new(0, 13),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_phpversion(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_phpversion(%EchoValue { i32 0, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
+fn phpversion_lowers_explicit_extension_argument() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "phpversion".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "json".to_string(),
+                span: Span::new(11, 17),
+            })],
+            span: Span::new(0, 18),
+        })],
+        span: Span::new(0, 19),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("call %EchoValue @echo_php_phpversion(%EchoValue %runtime_call_0)"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn number_format_lowers_php_default_separators() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

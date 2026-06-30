@@ -30,6 +30,7 @@ pub enum BuiltinCodegen {
     Log,
     Nl2br,
     NumberFormat,
+    PhpVersion,
     Round,
     ObStart,
     StrPad,
@@ -108,6 +109,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "phpversion",
+            symbol: "echo_php_phpversion",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::PhpVersion,
         },
         PhpBuiltin {
             php_name: "getenv",

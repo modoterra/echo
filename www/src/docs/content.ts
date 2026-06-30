@@ -1226,6 +1226,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current Unix timestamp with microseconds.",
       },
       {
+        name: "phpversion",
+        signature: "phpversion(?string $extension): string|false",
+        description: "Returns the PHP compatibility version or false for unknown extensions.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1875,6 +1880,12 @@ echo $routeKey . "\\n"`,
     `let $started = microtime(true)
 
 echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "phpversion",
+    `let $version = phpversion()
+
+echo "PHP compatibility: " . $version . "\\n"`,
   ],
   [
     "getenv",
@@ -3732,6 +3743,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "microtime",
     "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
+  ],
+  [
+    "phpversion",
+    "Use `phpversion()` in compatibility bootstraps and diagnostics that need to report the PHP surface Echo is targeting.",
   ],
 ]);
 

@@ -28,4 +28,12 @@ fn environment_process_builtins_follow_php_shapes() {
     assert!(echo_php_getenv(EchoValue::null(), EchoValue::bool(false)).is_array());
     assert!(echo_php_gethostname().is_string() || echo_php_gethostname() == EchoValue::bool(false));
     assert_eq!(echo_php_is_int(echo_php_getmypid()), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_phpversion(EchoValue::null()).string_bytes(),
+        Some(b"8.2.0".to_vec())
+    );
+    assert_eq!(
+        echo_php_phpversion(test_string_value(b"json")),
+        EchoValue::bool(false)
+    );
 }

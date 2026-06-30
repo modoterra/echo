@@ -474,7 +474,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `php_uname` | missing |  |
 | `phpcredits` | missing |  |
 | `phpinfo` | missing |  |
-| `phpversion` | missing |  |
+| `phpversion` | implemented | Returns Echo's PHP compatibility version for no extension or `null`; named extension versions are not modeled yet and return `false`. Source: https://www.php.net/manual/en/function.phpversion.php |
 | `pi` | implemented | Returns an approximation of pi as a float. Source: https://www.php.net/manual/en/function.pi.php |
 | `popen` | missing |  |
 | `pos` | missing |  |
