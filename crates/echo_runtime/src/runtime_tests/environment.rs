@@ -69,4 +69,5 @@ fn environment_process_builtins_follow_php_shapes() {
         EchoValue::bool(false)
     );
     assert_eq!(echo_php_php_ini_loaded_file(), EchoValue::bool(false));
+    assert_eq!(echo_php_php_ini_scanned_files(), EchoValue::bool(false));
 }

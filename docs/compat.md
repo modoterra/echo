@@ -468,7 +468,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `pclose` | missing |  |
 | `pfsockopen` | missing |  |
 | `php_ini_loaded_file` | implemented | Returns `false` because Echo does not load a PHP configuration file. Source: https://www.php.net/manual/en/function.php-ini-loaded-file.php |
-| `php_ini_scanned_files` | missing |  |
+| `php_ini_scanned_files` | implemented | Returns `false` because Echo does not scan PHP configuration directories. Source: https://www.php.net/manual/en/function.php-ini-scanned-files.php |
 | `php_sapi_name` | implemented | Returns Echo's PHP compatibility Server API name, currently `cli`, matching the `PHP_SAPI` constant. Source: https://www.php.net/manual/en/function.php-sapi-name.php |
 | `php_strip_whitespace` | missing |  |
 | `php_uname` | missing |  |

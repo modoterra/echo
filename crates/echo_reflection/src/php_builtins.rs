@@ -44,6 +44,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array|false"),
         ),
         php_builtin_reflection("php_ini_loaded_file", &[], Some("string|false")),
+        php_builtin_reflection("php_ini_scanned_files", &[], Some("string|false")),
         php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),
         php_builtin_reflection(
             "ob_implicit_flush",

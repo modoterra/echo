@@ -294,6 +294,28 @@ fn php_ini_loaded_file_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn php_ini_scanned_files_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "php_ini_scanned_files".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 23),
+        })],
+        span: Span::new(0, 24),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_php_ini_scanned_files()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_php_ini_scanned_files()"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn get_loaded_extensions_lowers_default_false_argument() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

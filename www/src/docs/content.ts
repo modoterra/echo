@@ -1261,6 +1261,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the loaded PHP configuration file path, or false when none is loaded.",
       },
       {
+        name: "php_ini_scanned_files",
+        signature: "php_ini_scanned_files(): string|false",
+        description: "Returns scanned PHP configuration file paths, or false when none are scanned.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1955,6 +1960,14 @@ if ($functions === false) {
 
 if ($ini === false) {
     echo "No php.ini file is loaded\\n"
+}`,
+  ],
+  [
+    "php_ini_scanned_files",
+    `let $scanned = php_ini_scanned_files()
+
+if ($scanned === false) {
+    echo "No scanned php.ini files\\n"
 }`,
   ],
   [
@@ -3841,6 +3854,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "php_ini_loaded_file",
     "Use `php_ini_loaded_file()` for diagnostics that need to report PHP configuration input. Echo currently returns false because it does not load php.ini files.",
+  ],
+  [
+    "php_ini_scanned_files",
+    "Use `php_ini_scanned_files()` for diagnostics that need to report extra PHP configuration files. Echo currently returns false because it does not scan PHP configuration directories.",
   ],
 ]);
 
