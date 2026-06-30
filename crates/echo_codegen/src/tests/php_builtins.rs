@@ -434,6 +434,28 @@ fn get_include_path_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn gettimeofday_lowers_default_as_float_to_null() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "gettimeofday".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 14),
+        })],
+        span: Span::new(0, 15),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_gettimeofday(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_gettimeofday(%EchoValue { i32 0, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn hrtime_lowers_default_as_number_to_null() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

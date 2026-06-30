@@ -24,6 +24,7 @@ pub enum BuiltinCodegen {
     Dirname,
     ChunkSplit,
     Getenv,
+    Gettimeofday,
     Header,
     HeaderRemove,
     Hrtime,
@@ -108,6 +109,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueEchoValueEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueBinaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "gettimeofday",
+            symbol: "echo_php_gettimeofday",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::Gettimeofday,
         },
         PhpBuiltin {
             php_name: "microtime",

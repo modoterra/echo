@@ -143,6 +143,27 @@ impl IrModule {
                 };
                 body.push_str(&format!("  call void @{}({name})\n", builtin.symbol));
             }
+            BuiltinCodegen::Gettimeofday => {
+                if args.len() > 1 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        args.first().map_or(span, |expr| expr.syntax().span()),
+                    ));
+                }
+
+                let as_float = if let Some(arg) = args.first() {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 0, i64 0 }".to_string()
+                };
+                body.push_str(&format!(
+                    "  call %EchoValue @{}({as_float})\n",
+                    builtin.symbol
+                ));
+            }
             BuiltinCodegen::Hrtime => {
                 if args.len() > 1 {
                     return Err(Diagnostic::new(

@@ -1226,6 +1226,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current Unix timestamp with microseconds.",
       },
       {
+        name: "gettimeofday",
+        signature: "gettimeofday(bool $as_float): array|float",
+        description: "Returns the current wall-clock time as a timeval array or float.",
+      },
+      {
         name: "hrtime",
         signature: "hrtime(bool $as_number): array|int|float",
         description: "Returns a high-resolution timestamp as parts or nanoseconds.",
@@ -2000,6 +2005,12 @@ echo $routeKey . "\\n"`,
     `let $started = microtime(true)
 
 echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "gettimeofday",
+    `let $time = gettimeofday()
+
+echo "timestamp seconds: " . $time["sec"] . "\\n"`,
   ],
   [
     "hrtime",
@@ -4028,6 +4039,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "microtime",
     "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
+  ],
+  [
+    "gettimeofday",
+    "Use `gettimeofday()` when compatibility code expects PHP's structured wall-clock timestamp with named seconds and microseconds fields.",
   ],
   [
     "hrtime",

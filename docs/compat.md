@@ -329,7 +329,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getrusage` | missing |  |
 | `getservbyname` | missing |  |
 | `getservbyport` | missing |  |
-| `gettimeofday` | missing |  |
+| `gettimeofday` | implemented | Returns an associative array with `sec`, `usec`, `minuteswest`, and `dsttime` by default, or a float timestamp when `as_float` is true. Source: https://www.php.net/manual/en/function.gettimeofday.php |
 | `gettype` | implemented | Returns PHP type names for Echo's current value tags. Source: https://www.php.net/manual/en/function.gettype.php |
 | `glob` | missing |  |
 | `header` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header.php |
@@ -423,7 +423,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `memory_get_usage` | missing |  |
 | `memory_reset_peak_usage` | missing |  |
 | `metaphone` | missing |  |
-| `microtime` | missing |  |
+| `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
 | `min` | missing |  |
 | `mkdir` | implemented | Creates local directories, including recursive creation and Unix mode hints; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mkdir.php |
 | `move_uploaded_file` | missing |  |

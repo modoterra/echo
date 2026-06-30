@@ -15,6 +15,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string|float"),
         ),
         php_builtin_reflection(
+            "gettimeofday",
+            &[("as_float", Some("bool"))],
+            Some("array|float"),
+        ),
+        php_builtin_reflection(
             "hrtime",
             &[("as_number", Some("bool"))],
             Some("array|int|float"),

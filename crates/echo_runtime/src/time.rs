@@ -1,6 +1,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::{EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new};
+use crate::{
+    EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new,
+    echo_value_array_set,
+};
 
 pub(crate) fn unix_duration_now_or_zero() -> Duration {
     SystemTime::now()
@@ -57,6 +60,39 @@ pub extern "C" fn echo_php_hrtime(as_number: EchoValue) -> EchoValue {
     echo_value_array_append(result, EchoValue::int(nanoseconds))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_gettimeofday(as_float: EchoValue) -> EchoValue {
+    let now = unix_duration_now_or_zero();
+    let seconds = i64::try_from(now.as_secs()).unwrap_or(i64::MAX);
+    let microseconds = i64::from(now.subsec_micros());
+
+    if as_float.bool_value().unwrap_or(false) {
+        return EchoValue::float(now.as_secs_f64());
+    }
+
+    let mut result = echo_value_array_new();
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"sec".to_vec()),
+        EchoValue::int(seconds),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"usec".to_vec()),
+        EchoValue::int(microseconds),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"minuteswest".to_vec()),
+        EchoValue::int(0),
+    );
+    echo_value_array_set(
+        result,
+        echo_runtime_string(b"dsttime".to_vec()),
+        EchoValue::int(0),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +144,21 @@ mod tests {
         let value = echo_php_hrtime(EchoValue::bool(true));
 
         assert!(value.is_int() || value.is_float());
+    }
+
+    #[test]
+    fn gettimeofday_reports_array_shape_by_default() {
+        let value = echo_php_gettimeofday(EchoValue::null());
+
+        assert!(value.is_array());
+        assert_eq!(crate::echo_value_array_len(value), 4);
+    }
+
+    #[test]
+    fn gettimeofday_reports_float_seconds_when_requested() {
+        let value = echo_php_gettimeofday(EchoValue::bool(true));
+
+        assert!(value.is_float());
+        assert!(f64::from_bits(value.payload) > 0.0);
     }
 }
