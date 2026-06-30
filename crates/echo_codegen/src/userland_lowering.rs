@@ -326,8 +326,7 @@ fn composer_static_initializer_body(
 fn is_platform_check_utility_call(name: &str) -> bool {
     matches!(
         name,
-        "headers_sent"
-            | "declare"
+        "declare"
             | "implode"
             | "str_replace"
             | "defined"

@@ -336,7 +336,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `header_register_callback` | missing |  |
 | `header_remove` | missing |  |
 | `headers_list` | implemented | Returns an empty array because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.headers-list.php |
-| `headers_sent` | missing |  |
+| `headers_sent` | implemented | Returns `false` because Echo currently uses CLI-style execution and does not model an HTTP header layer; optional filename/line reference outputs are deferred. Source: https://www.php.net/manual/en/function.headers-sent.php |
 | `hebrev` | missing |  |
 | `hex2bin` | implemented | Converts even-length hexadecimal strings to raw bytes and returns `false` for invalid hex input. Source: https://www.php.net/manual/en/function.hex2bin.php |
 | `hexdec` | implemented | Converts hexadecimal strings to unsigned decimal int or float values while ignoring non-hexadecimal characters. Source: https://www.php.net/manual/en/function.hexdec.php |

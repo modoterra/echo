@@ -1286,6 +1286,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the list of queued HTTP response headers.",
       },
       {
+        name: "headers_sent",
+        signature: "headers_sent(): bool",
+        description: "Reports whether HTTP headers have already been sent.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2048,6 +2053,12 @@ if ($path === false) {
     `let $headers = headers_list()
 
 echo "headers: " . count($headers) . "\\n"`,
+  ],
+  [
+    "headers_sent",
+    `if (headers_sent() === false) {
+    echo "headers can still be queued\\n"
+}`,
   ],
   [
     "ini_set",
@@ -3988,6 +3999,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "headers_list",
     "Use `headers_list()` when compatibility diagnostics inspect queued HTTP response headers. Echo currently returns an empty array because it does not model an HTTP header layer.",
+  ],
+  [
+    "headers_sent",
+    "Use `headers_sent()` before compatibility code queues response headers after output may have started. Echo currently returns false because it does not model an HTTP header layer.",
   ],
   [
     "ini_set",

@@ -456,6 +456,28 @@ fn headers_list_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn headers_sent_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "headers_sent".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 14),
+        })],
+        span: Span::new(0, 15),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_headers_sent()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_headers_sent()"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn ini_set_lowers_to_binary_runtime_call() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
