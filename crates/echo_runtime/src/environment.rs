@@ -65,6 +65,11 @@ pub extern "C" fn echo_php_phpversion(extension: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_php_sapi_name() -> EchoValue {
+    echo_runtime_string(b"cli".to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_putenv(assignment: EchoValue) -> EchoValue {
     let Some(bytes) = assignment.string_bytes() else {
         return EchoValue::bool(false);

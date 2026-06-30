@@ -119,6 +119,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::PhpVersion,
         },
         PhpBuiltin {
+            php_name: "php_sapi_name",
+            symbol: "echo_php_php_sapi_name",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
             php_name: "getenv",
             symbol: "echo_php_getenv",
             helper_symbol: None,

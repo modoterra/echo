@@ -408,7 +408,7 @@ echo $wrapped . "\n"
 
 Use the default break string for terminal-oriented text, or pass a custom break string when preparing pipe-delimited previews. Set `cut_long_words` only when long tokens must be split instead of preserved.
 
-- `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_phpversion(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, process-ID, PHP version, and environment mutation helpers are PHP compatibility functions for process-local state.
+- `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, process-ID, PHP version, Server API name, and environment mutation helpers are PHP compatibility functions for process-local state.
 - `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
 - `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.
 
@@ -436,6 +436,17 @@ echo "PHP compatibility: " . $version . "\n"
 ```
 
 Use the no-argument form for runtime labels and compatibility diagnostics. Echo returns `false` for named extension versions until extension metadata is modeled.
+
+`php_sapi_name()` is useful when a legacy bootstrap needs CLI-specific behavior:
+
+```php
+<?php
+if (php_sapi_name() === "cli") {
+    echo "running command-line bootstrap\n"
+}
+```
+
+Use it for compatibility branches that already depend on PHP's Server API names. Echo currently reports `cli`, matching the `PHP_SAPI` constant it exposes to compiled programs.
 
 Array key and lookup helpers are useful when a keyed row needs to be validated, normalized for display, or reduced to totals:
 

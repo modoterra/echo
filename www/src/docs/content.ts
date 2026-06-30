@@ -1231,6 +1231,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the PHP compatibility version or false for unknown extensions.",
       },
       {
+        name: "php_sapi_name",
+        signature: "php_sapi_name(): string|false",
+        description: "Returns the PHP Server API name for the current runtime.",
+      },
+      {
         name: "getenv",
         signature: "getenv(?string $name, bool $local_only): string|array|false",
         description:
@@ -1886,6 +1891,12 @@ echo "Request started at " . $started . "\\n"`,
     `let $version = phpversion()
 
 echo "PHP compatibility: " . $version . "\\n"`,
+  ],
+  [
+    "php_sapi_name",
+    `if (php_sapi_name() === "cli") {
+    echo "running command-line bootstrap\\n"
+}`,
   ],
   [
     "getenv",
@@ -3747,6 +3758,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "phpversion",
     "Use `phpversion()` in compatibility bootstraps and diagnostics that need to report the PHP surface Echo is targeting.",
+  ],
+  [
+    "php_sapi_name",
+    "Use `php_sapi_name()` for legacy compatibility branches that distinguish command-line execution from other PHP Server API names.",
   ],
 ]);
 

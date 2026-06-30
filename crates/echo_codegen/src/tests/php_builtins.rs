@@ -226,6 +226,28 @@ fn phpversion_lowers_explicit_extension_argument() {
 }
 
 #[test]
+fn php_sapi_name_lowers_to_no_argument_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "php_sapi_name".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 15),
+        })],
+        span: Span::new(0, 16),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_php_sapi_name()"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_php_sapi_name()"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn number_format_lowers_php_default_separators() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {
