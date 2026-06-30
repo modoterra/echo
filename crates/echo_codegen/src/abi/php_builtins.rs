@@ -24,6 +24,7 @@ pub enum BuiltinCodegen {
     Dirname,
     ChunkSplit,
     Getenv,
+    Header,
     HeaderRemove,
     IniGetAll,
     GetLoadedExtensions,
@@ -216,6 +217,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueNoArgs,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
+            php_name: "header",
+            symbol: "echo_php_header",
+            helper_symbol: None,
+            signature: RuntimeSignature::VoidEchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::Header,
         },
         PhpBuiltin {
             php_name: "header_remove",

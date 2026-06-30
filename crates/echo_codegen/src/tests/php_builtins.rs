@@ -478,6 +478,30 @@ fn headers_sent_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn header_lowers_default_arguments_to_void_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Expr(echo_ast::ExprStmt {
+        expr: Expr::FunctionCall(FunctionCallExpr {
+            name: "header".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "X-Test: one".to_string(),
+                span: Span::new(7, 20),
+            })],
+            span: Span::new(0, 21),
+        }),
+        span: Span::new(0, 22),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare void @echo_php_header(%EchoValue, %EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(ir.contains("call void @echo_php_header("), "{ir}");
+    assert!(ir.contains("%EchoValue { i32 1, i64 1 }"), "{ir}");
+    assert!(ir.contains("%EchoValue { i32 1, i64 0 }"), "{ir}");
+}
+
+#[test]
 fn header_remove_lowers_default_name_to_null() {
     let ir = compile_to_ir(&program(vec![Stmt::Expr(echo_ast::ExprStmt {
         expr: Expr::FunctionCall(FunctionCallExpr {

@@ -1152,6 +1152,35 @@ impl IrModule {
                 body.push_str(&format!("  call void @{}({arg})\n", builtin.symbol));
                 Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
             }
+            BuiltinCodegen::Header => {
+                if call.args.is_empty() || call.args.len() > 3 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let header = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let replace = if let Some(arg) = call.args.get(1) {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 1, i64 1 }".to_string()
+                };
+                let response_code = if let Some(arg) = call.args.get(2) {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 1, i64 0 }".to_string()
+                };
+
+                body.push_str(&format!(
+                    "  call void @{}({header}, {replace}, {response_code})\n",
+                    builtin.symbol
+                ));
+                Ok(RuntimeValue::EchoValue("{ i32 0, i64 0 }".to_string()))
+            }
             BuiltinCodegen::HeaderRemove => {
                 if call.args.len() > 1 {
                     return Err(Diagnostic::new(

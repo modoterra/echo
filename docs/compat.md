@@ -332,7 +332,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `gettimeofday` | missing |  |
 | `gettype` | implemented | Returns PHP type names for Echo's current value tags. Source: https://www.php.net/manual/en/function.gettype.php |
 | `glob` | missing |  |
-| `header` | missing |  |
+| `header` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header.php |
 | `header_register_callback` | missing |  |
 | `header_remove` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header-remove.php |
 | `headers_list` | implemented | Returns an empty array because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.headers-list.php |

@@ -97,6 +97,34 @@ impl IrModule {
                 let arg = self.render_mir_expr_as_echo_value(body, arg)?;
                 body.push_str(&format!("  call void @{}({arg})\n", builtin.symbol));
             }
+            BuiltinCodegen::Header => {
+                if args.is_empty() || args.len() > 3 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        args.first().map_or(span, |expr| expr.syntax().span()),
+                    ));
+                }
+
+                let header = self.render_mir_expr_as_echo_value(body, &args[0])?;
+                let replace = if let Some(arg) = args.get(1) {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 1, i64 1 }".to_string()
+                };
+                let response_code = if let Some(arg) = args.get(2) {
+                    self.render_mir_expr_as_echo_value(body, arg)?
+                } else {
+                    "%EchoValue { i32 1, i64 0 }".to_string()
+                };
+
+                body.push_str(&format!(
+                    "  call void @{}({header}, {replace}, {response_code})\n",
+                    builtin.symbol
+                ));
+            }
             BuiltinCodegen::HeaderRemove => {
                 if args.len() > 1 {
                     return Err(Diagnostic::new(

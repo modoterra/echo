@@ -158,6 +158,17 @@ pub extern "C" fn echo_php_headers_sent() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_header(
+    header: EchoValue,
+    _replace: EchoValue,
+    _response_code: EchoValue,
+) {
+    let Some(_header) = header.string_bytes() else {
+        return;
+    };
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_header_remove(name: EchoValue) {
     if name.is_null() {
         return;

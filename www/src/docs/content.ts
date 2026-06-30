@@ -1291,6 +1291,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Reports whether HTTP headers have already been sent.",
       },
       {
+        name: "header",
+        signature: "header(string $header, bool $replace, int $response_code): void",
+        description: "Queues an HTTP response header.",
+      },
+      {
         name: "header_remove",
         signature: "header_remove(?string $name): void",
         description: "Removes a queued HTTP response header, or all headers when no name is given.",
@@ -2064,6 +2069,14 @@ echo "headers: " . count($headers) . "\\n"`,
     `if (headers_sent() === false) {
     echo "headers can still be queued\\n"
 }`,
+  ],
+  [
+    "header",
+    `if (headers_sent() === false) {
+    header("X-Debug: off")
+}
+
+echo "response body\\n"`,
   ],
   [
     "header_remove",
@@ -4014,6 +4027,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "headers_sent",
     "Use `headers_sent()` before compatibility code queues response headers after output may have started. Echo currently returns false because it does not model an HTTP header layer.",
+  ],
+  [
+    "header",
+    "Use `header()` when compatibility code queues HTTP response headers before writing a body. Echo currently treats it as a no-op because it does not model an HTTP header layer.",
   ],
   [
     "header_remove",

@@ -66,6 +66,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("get_include_path", &[], Some("string|false")),
         php_builtin_reflection("headers_list", &[], Some("array")),
         php_builtin_reflection("headers_sent", &[], Some("bool")),
+        php_builtin_reflection(
+            "header",
+            &[
+                ("header", Some("string")),
+                ("replace", Some("bool")),
+                ("response_code", Some("int")),
+            ],
+            Some("void"),
+        ),
         php_builtin_reflection("header_remove", &[("name", Some("?string"))], Some("void")),
         php_builtin_reflection(
             "ini_set",

@@ -133,6 +133,16 @@ fn environment_process_builtins_follow_php_shapes() {
     assert_eq!(echo_php_get_include_path(), EchoValue::bool(false));
     assert_eq!(echo_php_count(echo_php_headers_list()), EchoValue::int(0));
     assert_eq!(echo_php_headers_sent(), EchoValue::bool(false));
+    echo_php_header(
+        test_string_value(b"X-Test: one"),
+        EchoValue::bool(true),
+        EchoValue::int(0),
+    );
+    echo_php_header(
+        test_string_value(b"HTTP/1.1 404 Not Found"),
+        EchoValue::bool(true),
+        EchoValue::int(404),
+    );
     echo_php_header_remove(EchoValue::null());
     echo_php_header_remove(test_string_value(b"X-Test"));
     assert_eq!(

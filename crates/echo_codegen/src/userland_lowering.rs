@@ -331,7 +331,6 @@ fn is_platform_check_utility_call(name: &str) -> bool {
             | "str_replace"
             | "defined"
             | "stream_resolve_include_path"
-            | "header"
             | "fwrite"
             | "spl_autoload_register"
             | "spl_autoload_unregister"
