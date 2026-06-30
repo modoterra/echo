@@ -43,6 +43,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("extension", Some("string"))],
             Some("array|false"),
         ),
+        php_builtin_reflection(
+            "get_cfg_var",
+            &[("option", Some("string"))],
+            Some("string|array|false"),
+        ),
         php_builtin_reflection("php_ini_loaded_file", &[], Some("string|false")),
         php_builtin_reflection("php_ini_scanned_files", &[], Some("string|false")),
         php_builtin_reflection("putenv", &[("assignment", Some("string"))], Some("bool")),

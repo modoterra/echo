@@ -316,6 +316,31 @@ fn php_ini_scanned_files_lowers_to_no_argument_runtime_call() {
 }
 
 #[test]
+fn get_cfg_var_lowers_to_unary_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "get_cfg_var".to_string(),
+            args: echo_ast::call_args![Expr::String(StringLiteral {
+                value: "include_path".to_string(),
+                span: Span::new(12, 26),
+            })],
+            span: Span::new(0, 27),
+        })],
+        span: Span::new(0, 28),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_get_cfg_var(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_get_cfg_var("),
+        "{ir}"
+    );
+}
+
+#[test]
 fn get_loaded_extensions_lowers_default_false_argument() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

@@ -408,7 +408,7 @@ echo $wrapped . "\n"
 
 Use the default break string for terminal-oriented text, or pass a custom break string when preparing pipe-delimited previews. Set `cut_long_words` only when long tokens must be split instead of preserved.
 
-- `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, `echo_php_zend_version(...)`, `echo_php_extension_loaded(...)`, `echo_php_get_loaded_extensions(...)`, `echo_php_get_extension_funcs(...)`, `echo_php_php_ini_loaded_file(...)`, `echo_php_php_ini_scanned_files(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, process-ID, PHP version, Server API name, Zend Engine version, extension availability, extension listing, extension function listing, configuration-file lookup, scanned-configuration lookup, and environment mutation helpers are PHP compatibility functions for process-local state.
+- `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, `echo_php_zend_version(...)`, `echo_php_extension_loaded(...)`, `echo_php_get_loaded_extensions(...)`, `echo_php_get_extension_funcs(...)`, `echo_php_get_cfg_var(...)`, `echo_php_php_ini_loaded_file(...)`, `echo_php_php_ini_scanned_files(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding working-directory, environment, hostname, process-ID, PHP version, Server API name, Zend Engine version, extension availability, extension listing, extension function listing, configuration option lookup, configuration-file lookup, scanned-configuration lookup, and environment mutation helpers are PHP compatibility functions for process-local state.
 - `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
 - `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.
 
@@ -493,6 +493,19 @@ if ($functions === false) {
 ```
 
 Echo currently returns `false` for named extensions because extension function metadata is not modeled yet. Keep function-level extension checks explicit so later extension metadata can supply real lists.
+
+`get_cfg_var()` is useful when compatibility code probes a PHP configuration option before selecting a path:
+
+```php
+<?php
+let $includePath = get_cfg_var("include_path")
+
+if ($includePath === false) {
+    echo "No include_path config value\n"
+}
+```
+
+Echo currently returns `false` because it does not load PHP configuration values. Keep option-dependent behavior explicit so later configuration loading can provide real values.
 
 `php_ini_loaded_file()` is useful when a compatibility diagnostic needs to report whether PHP configuration influenced the runtime:
 

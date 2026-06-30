@@ -1256,6 +1256,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns function names for a loaded PHP extension.",
       },
       {
+        name: "get_cfg_var",
+        signature: "get_cfg_var(string $option): string|array|false",
+        description: "Returns a PHP configuration option value, or false when it is unavailable.",
+      },
+      {
         name: "php_ini_loaded_file",
         signature: "php_ini_loaded_file(): string|false",
         description: "Returns the loaded PHP configuration file path, or false when none is loaded.",
@@ -1960,6 +1965,14 @@ if ($functions === false) {
 
 if ($ini === false) {
     echo "No php.ini file is loaded\\n"
+}`,
+  ],
+  [
+    "get_cfg_var",
+    `let $includePath = get_cfg_var("include_path")
+
+if ($includePath === false) {
+    echo "No include_path config value\\n"
 }`,
   ],
   [
@@ -3854,6 +3867,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "php_ini_loaded_file",
     "Use `php_ini_loaded_file()` for diagnostics that need to report PHP configuration input. Echo currently returns false because it does not load php.ini files.",
+  ],
+  [
+    "get_cfg_var",
+    "Use `get_cfg_var()` for compatibility checks around PHP configuration options. Echo currently returns false because it does not load PHP configuration values.",
   ],
   [
     "php_ini_scanned_files",
