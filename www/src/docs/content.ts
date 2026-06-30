@@ -876,9 +876,10 @@ export const builtinFamilies: BuiltinFamily[] = [
     ],
   },
   {
-    slug: "hashes",
-    title: "Hashes and Checksums",
-    description: "Hash and checksum functions create compact identifiers for compatibility code.",
+    slug: "cryptography",
+    title: "Cryptography",
+    description:
+      "Cryptographic legacy helpers and checksum functions for compatibility-focused code.",
     builtins: [
       {
         name: "crc32",

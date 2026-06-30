@@ -2,6 +2,7 @@ pub mod abi;
 mod assertions;
 mod callable;
 mod collections;
+mod crypto;
 mod encoding;
 mod environment;
 pub mod error;
@@ -39,6 +40,15 @@ pub use collections::{
     echo_value_array_set, echo_value_array_value_at, echo_value_index_get, echo_value_list_append,
     echo_value_list_new,
 };
+pub use crypto::{
+    echo_php_crypt, echo_php_hash, echo_php_hash_algos, echo_php_hash_copy, echo_php_hash_equals,
+    echo_php_hash_file, echo_php_hash_final, echo_php_hash_hkdf, echo_php_hash_hmac,
+    echo_php_hash_hmac_algos, echo_php_hash_hmac_file, echo_php_hash_init, echo_php_hash_pbkdf2,
+    echo_php_hash_update, echo_php_hash_update_file, echo_php_hash_update_stream,
+    echo_php_md5_file, echo_php_password_algos, echo_php_password_get_info, echo_php_password_hash,
+    echo_php_password_needs_rehash, echo_php_password_verify, echo_php_random_bytes,
+    echo_php_random_int, echo_php_sha1_file,
+};
 pub use encoding::{
     echo_php_base64_decode, echo_php_base64_encode, echo_php_bin2hex, echo_php_crc32,
     echo_php_escapeshellarg, echo_php_escapeshellcmd, echo_php_hex2bin, echo_php_md5,
@@ -50,14 +60,15 @@ pub use error::EchoError;
 pub use execution::echo_join;
 pub use filesystem::{
     echo_php_basename, echo_php_chdir, echo_php_clearstatcache, echo_php_copy, echo_php_dirname,
-    echo_php_file_exists, echo_php_file_get_contents, echo_php_file_put_contents,
+    echo_php_fclose, echo_php_file_exists, echo_php_file_get_contents, echo_php_file_put_contents,
     echo_php_fileatime, echo_php_filectime, echo_php_filegroup, echo_php_fileinode,
     echo_php_filemtime, echo_php_fileowner, echo_php_fileperms, echo_php_filesize,
-    echo_php_filetype, echo_php_getcwd, echo_php_is_dir, echo_php_is_executable, echo_php_is_file,
-    echo_php_is_link, echo_php_is_readable, echo_php_is_writable, echo_php_link, echo_php_mkdir,
-    echo_php_readfile, echo_php_readlink, echo_php_realpath, echo_php_rename, echo_php_rmdir,
-    echo_php_symlink, echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_touch, echo_php_uniqid,
-    echo_php_unlink,
+    echo_php_filetype, echo_php_fopen, echo_php_fread, echo_php_getcwd, echo_php_is_dir,
+    echo_php_is_executable, echo_php_is_file, echo_php_is_link, echo_php_is_readable,
+    echo_php_is_writable, echo_php_link, echo_php_mkdir, echo_php_readfile, echo_php_readlink,
+    echo_php_realpath, echo_php_rename, echo_php_rmdir, echo_php_stream_get_contents,
+    echo_php_symlink, echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_tmpfile,
+    echo_php_touch, echo_php_uniqid, echo_php_unlink,
 };
 pub use math::{
     echo_php_acos, echo_php_acosh, echo_php_asin, echo_php_asinh, echo_php_atan, echo_php_atan2,

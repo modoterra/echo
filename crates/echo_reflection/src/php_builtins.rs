@@ -10,6 +10,143 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "crypt",
+            &[("str", Some("string")), ("salt", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hash",
+            &[
+                ("algo", Some("string")),
+                ("data", Some("string")),
+                ("raw_output", Some("bool")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection("hash_algos", &[], Some("array")),
+        php_builtin_reflection(
+            "hash_copy",
+            &[("context", Some("object"))],
+            Some("object|false"),
+        ),
+        php_builtin_reflection(
+            "hash_equals",
+            &[
+                ("known_string", Some("string")),
+                ("user_string", Some("string")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "hash_file",
+            &[
+                ("algo", Some("string")),
+                ("filename", Some("string")),
+                ("raw_output", Some("bool")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hash_final",
+            &[("context", Some("object")), ("raw_output", Some("bool"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hash_hkdf",
+            &[
+                ("algo", Some("string")),
+                ("input_key_material", Some("string")),
+                ("length", Some("int")),
+                ("info", Some("string")),
+                ("salt", Some("string")),
+                ("raw_output", Some("bool")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hash_hmac",
+            &[
+                ("algo", Some("string")),
+                ("data", Some("string")),
+                ("key", Some("string")),
+                ("raw_output", Some("bool")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection("hash_hmac_algos", &[], Some("array")),
+        php_builtin_reflection(
+            "hash_hmac_file",
+            &[
+                ("algo", Some("string")),
+                ("filename", Some("string")),
+                ("key", Some("string")),
+                ("raw_output", Some("bool")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hash_init",
+            &[
+                ("algo", Some("string")),
+                ("options", Some("int")),
+                ("key", Some("string")),
+            ],
+            Some("object|false"),
+        ),
+        php_builtin_reflection(
+            "hash_pbkdf2",
+            &[
+                ("algo", Some("string")),
+                ("password", Some("string")),
+                ("salt", Some("string")),
+                ("iterations", Some("int")),
+                ("length", Some("int")),
+                ("raw_output", Some("bool")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "hash_update",
+            &[("context", Some("object")), ("data", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "hash_update_file",
+            &[
+                ("context", Some("object")),
+                ("filename", Some("string")),
+                ("context_resource", Some("resource")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "hash_update_stream",
+            &[
+                ("context", Some("object")),
+                ("stream", Some("resource")),
+                ("max_length", Some("?int")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "md5_file",
+            &[
+                ("filename", Some("string")),
+                ("raw", Some("bool")),
+                ("context", Some("resource")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "sha1_file",
+            &[
+                ("filename", Some("string")),
+                ("raw", Some("bool")),
+                ("context", Some("resource")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "microtime",
             &[("as_float", Some("bool"))],
             Some("string|float"),
@@ -436,6 +573,45 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("string", Some("string")), ("binary", Some("bool"))],
             Some("string"),
         ),
+        php_builtin_reflection("password_algos", &[], Some("array")),
+        php_builtin_reflection(
+            "password_get_info",
+            &[("hash", Some("string"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
+            "password_hash",
+            &[
+                ("password", Some("string")),
+                ("algo", Some("string|int|null")),
+                ("options", Some("array")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "password_needs_rehash",
+            &[
+                ("hash", Some("string")),
+                ("algo", Some("string|int|null")),
+                ("options", Some("array")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "password_verify",
+            &[("password", Some("string")), ("hash", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "random_bytes",
+            &[("length", Some("int"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "random_int",
+            &[("min", Some("int")), ("max", Some("int"))],
+            Some("int|false"),
+        ),
         php_builtin_reflection(
             "base64_encode",
             &[("string", Some("string"))],
@@ -580,6 +756,32 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             ],
             Some("int|false"),
         ),
+        php_builtin_reflection(
+            "fopen",
+            &[
+                ("filename", Some("string")),
+                ("mode", Some("string")),
+                ("use_include_path", Some("bool")),
+                ("context", Some("?resource")),
+            ],
+            Some("resource|false"),
+        ),
+        php_builtin_reflection(
+            "fread",
+            &[("stream", Some("resource")), ("length", Some("int"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection("fclose", &[("stream", Some("resource"))], Some("bool")),
+        php_builtin_reflection(
+            "stream_get_contents",
+            &[
+                ("stream", Some("resource")),
+                ("length", Some("?int")),
+                ("offset", Some("int")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection("tmpfile", &[], Some("resource|false")),
         php_builtin_reflection(
             "readfile",
             &[

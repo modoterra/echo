@@ -2,6 +2,7 @@ use super::RuntimeSignature;
 use std::sync::LazyLock;
 
 mod array_entries;
+mod crypto_entries;
 mod filesystem_entries;
 mod math_entries;
 mod string_entries;
@@ -44,17 +45,24 @@ pub enum BuiltinCodegen {
     ObStart,
     StrPad,
     StrSplit,
+    StreamGetContents,
     VoidStatement,
     VoidUnaryStatement,
     BoolStatement,
     ValueExpression,
     ValueUnaryExpression,
     ValueBinaryExpression,
+    ValueBinaryOptionalBoolExpression,
     ValueUnaryOptionalContextExpression,
     ValueBinaryOptionalContextExpression,
     ValueUnaryOptionalBoolExpression,
+    ValueTernaryOptionalBoolExpression,
     ValueUnaryOptionalBoolContextExpression,
     ValueTernaryExpression,
+    ValueQuinaryOptionalBoolExpression,
+    ValueQuaternaryExpression,
+    ValueQuinaryExpression,
+    ValueSixExpression,
     FileGetContents,
     FilePutContents,
     Mkdir,
@@ -466,6 +474,7 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
     ];
     builtins.extend_from_slice(array_entries::ARRAY_BUILTINS);
     builtins.extend_from_slice(filesystem_entries::FILESYSTEM_BUILTINS);
+    builtins.extend_from_slice(crypto_entries::CRYPTO_BUILTINS);
     builtins.extend_from_slice(&[
         PhpBuiltin {
             php_name: "function_exists",

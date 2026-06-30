@@ -396,6 +396,36 @@ impl IrModule {
             echo_mir::MirExpr::Constant { name, .. } if name == "STDERR" => {
                 Ok(RuntimeValue::StaticString("php://stderr".to_string()))
             }
+            echo_mir::MirExpr::Constant { name, .. }
+                if name == "PASSWORD_DEFAULT" || name == "PASSWORD_BCRYPT" =>
+            {
+                Ok(RuntimeValue::StaticString("2y".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. } if name == "PASSWORD_ARGON2I" => {
+                Ok(RuntimeValue::StaticString("argon2i".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. } if name == "PASSWORD_ARGON2ID" => {
+                Ok(RuntimeValue::StaticString("argon2id".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. } if name == "PASSWORD_BCRYPT_DEFAULT_COST" => {
+                Ok(RuntimeValue::EchoValue("{ i32 2, i64 10 }".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. } if name == "HASH_HMAC" => {
+                Ok(RuntimeValue::EchoValue("{ i32 2, i64 1 }".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. } if name == "CRYPT_BLOWFISH" => {
+                Ok(RuntimeValue::EchoValue("{ i32 2, i64 1 }".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. }
+                if matches!(name.as_str(), "CRYPT_STD_DES" | "CRYPT_EXT_DES") =>
+            {
+                Ok(RuntimeValue::EchoValue("{ i32 2, i64 1 }".to_string()))
+            }
+            echo_mir::MirExpr::Constant { name, .. }
+                if matches!(name.as_str(), "CRYPT_MD5" | "CRYPT_SHA256" | "CRYPT_SHA512") =>
+            {
+                Ok(RuntimeValue::EchoValue("{ i32 2, i64 1 }".to_string()))
+            }
             echo_mir::MirExpr::Constant { source, name } => Err(Diagnostic::new(
                 format!("unsupported constant `{name}` in LLVM codegen"),
                 source.span(),
@@ -1595,6 +1625,34 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::ValueBinaryOptionalBoolExpression => {
+                if !(2..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let other = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let flag = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({value}, {other}, {flag})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::ValueUnaryOptionalBoolExpression => {
                 if !(1..=2).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
@@ -1617,6 +1675,66 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({value}, {flag})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueTernaryOptionalBoolExpression => {
+                if !(3..=4).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let first = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let second = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let third = self.render_mir_expr_as_echo_value(body, &call.args[2])?;
+                let flag = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({first}, {second}, {third}, {flag})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueQuinaryOptionalBoolExpression => {
+                if !(5..=6).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let first = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let second = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let third = self.render_mir_expr_as_echo_value(body, &call.args[2])?;
+                let fourth = self.render_mir_expr_as_echo_value(body, &call.args[3])?;
+                let fifth = self.render_mir_expr_as_echo_value(body, &call.args[4])?;
+                let sixth = match call.args.get(5) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({first}, {second}, {third}, {fourth}, {fifth}, {sixth})\n",
                     builtin.symbol
                 ));
 
@@ -1769,6 +1887,37 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({filename}, {use_include_path}, {context}, {offset}, {length})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::StreamGetContents => {
+                if !(1..=3).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let stream = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let length = match call.args.get(1) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let offset = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 -1 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({stream}, {length}, {offset})\n",
                     builtin.symbol
                 ));
 
@@ -2291,6 +2440,87 @@ impl IrModule {
 
                 body.push_str(&format!(
                     "  {name} = call %EchoValue @{}({first}, {second}, {third})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueQuaternaryExpression => {
+                if call.args.len() != 4 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let first = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let second = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let third = self.render_mir_expr_as_echo_value(body, &call.args[2])?;
+                let fourth = self.render_mir_expr_as_echo_value(body, &call.args[3])?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({first}, {second}, {third}, {fourth})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueQuinaryExpression => {
+                if call.args.len() != 5 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let first = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let second = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let third = self.render_mir_expr_as_echo_value(body, &call.args[2])?;
+                let fourth = self.render_mir_expr_as_echo_value(body, &call.args[3])?;
+                let fifth = self.render_mir_expr_as_echo_value(body, &call.args[4])?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({first}, {second}, {third}, {fourth}, {fifth})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
+            BuiltinCodegen::ValueSixExpression => {
+                if call.args.len() != 6 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let first = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let second = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let third = self.render_mir_expr_as_echo_value(body, &call.args[2])?;
+                let fourth = self.render_mir_expr_as_echo_value(body, &call.args[3])?;
+                let fifth = self.render_mir_expr_as_echo_value(body, &call.args[4])?;
+                let sixth = self.render_mir_expr_as_echo_value(body, &call.args[5])?;
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({first}, {second}, {third}, {fourth}, {fifth}, {sixth})\n",
                     builtin.symbol
                 ));
 

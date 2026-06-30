@@ -7,6 +7,7 @@ mod content;
 mod links;
 mod metadata;
 mod mutation;
+mod stream;
 mod temporary;
 
 #[test]

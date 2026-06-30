@@ -1,5 +1,5 @@
 use crate::collections::{EchoArray, EchoList, echo_arrays_equal, echo_lists_equal};
-use crate::{echo_runtime_string, net, process, task, task_group, thread};
+use crate::{echo_runtime_string, filesystem, net, process, task, task_group, thread};
 
 mod arithmetic;
 mod coercion;
@@ -37,6 +37,7 @@ pub(crate) const ECHO_VALUE_FLOAT: i32 = 11;
 pub(crate) const ECHO_VALUE_PROCESS: i32 = 12;
 pub(crate) const ECHO_VALUE_THREAD: i32 = 13;
 pub(crate) const ECHO_VALUE_TASK_GROUP: i32 = 14;
+pub(crate) const ECHO_VALUE_STREAM: i32 = 15;
 
 impl EchoValue {
     pub const fn null() -> Self {
@@ -171,6 +172,13 @@ impl EchoValue {
         }
     }
 
+    pub fn file_stream(value: *mut filesystem::EchoFileStream) -> Self {
+        Self {
+            kind: ECHO_VALUE_STREAM,
+            payload: value as u64,
+        }
+    }
+
     pub(crate) fn string_bytes(self) -> Option<Vec<u8>> {
         match self.kind {
             ECHO_VALUE_NULL | ECHO_VALUE_ERROR => Some(Vec::new()),
@@ -194,7 +202,8 @@ impl EchoValue {
             | ECHO_VALUE_TASK_GROUP
             | ECHO_VALUE_OBJECT
             | ECHO_VALUE_PROCESS
-            | ECHO_VALUE_THREAD => Some(b"Object".to_vec()),
+            | ECHO_VALUE_THREAD
+            | ECHO_VALUE_STREAM => Some(b"Resource".to_vec()),
             _ => None,
         }
     }
@@ -229,7 +238,8 @@ impl EchoValue {
             | ECHO_VALUE_TCP_LISTENER
             | ECHO_VALUE_TCP_CONNECTION
             | ECHO_VALUE_PROCESS
-            | ECHO_VALUE_THREAD => Some(true),
+            | ECHO_VALUE_THREAD
+            | ECHO_VALUE_STREAM => Some(true),
             ECHO_VALUE_PENDING => Some(false),
             _ => None,
         }
@@ -293,6 +303,7 @@ impl EchoValue {
             ECHO_VALUE_PENDING => b"pending".as_slice(),
             ECHO_VALUE_TCP_LISTENER => b"TcpServer".as_slice(),
             ECHO_VALUE_TCP_CONNECTION => b"TcpConnection".as_slice(),
+            ECHO_VALUE_STREAM => b"stream".as_slice(),
             ECHO_VALUE_OBJECT => b"object".as_slice(),
             _ => b"unknown".as_slice(),
         }
@@ -344,6 +355,14 @@ impl EchoValue {
         }
 
         unsafe { (self.payload as *mut net::EchoTcpConnection).as_mut() }
+    }
+
+    pub(crate) fn as_stream_mut(self) -> Option<&'static mut filesystem::EchoFileStream> {
+        if self.kind != ECHO_VALUE_STREAM || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *mut filesystem::EchoFileStream).as_mut() }
     }
 }
 
@@ -411,7 +430,9 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
         | ECHO_VALUE_OBJECT
         | ECHO_VALUE_PROCESS
         | ECHO_VALUE_THREAD => b"object".as_slice(),
-        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION | ECHO_VALUE_STREAM => {
+            b"resource".as_slice()
+        }
         _ => b"unknown type".as_slice(),
     };
     echo_runtime_string(type_name.to_vec())
@@ -466,6 +487,7 @@ pub extern "C" fn echo_php_is_resource(value: EchoValue) -> EchoValue {
             | ECHO_VALUE_PROCESS
             | ECHO_VALUE_TASK_GROUP
             | ECHO_VALUE_THREAD
+            | ECHO_VALUE_STREAM
     ))
 }
 

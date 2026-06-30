@@ -12,6 +12,7 @@ fn assert_float_value(value: EchoValue, expected: f64) {
 mod arithmetic;
 mod callable;
 mod collections;
+mod crypto;
 mod encoding;
 mod environment;
 mod filesystem;

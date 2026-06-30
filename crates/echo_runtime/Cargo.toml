@@ -15,3 +15,9 @@ md5_digest = { version = "0.11.0", package = "md-5" }
 mio = { version = "1", features = ["os-poll", "net"] }
 sha1 = "0.11.0"
 socket2 = "0.5"
+hmac = "0.12.1"
+sha2 = "0.10.8"
+sha3 = "0.10.8"
+bcrypt = "0.15.1"
+rand = "0.8.5"
+crypt3_rs = { version = "0.1.1", default-features = false, features = ["bsdi", "md5", "sha2", "unix"] }

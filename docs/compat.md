@@ -228,7 +228,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
 | `count_chars` | missing |  |
 | `crc32` | implemented | Calculates a CRC32 checksum over the string bytes and returns the positive integer result used by 64-bit PHP. Source: https://www.php.net/manual/en/function.crc32.php |
-| `crypt` | missing |  |
+| `crypt` | implemented | Uses Echo's bcrypt implementation through `crypt()` salt prefix dispatch for supported variants; unsupported salts and algorithm formats return `false`. Source: https://www.php.net/manual/en/function.crypt.php |
 | `current` | missing |  |
 | `debug_zval_dump` | missing |  |
 | `decbin` | implemented | Converts integers to unsigned binary strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.decbin.php |
@@ -256,7 +256,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `explode` | implemented | Splits byte strings into PHP arrays with default, positive, zero, and negative limit behavior; empty-separator `ValueError` is currently surfaced as a runtime error. Source: https://www.php.net/manual/en/function.explode.php |
 | `expm1` | implemented | Calculates exp(num) - 1 with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.expm1.php |
 | `extract` | missing |  |
-| `fclose` | missing |  |
+| `fclose` | implemented | Closes Echo's local file stream resources and returns a bool success value; broader PHP stream wrappers are deferred. Source: https://www.php.net/manual/en/function.fclose.php |
 | `fdatasync` | missing |  |
 | `fdiv` | implemented | Divides two numeric values as IEEE 754 floats, returning `INF`, `-INF`, or `NAN` for zero-divisor cases instead of raising division errors. Source: https://www.php.net/manual/en/function.fdiv.php |
 | `feof` | missing |  |
@@ -283,7 +283,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `flush` | implemented | Flushes the system output layer without flushing active user-level output buffers. Source: https://www.php.net/manual/en/function.flush.php |
 | `fmod` | implemented | Returns a floating-point remainder with the dividend sign and `NAN` for zero divisors. Source: https://www.php.net/manual/en/function.fmod.php |
 | `fnmatch` | missing |  |
-| `fopen` | missing |  |
+| `fopen` | implemented | Opens local filesystem streams for common read/write modes; include path lookup, URL wrappers, stream contexts, and warning emission are deferred. Source: https://www.php.net/manual/en/function.fopen.php |
 | `forward_static_call` | missing |  |
 | `forward_static_call_array` | missing |  |
 | `fpassthru` | missing |  |
@@ -291,7 +291,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fprintf` | missing |  |
 | `fputcsv` | missing |  |
 | `fputs` | missing |  |
-| `fread` | missing |  |
+| `fread` | implemented | Reads up to the requested byte count from Echo local file stream resources and advances the cursor. Source: https://www.php.net/manual/en/function.fread.php |
 | `fscanf` | missing |  |
 | `fseek` | missing |  |
 | `fsockopen` | missing |  |
@@ -416,9 +416,24 @@ Related baseline functions tracked below: `get_included_files`,
 | `lstat` | missing |  |
 | `ltrim` | implemented | Removes PHP's default leading ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.ltrim.php |
 | `mail` | missing |  |
+| `hash` | implemented | Dispatches supported hash algorithms and returns raw bytes with `raw_output=true`, otherwise lowercase hex. Source: https://www.php.net/manual/en/function.hash.php |
+| `hash_algos` | implemented | Returns supported hash algorithm names from runtime registry. Source: https://www.php.net/manual/en/function.hash-algos.php |
+| `hash_copy` | implemented | Clones an active hash context object. Source: https://www.php.net/manual/en/function.hash-copy.php |
+| `hash_equals` | implemented | Compares strings in timing-safe manner and returns `false` for length mismatch. Source: https://www.php.net/manual/en/function.hash-equals.php |
+| `hash_file` | implemented | Hashes file contents via filename input and supports optional raw output. Source: https://www.php.net/manual/en/function.hash-file.php |
+| `hash_final` | implemented | Finalizes active hash contexts and marks them finalized. Source: https://www.php.net/manual/en/function.hash-final.php |
+| `hash_hkdf` | implemented | Derives key material from HKDF inputs with optional raw hex output. Source: https://www.php.net/manual/en/function.hash-hkdf.php |
+| `hash_hmac` | implemented | Computes keyed HMAC digests for configured algorithms. Source: https://www.php.net/manual/en/function.hash-hmac.php |
+| `hash_hmac_algos` | implemented | Returns algorithms accepted by hash_hmac. Source: https://www.php.net/manual/en/function.hash-hmac-algos.php |
+| `hash_hmac_file` | implemented | Computes keyed HMAC from file contents. Source: https://www.php.net/manual/en/function.hash-hmac-file.php |
+| `hash_init` | implemented | Creates hash contexts with optional options/key initialization values. Source: https://www.php.net/manual/en/function.hash-init.php |
+| `hash_pbkdf2` | implemented | Derives keys with PBKDF2 using HMAC iterations and optional raw output. Source: https://www.php.net/manual/en/function.hash-pbkdf2.php |
+| `hash_update` | implemented | Updates an existing hash context with string data. Source: https://www.php.net/manual/en/function.hash-update.php |
+| `hash_update_file` | implemented | Appends file bytes to an active hash context. Source: https://www.php.net/manual/en/function.hash-update-file.php |
+| `hash_update_stream` | implemented | Updates hash contexts from Echo local file stream resources and advances the stream cursor; non-file stream wrappers are deferred. Source: https://www.php.net/manual/en/function.hash-update-stream.php |
 | `max` | missing |  |
 | `md5` | implemented | Returns a lowercase 32-character MD5 digest by default and raw 16-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.md5.php |
-| `md5_file` | missing |  |
+| `md5_file` | implemented | Hashes local files with optional raw output and returns `false` for missing files. Source: https://www.php.net/manual/en/function.md5-file.php |
 | `memory_get_peak_usage` | missing |  |
 | `memory_get_usage` | missing |  |
 | `memory_reset_peak_usage` | missing |  |
@@ -459,11 +474,11 @@ Related baseline functions tracked below: `get_included_files`,
 | `parse_str` | missing |  |
 | `parse_url` | missing |  |
 | `passthru` | missing |  |
-| `password_algos` | missing |  |
-| `password_get_info` | missing |  |
-| `password_hash` | missing |  |
-| `password_needs_rehash` | missing |  |
-| `password_verify` | missing |  |
+| `password_algos` | implemented | Returns the supported password algorithm IDs for `password_hash()` validation and `password_get_info()`. Source: https://www.php.net/manual/en/password.constants.php |
+| `password_get_info` | implemented | Returns a map with `algo`, `algoName`, and `options` for bcrypt-compatible hashes. Source: https://www.php.net/manual/en/function.password-get-info.php |
+| `password_hash` | implemented | Generates bcrypt hashes using the selected algorithm and options while surfacing invalid inputs as `false`. Source: https://www.php.net/manual/en/function.password-hash.php |
+| `password_needs_rehash` | implemented | Compares a hash against requested algorithm/options to determine when rehashing is required. Source: https://www.php.net/manual/en/function.password-needs-rehash.php |
+| `password_verify` | implemented | Verifies candidate passwords against generated and stored password hashes in a timing-safe comparison path. Source: https://www.php.net/manual/en/function.password-verify.php |
 | `pathinfo` | missing |  |
 | `pclose` | missing |  |
 | `pfsockopen` | missing |  |
@@ -523,9 +538,11 @@ Related baseline functions tracked below: `get_included_files`,
 | `setrawcookie` | missing |  |
 | `settype` | missing |  |
 | `sha1` | implemented | Returns a lowercase 40-character SHA-1 digest by default and raw 20-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.sha1.php |
-| `sha1_file` | missing |  |
+| `sha1_file` | implemented | Hashes local files with optional raw output and returns `false` for missing files. Source: https://www.php.net/manual/en/function.sha1-file.php |
 | `shell_exec` | missing |  |
 | `show_source` | missing |  |
+| `random_bytes` | implemented | Generates cryptographically secure random bytes using OS entropy and returns `false` on failure or invalid length. Source: https://www.php.net/manual/en/function.random-bytes.php |
+| `random_int` | implemented | Returns uniformly distributed integers in `[min,max]` and returns `false` for invalid argument ranges. Source: https://www.php.net/manual/en/function.random-int.php |
 | `shuffle` | missing |  |
 | `similar_text` | missing |  |
 | `sin` | implemented | Returns the sine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sin.php |
@@ -575,7 +592,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_filter_prepend` | missing |  |
 | `stream_filter_register` | missing |  |
 | `stream_filter_remove` | missing |  |
-| `stream_get_contents` | missing |  |
+| `stream_get_contents` | implemented | Reads remaining bytes, or an optional bounded range, from Echo local file stream resources. Source: https://www.php.net/manual/en/function.stream-get-contents.php |
 | `stream_get_filters` | missing |  |
 | `stream_get_line` | missing |  |
 | `stream_get_meta_data` | missing |  |
@@ -639,7 +656,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `tempnam` | implemented | Creates a local temporary file with a unique name and requested prefix, falling back to the host temp directory when the requested directory cannot be used; PHP notices and Windows prefix truncation are deferred. Source: https://www.php.net/manual/en/function.tempnam.php |
 | `time_nanosleep` | missing |  |
 | `time_sleep_until` | missing |  |
-| `tmpfile` | missing |  |
+| `tmpfile` | implemented | Creates a process-local temporary file stream and removes the backing file when closed. Source: https://www.php.net/manual/en/function.tmpfile.php |
 | `touch` | implemented | Creates missing local files and sets modification/access timestamps with PHP's default timestamp behavior; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.touch.php |
 | `trim` | implemented | Removes PHP's default leading and trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.trim.php |
 | `uasort` | missing |  |

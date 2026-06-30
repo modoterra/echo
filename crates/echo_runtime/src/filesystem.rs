@@ -9,6 +9,7 @@ mod content;
 mod links;
 mod metadata;
 mod mutation;
+mod stream;
 mod temporary;
 
 #[cfg(test)]
@@ -26,6 +27,10 @@ pub(crate) use metadata::{path_chdir, path_exists, path_getcwd};
 pub(crate) use metadata::{path_is_dir, path_is_file};
 pub use mutation::{
     echo_php_copy, echo_php_mkdir, echo_php_rename, echo_php_rmdir, echo_php_touch, echo_php_unlink,
+};
+pub(crate) use stream::EchoFileStream;
+pub use stream::{
+    echo_php_fclose, echo_php_fopen, echo_php_fread, echo_php_stream_get_contents, echo_php_tmpfile,
 };
 pub use temporary::{echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_uniqid};
 

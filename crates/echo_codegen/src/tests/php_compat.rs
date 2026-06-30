@@ -166,3 +166,55 @@ fn digest_builtins_lower_optional_binary_flag_to_false() {
             "{ir}"
         );
 }
+
+#[test]
+fn password_and_crypt_constants_lower_to_expected_php_compat_shapes() {
+    let string_constants = [
+        ("PASSWORD_DEFAULT", "2y"),
+        ("PASSWORD_BCRYPT", "2y"),
+        ("PASSWORD_ARGON2I", "argon2i"),
+        ("PASSWORD_ARGON2ID", "argon2id"),
+    ];
+
+    for (constant_name, expected_payload) in string_constants {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::Constant(echo_ast::ConstantExpr {
+                name: constant_name.to_string(),
+                span: Span::new(0, 1),
+            })],
+            span: Span::new(0, 1),
+        })]))
+        .expect("crypto constants should lower to LLVM constants");
+
+        assert!(
+            ir.contains(&format!("c\"{expected_payload}\", ")),
+            "{constant_name} should be materialized as a string literal"
+        );
+    }
+
+    let int_constants = [
+        ("HASH_HMAC", "{ i32 2, i64 1 }"),
+        ("CRYPT_BLOWFISH", "{ i32 2, i64 1 }"),
+        ("CRYPT_STD_DES", "{ i32 2, i64 1 }"),
+        ("CRYPT_EXT_DES", "{ i32 2, i64 1 }"),
+        ("CRYPT_MD5", "{ i32 2, i64 1 }"),
+        ("CRYPT_SHA256", "{ i32 2, i64 1 }"),
+        ("CRYPT_SHA512", "{ i32 2, i64 1 }"),
+    ];
+
+    for (constant_name, expected_payload) in int_constants {
+        let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+            exprs: vec![Expr::Constant(echo_ast::ConstantExpr {
+                name: constant_name.to_string(),
+                span: Span::new(0, 1),
+            })],
+            span: Span::new(0, 1),
+        })]))
+        .expect("crypto constants should lower to LLVM constants");
+
+        assert!(
+            ir.contains(expected_payload),
+            "{constant_name} should include expected integer payload"
+        );
+    }
+}

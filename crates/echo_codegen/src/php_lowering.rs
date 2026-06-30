@@ -330,9 +330,16 @@ impl IrModule {
             | BuiltinCodegen::Round
             | BuiltinCodegen::StrPad
             | BuiltinCodegen::StrSplit
+            | BuiltinCodegen::StreamGetContents
             | BuiltinCodegen::ValueUnaryOptionalContextExpression
             | BuiltinCodegen::ValueBinaryOptionalContextExpression
             | BuiltinCodegen::ValueUnaryOptionalBoolExpression
+            | BuiltinCodegen::ValueBinaryOptionalBoolExpression
+            | BuiltinCodegen::ValueTernaryOptionalBoolExpression
+            | BuiltinCodegen::ValueQuinaryOptionalBoolExpression
+            | BuiltinCodegen::ValueQuaternaryExpression
+            | BuiltinCodegen::ValueQuinaryExpression
+            | BuiltinCodegen::ValueSixExpression
             | BuiltinCodegen::ValueUnaryOptionalBoolContextExpression
             | BuiltinCodegen::ValueTernaryExpression
             | BuiltinCodegen::FileGetContents
