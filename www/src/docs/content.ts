@@ -353,6 +353,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Case-insensitive natural-order string comparison.",
       },
       {
+        name: "levenshtein",
+        signature:
+          "levenshtein(string $string1, string $string2, int $insertion_cost, int $replacement_cost, int $deletion_cost): int",
+        description: "Calculates edit distance between two strings.",
+      },
+      {
         name: "strncmp",
         signature: "strncmp(string $string1, string $string2, int $length): int",
         description: "Binary-safe string comparison up to a fixed length.",
@@ -2083,6 +2089,14 @@ echo "Natural compare: " . $before . "\\n"`,
 echo "Natural case compare: " . $same . "\\n"`,
   ],
   [
+    "levenshtein",
+    `let $submitted = "kitten"
+let $known = "sitting"
+let $distance = levenshtein($submitted, $known)
+
+echo "Edit distance: " . $distance . "\\n"`,
+  ],
+  [
     "strcmp",
     `let $expected = "sha256"
 let $actual = "sha256"
@@ -3258,6 +3272,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "strnatcasecmp",
     "Use `strnatcasecmp()` for natural ordering when ASCII capitalization should not affect label order.",
+  ],
+  [
+    "levenshtein",
+    "Use `levenshtein()` for small compatibility checks where byte-based edit distance is enough to flag close spellings or labels.",
   ],
   [
     "strncmp",

@@ -358,6 +358,7 @@ declare %EchoValue @echo_php_strcmp(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strcasecmp(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strnatcmp(%EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strnatcasecmp(%EchoValue, %EchoValue)
+declare %EchoValue @echo_php_levenshtein(%EchoValue, %EchoValue, %EchoValue, %EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strncmp(%EchoValue, %EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strncasecmp(%EchoValue, %EchoValue, %EchoValue)
 ```

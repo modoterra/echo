@@ -190,6 +190,40 @@ fn natural_compare_builtins_preserve_php_number_aware_ordering() {
 }
 
 #[test]
+fn levenshtein_preserves_php_byte_distance_and_costs() {
+    assert_eq!(
+        echo_php_levenshtein(
+            test_string_value(b"kitten"),
+            test_string_value(b"sitting"),
+            EchoValue::int(1),
+            EchoValue::int(1),
+            EchoValue::int(1),
+        ),
+        EchoValue::int(3)
+    );
+    assert_eq!(
+        echo_php_levenshtein(
+            test_string_value(b"abc"),
+            test_string_value(b"adc"),
+            EchoValue::int(1),
+            EchoValue::int(5),
+            EchoValue::int(1),
+        ),
+        EchoValue::int(2)
+    );
+    assert_eq!(
+        echo_php_levenshtein(
+            test_string_value(b""),
+            test_string_value(b"echo"),
+            EchoValue::int(1),
+            EchoValue::int(1),
+            EchoValue::int(1),
+        ),
+        EchoValue::int(4)
+    );
+}
+
+#[test]
 fn strncmp_builtins_preserve_php_prefix_behavior() {
     let abc = Box::into_raw(Box::new(EchoString {
         bytes: b"abc".to_vec(),

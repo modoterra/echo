@@ -26,6 +26,7 @@ pub enum BuiltinCodegen {
     Getenv,
     InArray,
     Implode,
+    Levenshtein,
     Log,
     Nl2br,
     NumberFormat,

@@ -2026,6 +2026,42 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
+            BuiltinCodegen::Levenshtein => {
+                if !(2..=5).contains(&call.args.len()) {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            call.name
+                        ),
+                        call.span,
+                    ));
+                }
+
+                let string1 = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
+                let string2 = self.render_mir_expr_as_echo_value(body, &call.args[1])?;
+                let insertion_cost = match call.args.get(2) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 1 }".to_string(),
+                };
+                let replacement_cost = match call.args.get(3) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 1 }".to_string(),
+                };
+                let deletion_cost = match call.args.get(4) {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 2, i64 1 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                let name = format!("%runtime_call_{call_id}");
+
+                body.push_str(&format!(
+                    "  {name} = call %EchoValue @{}({string1}, {string2}, {insertion_cost}, {replacement_cost}, {deletion_cost})\n",
+                    builtin.symbol
+                ));
+
+                Ok(RuntimeValue::EchoValue(name))
+            }
             BuiltinCodegen::Explode => {
                 if !(2..=3).contains(&call.args.len()) {
                     return Err(Diagnostic::new(

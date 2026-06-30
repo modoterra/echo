@@ -163,6 +163,7 @@ impl IrModule {
             | BuiltinCodegen::Getenv
             | BuiltinCodegen::InArray
             | BuiltinCodegen::Implode
+            | BuiltinCodegen::Levenshtein
             | BuiltinCodegen::Log
             | BuiltinCodegen::Nl2br
             | BuiltinCodegen::NumberFormat

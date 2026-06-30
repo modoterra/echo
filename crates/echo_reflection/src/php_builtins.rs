@@ -778,6 +778,17 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection(
+            "levenshtein",
+            &[
+                ("string1", Some("string")),
+                ("string2", Some("string")),
+                ("insertion_cost", Some("int")),
+                ("replacement_cost", Some("int")),
+                ("deletion_cost", Some("int")),
+            ],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "strncmp",
             &[
                 ("string1", Some("string")),

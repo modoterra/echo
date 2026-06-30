@@ -257,6 +257,78 @@ fn number_format_lowers_custom_separator_arguments() {
 }
 
 #[test]
+fn levenshtein_lowers_php_default_costs() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "levenshtein".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "kitten".to_string(),
+                    span: Span::new(12, 20),
+                }),
+                Expr::String(StringLiteral {
+                    value: "sitting".to_string(),
+                    span: Span::new(22, 31),
+                }),
+            ],
+            span: Span::new(0, 32),
+        })],
+        span: Span::new(0, 33),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "declare %EchoValue @echo_php_levenshtein(%EchoValue, %EchoValue, %EchoValue, %EchoValue, %EchoValue)"
+        ),
+        "{ir}"
+    );
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_levenshtein(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 2, i64 1 }, %EchoValue { i32 2, i64 1 }, %EchoValue { i32 2, i64 1 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
+fn levenshtein_lowers_explicit_cost_arguments() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::FunctionCall(FunctionCallExpr {
+            name: "levenshtein".to_string(),
+            args: echo_ast::call_args![
+                Expr::String(StringLiteral {
+                    value: "abc".to_string(),
+                    span: Span::new(12, 17),
+                }),
+                Expr::String(StringLiteral {
+                    value: "adc".to_string(),
+                    span: Span::new(19, 24),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "1".to_string(),
+                    span: Span::new(26, 27),
+                }),
+                Expr::Number(NumberLiteral {
+                    value: "5".to_string(),
+                    span: Span::new(29, 30),
+                }),
+            ],
+            span: Span::new(0, 31),
+        })],
+        span: Span::new(0, 32),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains(
+            "call %EchoValue @echo_php_levenshtein(%EchoValue %runtime_call_0, %EchoValue %runtime_call_1, %EchoValue { i32 2, i64 1 }, %EchoValue { i32 2, i64 5 }, %EchoValue { i32 2, i64 1 })"
+        ),
+        "{ir}"
+    );
+}
+
+#[test]
 fn nl2br_lowers_optional_xhtml_flag_to_true() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

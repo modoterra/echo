@@ -563,6 +563,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "levenshtein",
+        symbol: "echo_php_levenshtein",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Levenshtein,
+    },
+    PhpBuiltin {
         php_name: "strncmp",
         symbol: "echo_php_strncmp",
         helper_symbol: None,

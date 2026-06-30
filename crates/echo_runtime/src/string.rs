@@ -6,8 +6,8 @@ mod pattern;
 mod sequence;
 
 pub use compare::{
-    echo_php_strcasecmp, echo_php_strcmp, echo_php_strnatcasecmp, echo_php_strnatcmp,
-    echo_php_strncasecmp, echo_php_strncmp, echo_php_substr_compare,
+    echo_php_levenshtein, echo_php_strcasecmp, echo_php_strcmp, echo_php_strnatcasecmp,
+    echo_php_strnatcmp, echo_php_strncasecmp, echo_php_strncmp, echo_php_substr_compare,
 };
 
 pub use pattern::{

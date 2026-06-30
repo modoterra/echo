@@ -405,7 +405,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `lcfirst` | implemented | Lowercases the first ASCII alphabetic byte of a string and leaves the rest unchanged. Source: https://www.php.net/manual/en/function.lcfirst.php |
 | `lchgrp` | missing |  |
 | `lchown` | missing |  |
-| `levenshtein` | missing |  |
+| `levenshtein` | implemented | Calculates byte-string edit distance with optional insertion, replacement, and deletion costs. Source: https://www.php.net/manual/en/function.levenshtein.php |
 | `link` | implemented | Creates local hard links and returns a bool success value; PHP warning emission and platform-specific filesystem edge cases are deferred. Source: https://www.php.net/manual/en/function.link.php |
 | `linkinfo` | missing |  |
 | `localeconv` | missing |  |

@@ -114,6 +114,39 @@ pub extern "C" fn echo_php_strnatcasecmp(left: EchoValue, right: EchoValue) -> E
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_levenshtein(
+    string1: EchoValue,
+    string2: EchoValue,
+    insertion_cost: EchoValue,
+    replacement_cost: EchoValue,
+    deletion_cost: EchoValue,
+) -> EchoValue {
+    let Some(string1) = string1.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(string2) = string2.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(insertion_cost) = non_negative_cost(insertion_cost) else {
+        return EchoValue::error();
+    };
+    let Some(replacement_cost) = non_negative_cost(replacement_cost) else {
+        return EchoValue::error();
+    };
+    let Some(deletion_cost) = non_negative_cost(deletion_cost) else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(levenshtein_distance(
+        &string1,
+        &string2,
+        insertion_cost,
+        replacement_cost,
+        deletion_cost,
+    ))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strncmp(
     left: EchoValue,
     right: EchoValue,
@@ -181,6 +214,43 @@ fn case_insensitive_ascii_compare(left: &[u8], right: &[u8]) -> i64 {
         CmpOrdering::Equal => 0,
         CmpOrdering::Greater => 1,
     }
+}
+
+fn non_negative_cost(value: EchoValue) -> Option<i64> {
+    value.int_value().filter(|cost| *cost >= 0)
+}
+
+fn levenshtein_distance(
+    source: &[u8],
+    target: &[u8],
+    insertion_cost: i64,
+    replacement_cost: i64,
+    deletion_cost: i64,
+) -> i64 {
+    let mut previous = (0..=target.len())
+        .map(|index| (index as i64).saturating_mul(insertion_cost))
+        .collect::<Vec<_>>();
+    let mut current = vec![0; target.len() + 1];
+
+    for (source_index, source_byte) in source.iter().enumerate() {
+        current[0] = ((source_index + 1) as i64).saturating_mul(deletion_cost);
+
+        for (target_index, target_byte) in target.iter().enumerate() {
+            let replacement = if source_byte == target_byte {
+                previous[target_index]
+            } else {
+                previous[target_index].saturating_add(replacement_cost)
+            };
+            let insertion = current[target_index].saturating_add(insertion_cost);
+            let deletion = previous[target_index + 1].saturating_add(deletion_cost);
+
+            current[target_index + 1] = replacement.min(insertion).min(deletion);
+        }
+
+        std::mem::swap(&mut previous, &mut current);
+    }
+
+    previous[target.len()]
 }
 
 fn natural_compare(left: &[u8], right: &[u8], case_insensitive: bool) -> i64 {
