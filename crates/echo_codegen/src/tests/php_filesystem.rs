@@ -97,6 +97,28 @@ fn getcwd_lowers_to_php_builtin_with_no_arguments() {
 }
 
 #[test]
+fn clearstatcache_lowers_default_arguments_to_void_runtime_call() {
+    let ir = compile_to_ir(&program(vec![Stmt::Expr(echo_ast::ExprStmt {
+        expr: Expr::FunctionCall(FunctionCallExpr {
+            name: "clearstatcache".to_string(),
+            args: echo_ast::call_args![],
+            span: Span::new(0, 16),
+        }),
+        span: Span::new(0, 17),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare void @echo_php_clearstatcache(%EchoValue, %EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call void @echo_php_clearstatcache(%EchoValue { i32 1, i64 0 }, %EchoValue { i32 0, i64 0 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn temporary_name_builtins_lower_to_php_runtime_calls() {
     let sys_temp_ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

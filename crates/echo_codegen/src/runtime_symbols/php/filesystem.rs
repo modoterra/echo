@@ -33,6 +33,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_getcwd as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_clearstatcache",
+            echo_runtime::echo_php_clearstatcache
+                as extern "C" fn(echo_runtime::EchoValue, echo_runtime::EchoValue)
+                as usize,
+        ),
+        (
             "echo_php_is_dir",
             echo_runtime::echo_php_is_dir
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

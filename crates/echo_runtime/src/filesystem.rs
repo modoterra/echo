@@ -66,6 +66,9 @@ pub extern "C" fn echo_php_getcwd() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_clearstatcache(_clear_realpath_cache: EchoValue, _filename: EchoValue) {}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_realpath(path: EchoValue) -> EchoValue {
     match path.string_bytes() {
         Some(bytes) => path_realpath(&bytes)

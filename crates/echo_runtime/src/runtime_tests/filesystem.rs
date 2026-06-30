@@ -71,6 +71,12 @@ fn chdir_and_getcwd_preserve_php_working_directory_behavior() {
 }
 
 #[test]
+fn clearstatcache_accepts_default_and_explicit_arguments() {
+    echo_php_clearstatcache(EchoValue::bool(false), EchoValue::null());
+    echo_php_clearstatcache(EchoValue::bool(true), test_string_value(b"Cargo.toml"));
+}
+
+#[test]
 fn is_dir_reports_only_existing_directories() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let existing_file = manifest_dir.join("Cargo.toml");

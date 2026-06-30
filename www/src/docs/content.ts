@@ -921,6 +921,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current working directory.",
       },
       {
+        name: "clearstatcache",
+        signature: "clearstatcache(bool $clear_realpath_cache, ?string $filename): void",
+        description: "Clears PHP's cached filesystem metadata for later stat calls.",
+      },
+      {
         name: "is_dir",
         signature: "is_dir(string $filename): bool",
         description: "Returns true when a local path exists and is a directory.",
@@ -1537,6 +1542,14 @@ echo "First accepted type: " . $types[0] . "\\n"`,
 
 if (file_exists($configPath)) {
     echo "Load application config\\n"
+}`,
+  ],
+  [
+    "clearstatcache",
+    `clearstatcache(true, "storage/report.csv")
+
+if (file_exists("storage/report.csv")) {
+    echo "report present\\n"
 }`,
   ],
   [
@@ -3252,6 +3265,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "file_exists",
     "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing later.",
+  ],
+  [
+    "clearstatcache",
+    "Use `clearstatcache()` when compatibility code deliberately refreshes filesystem metadata after creating or replacing files. Echo currently treats it as a no-op because it does not model PHP's stat or realpath cache.",
   ],
   [
     "crc32",

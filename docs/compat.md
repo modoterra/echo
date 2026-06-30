@@ -211,7 +211,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `chr` | implemented | Returns a one-byte string from an integer code modulo 256. Source: https://www.php.net/manual/en/function.chr.php |
 | `chroot` | missing |  |
 | `chunk_split` | implemented | Splits byte strings into fixed-size chunks and appends the requested separator after every chunk, including empty input. Source: https://www.php.net/manual/en/function.chunk-split.php |
-| `clearstatcache` | missing |  |
+| `clearstatcache` | implemented | No-op because Echo currently reads local filesystem metadata directly and does not model PHP's stat or realpath cache yet. Source: https://www.php.net/manual/en/function.clearstatcache.php |
 | `cli_get_process_title` | missing |  |
 | `cli_set_process_title` | missing |  |
 | `closedir` | missing |  |

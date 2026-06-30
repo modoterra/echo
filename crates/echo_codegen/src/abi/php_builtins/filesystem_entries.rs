@@ -43,6 +43,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueExpression,
     },
     PhpBuiltin {
+        php_name: "clearstatcache",
+        symbol: "echo_php_clearstatcache",
+        helper_symbol: None,
+        signature: RuntimeSignature::VoidEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Clearstatcache,
+    },
+    PhpBuiltin {
         php_name: "is_dir",
         symbol: "echo_php_is_dir",
         helper_symbol: None,

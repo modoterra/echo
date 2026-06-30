@@ -49,14 +49,15 @@ pub use environment::*;
 pub use error::EchoError;
 pub use execution::echo_join;
 pub use filesystem::{
-    echo_php_basename, echo_php_chdir, echo_php_copy, echo_php_dirname, echo_php_file_exists,
-    echo_php_file_get_contents, echo_php_file_put_contents, echo_php_fileatime, echo_php_filectime,
-    echo_php_filegroup, echo_php_fileinode, echo_php_filemtime, echo_php_fileowner,
-    echo_php_fileperms, echo_php_filesize, echo_php_filetype, echo_php_getcwd, echo_php_is_dir,
-    echo_php_is_executable, echo_php_is_file, echo_php_is_link, echo_php_is_readable,
-    echo_php_is_writable, echo_php_link, echo_php_mkdir, echo_php_readfile, echo_php_readlink,
-    echo_php_realpath, echo_php_rename, echo_php_rmdir, echo_php_symlink,
-    echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_touch, echo_php_uniqid, echo_php_unlink,
+    echo_php_basename, echo_php_chdir, echo_php_clearstatcache, echo_php_copy, echo_php_dirname,
+    echo_php_file_exists, echo_php_file_get_contents, echo_php_file_put_contents,
+    echo_php_fileatime, echo_php_filectime, echo_php_filegroup, echo_php_fileinode,
+    echo_php_filemtime, echo_php_fileowner, echo_php_fileperms, echo_php_filesize,
+    echo_php_filetype, echo_php_getcwd, echo_php_is_dir, echo_php_is_executable, echo_php_is_file,
+    echo_php_is_link, echo_php_is_readable, echo_php_is_writable, echo_php_link, echo_php_mkdir,
+    echo_php_readfile, echo_php_readlink, echo_php_realpath, echo_php_rename, echo_php_rmdir,
+    echo_php_symlink, echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_touch, echo_php_uniqid,
+    echo_php_unlink,
 };
 pub use math::{
     echo_php_acos, echo_php_acosh, echo_php_asin, echo_php_asinh, echo_php_atan, echo_php_atan2,

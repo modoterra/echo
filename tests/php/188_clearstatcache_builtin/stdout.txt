@@ -1,0 +1,3 @@
+default cleared
+named cleared
+file:[1]

@@ -21,6 +21,7 @@ pub enum BuiltinCodegen {
     ArrayReverse,
     ArraySlice,
     Basename,
+    Clearstatcache,
     Dirname,
     ChunkSplit,
     Getenv,

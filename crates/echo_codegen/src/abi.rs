@@ -246,6 +246,7 @@ pub enum RuntimeSignature {
     VoidPtrI64,
     VoidPtrI64PtrI64PtrI64I32,
     VoidEchoValue,
+    VoidEchoValueEchoValue,
     VoidEchoValueEchoValueEchoValue,
     BoolNoArgs,
     BoolEchoValue,
@@ -276,6 +277,9 @@ impl RuntimeSignature {
                 format!("declare void @{symbol}(ptr, i64, ptr, i64, ptr, i64, i32)")
             }
             Self::VoidEchoValue => format!("declare void @{symbol}(%EchoValue)"),
+            Self::VoidEchoValueEchoValue => {
+                format!("declare void @{symbol}(%EchoValue, %EchoValue)")
+            }
             Self::VoidEchoValueEchoValueEchoValue => {
                 format!("declare void @{symbol}(%EchoValue, %EchoValue, %EchoValue)")
             }

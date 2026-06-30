@@ -484,6 +484,14 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("chdir", &[("directory", Some("string"))], Some("bool")),
         php_builtin_reflection("getcwd", &[], Some("string|false")),
+        php_builtin_reflection(
+            "clearstatcache",
+            &[
+                ("clear_realpath_cache", Some("bool")),
+                ("filename", Some("?string")),
+            ],
+            Some("void"),
+        ),
         php_builtin_reflection("file_exists", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("is_dir", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection("is_file", &[("filename", Some("string"))], Some("bool")),
