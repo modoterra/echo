@@ -479,6 +479,7 @@ fn collect_statement_contextual_class_references(
         Stmt::Yield(statement) => {
             collect_expr_contextual_class_references(&statement.value, namespace, uses, names)
         }
+        Stmt::Goto(_) | Stmt::Label(_) => {}
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &statement.vars {
@@ -988,6 +989,7 @@ fn collect_statement_class_references(
             }
         }
         Stmt::TypeDecl(_) => {}
+        Stmt::Goto(_) | Stmt::Label(_) => {}
         Stmt::Loop(statement) => {
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
@@ -2148,6 +2150,7 @@ fn collect_static_include_paths(
             Stmt::Throw(statement) => {
                 collect_static_include_expr(&mut statement.value, source_dir, paths)
             }
+            Stmt::Goto(_) | Stmt::Label(_) => {}
             Stmt::Expr(statement) => {
                 collect_static_include_expr(&mut statement.expr, source_dir, paths)
             }

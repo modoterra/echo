@@ -9,9 +9,9 @@ use echo_ast::{
     DeferExpr, DoWhileStmt, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt,
     EchoStmt, ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr,
     ForStmt, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-    GlobalStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr,
-    InterfaceDeclStmt, InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr,
-    LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
+    GlobalStmt, GotoStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr,
+    InterfaceDeclStmt, InterfaceMember, JoinExpr, LabelStmt, LetStmt, ListAssignStmt, ListExpr,
+    LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
     MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
     NumberLiteral, ObjectExpr, ObjectField, PrintExpr, Program, PropertyDecl, QualifiedName,
     ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
@@ -243,6 +243,8 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::Return(statement) => statement.span,
         Stmt::Throw(statement) => statement.span,
         Stmt::Yield(statement) => statement.span,
+        Stmt::Goto(statement) => statement.span,
+        Stmt::Label(statement) => statement.span,
         Stmt::Global(statement) => statement.span,
         Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,
@@ -315,6 +317,7 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
         }
         Stmt::Throw(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::Yield(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::Goto(_) | Stmt::Label(_) => {}
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &mut statement.vars {
@@ -2261,6 +2264,33 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let goto_stmt = text::keyword("goto")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then_ignore(terminator.clone())
+            .map_with(|label: &str, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Goto(GotoStmt {
+                    label: label.to_string(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let label_stmt = text::ident()
+            .padded()
+            .then_ignore(just(':').padded())
+            .map_with(|name: &str, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Label(LabelStmt {
+                    name: name.to_string(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let global_name = just('$')
             .ignore_then(text::ident().padded())
             .map(str::to_string);
@@ -3873,6 +3903,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(return_stmt)
             .or(throw_stmt)
             .or(yield_stmt)
+            .or(goto_stmt)
+            .or(label_stmt)
             .or(global_stmt)
             .or(static_var_stmt)
             .or(loop_stmt)

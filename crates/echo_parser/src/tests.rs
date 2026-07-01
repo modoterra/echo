@@ -1076,6 +1076,30 @@ do {
 }
 
 #[test]
+fn parses_php_goto_and_labels() {
+    let program = parse(
+        r#"<?php
+goto end;
+echo "skip";
+end:
+echo "done";
+"#,
+    )
+    .expect("PHP goto and label statements parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Goto(statement) if statement.label == "end"
+    ));
+    assert!(matches!(&program.statements[1], Stmt::Echo(_)));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::Label(statement) if statement.name == "end"
+    ));
+    assert!(matches!(&program.statements[3], Stmt::Echo(_)));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php

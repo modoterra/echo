@@ -256,6 +256,8 @@ impl Analyzer {
             | Stmt::Use(_)
             | Stmt::Import(_)
             | Stmt::TypeDecl(_)
+            | Stmt::Goto(_)
+            | Stmt::Label(_)
             | Stmt::Break(_)
             | Stmt::Continue(_) => {}
             Stmt::Loop(statement) => self.analyze_statements(&statement.body),

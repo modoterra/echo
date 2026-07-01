@@ -116,6 +116,14 @@ pub(crate) fn lower_syntax_statement(
             source: Stmt::Throw(statement.clone()),
             value: lower_expr(&statement.value),
         },
+        Stmt::Goto(statement) => MirStmt::Goto {
+            source: Stmt::Goto(statement.clone()),
+            label: statement.label.clone(),
+        },
+        Stmt::Label(statement) => MirStmt::Label {
+            source: Stmt::Label(statement.clone()),
+            name: statement.name.clone(),
+        },
         Stmt::Expr(statement) => MirStmt::Expr {
             source: Stmt::Expr(statement.clone()),
             expr: lower_expr(&statement.expr),

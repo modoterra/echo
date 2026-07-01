@@ -16,6 +16,8 @@ pub enum Stmt {
     Return(ReturnStmt),
     Throw(ThrowStmt),
     Yield(YieldStmt),
+    Goto(GotoStmt),
+    Label(LabelStmt),
     Global(GlobalStmt),
     StaticVar(StaticVarStmt),
     Expr(ExprStmt),
@@ -136,6 +138,18 @@ pub struct ThrowStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct YieldStmt {
     pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GotoStmt {
+    pub label: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LabelStmt {
+    pub name: String,
     pub span: Span,
 }
 

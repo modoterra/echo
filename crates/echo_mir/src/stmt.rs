@@ -44,6 +44,14 @@ pub enum MirStmt {
         source: Stmt,
         value: MirExpr,
     },
+    Goto {
+        source: Stmt,
+        label: String,
+    },
+    Label {
+        source: Stmt,
+        name: String,
+    },
     Expr {
         source: Stmt,
         expr: MirExpr,
@@ -147,6 +155,8 @@ impl MirStmt {
             | Self::Let { source, .. }
             | Self::Return { source, .. }
             | Self::Throw { source, .. }
+            | Self::Goto { source, .. }
+            | Self::Label { source, .. }
             | Self::Expr { source, .. }
             | Self::Loop { source, .. }
             | Self::While { source, .. }

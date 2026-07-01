@@ -535,6 +535,7 @@ impl IndexFactExtractor {
                     signature: None,
                 });
             }
+            Stmt::Goto(_) | Stmt::Label(_) => {}
             Stmt::Loop(statement) => self.extract_statements(&statement.body),
             Stmt::While(statement) => {
                 self.extract_expr_dependencies(&statement.condition);

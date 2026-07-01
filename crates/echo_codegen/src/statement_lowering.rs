@@ -67,6 +67,11 @@ impl IrModule {
                 self.render_mir_expr_as_echo_value(body, value)?;
                 Ok(())
             }
+            echo_mir::MirStmt::Goto { source, .. } => Err(Diagnostic::new(
+                "unsupported goto statement in LLVM codegen",
+                stmt_span(source),
+            )),
+            echo_mir::MirStmt::Label { .. } => Ok(()),
             echo_mir::MirStmt::Expr { expr, .. } => {
                 self.render_mir_expr(body, expr)?;
                 Ok(())
