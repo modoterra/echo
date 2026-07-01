@@ -923,6 +923,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection("chdir", &[("directory", Some("string"))], Some("bool")),
+        php_builtin_reflection(
+            "chmod",
+            &[("filename", Some("string")), ("permissions", Some("int"))],
+            Some("bool"),
+        ),
         php_builtin_reflection("getcwd", &[], Some("string|false")),
         php_builtin_reflection(
             "clearstatcache",

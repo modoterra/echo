@@ -27,7 +27,8 @@ pub(crate) use metadata::{path_chdir, path_exists, path_getcwd};
 #[cfg(test)]
 pub(crate) use metadata::{path_is_dir, path_is_file};
 pub use mutation::{
-    echo_php_copy, echo_php_mkdir, echo_php_rename, echo_php_rmdir, echo_php_touch, echo_php_unlink,
+    echo_php_chmod, echo_php_copy, echo_php_mkdir, echo_php_rename, echo_php_rmdir, echo_php_touch,
+    echo_php_unlink,
 };
 pub(crate) use stream::EchoFileStream;
 pub use stream::{

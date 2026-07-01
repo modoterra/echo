@@ -1002,6 +1002,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Changes the current working directory for the process.",
       },
       {
+        name: "chmod",
+        signature: "chmod(string $filename, int $permissions): bool",
+        description: "Changes local file mode bits.",
+      },
+      {
         name: "getcwd",
         signature: "getcwd(): string|false",
         description: "Returns the current working directory.",
@@ -3444,6 +3449,15 @@ if (chdir(sys_get_temp_dir())) {
 }`,
   ],
   [
+    "chmod",
+    `let $path = sys_get_temp_dir() . "/echo-report.txt"
+file_put_contents($path, "ready\\n")
+
+if (chmod($path, 0600)) {
+    echo "permissions updated\\n"
+}`,
+  ],
+  [
     "getcwd",
     `let $cwd = getcwd()
 
@@ -4334,6 +4348,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "chdir",
     "Use `chdir()` when a script must run a group of relative-path operations from a known directory, then restore its original location.",
+  ],
+  [
+    "chmod",
+    "Use `chmod()` when compatibility code needs to tighten or relax local Unix file permissions after creating generated files.",
   ],
   [
     "getcwd",
@@ -6694,7 +6712,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 245 PHP compatibility fixtures, 278 implemented Core and standard functions out of 607, 329 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 246 PHP compatibility fixtures, 279 implemented Core and standard functions out of 607, 328 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

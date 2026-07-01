@@ -59,6 +59,18 @@ pub extern "C" fn echo_php_unlink(filename: EchoValue, _context: EchoValue) -> E
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_chmod(filename: EchoValue, permissions: EchoValue) -> EchoValue {
+    let Some(bytes) = filename.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(permissions) = permissions.php_int_value() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::bool(path_chmod(&bytes, permissions))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_mkdir(
     directory: EchoValue,
     permissions: EchoValue,
@@ -126,6 +138,22 @@ fn path_unlink(bytes: &[u8]) -> bool {
     path_buf_from_bytes(bytes)
         .map(std::fs::remove_file)
         .is_some_and(|result| result.is_ok())
+}
+
+#[cfg(unix)]
+fn path_chmod(bytes: &[u8], permissions: i64) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+
+    let Some(path) = path_buf_from_bytes(bytes) else {
+        return false;
+    };
+
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(permissions as u32)).is_ok()
+}
+
+#[cfg(not(unix))]
+fn path_chmod(_bytes: &[u8], _permissions: i64) -> bool {
+    false
 }
 
 fn path_mkdir(bytes: &[u8], permissions: i64, recursive: bool) -> bool {

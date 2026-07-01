@@ -29,6 +29,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_chmod",
+            echo_runtime::echo_php_chmod
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_getcwd",
             echo_runtime::echo_php_getcwd as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),

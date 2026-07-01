@@ -228,7 +228,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `chdir` | implemented | Changes the process current working directory and returns a bool success value; PHP warning emission on failure is deferred. Source: https://www.php.net/manual/en/function.chdir.php |
 | `checkdnsrr` | missing |  |
 | `chgrp` | missing |  |
-| `chmod` | missing |  |
+| `chmod` | partial | Changes local Unix file mode bits and returns a bool success value; Windows behavior, stream wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.chmod.php |
 | `chop` | implemented | Alias of `rtrim()` for default trailing whitespace stripping; optional character mask support is deferred with `rtrim()`. Source: https://www.php.net/manual/en/function.chop.php |
 | `chown` | missing |  |
 | `chr` | implemented | Returns a one-byte string from an integer code modulo 256. Source: https://www.php.net/manual/en/function.chr.php |
