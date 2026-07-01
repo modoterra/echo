@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 echo_ast = { path = "../echo_ast" }
+echo_codegen_abi = { path = "../echo_codegen_abi" }
 echo_diagnostics = { path = "../echo_diagnostics" }
 echo_hir = { path = "../echo_hir" }
 echo_mir = { path = "../echo_mir" }

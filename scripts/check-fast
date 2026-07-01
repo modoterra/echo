@@ -437,14 +437,17 @@ add_checks_for_changed_path() {
     crates/echo_codegen/src/runtime_symbols.rs|crates/echo_codegen/src/runtime_symbols/*.rs|crates/echo_codegen/src/runtime_symbols/*/*.rs)
       add_changed_check "codegen-jit"
       ;;
-    crates/echo_codegen/src/abi.rs)
+    crates/echo_codegen_abi/src/lib.rs)
       add_changed_check "codegen-abi"
       ;;
-    crates/echo_codegen/src/abi/php_builtins.rs|crates/echo_codegen/src/abi/php_builtins/*.rs)
+    crates/echo_codegen_abi/src/php_builtins.rs|crates/echo_codegen_abi/src/php_builtins/*.rs)
       add_changed_check "codegen-php"
       ;;
-    crates/echo_codegen/src/abi/std_intrinsics.rs)
+    crates/echo_codegen_abi/src/std_intrinsics.rs)
       add_changed_check "codegen-stdlib"
+      ;;
+    crates/echo_codegen/src/abi.rs)
+      add_changed_check "codegen-abi"
       ;;
     crates/echo_codegen/src/collection_lowering.rs)
       add_changed_check "codegen-collections"
@@ -1182,17 +1185,17 @@ run_script_tests() {
   assert_routing "lsp signature help routes focused checks" "lsp-signature-help" \
     crates/echo_lsp/src/signature_help.rs
   assert_routing "codegen abi routes focused ABI checks" "codegen-abi" \
-    crates/echo_codegen/src/abi.rs
+    crates/echo_codegen_abi/src/lib.rs
   assert_routing "codegen PHP ABI routes focused PHP checks" "codegen-php" \
-    crates/echo_codegen/src/abi/php_builtins.rs
+    crates/echo_codegen_abi/src/php_builtins.rs
   assert_routing "codegen PHP array ABI routes focused PHP checks" "codegen-php" \
-    crates/echo_codegen/src/abi/php_builtins/array_entries.rs
+    crates/echo_codegen_abi/src/php_builtins/array_entries.rs
   assert_routing "codegen PHP filesystem ABI routes focused PHP checks" "codegen-php" \
-    crates/echo_codegen/src/abi/php_builtins/filesystem_entries.rs
+    crates/echo_codegen_abi/src/php_builtins/filesystem_entries.rs
   assert_routing "codegen PHP math ABI routes focused PHP checks" "codegen-php" \
-    crates/echo_codegen/src/abi/php_builtins/math_entries.rs
+    crates/echo_codegen_abi/src/php_builtins/math_entries.rs
   assert_routing "codegen std ABI routes focused std checks" "codegen-stdlib" \
-    crates/echo_codegen/src/abi/std_intrinsics.rs
+    crates/echo_codegen_abi/src/std_intrinsics.rs
   assert_routing "codegen collection lowering routes focused collection checks" "codegen-collections" \
     crates/echo_codegen/src/collection_lowering.rs
   assert_routing "codegen collection tests route focused collection checks" "codegen-collections" \
@@ -1834,8 +1837,7 @@ case "$command" in
     test_crate echo_codegen
     ;;
   codegen-abi)
-    run_quiet cargo test -q -p echo_codegen runtime_declarations_deduplicate_alias_symbols
-    run_quiet cargo test -q -p echo_codegen every_lowered_php_builtin_has_reflected_declaration
+    run_quiet cargo test -q -p echo_codegen_abi
     ;;
   codegen-collections)
     run_quiet cargo test -q -p echo_codegen array_literals_lower_to_array_runtime

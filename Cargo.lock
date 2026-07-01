@@ -403,6 +403,7 @@ name = "echo_codegen"
 version = "0.1.0"
 dependencies = [
  "echo_ast",
+ "echo_codegen_abi",
  "echo_diagnostics",
  "echo_hir",
  "echo_mir",
@@ -412,6 +413,10 @@ dependencies = [
  "echo_std",
  "inkwell",
 ]
+
+[[package]]
+name = "echo_codegen_abi"
+version = "0.1.0"
 
 [[package]]
 name = "echo_diagnostics"

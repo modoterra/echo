@@ -1,5 +1,5 @@
 use super::{BuiltinCodegen, BuiltinLowering, PhpBuiltin};
-use crate::abi::RuntimeSignature;
+use crate::RuntimeSignature;
 
 pub(super) const CRYPTO_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {

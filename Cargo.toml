@@ -13,6 +13,7 @@ members = [
   "crates/echo_lsp",
   "crates/echo_hir",
   "crates/echo_mir",
+  "crates/echo_codegen_abi",
   "crates/echo_codegen",
   "crates/echo_reflection",
   "crates/echo_runtime",
