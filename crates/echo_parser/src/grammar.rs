@@ -1876,6 +1876,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .or(just("!=").to(BinaryOp::NotEqual))
                     .or(text::keyword("instanceof").to(BinaryOp::InstanceOf))
                     .or(just(">=").to(BinaryOp::GreaterThanOrEqual))
+                    .or(just("<=").to(BinaryOp::LessThanOrEqual))
+                    .or(just('>').to(BinaryOp::GreaterThan))
                     .or(just('<').to(BinaryOp::LessThan))
                     .padded()
                     .then(comparison_operand)
@@ -3416,9 +3418,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let condition_expr = expr
+            .clone()
+            .delimited_by(just('(').padded(), just(')').padded())
+            .or(expr.clone())
+            .boxed();
+
         let while_stmt = text::keyword("while")
             .padded()
-            .ignore_then(expr.clone())
+            .ignore_then(condition_expr.clone())
             .then(block.clone())
             .then_ignore(terminator.clone().or_not())
             .map_with(|(condition, body), extra| {
@@ -3436,10 +3444,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .padded()
             .ignore_then(block.clone())
             .then_ignore(text::keyword("while").padded())
-            .then(
-                expr.clone()
-                    .delimited_by(just('(').padded(), just(')').padded()),
-            )
+            .then(condition_expr)
             .then_ignore(terminator.clone())
             .map_with(|(body, condition), extra| {
                 let span: SimpleSpan = extra.span();

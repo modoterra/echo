@@ -638,6 +638,8 @@ impl Analyzer {
                     BinaryOp::Concat => Type::String,
                     BinaryOp::Coalesce => Type::Unknown,
                     BinaryOp::LessThan
+                    | BinaryOp::LessThanOrEqual
+                    | BinaryOp::GreaterThan
                     | BinaryOp::GreaterThanOrEqual
                     | BinaryOp::Identical
                     | BinaryOp::NotIdentical

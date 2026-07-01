@@ -1044,7 +1044,13 @@ fn parses_php_do_while_statement() {
     let program = parse(
         r#"<?php
 do {
+    echo $i;
+    break;
+} while ($i > 0);
+do {
 } while ($i);
+do {
+} while ($i <= 10);
 "#,
     )
     .expect("PHP do-while statement parses");
@@ -1052,8 +1058,20 @@ do {
     assert!(matches!(
         &program.statements[0],
         Stmt::DoWhile(statement)
-            if statement.body.is_empty()
-                && matches!(statement.condition, Expr::Variable(_))
+            if statement.body.len() == 2
+                && matches!(statement.body.first(), Some(Stmt::Echo(_)))
+                && matches!(statement.body.get(1), Some(Stmt::Break(_)))
+                && matches!(statement.condition, Expr::Binary(_))
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::DoWhile(statement)
+            if statement.body.is_empty() && matches!(statement.condition, Expr::Variable(_))
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::DoWhile(statement)
+            if statement.body.is_empty() && matches!(statement.condition, Expr::Binary(_))
     ));
 }
 

@@ -775,6 +775,14 @@ impl IrModule {
             ),
             echo_mir::MirExpr::Binary {
                 left, op, right, ..
+            } if *op == BinaryOp::GreaterThan => self.render_mir_numeric_binary_expr(
+                body,
+                right,
+                left,
+                CoreRuntimeSymbol::ValueLessThan,
+            ),
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
             } if *op == BinaryOp::GreaterThanOrEqual => {
                 let less_than = self.render_mir_numeric_binary_expr(
                     body,
@@ -787,6 +795,24 @@ impl IrModule {
                 self.next_call_id += 1;
                 body.push_str(&format!(
                     "  %runtime_call_{call_id} = call %EchoValue @{}({less_than})\n",
+                    CoreRuntimeSymbol::ValueNot.symbol()
+                ));
+                Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))
+            }
+            echo_mir::MirExpr::Binary {
+                left, op, right, ..
+            } if *op == BinaryOp::LessThanOrEqual => {
+                let greater_than = self.render_mir_numeric_binary_expr(
+                    body,
+                    right,
+                    left,
+                    CoreRuntimeSymbol::ValueLessThan,
+                )?;
+                let greater_than = self.runtime_value_as_echo_value(body, greater_than);
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}({greater_than})\n",
                     CoreRuntimeSymbol::ValueNot.symbol()
                 ));
                 Ok(RuntimeValue::EchoValue(format!("%runtime_call_{call_id}")))

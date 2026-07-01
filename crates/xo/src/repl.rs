@@ -700,6 +700,16 @@ fn const_eval_binary(left: ConstValue, op: BinaryOp, right: ConstValue) -> Optio
             (ConstValue::Int(left), ConstValue::Int(right)) => Some(ConstValue::Bool(left < right)),
             _ => None,
         },
+        BinaryOp::LessThanOrEqual => match (left, right) {
+            (ConstValue::Int(left), ConstValue::Int(right)) => {
+                Some(ConstValue::Bool(left <= right))
+            }
+            _ => None,
+        },
+        BinaryOp::GreaterThan => match (left, right) {
+            (ConstValue::Int(left), ConstValue::Int(right)) => Some(ConstValue::Bool(left > right)),
+            _ => None,
+        },
         BinaryOp::GreaterThanOrEqual => match (left, right) {
             (ConstValue::Int(left), ConstValue::Int(right)) => {
                 Some(ConstValue::Bool(left >= right))
@@ -833,6 +843,8 @@ fn expression_kind(expr: &Expr) -> &'static str {
             BinaryOp::Pow => "exponent expression",
             BinaryOp::Concat => "concat expression",
             BinaryOp::LessThan => "less-than expression",
+            BinaryOp::LessThanOrEqual => "less-than-or-equal expression",
+            BinaryOp::GreaterThan => "greater-than expression",
             BinaryOp::GreaterThanOrEqual => "greater-than-or-equal expression",
             BinaryOp::Identical => "identity comparison expression",
             BinaryOp::NotIdentical => "non-identity comparison expression",
@@ -880,6 +892,8 @@ fn expression_static_type(expr: &Expr) -> String {
             | BinaryOp::Pow => "number".to_string(),
             BinaryOp::Concat => "string".to_string(),
             BinaryOp::LessThan => "bool".to_string(),
+            BinaryOp::LessThanOrEqual => "bool".to_string(),
+            BinaryOp::GreaterThan => "bool".to_string(),
             BinaryOp::GreaterThanOrEqual => "bool".to_string(),
             BinaryOp::Identical => "bool".to_string(),
             BinaryOp::NotIdentical => "bool".to_string(),

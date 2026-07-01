@@ -502,6 +502,8 @@ pub enum BinaryOp {
     Pow,
     Concat,
     LessThan,
+    LessThanOrEqual,
+    GreaterThan,
     GreaterThanOrEqual,
     Identical,
     NotIdentical,

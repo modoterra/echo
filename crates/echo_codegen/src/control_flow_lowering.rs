@@ -340,6 +340,8 @@ fn static_bool(expr: &echo_mir::MirExpr) -> Option<bool> {
             left, op, right, ..
         } => match op {
             BinaryOp::LessThan => Some(static_int(left)? < static_int(right)?),
+            BinaryOp::LessThanOrEqual => Some(static_int(left)? <= static_int(right)?),
+            BinaryOp::GreaterThan => Some(static_int(left)? > static_int(right)?),
             BinaryOp::GreaterThanOrEqual => Some(static_int(left)? >= static_int(right)?),
             BinaryOp::Identical => Some(static_int(left)? == static_int(right)?),
             BinaryOp::NotEqual => Some(static_int(left)? != static_int(right)?),
