@@ -156,7 +156,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_count_values` | implemented | Counts occurrences of int/string values using PHP array-key coercion; unsupported value types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-count-values.php |
 | `array_diff` | missing |  |
 | `array_diff_assoc` | missing |  |
-| `array_diff_key` | missing |  |
+| `array_diff_key` | partial | Compares keys against one other array and preserves left-array keys and values that are absent from the right array; variadic comparisons are deferred. Source: https://www.php.net/manual/en/function.array-diff-key.php |
 | `array_diff_uassoc` | missing |  |
 | `array_diff_ukey` | missing |  |
 | `array_fill` | implemented | Creates arrays with repeated values and sequential integer keys starting at the requested index, including PHP 8 negative-key increment behavior; out-of-range counts surface as runtime errors. Source: https://www.php.net/manual/en/function.array-fill.php |
