@@ -100,6 +100,43 @@ trait ReflectsClosures {
 }
 
 #[test]
+fn parses_php_interface_declaration() {
+    let program = parse(
+        r#"<?php
+interface Template extends Renderable, Stringable {
+    public const DEFAULT_VIEW = "index";
+
+    public function setVariable(string $name, mixed $value): void;
+    public function getHtml($template);
+}
+"#,
+    )
+    .expect("PHP interface declaration parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::InterfaceDecl(statement)
+            if statement.name == "Template"
+                && statement.parents
+                    == [
+                        QualifiedName::new(vec!["Renderable".to_string()]),
+                        QualifiedName::new(vec!["Stringable".to_string()]),
+                    ]
+                && matches!(
+                    &statement.members[..],
+                    [
+                        InterfaceMember::Const(constant),
+                        InterfaceMember::Method(set_variable),
+                        InterfaceMember::Method(get_html),
+                    ] if constant.name == "DEFAULT_VIEW"
+                        && set_variable.name == "setVariable"
+                        && set_variable.return_type.as_deref() == Some("void")
+                        && get_html.name == "getHtml"
+                )
+    ));
+}
+
+#[test]
 fn parses_php_unit_enum_declaration() {
     let program = parse(
         r#"<?php

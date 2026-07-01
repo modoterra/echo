@@ -9,14 +9,15 @@ use echo_ast::{
     DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, EnumCaseDecl,
     EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForeachStmt, ForkExpr,
     FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt,
-    IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr,
-    LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
-    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst,
-    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
-    StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
-    TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
-    UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt, InterfaceMember, JoinExpr, LetStmt,
+    ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
+    MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt,
+    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl,
+    QualifiedName, ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr,
+    StaticCallExpr, StaticPropertyAssignExpr, StaticPropertyFetchExpr, Stmt, StringLiteral,
+    TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr,
+    TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt,
+    VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -247,6 +248,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::Import(statement) => statement.span,
         Stmt::UnnamedExport(statement) => statement.span,
         Stmt::ClassDecl(statement) => statement.span,
+        Stmt::InterfaceDecl(statement) => statement.span,
         Stmt::TraitDecl(statement) => statement.span,
         Stmt::EnumDecl(statement) => statement.span,
         Stmt::FacetDecl(statement) => statement.span,
@@ -363,6 +365,11 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
                 normalize_php_compat_class_member(member);
             }
         }
+        Stmt::InterfaceDecl(statement) => {
+            for member in &mut statement.members {
+                normalize_php_compat_interface_member(member);
+            }
+        }
         Stmt::TraitDecl(statement) => {
             for member in &mut statement.members {
                 normalize_php_compat_class_member(member);
@@ -401,6 +408,22 @@ fn normalize_php_compat_class_member(member: &mut ClassMember) {
         }
         ClassMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
         ClassMember::TraitUse(_) => {}
+    }
+}
+
+fn normalize_php_compat_interface_member(member: &mut InterfaceMember) {
+    match member {
+        InterfaceMember::Method(method) => {
+            for param in &mut method.params {
+                if let Some(value) = &mut param.default_value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+            for statement in &mut method.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        InterfaceMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
     }
 }
 
@@ -2451,8 +2474,20 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         let class_member = trait_use_member
             .clone()
             .or(method_decl.clone())
-            .or(class_const_decl)
+            .or(class_const_decl.clone())
             .or(property_decl)
+            .boxed();
+
+        let interface_member = method_decl
+            .clone()
+            .map(|member| match member {
+                ClassMember::Method(method) => InterfaceMember::Method(method),
+                _ => unreachable!("method_decl only produces method members"),
+            })
+            .or(class_const_decl.clone().map(|member| match member {
+                ClassMember::Const(constant) => InterfaceMember::Const(constant),
+                _ => unreachable!("class_const_decl only produces const members"),
+            }))
             .boxed();
 
         let class_decl_stmt = just(kw::CLASS.text)
@@ -2518,6 +2553,46 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+
+        let interface_decl_stmt = text::keyword(kw::INTERFACE.text)
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then(
+                text::keyword("extends")
+                    .padded()
+                    .ignore_then(
+                        php_name
+                            .clone()
+                            .or(dotted_name.clone())
+                            .separated_by(just(',').padded())
+                            .at_least(1)
+                            .collect::<Vec<_>>(),
+                    )
+                    .or_not(),
+            )
+            .then(
+                interface_member
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(
+                |((name, parents), members): (
+                    (&str, Option<Vec<QualifiedName>>),
+                    Vec<InterfaceMember>,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::InterfaceDecl(InterfaceDeclStmt {
+                        name: name.to_string(),
+                        parents: parents.unwrap_or_default(),
+                        members,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            )
             .boxed();
 
         let enum_case_member = text::keyword("case")
@@ -3430,6 +3505,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .boxed();
 
         let declaration_stmt = class_decl_stmt
+            .or(interface_decl_stmt)
             .or(trait_decl_stmt)
             .or(enum_decl_stmt)
             .or(facet_decl_stmt)

@@ -39,6 +39,7 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::Import(statement) => statement.span,
         Stmt::UnnamedExport(statement) => statement.span,
         Stmt::ClassDecl(statement) => statement.span,
+        Stmt::InterfaceDecl(statement) => statement.span,
         Stmt::TraitDecl(statement) => statement.span,
         Stmt::EnumDecl(statement) => statement.span,
         Stmt::FacetDecl(statement) => statement.span,

@@ -112,6 +112,8 @@ pub mod keywords {
     pub const INCLUDE: Keyword = Keyword::new("include", KeywordRole::Expression, SyntaxMode::Php);
     pub const INCLUDE_ONCE: Keyword =
         Keyword::new("include_once", KeywordRole::Expression, SyntaxMode::Php);
+    pub const INTERFACE: Keyword =
+        Keyword::new("interface", KeywordRole::Declaration, SyntaxMode::Php);
     pub const INTRINSIC: Keyword =
         Keyword::new("intrinsic", KeywordRole::Modifier, SyntaxMode::Echo);
     pub const IS: Keyword = Keyword::new("is", KeywordRole::Expression, SyntaxMode::Echo);
@@ -165,6 +167,7 @@ pub mod keywords {
         IF,
         INCLUDE,
         INCLUDE_ONCE,
+        INTERFACE,
         INTRINSIC,
         IS,
         JOIN,

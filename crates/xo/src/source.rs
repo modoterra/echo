@@ -198,6 +198,18 @@ fn class_names_for_program(program: &Program) -> Vec<String> {
                     }
                 }
             }
+            Stmt::InterfaceDecl(statement) => {
+                names.push(statement.name.clone());
+                if let Some(namespace) = namespace {
+                    let dot_name = format!("{}.{}", namespace.parts.join("."), statement.name);
+                    let php_name = format!("{}\\{}", namespace.as_string(), statement.name);
+                    names.push(dot_name);
+                    names.push(php_name);
+                    if let Some(php_namespace) = echo_module_php_namespace(namespace) {
+                        names.push(format!("{php_namespace}\\{}", statement.name));
+                    }
+                }
+            }
             Stmt::TraitDecl(statement) => {
                 names.push(statement.name.clone());
                 if let Some(namespace) = namespace {
@@ -358,6 +370,26 @@ fn collect_enum_member_contextual_class_references(
     }
 }
 
+fn collect_interface_member_contextual_class_references(
+    member: &echo_ast::InterfaceMember,
+    namespace: Option<&QualifiedName>,
+    uses: &std::collections::HashMap<String, QualifiedName>,
+    names: &mut std::collections::HashSet<String>,
+) {
+    match member {
+        echo_ast::InterfaceMember::Method(method) => {
+            for param in &method.params {
+                if let Some(default_value) = &param.default_value {
+                    collect_expr_contextual_class_references(default_value, namespace, uses, names);
+                }
+            }
+        }
+        echo_ast::InterfaceMember::Const(constant) => {
+            collect_expr_contextual_class_references(&constant.value, namespace, uses, names);
+        }
+    }
+}
+
 fn collect_statement_contextual_class_references(
     statement: &Stmt,
     namespace: Option<&QualifiedName>,
@@ -374,6 +406,16 @@ fn collect_statement_contextual_class_references(
             }
             for member in &statement.members {
                 collect_class_member_contextual_class_references(member, namespace, uses, names);
+            }
+        }
+        Stmt::InterfaceDecl(statement) => {
+            for parent in &statement.parents {
+                collect_contextual_name_references(parent, namespace, uses, names);
+            }
+            for member in &statement.members {
+                collect_interface_member_contextual_class_references(
+                    member, namespace, uses, names,
+                );
             }
         }
         Stmt::TraitDecl(statement) => {
@@ -777,6 +819,24 @@ fn collect_enum_member_class_references(
     }
 }
 
+fn collect_interface_member_class_references(
+    member: &echo_ast::InterfaceMember,
+    names: &mut std::collections::HashSet<String>,
+) {
+    match member {
+        echo_ast::InterfaceMember::Method(method) => {
+            for param in &method.params {
+                if let Some(default_value) = &param.default_value {
+                    collect_expr_class_references(default_value, names);
+                }
+            }
+        }
+        echo_ast::InterfaceMember::Const(constant) => {
+            collect_expr_class_references(&constant.value, names);
+        }
+    }
+}
+
 fn collect_statement_class_references(
     statement: &Stmt,
     names: &mut std::collections::HashSet<String>,
@@ -834,6 +894,14 @@ fn collect_statement_class_references(
             }
             for member in &statement.members {
                 collect_class_member_class_references(member, names);
+            }
+        }
+        Stmt::InterfaceDecl(statement) => {
+            for parent in &statement.parents {
+                collect_qualified_name_references(parent, names);
+            }
+            for member in &statement.members {
+                collect_interface_member_class_references(member, names);
             }
         }
         Stmt::TraitDecl(statement) => {
@@ -2025,6 +2093,22 @@ fn collect_static_include_paths(
                             collect_static_include_expr(&mut constant.value, source_dir, paths);
                         }
                         echo_ast::ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::InterfaceDecl(statement) => {
+                for member in &mut statement.members {
+                    match member {
+                        echo_ast::InterfaceMember::Method(method) => {
+                            for param in &mut method.params {
+                                if let Some(default_value) = &mut param.default_value {
+                                    collect_static_include_expr(default_value, source_dir, paths);
+                                }
+                            }
+                        }
+                        echo_ast::InterfaceMember::Const(constant) => {
+                            collect_static_include_expr(&mut constant.value, source_dir, paths);
+                        }
                     }
                 }
             }

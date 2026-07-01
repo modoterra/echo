@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use echo_ast::{
-    BinaryOp, ClassMember, EnumMember, Expr, FunctionDeclStmt, MethodDecl, Program, ReceiverConst,
-    Stmt, UnaryOp,
+    BinaryOp, ClassMember, EnumMember, Expr, FunctionDeclStmt, InterfaceMember, MethodDecl,
+    Program, ReceiverConst, Stmt, UnaryOp,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -152,6 +152,23 @@ impl Analyzer {
                             self.analyze_expr(&constant.value);
                         }
                         ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::InterfaceDecl(statement) => {
+                for member in &statement.members {
+                    match member {
+                        InterfaceMember::Method(method) => self.analyze_method_decl(
+                            method,
+                            ReceiverContext {
+                                has_instance: false,
+                                has_self_type: true,
+                                has_parent: !statement.parents.is_empty(),
+                            },
+                        ),
+                        InterfaceMember::Const(constant) => {
+                            self.analyze_expr(&constant.value);
+                        }
                     }
                 }
             }

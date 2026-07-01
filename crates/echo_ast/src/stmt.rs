@@ -22,6 +22,7 @@ pub enum Stmt {
     Import(ImportStmt),
     UnnamedExport(UnnamedExportStmt),
     ClassDecl(ClassDeclStmt),
+    InterfaceDecl(InterfaceDeclStmt),
     TraitDecl(TraitDeclStmt),
     EnumDecl(EnumDeclStmt),
     FacetDecl(FacetDeclStmt),
@@ -190,6 +191,14 @@ pub struct ClassDeclStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct InterfaceDeclStmt {
+    pub name: String,
+    pub parents: Vec<QualifiedName>,
+    pub members: Vec<InterfaceMember>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TraitDeclStmt {
     pub name: String,
     pub members: Vec<ClassMember>,
@@ -314,6 +323,12 @@ pub enum EnumMember {
     Case(EnumCaseDecl),
     Method(MethodDecl),
     TraitUse(QualifiedName),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InterfaceMember {
+    Method(MethodDecl),
+    Const(ClassConstDecl),
 }
 
 #[derive(Debug, Clone, PartialEq)]

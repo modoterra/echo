@@ -1,5 +1,6 @@
 use echo_ast::{
-    ClassMember, EnumMember, FunctionDeclStmt, ImportSource, NamespaceSource, Program, Stmt,
+    ClassMember, EnumMember, FunctionDeclStmt, ImportSource, InterfaceMember, NamespaceSource,
+    Program, Stmt,
 };
 use echo_index::{
     DependencyFact, DependencyKind, FileId, FqName, IndexFacts, ReferenceFact, ReferenceKind,
@@ -245,6 +246,69 @@ impl IndexFactExtractor {
                             self.extract_expr_dependencies(&constant.value);
                         }
                         ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::InterfaceDecl(statement) => {
+                self.declarations.push(SymbolFact {
+                    name: SymbolName::new(statement.name.as_str()),
+                    fq_name: Some(self.fq_name(&statement.name)),
+                    kind: SymbolKind::Interface,
+                    range: span_range(statement.span),
+                    selection_range: self
+                        .span_range_for_text(statement.span, &statement.name)
+                        .unwrap_or_else(|| span_range(statement.span)),
+                    visibility: None,
+                    signature: None,
+                });
+
+                for parent in &statement.parents {
+                    self.references.push(ReferenceFact {
+                        kind: ReferenceKind::ClassLike,
+                        name: parent.as_string(),
+                        qualifier: None,
+                        range: span_range(statement.span),
+                    });
+                }
+
+                for member in &statement.members {
+                    match member {
+                        InterfaceMember::Method(method) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(method.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, method.name)),
+                                ),
+                                kind: SymbolKind::Method,
+                                range: span_range(method.span),
+                                selection_range: self
+                                    .span_range_for_text(method.span, &method.name)
+                                    .unwrap_or_else(|| span_range(method.span)),
+                                visibility: None,
+                                signature: Some(Signature {
+                                    text: method_signature(
+                                        &method.params,
+                                        method.return_type.as_deref(),
+                                    ),
+                                }),
+                            });
+                        }
+                        InterfaceMember::Const(constant) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(constant.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, constant.name)),
+                                ),
+                                kind: SymbolKind::Constant,
+                                range: span_range(constant.span),
+                                selection_range: self
+                                    .span_range_for_text(constant.span, &constant.name)
+                                    .unwrap_or_else(|| span_range(constant.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            self.extract_expr_dependencies(&constant.value);
+                        }
                     }
                 }
             }

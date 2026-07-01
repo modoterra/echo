@@ -230,6 +230,7 @@ pub(crate) fn lower_syntax_statement(
         | Stmt::Import(_)
         | Stmt::UnnamedExport(_)
         | Stmt::ClassDecl(_)
+        | Stmt::InterfaceDecl(_)
         | Stmt::TraitDecl(_)
         | Stmt::EnumDecl(_)
         | Stmt::FacetDecl(_)
