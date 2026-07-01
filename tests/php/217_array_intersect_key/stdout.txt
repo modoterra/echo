@@ -1,0 +1,5 @@
+count:[2]
+has-a:[]
+b:[2]
+int:[three]
+exists:[1]

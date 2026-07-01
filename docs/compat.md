@@ -168,7 +168,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_flip` | implemented | Exchanges int/string values with their original keys; duplicate values keep the latest key, while unsupported value-key types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-flip.php |
 | `array_intersect` | missing |  |
 | `array_intersect_assoc` | missing |  |
-| `array_intersect_key` | missing |  |
+| `array_intersect_key` | partial | Compares keys against one other array and preserves left-array keys and values that also exist in the right array; variadic comparisons are deferred. Source: https://www.php.net/manual/en/function.array-intersect-key.php |
 | `array_intersect_uassoc` | missing |  |
 | `array_intersect_ukey` | missing |  |
 | `array_is_list` | implemented | Echo PHP arrays are currently contiguous vectors; associative/key-gap arrays are deferred. Source: https://www.php.net/manual/en/function.array-is-list.php |

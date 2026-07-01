@@ -6,9 +6,9 @@ mod sequence;
 
 pub use keys::{
     echo_php_array_change_key_case, echo_php_array_combine, echo_php_array_diff_key,
-    echo_php_array_fill, echo_php_array_fill_keys, echo_php_array_first, echo_php_array_key_exists,
-    echo_php_array_key_first, echo_php_array_key_last, echo_php_array_keys, echo_php_array_last,
-    echo_php_array_values,
+    echo_php_array_fill, echo_php_array_fill_keys, echo_php_array_first,
+    echo_php_array_intersect_key, echo_php_array_key_exists, echo_php_array_key_first,
+    echo_php_array_key_last, echo_php_array_keys, echo_php_array_last, echo_php_array_values,
 };
 pub use search::{
     echo_php_array_count_values, echo_php_array_search, echo_php_array_unique, echo_php_in_array,
