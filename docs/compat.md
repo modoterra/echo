@@ -502,7 +502,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `password_hash` | implemented | Generates bcrypt hashes using the selected algorithm and options while surfacing invalid inputs as `false`. Source: https://www.php.net/manual/en/function.password-hash.php |
 | `password_needs_rehash` | implemented | Compares a hash against requested algorithm/options to determine when rehashing is required. Source: https://www.php.net/manual/en/function.password-needs-rehash.php |
 | `password_verify` | implemented | Verifies candidate passwords against generated and stored password hashes in a timing-safe comparison path. Source: https://www.php.net/manual/en/function.password-verify.php |
-| `pathinfo` | missing |  |
+| `pathinfo` | partial | Returns `dirname`, `basename`, optional `extension`, and `filename` for Unix-style paths, with numeric option masks supported; `PATHINFO_*` constants and Windows separator behavior are deferred. Source: https://www.php.net/manual/en/function.pathinfo.php |
 | `pclose` | missing |  |
 | `pfsockopen` | missing |  |
 | `php_ini_loaded_file` | implemented | Returns `false` because Echo does not load a PHP configuration file. Source: https://www.php.net/manual/en/function.php-ini-loaded-file.php |

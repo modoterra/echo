@@ -297,5 +297,13 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
                 as usize,
         ),
+        (
+            "echo_php_pathinfo",
+            echo_runtime::echo_php_pathinfo
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
     ]
 }

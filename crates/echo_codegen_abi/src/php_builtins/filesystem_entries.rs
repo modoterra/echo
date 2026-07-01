@@ -19,6 +19,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::Dirname,
     },
     PhpBuiltin {
+        php_name: "pathinfo",
+        symbol: "echo_php_pathinfo",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::Pathinfo,
+    },
+    PhpBuiltin {
         php_name: "file_exists",
         symbol: "echo_php_file_exists",
         helper_symbol: None,

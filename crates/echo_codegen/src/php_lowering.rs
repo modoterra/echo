@@ -349,6 +349,7 @@ impl IrModule {
             | BuiltinCodegen::Log
             | BuiltinCodegen::Nl2br
             | BuiltinCodegen::NumberFormat
+            | BuiltinCodegen::Pathinfo
             | BuiltinCodegen::PhpVersion
             | BuiltinCodegen::Round
             | BuiltinCodegen::StrPad

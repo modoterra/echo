@@ -1,0 +1,5 @@
+dirname:[/srv/app/releases/current]
+basename:[index.php]
+extension:[php]
+filename:[index]
+exists:[1]

@@ -1,4 +1,5 @@
-use crate::{EchoValue, echo_runtime_string};
+use crate::collections::EchoArrayKey;
+use crate::{EchoArray, EchoValue, echo_runtime_string};
 #[cfg(unix)]
 use std::ffi::OsStr;
 #[cfg(unix)]
@@ -137,6 +138,90 @@ fn php_basename(path: &[u8], suffix: &[u8]) -> Vec<u8> {
     }
 
     basename
+}
+
+const PATHINFO_DIRNAME: i64 = 1;
+const PATHINFO_BASENAME: i64 = 2;
+const PATHINFO_EXTENSION: i64 = 4;
+const PATHINFO_FILENAME: i64 = 8;
+const PATHINFO_ALL: i64 =
+    PATHINFO_DIRNAME | PATHINFO_BASENAME | PATHINFO_EXTENSION | PATHINFO_FILENAME;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_pathinfo(path: EchoValue, flags: EchoValue) -> EchoValue {
+    let Some(path) = path.string_bytes() else {
+        return EchoValue::error();
+    };
+    let flags = if flags.is_null() {
+        PATHINFO_ALL
+    } else if let Some(flags) = flags.php_int_value() {
+        flags
+    } else {
+        return EchoValue::error();
+    };
+
+    let info = php_pathinfo(&path);
+
+    if flags == PATHINFO_DIRNAME {
+        return echo_runtime_string(info.dirname);
+    }
+    if flags == PATHINFO_BASENAME {
+        return echo_runtime_string(info.basename);
+    }
+    if flags == PATHINFO_EXTENSION {
+        return info
+            .extension
+            .map(echo_runtime_string)
+            .unwrap_or_else(|| echo_runtime_string(Vec::new()));
+    }
+    if flags == PATHINFO_FILENAME {
+        return echo_runtime_string(info.filename);
+    }
+
+    let mut keys = Vec::new();
+    let mut values = Vec::new();
+    push_pathinfo_part(&mut keys, &mut values, "dirname", info.dirname);
+    push_pathinfo_part(&mut keys, &mut values, "basename", info.basename);
+    if let Some(extension) = info.extension {
+        push_pathinfo_part(&mut keys, &mut values, "extension", extension);
+    }
+    push_pathinfo_part(&mut keys, &mut values, "filename", info.filename);
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+fn push_pathinfo_part(
+    keys: &mut Vec<EchoArrayKey>,
+    values: &mut Vec<EchoValue>,
+    key: &str,
+    value: Vec<u8>,
+) {
+    keys.push(EchoArrayKey::String(key.as_bytes().to_vec()));
+    values.push(echo_runtime_string(value));
+}
+
+struct PhpPathInfo {
+    dirname: Vec<u8>,
+    basename: Vec<u8>,
+    extension: Option<Vec<u8>>,
+    filename: Vec<u8>,
+}
+
+fn php_pathinfo(path: &[u8]) -> PhpPathInfo {
+    let dirname = php_dirname_once(path);
+    let basename = php_basename(path, b"");
+    let (filename, extension) = match basename.iter().rposition(|byte| *byte == b'.') {
+        Some(dot) if dot + 1 < basename.len() => {
+            (basename[..dot].to_vec(), Some(basename[dot + 1..].to_vec()))
+        }
+        _ => (basename.clone(), None),
+    };
+
+    PhpPathInfo {
+        dirname,
+        basename,
+        extension,
+        filename,
+    }
 }
 
 #[unsafe(no_mangle)]

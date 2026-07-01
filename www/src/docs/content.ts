@@ -1192,6 +1192,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the parent directory portion of a path.",
       },
       {
+        name: "pathinfo",
+        signature: "pathinfo(string $path, int $flags): array|string",
+        description:
+          "Returns path components such as dirname, basename, extension, and filename.",
+      },
+      {
         name: "realpath",
         signature: "realpath(string $path): string|false",
         description:
@@ -1610,6 +1616,12 @@ echo "Environment configured\\n"`,
 let $releaseDir = dirname($path, 1)
 
 echo $releaseDir . "\\n"`,
+  ],
+  [
+    "pathinfo",
+    `let $info = pathinfo("/var/www/releases/current/index.php")
+
+echo $info["filename"] . "\\n"`,
   ],
   [
     "escapeshellarg",
@@ -4283,6 +4295,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `dirname()` to derive the parent directory for generated files, uploads, or path validation before creating or checking the directory.",
   ],
   [
+    "pathinfo",
+    "Use `pathinfo()` when compatibility code needs to split a path into stable display or routing parts without touching the filesystem.",
+  ],
+  [
     "flush",
     "Use `flush()` when buffered output should be pushed toward the client or next output layer during a long-running response.",
   ],
@@ -6601,7 +6617,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 239 PHP compatibility fixtures, 272 implemented Core and standard functions out of 607, 335 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 240 PHP compatibility fixtures, 273 implemented Core and standard functions out of 607, 334 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -40,6 +40,7 @@ pub enum BuiltinCodegen {
     Log,
     Nl2br,
     NumberFormat,
+    Pathinfo,
     PhpVersion,
     Round,
     ObStart,
