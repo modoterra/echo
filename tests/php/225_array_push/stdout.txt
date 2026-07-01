@@ -1,0 +1,5 @@
+push:[2]
+count:[2]
+a:[1]
+zero:[two]
+exists:[1]

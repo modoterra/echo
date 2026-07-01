@@ -218,6 +218,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_array_push",
+            echo_runtime::echo_php_array_push
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_array_shift",
             echo_runtime::echo_php_array_shift
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

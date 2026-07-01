@@ -1,6 +1,8 @@
 use crate::{ECHO_VALUE_PENDING, EchoValue, echo_values_equal, php_values_equal};
 
-use super::{EchoArray, EchoArrayKey, echo_value_array_new, echo_value_array_set};
+use super::{
+    EchoArray, EchoArrayKey, echo_value_array_new, echo_value_array_set, next_array_append_key,
+};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_values(array: EchoValue) -> EchoValue {
@@ -295,6 +297,21 @@ pub extern "C" fn echo_php_array_pop(array: EchoValue) -> EchoValue {
 
     array.keys.pop();
     array.values.pop().unwrap_or_else(EchoValue::null)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_push(array: EchoValue, value: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    array.keys.push(next_array_append_key(array));
+    array.values.push(value);
+    EchoValue::int(array.values.len() as i64)
 }
 
 #[unsafe(no_mangle)]
