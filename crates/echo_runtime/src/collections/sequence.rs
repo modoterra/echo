@@ -238,6 +238,11 @@ pub extern "C" fn echo_php_arsort(array: EchoValue) -> EchoValue {
     sort_array_by_string_values(array, true, true)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ksort(array: EchoValue) -> EchoValue {
+    sort_array_by_string_keys(array, false)
+}
+
 fn sort_array_by_string_values(
     array: EchoValue,
     descending: bool,
@@ -276,6 +281,35 @@ fn sort_array_by_string_values(
             .map(|index| EchoArrayKey::Int(index as i64))
             .collect()
     };
+
+    EchoValue::bool(true)
+}
+
+fn sort_array_by_string_keys(array: EchoValue, descending: bool) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    let mut entries: Vec<(EchoArrayKey, EchoValue)> = array
+        .keys
+        .iter()
+        .cloned()
+        .zip(array.values.iter().copied())
+        .collect();
+    entries.sort_by(|(left, _), (right, _)| {
+        left.to_value()
+            .string_bytes()
+            .cmp(&right.to_value().string_bytes())
+    });
+    if descending {
+        entries.reverse();
+    }
+    array.keys = entries.iter().map(|(key, _)| key.clone()).collect();
+    array.values = entries.into_iter().map(|(_, value)| value).collect();
 
     EchoValue::bool(true)
 }

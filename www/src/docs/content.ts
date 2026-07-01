@@ -490,6 +490,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Sorts an array in descending order while preserving the original keys.",
       },
       {
+        name: "ksort",
+        signature: "ksort(array &$array, int $flags): bool",
+        description:
+          "Sorts an array by key in ascending order while preserving key/value associations.",
+      },
+      {
         name: "array_chunk",
         signature: "array_chunk(array $array, int $length, bool $preserve_keys): array",
         description: "Splits an array into fixed-size chunks.",
@@ -2916,6 +2922,13 @@ arsort($statuses)
 echo $statuses["third"] . "\\n"`,
   ],
   [
+    "ksort",
+    `let $statuses = ["b": "review", "a": "draft", "c": "ship"]
+ksort($statuses)
+
+echo $statuses["a"] . "\\n"`,
+  ],
+  [
     "array_chunk",
     `let $ids = ["A1", "A2", "A3", "A4"]
 let $batches = array_chunk($ids, 2, false)
@@ -3795,6 +3808,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "arsort",
     "Use `arsort()` when compatibility code needs values in descending order while preserving associative keys used by later lookups.",
+  ],
+  [
+    "ksort",
+    "Use `ksort()` when compatibility code needs deterministic key order for associative arrays while preserving each key's value.",
   ],
   [
     "array_chunk",
@@ -6446,7 +6463,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 230 PHP compatibility fixtures, 263 implemented Core and standard functions out of 607, 344 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 231 PHP compatibility fixtures, 264 implemented Core and standard functions out of 607, 343 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

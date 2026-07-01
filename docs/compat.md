@@ -424,7 +424,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `key` | missing |  |
 | `key_exists` | implemented | Alias of `array_key_exists()`. Source: https://www.php.net/manual/en/function.key-exists.php |
 | `krsort` | missing |  |
-| `ksort` | missing |  |
+| `ksort` | partial | Sorts arrays by string-compatible keys in ascending byte order while preserving key/value associations and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.ksort.php |
 | `lcfirst` | implemented | Lowercases the first ASCII alphabetic byte of a string and leaves the rest unchanged. Source: https://www.php.net/manual/en/function.lcfirst.php |
 | `lchgrp` | missing |  |
 | `lchown` | missing |  |
