@@ -41,7 +41,7 @@ pub use collections::{
     echo_php_array_pad, echo_php_array_pop, echo_php_array_product, echo_php_array_push,
     echo_php_array_replace, echo_php_array_reverse, echo_php_array_search, echo_php_array_shift,
     echo_php_array_slice, echo_php_array_splice, echo_php_array_sum, echo_php_array_unique,
-    echo_php_array_unshift, echo_php_array_values, echo_php_asort, echo_php_count,
+    echo_php_array_unshift, echo_php_array_values, echo_php_arsort, echo_php_asort, echo_php_count,
     echo_php_in_array, echo_php_rsort, echo_php_sort, echo_value_array_append,
     echo_value_array_key_at, echo_value_array_len, echo_value_array_new, echo_value_array_set,
     echo_value_array_value_at, echo_value_index_get, echo_value_list_append, echo_value_list_new,

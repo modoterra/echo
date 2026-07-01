@@ -206,7 +206,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_values` | implemented | Returns values in insertion order and reindexes the result numerically. Source: https://www.php.net/manual/en/function.array-values.php |
 | `array_walk` | missing |  |
 | `array_walk_recursive` | missing |  |
-| `arsort` | missing |  |
+| `arsort` | partial | Sorts arrays containing string-compatible values in descending byte order while preserving original keys and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.arsort.php |
 | `asin` | implemented | Returns the arc sine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.asin.php |
 | `asinh` | implemented | Returns inverse hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.asinh.php |
 | `asort` | partial | Sorts arrays containing string-compatible values in ascending byte order while preserving original keys and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.asort.php |

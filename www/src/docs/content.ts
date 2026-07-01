@@ -484,6 +484,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Sorts an array in ascending order while preserving the original keys.",
       },
       {
+        name: "arsort",
+        signature: "arsort(array &$array, int $flags): bool",
+        description:
+          "Sorts an array in descending order while preserving the original keys.",
+      },
+      {
         name: "array_chunk",
         signature: "array_chunk(array $array, int $length, bool $preserve_keys): array",
         description: "Splits an array into fixed-size chunks.",
@@ -2903,6 +2909,13 @@ asort($statuses)
 echo $statuses["second"] . "\\n"`,
   ],
   [
+    "arsort",
+    `let $statuses = ["first": "review", "second": "draft", "third": "ship"]
+arsort($statuses)
+
+echo $statuses["third"] . "\\n"`,
+  ],
+  [
     "array_chunk",
     `let $ids = ["A1", "A2", "A3", "A4"]
 let $batches = array_chunk($ids, 2, false)
@@ -3778,6 +3791,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "asort",
     "Use `asort()` when compatibility code needs values in ascending order but later logic still depends on the original associative keys.",
+  ],
+  [
+    "arsort",
+    "Use `arsort()` when compatibility code needs values in descending order while preserving associative keys used by later lookups.",
   ],
   [
     "array_chunk",
@@ -6429,7 +6446,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 229 PHP compatibility fixtures, 262 implemented Core and standard functions out of 607, 345 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 230 PHP compatibility fixtures, 263 implemented Core and standard functions out of 607, 344 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

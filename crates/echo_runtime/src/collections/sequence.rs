@@ -233,6 +233,11 @@ pub extern "C" fn echo_php_asort(array: EchoValue) -> EchoValue {
     sort_array_by_string_values(array, false, true)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_arsort(array: EchoValue) -> EchoValue {
+    sort_array_by_string_values(array, true, true)
+}
+
 fn sort_array_by_string_values(
     array: EchoValue,
     descending: bool,
