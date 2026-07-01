@@ -30,6 +30,19 @@ pub extern "C" fn echo_time_sleep(millis: i64) {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sleep(seconds: EchoValue) -> EchoValue {
+    let Some(seconds) = seconds.php_int_value() else {
+        return EchoValue::error();
+    };
+    if seconds < 0 {
+        return EchoValue::error();
+    }
+
+    sleep(seconds.saturating_mul(1000));
+    EchoValue::int(0)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
     let now = unix_duration_now_or_zero();
 

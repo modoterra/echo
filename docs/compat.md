@@ -571,7 +571,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `sin` | implemented | Returns the sine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sin.php |
 | `sinh` | implemented | Returns hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.sinh.php |
 | `sizeof` | implemented | Alias of `count()`. Source: https://www.php.net/manual/en/function.sizeof.php |
-| `sleep` | missing |  |
+| `sleep` | partial | Sleeps for non-negative whole seconds and returns `0` on completion; interrupted sleep reporting is deferred. Source: https://www.php.net/manual/en/function.sleep.php |
 | `socket_get_status` | missing |  |
 | `socket_set_blocking` | missing |  |
 | `socket_set_timeout` | missing |  |

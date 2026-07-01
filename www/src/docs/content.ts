@@ -1323,6 +1323,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current Unix timestamp with microseconds.",
       },
       {
+        name: "sleep",
+        signature: "sleep(int $seconds): int",
+        description: "Pauses execution for whole seconds and returns remaining seconds.",
+      },
+      {
         name: "gettimeofday",
         signature: "gettimeofday(bool $as_float): array|float",
         description: "Returns the current wall-clock time as a timeval array or float.",
@@ -2126,6 +2131,12 @@ echo $routeKey . "\\n"`,
     `let $started = microtime(true)
 
 echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "sleep",
+    `let $remaining = sleep(0)
+
+echo "remaining: " . $remaining . "\\n"`,
   ],
   [
     "gettimeofday",
@@ -4337,6 +4348,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "microtime",
     "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
+  ],
+  [
+    "sleep",
+    "Use `sleep()` for PHP-compatible delay points in scripts and polling loops. New Echo code should prefer `std.time.sleep()` with typed durations.",
   ],
   [
     "gettimeofday",
@@ -6617,7 +6632,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 240 PHP compatibility fixtures, 273 implemented Core and standard functions out of 607, 334 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 241 PHP compatibility fixtures, 274 implemented Core and standard functions out of 607, 333 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

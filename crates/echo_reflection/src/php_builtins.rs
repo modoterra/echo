@@ -254,6 +254,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("as_float", Some("bool"))],
             Some("string|float"),
         ),
+        php_builtin_reflection("sleep", &[("seconds", Some("int"))], Some("int")),
         php_builtin_reflection(
             "gettimeofday",
             &[("as_float", Some("bool"))],

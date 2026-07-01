@@ -27,6 +27,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_sleep",
+            echo_runtime::echo_php_sleep
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_gettimeofday",
             echo_runtime::echo_php_gettimeofday
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

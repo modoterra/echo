@@ -207,6 +207,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "sleep",
+            symbol: "echo_php_sleep",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "hrtime",
             symbol: "echo_php_hrtime",
             helper_symbol: None,

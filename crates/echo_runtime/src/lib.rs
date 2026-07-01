@@ -144,7 +144,9 @@ pub use string::{
 pub use task::{echo_task_defer, echo_task_join, echo_task_run, echo_task_sleep_current};
 pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_run_and_join};
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
-pub use time::{echo_php_gettimeofday, echo_php_hrtime, echo_php_microtime, echo_time_sleep};
+pub use time::{
+    echo_php_gettimeofday, echo_php_hrtime, echo_php_microtime, echo_php_sleep, echo_time_sleep,
+};
 pub(crate) use value::{
     ECHO_VALUE_ARRAY, ECHO_VALUE_BOOL, ECHO_VALUE_ERROR, ECHO_VALUE_FLOAT, ECHO_VALUE_INT,
     ECHO_VALUE_LIST, ECHO_VALUE_NULL, ECHO_VALUE_PENDING, ECHO_VALUE_PROCESS, ECHO_VALUE_STRING,
