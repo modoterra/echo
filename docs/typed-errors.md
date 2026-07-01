@@ -1,10 +1,10 @@
 # First-Class Typed Error Values
 
-This document specifies the first version of Echo's language-level error
-system. It is an RFA-style design note, not an implementation status report.
+This document defines Echo's language-level error model. It is a design note,
+not an implementation status report.
 
-Echo should model errors as first-class typed values with distinct control-flow
-semantics:
+Echo should model errors as first-class typed values with distinct
+control-flow semantics:
 
 - `error` declares nominal error types and constructs error values.
 - `panic` raises errors into panic flow.
@@ -19,7 +19,8 @@ EchoError can carry any EchoValue, including EchoValue::Object, through fields
 or generics.
 ```
 
-This invariant is the rule every parser, semantic, runtime, and IDE feature should preserve: error-ness is a value category, not an object flag.
+This invariant is the rule every parser, semantic, runtime, and IDE feature
+should preserve: error-ness is a value category, not an object flag.
 
 Do not model errors as objects with a mutable error flag. Objects and errors may
 both be record-like, but they are different language categories:
@@ -33,7 +34,8 @@ Errors are not objects.
 Errors can carry objects.
 ```
 
-This category split keeps domain data and failure control flow separate while still allowing errors to include rich structured payloads.
+This category split keeps domain data and failure control flow separate while
+still allowing errors to include rich structured payloads.
 
 ## Error Declarations
 

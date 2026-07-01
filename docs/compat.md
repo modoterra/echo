@@ -1,21 +1,22 @@
-# PHP Compatibility Inventory
+# Echo PHP Surface Inventory
 
-This document tracks PHP builtin function parity at function granularity. It is
-a planning inventory, not a promise that all rows have equal implementation
-cost. Some functions are syntax-adjacent, runtime-global, filesystem/process
-backed, or require classes/resources before they can be implemented correctly.
+This document tracks Echo PHP Surface function parity at function granularity.
+It is a planning inventory, not a promise that all rows have equal
+implementation cost. Some functions are syntax-adjacent, runtime-global,
+filesystem/process backed, or require classes/resources before they can be
+implemented correctly.
 
 Snapshot source: `get_defined_functions()["internal"]` from local PHP `8.5.6`
 on 2026-06-17. PHP reports many ordinary-looking functions through the
 `standard` extension; Echo treats `Core` plus `standard` as the baseline
-compatibility surface and keeps other PHP extensions optional unless we
-explicitly promote one.
+surface and keeps other PHP extensions optional unless we explicitly promote
+one.
 
 ## Syntax-Adjacent Compatibility
 
 These PHP constructs are not reported by `get_defined_functions()`, but they
-belong in the same compatibility planning surface because they interact with
-filesystem loading, runtime process state, diagnostics, and related builtins.
+belong in the same Echo PHP Surface planning area because they interact with
+filesystem loading, runtime process state, diagnostics, and related functions.
 
 ### Include/Require Family
 
@@ -67,7 +68,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `func_get_arg` | missing |  |
 | `func_get_args` | missing |  |
 | `func_num_args` | missing |  |
-| `function_exists` | implemented | Recognizes Echo's supported internal PHP builtin names, case-insensitively; user-defined function registry support is deferred. Source: https://www.php.net/manual/en/function.function-exists.php |
+| `function_exists` | implemented | Recognizes Echo's supported internal Echo PHP Surface function names, case-insensitively; user-defined function registry support is deferred. Source: https://www.php.net/manual/en/function.function-exists.php |
 | `gc_collect_cycles` | missing |  |
 | `gc_disable` | missing |  |
 | `gc_enable` | missing |  |

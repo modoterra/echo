@@ -2,9 +2,8 @@
 
 ## Decision
 
-Echo keeps PHP imports and Echo-owned imports distinct at the source and
-resolver-entry level, then converges successful resolutions into the same
-internal symbol model.
+Echo keeps PHP imports and Echo-owned imports on separate source-level lanes,
+then converges successful resolutions into one shared symbol model.
 
 ```php
 use Psr\Log\LoggerInterface
@@ -16,15 +15,25 @@ from "./routes.echo" use route
 from "./config.json" use config satisfies Config
 ```
 
-This example shows the import lanes side by side: PHP namespace imports stay PHP-compatible, package-style Echo imports bind module exports, `std` imports bind Echo-owned library modules, and file imports can validate external data at compile time. Once resolved, declarations that denote the same package/module identity should lower through the same compiler path.
+This example shows the lanes side by side: PHP namespace imports stay
+PHP-compatible, Echo package imports bind module exports, `std` imports bind
+compiler-owned library modules, and file imports can validate external data at
+compile time. Once resolved, declarations that denote the same package/module
+identity should lower through the same compiler path.
 
 Plain `use ...` remains PHP namespace import syntax. Composer/autoloaded PHP classes, interfaces, functions, and constants continue to use PHP-compatible resolution, but successful resolution should feed the shared symbol model rather than a PHP-only lowering path.
 
-`from ... use ...` is Echo-owned import syntax. It is for standard library imports, vendor or package modules, local Echo modules, and file-backed data modules. When it resolves to the same declaration identity as PHP-compatible source, it should lower identically.
+`from ... use ...` is Echo-owned import syntax. It is for standard library
+imports, vendor or package modules, local Echo modules, and file-backed data
+imports. When it resolves to the same declaration identity as PHP-compatible
+source, it should lower identically.
 
-`from std use ...` is intended to be real import syntax, not documentation sugar. The resolver must bind it to compiler-known standard library modules supplied by `echo_std`. Those modules may contain regular Echo declarations or trusted intrinsics; import syntax does not expose Rust ABI symbols directly.
+`from std use ...` is intended to be real import syntax, not documentation
+sugar. The resolver must bind it to compiler-known standard library modules
+supplied by `echo_std`. Those modules may contain regular Echo declarations or
+trusted intrinsics; import syntax never exposes Rust ABI symbols directly.
 
-## Import Sources
+## Import Lanes
 
 ```text
 use Foo\Bar
@@ -43,7 +52,11 @@ from "./config.json" use config
   File-backed data import. The file extension selects the loader.
 ```
 
-This block is the resolver contract: the import prefix determines whether Echo follows PHP namespace rules, stdlib module rules, package/module rules, local Echo module loading, or data-loader behavior. That policy belongs in the planned `echo_resolver` crate, not in parser, LSP, CLI, or codegen-specific lookup.
+This block is the resolver contract: the import prefix determines whether Echo
+follows PHP namespace rules, stdlib module rules, package/module rules, local
+Echo module loading, or data-loader behavior. That policy belongs in the
+planned `echo_resolver` crate, not in parser, LSP, CLI, or codegen-specific
+lookup.
 
 The file extension stays in the import source because it is part of loader selection.
 
@@ -56,7 +69,8 @@ Initial loader direction:
 
 ## Typed Data Imports
 
-Use `satisfies` to validate imported data against a structural type without changing the imported name syntax.
+Use `satisfies` to validate imported data against a structural type without
+changing the imported name syntax.
 
 ```php
 type Config = {
@@ -69,7 +83,8 @@ type Config = {
 from "./config.json" use config satisfies Config
 ```
 
-This example loads a real configuration file as data and validates it before the rest of the program can use `config`.
+This example loads a real configuration file as data and validates it before
+the rest of the program can use `config`.
 
 Meaning:
 
@@ -80,7 +95,8 @@ Validate that the loaded data satisfies `Config`.
 Expose `config` with type `Config` after validation.
 ```
 
-The expanded meaning separates loading, binding, validation, and typing so diagnostics can point at the import and at the offending data path.
+The expanded meaning separates loading, binding, validation, and typing so
+diagnostics can point at the import and at the offending data path.
 
 If validation fails, compilation should fail with a diagnostic pointing at both the import and the offending data path where possible.
 
@@ -95,16 +111,18 @@ from std use net\TcpServer
 from std use http\Response
 ```
 
-This is the normal application import shape for Echo-native networking and HTTP APIs: import from `std`, then use local names in code.
+This is the normal application import shape for Echo-native networking and HTTP
+APIs: import from `std`, then use local names in code.
 
-This imports from Echo's standard library module graph:
+This maps to Echo's standard library module graph:
 
 ```text
 net\TcpServer  -> std.net.TcpServer
 http\Response  -> std.http.Response
 ```
 
-This mapping keeps user syntax compact while preserving the compiler's full stdlib module identity internally.
+This mapping keeps user syntax compact while preserving the compiler's full
+stdlib module identity internally.
 
 The imported local names are `TcpServer` and `Response` unless an alias is provided.
 
@@ -112,9 +130,13 @@ The imported local names are `TcpServer` and `Response` unless an alias is provi
 from std use http\Response as HttpResponse
 ```
 
-Aliases are for avoiding local naming conflicts while still resolving through the same stdlib module graph.
+Aliases are for avoiding local naming conflicts while still resolving through
+the same stdlib module graph.
 
-`from std use ...` must not consult PHP namespace resolution or Composer autoloading. It resolves only against the compiler-known stdlib surface. Other `from <package> use ...` sources, such as `from illuminate/http use ...`, can use Echo package resolution later without changing the import grammar.
+`from std use ...` must not consult PHP namespace resolution or Composer
+autoloading. It resolves only against the compiler-known stdlib surface. Other
+`from <package> use ...` sources, such as `from illuminate/http use ...`, can
+use Echo package resolution later without changing the import grammar.
 
 The resolver should expose resolved import artifacts rather than requiring each
 consumer to reinterpret imports:
@@ -132,7 +154,7 @@ available.
 
 The stdlib surface can be implemented by a mix of Echo source and trusted intrinsic declarations. See [Echo Standard Library](stdlib.md) for the interop model.
 
-Stdlib source declares its module with normal Echo module syntax:
+Trusted stdlib source declares its module with normal Echo module syntax:
 
 ```echo
 module std.net
@@ -142,7 +164,8 @@ class TcpServer {
 }
 ```
 
-This declaration is trusted stdlib source: it names the Echo module and declares the public API that the compiler can bind to runtime intrinsics.
+This declaration is trusted stdlib source: it names the Echo module and
+declares the public API that the compiler can bind to runtime intrinsics.
 
 Because Echo module and PHP namespace spellings converge before lowering, user
 code may not declare any namespace or module that canonicalizes to the reserved
@@ -163,9 +186,11 @@ Only trusted stdlib files may declare under the canonical `std` root.
 from "./config.json" use config satisfies Config
 ```
 
-The value being constrained is the imported data, so `satisfies` reads like an import-time validation clause rather than a variable declaration.
+The value being constrained is the imported data, so `satisfies` reads like an
+import-time validation clause rather than a variable declaration.
 
-It avoids making the import look like a declaration with reordered type syntax, and it can later work for multiple import forms.
+It avoids making the import look like a declaration with reordered type syntax,
+and it can later work for multiple import forms.
 
 Potential future examples:
 
@@ -174,21 +199,26 @@ from "./routes.yaml" use routes satisfies list<Route>
 from "./openapi.json" use schema satisfies OpenApiSchema
 ```
 
-These examples show the intended scale of the feature: routes, schemas, and other file-backed data can become typed inputs without hand-written loader code.
+These examples show the intended scale of the feature: routes, schemas, and
+other file-backed data can become typed inputs without hand-written loader code.
 
 ## Namespace Compatibility
 
-Echo standard library imports do not live under a reserved PHP namespace such as `Echo\...`, `EchoStd\...`, or `Std\...`.
+Echo standard library imports do not live under a reserved PHP namespace such
+as `Echo\...`, `EchoStd\...`, or `Std\...`.
 
-This avoids breaking valid PHP programs that already define or autoload those namespaces.
+This avoids breaking valid PHP programs that already define or autoload those
+namespaces.
 
 ```php
 use Echo\Net\TcpServer
 ```
 
-This remains ordinary PHP-compatible source and should continue to work for projects that already own an `Echo\...` namespace.
+This remains ordinary PHP-compatible source and should continue to work for
+projects that already own an `Echo\...` namespace.
 
-The example above remains a PHP/userland namespace import, not an Echo standard library import.
+The example above remains a PHP/userland namespace import, not an Echo
+standard library import.
 
 Use this for the Echo standard library instead:
 
@@ -196,11 +226,12 @@ Use this for the Echo standard library instead:
 from std use net\TcpServer
 ```
 
-This spelling opts into Echo's stdlib resolver explicitly and avoids reserving PHP namespaces globally.
+This spelling opts into Echo's stdlib resolver explicitly and avoids reserving
+PHP namespaces globally.
 
 ## Parser And Resolver Shape
 
-AST should distinguish PHP imports from Echo-owned imports.
+The AST should distinguish PHP imports from Echo-owned imports.
 
 ```rust
 pub enum ImportSource {
@@ -221,9 +252,12 @@ pub struct ImportItem {
 }
 ```
 
-This AST shape keeps PHP namespace imports, stdlib imports, file imports, aliases, and data-validation constraints distinguishable before semantic resolution.
+This AST shape keeps PHP namespace imports, stdlib imports, file imports,
+aliases, and data-validation constraints distinguishable before semantic
+resolution.
 
-Plain PHP-compatible `use Foo\Bar` can remain represented separately as a PHP namespace import if that keeps compatibility parsing simpler.
+Plain PHP-compatible `use Foo\Bar` can remain represented separately as a PHP
+namespace import if that keeps compatibility parsing simpler.
 
 Resolver responsibilities:
 

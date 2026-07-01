@@ -3,7 +3,8 @@
 `echo_semantics` is the shared compiler layer between parsed AST and execution
 backends. It owns language facts that require meaning rather than syntax alone:
 variable bindings, expression types, scopes, symbol resolution, and semantic
-diagnostics.
+diagnostics. CLI execution, REPL presentation, editor tooling, and codegen
+should all read from this same layer.
 
 The layer is intentionally reusable:
 
@@ -21,6 +22,22 @@ Use this flow when adding language facts: parser output should stay syntactic, a
 program session as source/AST state, but display metadata should come from
 `echo_semantics` over that accumulated program. File compilation uses the same
 analysis before LLVM lowering, so REPL behavior and file behavior stay aligned.
+
+## Example
+
+```echo
+let $name = "Ada"
+let $status = "draft"
+
+if $status == "draft" {
+    echo $name . " is queued\n"
+}
+```
+
+This kind of file is where semantics matters more than syntax alone. The parser
+sees the branch and the string operations, while `echo_semantics` tracks the
+bindings, infers the expression types, and gives `xo repl` and editor tooling
+the same facts before lowering happens.
 
 Current scope:
 

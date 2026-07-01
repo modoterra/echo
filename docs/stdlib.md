@@ -1,12 +1,17 @@
 # Echo Standard Library
 
-`echo_std` is the Echo-facing standard library layer. It is where user-facing APIs such as networking and HTTP should live. The standard library is a real Echo module graph: APIs may be regular Echo source compiled through the normal pipeline, or trusted intrinsic declarations that lower to approved runtime ABI symbols.
+`echo_std` defines Echo's public standard-library surface. User-facing APIs
+such as networking, HTTP, time, assertions, and reflection live here. The
+standard library is a real Echo module graph: APIs may be ordinary Echo source
+compiled through the normal pipeline, or trusted intrinsic declarations that
+lower to approved runtime ABI symbols.
 
 ## Layering
 
 - `echo_runtime`: low-level implementation primitives for values, output, tasks, I/O, networking, scheduling, and process integration.
 - `echo_std`: standard library APIs exposed to Echo programs, built on top of runtime primitives where needed. APIs may be regular Echo declarations or trusted intrinsics.
-- `echo_php_*`: PHP builtin compatibility exports, such as `ob_start()` and future builtins like `strlen()`.
+- `echo_php_*`: Echo PHP Surface compatibility exports, such as `ob_start()`
+  and future functions like `strlen()`.
 - `echo_ext_*`: future extension/module ABI for optional modules.
 - `echo_internal_*`: runtime-private implementation details, never emitted by codegen.
 
@@ -30,7 +35,8 @@ The default decision rule is:
 
 ## Implementation Model
 
-The standard library should be a real Echo library wherever Echo can express the behavior clearly.
+The standard library should be ordinary Echo code wherever Echo can express
+the behavior clearly.
 
 ```text
 std/                 Echo-facing source files
@@ -46,9 +52,9 @@ codegen              compiles regular std Echo code and lowers resolved intrinsi
 
 This layout separates public Echo source, packaged std metadata, Rust runtime implementation, resolver validation, normal std compilation, and final ABI lowering.
 
-Pure value APIs should be written in Echo source. Echo stdlib declarations use
-`fn` for functions. Class members are private by default, so public methods must
-be explicitly prefixed with `pub fn` or `pub intrinsic fn`.
+Pure value APIs should be written in Echo source whenever possible. Echo stdlib
+declarations use `fn` for functions. Class members are private by default, so
+public methods must be explicitly prefixed with `pub fn` or `pub intrinsic fn`.
 
 ```echo
 module std.http
@@ -68,9 +74,11 @@ fn text(body: string): Response {
 }
 ```
 
-This example is the preferred shape for pure stdlib helpers: public Echo types and functions express behavior without needing a runtime intrinsic.
+This example is the preferred shape for pure stdlib helpers: public Echo types
+and functions express behavior without needing a runtime intrinsic.
 
-Resource and syscall APIs should be declared in trusted stdlib Echo source as intrinsics and implemented by Rust runtime primitives:
+Resource and syscall APIs belong in trusted stdlib Echo source as intrinsics
+backed by Rust runtime primitives:
 
 ```echo
 module std.net
@@ -87,7 +95,8 @@ class TcpConnection {
 }
 ```
 
-This example keeps the user-facing socket API in Echo source while routing the actual I/O work through trusted Rust runtime primitives.
+This example keeps the user-facing socket API in Echo source while routing the
+actual I/O work through trusted Rust runtime primitives.
 
 Lowercase stdlib modules may also expose module-style intrinsic functions for value-like APIs:
 
@@ -102,7 +111,8 @@ intrinsic fn write(connection: TcpConnection, data: bytes|string): int
 intrinsic fn close(connection: TcpConnection): void
 ```
 
-This module-style surface supports imported calls such as `net.listen(...)` when a class-oriented API would add friction.
+This module-style surface supports imported calls such as `net.listen(...)`
+when a class-oriented API would add friction.
 
 ## Time Foundation
 
@@ -128,7 +138,7 @@ and `time.timer()` create values or interact with runtime scheduling, while
 receiver methods such as `$timer.elapsed()` operate on an existing opaque time
 value.
 
-Tests can use the tiny assertion stdlib module:
+Tests can use a small assertion stdlib module:
 
 ```echo
 module std.assert
@@ -144,8 +154,8 @@ shutdown, so `xo test` can run Echo tests through the normal compiler/runtime
 path.
 
 Function reflection is exposed as an Echo strict-mode stdlib module so Echo
-programs can inspect available functions without calling PHP reflection APIs
-directly:
+programs can inspect available functions without depending on PHP reflection
+APIs directly:
 
 ```echo
 module std.reflect
@@ -156,7 +166,8 @@ intrinsic fn returnType(name: string): string
 intrinsic fn typeOf(value: mixed): string
 ```
 
-This reflection surface gives Echo strict-mode code an Echo-owned way to inspect function metadata without importing PHP reflection APIs.
+This reflection surface gives Echo strict-mode code an Echo-owned way to
+inspect function metadata without importing PHP reflection APIs.
 
 `params()` returns the supported PHP parameter list as a string and
 `returnType()` returns the supported PHP return type string. Unknown names
@@ -169,11 +180,10 @@ declared by an Echo source file and are not importable std symbols. Echo std
 function metadata is derived from packaged `std/*.echo` module declarations,
 and userland function metadata is derived from parsed function declarations.
 
-Standard-library source declares the compiler's internal stdlib module identity
-with Echo module syntax. User code imports it with `from std use ...`. The
-canonical `std` root is reserved after module/namespace canonicalization, so
-user/package code may not declare `module std...`, `namespace std\...`, or
-`namespace Std\...`.
+Trusted stdlib source declares the compiler-owned `std` root with Echo module
+syntax. User code imports it with `from std use ...`. The canonical `std` root
+is reserved after module/namespace canonicalization, so user/package code may
+not declare `module std...`, `namespace std\...`, or `namespace Std\...`.
 
 This distinction is intentional:
 
@@ -197,9 +207,10 @@ receive a diagnostic.
 
 ## Intrinsic Binding Rules
 
-`intrinsic` is privileged. It means the declaration is implemented by a compiler/runtime-known operation. It is not a general userland FFI feature.
+`intrinsic` is privileged. It means the declaration is implemented by a
+compiler/runtime-known operation. It is not a general userland FFI feature.
 
-- Built-in stdlib files may declare `intrinsic` functions and methods.
+- Trusted stdlib files may declare `intrinsic` functions and methods.
 - Ordinary project files cannot declare `intrinsic`; semantic analysis must reject them with a clear diagnostic.
 - Intrinsic declarations must have explicit parameter and return types.
 - Echo source never names arbitrary Rust symbols.
@@ -251,7 +262,8 @@ For a user import:
 from std use net\TcpServer
 ```
 
-This import is the compiler pipeline's input: a user asks for a stdlib item without naming an ABI symbol.
+This import is the compiler pipeline's input: a user asks for a stdlib item
+without naming an ABI symbol.
 
 The compiler should:
 
@@ -263,7 +275,8 @@ The compiler should:
 6. Lower pure Echo stdlib calls like ordinary Echo code.
 7. Lower resolved intrinsic stdlib calls through the intrinsic binding registry.
 
-This lets Echo dogfood its own syntax for types and pure helpers while keeping sockets, files, processes, timers, and scheduler operations backed by Rust.
+This lets Echo dogfood its own syntax for types and pure helpers while keeping
+sockets, files, processes, timers, and scheduler operations backed by Rust.
 
 Examples:
 

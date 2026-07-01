@@ -2,7 +2,23 @@
 
 Source: https://www.php.net/manual/en/language.operators.arithmetic.php
 
-Echo arithmetic should follow PHP compatibility semantics in the base language.
+This note defines the PHP-compatible arithmetic surface for Echo. It covers
+the unary and binary operators Echo currently lowers, the current numeric
+coercion rules, and the compatibility boundary for array union behavior.
+
+```php
+<?php
+$left = ["id" => 1, "name" => "Ada"];
+$right = ["name" => "Grace", "role" => "admin"];
+
+$result = $left + $right;
+$total = 19 + "3";
+```
+
+This example shows the two compatibility edges that matter most in the current
+slice: array `+` keeps the left-hand keys, and arithmetic still follows
+PHP-style numeric coercion.
+
 The PHP arithmetic operator set includes unary identity and negation, binary
 addition, subtraction, multiplication, division, modulo, and exponentiation.
 

@@ -168,7 +168,7 @@ HashMap<FqName, Vec<SymbolId>>
 
 The vector is intentional: it keeps all candidates available for later resolution policy.
 
-not:
+Do not use:
 
 ```rust
 HashMap<FqName, SymbolId>
@@ -406,8 +406,9 @@ pub struct RelationTable {
 
 The relation table is where class/interface/trait structure can live without baking hierarchy behavior into symbol storage.
 
-Stub files should eventually provide declaration-only facts for PHP built-ins
-and Echo runtime APIs instead of hardcoding broad standard-library maps in Rust:
+Stub files should eventually provide declaration-only facts for the Echo PHP
+Surface and Echo runtime APIs instead of hardcoding broad standard-library maps
+in Rust:
 
 ```text
 stubs/
@@ -421,4 +422,4 @@ stubs/
     runtime.echoi
 ```
 
-These stubs would let the index treat built-ins and runtime APIs like ordinary declarations for completion, hover, and definition lookup.
+These stubs would let the index treat surface functions and runtime APIs like ordinary declarations for completion, hover, and definition lookup.

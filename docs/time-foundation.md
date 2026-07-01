@@ -1,10 +1,10 @@
 # Echo Standard Library Time Foundation
 
-This document specifies the target Echo-native `time` standard library surface.
-It is a design and implementation planning note; the current implementation only
-contains the first `time.sleep` runtime slice. That slice still accepts an
-integer millisecond argument internally; the target Echo API replaces that with
-`time.sleep(Duration)` once duration literals and opaque time values exist.
+This document defines the target Echo-native `time` surface. It is a design
+and implementation planning note; the current runtime only contains the first
+`time.sleep` slice. That slice still accepts an integer millisecond argument
+internally; the target Echo API replaces that with `time.sleep(Duration)` once
+duration literals and opaque time values exist.
 
 Echo time APIs use dot notation:
 
@@ -14,14 +14,14 @@ time.sleep(500ms)
 time.duration(seconds: 5)
 ```
 
-Do not use PHP namespace-call spelling for Echo standard library APIs:
+Do not use PHP namespace-call spelling for Echo-owned stdlib APIs:
 
 ```echo
 time\now()   // invalid Echo stdlib style
 time\sleep() // invalid Echo stdlib style
 ```
 
-The slash form remains available for ordinary PHP namespaces where PHP
+That spelling remains available for ordinary PHP namespaces where PHP
 compatibility requires it. It is not the spelling of Echo-owned standard
 library module calls.
 

@@ -4,10 +4,12 @@
 
 Echo is the true PHP superset: PHP compatibility plus Echo language features.
 Typed Echo is a future type-system direction, not a parser mode. It adds a
-cleaner compiler-native type model that separates arrays, lists, tuples,
-structural objects, classes, and receiver extensions.
+compiler-native type model that separates arrays, lists, tuples, structural
+objects, classes, and receiver extensions so the compiler can reason about
+shape and mutation more precisely.
 
-The typed Echo goal is to avoid PHP associative-array ambiguity and give the compiler strong layout and access guarantees.
+The typed Echo goal is to avoid PHP associative-array ambiguity and give the
+compiler strong layout and access guarantees.
 
 ## Baseline Echo
 
