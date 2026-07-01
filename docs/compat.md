@@ -161,7 +161,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_diff_ukey` | missing |  |
 | `array_fill` | implemented | Creates arrays with repeated values and sequential integer keys starting at the requested index, including PHP 8 negative-key increment behavior; out-of-range counts surface as runtime errors. Source: https://www.php.net/manual/en/function.array-fill.php |
 | `array_fill_keys` | implemented | Uses the input values as keys with PHP array-key coercion and fills every key with the requested value. Source: https://www.php.net/manual/en/function.array-fill-keys.php |
-| `array_filter` | missing |  |
+| `array_filter` | partial | Supports explicit `null` callback with mode `0`, preserving original keys and filtering by PHP truthiness; callbacks, omitted defaults, and key/both modes are deferred. Source: https://www.php.net/manual/en/function.array-filter.php |
 | `array_find` | missing |  |
 | `array_find_key` | missing |  |
 | `array_first` | implemented | Returns the first insertion-order value, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-first.php |

@@ -1,0 +1,6 @@
+count:[2]
+a:[1]
+d:[ok]
+has-b:[]
+has-zero-string:[]
+exists:[1]

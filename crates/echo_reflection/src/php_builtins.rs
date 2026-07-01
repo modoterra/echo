@@ -19,6 +19,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "array_filter",
+            &[
+                ("array", Some("array")),
+                ("callback", Some("?callable")),
+                ("mode", Some("int")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_intersect",
             &[("array", Some("array")), ("arrays", Some("array"))],
             Some("array"),

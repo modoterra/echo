@@ -12,8 +12,8 @@ pub use keys::{
 };
 pub use search::{
     echo_php_array_count_values, echo_php_array_diff, echo_php_array_diff_assoc,
-    echo_php_array_intersect, echo_php_array_intersect_assoc, echo_php_array_search,
-    echo_php_array_unique, echo_php_in_array,
+    echo_php_array_filter, echo_php_array_intersect, echo_php_array_intersect_assoc,
+    echo_php_array_search, echo_php_array_unique, echo_php_in_array,
 };
 pub use sequence::{
     echo_php_array_chunk, echo_php_array_pad, echo_php_array_reverse, echo_php_array_slice,

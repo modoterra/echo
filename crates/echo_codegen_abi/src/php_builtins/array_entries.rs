@@ -123,6 +123,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "array_filter",
+        symbol: "echo_php_array_filter",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_unique",
         symbol: "echo_php_array_unique",
         helper_symbol: None,
