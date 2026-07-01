@@ -1,0 +1,7 @@
+enabled0:[1]
+enabled1:[]
+enabled2:[1]
+collect:[0]
+mem-int:[1]
+status:[11111]
+exists:[111111]

@@ -158,6 +158,12 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("get_error_handler", &[], Some("?callable")),
         php_builtin_reflection("get_exception_handler", &[], Some("?callable")),
+        php_builtin_reflection("gc_collect_cycles", &[], Some("int")),
+        php_builtin_reflection("gc_disable", &[], Some("void")),
+        php_builtin_reflection("gc_enable", &[], Some("void")),
+        php_builtin_reflection("gc_enabled", &[], Some("bool")),
+        php_builtin_reflection("gc_mem_caches", &[], Some("int")),
+        php_builtin_reflection("gc_status", &[], Some("array")),
         php_builtin_reflection(
             "class_exists",
             &[("class", Some("string")), ("autoload", Some("bool"))],

@@ -8,6 +8,7 @@ mod environment;
 pub mod error;
 mod execution;
 mod filesystem;
+mod gc;
 pub mod io;
 mod math;
 pub mod net;
@@ -73,6 +74,10 @@ pub use filesystem::{
     echo_php_realpath, echo_php_rename, echo_php_rmdir, echo_php_stream_get_contents,
     echo_php_symlink, echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_tmpfile,
     echo_php_touch, echo_php_uniqid, echo_php_unlink,
+};
+pub use gc::{
+    echo_php_gc_collect_cycles, echo_php_gc_disable, echo_php_gc_enable, echo_php_gc_enabled,
+    echo_php_gc_mem_caches, echo_php_gc_status,
 };
 pub use math::{
     echo_php_acos, echo_php_acosh, echo_php_asin, echo_php_asinh, echo_php_atan, echo_php_atan2,

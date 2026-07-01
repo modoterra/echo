@@ -91,12 +91,12 @@ Related baseline functions tracked below: `get_included_files`,
 | `func_get_args` | missing |  |
 | `func_num_args` | missing |  |
 | `function_exists` | implemented | Recognizes Echo's supported internal Echo PHP Surface function names, case-insensitively; user-defined function registry support is deferred. Source: https://www.php.net/manual/en/function.function-exists.php |
-| `gc_collect_cycles` | missing |  |
-| `gc_disable` | missing |  |
-| `gc_enable` | missing |  |
-| `gc_enabled` | missing |  |
-| `gc_mem_caches` | missing |  |
-| `gc_status` | missing |  |
+| `gc_collect_cycles` | implemented | Returns `0` because Echo does not expose PHP cyclic-GC internals. Source: https://www.php.net/manual/en/function.gc-collect-cycles.php |
+| `gc_disable` | partial | Toggles Echo's PHP GC compatibility flag off; no engine collector behavior is changed. Source: https://www.php.net/manual/en/function.gc-disable.php |
+| `gc_enable` | partial | Toggles Echo's PHP GC compatibility flag on; no engine collector behavior is changed. Source: https://www.php.net/manual/en/function.gc-enable.php |
+| `gc_enabled` | partial | Reports Echo's PHP GC compatibility flag. Source: https://www.php.net/manual/en/function.gc-enabled.php |
+| `gc_mem_caches` | implemented | Returns `0` because Echo does not expose PHP allocator cache internals. Source: https://www.php.net/manual/en/function.gc-mem-caches.php |
+| `gc_status` | partial | Returns PHP's expected status keys with Echo-owned baseline values. Source: https://www.php.net/manual/en/function.gc-status.php |
 | `get_called_class` | missing |  |
 | `get_class` | missing |  |
 | `get_class_methods` | missing |  |

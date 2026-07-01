@@ -7,6 +7,33 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_gc_collect_cycles",
+            echo_runtime::echo_php_gc_collect_cycles as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_gc_disable",
+            echo_runtime::echo_php_gc_disable as extern "C" fn() as usize,
+        ),
+        (
+            "echo_php_gc_enable",
+            echo_runtime::echo_php_gc_enable as extern "C" fn() as usize,
+        ),
+        (
+            "echo_php_gc_enabled",
+            echo_runtime::echo_php_gc_enabled as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_gc_mem_caches",
+            echo_runtime::echo_php_gc_mem_caches as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_gc_status",
+            echo_runtime::echo_php_gc_status as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_class_exists",
             echo_runtime::echo_php_class_exists
                 as extern "C" fn(
