@@ -1110,6 +1110,11 @@ declare(ticks=1) {
 }
 declare(ticks=1)
     echo "single";
+declare(ticks=1):
+    echo "alternate";
+enddeclare;
+declare(ticks=1):
+enddeclare;
 "#,
     )
     .expect("PHP declare statements parse");
@@ -1142,6 +1147,20 @@ declare(ticks=1)
             if statement.directives.len() == 1
                 && statement.directives[0].name == "ticks"
                 && statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[4],
+        Stmt::PhpDeclare(statement)
+            if statement.directives.len() == 1
+                && statement.directives[0].name == "ticks"
+                && statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[5],
+        Stmt::PhpDeclare(statement)
+            if statement.directives.len() == 1
+                && statement.directives[0].name == "ticks"
+                && statement.body.is_empty()
     ));
 }
 

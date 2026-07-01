@@ -3294,24 +3294,55 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .delimited_by(just('(').padded(), just(')').padded()),
             )
             .boxed();
+        let declare_alternate_body_boundary = text::keyword("enddeclare").padded().ignored();
+        let declare_alternate_body_statement = declare_alternate_body_boundary
+            .clone()
+            .not()
+            .ignore_then(statement.clone())
+            .boxed();
+        let declare_alternate_body = just(':')
+            .padded()
+            .ignore_then(
+                declare_alternate_body_statement
+                    .then_ignore(stray_terminators.clone())
+                    .repeated()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(declare_alternate_body_boundary)
+            .then_ignore(terminator.clone())
+            .boxed();
         let declare_body = block
             .clone()
             .map(Some)
             .or(just(';').padded().to(None))
             .or(statement.clone().map(|statement| Some(vec![statement])))
             .boxed();
-        let declare_stmt = declare_header
-            .then(declare_body)
-            .then_ignore(terminator.clone().or_not())
+        let declare_alternate_stmt = declare_header
+            .clone()
+            .then(declare_alternate_body)
             .map_with(|(directives, body), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::PhpDeclare(PhpDeclareStmt {
                     directives,
-                    body: body.unwrap_or_default(),
+                    body,
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+        let declare_stmt = declare_alternate_stmt
+            .or(declare_header
+                .then(declare_body)
+                .then_ignore(terminator.clone().or_not())
+                .map_with(|(directives, body), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::PhpDeclare(PhpDeclareStmt {
+                        directives,
+                        body: body.unwrap_or_default(),
+                        span: Span::new(span.start, span.end),
+                    })
+                }))
             .boxed();
 
         let let_binding = just('$').ignore_then(text::ident().padded()).then(
