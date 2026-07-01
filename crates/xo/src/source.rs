@@ -521,6 +521,19 @@ fn collect_statement_contextual_class_references(
                 collect_statement_contextual_class_references(statement, namespace, uses, names);
             }
         }
+        Stmt::Switch(statement) => {
+            collect_expr_contextual_class_references(&statement.expr, namespace, uses, names);
+            for case in &statement.cases {
+                if let Some(condition) = &case.condition {
+                    collect_expr_contextual_class_references(condition, namespace, uses, names);
+                }
+                for statement in &case.body {
+                    collect_statement_contextual_class_references(
+                        statement, namespace, uses, names,
+                    );
+                }
+            }
+        }
         Stmt::If(statement) => {
             collect_expr_contextual_class_references(&statement.condition, namespace, uses, names);
             for statement in &statement.body {
@@ -998,6 +1011,17 @@ fn collect_statement_class_references(
             collect_expr_class_references(&statement.iterable, names);
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
+            }
+        }
+        Stmt::Switch(statement) => {
+            collect_expr_class_references(&statement.expr, names);
+            for case in &statement.cases {
+                if let Some(condition) = &case.condition {
+                    collect_expr_class_references(condition, names);
+                }
+                for statement in &case.body {
+                    collect_statement_class_references(statement, names);
+                }
             }
         }
         Stmt::If(statement) => {
@@ -2137,6 +2161,15 @@ fn collect_static_include_paths(
             Stmt::Foreach(statement) => {
                 collect_static_include_expr(&mut statement.iterable, source_dir, paths);
                 collect_static_include_paths(&mut statement.body, source_dir, paths);
+            }
+            Stmt::Switch(statement) => {
+                collect_static_include_expr(&mut statement.expr, source_dir, paths);
+                for case in &mut statement.cases {
+                    if let Some(condition) = &mut case.condition {
+                        collect_static_include_expr(condition, source_dir, paths);
+                    }
+                    collect_static_include_paths(&mut case.body, source_dir, paths);
+                }
             }
             Stmt::If(statement) => {
                 collect_static_include_expr(&mut statement.condition, source_dir, paths);

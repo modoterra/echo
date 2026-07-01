@@ -71,6 +71,11 @@ pub enum MirStmt {
         value: String,
         body: Vec<MirStmt>,
     },
+    Switch {
+        source: Stmt,
+        expr: MirExpr,
+        cases: Vec<MirSwitchCase>,
+    },
     If {
         source: Stmt,
         condition: MirExpr,
@@ -118,6 +123,13 @@ pub struct MirElseIfClause {
     pub span: echo_source::Span,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MirSwitchCase {
+    pub condition: Option<MirExpr>,
+    pub body: Vec<MirStmt>,
+    pub span: echo_source::Span,
+}
+
 impl MirStmt {
     pub fn syntax(&self) -> &Stmt {
         match self {
@@ -135,6 +147,7 @@ impl MirStmt {
             | Self::While { source, .. }
             | Self::For { source, .. }
             | Self::Foreach { source, .. }
+            | Self::Switch { source, .. }
             | Self::If { source, .. }
             | Self::Try { source, .. }
             | Self::Break { source, .. }

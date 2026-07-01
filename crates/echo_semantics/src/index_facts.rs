@@ -556,6 +556,15 @@ impl IndexFactExtractor {
                 self.extract_expr_dependencies(&statement.iterable);
                 self.extract_statements(&statement.body);
             }
+            Stmt::Switch(statement) => {
+                self.extract_expr_dependencies(&statement.expr);
+                for case in &statement.cases {
+                    if let Some(condition) = &case.condition {
+                        self.extract_expr_dependencies(condition);
+                    }
+                    self.extract_statements(&case.body);
+                }
+            }
             Stmt::If(statement) => {
                 self.extract_expr_dependencies(&statement.condition);
                 self.extract_statements(&statement.body);

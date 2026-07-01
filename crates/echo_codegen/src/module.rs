@@ -50,6 +50,7 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::While(statement) => statement.span,
         Stmt::For(statement) => statement.span,
         Stmt::Foreach(statement) => statement.span,
+        Stmt::Switch(statement) => statement.span,
         Stmt::If(statement) => statement.span,
         Stmt::Try(statement) => statement.span,
         Stmt::Break(statement) => statement.span,

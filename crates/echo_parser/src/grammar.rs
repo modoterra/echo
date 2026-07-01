@@ -16,9 +16,9 @@ use echo_ast::{
     NumberLiteral, ObjectExpr, ObjectField, PrintExpr, Program, PropertyDecl, QualifiedName,
     ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
     StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt,
-    StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
-    TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
-    UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    StringLiteral, SwitchCase, SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt,
+    TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp,
+    UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -260,6 +260,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::While(statement) => statement.span,
         Stmt::For(statement) => statement.span,
         Stmt::Foreach(statement) => statement.span,
+        Stmt::Switch(statement) => statement.span,
         Stmt::If(statement) => statement.span,
         Stmt::Try(statement) => statement.span,
         Stmt::Break(statement) => statement.span,
@@ -351,6 +352,17 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
             normalize_php_compat_expr(&mut statement.iterable);
             for statement in &mut statement.body {
                 normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::Switch(statement) => {
+            normalize_php_compat_expr(&mut statement.expr);
+            for case in &mut statement.cases {
+                if let Some(condition) = &mut case.condition {
+                    normalize_php_compat_expr(condition);
+                }
+                for statement in &mut case.body {
+                    normalize_php_compat_statement(statement);
+                }
             }
         }
         Stmt::Try(statement) => {
@@ -3472,6 +3484,54 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let switch_case_separator = just(':').or(just(';')).padded();
+        let switch_case_boundary =
+            text::keyword("case")
+                .padded()
+                .ignored()
+                .or(text::keyword("default").padded().ignored());
+        let switch_case_body_statement = switch_case_boundary
+            .not()
+            .ignore_then(statement.clone())
+            .boxed();
+        let switch_case = text::keyword("case")
+            .padded()
+            .ignore_then(expr.clone())
+            .map(Some)
+            .or(text::keyword("default").padded().to(None))
+            .then_ignore(switch_case_separator)
+            .then(switch_case_body_statement.repeated().collect::<Vec<_>>())
+            .map_with(|(condition, body), extra| {
+                let span: SimpleSpan = extra.span();
+                SwitchCase {
+                    condition,
+                    body,
+                    span: Span::new(span.start, span.end),
+                }
+            })
+            .boxed();
+        let switch_stmt = text::keyword("switch")
+            .padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(expr.clone())
+            .then_ignore(just(')').padded())
+            .then(
+                switch_case
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|(expr, cases), extra| {
+                let span: SimpleSpan = extra.span();
+                Stmt::Switch(SwitchStmt {
+                    expr,
+                    cases,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let elseif_clause = text::keyword(kw::ELSEIF.text)
             .padded()
             .or(text::keyword(kw::ELSE.text)
@@ -3787,6 +3847,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(while_stmt)
             .or(for_stmt)
             .or(foreach_stmt)
+            .or(switch_stmt)
             .or(if_stmt)
             .or(break_stmt)
             .or(continue_stmt)

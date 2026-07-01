@@ -1040,6 +1040,40 @@ for (; ; ) {
 }
 
 #[test]
+fn parses_php_switch_statement_cases() {
+    let program = parse(
+        r#"<?php
+switch ($status) {
+    case "new":
+    case "queued";
+        echo "pending";
+        break;
+    case code_for($status):
+        echo "coded";
+        break;
+    default;
+        echo "unknown";
+}
+"#,
+    )
+    .expect("PHP switch statement parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Switch(statement)
+            if statement.cases.len() == 4
+                && statement.cases[0].condition.is_some()
+                && statement.cases[0].body.is_empty()
+                && statement.cases[1].condition.is_some()
+                && statement.cases[1].body.len() == 2
+                && statement.cases[2].condition.is_some()
+                && statement.cases[2].body.len() == 2
+                && statement.cases[3].condition.is_none()
+                && statement.cases[3].body.len() == 1
+    ));
+}
+
+#[test]
 fn parses_php_null_coalescing_assignment_statement() {
     let program = parse(
         r#"<?php

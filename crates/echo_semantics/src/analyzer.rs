@@ -283,6 +283,15 @@ impl Analyzer {
                 self.bind_variable(&statement.value, Type::Unknown, statement.span);
                 self.analyze_statements(&statement.body);
             }
+            Stmt::Switch(statement) => {
+                self.analyze_expr(&statement.expr);
+                for case in &statement.cases {
+                    if let Some(condition) = &case.condition {
+                        self.analyze_expr(condition);
+                    }
+                    self.analyze_statements(&case.body);
+                }
+            }
             Stmt::If(statement) => {
                 self.analyze_expr(&statement.condition);
                 self.analyze_statements(&statement.body);

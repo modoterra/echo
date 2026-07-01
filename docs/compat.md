@@ -51,6 +51,7 @@ Related baseline functions tracked below: `get_included_files`,
 | interface declarations | partial | Parser/AST support covers interface declarations, multiple parent interfaces, method signatures, and constants. PHP 8.4 interface property declarations with get/set hooks are still deferred. Source: https://www.php.net/manual/en/language.oop5.interfaces.php |
 | `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
 | `print` | partial | Parser/AST and codegen support covers `print` as an expression that writes one value and returns `1`. Source: https://www.php.net/manual/en/function.print.php |
+| `switch` statements | partial | Parser/AST support covers braced `switch` statements with expression `case` labels, `default`, empty fall-through case bodies, and both `:` and `;` label separators. Alternate `endswitch` syntax and runtime execution are deferred. Source: https://www.php.net/manual/en/control-structures.switch.php |
 
 ## Totals
 

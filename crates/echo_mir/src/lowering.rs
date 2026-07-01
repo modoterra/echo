@@ -1,6 +1,7 @@
 use crate::{
     MirArrayElement, MirCallArg, MirCatchClause, MirElseIfClause, MirExpr, MirForkExpr,
     MirFunction, MirFunctionCall, MirNewTarget, MirObjectField, MirProgram, MirRunExpr, MirStmt,
+    MirSwitchCase,
 };
 use echo_ast::{
     CallArg, ClassMember, EnumMember, Expr, FunctionDeclStmt, ImportStmt, MethodDecl, Stmt,
@@ -156,6 +157,23 @@ pub(crate) fn lower_syntax_statement(
                 .body
                 .iter()
                 .map(|statement| lower_syntax_statement(statement, imports, functions))
+                .collect(),
+        },
+        Stmt::Switch(statement) => MirStmt::Switch {
+            source: Stmt::Switch(statement.clone()),
+            expr: lower_expr(&statement.expr),
+            cases: statement
+                .cases
+                .iter()
+                .map(|case| MirSwitchCase {
+                    condition: case.condition.as_ref().map(lower_expr),
+                    body: case
+                        .body
+                        .iter()
+                        .map(|statement| lower_syntax_statement(statement, imports, functions))
+                        .collect(),
+                    span: case.span,
+                })
                 .collect(),
         },
         Stmt::If(statement) => MirStmt::If {

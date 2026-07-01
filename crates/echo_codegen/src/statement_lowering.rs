@@ -111,6 +111,22 @@ impl IrModule {
                 body: foreach_body,
                 ..
             } => self.render_mir_foreach_stmt(body, iterable, key.as_deref(), value, foreach_body),
+            echo_mir::MirStmt::Switch {
+                source,
+                expr,
+                cases,
+            } => {
+                self.render_mir_expr_as_echo_value(body, expr)?;
+                for case in cases {
+                    if let Some(condition) = &case.condition {
+                        self.render_mir_expr_as_echo_value(body, condition)?;
+                    }
+                }
+                Err(Diagnostic::new(
+                    "unsupported switch statement in LLVM codegen",
+                    stmt_span(source),
+                ))
+            }
             echo_mir::MirStmt::If {
                 condition,
                 body: if_body,

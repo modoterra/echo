@@ -33,6 +33,7 @@ pub enum Stmt {
     While(WhileStmt),
     For(ForStmt),
     Foreach(ForeachStmt),
+    Switch(SwitchStmt),
     If(IfStmt),
     Try(TryStmt),
     Break(BreakStmt),
@@ -294,6 +295,20 @@ pub struct ForeachStmt {
     pub iterable: Expr,
     pub key: Option<String>,
     pub value: String,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwitchStmt {
+    pub expr: Expr,
+    pub cases: Vec<SwitchCase>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwitchCase {
+    pub condition: Option<Expr>,
     pub body: Vec<Stmt>,
     pub span: Span,
 }
