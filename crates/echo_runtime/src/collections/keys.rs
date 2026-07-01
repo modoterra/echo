@@ -169,3 +169,33 @@ pub extern "C" fn echo_php_array_key_last(array: EchoValue) -> EchoValue {
         None => EchoValue::null(),
     }
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_first(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    array
+        .values
+        .first()
+        .copied()
+        .unwrap_or_else(EchoValue::null)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_last(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    array.values.last().copied().unwrap_or_else(EchoValue::null)
+}

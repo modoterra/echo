@@ -382,6 +382,8 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("array", Some("array"))],
             Some("int|string|null"),
         ),
+        php_builtin_reflection("array_first", &[("array", Some("array"))], Some("mixed")),
+        php_builtin_reflection("array_last", &[("array", Some("array"))], Some("mixed")),
         php_builtin_reflection(
             "in_array",
             &[

@@ -164,7 +164,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_filter` | missing |  |
 | `array_find` | missing |  |
 | `array_find_key` | missing |  |
-| `array_first` | missing |  |
+| `array_first` | implemented | Returns the first insertion-order value, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-first.php |
 | `array_flip` | implemented | Exchanges int/string values with their original keys; duplicate values keep the latest key, while unsupported value-key types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-flip.php |
 | `array_intersect` | missing |  |
 | `array_intersect_assoc` | missing |  |
@@ -176,7 +176,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_key_first` | implemented | Returns the first insertion-order key as `int|string`, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-key-first.php |
 | `array_key_last` | implemented | Returns the last insertion-order key as `int|string`, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-key-last.php |
 | `array_keys` | implemented | Returns numeric and string keys, with optional loose or strict value filtering. Source: https://www.php.net/manual/en/function.array-keys.php |
-| `array_last` | missing |  |
+| `array_last` | implemented | Returns the last insertion-order value, or `null` for an empty array. Source: https://www.php.net/manual/en/function.array-last.php |
 | `array_map` | missing |  |
 | `array_merge` | implemented | Merges any number of arrays, overwriting duplicate string keys while appending and renumbering numeric keys from zero; zero arguments return an empty array. Source: https://www.php.net/manual/en/function.array-merge.php |
 | `array_merge_recursive` | missing |  |

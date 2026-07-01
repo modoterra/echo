@@ -219,12 +219,25 @@ fn array_lookup_builtins_preserve_php_key_and_value_behavior() {
         Some(b"id".to_vec())
     );
     assert_eq!(echo_php_array_key_last(array), EchoValue::int(0));
+    assert_eq!(echo_php_array_first(array), EchoValue::int(10));
+    assert_eq!(
+        echo_php_array_last(array).string_bytes(),
+        Some(b"zero".to_vec())
+    );
     assert_eq!(
         echo_php_array_key_first(echo_value_array_new()),
         EchoValue::null()
     );
     assert_eq!(
         echo_php_array_key_last(echo_value_array_new()),
+        EchoValue::null()
+    );
+    assert_eq!(
+        echo_php_array_first(echo_value_array_new()),
+        EchoValue::null()
+    );
+    assert_eq!(
+        echo_php_array_last(echo_value_array_new()),
         EchoValue::null()
     );
     assert_eq!(

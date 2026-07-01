@@ -231,6 +231,54 @@ fn array_keys_lowers_optional_filter_and_strict_defaults() {
 }
 
 #[test]
+fn array_first_and_last_lower_to_runtime_calls() {
+    let array = Expr::Array(ArrayExpr {
+        elements: vec![ArrayElement {
+            key: Some(Expr::String(StringLiteral {
+                value: "id".to_string(),
+                span: Span::new(12, 16),
+            })),
+            value: Expr::Number(NumberLiteral {
+                value: "10".to_string(),
+                span: Span::new(20, 22),
+            }),
+            span: Span::new(12, 22),
+        }],
+        span: Span::new(11, 23),
+    });
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![
+            Expr::FunctionCall(FunctionCallExpr {
+                name: "array_first".to_string(),
+                args: echo_ast::call_args![array.clone()],
+                span: Span::new(0, 24),
+            }),
+            Expr::FunctionCall(FunctionCallExpr {
+                name: "array_last".to_string(),
+                args: echo_ast::call_args![array],
+                span: Span::new(25, 48),
+            }),
+        ],
+        span: Span::new(0, 49),
+    })]))
+    .expect("IR");
+
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_first(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("declare %EchoValue @echo_php_array_last(%EchoValue)"),
+        "{ir}"
+    );
+    assert!(
+        ir.contains("call %EchoValue @echo_php_array_first("),
+        "{ir}"
+    );
+    assert!(ir.contains("call %EchoValue @echo_php_array_last("), "{ir}");
+}
+
+#[test]
 fn in_array_lowers_optional_strict_default() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::FunctionCall(FunctionCallExpr {

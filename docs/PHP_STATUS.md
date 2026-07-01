@@ -27,15 +27,15 @@ Primary upstream references:
 - PHP compatibility fixtures: 190 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 205.
-- Remaining Core + standard functions in inventory: 402.
+- Implemented Core + standard functions in inventory: 207.
+- Remaining Core + standard functions in inventory: 400.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `205 / 607`, or about 34%, for the Core + standard baseline,
+coverage alone is `207 / 607`, or about 34%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -128,14 +128,13 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 
 ### New Core and Standard Functions
 
-- `[ ]` `array_first(array $array): mixed`.
-  - Return first insertion-order value or `null` for an empty array.
-  - Pair with existing `array_key_first()` implementation and array key/value
-    iteration helpers.
+- `[x]` `array_first(array $array): mixed`.
+  - Returns the first insertion-order value or `null` for an empty array.
+  - Covered by `tests/php/128_array_lookup_builtins`.
 
-- `[ ]` `array_last(array $array): mixed`.
-  - Return last insertion-order value or `null` for an empty array.
-  - Pair with existing `array_key_last()` implementation.
+- `[x]` `array_last(array $array): mixed`.
+  - Returns the last insertion-order value or `null` for an empty array.
+  - Covered by `tests/php/128_array_lookup_builtins`.
 
 - `[ ]` `get_error_handler(): ?callable`.
   - Requires runtime error-handler registry.
@@ -258,7 +257,7 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 ### Runtime Builtins
 
 - `[~]` Core + standard function inventory is tracked in `docs/compat.md`.
-- `[ ]` Raise implemented baseline count beyond 205/607.
+- `[ ]` Raise implemented baseline count beyond 207/607.
 - `[ ]` Prioritize missing functions that unblock common Laravel/Symfony style
   bootstrap code: class/reflection helpers, error handlers, include metadata,
   environment/config helpers, and array mutation helpers.
@@ -267,24 +266,19 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 
 ## Next Useful Slices
 
-1. `array_first()` and `array_last()`.
-   - Small runtime surface.
-   - Direct PHP 8.5 feature.
-   - Reuses existing array key/value ordering machinery.
-
-2. `(void)` cast plus `NoDiscard` AST representation.
+1. `(void)` cast plus `NoDiscard` AST representation.
    - Parser/AST first, then diagnostics.
    - Establishes PHP-specific naming such as `PhpVoidCast` or equivalent where
      the node is compatibility-only.
 
-3. Pipe operator parser/AST.
+2. Pipe operator parser/AST.
    - Add fixture from the PHP 8.5 release example.
    - Keep AST truthful: do not lower to nested calls inside the parser.
 
-4. `clone($object, [...])` parser/AST.
+3. `clone($object, [...])` parser/AST.
    - Extends existing `clone` support.
    - Runtime object semantics can land separately if the AST shape is explicit.
 
-5. Constant expression evaluator.
+4. Constant expression evaluator.
    - Needed for PHP 8.5 closure/cast/callable constant expressions and for
      attribute correctness.
