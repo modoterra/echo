@@ -37,6 +37,7 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::Label(statement) => statement.span,
         Stmt::PhpDeclare(statement) => statement.span,
         Stmt::PhpExit(statement) => statement.span,
+        Stmt::PhpInlineHtml(statement) => statement.span,
         Stmt::Global(statement) => statement.span,
         Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,

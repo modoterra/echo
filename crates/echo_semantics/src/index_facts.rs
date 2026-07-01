@@ -547,6 +547,7 @@ impl IndexFactExtractor {
                     self.extract_expr_dependencies(value);
                 }
             }
+            Stmt::PhpInlineHtml(_) => {}
             Stmt::Loop(statement) => self.extract_statements(&statement.body),
             Stmt::While(statement) => {
                 self.extract_expr_dependencies(&statement.condition);

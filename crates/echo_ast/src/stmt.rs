@@ -20,6 +20,7 @@ pub enum Stmt {
     Label(LabelStmt),
     PhpDeclare(PhpDeclareStmt),
     PhpExit(PhpExitStmt),
+    PhpInlineHtml(PhpInlineHtmlStmt),
     Global(GlobalStmt),
     StaticVar(StaticVarStmt),
     Expr(ExprStmt),
@@ -180,6 +181,12 @@ pub struct PhpExitStmt {
 pub enum PhpExitKind {
     Exit,
     Die,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhpInlineHtmlStmt {
+    pub text: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]

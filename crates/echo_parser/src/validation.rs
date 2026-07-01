@@ -3,6 +3,7 @@ use echo_diagnostics::Diagnostic;
 
 pub(crate) fn validate_program(program: &Program) -> Result<(), Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
+    validate_inline_html(program, &mut diagnostics);
     validate_namespace_prelude(program, &mut diagnostics);
     validate_compile_prelude(program, &mut diagnostics);
 
@@ -10,6 +11,29 @@ pub(crate) fn validate_program(program: &Program) -> Result<(), Vec<Diagnostic>>
         Ok(())
     } else {
         Err(diagnostics)
+    }
+}
+
+fn validate_inline_html(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
+    let has_php_context = program.open_tag.is_some()
+        || program
+            .statements
+            .iter()
+            .any(|statement| !matches!(statement, Stmt::PhpInlineHtml(_)));
+
+    for statement in &program.statements {
+        let Stmt::PhpInlineHtml(statement) = statement else {
+            continue;
+        };
+
+        if has_php_context || statement.text.trim_start().starts_with('<') {
+            continue;
+        }
+
+        diagnostics.push(Diagnostic::new(
+            "expected PHP code, Echo code, or inline HTML markup",
+            statement.span,
+        ));
     }
 }
 

@@ -1361,6 +1361,54 @@ fn parses_php_closing_tag_statement_terminators() {
 }
 
 #[test]
+fn parses_php_inline_html_between_tags() {
+    let program = parse(
+        r#"<p>Hello</p>
+<?php echo "hi"; ?>
+<p>Bye</p>
+"#,
+    )
+    .expect("PHP inline HTML interleaves with PHP blocks");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::PhpInlineHtml(statement)
+            if statement.text == "<p>Hello</p>\n"
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Echo(statement)
+            if statement.exprs.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::PhpInlineHtml(statement)
+            if statement.text == "<p>Bye</p>\n"
+    ));
+}
+
+#[test]
+fn parses_php_inline_short_echo_tags() {
+    let program = parse(r#"Hello <?= $name ?>!"#).expect("PHP inline short echo tags parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::PhpInlineHtml(statement)
+            if statement.text == "Hello "
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Echo(statement)
+            if statement.exprs.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::PhpInlineHtml(statement)
+            if statement.text == "!"
+    ));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php

@@ -86,6 +86,10 @@ impl IrModule {
                 }
             }
             echo_mir::MirStmt::PhpExit { value, .. } => self.render_mir_php_exit_stmt(body, value),
+            echo_mir::MirStmt::PhpInlineHtml { text, .. } => {
+                self.write_value(body, RuntimeValue::StaticString(text.clone()));
+                Ok(())
+            }
             echo_mir::MirStmt::Expr { expr, .. } => {
                 self.render_mir_expr(body, expr)?;
                 Ok(())

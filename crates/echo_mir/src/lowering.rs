@@ -136,6 +136,10 @@ pub(crate) fn lower_syntax_statement(
             source: Stmt::PhpExit(statement.clone()),
             value: statement.value.as_ref().map(lower_expr),
         },
+        Stmt::PhpInlineHtml(statement) => MirStmt::PhpInlineHtml {
+            source: Stmt::PhpInlineHtml(statement.clone()),
+            text: statement.text.clone(),
+        },
         Stmt::Expr(statement) => MirStmt::Expr {
             source: Stmt::Expr(statement.clone()),
             expr: lower_expr(&statement.expr),

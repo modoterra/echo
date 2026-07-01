@@ -259,7 +259,8 @@ impl Analyzer {
             | Stmt::Goto(_)
             | Stmt::Label(_)
             | Stmt::Break(_)
-            | Stmt::Continue(_) => {}
+            | Stmt::Continue(_)
+            | Stmt::PhpInlineHtml(_) => {}
             Stmt::PhpDeclare(statement) => {
                 for directive in &statement.directives {
                     self.analyze_expr(&directive.value);

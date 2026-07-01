@@ -14,8 +14,8 @@ use echo_ast::{
     LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
     MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
     NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective, PhpDeclareStmt, PhpExitKind,
-    PhpExitStmt, PrintExpr, Program, PropertyDecl, QualifiedName, ReceiverConst, ReceiverConstExpr,
-    ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    PhpExitStmt, PhpInlineHtmlStmt, PrintExpr, Program, PropertyDecl, QualifiedName, ReceiverConst,
+    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
     StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt, StringLiteral, SwitchCase,
     SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
     TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
@@ -248,6 +248,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::Label(statement) => statement.span,
         Stmt::PhpDeclare(statement) => statement.span,
         Stmt::PhpExit(statement) => statement.span,
+        Stmt::PhpInlineHtml(statement) => statement.span,
         Stmt::Global(statement) => statement.span,
         Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,
@@ -334,6 +335,7 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
                 normalize_php_compat_expr(value);
             }
         }
+        Stmt::PhpInlineHtml(_) => {}
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &mut statement.vars {
@@ -760,8 +762,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             let span: SimpleSpan = extra.span();
             Span::new(span.start, span.end)
         })
-        .padded()
-        .or_not();
+        .padded();
 
     let type_expr = type_expr_parser();
     let prefix_typed_param = type_expr
@@ -4285,15 +4286,56 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .boxed()
     });
 
+    let php_tag_boundary = just("<?php")
+        .ignored()
+        .or(just("<?PHP").ignored())
+        .or(just("<?=").ignored())
+        .boxed();
+
+    let inline_html_stmt = php_tag_boundary
+        .clone()
+        .not()
+        .ignore_then(any())
+        .repeated()
+        .at_least(1)
+        .collect::<String>()
+        .map_with(|text, extra| {
+            let span: SimpleSpan = extra.span();
+            Stmt::PhpInlineHtml(PhpInlineHtmlStmt {
+                text,
+                span: Span::new(span.start, span.end),
+            })
+        })
+        .boxed();
+
+    let php_statement_block = open_php
+        .then(statement.clone().repeated().collect::<Vec<_>>())
+        .then_ignore(just("?>").padded().or_not())
+        .map(|(open_tag, statements)| (Some(open_tag), statements))
+        .boxed();
+
+    let program_chunk = php_statement_block
+        .or(statement
+            .clone()
+            .map(|statement| (None, vec![statement]))
+            .boxed())
+        .or(inline_html_stmt
+            .map(|statement| (None, vec![statement]))
+            .boxed())
+        .boxed();
+
     text::whitespace()
         .ignored()
         .or_not()
-        .ignore_then(open_php)
-        .then(statement.repeated().at_least(1).collect::<Vec<_>>())
-        .then_ignore(just("?>").padded().or_not())
+        .ignore_then(program_chunk.repeated().at_least(1).collect::<Vec<_>>())
         .then_ignore(end())
-        .map_with(|(open_tag, statements), extra| {
+        .map_with(|chunks, extra| {
             let span: SimpleSpan = extra.span();
+            let open_tag = chunks.iter().find_map(|(open_tag, _)| *open_tag);
+            let statements = chunks
+                .into_iter()
+                .flat_map(|(_, statements)| statements)
+                .collect();
 
             Program {
                 open_tag,

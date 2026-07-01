@@ -493,6 +493,7 @@ fn collect_statement_contextual_class_references(
                 collect_expr_contextual_class_references(value, namespace, uses, names);
             }
         }
+        Stmt::PhpInlineHtml(_) => {}
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &statement.vars {
@@ -1016,6 +1017,7 @@ fn collect_statement_class_references(
                 collect_expr_class_references(value, names);
             }
         }
+        Stmt::PhpInlineHtml(_) => {}
         Stmt::Loop(statement) => {
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
@@ -2188,6 +2190,7 @@ fn collect_static_include_paths(
                     collect_static_include_expr(value, source_dir, paths);
                 }
             }
+            Stmt::PhpInlineHtml(_) => {}
             Stmt::Expr(statement) => {
                 collect_static_include_expr(&mut statement.expr, source_dir, paths)
             }

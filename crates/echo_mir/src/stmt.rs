@@ -60,6 +60,10 @@ pub enum MirStmt {
         source: Stmt,
         value: Option<MirExpr>,
     },
+    PhpInlineHtml {
+        source: Stmt,
+        text: String,
+    },
     Expr {
         source: Stmt,
         expr: MirExpr,
@@ -167,6 +171,7 @@ impl MirStmt {
             | Self::Label { source, .. }
             | Self::PhpDeclare { source, .. }
             | Self::PhpExit { source, .. }
+            | Self::PhpInlineHtml { source, .. }
             | Self::Expr { source, .. }
             | Self::Loop { source, .. }
             | Self::While { source, .. }
