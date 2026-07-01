@@ -75,6 +75,14 @@ pub extern "C" fn echo_php_getmygid() -> EchoValue {
         .unwrap_or_else(|| EchoValue::bool(false))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_current_user() -> EchoValue {
+    env::var_os("USER")
+        .or_else(|| env::var_os("LOGNAME"))
+        .map(|value| echo_runtime_string(os_string_bytes(&value)))
+        .unwrap_or_else(|| echo_runtime_string(Vec::new()))
+}
+
 #[cfg(target_os = "linux")]
 fn proc_status_id(field: &str) -> Option<i64> {
     let content = std::fs::read_to_string("/proc/self/status").ok()?;

@@ -1514,6 +1514,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the local machine hostname when it is available.",
       },
       {
+        name: "get_current_user",
+        signature: "get_current_user(): string",
+        description: "Returns the current process user name baseline.",
+      },
+      {
         name: "getmypid",
         signature: "getmypid(): int|false",
         description: "Returns the current process ID.",
@@ -2425,6 +2430,12 @@ if (!$host) {
 }
 
 echo "Processing import on " . $host . "\\n"`,
+  ],
+  [
+    "get_current_user",
+    `let $user = get_current_user()
+
+echo "Current user: " . $user . "\\n"`,
   ],
   [
     "getmypid",
@@ -3734,6 +3745,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "gethostname",
     "Use `gethostname()` to add host context to logs, diagnostics, or generated status records. Keep a fallback because some hosts may not report a name.",
+  ],
+  [
+    "get_current_user",
+    "Use `get_current_user()` in compatibility diagnostics that expect a PHP-style current user string. Echo currently reports the process user rather than the script file owner.",
   ],
   [
     "getmypid",
@@ -6757,7 +6772,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 249 PHP compatibility fixtures, 282 implemented Core and standard functions out of 607, 325 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 250 PHP compatibility fixtures, 283 implemented Core and standard functions out of 607, 324 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

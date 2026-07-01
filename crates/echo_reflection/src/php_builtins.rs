@@ -365,6 +365,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string|array|false"),
         ),
         php_builtin_reflection("gethostname", &[], Some("string|false")),
+        php_builtin_reflection("get_current_user", &[], Some("string")),
         php_builtin_reflection("getmypid", &[], Some("int|false")),
         php_builtin_reflection("getmyuid", &[], Some("int|false")),
         php_builtin_reflection("getmygid", &[], Some("int|false")),

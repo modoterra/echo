@@ -326,7 +326,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fwrite` | missing |  |
 | `get_browser` | missing |  |
 | `get_cfg_var` | implemented | Returns `false` for configuration options because Echo does not load PHP configuration values. Source: https://www.php.net/manual/en/function.get-cfg-var.php |
-| `get_current_user` | missing |  |
+| `get_current_user` | partial | Returns the process `USER`/`LOGNAME` value, or an empty string when unavailable; PHP's script-owner lookup is deferred. Source: https://www.php.net/manual/en/function.get-current-user.php |
 | `get_debug_type` | missing |  |
 | `get_headers` | missing |  |
 | `get_html_translation_table` | missing |  |
