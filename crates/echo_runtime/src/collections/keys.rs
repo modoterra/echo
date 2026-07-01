@@ -52,6 +52,39 @@ pub extern "C" fn echo_php_array_keys(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_change_key_case(array: EchoValue, case: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(case) = case.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let keys = array
+        .keys
+        .iter()
+        .map(|key| match key {
+            EchoArrayKey::Int(value) => EchoArrayKey::Int(*value),
+            EchoArrayKey::String(bytes) if case == 1 => {
+                EchoArrayKey::String(bytes.iter().map(u8::to_ascii_uppercase).collect())
+            }
+            EchoArrayKey::String(bytes) => {
+                EchoArrayKey::String(bytes.iter().map(u8::to_ascii_lowercase).collect())
+            }
+        })
+        .collect();
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray {
+        keys,
+        values: array.values.clone(),
+    })))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_fill(
     start_index: EchoValue,
     count: EchoValue,

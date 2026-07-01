@@ -149,7 +149,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `addslashes` | implemented | Escapes single quote, double quote, backslash, and NUL bytes for legacy quoted-string compatibility. Source: https://www.php.net/manual/en/function.addslashes.php |
 | `array_all` | missing |  |
 | `array_any` | missing |  |
-| `array_change_key_case` | missing |  |
+| `array_change_key_case` | partial | Changes string keys to ASCII lowercase or uppercase while preserving integer keys; omitted-case defaulting and non-ASCII casing are deferred. Source: https://www.php.net/manual/en/function.array-change-key-case.php |
 | `array_chunk` | implemented | Splits arrays into numerically indexed chunks, optionally preserving original keys inside each chunk; invalid chunk lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-chunk.php |
 | `array_column` | missing |  |
 | `array_combine` | implemented | Creates an array from one array of keys and one array of values, using PHP array-key coercion; duplicate keys keep the latest value, and mismatched input lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-combine.php |

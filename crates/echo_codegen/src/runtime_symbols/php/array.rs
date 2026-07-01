@@ -22,6 +22,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_array_change_key_case",
+            echo_runtime::echo_php_array_change_key_case
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_array_fill",
             echo_runtime::echo_php_array_fill
                 as extern "C" fn(

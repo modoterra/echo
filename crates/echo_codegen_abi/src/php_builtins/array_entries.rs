@@ -27,6 +27,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ArrayKeys,
     },
     PhpBuiltin {
+        php_name: "array_change_key_case",
+        symbol: "echo_php_array_change_key_case",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_fill",
         symbol: "echo_php_array_fill",
         helper_symbol: None,

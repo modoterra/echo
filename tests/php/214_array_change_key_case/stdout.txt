@@ -1,0 +1,6 @@
+lower-name:[Ada]
+lower-count:[2]
+lower-int:[num]
+upper-name:[Ada]
+upper-count:[2]
+exists:[1]

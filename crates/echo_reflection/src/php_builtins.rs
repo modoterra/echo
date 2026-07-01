@@ -4,6 +4,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
     [
         php_builtin_reflection("abs", &[("num", Some("int|float"))], Some("int|float")),
         php_builtin_reflection(
+            "array_change_key_case",
+            &[("array", Some("array")), ("case", Some("int"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "debug_backtrace",
             &[("options", Some("int")), ("limit", Some("int"))],
             Some("array"),
