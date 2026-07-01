@@ -517,7 +517,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `popen` | missing |  |
 | `pos` | missing |  |
 | `pow` | implemented | Raises a numeric base to a numeric exponent, returning int for representable non-negative integer powers and float otherwise. Source: https://www.php.net/manual/en/function.pow.php |
-| `prev` | missing |  |
+| `prev` | partial | Returns `false` for Echo's current no-pointer baseline because there is no previous value at the initial array position; PHP internal array pointer state and persistent movement are deferred. Source: https://www.php.net/manual/en/function.prev.php |
 | `print_r` | missing |  |
 | `printf` | missing |  |
 | `proc_close` | missing |  |

@@ -458,6 +458,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Advances to the next array value. Echo currently exposes a no-pointer baseline.",
       },
       {
+        name: "prev",
+        signature: "prev(array $array): mixed",
+        description:
+          "Moves to the previous array value. Echo currently exposes a no-pointer baseline.",
+      },
+      {
         name: "array_keys",
         signature: "array_keys(array $array, mixed $filter_value, bool $strict): array",
         description: "Returns array keys, optionally filtered by value.",
@@ -2915,6 +2921,15 @@ let $second = next($queue)
 echo $second . "\\n"`,
   ],
   [
+    "prev",
+    `let $queue = ["draft", "review", "ship"]
+let $previous = prev($queue)
+
+if ($previous === false) {
+    echo "no previous\\n"
+}`,
+  ],
+  [
     "array_keys",
     `let $row = ["id": "A-42", "qty": "3"]
 let $columns = array_keys($row)
@@ -3862,6 +3877,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "next",
     "Use `next()` when compatibility code expects to advance from the first array value. Echo's current baseline reports the second value without persistent pointer movement.",
+  ],
+  [
+    "prev",
+    "Use `prev()` when compatibility code attempts to move backward in an array cursor. Echo's current baseline returns false until persistent pointer movement is modeled.",
   ],
   [
     "array_keys",
@@ -6565,7 +6584,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 237 PHP compatibility fixtures, 270 implemented Core and standard functions out of 607, 337 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 238 PHP compatibility fixtures, 271 implemented Core and standard functions out of 607, 336 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

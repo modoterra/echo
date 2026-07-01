@@ -71,6 +71,15 @@ pub extern "C" fn echo_php_next(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_prev(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_reset(array: EchoValue) -> EchoValue {
     echo_php_current(array)
 }

@@ -43,7 +43,7 @@ pub use collections::{
     echo_php_array_slice, echo_php_array_splice, echo_php_array_sum, echo_php_array_unique,
     echo_php_array_unshift, echo_php_array_values, echo_php_arsort, echo_php_asort, echo_php_count,
     echo_php_current, echo_php_end, echo_php_in_array, echo_php_key, echo_php_krsort,
-    echo_php_ksort, echo_php_next, echo_php_reset, echo_php_rsort, echo_php_sort,
+    echo_php_ksort, echo_php_next, echo_php_prev, echo_php_reset, echo_php_rsort, echo_php_sort,
     echo_value_array_append, echo_value_array_key_at, echo_value_array_len, echo_value_array_new,
     echo_value_array_set, echo_value_array_value_at, echo_value_index_get, echo_value_list_append,
     echo_value_list_new,
