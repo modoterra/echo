@@ -1383,6 +1383,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the PHP Server API name for the current runtime.",
       },
       {
+        name: "php_uname",
+        signature: "php_uname(string $mode): string",
+        description: "Returns host system identity information.",
+      },
+      {
         name: "zend_version",
         signature: "zend_version(): string",
         description: "Returns the Zend Engine compatibility version.",
@@ -2224,6 +2229,12 @@ echo "PHP compatibility: " . $version . "\\n"`,
     `if (php_sapi_name() === "cli") {
     echo "running command-line bootstrap\\n"
 }`,
+  ],
+  [
+    "php_uname",
+    `let $system = php_uname("s")
+
+echo "System: " . $system . "\\n"`,
   ],
   [
     "zend_version",
@@ -4456,6 +4467,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "php_sapi_name",
     "Use `php_sapi_name()` for legacy compatibility branches that distinguish command-line execution from other PHP Server API names.",
+  ],
+  [
+    "php_uname",
+    "Use `php_uname()` for compatibility diagnostics that include host OS, node, release, version, or machine information.",
   ],
   [
     "zend_version",
@@ -6712,7 +6727,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 246 PHP compatibility fixtures, 279 implemented Core and standard functions out of 607, 328 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 247 PHP compatibility fixtures, 280 implemented Core and standard functions out of 607, 327 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -509,7 +509,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `php_ini_scanned_files` | implemented | Returns `false` because Echo does not scan PHP configuration directories. Source: https://www.php.net/manual/en/function.php-ini-scanned-files.php |
 | `php_sapi_name` | implemented | Returns Echo's PHP compatibility Server API name, currently `cli`, matching the `PHP_SAPI` constant. Source: https://www.php.net/manual/en/function.php-sapi-name.php |
 | `php_strip_whitespace` | missing |  |
-| `php_uname` | missing |  |
+| `php_uname` | partial | Returns host system identity fields for explicit mode strings such as `s`, `n`, `r`, `v`, and `m`; no-argument default lowering is deferred. Source: https://www.php.net/manual/en/function.php-uname.php |
 | `phpcredits` | missing |  |
 | `phpinfo` | missing |  |
 | `phpversion` | implemented | Returns Echo's PHP compatibility version for no extension or `null`; named extension versions are not modeled yet and return `false`. Source: https://www.php.net/manual/en/function.phpversion.php |

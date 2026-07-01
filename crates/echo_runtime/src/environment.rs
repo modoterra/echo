@@ -139,6 +139,77 @@ pub extern "C" fn echo_php_zend_version() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_php_uname(mode: EchoValue) -> EchoValue {
+    let mode = mode
+        .string_bytes()
+        .and_then(|bytes| bytes.first().copied())
+        .unwrap_or(b'a')
+        .to_ascii_lowercase();
+
+    let system = php_uname_system();
+    let node = php_uname_node();
+    let release = php_uname_file("/proc/sys/kernel/osrelease", "unknown");
+    let version = php_uname_file("/proc/sys/kernel/version", "unknown");
+    let machine = std::env::consts::ARCH.as_bytes().to_vec();
+
+    let value = match mode {
+        b's' => system,
+        b'n' => node,
+        b'r' => release,
+        b'v' => version,
+        b'm' => machine,
+        _ => {
+            let mut value = Vec::new();
+            for (index, part) in [system, node, release, version, machine]
+                .into_iter()
+                .enumerate()
+            {
+                if index > 0 {
+                    value.push(b' ');
+                }
+                value.extend(part);
+            }
+            value
+        }
+    };
+
+    echo_runtime_string(value)
+}
+
+fn php_uname_system() -> Vec<u8> {
+    if cfg!(target_os = "linux") {
+        b"Linux".to_vec()
+    } else if cfg!(target_os = "macos") {
+        b"Darwin".to_vec()
+    } else if cfg!(target_os = "windows") {
+        b"Windows".to_vec()
+    } else {
+        std::env::consts::OS.as_bytes().to_vec()
+    }
+}
+
+fn php_uname_node() -> Vec<u8> {
+    env::var_os("HOSTNAME")
+        .and_then(non_empty_os_string_bytes)
+        .or_else(|| hostname_file_bytes(Path::new("/proc/sys/kernel/hostname")))
+        .or_else(|| hostname_file_bytes(Path::new("/etc/hostname")))
+        .unwrap_or_else(|| b"unknown".to_vec())
+}
+
+fn php_uname_file(path: &str, fallback: &str) -> Vec<u8> {
+    std::fs::read(path)
+        .ok()
+        .map(|mut bytes| {
+            while matches!(bytes.last(), Some(b'\n' | b'\r')) {
+                bytes.pop();
+            }
+            bytes
+        })
+        .filter(|bytes| !bytes.is_empty())
+        .unwrap_or_else(|| fallback.as_bytes().to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_extension_loaded(extension: EchoValue) -> EchoValue {
     let Some(_extension) = extension.string_bytes() else {
         return EchoValue::bool(false);
