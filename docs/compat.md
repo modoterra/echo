@@ -343,7 +343,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getlastmod` | missing |  |
 | `getmxrr` | missing |  |
 | `getmygid` | partial | Returns the current Linux process effective group ID from `/proc/self/status`, or `false` when unavailable. Source: https://www.php.net/manual/en/function.getmygid.php |
-| `getmyinode` | missing |  |
+| `getmyinode` | partial | Returns the current executable inode on Unix, or `false` when unavailable; PHP's source script inode is deferred until source identity is available at runtime. Source: https://www.php.net/manual/en/function.getmyinode.php |
 | `getmypid` | implemented | Returns the current process ID as an integer; like PHP, this is process metadata and not a secure entropy source. Source: https://www.php.net/manual/en/function.getmypid.php |
 | `getmyuid` | partial | Returns the current Linux process effective user ID from `/proc/self/status`, or `false` when unavailable. Source: https://www.php.net/manual/en/function.getmyuid.php |
 | `getopt` | missing |  |

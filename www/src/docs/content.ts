@@ -1534,6 +1534,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current process group ID.",
       },
       {
+        name: "getmyinode",
+        signature: "getmyinode(): int|false",
+        description: "Returns the current executable inode baseline.",
+      },
+      {
         name: "uniqid",
         signature: "uniqid(string $prefix, bool $more_entropy): string",
         description:
@@ -2455,6 +2460,12 @@ echo "Owner uid: " . $owner . "\\n"`,
     `let $group = getmygid()
 
 echo "Owner gid: " . $group . "\\n"`,
+  ],
+  [
+    "getmyinode",
+    `let $inode = getmyinode()
+
+echo "Runtime inode: " . $inode . "\\n"`,
   ],
   [
     "nl2br",
@@ -3761,6 +3772,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getmygid",
     "Use `getmygid()` for compatibility diagnostics that need to report which group owns the current PHP-compatible process.",
+  ],
+  [
+    "getmyinode",
+    "Use `getmyinode()` for compatibility diagnostics that expect an inode-shaped process/script identifier. Echo currently reports the executable inode rather than the source script inode.",
   ],
   [
     "rmdir",
@@ -6772,7 +6787,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 250 PHP compatibility fixtures, 283 implemented Core and standard functions out of 607, 324 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 251 PHP compatibility fixtures, 284 implemented Core and standard functions out of 607, 323 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -76,6 +76,26 @@ pub extern "C" fn echo_php_getmygid() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getmyinode() -> EchoValue {
+    current_exe_inode()
+        .map(EchoValue::int)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[cfg(unix)]
+fn current_exe_inode() -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    let metadata = std::env::current_exe().ok()?.metadata().ok()?;
+    i64::try_from(metadata.ino()).ok()
+}
+
+#[cfg(not(unix))]
+fn current_exe_inode() -> Option<i64> {
+    None
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_get_current_user() -> EchoValue {
     env::var_os("USER")
         .or_else(|| env::var_os("LOGNAME"))
