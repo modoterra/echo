@@ -1012,6 +1012,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Clears PHP's cached filesystem metadata for later stat calls.",
       },
       {
+        name: "realpath_cache_size",
+        signature: "realpath_cache_size(): int",
+        description: "Returns the current realpath cache size.",
+      },
+      {
         name: "is_dir",
         signature: "is_dir(string $filename): bool",
         description: "Returns true when a local path exists and is a directory.",
@@ -1669,6 +1674,12 @@ if (file_exists($configPath)) {
 if (file_exists("storage/report.csv")) {
     echo "report present\\n"
 }`,
+  ],
+  [
+    "realpath_cache_size",
+    `let $bytes = realpath_cache_size()
+
+echo "realpath cache bytes: " . $bytes . "\\n"`,
   ],
   [
     "fileatime",
@@ -3512,6 +3523,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "clearstatcache",
     "Use `clearstatcache()` when compatibility code deliberately refreshes filesystem metadata after creating or replacing files. Echo currently treats it as a no-op because it does not model PHP's stat or realpath cache.",
+  ],
+  [
+    "realpath_cache_size",
+    "Use `realpath_cache_size()` in compatibility diagnostics that report PHP's path cache state. Echo currently returns zero because it does not maintain a realpath cache.",
   ],
   [
     "crc32",
@@ -6647,7 +6662,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 242 PHP compatibility fixtures, 275 implemented Core and standard functions out of 607, 332 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 243 PHP compatibility fixtures, 276 implemented Core and standard functions out of 607, 331 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

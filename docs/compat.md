@@ -538,7 +538,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `readlink` | implemented | Reads the stored target of a local symbolic link and returns `false` when it cannot be read; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.readlink.php |
 | `realpath` | implemented | Resolves existing local paths through OS canonicalization and returns `false` for missing paths; realpath cache APIs and URL wrappers are deferred. Source: https://www.php.net/manual/en/function.realpath.php |
 | `realpath_cache_get` | missing |  |
-| `realpath_cache_size` | missing |  |
+| `realpath_cache_size` | implemented | Returns `0` because Echo does not model PHP's realpath cache. Source: https://www.php.net/manual/en/function.realpath-cache-size.php |
 | `register_shutdown_function` | missing |  |
 | `register_tick_function` | missing |  |
 | `rename` | implemented | Renames or moves local files/directories using host filesystem semantics; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rename.php |
