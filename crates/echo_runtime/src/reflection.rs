@@ -84,6 +84,9 @@ pub extern "C" fn echo_php_debug_backtrace() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_debug_print_backtrace() {}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_get_declared_classes() -> EchoValue {
     echo_value_array_new()
 }

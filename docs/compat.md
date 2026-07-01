@@ -79,7 +79,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `class_exists` | partial | Returns `false` until Echo has class metadata and autoload semantics. Source: https://www.php.net/manual/en/function.class-exists.php |
 | `clone` | missing |  |
 | `debug_backtrace` | partial | Returns an empty array for the top-level/no-frame baseline; stack frame capture plus `options` and `limit` handling are deferred. Source: https://www.php.net/manual/en/function.debug-backtrace.php |
-| `debug_print_backtrace` | missing |  |
+| `debug_print_backtrace` | partial | Prints nothing for the top-level/no-frame baseline; stack frame rendering plus `options` and `limit` handling are deferred. Source: https://www.php.net/manual/en/function.debug-print-backtrace.php |
 | `define` | missing |  |
 | `defined` | partial | Recognizes compiler-owned PHP compatibility constants that Echo already lowers; user-defined constants from `define()` are deferred. Source: https://www.php.net/manual/en/function.defined.php |
 | `die` | missing |  |

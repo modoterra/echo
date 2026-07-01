@@ -8,6 +8,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("options", Some("int")), ("limit", Some("int"))],
             Some("array"),
         ),
+        php_builtin_reflection(
+            "debug_print_backtrace",
+            &[("options", Some("int")), ("limit", Some("int"))],
+            Some("void"),
+        ),
         php_builtin_reflection("flush", &[], Some("void")),
         php_builtin_reflection("constant", &[("name", Some("string"))], Some("mixed")),
         php_builtin_reflection(

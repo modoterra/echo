@@ -723,6 +723,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueExpression,
         },
         PhpBuiltin {
+            php_name: "debug_print_backtrace",
+            symbol: "echo_php_debug_print_backtrace",
+            helper_symbol: None,
+            signature: RuntimeSignature::VoidNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::VoidStatement,
+        },
+        PhpBuiltin {
             php_name: "get_defined_constants",
             symbol: "echo_php_get_defined_constants",
             helper_symbol: None,
