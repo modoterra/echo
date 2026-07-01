@@ -694,7 +694,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `unserialize` | missing |  |
 | `urldecode` | implemented | Decodes `%XX` byte escapes and converts `+` to a space for form/query strings. Source: https://www.php.net/manual/en/function.urldecode.php |
 | `urlencode` | implemented | Encodes form/query strings with spaces as `+` and non-alphanumerics except `-_.` as `%XX`. Source: https://www.php.net/manual/en/function.urlencode.php |
-| `usleep` | missing |  |
+| `usleep` | partial | Sleeps for non-negative microseconds and returns `null`; platform timer precision and signal interruption behavior are deferred. Source: https://www.php.net/manual/en/function.usleep.php |
 | `usort` | missing |  |
 | `utf8_decode` | missing |  |
 | `utf8_encode` | missing |  |

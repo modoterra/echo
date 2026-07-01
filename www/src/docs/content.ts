@@ -1328,6 +1328,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Pauses execution for whole seconds and returns remaining seconds.",
       },
       {
+        name: "usleep",
+        signature: "usleep(int $microseconds): void",
+        description: "Pauses execution for microseconds.",
+      },
+      {
         name: "gettimeofday",
         signature: "gettimeofday(bool $as_float): array|float",
         description: "Returns the current wall-clock time as a timeval array or float.",
@@ -2137,6 +2142,12 @@ echo "Request started at " . $started . "\\n"`,
     `let $remaining = sleep(0)
 
 echo "remaining: " . $remaining . "\\n"`,
+  ],
+  [
+    "usleep",
+    `usleep(0)
+
+echo "continued\\n"`,
   ],
   [
     "gettimeofday",
@@ -4352,6 +4363,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "sleep",
     "Use `sleep()` for PHP-compatible delay points in scripts and polling loops. New Echo code should prefer `std.time.sleep()` with typed durations.",
+  ],
+  [
+    "usleep",
+    "Use `usleep()` for PHP-compatible short delay points where legacy code measures pauses in microseconds. New Echo code should prefer typed durations through `std.time.sleep()`.",
   ],
   [
     "gettimeofday",
@@ -6632,7 +6647,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 241 PHP compatibility fixtures, 274 implemented Core and standard functions out of 607, 333 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 242 PHP compatibility fixtures, 275 implemented Core and standard functions out of 607, 332 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

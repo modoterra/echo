@@ -43,6 +43,21 @@ pub extern "C" fn echo_php_sleep(seconds: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_usleep(microseconds: EchoValue) -> EchoValue {
+    let Some(microseconds) = microseconds.php_int_value() else {
+        return EchoValue::error();
+    };
+    if microseconds < 0 {
+        return EchoValue::error();
+    }
+
+    if microseconds > 0 {
+        std::thread::sleep(Duration::from_micros(microseconds as u64));
+    }
+    EchoValue::null()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
     let now = unix_duration_now_or_zero();
 
