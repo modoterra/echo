@@ -712,6 +712,39 @@ $year = (clone $dateTime)->format("Y");
 }
 
 #[test]
+fn parses_php_interface_property_hooks() {
+    let program = parse(
+        r#"<?php
+interface Named {
+    public string $name { get; }
+    public string $nickname { get; set; }
+}
+"#,
+    )
+    .expect("PHP interface property hooks parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::InterfaceDecl(statement)
+            if statement.name == "Named"
+                && matches!(
+                    &statement.members[..],
+                    [
+                        InterfaceMember::Property(name),
+                        InterfaceMember::Property(nickname),
+                    ] if name.name == "name"
+                        && name.ty.as_deref() == Some("string")
+                        && name.hooks.len() == 1
+                        && name.hooks[0].kind == echo_ast::PropertyHookKind::Get
+                        && nickname.name == "nickname"
+                        && nickname.hooks.len() == 2
+                        && nickname.hooks[0].kind == echo_ast::PropertyHookKind::Get
+                        && nickname.hooks[1].kind == echo_ast::PropertyHookKind::Set
+                )
+    ));
+}
+
+#[test]
 fn parses_php_anonymous_class_expression() {
     let program = parse(
         r#"<?php
@@ -763,6 +796,50 @@ $logger = new readonly class("debug") extends BaseLogger implements LoggerInterf
     assert!(matches!(
         &class.members[3],
         ClassMember::Method(method) if method.name == "log"
+    ));
+}
+
+#[test]
+fn parses_php_property_hooks_on_classes() {
+    let program = parse(
+        r#"<?php
+class User {
+    public string $name {
+        get => $this->name;
+        set(string $value) { $this->name = trim($value); }
+    }
+}
+"#,
+    )
+    .expect("PHP class property hooks parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if statement.name == "User"
+                && matches!(
+                    &statement.members[..],
+                    [
+                        ClassMember::Property(property),
+                    ] if property.name == "name"
+                        && property.ty.as_deref() == Some("string")
+                        && property.hooks.len() == 2
+                        && property.hooks[0].kind == echo_ast::PropertyHookKind::Get
+                        && matches!(
+                            &property.hooks[0].body,
+                            echo_ast::PropertyHookBody::Expr(_)
+                        )
+                        && property.hooks[1].kind == echo_ast::PropertyHookKind::Set
+                        && matches!(
+                            property.hooks[1].param.as_ref(),
+                            Some(param) if param.name == "value"
+                                && param.ty.as_deref() == Some("string")
+                        )
+                        && matches!(
+                            &property.hooks[1].body,
+                            echo_ast::PropertyHookBody::Block(body) if body.len() == 1
+                        )
+                )
     ));
 }
 

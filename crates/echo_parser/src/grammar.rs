@@ -14,8 +14,9 @@ use echo_ast::{
     LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
     MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
     NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective, PhpDeclareStmt, PhpExitKind,
-    PhpExitStmt, PhpInlineHtmlStmt, PrintExpr, Program, PropertyDecl, QualifiedName, ReceiverConst,
-    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    PhpExitStmt, PhpInlineHtmlStmt, PrintExpr, Program, PropertyDecl, PropertyHookBody,
+    PropertyHookDecl, PropertyHookKind, QualifiedName, ReceiverConst, ReceiverConstExpr,
+    ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
     StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt, StringLiteral, SwitchCase,
     SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
     TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
@@ -471,6 +472,7 @@ fn normalize_php_compat_class_member(member: &mut ClassMember) {
             if let Some(value) = &mut property.value {
                 normalize_php_compat_expr(value);
             }
+            normalize_php_compat_property_hooks(&mut property.hooks);
         }
         ClassMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
         ClassMember::TraitUse(_) => {}
@@ -489,7 +491,32 @@ fn normalize_php_compat_interface_member(member: &mut InterfaceMember) {
                 normalize_php_compat_statement(statement);
             }
         }
+        InterfaceMember::Property(property) => {
+            if let Some(value) = &mut property.value {
+                normalize_php_compat_expr(value);
+            }
+            normalize_php_compat_property_hooks(&mut property.hooks);
+        }
         InterfaceMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
+    }
+}
+
+fn normalize_php_compat_property_hooks(hooks: &mut [PropertyHookDecl]) {
+    for hook in hooks {
+        if let Some(param) = &mut hook.param
+            && let Some(value) = &mut param.default_value
+        {
+            normalize_php_compat_expr(value);
+        }
+        match &mut hook.body {
+            PropertyHookBody::None => {}
+            PropertyHookBody::Expr(expr) => normalize_php_compat_expr(expr),
+            PropertyHookBody::Block(body) => {
+                for statement in body {
+                    normalize_php_compat_statement(statement);
+                }
+            }
+        }
     }
 }
 
@@ -2648,6 +2675,72 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
+        let property_hook_kind = text::keyword("get")
+            .to(PropertyHookKind::Get)
+            .or(text::keyword("set").to(PropertyHookKind::Set))
+            .padded()
+            .boxed();
+
+        let property_hook_param = type_expr
+            .clone()
+            .padded()
+            .or_not()
+            .then_ignore(just('&').padded().or_not())
+            .then_ignore(just('$'))
+            .then(text::ident().padded())
+            .map(|(ty, name): (Option<String>, &str)| TypedParam {
+                name: name.to_string(),
+                ty,
+                default_value: None,
+                promoted_visibility: None,
+            })
+            .delimited_by(just('(').padded(), just(')').padded())
+            .or_not()
+            .boxed();
+
+        let property_hook_body = just("=>")
+            .padded()
+            .ignore_then(expr.clone())
+            .then_ignore(terminator.clone())
+            .map(PropertyHookBody::Expr)
+            .or(statement
+                .clone()
+                .repeated()
+                .collect::<Vec<_>>()
+                .delimited_by(just('{').padded(), just('}').padded())
+                .then_ignore(terminator.clone().or_not())
+                .map(PropertyHookBody::Block))
+            .or(terminator.clone().to(PropertyHookBody::None))
+            .boxed();
+
+        let property_hook = property_hook_kind
+            .then(property_hook_param)
+            .then(property_hook_body)
+            .map_with(
+                |((kind, param), body): (
+                    (PropertyHookKind, Option<TypedParam>),
+                    PropertyHookBody,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    PropertyHookDecl {
+                        kind,
+                        param,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    }
+                },
+            )
+            .boxed();
+
+        let property_hooks = property_hook
+            .repeated()
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded())
+            .boxed();
+
         let property_decl = method_visibility
             .clone()
             .then(
@@ -2657,22 +2750,28 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .or_not()
                     .map(|is_static| is_static.unwrap_or(false)),
             )
-            .then_ignore(type_expr.clone().padded().or_not())
+            .then(type_expr.clone().padded().or_not())
             .then_ignore(just('$').padded())
             .then(text::ident().padded())
             .then(just('=').padded().ignore_then(expr.clone()).or_not())
-            .then_ignore(terminator.clone())
+            .then(property_hooks.clone().or_not())
+            .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(((visibility, is_static), name), value): (
-                    ((Option<MethodVisibility>, bool), &str),
-                    Option<Expr>,
+                |(((((visibility, is_static), ty), name), value), hooks): (
+                    (
+                        (((Option<MethodVisibility>, bool), Option<String>), &str),
+                        Option<Expr>,
+                    ),
+                    Option<Vec<PropertyHookDecl>>,
                 ),
                  extra| {
                     let span: SimpleSpan = extra.span();
 
                     ClassMember::Property(PropertyDecl {
                         name: name.to_string(),
+                        ty,
                         value,
+                        hooks: hooks.unwrap_or_default(),
                         visibility: visibility.unwrap_or(MethodVisibility::Private),
                         is_static,
                         span: Span::new(span.start, span.end),
@@ -2713,7 +2812,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .clone()
             .or(method_decl.clone())
             .or(class_const_decl.clone())
-            .or(property_decl)
+            .or(property_decl.clone())
             .boxed();
 
         let interface_member = method_decl
@@ -2725,6 +2824,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(class_const_decl.clone().map(|member| match member {
                 ClassMember::Const(constant) => InterfaceMember::Const(constant),
                 _ => unreachable!("class_const_decl only produces const members"),
+            }))
+            .or(property_decl.clone().map(|member| match member {
+                ClassMember::Property(property) => InterfaceMember::Property(property),
+                _ => unreachable!("property_decl only produces property members"),
             }))
             .boxed();
 
@@ -4308,20 +4411,33 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         })
         .boxed();
 
-    let php_statement_block = open_php
-        .then(statement.clone().repeated().collect::<Vec<_>>())
+    let non_empty_php_statement_block = open_php
+        .then(statement.clone().repeated().at_least(1).collect::<Vec<_>>())
         .then_ignore(just("?>").padded().or_not())
         .map(|(open_tag, statements)| (Some(open_tag), statements))
         .boxed();
 
+    let empty_php_statement_block = open_php
+        .then_ignore(just("?>").padded())
+        .map(|open_tag| (Some(open_tag), Vec::new()))
+        .boxed();
+
+    let php_statement_block = non_empty_php_statement_block
+        .or(empty_php_statement_block)
+        .boxed();
+
+    let echo_statement_chunk = statement
+        .clone()
+        .map(|statement| (None, vec![statement]))
+        .boxed();
+
+    let inline_html_chunk = inline_html_stmt
+        .map(|statement| (None, vec![statement]))
+        .boxed();
+
     let program_chunk = php_statement_block
-        .or(statement
-            .clone()
-            .map(|statement| (None, vec![statement]))
-            .boxed())
-        .or(inline_html_stmt
-            .map(|statement| (None, vec![statement]))
-            .boxed())
+        .or(echo_statement_chunk)
+        .or(inline_html_chunk)
         .boxed();
 
     text::whitespace()

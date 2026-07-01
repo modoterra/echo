@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use echo_ast::{
     BinaryOp, ClassMember, EnumMember, Expr, FunctionDeclStmt, InterfaceMember, MethodDecl,
-    Program, ReceiverConst, Stmt, UnaryOp,
+    Program, PropertyDecl, PropertyHookBody, ReceiverConst, Stmt, UnaryOp,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -157,9 +157,7 @@ impl Analyzer {
                             },
                         ),
                         ClassMember::Property(property) => {
-                            if let Some(value) = &property.value {
-                                self.analyze_expr(value);
-                            }
+                            self.analyze_property_decl(property);
                         }
                         ClassMember::Const(constant) => {
                             self.analyze_expr(&constant.value);
@@ -182,6 +180,9 @@ impl Analyzer {
                         InterfaceMember::Const(constant) => {
                             self.analyze_expr(&constant.value);
                         }
+                        InterfaceMember::Property(property) => {
+                            self.analyze_property_decl(property);
+                        }
                     }
                 }
             }
@@ -197,9 +198,7 @@ impl Analyzer {
                             },
                         ),
                         ClassMember::Property(property) => {
-                            if let Some(value) = &property.value {
-                                self.analyze_expr(value);
-                            }
+                            self.analyze_property_decl(property);
                         }
                         ClassMember::Const(constant) => {
                             self.analyze_expr(&constant.value);
@@ -240,9 +239,7 @@ impl Analyzer {
                             },
                         ),
                         ClassMember::Property(property) => {
-                            if let Some(value) = &property.value {
-                                self.analyze_expr(value);
-                            }
+                            self.analyze_property_decl(property);
                         }
                         ClassMember::Const(constant) => {
                             self.analyze_expr(&constant.value);
@@ -422,14 +419,32 @@ impl Analyzer {
                 },
             ),
             ClassMember::Property(property) => {
-                if let Some(value) = &property.value {
-                    self.analyze_expr(value);
-                }
+                self.analyze_property_decl(property);
             }
             ClassMember::Const(constant) => {
                 self.analyze_expr(&constant.value);
             }
             ClassMember::TraitUse(_) => {}
+        }
+    }
+
+    fn analyze_property_decl(&mut self, property: &PropertyDecl) {
+        if let Some(value) = &property.value {
+            self.analyze_expr(value);
+        }
+        for hook in &property.hooks {
+            if let Some(param) = &hook.param
+                && let Some(default_value) = &param.default_value
+            {
+                self.analyze_expr(default_value);
+            }
+            match &hook.body {
+                PropertyHookBody::None => {}
+                PropertyHookBody::Expr(expr) => {
+                    self.analyze_expr(expr);
+                }
+                PropertyHookBody::Block(body) => self.analyze_statements(body),
+            }
         }
     }
 

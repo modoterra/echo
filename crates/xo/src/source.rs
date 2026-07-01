@@ -334,9 +334,7 @@ fn collect_class_member_contextual_class_references(
             }
         }
         echo_ast::ClassMember::Property(property) => {
-            if let Some(value) = &property.value {
-                collect_expr_contextual_class_references(value, namespace, uses, names);
-            }
+            collect_property_contextual_class_references(property, namespace, uses, names);
         }
         echo_ast::ClassMember::Const(constant) => {
             collect_expr_contextual_class_references(&constant.value, namespace, uses, names);
@@ -386,6 +384,40 @@ fn collect_interface_member_contextual_class_references(
         }
         echo_ast::InterfaceMember::Const(constant) => {
             collect_expr_contextual_class_references(&constant.value, namespace, uses, names);
+        }
+        echo_ast::InterfaceMember::Property(property) => {
+            collect_property_contextual_class_references(property, namespace, uses, names);
+        }
+    }
+}
+
+fn collect_property_contextual_class_references(
+    property: &echo_ast::PropertyDecl,
+    namespace: Option<&QualifiedName>,
+    uses: &std::collections::HashMap<String, QualifiedName>,
+    names: &mut std::collections::HashSet<String>,
+) {
+    if let Some(value) = &property.value {
+        collect_expr_contextual_class_references(value, namespace, uses, names);
+    }
+    for hook in &property.hooks {
+        if let Some(param) = &hook.param
+            && let Some(default_value) = &param.default_value
+        {
+            collect_expr_contextual_class_references(default_value, namespace, uses, names);
+        }
+        match &hook.body {
+            echo_ast::PropertyHookBody::None => {}
+            echo_ast::PropertyHookBody::Expr(expr) => {
+                collect_expr_contextual_class_references(expr, namespace, uses, names);
+            }
+            echo_ast::PropertyHookBody::Block(body) => {
+                for statement in body {
+                    collect_statement_contextual_class_references(
+                        statement, namespace, uses, names,
+                    );
+                }
+            }
         }
     }
 }
@@ -856,9 +888,7 @@ fn collect_class_member_class_references(
             }
         }
         echo_ast::ClassMember::Property(property) => {
-            if let Some(value) = &property.value {
-                collect_expr_class_references(value, names);
-            }
+            collect_property_class_references(property, names);
         }
         echo_ast::ClassMember::Const(constant) => {
             collect_expr_class_references(&constant.value, names);
@@ -905,6 +935,34 @@ fn collect_interface_member_class_references(
         }
         echo_ast::InterfaceMember::Const(constant) => {
             collect_expr_class_references(&constant.value, names);
+        }
+        echo_ast::InterfaceMember::Property(property) => {
+            collect_property_class_references(property, names);
+        }
+    }
+}
+
+fn collect_property_class_references(
+    property: &echo_ast::PropertyDecl,
+    names: &mut std::collections::HashSet<String>,
+) {
+    if let Some(value) = &property.value {
+        collect_expr_class_references(value, names);
+    }
+    for hook in &property.hooks {
+        if let Some(param) = &hook.param
+            && let Some(default_value) = &param.default_value
+        {
+            collect_expr_class_references(default_value, names);
+        }
+        match &hook.body {
+            echo_ast::PropertyHookBody::None => {}
+            echo_ast::PropertyHookBody::Expr(expr) => collect_expr_class_references(expr, names),
+            echo_ast::PropertyHookBody::Block(body) => {
+                for statement in body {
+                    collect_statement_class_references(statement, names);
+                }
+            }
         }
     }
 }
@@ -2125,14 +2183,38 @@ fn collect_static_include_class_member(
             collect_static_include_paths(&mut method.body, source_dir, paths);
         }
         echo_ast::ClassMember::Property(property) => {
-            if let Some(value) = &mut property.value {
-                collect_static_include_expr(value, source_dir, paths);
-            }
+            collect_static_include_property(property, source_dir, paths);
         }
         echo_ast::ClassMember::Const(constant) => {
             collect_static_include_expr(&mut constant.value, source_dir, paths);
         }
         echo_ast::ClassMember::TraitUse(_) => {}
+    }
+}
+
+fn collect_static_include_property(
+    property: &mut echo_ast::PropertyDecl,
+    source_dir: &Path,
+    paths: &mut Vec<StaticIncludePath>,
+) {
+    if let Some(value) = &mut property.value {
+        collect_static_include_expr(value, source_dir, paths);
+    }
+    for hook in &mut property.hooks {
+        if let Some(param) = &mut hook.param
+            && let Some(default_value) = &mut param.default_value
+        {
+            collect_static_include_expr(default_value, source_dir, paths);
+        }
+        match &mut hook.body {
+            echo_ast::PropertyHookBody::None => {}
+            echo_ast::PropertyHookBody::Expr(expr) => {
+                collect_static_include_expr(expr, source_dir, paths);
+            }
+            echo_ast::PropertyHookBody::Block(body) => {
+                collect_static_include_paths(body, source_dir, paths);
+            }
+        }
     }
 }
 
@@ -2290,9 +2372,7 @@ fn collect_static_include_paths(
                             collect_static_include_paths(&mut method.body, source_dir, paths);
                         }
                         echo_ast::ClassMember::Property(property) => {
-                            if let Some(value) = &mut property.value {
-                                collect_static_include_expr(value, source_dir, paths);
-                            }
+                            collect_static_include_property(property, source_dir, paths);
                         }
                         echo_ast::ClassMember::Const(constant) => {
                             collect_static_include_expr(&mut constant.value, source_dir, paths);
@@ -2314,6 +2394,9 @@ fn collect_static_include_paths(
                         echo_ast::InterfaceMember::Const(constant) => {
                             collect_static_include_expr(&mut constant.value, source_dir, paths);
                         }
+                        echo_ast::InterfaceMember::Property(property) => {
+                            collect_static_include_property(property, source_dir, paths);
+                        }
                     }
                 }
             }
@@ -2324,9 +2407,7 @@ fn collect_static_include_paths(
                             collect_static_include_paths(&mut method.body, source_dir, paths);
                         }
                         echo_ast::ClassMember::Property(property) => {
-                            if let Some(value) = &mut property.value {
-                                collect_static_include_expr(value, source_dir, paths);
-                            }
+                            collect_static_include_property(property, source_dir, paths);
                         }
                         echo_ast::ClassMember::Const(constant) => {
                             collect_static_include_expr(&mut constant.value, source_dir, paths);
@@ -2357,9 +2438,7 @@ fn collect_static_include_paths(
                             collect_static_include_paths(&mut method.body, source_dir, paths);
                         }
                         echo_ast::ClassMember::Property(property) => {
-                            if let Some(value) = &mut property.value {
-                                collect_static_include_expr(value, source_dir, paths);
-                            }
+                            collect_static_include_property(property, source_dir, paths);
                         }
                         echo_ast::ClassMember::Const(constant) => {
                             collect_static_include_expr(&mut constant.value, source_dir, paths);

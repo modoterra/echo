@@ -441,6 +441,7 @@ pub enum EnumMember {
 #[derive(Debug, Clone, PartialEq)]
 pub enum InterfaceMember {
     Method(MethodDecl),
+    Property(PropertyDecl),
     Const(ClassConstDecl),
 }
 
@@ -475,10 +476,33 @@ pub struct MethodDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PropertyDecl {
     pub name: String,
+    pub ty: Option<String>,
     pub value: Option<Expr>,
+    pub hooks: Vec<PropertyHookDecl>,
     pub visibility: MethodVisibility,
     pub is_static: bool,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropertyHookDecl {
+    pub kind: PropertyHookKind,
+    pub param: Option<TypedParam>,
+    pub body: PropertyHookBody,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PropertyHookKind {
+    Get,
+    Set,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PropertyHookBody {
+    None,
+    Expr(Expr),
+    Block(Vec<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

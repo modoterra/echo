@@ -1,6 +1,6 @@
 use echo_ast::{
     ClassMember, EnumMember, FunctionDeclStmt, ImportSource, InterfaceMember, NamespaceSource,
-    Program, Stmt,
+    Program, PropertyDecl, PropertyHookBody, Stmt,
 };
 use echo_index::{
     DependencyFact, DependencyKind, FileId, FqName, IndexFacts, ReferenceFact, ReferenceKind,
@@ -225,9 +225,7 @@ impl IndexFactExtractor {
                                 visibility: None,
                                 signature: None,
                             });
-                            if let Some(value) = &property.value {
-                                self.extract_expr_dependencies(value);
-                            }
+                            self.extract_property_dependencies(property);
                         }
                         ClassMember::Const(constant) => {
                             self.declarations.push(SymbolFact {
@@ -309,6 +307,25 @@ impl IndexFactExtractor {
                             });
                             self.extract_expr_dependencies(&constant.value);
                         }
+                        InterfaceMember::Property(property) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(property.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!(
+                                        "{}::${}",
+                                        statement.name, property.name
+                                    )),
+                                ),
+                                kind: SymbolKind::Property,
+                                range: span_range(property.span),
+                                selection_range: self
+                                    .span_range_for_text(property.span, &property.name)
+                                    .unwrap_or_else(|| span_range(property.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            self.extract_property_dependencies(property);
+                        }
                     }
                 }
             }
@@ -365,9 +382,7 @@ impl IndexFactExtractor {
                                 visibility: None,
                                 signature: None,
                             });
-                            if let Some(value) = &property.value {
-                                self.extract_expr_dependencies(value);
-                            }
+                            self.extract_property_dependencies(property);
                         }
                         ClassMember::Const(constant) => {
                             self.declarations.push(SymbolFact {
@@ -497,9 +512,7 @@ impl IndexFactExtractor {
                                 visibility: None,
                                 signature: None,
                             });
-                            if let Some(value) = &property.value {
-                                self.extract_expr_dependencies(value);
-                            }
+                            self.extract_property_dependencies(property);
                         }
                         ClassMember::Const(constant) => {
                             self.declarations.push(SymbolFact {
@@ -636,6 +649,24 @@ impl IndexFactExtractor {
             Stmt::Append(statement) => {
                 self.extract_expr_dependencies(&statement.target);
                 self.extract_expr_dependencies(&statement.value);
+            }
+        }
+    }
+
+    fn extract_property_dependencies(&mut self, property: &PropertyDecl) {
+        if let Some(value) = &property.value {
+            self.extract_expr_dependencies(value);
+        }
+        for hook in &property.hooks {
+            if let Some(param) = &hook.param
+                && let Some(default_value) = &param.default_value
+            {
+                self.extract_expr_dependencies(default_value);
+            }
+            match &hook.body {
+                PropertyHookBody::None => {}
+                PropertyHookBody::Expr(expr) => self.extract_expr_dependencies(expr),
+                PropertyHookBody::Block(body) => self.extract_statements(body),
             }
         }
     }
