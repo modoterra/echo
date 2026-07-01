@@ -745,6 +745,89 @@ interface Named {
 }
 
 #[test]
+fn parses_php_attributes_on_declarations_and_members() {
+    let program = parse(
+        r#"<?php
+#[Controller("/users"), Secure]
+final class UserController {
+    #[Route("/show", methods: ["GET"])]
+    public function show(#[FromQuery] string $id): void {}
+
+    #[Column("name")]
+    public string $name;
+
+    #[DefaultValue]
+    public const ROLE = "user";
+}
+"#,
+    )
+    .expect("PHP attributes on declarations and members parse");
+
+    let Stmt::ClassDecl(class) = &program.statements[0] else {
+        panic!("expected attributed class");
+    };
+
+    assert_eq!(class.attributes.len(), 2);
+    assert_eq!(class.attributes[0].name.as_string(), "Controller");
+    assert_eq!(class.attributes[0].args.len(), 1);
+
+    assert!(matches!(
+        &class.members[..],
+        [
+            ClassMember::Method(method),
+            ClassMember::Property(property),
+            ClassMember::Const(constant),
+        ] if method.attributes.len() == 1
+            && method.attributes[0].name.as_string() == "Route"
+            && method.params[0].attributes.len() == 1
+            && method.params[0].attributes[0].name.as_string() == "FromQuery"
+            && property.attributes.len() == 1
+            && property.attributes[0].name.as_string() == "Column"
+            && constant.attributes.len() == 1
+            && constant.attributes[0].name.as_string() == "DefaultValue"
+    ));
+}
+
+#[test]
+fn parses_php_attributes_on_functions_and_enum_cases() {
+    let program = parse(
+        r#"<?php
+#[Pure]
+function slug(#[Input] string $name) { return $name; }
+
+#[Domain]
+enum Status {
+    #[Label("Draft")]
+    case Draft;
+}
+"#,
+    )
+    .expect("PHP attributes on functions and enum cases parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::FunctionDecl(function)
+            if function.attributes.len() == 1
+                && function.attributes[0].name.as_string() == "Pure"
+                && function.params[0].attributes.len() == 1
+                && function.params[0].attributes[0].name.as_string() == "Input"
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::EnumDecl(enum_decl)
+            if enum_decl.attributes.len() == 1
+                && enum_decl.attributes[0].name.as_string() == "Domain"
+                && matches!(
+                    &enum_decl.members[..],
+                    [
+                        EnumMember::Case(case),
+                    ] if case.attributes.len() == 1
+                        && case.attributes[0].name.as_string() == "Label"
+                )
+    ));
+}
+
+#[test]
 fn parses_php_anonymous_class_expression() {
     let program = parse(
         r#"<?php

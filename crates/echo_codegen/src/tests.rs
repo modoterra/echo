@@ -21,6 +21,7 @@ fn program(statements: Vec<Stmt>) -> Program {
 fn param(name: &str) -> TypedParam {
     TypedParam {
         name: name.to_string(),
+        attributes: Vec::new(),
         ty: None,
         default_value: None,
         promoted_visibility: None,
@@ -99,11 +100,13 @@ fn instance_method_call_on_new_object_calls_matching_class_method() {
     let ir = compile_to_ir(&program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Worker".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
                 name: "run".to_string(),
+                attributes: Vec::new(),
                 params: Vec::new(),
                 return_type: None,
                 body: vec![Stmt::Echo(EchoStmt {
@@ -163,11 +166,13 @@ fn instance_method_call_on_new_object_uses_parent_class_method() {
     let ir = compile_to_ir(&program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Container".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
                 name: "singleton".to_string(),
+                attributes: Vec::new(),
                 params: Vec::new(),
                 return_type: None,
                 body: vec![Stmt::Return(ReturnStmt {
@@ -185,6 +190,7 @@ fn instance_method_call_on_new_object_uses_parent_class_method() {
         }),
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Application".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: Some(QualifiedName::new(vec!["Container".to_string()])),
             interfaces: Vec::new(),
@@ -232,8 +238,10 @@ fn instance_method_call_on_new_object_uses_trait_method_before_parent() {
     let ir = compile_to_ir(&program(vec![
         Stmt::TraitDecl(TraitDeclStmt {
             name: "ReflectsClosures".to_string(),
+            attributes: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
                 name: "closureReturnTypes".to_string(),
+                attributes: Vec::new(),
                 params: Vec::new(),
                 return_type: None,
                 body: vec![Stmt::Return(ReturnStmt {
@@ -251,6 +259,7 @@ fn instance_method_call_on_new_object_uses_trait_method_before_parent() {
         }),
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Container".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
@@ -300,11 +309,13 @@ fn promoted_property_type_guides_method_dispatch() {
     let ir = compile_to_ir(&program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "App".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
                 name: "singleton".to_string(),
+                attributes: Vec::new(),
                 params: Vec::new(),
                 return_type: None,
                 body: vec![Stmt::Return(ReturnStmt {
@@ -322,14 +333,17 @@ fn promoted_property_type_guides_method_dispatch() {
         }),
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Builder".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![
                 ClassMember::Method(MethodDecl {
                     name: "__construct".to_string(),
+                    attributes: Vec::new(),
                     params: vec![TypedParam {
                         name: "app".to_string(),
+                        attributes: Vec::new(),
                         ty: Some("App".to_string()),
                         default_value: None,
                         promoted_visibility: Some(MethodVisibility::Protected),
@@ -345,6 +359,7 @@ fn promoted_property_type_guides_method_dispatch() {
                 }),
                 ClassMember::Method(MethodDecl {
                     name: "boot".to_string(),
+                    attributes: Vec::new(),
                     params: Vec::new(),
                     return_type: None,
                     body: vec![Stmt::Expr(ExprStmt {
@@ -402,8 +417,10 @@ fn userland_calls_fill_omitted_default_parameters() {
     let ir = compile_to_ir(&program(vec![
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "example".to_string(),
+            attributes: Vec::new(),
             params: vec![TypedParam {
                 name: "value".to_string(),
+                attributes: Vec::new(),
                 ty: None,
                 default_value: Some(Expr::String(StringLiteral {
                     value: "fallback".to_string(),
@@ -606,11 +623,13 @@ fn include_returned_object_dispatches_to_unambiguous_method() {
     let include = program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Application".to_string(),
+            attributes: Vec::new(),
             modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
                 name: "handleRequest".to_string(),
+                attributes: Vec::new(),
                 params: Vec::new(),
                 return_type: None,
                 body: Vec::new(),

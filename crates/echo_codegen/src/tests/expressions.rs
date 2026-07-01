@@ -5,6 +5,7 @@ fn dynamic_concat_uses_echo_value_concat() {
     let ir = compile_to_ir(&program(vec![
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "greet".to_string(),
+            attributes: Vec::new(),
             params: vec![param("name")],
             return_type: None,
             is_intrinsic: false,

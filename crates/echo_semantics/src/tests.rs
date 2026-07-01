@@ -28,6 +28,7 @@ fn receiver(kind: ReceiverConst) -> Expr {
 fn method(name: &str, is_static: bool, body: Vec<Stmt>) -> ClassMember {
     ClassMember::Method(MethodDecl {
         name: name.to_string(),
+        attributes: Vec::new(),
         params: Vec::new(),
         return_type: None,
         body,
@@ -147,6 +148,7 @@ fn rejects_receiver_constant_assignment() {
 fn rejects_static_receiver_until_late_static_binding_exists() {
     let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
+        attributes: Vec::new(),
         modifiers: Vec::new(),
         parent: None,
         interfaces: Vec::new(),
@@ -172,6 +174,7 @@ fn rejects_static_receiver_until_late_static_binding_exists() {
 fn rejects_parent_without_lexical_parent() {
     let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
+        attributes: Vec::new(),
         modifiers: Vec::new(),
         parent: None,
         interfaces: Vec::new(),
@@ -197,6 +200,7 @@ fn rejects_parent_without_lexical_parent() {
 fn accepts_this_and_self_inside_instance_method() {
     analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
+        attributes: Vec::new(),
         modifiers: Vec::new(),
         parent: None,
         interfaces: Vec::new(),

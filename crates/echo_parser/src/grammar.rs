@@ -3,20 +3,20 @@ use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
     AnonymousClassExpr, AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr,
-    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr,
-    CatchClause, ClassConstDecl, ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClassModifier,
-    ClosureExpr, CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt,
-    DeferExpr, DoWhileStmt, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt,
-    EchoStmt, ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr,
-    ForStmt, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
-    GlobalStmt, GotoStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr,
-    InterfaceDeclStmt, InterfaceMember, JoinExpr, LabelStmt, LetStmt, ListAssignStmt, ListExpr,
-    LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
-    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective, PhpDeclareStmt, PhpExitKind,
-    PhpExitStmt, PhpInlineHtmlStmt, PrintExpr, Program, PropertyDecl, PropertyHookBody,
-    PropertyHookDecl, PropertyHookKind, QualifiedName, ReceiverConst, ReceiverConstExpr,
-    ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    AssignRefStmt, AssignStmt, AttributeDecl, BinaryExpr, BinaryOp, BoolLiteral, BreakStmt,
+    CallArg, CastExpr, CatchClause, ClassConstDecl, ClassConstantFetchExpr, ClassDeclStmt,
+    ClassMember, ClassModifier, ClosureExpr, CoalesceAssignStmt, CompileEntry, CompileStmt,
+    ConstantExpr, ContinueStmt, DeferExpr, DoWhileStmt, DynamicCallExpr, DynamicFunctionCallExpr,
+    DynamicFunctionCallStmt, EchoStmt, ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr,
+    FacetDeclStmt, FieldExpr, ForStmt, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt,
+    FunctionDeclStmt, GlobalStmt, GotoStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr,
+    IncludeKind, IndexExpr, InterfaceDeclStmt, InterfaceMember, JoinExpr, LabelStmt, LetStmt,
+    ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
+    MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt,
+    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective,
+    PhpDeclareStmt, PhpExitKind, PhpExitStmt, PhpInlineHtmlStmt, PrintExpr, Program, PropertyDecl,
+    PropertyHookBody, PropertyHookDecl, PropertyHookKind, QualifiedName, ReceiverConst,
+    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
     StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt, StringLiteral, SwitchCase,
     SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
     TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
@@ -301,7 +301,9 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
             }
         }
         Stmt::FunctionDecl(statement) => {
+            normalize_php_compat_attributes(&mut statement.attributes);
             for param in &mut statement.params {
+                normalize_php_compat_attributes(&mut param.attributes);
                 if let Some(value) = &mut param.default_value {
                     normalize_php_compat_expr(value);
                 }
@@ -428,21 +430,25 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
         }
         Stmt::UnnamedExport(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::ClassDecl(statement) => {
+            normalize_php_compat_attributes(&mut statement.attributes);
             for member in &mut statement.members {
                 normalize_php_compat_class_member(member);
             }
         }
         Stmt::InterfaceDecl(statement) => {
+            normalize_php_compat_attributes(&mut statement.attributes);
             for member in &mut statement.members {
                 normalize_php_compat_interface_member(member);
             }
         }
         Stmt::TraitDecl(statement) => {
+            normalize_php_compat_attributes(&mut statement.attributes);
             for member in &mut statement.members {
                 normalize_php_compat_class_member(member);
             }
         }
         Stmt::EnumDecl(statement) => {
+            normalize_php_compat_attributes(&mut statement.attributes);
             for member in &mut statement.members {
                 normalize_php_compat_enum_member(member);
             }
@@ -459,7 +465,9 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
 fn normalize_php_compat_class_member(member: &mut ClassMember) {
     match member {
         ClassMember::Method(method) => {
+            normalize_php_compat_attributes(&mut method.attributes);
             for param in &mut method.params {
+                normalize_php_compat_attributes(&mut param.attributes);
                 if let Some(value) = &mut param.default_value {
                     normalize_php_compat_expr(value);
                 }
@@ -469,12 +477,16 @@ fn normalize_php_compat_class_member(member: &mut ClassMember) {
             }
         }
         ClassMember::Property(property) => {
+            normalize_php_compat_attributes(&mut property.attributes);
             if let Some(value) = &mut property.value {
                 normalize_php_compat_expr(value);
             }
             normalize_php_compat_property_hooks(&mut property.hooks);
         }
-        ClassMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
+        ClassMember::Const(constant) => {
+            normalize_php_compat_attributes(&mut constant.attributes);
+            normalize_php_compat_expr(&mut constant.value);
+        }
         ClassMember::TraitUse(_) => {}
     }
 }
@@ -482,7 +494,9 @@ fn normalize_php_compat_class_member(member: &mut ClassMember) {
 fn normalize_php_compat_interface_member(member: &mut InterfaceMember) {
     match member {
         InterfaceMember::Method(method) => {
+            normalize_php_compat_attributes(&mut method.attributes);
             for param in &mut method.params {
+                normalize_php_compat_attributes(&mut param.attributes);
                 if let Some(value) = &mut param.default_value {
                     normalize_php_compat_expr(value);
                 }
@@ -492,12 +506,24 @@ fn normalize_php_compat_interface_member(member: &mut InterfaceMember) {
             }
         }
         InterfaceMember::Property(property) => {
+            normalize_php_compat_attributes(&mut property.attributes);
             if let Some(value) = &mut property.value {
                 normalize_php_compat_expr(value);
             }
             normalize_php_compat_property_hooks(&mut property.hooks);
         }
-        InterfaceMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
+        InterfaceMember::Const(constant) => {
+            normalize_php_compat_attributes(&mut constant.attributes);
+            normalize_php_compat_expr(&mut constant.value);
+        }
+    }
+}
+
+fn normalize_php_compat_attributes(attributes: &mut [AttributeDecl]) {
+    for attribute in attributes {
+        for arg in &mut attribute.args {
+            normalize_php_compat_expr(&mut arg.value);
+        }
     }
 }
 
@@ -506,7 +532,10 @@ fn normalize_php_compat_property_hooks(hooks: &mut [PropertyHookDecl]) {
         if let Some(param) = &mut hook.param
             && let Some(value) = &mut param.default_value
         {
+            normalize_php_compat_attributes(&mut param.attributes);
             normalize_php_compat_expr(value);
+        } else if let Some(param) = &mut hook.param {
+            normalize_php_compat_attributes(&mut param.attributes);
         }
         match &mut hook.body {
             PropertyHookBody::None => {}
@@ -523,12 +552,15 @@ fn normalize_php_compat_property_hooks(hooks: &mut [PropertyHookDecl]) {
 fn normalize_php_compat_enum_member(member: &mut EnumMember) {
     match member {
         EnumMember::Case(case) => {
+            normalize_php_compat_attributes(&mut case.attributes);
             if let Some(value) = &mut case.value {
                 normalize_php_compat_expr(value);
             }
         }
         EnumMember::Method(method) => {
+            normalize_php_compat_attributes(&mut method.attributes);
             for param in &mut method.params {
+                normalize_php_compat_attributes(&mut param.attributes);
                 if let Some(value) = &mut param.default_value {
                     normalize_php_compat_expr(value);
                 }
@@ -802,6 +834,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         .then(text::ident().padded())
         .map(|(ty, name): (Option<String>, &str)| TypedParam {
             name: name.to_string(),
+            attributes: Vec::new(),
             ty,
             default_value: None,
             promoted_visibility: None,
@@ -821,6 +854,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         )
         .map(|(name, ty): (&str, Option<String>)| TypedParam {
             name: name.to_string(),
+            attributes: Vec::new(),
             ty,
             default_value: None,
             promoted_visibility: None,
@@ -2470,6 +2504,38 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .allow_trailing()
             .collect::<Vec<_>>();
 
+        let attribute = php_name
+            .clone()
+            .or(dotted_name.clone())
+            .then(
+                statement_args
+                    .clone()
+                    .delimited_by(just('(').padded(), just(')').padded())
+                    .or_not(),
+            )
+            .map_with(
+                |(name, args): (QualifiedName, Option<Vec<CallArg>>), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    AttributeDecl {
+                        name,
+                        args: args.unwrap_or_default(),
+                        span: Span::new(span.start, span.end),
+                    }
+                },
+            );
+
+        let attributes = attribute
+            .separated_by(just(',').padded())
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .delimited_by(just("#[").padded(), just(']').padded())
+            .then_ignore(terminator.clone().or_not())
+            .repeated()
+            .collect::<Vec<Vec<_>>>()
+            .map(|groups| groups.into_iter().flatten().collect::<Vec<_>>())
+            .boxed();
+
         let function_call_stmt = statement_function_name
             .padded()
             .then_ignore(just('(').padded())
@@ -2514,13 +2580,6 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
-        let params = just('$')
-            .ignore_then(text::ident())
-            .padded()
-            .separated_by(just(',').padded())
-            .allow_trailing()
-            .collect::<Vec<_>>();
-
         let prefix_typed_param = type_expr
             .clone()
             .padded()
@@ -2531,6 +2590,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then(text::ident().padded())
             .map(|(ty, name): (Option<String>, &str)| TypedParam {
                 name: name.to_string(),
+                attributes: Vec::new(),
                 ty,
                 default_value: None,
                 promoted_visibility: None,
@@ -2550,15 +2610,18 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .map(|(name, ty): (&str, Option<String>)| TypedParam {
                 name: name.to_string(),
+                attributes: Vec::new(),
                 ty,
                 default_value: None,
                 promoted_visibility: None,
             });
 
-        let typed_param = suffix_typed_param
-            .or(prefix_typed_param)
+        let typed_param = attributes
+            .clone()
+            .then(suffix_typed_param.or(prefix_typed_param))
             .then(just('=').padded().ignore_then(expr.clone()).or_not())
-            .map(|(mut param, default_value)| {
+            .map(|((attributes, mut param), default_value)| {
+                param.attributes = attributes;
                 param.default_value = default_value;
                 param
             })
@@ -2600,10 +2663,14 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(text::keyword(kw::FINAL.text).to("final"))
             .padded();
 
-        let method_decl = method_modifier
-            .repeated()
-            .collect::<Vec<_>>()
-            .then(method_visibility.clone())
+        let method_decl = attributes
+            .clone()
+            .then(
+                method_modifier
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .then(method_visibility.clone()),
+            )
             .clone()
             .then(
                 text::keyword(kw::INTRINSIC.text)
@@ -2642,14 +2709,29 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .map_with(
                 |(
                     (
-                        (((((modifiers, visibility), is_intrinsic), is_static), name), params),
+                        (
+                            (
+                                (((attributes, (modifiers, visibility)), is_intrinsic), is_static),
+                                name,
+                            ),
+                            params,
+                        ),
                         return_type,
                     ),
                     body,
                 ): (
                     (
                         (
-                            ((((Vec<&str>, Option<MethodVisibility>), bool), bool), &str),
+                            (
+                                (
+                                    (
+                                        (Vec<AttributeDecl>, (Vec<&str>, Option<MethodVisibility>)),
+                                        bool,
+                                    ),
+                                    bool,
+                                ),
+                                &str,
+                            ),
                             Vec<TypedParam>,
                         ),
                         Option<String>,
@@ -2661,6 +2743,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     ClassMember::Method(MethodDecl {
                         name: name.to_string(),
+                        attributes,
                         params,
                         return_type,
                         body: body.unwrap_or_default(),
@@ -2690,6 +2773,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then(text::ident().padded())
             .map(|(ty, name): (Option<String>, &str)| TypedParam {
                 name: name.to_string(),
+                attributes: Vec::new(),
                 ty,
                 default_value: None,
                 promoted_visibility: None,
@@ -2741,14 +2825,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .delimited_by(just('{').padded(), just('}').padded())
             .boxed();
 
-        let property_decl = method_visibility
+        let property_decl = attributes
             .clone()
             .then(
-                text::keyword(kw::STATIC.text)
-                    .padded()
-                    .to(true)
-                    .or_not()
-                    .map(|is_static| is_static.unwrap_or(false)),
+                method_visibility.clone().then(
+                    text::keyword(kw::STATIC.text)
+                        .padded()
+                        .to(true)
+                        .or_not()
+                        .map(|is_static| is_static.unwrap_or(false)),
+                ),
             )
             .then(type_expr.clone().padded().or_not())
             .then_ignore(just('$').padded())
@@ -2757,9 +2843,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then(property_hooks.clone().or_not())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(((((visibility, is_static), ty), name), value), hooks): (
+                |(((((attributes, (visibility, is_static)), ty), name), value), hooks): (
                     (
-                        (((Option<MethodVisibility>, bool), Option<String>), &str),
+                        (
+                            (
+                                (Vec<AttributeDecl>, (Option<MethodVisibility>, bool)),
+                                Option<String>,
+                            ),
+                            &str,
+                        ),
                         Option<Expr>,
                     ),
                     Option<Vec<PropertyHookDecl>>,
@@ -2769,6 +2861,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     ClassMember::Property(PropertyDecl {
                         name: name.to_string(),
+                        attributes,
                         ty,
                         value,
                         hooks: hooks.unwrap_or_default(),
@@ -2780,19 +2873,28 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let class_const_decl = method_visibility
+        let class_const_decl = attributes
             .clone()
-            .then_ignore(text::keyword("const").padded())
+            .then(
+                method_visibility
+                    .clone()
+                    .then_ignore(text::keyword("const").padded()),
+            )
             .then(text::ident().padded())
             .then_ignore(just('=').padded())
             .then(expr.clone())
             .then_ignore(terminator.clone())
             .map_with(
-                |((visibility, name), value): ((Option<MethodVisibility>, &str), Expr), extra| {
+                |(((attributes, visibility), name), value): (
+                    ((Vec<AttributeDecl>, Option<MethodVisibility>), &str),
+                    Expr,
+                ),
+                 extra| {
                     let span: SimpleSpan = extra.span();
 
                     ClassMember::Const(ClassConstDecl {
                         name: name.to_string(),
+                        attributes,
                         value,
                         visibility: visibility.unwrap_or(MethodVisibility::Public),
                         span: Span::new(span.start, span.end),
@@ -2904,12 +3006,17 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 .boxed(),
         );
 
-        let class_decl_stmt = class_modifier
-            .repeated()
-            .collect::<Vec<_>>()
+        let class_decl_stmt = attributes
+            .clone()
+            .then(class_modifier.repeated().collect::<Vec<_>>())
             .then_ignore(just(kw::CLASS.text).padded())
             .then(text::ident().padded())
-            .map(|(modifiers, name): (Vec<ClassModifier>, &str)| (name, modifiers))
+            .map(
+                |(attributes_modifiers, name): ((Vec<AttributeDecl>, Vec<ClassModifier>), &str)| {
+                    let (attributes, modifiers) = attributes_modifiers;
+                    (name, attributes, modifiers)
+                },
+            )
             .padded()
             .then(
                 text::keyword("extends")
@@ -2935,9 +3042,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((((name, modifiers), parent), interfaces), members): (
+                |((((name, attributes, modifiers), parent), interfaces), members): (
                     (
-                        ((&str, Vec<ClassModifier>), Option<QualifiedName>),
+                        (
+                            (&str, Vec<AttributeDecl>, Vec<ClassModifier>),
+                            Option<QualifiedName>,
+                        ),
                         Option<Vec<QualifiedName>>,
                     ),
                     Vec<ClassMember>,
@@ -2947,6 +3057,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     Stmt::ClassDecl(ClassDeclStmt {
                         name: name.to_string(),
+                        attributes,
                         modifiers,
                         parent,
                         interfaces: interfaces.unwrap_or_default(),
@@ -2957,9 +3068,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let trait_decl_stmt = text::keyword("trait")
-            .padded()
-            .ignore_then(text::ident().padded())
+        let trait_decl_stmt = attributes
+            .clone()
+            .then_ignore(text::keyword("trait").padded())
+            .then(text::ident().padded())
             .then(
                 class_member
                     .clone()
@@ -2967,19 +3079,24 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .collect::<Vec<_>>()
                     .delimited_by(just('{').padded(), just('}').padded()),
             )
-            .map_with(|(name, members): (&str, Vec<ClassMember>), extra| {
-                let span: SimpleSpan = extra.span();
-                Stmt::TraitDecl(TraitDeclStmt {
-                    name: name.to_string(),
-                    members,
-                    span: Span::new(span.start, span.end),
-                })
-            })
+            .map_with(
+                |((attributes, name), members): ((Vec<AttributeDecl>, &str), Vec<ClassMember>),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+                    Stmt::TraitDecl(TraitDeclStmt {
+                        name: name.to_string(),
+                        attributes,
+                        members,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            )
             .boxed();
 
-        let interface_decl_stmt = text::keyword(kw::INTERFACE.text)
-            .padded()
-            .ignore_then(text::ident().padded())
+        let interface_decl_stmt = attributes
+            .clone()
+            .then_ignore(text::keyword(kw::INTERFACE.text).padded())
+            .then(text::ident().padded())
             .then(
                 text::keyword("extends")
                     .padded()
@@ -3000,8 +3117,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .delimited_by(just('{').padded(), just('}').padded()),
             )
             .map_with(
-                |((name, parents), members): (
-                    (&str, Option<Vec<QualifiedName>>),
+                |(((attributes, name), parents), members): (
+                    ((Vec<AttributeDecl>, &str), Option<Vec<QualifiedName>>),
                     Vec<InterfaceMember>,
                 ),
                  extra| {
@@ -3009,6 +3126,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     Stmt::InterfaceDecl(InterfaceDeclStmt {
                         name: name.to_string(),
+                        attributes,
                         parents: parents.unwrap_or_default(),
                         members,
                         span: Span::new(span.start, span.end),
@@ -3017,20 +3135,24 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let enum_case_member = text::keyword("case")
-            .padded()
-            .ignore_then(text::ident().padded())
+        let enum_case_member = attributes
+            .clone()
+            .then_ignore(text::keyword("case").padded())
+            .then(text::ident().padded())
             .then(just('=').padded().ignore_then(expr.clone()).or_not())
             .then_ignore(terminator.clone())
-            .map_with(|(name, value): (&str, Option<Expr>), extra| {
-                let span: SimpleSpan = extra.span();
+            .map_with(
+                |((attributes, name), value): ((Vec<AttributeDecl>, &str), Option<Expr>), extra| {
+                    let span: SimpleSpan = extra.span();
 
-                EnumMember::Case(EnumCaseDecl {
-                    name: name.to_string(),
-                    value,
-                    span: Span::new(span.start, span.end),
-                })
-            })
+                    EnumMember::Case(EnumCaseDecl {
+                        name: name.to_string(),
+                        attributes,
+                        value,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            )
             .boxed();
 
         let enum_member = enum_case_member
@@ -3044,9 +3166,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             }))
             .boxed();
 
-        let enum_decl_stmt = text::keyword("enum")
-            .padded()
-            .ignore_then(text::ident().padded())
+        let enum_decl_stmt = attributes
+            .clone()
+            .then_ignore(text::keyword("enum").padded())
+            .then(text::ident().padded())
             .then(
                 just(':')
                     .padded()
@@ -3073,8 +3196,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .delimited_by(just('{').padded(), just('}').padded()),
             )
             .map_with(
-                |(((name, backing_type), interfaces), members): (
-                    ((&str, Option<String>), Option<Vec<QualifiedName>>),
+                |((((attributes, name), backing_type), interfaces), members): (
+                    (
+                        ((Vec<AttributeDecl>, &str), Option<String>),
+                        Option<Vec<QualifiedName>>,
+                    ),
                     Vec<EnumMember>,
                 ),
                  extra| {
@@ -3082,6 +3208,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     Stmt::EnumDecl(EnumDeclStmt {
                         name: name.to_string(),
+                        attributes,
                         backing_type,
                         interfaces: interfaces.unwrap_or_default(),
                         members,
@@ -3173,31 +3300,36 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
-        let function_decl_stmt = just("function")
-            .padded()
-            .ignore_then(text::ident().padded())
+        let function_decl_stmt = attributes
+            .clone()
+            .then_ignore(just("function").padded())
+            .then(text::ident().padded())
             .then_ignore(just('(').padded())
-            .then(params)
+            .then(
+                typed_param
+                    .clone()
+                    .padded()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>(),
+            )
             .then_ignore(just(')').padded())
             .then_ignore(just('{').padded())
             .then(statement.clone().repeated().collect::<Vec<_>>())
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |((name, params), body): ((&str, Vec<&str>), Vec<Stmt>), extra| {
+                |(((attributes, name), params), body): (
+                    ((Vec<AttributeDecl>, &str), Vec<TypedParam>),
+                    Vec<Stmt>,
+                ),
+                 extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
-                        params: params
-                            .into_iter()
-                            .map(|name| TypedParam {
-                                name: name.to_string(),
-                                ty: None,
-                                default_value: None,
-                                promoted_visibility: None,
-                            })
-                            .collect(),
+                        attributes,
+                        params,
                         return_type: None,
                         is_intrinsic: false,
                         is_generator: false,
@@ -3208,9 +3340,10 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let fn_decl_stmt = text::keyword(kw::FN.text)
-            .padded()
-            .ignore_then(text::ident().padded())
+        let fn_decl_stmt = attributes
+            .clone()
+            .then_ignore(text::keyword(kw::FN.text).padded())
+            .then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
                 typed_param
@@ -3232,8 +3365,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(((name, params), return_type), body): (
-                    ((&str, Vec<TypedParam>), Option<String>),
+                |((((attributes, name), params), return_type), body): (
+                    (
+                        ((Vec<AttributeDecl>, &str), Vec<TypedParam>),
+                        Option<String>,
+                    ),
                     Vec<Stmt>,
                 ),
                  extra| {
@@ -3241,6 +3377,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
+                        attributes,
                         params,
                         return_type,
                         is_intrinsic: false,
@@ -3252,14 +3389,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let intrinsic_function_decl_stmt = text::keyword(kw::INTRINSIC.text)
-            .padded()
-            .ignore_then(
+        let intrinsic_function_decl_stmt = attributes
+            .clone()
+            .then_ignore(text::keyword(kw::INTRINSIC.text).padded())
+            .then_ignore(
                 text::keyword(kw::FN.text)
                     .or(text::keyword(kw::FUNCTION.text))
                     .padded(),
             )
-            .ignore_then(text::ident().padded())
+            .then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
                 typed_param
@@ -3278,12 +3416,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .then_ignore(terminator.clone())
             .map_with(
-                |((name, params), return_type): ((&str, Vec<TypedParam>), Option<String>),
+                |(((attributes, name), params), return_type): (
+                    ((Vec<AttributeDecl>, &str), Vec<TypedParam>),
+                    Option<String>,
+                ),
                  extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
+                        attributes,
                         params,
                         return_type,
                         is_intrinsic: true,
@@ -3295,10 +3437,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let gen_fn_decl_stmt = text::keyword(kw::GEN.text)
-            .padded()
-            .ignore_then(text::keyword(kw::FN.text).padded())
-            .ignore_then(text::ident().padded())
+        let gen_fn_decl_stmt = attributes
+            .clone()
+            .then_ignore(text::keyword(kw::GEN.text).padded())
+            .then_ignore(text::keyword(kw::FN.text).padded())
+            .then(text::ident().padded())
             .then_ignore(just('(').padded())
             .then(
                 typed_param
@@ -3320,8 +3463,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(((name, params), return_type), body): (
-                    ((&str, Vec<TypedParam>), Option<String>),
+                |((((attributes, name), params), return_type), body): (
+                    (
+                        ((Vec<AttributeDecl>, &str), Vec<TypedParam>),
+                        Option<String>,
+                    ),
                     Vec<Stmt>,
                 ),
                  extra| {
@@ -3329,6 +3475,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     Stmt::FunctionDecl(FunctionDeclStmt {
                         name: name.to_string(),
+                        attributes,
                         params,
                         return_type,
                         is_intrinsic: false,

@@ -6,8 +6,10 @@ fn userland_function_declaration_registers_reflection_metadata() {
         std_import("reflect"),
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "greet".to_string(),
+            attributes: Vec::new(),
             params: vec![TypedParam {
                 name: "name".to_string(),
+                attributes: Vec::new(),
                 ty: Some("string".to_string()),
                 default_value: None,
                 promoted_visibility: None,

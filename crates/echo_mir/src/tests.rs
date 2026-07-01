@@ -49,6 +49,7 @@ fn lower_program_extracts_import_and_user_function_sections() {
         }),
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "greet".to_string(),
+            attributes: Vec::new(),
             params: Vec::new(),
             return_type: None,
             is_intrinsic: false,

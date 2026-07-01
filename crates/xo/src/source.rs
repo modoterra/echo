@@ -3065,6 +3065,7 @@ mod tests {
                 }),
                 Stmt::ClassDecl(echo_ast::ClassDeclStmt {
                     name: "ServerProvider".to_string(),
+                    attributes: Vec::new(),
                     modifiers: Vec::new(),
                     parent: None,
                     interfaces: Vec::new(),

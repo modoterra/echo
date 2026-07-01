@@ -39,6 +39,7 @@ Related baseline functions tracked below: `get_included_files`,
 
 | Construct | Status | Notes |
 | --- | --- | --- |
+| attributes | partial | Parser/AST support covers PHP 8 `#[...]` attributes on classes, traits, interfaces, enums, enum cases, functions, methods, parameters, properties, and class/interface constants, including grouped attributes and argument lists. Reflection exposure and target validation are deferred. Source: https://www.php.net/manual/en/language.attributes.overview.php |
 | assignment expressions | partial | Assignments are expressions and evaluate to the assigned value. Source: https://www.php.net/manual/en/language.operators.assignment.php |
 | `__DIR__` | partial | File-backed `xo` compilation resolves it from the canonical source path. Source: https://www.php.net/manual/en/language.constants.magic.php |
 | anonymous classes | partial | Parser/AST support covers `new class`, constructor arguments, `readonly class`, `extends`, `implements`, trait-use members, properties, constants, and methods. Runtime anonymous class identity/object semantics are not implemented yet. Source: https://www.php.net/manual/en/language.oop5.anonymous.php |

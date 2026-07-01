@@ -28,6 +28,7 @@ fn extracts_declaration_facts_with_namespace() {
             }),
             Stmt::FunctionDecl(FunctionDeclStmt {
                 name: "handler".to_string(),
+                attributes: Vec::new(),
                 params: vec![],
                 return_type: Some("string".to_string()),
                 is_intrinsic: false,
@@ -37,11 +38,13 @@ fn extracts_declaration_facts_with_namespace() {
             }),
             Stmt::ClassDecl(ClassDeclStmt {
                 name: "UserController".to_string(),
+                attributes: Vec::new(),
                 modifiers: Vec::new(),
                 parent: None,
                 interfaces: Vec::new(),
                 members: vec![ClassMember::Method(MethodDecl {
                     name: "show".to_string(),
+                    attributes: Vec::new(),
                     params: vec![],
                     return_type: None,
                     body: vec![],

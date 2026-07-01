@@ -82,6 +82,7 @@ pub struct DynamicFunctionCallStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclStmt {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub params: Vec<TypedParam>,
     pub return_type: Option<String>,
     pub is_intrinsic: bool,
@@ -258,6 +259,7 @@ pub struct UnnamedExportStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDeclStmt {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub modifiers: Vec<ClassModifier>,
     pub parent: Option<QualifiedName>,
     pub interfaces: Vec<QualifiedName>,
@@ -275,6 +277,7 @@ pub enum ClassModifier {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceDeclStmt {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub parents: Vec<QualifiedName>,
     pub members: Vec<InterfaceMember>,
     pub span: Span,
@@ -283,6 +286,7 @@ pub struct InterfaceDeclStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TraitDeclStmt {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub members: Vec<ClassMember>,
     pub span: Span,
 }
@@ -290,6 +294,7 @@ pub struct TraitDeclStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumDeclStmt {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub backing_type: Option<String>,
     pub interfaces: Vec<QualifiedName>,
     pub members: Vec<EnumMember>,
@@ -448,6 +453,7 @@ pub enum InterfaceMember {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumCaseDecl {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub value: Option<Expr>,
     pub span: Span,
 }
@@ -462,6 +468,7 @@ pub enum MethodVisibility {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MethodDecl {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub params: Vec<TypedParam>,
     pub return_type: Option<String>,
     pub body: Vec<Stmt>,
@@ -476,6 +483,7 @@ pub struct MethodDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PropertyDecl {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub ty: Option<String>,
     pub value: Option<Expr>,
     pub hooks: Vec<PropertyHookDecl>,
@@ -508,6 +516,7 @@ pub enum PropertyHookBody {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassConstDecl {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub value: Expr,
     pub visibility: MethodVisibility,
     pub span: Span,
@@ -516,7 +525,15 @@ pub struct ClassConstDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypedParam {
     pub name: String,
+    pub attributes: Vec<AttributeDecl>,
     pub ty: Option<String>,
     pub default_value: Option<Expr>,
     pub promoted_visibility: Option<MethodVisibility>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AttributeDecl {
+    pub name: QualifiedName,
+    pub args: Vec<CallArg>,
+    pub span: Span,
 }

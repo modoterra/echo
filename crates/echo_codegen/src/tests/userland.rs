@@ -5,6 +5,7 @@ fn userland_call_emits_function_definition_and_call() {
     let ir = compile_to_ir(&program(vec![
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "say_after".to_string(),
+            attributes: Vec::new(),
             params: vec![],
             return_type: None,
             is_intrinsic: false,
@@ -45,6 +46,7 @@ fn userland_call_passes_string_argument_as_echo_value() {
     let ir = compile_to_ir(&program(vec![
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "say".to_string(),
+            attributes: Vec::new(),
             params: vec![param("message")],
             return_type: None,
             is_intrinsic: false,
@@ -92,6 +94,7 @@ fn userland_return_value_can_be_echoed() {
     let ir = compile_to_ir(&program(vec![
         Stmt::FunctionDecl(FunctionDeclStmt {
             name: "greeting".to_string(),
+            attributes: Vec::new(),
             params: vec![],
             return_type: None,
             is_intrinsic: false,

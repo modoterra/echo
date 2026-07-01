@@ -25,7 +25,7 @@ pub(crate) fn strip_comments_preserving_spans(source: &str) -> String {
                     index += 1;
                 }
             }
-            b'#' => {
+            b'#' if bytes.get(index + 1) != Some(&b'[') => {
                 while index < bytes.len() && bytes[index] != b'\n' && bytes[index] != b'\r' {
                     output[index] = b' ';
                     index += 1;

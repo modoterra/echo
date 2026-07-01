@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use echo_ast::{
-    BinaryOp, ClassMember, EnumMember, Expr, FunctionDeclStmt, InterfaceMember, MethodDecl,
-    Program, PropertyDecl, PropertyHookBody, ReceiverConst, Stmt, UnaryOp,
+    AttributeDecl, BinaryOp, ClassMember, EnumMember, Expr, FunctionDeclStmt, InterfaceMember,
+    MethodDecl, Program, PropertyDecl, PropertyHookBody, ReceiverConst, Stmt, UnaryOp,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::Span;
@@ -146,6 +146,7 @@ impl Analyzer {
                 self.analyze_expr(&statement.value);
             }
             Stmt::ClassDecl(statement) => {
+                self.analyze_attributes(&statement.attributes);
                 for member in &statement.members {
                     match member {
                         ClassMember::Method(method) => self.analyze_method_decl(
@@ -160,6 +161,7 @@ impl Analyzer {
                             self.analyze_property_decl(property);
                         }
                         ClassMember::Const(constant) => {
+                            self.analyze_attributes(&constant.attributes);
                             self.analyze_expr(&constant.value);
                         }
                         ClassMember::TraitUse(_) => {}
@@ -167,6 +169,7 @@ impl Analyzer {
                 }
             }
             Stmt::InterfaceDecl(statement) => {
+                self.analyze_attributes(&statement.attributes);
                 for member in &statement.members {
                     match member {
                         InterfaceMember::Method(method) => self.analyze_method_decl(
@@ -178,6 +181,7 @@ impl Analyzer {
                             },
                         ),
                         InterfaceMember::Const(constant) => {
+                            self.analyze_attributes(&constant.attributes);
                             self.analyze_expr(&constant.value);
                         }
                         InterfaceMember::Property(property) => {
@@ -187,6 +191,7 @@ impl Analyzer {
                 }
             }
             Stmt::TraitDecl(statement) => {
+                self.analyze_attributes(&statement.attributes);
                 for member in &statement.members {
                     match member {
                         ClassMember::Method(method) => self.analyze_method_decl(
@@ -201,6 +206,7 @@ impl Analyzer {
                             self.analyze_property_decl(property);
                         }
                         ClassMember::Const(constant) => {
+                            self.analyze_attributes(&constant.attributes);
                             self.analyze_expr(&constant.value);
                         }
                         ClassMember::TraitUse(_) => {}
@@ -208,9 +214,11 @@ impl Analyzer {
                 }
             }
             Stmt::EnumDecl(statement) => {
+                self.analyze_attributes(&statement.attributes);
                 for member in &statement.members {
                     match member {
                         EnumMember::Case(case) => {
+                            self.analyze_attributes(&case.attributes);
                             if let Some(value) = &case.value {
                                 self.analyze_expr(value);
                             }
@@ -242,6 +250,7 @@ impl Analyzer {
                             self.analyze_property_decl(property);
                         }
                         ClassMember::Const(constant) => {
+                            self.analyze_attributes(&constant.attributes);
                             self.analyze_expr(&constant.value);
                         }
                         ClassMember::TraitUse(_) => {}
@@ -351,8 +360,10 @@ impl Analyzer {
     }
 
     fn analyze_function_decl(&mut self, statement: &FunctionDeclStmt) {
+        self.analyze_attributes(&statement.attributes);
         let saved_variables = self.variables.clone();
         for param in &statement.params {
+            self.analyze_attributes(&param.attributes);
             if let Some(default_value) = &param.default_value {
                 self.analyze_expr(default_value);
             }
@@ -387,10 +398,12 @@ impl Analyzer {
     }
 
     fn analyze_method_decl(&mut self, method: &MethodDecl, context: ReceiverContext) {
+        self.analyze_attributes(&method.attributes);
         let saved_variables = self.variables.clone();
         let saved_context = self.receiver_context;
         self.receiver_context = context;
         for param in &method.params {
+            self.analyze_attributes(&param.attributes);
             if let Some(default_value) = &param.default_value {
                 self.analyze_expr(default_value);
             }
@@ -422,6 +435,7 @@ impl Analyzer {
                 self.analyze_property_decl(property);
             }
             ClassMember::Const(constant) => {
+                self.analyze_attributes(&constant.attributes);
                 self.analyze_expr(&constant.value);
             }
             ClassMember::TraitUse(_) => {}
@@ -429,6 +443,7 @@ impl Analyzer {
     }
 
     fn analyze_property_decl(&mut self, property: &PropertyDecl) {
+        self.analyze_attributes(&property.attributes);
         if let Some(value) = &property.value {
             self.analyze_expr(value);
         }
@@ -436,7 +451,10 @@ impl Analyzer {
             if let Some(param) = &hook.param
                 && let Some(default_value) = &param.default_value
             {
+                self.analyze_attributes(&param.attributes);
                 self.analyze_expr(default_value);
+            } else if let Some(param) = &hook.param {
+                self.analyze_attributes(&param.attributes);
             }
             match &hook.body {
                 PropertyHookBody::None => {}
@@ -444,6 +462,14 @@ impl Analyzer {
                     self.analyze_expr(expr);
                 }
                 PropertyHookBody::Block(body) => self.analyze_statements(body),
+            }
+        }
+    }
+
+    fn analyze_attributes(&mut self, attributes: &[AttributeDecl]) {
+        for attribute in attributes {
+            for arg in &attribute.args {
+                self.analyze_expr(&arg.value);
             }
         }
     }

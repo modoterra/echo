@@ -321,6 +321,7 @@ fn lower_function(statement: &FunctionDeclStmt) -> MirFunction {
 fn lower_method(class_name: &str, method: &MethodDecl) -> MirFunction {
     let source = FunctionDeclStmt {
         name: format!("{class_name}::{}", method.name),
+        attributes: method.attributes.clone(),
         params: method.params.clone(),
         return_type: method.return_type.clone(),
         is_intrinsic: method.is_intrinsic,
