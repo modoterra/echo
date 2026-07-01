@@ -117,6 +117,40 @@ pub extern "C" fn echo_php_enum_exists(_enum: EchoValue, _autoload: EchoValue) -
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_method_exists(
+    _object_or_class: EchoValue,
+    _method: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_property_exists(
+    _object_or_class: EchoValue,
+    _property: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_a(
+    _object_or_class: EchoValue,
+    _class: EchoValue,
+    _allow_string: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_subclass_of(
+    _object_or_class: EchoValue,
+    _class: EchoValue,
+    _allow_string: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_callable(value: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::bool(false);

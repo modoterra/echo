@@ -120,10 +120,10 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_resource_type` | partial | Returns Echo's runtime resource type name such as `stream`; PHP's full resource type catalog is deferred. Source: https://www.php.net/manual/en/function.get-resource-type.php |
 | `get_resources` | partial | Returns an empty array for the current resource enumeration baseline; live resource registry and invalid-type `ValueError` parity are deferred. Source: https://www.php.net/manual/en/function.get-resources.php |
 | `interface_exists` | partial | Returns `false` until Echo has interface metadata and autoload semantics. Source: https://www.php.net/manual/en/function.interface-exists.php |
-| `is_a` | missing |  |
-| `is_subclass_of` | missing |  |
-| `method_exists` | missing |  |
-| `property_exists` | missing |  |
+| `is_a` | partial | Returns `false` until Echo has class identity and inheritance metadata. Source: https://www.php.net/manual/en/function.is-a.php |
+| `is_subclass_of` | partial | Returns `false` until Echo has class/interface inheritance metadata. Source: https://www.php.net/manual/en/function.is-subclass-of.php |
+| `method_exists` | partial | Returns `false` until Echo has runtime method metadata. Source: https://www.php.net/manual/en/function.method-exists.php |
+| `property_exists` | partial | Returns `false` until Echo has runtime property metadata. Source: https://www.php.net/manual/en/function.property-exists.php |
 | `restore_error_handler` | partial | Restores the previous stored error-handler callback and returns `true`; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.restore-error-handler.php |
 | `restore_exception_handler` | partial | Restores the previous stored exception-handler callback and returns `true`; dispatching uncaught exceptions through the stored callback is deferred. Source: https://www.php.net/manual/en/function.restore-exception-handler.php |
 | `set_error_handler` | partial | Stores callable error handlers, returns the previous handler or `null`, and cooperates with `get_error_handler()`/`restore_error_handler()`. Actual error dispatch is deferred. Source: https://www.php.net/manual/en/function.set-error-handler.php |

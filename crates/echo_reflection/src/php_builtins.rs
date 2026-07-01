@@ -190,6 +190,40 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "method_exists",
+            &[
+                ("object_or_class", Some("object|string")),
+                ("method", Some("string")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "property_exists",
+            &[
+                ("object_or_class", Some("object|string")),
+                ("property", Some("string")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "is_a",
+            &[
+                ("object_or_class", Some("object|string")),
+                ("class", Some("string")),
+                ("allow_string", Some("bool")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "is_subclass_of",
+            &[
+                ("object_or_class", Some("object|string")),
+                ("class", Some("string")),
+                ("allow_string", Some("bool")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "set_error_handler",
             &[("callback", Some("?callable"))],
             Some("?callable"),
