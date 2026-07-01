@@ -3539,11 +3539,29 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(expr.clone())
             .boxed();
 
-        let while_stmt = text::keyword("while")
+        let while_header = text::keyword("while")
             .padded()
             .ignore_then(condition_expr.clone())
-            .then(block.clone())
-            .then_ignore(terminator.clone().or_not())
+            .boxed();
+        let while_alternate_body_boundary = text::keyword("endwhile").padded().ignored();
+        let while_alternate_body_statement = while_alternate_body_boundary
+            .clone()
+            .not()
+            .ignore_then(statement.clone())
+            .boxed();
+        let while_alternate_body = just(':')
+            .padded()
+            .ignore_then(
+                while_alternate_body_statement
+                    .then_ignore(stray_terminators.clone())
+                    .repeated()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(while_alternate_body_boundary)
+            .then_ignore(terminator.clone());
+        let while_alternate_stmt = while_header
+            .clone()
+            .then(while_alternate_body)
             .map_with(|(condition, body), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -3553,6 +3571,20 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+        let while_stmt = while_alternate_stmt
+            .or(while_header
+                .then(block.clone())
+                .then_ignore(terminator.clone().or_not())
+                .map_with(|(condition, body), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::While(WhileStmt {
+                        condition,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    })
+                }))
             .boxed();
 
         let do_while_stmt = just("do")

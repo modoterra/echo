@@ -55,6 +55,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
 | `print` | partial | Parser/AST and codegen support covers `print` as an expression that writes one value and returns `1`. Source: https://www.php.net/manual/en/function.print.php |
 | `switch` statements | partial | Parser/AST support covers braced and alternate `switch (...): ... endswitch;` statements with expression `case` labels, `default`, empty fall-through case bodies, and both `:` and `;` label separators. Runtime execution is deferred. Source: https://www.php.net/manual/en/control-structures.switch.php |
+| `while` statements | partial | Parser/AST support covers parenthesized `while` conditions with braced and alternate `while (...): ... endwhile;` bodies. Runtime loop execution is deferred. Source: https://www.php.net/manual/en/control-structures.while.php |
 
 ## Totals
 

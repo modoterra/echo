@@ -1061,6 +1061,39 @@ endfor;
 }
 
 #[test]
+fn parses_php_while_statement_bodies() {
+    let program = parse(
+        r#"<?php
+while ($i < 3) {
+    echo $i;
+}
+while ($i < 3):
+    echo $i;
+endwhile;
+while ($done):
+endwhile;
+"#,
+    )
+    .expect("PHP while statements parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::While(statement)
+            if statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::While(statement)
+            if statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::While(statement)
+            if statement.body.is_empty()
+    ));
+}
+
+#[test]
 fn parses_php_do_while_statement() {
     let program = parse(
         r#"<?php
