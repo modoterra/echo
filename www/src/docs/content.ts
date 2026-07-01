@@ -1017,6 +1017,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current realpath cache size.",
       },
       {
+        name: "realpath_cache_get",
+        signature: "realpath_cache_get(): array",
+        description: "Returns entries from PHP's realpath cache.",
+      },
+      {
         name: "is_dir",
         signature: "is_dir(string $filename): bool",
         description: "Returns true when a local path exists and is a directory.",
@@ -1680,6 +1685,12 @@ if (file_exists("storage/report.csv")) {
     `let $bytes = realpath_cache_size()
 
 echo "realpath cache bytes: " . $bytes . "\\n"`,
+  ],
+  [
+    "realpath_cache_get",
+    `let $entries = realpath_cache_get()
+
+echo "realpath cache entries: " . count($entries) . "\\n"`,
   ],
   [
     "fileatime",
@@ -3527,6 +3538,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "realpath_cache_size",
     "Use `realpath_cache_size()` in compatibility diagnostics that report PHP's path cache state. Echo currently returns zero because it does not maintain a realpath cache.",
+  ],
+  [
+    "realpath_cache_get",
+    "Use `realpath_cache_get()` in compatibility diagnostics that inspect PHP's path cache entries. Echo currently returns an empty array because it does not maintain a realpath cache.",
   ],
   [
     "crc32",
@@ -6662,7 +6677,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 243 PHP compatibility fixtures, 276 implemented Core and standard functions out of 607, 331 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 244 PHP compatibility fixtures, 277 implemented Core and standard functions out of 607, 330 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -1129,6 +1129,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("path", Some("string"))],
             Some("string|false"),
         ),
+        php_builtin_reflection("realpath_cache_get", &[], Some("array")),
         php_builtin_reflection("realpath_cache_size", &[], Some("int")),
         php_builtin_reflection("trim", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("ltrim", &[("string", Some("string"))], Some("string")),

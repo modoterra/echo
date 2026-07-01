@@ -79,9 +79,10 @@ pub use filesystem::{
     echo_php_filetype, echo_php_fopen, echo_php_fread, echo_php_getcwd, echo_php_is_dir,
     echo_php_is_executable, echo_php_is_file, echo_php_is_link, echo_php_is_readable,
     echo_php_is_writable, echo_php_link, echo_php_mkdir, echo_php_pathinfo, echo_php_readfile,
-    echo_php_readlink, echo_php_realpath, echo_php_realpath_cache_size, echo_php_rename,
-    echo_php_rmdir, echo_php_stream_get_contents, echo_php_symlink, echo_php_sys_get_temp_dir,
-    echo_php_tempnam, echo_php_tmpfile, echo_php_touch, echo_php_uniqid, echo_php_unlink,
+    echo_php_readlink, echo_php_realpath, echo_php_realpath_cache_get,
+    echo_php_realpath_cache_size, echo_php_rename, echo_php_rmdir, echo_php_stream_get_contents,
+    echo_php_symlink, echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_tmpfile,
+    echo_php_touch, echo_php_uniqid, echo_php_unlink,
 };
 pub use gc::{
     echo_php_gc_collect_cycles, echo_php_gc_disable, echo_php_gc_enable, echo_php_gc_enabled,
