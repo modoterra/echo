@@ -108,7 +108,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_defined_functions` | missing |  |
 | `get_defined_vars` | missing |  |
 | `get_error_handler` | partial | Returns the current stored error-handler callback or `null` when none is installed; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
-| `get_exception_handler` | partial | Returns `null` before any custom exception handler is installed. Handler registry support through `set_exception_handler()` and `restore_exception_handler()` is deferred. Source: https://www.php.net/manual/en/function.get-exception-handler.php |
+| `get_exception_handler` | partial | Returns the current stored exception-handler callback or `null` when none is installed; dispatching uncaught exceptions through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-exception-handler.php |
 | `get_extension_funcs` | implemented | Returns `false` for named extensions because Echo does not model PHP extension function metadata yet. Source: https://www.php.net/manual/en/function.get-extension-funcs.php |
 | `get_included_files` | missing |  |
 | `get_loaded_extensions` | implemented | Returns an empty array because Echo does not model PHP extension metadata yet; accepts the optional Zend-extension flag. Source: https://www.php.net/manual/en/function.get-loaded-extensions.php |
@@ -125,9 +125,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `method_exists` | missing |  |
 | `property_exists` | missing |  |
 | `restore_error_handler` | partial | Restores the previous stored error-handler callback and returns `true`; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.restore-error-handler.php |
-| `restore_exception_handler` | missing |  |
+| `restore_exception_handler` | partial | Restores the previous stored exception-handler callback and returns `true`; dispatching uncaught exceptions through the stored callback is deferred. Source: https://www.php.net/manual/en/function.restore-exception-handler.php |
 | `set_error_handler` | partial | Stores callable error handlers, returns the previous handler or `null`, and cooperates with `get_error_handler()`/`restore_error_handler()`. Actual error dispatch is deferred. Source: https://www.php.net/manual/en/function.set-error-handler.php |
-| `set_exception_handler` | missing |  |
+| `set_exception_handler` | partial | Stores callable exception handlers, returns the previous handler or `null`, and cooperates with `get_exception_handler()`/`restore_exception_handler()`. Actual exception dispatch is deferred. Source: https://www.php.net/manual/en/function.set-exception-handler.php |
 | `strcasecmp` | implemented | Performs binary-safe ASCII case-insensitive string comparison and returns the PHP-style ordering sign. Source: https://www.php.net/manual/en/function.strcasecmp.php |
 | `strcmp` | implemented | Performs binary-safe string comparison and returns the PHP-style ordering sign. Source: https://www.php.net/manual/en/function.strcmp.php |
 | `strlen` | implemented | Returns byte length for strings, matching PHP's byte-oriented string model rather than character count. Source: https://www.php.net/manual/en/function.strlen.php |
