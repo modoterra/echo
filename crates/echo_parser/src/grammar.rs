@@ -3822,12 +3822,68 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let if_alternate_boundary = text::keyword(kw::ELSEIF.text)
+            .padded()
+            .ignored()
+            .or(text::keyword(kw::ELSE.text).padded().ignored())
+            .or(text::keyword("endif").padded().ignored());
+        let if_alternate_body_statement = if_alternate_boundary
+            .clone()
+            .not()
+            .ignore_then(statement.clone())
+            .boxed();
+        let if_alternate_body = if_alternate_body_statement
+            .clone()
+            .then_ignore(stray_terminators.clone())
+            .repeated()
+            .collect::<Vec<_>>();
+        let alternate_elseif_clause = text::keyword(kw::ELSEIF.text)
+            .padded()
+            .ignore_then(expr.clone())
+            .then_ignore(just(':').padded())
+            .then(if_alternate_body.clone())
+            .map_with(|(condition, body), extra| {
+                let span: SimpleSpan = extra.span();
+                ElseIfClause {
+                    condition,
+                    body,
+                    span: Span::new(span.start, span.end),
+                }
+            })
+            .boxed();
+        let alternate_else_clause = text::keyword(kw::ELSE.text)
+            .padded()
+            .ignore_then(just(':').padded())
+            .ignore_then(if_alternate_body.clone())
+            .boxed();
+        let alternate_if_stmt = text::keyword(kw::IF.text)
+            .padded()
+            .ignore_then(expr.clone())
+            .then_ignore(just(':').padded())
+            .then(if_alternate_body)
+            .then(alternate_elseif_clause.repeated().collect::<Vec<_>>())
+            .then(alternate_else_clause.or_not())
+            .then_ignore(text::keyword("endif").padded())
+            .then_ignore(terminator.clone())
+            .map_with(|(((condition, body), elseif_clauses), else_body), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::If(IfStmt {
+                    condition,
+                    body,
+                    elseif_clauses,
+                    else_body: else_body.unwrap_or_default(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let else_clause = text::keyword(kw::ELSE.text)
             .padded()
             .ignore_then(block.clone())
             .boxed();
 
-        let if_stmt = text::keyword(kw::IF.text)
+        let braced_if_stmt = text::keyword(kw::IF.text)
             .padded()
             .ignore_then(expr.clone())
             .then(block.clone())
@@ -3846,6 +3902,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 })
             })
             .boxed();
+        let if_stmt = alternate_if_stmt.or(braced_if_stmt).boxed();
 
         let catch_type = just('\\')
             .or_not()

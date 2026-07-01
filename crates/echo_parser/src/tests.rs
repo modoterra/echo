@@ -1398,6 +1398,13 @@ if ($a) {
 } else {
     echo "c";
 }
+if ($a):
+    echo "a";
+elseif ($b):
+    echo "b";
+else:
+    echo "c";
+endif;
 "#,
     )
     .expect("elseif parses as an explicit clause");
@@ -1410,6 +1417,17 @@ if ($a) {
                     &statement.elseif_clauses[0].condition,
                     Expr::Variable(variable) if variable.name == "b"
                 )
+                && statement.else_body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::If(statement)
+            if statement.elseif_clauses.len() == 1
+                && matches!(
+                    &statement.elseif_clauses[0].condition,
+                    Expr::Variable(variable) if variable.name == "b"
+                )
+                && statement.body.len() == 1
                 && statement.else_body.len() == 1
     ));
 }
