@@ -101,7 +101,7 @@ fn compile_mir_bundle_to_ir(
     program: &echo_mir::MirProgram,
     includes: &[MirIncludeUnit],
 ) -> Result<String, Vec<Diagnostic>> {
-    compile_mir_bundle_to_ir_detailed(program, includes).map_err(|diagnostics| {
+    compile_mir_bundle_to_ir_detailed(program, includes, None).map_err(|diagnostics| {
         diagnostics
             .into_iter()
             .map(|diagnostic| diagnostic.diagnostic)
@@ -112,6 +112,7 @@ fn compile_mir_bundle_to_ir(
 pub fn compile_mir_bundle_to_ir_detailed(
     program: &echo_mir::MirProgram,
     includes: &[MirIncludeUnit],
+    entry_path: Option<&str>,
 ) -> Result<String, Vec<CodegenDiagnostic>> {
     let mut module = IrModule::new();
     module.source_dir = program.source_dir().map(str::to_string);
@@ -166,6 +167,9 @@ pub fn compile_mir_bundle_to_ir_detailed(
             })
             .collect::<Vec<_>>()
     })?;
+    let entry_registration = entry_path
+        .map(|path| render_entry_include_registration(&mut module, path))
+        .unwrap_or_default();
     let main_tail = if module.terminated {
         String::new()
     } else {
@@ -187,15 +191,27 @@ pub fn compile_mir_bundle_to_ir_detailed(
 
 define i32 @main() {{
 entry:
-{}{}
+{}{}{}
 }}
 "#,
         module.globals,
         runtime_declarations(),
         module.functions_ir,
+        entry_registration,
         body,
         main_tail,
     ))
+}
+
+fn render_entry_include_registration(module: &mut IrModule, path: &str) -> String {
+    let global = module.string_global(path);
+    let value_name = module.next_runtime_call_name();
+
+    format!(
+        "  {value_name} = call %EchoValue @{}(ptr @{global}, i64 {})\n  call void @echo_php_register_included_file(%EchoValue {value_name})\n",
+        CoreRuntimeSymbol::ValueString.symbol(),
+        path.len()
+    )
 }
 
 pub fn run_program_jit(program: &Program) -> Result<i32, Vec<Diagnostic>> {

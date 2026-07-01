@@ -301,6 +301,21 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_get_included_files",
+            echo_runtime::echo_php_get_included_files as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_get_required_files",
+            echo_runtime::echo_php_get_required_files as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_register_included_file",
+            echo_runtime::echo_php_register_included_file as extern "C" fn(echo_runtime::EchoValue)
+                as usize,
+        ),
+        (
             "echo_task_sleep_current",
             echo_runtime::echo_task_sleep_current
                 as extern "C" fn(

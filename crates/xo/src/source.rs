@@ -161,7 +161,8 @@ pub fn try_compile_ir_bundle(
         });
     }
 
-    echo_codegen::compile_mir_bundle_to_ir_detailed(&entry_mir, &includes)
+    let entry_path = source.path.display().to_string();
+    echo_codegen::compile_mir_bundle_to_ir_detailed(&entry_mir, &includes, Some(&entry_path))
         .map_err(|diagnostics| bundle.codegen_source_diagnostics(source, diagnostics))
 }
 

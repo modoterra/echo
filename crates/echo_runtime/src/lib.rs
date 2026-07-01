@@ -103,7 +103,10 @@ pub use reflection::{
     echo_std_reflect_exists, echo_std_reflect_params, echo_std_reflect_return_type,
     echo_std_reflect_type_of,
 };
-pub use require::{echo_php_require, echo_php_require_once};
+pub use require::{
+    echo_php_get_included_files, echo_php_get_required_files, echo_php_register_included_file,
+    echo_php_require, echo_php_require_once,
+};
 pub use string::{
     echo_php_addslashes, echo_php_chr, echo_php_chunk_split, echo_php_decbin, echo_php_dechex,
     echo_php_decoct, echo_php_explode, echo_php_htmlspecialchars, echo_php_htmlspecialchars_decode,

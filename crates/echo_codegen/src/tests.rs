@@ -519,6 +519,7 @@ fn dynamic_new_dispatches_to_bundled_class_include_unit() {
             dynamic_require: false,
             class_names: vec!["App\\Provider".to_string()],
         }],
+        None,
     )
     .expect("IR");
 
@@ -568,6 +569,7 @@ fn dynamic_require_dispatches_only_to_bundled_include_units() {
             dynamic_require: true,
             class_names: Vec::new(),
         }],
+        None,
     )
     .expect("IR");
 
@@ -664,6 +666,7 @@ fn include_returned_object_dispatches_to_unambiguous_method() {
             dynamic_require: false,
             class_names: vec!["Application".to_string()],
         }],
+        None,
     )
     .expect("include-returned object should dispatch to known class method");
 

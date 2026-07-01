@@ -90,8 +90,13 @@ impl PhpBuiltin {
     }
 }
 
-pub const PHP_RUNTIME_HELPERS: &[(&str, RuntimeSignature)] =
-    &[("echo_php_ob_start_value", RuntimeSignature::BoolEchoValue)];
+pub const PHP_RUNTIME_HELPERS: &[(&str, RuntimeSignature)] = &[
+    (
+        "echo_php_register_included_file",
+        RuntimeSignature::VoidEchoValue,
+    ),
+    ("echo_php_ob_start_value", RuntimeSignature::BoolEchoValue),
+];
 
 pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
     let mut builtins = vec![
@@ -290,6 +295,22 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
         PhpBuiltin {
             php_name: "get_include_path",
             symbol: "echo_php_get_include_path",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
+            php_name: "get_included_files",
+            symbol: "echo_php_get_included_files",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
+            php_name: "get_required_files",
+            symbol: "echo_php_get_required_files",
             helper_symbol: None,
             signature: RuntimeSignature::EchoValueNoArgs,
             lowering: BuiltinLowering::DirectRuntimeCall,

@@ -2,8 +2,9 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use crate::EchoValue;
+use crate::{EchoValue, echo_value_array_append, echo_value_array_new};
 
+static INCLUDED_FILES: OnceLock<Mutex<Vec<EchoValue>>> = OnceLock::new();
 static REQUIRED_ONCE_FILES: OnceLock<Mutex<HashSet<Vec<u8>>>> = OnceLock::new();
 
 #[unsafe(no_mangle)]
@@ -31,6 +32,35 @@ pub extern "C" fn echo_php_require_once(filename: EchoValue) -> EchoValue {
     }
 
     require_path(&bytes)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_register_included_file(filename: EchoValue) {
+    let files = INCLUDED_FILES.get_or_init(|| Mutex::new(Vec::new()));
+    let mut files = files.lock().expect("included file list poisoned");
+
+    if files.iter().any(|file| *file == filename) {
+        return;
+    }
+
+    files.push(filename);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_included_files() -> EchoValue {
+    let mut result = echo_value_array_new();
+    let files = INCLUDED_FILES.get_or_init(|| Mutex::new(Vec::new()));
+
+    for filename in files.lock().expect("included file list poisoned").iter() {
+        result = echo_value_array_append(result, *filename);
+    }
+
+    result
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_required_files() -> EchoValue {
+    echo_php_get_included_files()
 }
 
 #[cfg(unix)]

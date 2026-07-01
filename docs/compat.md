@@ -110,12 +110,12 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_error_handler` | partial | Returns the current stored error-handler callback or `null` when none is installed; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
 | `get_exception_handler` | partial | Returns the current stored exception-handler callback or `null` when none is installed; dispatching uncaught exceptions through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-exception-handler.php |
 | `get_extension_funcs` | implemented | Returns `false` for named extensions because Echo does not model PHP extension function metadata yet. Source: https://www.php.net/manual/en/function.get-extension-funcs.php |
-| `get_included_files` | missing |  |
+| `get_included_files` | partial | Returns the entry script path for file-based CLI programs; tracking evaluated include/require paths is deferred. Source: https://www.php.net/manual/en/function.get-included-files.php |
 | `get_loaded_extensions` | implemented | Returns an empty array because Echo does not model PHP extension metadata yet; accepts the optional Zend-extension flag. Source: https://www.php.net/manual/en/function.get-loaded-extensions.php |
 | `get_mangled_object_vars` | missing |  |
 | `get_object_vars` | missing |  |
 | `get_parent_class` | missing |  |
-| `get_required_files` | missing |  |
+| `get_required_files` | partial | Alias of `get_included_files()` for the current include metadata baseline. Source: https://www.php.net/manual/en/function.get-required-files.php |
 | `get_resource_id` | missing |  |
 | `get_resource_type` | missing |  |
 | `get_resources` | missing |  |
