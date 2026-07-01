@@ -184,10 +184,18 @@ pub struct UnnamedExportStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDeclStmt {
     pub name: String,
+    pub modifiers: Vec<ClassModifier>,
     pub parent: Option<QualifiedName>,
     pub interfaces: Vec<QualifiedName>,
     pub members: Vec<ClassMember>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassModifier {
+    Abstract,
+    Final,
+    Readonly,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -352,6 +360,8 @@ pub struct MethodDecl {
     pub return_type: Option<String>,
     pub body: Vec<Stmt>,
     pub visibility: MethodVisibility,
+    pub is_abstract: bool,
+    pub is_final: bool,
     pub is_static: bool,
     pub is_intrinsic: bool,
     pub span: Span,

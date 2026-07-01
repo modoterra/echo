@@ -32,6 +32,8 @@ fn method(name: &str, is_static: bool, body: Vec<Stmt>) -> ClassMember {
         return_type: None,
         body,
         visibility: MethodVisibility::Public,
+        is_abstract: false,
+        is_final: false,
         is_static,
         is_intrinsic: false,
         span: Span::new(0, 0),
@@ -145,6 +147,7 @@ fn rejects_receiver_constant_assignment() {
 fn rejects_static_receiver_until_late_static_binding_exists() {
     let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
+        modifiers: Vec::new(),
         parent: None,
         interfaces: Vec::new(),
         members: vec![method(
@@ -169,6 +172,7 @@ fn rejects_static_receiver_until_late_static_binding_exists() {
 fn rejects_parent_without_lexical_parent() {
     let diagnostics = analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
+        modifiers: Vec::new(),
         parent: None,
         interfaces: Vec::new(),
         members: vec![method(
@@ -193,6 +197,7 @@ fn rejects_parent_without_lexical_parent() {
 fn accepts_this_and_self_inside_instance_method() {
     analyze(&program(vec![Stmt::ClassDecl(ClassDeclStmt {
         name: "User".to_string(),
+        modifiers: Vec::new(),
         parent: None,
         interfaces: Vec::new(),
         members: vec![method(

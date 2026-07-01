@@ -4,10 +4,10 @@ use chumsky::span::SimpleSpan;
 use echo_ast::{
     AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr, AssignRefStmt, AssignStmt,
     BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
-    ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClosureExpr, CoalesceAssignStmt,
-    CompileEntry, CompileStmt, ConstantExpr, ContinueStmt, DeferExpr, DynamicCallExpr,
-    DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, EnumCaseDecl,
-    EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForeachStmt, ForkExpr,
+    ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClassModifier, ClosureExpr,
+    CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt, DeferExpr,
+    DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause,
+    EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForeachStmt, ForkExpr,
     FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt,
     IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt, InterfaceMember, JoinExpr, LetStmt,
     ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
@@ -2343,7 +2343,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .padded()
             .boxed();
 
-        let method_decl = method_visibility
+        let method_modifier = text::keyword(kw::ABSTRACT.text)
+            .to("abstract")
+            .or(text::keyword(kw::FINAL.text).to("final"))
+            .padded();
+
+        let method_decl = method_modifier
+            .repeated()
+            .collect::<Vec<_>>()
+            .then(method_visibility.clone())
             .clone()
             .then(
                 text::keyword(kw::INTRINSIC.text)
@@ -2381,12 +2389,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(terminator.clone().or_not())
             .map_with(
                 |(
-                    (((((visibility, is_intrinsic), is_static), name), params), return_type),
+                    (
+                        (((((modifiers, visibility), is_intrinsic), is_static), name), params),
+                        return_type,
+                    ),
                     body,
                 ): (
                     (
                         (
-                            (((Option<MethodVisibility>, bool), bool), &str),
+                            ((((Vec<&str>, Option<MethodVisibility>), bool), bool), &str),
                             Vec<TypedParam>,
                         ),
                         Option<String>,
@@ -2402,6 +2413,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                         return_type,
                         body: body.unwrap_or_default(),
                         visibility: visibility.unwrap_or(MethodVisibility::Private),
+                        is_abstract: modifiers.contains(&"abstract"),
+                        is_final: modifiers.contains(&"final"),
                         is_static,
                         is_intrinsic,
                         span: Span::new(span.start, span.end),
@@ -2490,9 +2503,19 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             }))
             .boxed();
 
-        let class_decl_stmt = just(kw::CLASS.text)
+        let class_modifier = text::keyword(kw::ABSTRACT.text)
+            .to(ClassModifier::Abstract)
+            .or(text::keyword(kw::FINAL.text).to(ClassModifier::Final))
+            .or(text::keyword(kw::READONLY.text).to(ClassModifier::Readonly))
+            .padded();
+
+        let class_decl_stmt = class_modifier
+            .repeated()
+            .collect::<Vec<_>>()
+            .then_ignore(just(kw::CLASS.text).padded())
+            .then(text::ident().padded())
+            .map(|(modifiers, name): (Vec<ClassModifier>, &str)| (name, modifiers))
             .padded()
-            .ignore_then(text::ident().padded())
             .then(
                 text::keyword("extends")
                     .padded()
@@ -2517,8 +2540,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just('}').padded())
             .then_ignore(terminator.clone().or_not())
             .map_with(
-                |(((name, parent), interfaces), members): (
-                    ((&str, Option<QualifiedName>), Option<Vec<QualifiedName>>),
+                |((((name, modifiers), parent), interfaces), members): (
+                    (
+                        ((&str, Vec<ClassModifier>), Option<QualifiedName>),
+                        Option<Vec<QualifiedName>>,
+                    ),
                     Vec<ClassMember>,
                 ),
                  extra| {
@@ -2526,6 +2552,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
                     Stmt::ClassDecl(ClassDeclStmt {
                         name: name.to_string(),
+                        modifiers,
                         parent,
                         interfaces: interfaces.unwrap_or_default(),
                         members,

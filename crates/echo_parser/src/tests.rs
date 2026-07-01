@@ -1292,6 +1292,45 @@ class Kernel {
 }
 
 #[test]
+fn parses_php_class_declaration_modifiers() {
+    let program = parse(
+        r#"<?php
+abstract class BaseFormatter {
+    abstract public function format($value);
+}
+
+final class JsonFormatter extends BaseFormatter {
+}
+
+readonly class DataTransferObject {
+    public string $name;
+}
+"#,
+    )
+    .expect("PHP class declaration modifiers parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::ClassDecl(statement)
+            if statement.name == "BaseFormatter"
+                && statement.modifiers == [ClassModifier::Abstract]
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::ClassDecl(statement)
+            if statement.name == "JsonFormatter"
+                && statement.modifiers == [ClassModifier::Final]
+                && statement.parent == Some(QualifiedName::new(vec!["BaseFormatter".to_string()]))
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::ClassDecl(statement)
+            if statement.name == "DataTransferObject"
+                && statement.modifiers == [ClassModifier::Readonly]
+    ));
+}
+
+#[test]
 fn single_language_accepts_php_typed_class_property_with_empty_array_default() {
     let program = parse(
         r#"<?php

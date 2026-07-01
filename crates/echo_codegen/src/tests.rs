@@ -99,6 +99,7 @@ fn instance_method_call_on_new_object_calls_matching_class_method() {
     let ir = compile_to_ir(&program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Worker".to_string(),
+            modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
@@ -113,6 +114,8 @@ fn instance_method_call_on_new_object_calls_matching_class_method() {
                     span: Span::new(0, 6),
                 })],
                 visibility: MethodVisibility::Public,
+                is_abstract: false,
+                is_final: false,
                 is_static: false,
                 is_intrinsic: false,
                 span: Span::new(0, 20),
@@ -160,6 +163,7 @@ fn instance_method_call_on_new_object_uses_parent_class_method() {
     let ir = compile_to_ir(&program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Container".to_string(),
+            modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
@@ -171,6 +175,8 @@ fn instance_method_call_on_new_object_uses_parent_class_method() {
                     span: Span::new(0, 7),
                 })],
                 visibility: MethodVisibility::Public,
+                is_abstract: false,
+                is_final: false,
                 is_static: false,
                 is_intrinsic: false,
                 span: Span::new(0, 20),
@@ -179,6 +185,7 @@ fn instance_method_call_on_new_object_uses_parent_class_method() {
         }),
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Application".to_string(),
+            modifiers: Vec::new(),
             parent: Some(QualifiedName::new(vec!["Container".to_string()])),
             interfaces: Vec::new(),
             members: Vec::new(),
@@ -234,6 +241,8 @@ fn instance_method_call_on_new_object_uses_trait_method_before_parent() {
                     span: Span::new(0, 7),
                 })],
                 visibility: MethodVisibility::Protected,
+                is_abstract: false,
+                is_final: false,
                 is_static: false,
                 is_intrinsic: false,
                 span: Span::new(0, 30),
@@ -242,6 +251,7 @@ fn instance_method_call_on_new_object_uses_trait_method_before_parent() {
         }),
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Container".to_string(),
+            modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::TraitUse(QualifiedName::new(vec![
@@ -290,6 +300,7 @@ fn promoted_property_type_guides_method_dispatch() {
     let ir = compile_to_ir(&program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "App".to_string(),
+            modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
@@ -301,6 +312,8 @@ fn promoted_property_type_guides_method_dispatch() {
                     span: Span::new(0, 7),
                 })],
                 visibility: MethodVisibility::Public,
+                is_abstract: false,
+                is_final: false,
                 is_static: false,
                 is_intrinsic: false,
                 span: Span::new(0, 20),
@@ -309,6 +322,7 @@ fn promoted_property_type_guides_method_dispatch() {
         }),
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Builder".to_string(),
+            modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![
@@ -323,6 +337,8 @@ fn promoted_property_type_guides_method_dispatch() {
                     return_type: None,
                     body: Vec::new(),
                     visibility: MethodVisibility::Public,
+                    is_abstract: false,
+                    is_final: false,
                     is_static: false,
                     is_intrinsic: false,
                     span: Span::new(31, 60),
@@ -349,6 +365,8 @@ fn promoted_property_type_guides_method_dispatch() {
                         span: Span::new(61, 85),
                     })],
                     visibility: MethodVisibility::Public,
+                    is_abstract: false,
+                    is_final: false,
                     is_static: false,
                     is_intrinsic: false,
                     span: Span::new(61, 90),
@@ -588,6 +606,7 @@ fn include_returned_object_dispatches_to_unambiguous_method() {
     let include = program(vec![
         Stmt::ClassDecl(ClassDeclStmt {
             name: "Application".to_string(),
+            modifiers: Vec::new(),
             parent: None,
             interfaces: Vec::new(),
             members: vec![ClassMember::Method(MethodDecl {
@@ -596,6 +615,8 @@ fn include_returned_object_dispatches_to_unambiguous_method() {
                 return_type: None,
                 body: Vec::new(),
                 visibility: MethodVisibility::Public,
+                is_abstract: false,
+                is_final: false,
                 is_static: false,
                 is_intrinsic: false,
                 span: Span::new(0, 20),

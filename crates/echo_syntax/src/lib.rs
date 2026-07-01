@@ -88,6 +88,7 @@ pub enum SyntaxRuleKind {
 pub mod keywords {
     use super::{Keyword, KeywordRole, SyntaxMode};
 
+    pub const ABSTRACT: Keyword = Keyword::new("abstract", KeywordRole::Modifier, SyntaxMode::Php);
     pub const AS: Keyword = Keyword::new("as", KeywordRole::Import, SyntaxMode::Echo);
     pub const BREAK: Keyword = Keyword::new("break", KeywordRole::Statement, SyntaxMode::Php);
     pub const CLASS: Keyword = Keyword::new("class", KeywordRole::Declaration, SyntaxMode::Php);
@@ -102,6 +103,7 @@ pub mod keywords {
     pub const ENUM: Keyword = Keyword::new("enum", KeywordRole::Declaration, SyntaxMode::Php);
     pub const FALSE: Keyword = Keyword::new("false", KeywordRole::Literal, SyntaxMode::Php);
     pub const FACET: Keyword = Keyword::new("facet", KeywordRole::Declaration, SyntaxMode::Echo);
+    pub const FINAL: Keyword = Keyword::new("final", KeywordRole::Modifier, SyntaxMode::Php);
     pub const FN: Keyword = Keyword::new("fn", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const FORK: Keyword = Keyword::new("fork", KeywordRole::Expression, SyntaxMode::Echo);
     pub const FROM: Keyword = Keyword::new("from", KeywordRole::Import, SyntaxMode::Echo);
@@ -131,6 +133,7 @@ pub mod keywords {
         Keyword::new("protected", KeywordRole::Modifier, SyntaxMode::Php);
     pub const PUB: Keyword = Keyword::new("pub", KeywordRole::Modifier, SyntaxMode::Echo);
     pub const PUBLIC: Keyword = Keyword::new("public", KeywordRole::Modifier, SyntaxMode::Php);
+    pub const READONLY: Keyword = Keyword::new("readonly", KeywordRole::Modifier, SyntaxMode::Php);
     pub const REQUIRE: Keyword = Keyword::new("require", KeywordRole::Expression, SyntaxMode::Php);
     pub const REQUIRE_ONCE: Keyword =
         Keyword::new("require_once", KeywordRole::Expression, SyntaxMode::Php);
@@ -146,6 +149,7 @@ pub mod keywords {
     pub const YIELD: Keyword = Keyword::new("yield", KeywordRole::Statement, SyntaxMode::Php);
 
     pub const ALL: &[Keyword] = &[
+        ABSTRACT,
         AS,
         BREAK,
         CLASS,
@@ -159,6 +163,7 @@ pub mod keywords {
         ENUM,
         FALSE,
         FACET,
+        FINAL,
         FN,
         FORK,
         FROM,
@@ -182,6 +187,7 @@ pub mod keywords {
         PROTECTED,
         PUB,
         PUBLIC,
+        READONLY,
         REQUIRE,
         REQUIRE_ONCE,
         RETURN,

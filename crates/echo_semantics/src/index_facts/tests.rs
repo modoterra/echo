@@ -37,6 +37,7 @@ fn extracts_declaration_facts_with_namespace() {
             }),
             Stmt::ClassDecl(ClassDeclStmt {
                 name: "UserController".to_string(),
+                modifiers: Vec::new(),
                 parent: None,
                 interfaces: Vec::new(),
                 members: vec![ClassMember::Method(MethodDecl {
@@ -45,6 +46,8 @@ fn extracts_declaration_facts_with_namespace() {
                     return_type: None,
                     body: vec![],
                     visibility: MethodVisibility::Private,
+                    is_abstract: false,
+                    is_final: false,
                     is_static: false,
                     is_intrinsic: false,
                     span: Span::new(76, 88),
