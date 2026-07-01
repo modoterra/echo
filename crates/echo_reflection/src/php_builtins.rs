@@ -35,6 +35,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("array_shift", &[("array", Some("array"))], Some("mixed")),
         php_builtin_reflection(
+            "array_unshift",
+            &[("array", Some("array")), ("values", Some("mixed"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "array_intersect",
             &[("array", Some("array")), ("arrays", Some("array"))],
             Some("array"),

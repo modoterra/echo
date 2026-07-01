@@ -202,7 +202,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_uintersect_assoc` | missing |  |
 | `array_uintersect_uassoc` | missing |  |
 | `array_unique` | partial | Removes duplicate values using explicit `SORT_STRING` comparison while preserving original keys; omitted flag defaulting and other sort modes are deferred. Source: https://www.php.net/manual/en/function.array-unique.php |
-| `array_unshift` | missing |  |
+| `array_unshift` | partial | Prepends one value to Echo's mutable PHP array storage, reindexing integer keys from zero while preserving string keys, and returns the new element count; variadic prepend and full by-reference diagnostics are deferred. Source: https://www.php.net/manual/en/function.array-unshift.php |
 | `array_values` | implemented | Returns values in insertion order and reindexes the result numerically. Source: https://www.php.net/manual/en/function.array-values.php |
 | `array_walk` | missing |  |
 | `array_walk_recursive` | missing |  |

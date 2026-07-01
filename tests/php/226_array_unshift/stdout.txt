@@ -1,0 +1,5 @@
+unshift:[2]
+count:[2]
+zero:[zero]
+a:[1]
+exists:[1]

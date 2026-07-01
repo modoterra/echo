@@ -339,3 +339,26 @@ pub extern "C" fn echo_php_array_shift(array: EchoValue) -> EchoValue {
 
     value
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_unshift(array: EchoValue, value: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    array.keys.insert(0, EchoArrayKey::Int(0));
+    array.values.insert(0, value);
+    let mut next_index = 0_i64;
+    for key in &mut array.keys {
+        if matches!(key, EchoArrayKey::Int(_)) {
+            *key = EchoArrayKey::Int(next_index);
+            next_index += 1;
+        }
+    }
+
+    EchoValue::int(array.values.len() as i64)
+}
