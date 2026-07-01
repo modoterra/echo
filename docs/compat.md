@@ -342,7 +342,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getimagesizefromstring` | missing |  |
 | `getlastmod` | missing |  |
 | `getmxrr` | missing |  |
-| `getmygid` | missing |  |
+| `getmygid` | partial | Returns the current Linux process effective group ID from `/proc/self/status`, or `false` when unavailable. Source: https://www.php.net/manual/en/function.getmygid.php |
 | `getmyinode` | missing |  |
 | `getmypid` | implemented | Returns the current process ID as an integer; like PHP, this is process metadata and not a secure entropy source. Source: https://www.php.net/manual/en/function.getmypid.php |
 | `getmyuid` | partial | Returns the current Linux process effective user ID from `/proc/self/status`, or `false` when unavailable. Source: https://www.php.net/manual/en/function.getmyuid.php |

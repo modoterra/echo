@@ -72,6 +72,10 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_getmyuid as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_getmygid",
+            echo_runtime::echo_php_getmygid as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_sys_getloadavg",
             echo_runtime::echo_php_sys_getloadavg as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

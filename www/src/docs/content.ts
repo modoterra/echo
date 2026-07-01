@@ -1524,6 +1524,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current process user ID.",
       },
       {
+        name: "getmygid",
+        signature: "getmygid(): int|false",
+        description: "Returns the current process group ID.",
+      },
+      {
         name: "uniqid",
         signature: "uniqid(string $prefix, bool $more_entropy): string",
         description:
@@ -2433,6 +2438,12 @@ echo "Status file: " . $statusPath . "\\n"`,
     `let $owner = getmyuid()
 
 echo "Owner uid: " . $owner . "\\n"`,
+  ],
+  [
+    "getmygid",
+    `let $group = getmygid()
+
+echo "Owner gid: " . $group . "\\n"`,
   ],
   [
     "nl2br",
@@ -3731,6 +3742,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getmyuid",
     "Use `getmyuid()` for compatibility diagnostics that need to report which user owns the current PHP-compatible process.",
+  ],
+  [
+    "getmygid",
+    "Use `getmygid()` for compatibility diagnostics that need to report which group owns the current PHP-compatible process.",
   ],
   [
     "rmdir",
@@ -6742,7 +6757,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 248 PHP compatibility fixtures, 281 implemented Core and standard functions out of 607, 326 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 249 PHP compatibility fixtures, 282 implemented Core and standard functions out of 607, 325 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -68,6 +68,13 @@ pub extern "C" fn echo_php_getmyuid() -> EchoValue {
         .unwrap_or_else(|| EchoValue::bool(false))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getmygid() -> EchoValue {
+    proc_status_id("Gid")
+        .map(EchoValue::int)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
 #[cfg(target_os = "linux")]
 fn proc_status_id(field: &str) -> Option<i64> {
     let content = std::fs::read_to_string("/proc/self/status").ok()?;
