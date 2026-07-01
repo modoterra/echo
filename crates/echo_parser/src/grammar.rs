@@ -3579,7 +3579,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .allow_trailing()
             .collect::<Vec<_>>()
             .boxed();
-        let for_stmt = text::keyword("for")
+        let for_header = text::keyword("for")
             .padded()
             .ignore_then(just('(').padded())
             .ignore_then(for_exprs.clone())
@@ -3588,8 +3588,26 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just(';').padded())
             .then(for_exprs)
             .then_ignore(just(')').padded())
-            .then(block.clone())
-            .then_ignore(terminator.clone().or_not())
+            .boxed();
+        let for_alternate_body_boundary = text::keyword("endfor").padded().ignored();
+        let for_alternate_body_statement = for_alternate_body_boundary
+            .clone()
+            .not()
+            .ignore_then(statement.clone())
+            .boxed();
+        let for_alternate_body = just(':')
+            .padded()
+            .ignore_then(
+                for_alternate_body_statement
+                    .then_ignore(stray_terminators.clone())
+                    .repeated()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(for_alternate_body_boundary)
+            .then_ignore(terminator.clone());
+        let for_alternate_stmt = for_header
+            .clone()
+            .then(for_alternate_body)
             .map_with(|(((init, conditions), increments), body), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -3601,6 +3619,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+        let for_stmt = for_alternate_stmt
+            .or(for_header
+                .then(block.clone())
+                .then_ignore(terminator.clone().or_not())
+                .map_with(|(((init, conditions), increments), body), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::For(ForStmt {
+                        init,
+                        conditions,
+                        increments,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    })
+                }))
             .boxed();
 
         let foreach_value = just('$').ignore_then(text::ident().padded());

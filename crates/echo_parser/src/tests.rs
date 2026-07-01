@@ -1017,6 +1017,11 @@ for ($i = 0, $j = count($items); $i < $j; print $i, $i = $i + 1) {
 for (; ; ) {
     break;
 }
+for ($i = 0; $i < 3; $i = $i + 1):
+    echo $i;
+endfor;
+for (; ; ):
+endfor;
 "#,
     )
     .expect("PHP for statements parse");
@@ -1036,6 +1041,22 @@ for (; ; ) {
                 && statement.conditions.is_empty()
                 && statement.increments.is_empty()
                 && matches!(statement.body.first(), Some(Stmt::Break(_)))
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::For(statement)
+            if statement.init.len() == 1
+                && statement.conditions.len() == 1
+                && statement.increments.len() == 1
+                && statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[3],
+        Stmt::For(statement)
+            if statement.init.is_empty()
+                && statement.conditions.is_empty()
+                && statement.increments.is_empty()
+                && statement.body.is_empty()
     ));
 }
 
