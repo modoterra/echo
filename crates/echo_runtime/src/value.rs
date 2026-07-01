@@ -492,6 +492,36 @@ pub extern "C" fn echo_php_is_resource(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_resource_type(value: EchoValue) -> EchoValue {
+    if !is_resource_kind(value.kind) {
+        return EchoValue::error();
+    }
+
+    crate::echo_runtime_string(value.type_name_bytes().to_vec())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_resource_id(value: EchoValue) -> EchoValue {
+    if !is_resource_kind(value.kind) {
+        return EchoValue::error();
+    }
+
+    EchoValue::int(value.payload as i64)
+}
+
+fn is_resource_kind(kind: i32) -> bool {
+    matches!(
+        kind,
+        ECHO_VALUE_TCP_LISTENER
+            | ECHO_VALUE_TCP_CONNECTION
+            | ECHO_VALUE_PROCESS
+            | ECHO_VALUE_TASK_GROUP
+            | ECHO_VALUE_THREAD
+            | ECHO_VALUE_STREAM
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_string(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_string())
 }

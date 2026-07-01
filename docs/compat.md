@@ -116,8 +116,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_object_vars` | missing |  |
 | `get_parent_class` | missing |  |
 | `get_required_files` | partial | Alias of `get_included_files()` for the current include metadata baseline. Source: https://www.php.net/manual/en/function.get-required-files.php |
-| `get_resource_id` | missing |  |
-| `get_resource_type` | missing |  |
+| `get_resource_id` | partial | Returns a stable integer handle for Echo runtime resources; PHP's exact per-process resource numbering is not modeled. Source: https://www.php.net/manual/en/function.get-resource-id.php |
+| `get_resource_type` | partial | Returns Echo's runtime resource type name such as `stream`; PHP's full resource type catalog is deferred. Source: https://www.php.net/manual/en/function.get-resource-type.php |
 | `get_resources` | missing |  |
 | `interface_exists` | partial | Returns `false` until Echo has interface metadata and autoload semantics. Source: https://www.php.net/manual/en/function.interface-exists.php |
 | `is_a` | missing |  |

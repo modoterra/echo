@@ -189,6 +189,18 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_get_resource_type",
+            echo_runtime::echo_php_get_resource_type
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_get_resource_id",
+            echo_runtime::echo_php_get_resource_id
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_is_string",
             echo_runtime::echo_php_is_string
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
