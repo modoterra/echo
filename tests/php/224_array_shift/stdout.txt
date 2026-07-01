@@ -1,0 +1,6 @@
+shifted:[1]
+count:[2]
+b:[2]
+zero:[three]
+empty:[1]
+exists:[1]

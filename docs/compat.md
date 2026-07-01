@@ -191,7 +191,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_replace_recursive` | missing |  |
 | `array_reverse` | implemented | Returns elements in reverse order, reindexing numeric keys by default and preserving string keys; optional `preserve_keys` keeps numeric keys too. Source: https://www.php.net/manual/en/function.array-reverse.php |
 | `array_search` | implemented | Returns the first key for a matching value using loose comparison by default, optional strict comparison, and `false` on misses. Source: https://www.php.net/manual/en/function.array-search.php |
-| `array_shift` | missing |  |
+| `array_shift` | partial | Removes and returns the first value from Echo's mutable PHP array storage, preserving string keys and reindexing remaining integer keys; warning behavior for non-arrays and full by-reference diagnostics are deferred. Source: https://www.php.net/manual/en/function.array-shift.php |
 | `array_slice` | implemented | Extracts offset/length windows by array position, reindexing integer keys by default while always preserving string keys. Source: https://www.php.net/manual/en/function.array-slice.php |
 | `array_splice` | missing |  |
 | `array_sum` | implemented | Sums array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `0`. Source: https://www.php.net/manual/en/function.array-sum.php |

@@ -296,3 +296,29 @@ pub extern "C" fn echo_php_array_pop(array: EchoValue) -> EchoValue {
     array.keys.pop();
     array.values.pop().unwrap_or_else(EchoValue::null)
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_shift(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+    if array.values.is_empty() {
+        return EchoValue::null();
+    }
+
+    array.keys.remove(0);
+    let value = array.values.remove(0);
+    let mut next_index = 0_i64;
+    for key in &mut array.keys {
+        if matches!(key, EchoArrayKey::Int(_)) {
+            *key = EchoArrayKey::Int(next_index);
+            next_index += 1;
+        }
+    }
+
+    value
+}
