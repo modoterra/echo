@@ -515,7 +515,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `phpversion` | implemented | Returns Echo's PHP compatibility version for no extension or `null`; named extension versions are not modeled yet and return `false`. Source: https://www.php.net/manual/en/function.phpversion.php |
 | `pi` | implemented | Returns an approximation of pi as a float. Source: https://www.php.net/manual/en/function.pi.php |
 | `popen` | missing |  |
-| `pos` | missing |  |
+| `pos` | partial | Alias of `current`; returns the first array value for Echo's current no-pointer baseline, or `false` for an empty array. Source: https://www.php.net/manual/en/function.pos.php |
 | `pow` | implemented | Raises a numeric base to a numeric exponent, returning int for representable non-negative integer powers and float otherwise. Source: https://www.php.net/manual/en/function.pow.php |
 | `prev` | partial | Returns `false` for Echo's current no-pointer baseline because there is no previous value at the initial array position; PHP internal array pointer state and persistent movement are deferred. Source: https://www.php.net/manual/en/function.prev.php |
 | `print_r` | missing |  |

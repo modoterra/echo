@@ -434,6 +434,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the current array value. Echo currently exposes the first value baseline.",
       },
       {
+        name: "pos",
+        signature: "pos(array $array): mixed",
+        description:
+          "Alias of current. Echo currently exposes the first value baseline.",
+      },
+      {
         name: "end",
         signature: "end(array $array): mixed",
         description:
@@ -2893,6 +2899,13 @@ let $first = current($queue)
 echo $first . "\\n"`,
   ],
   [
+    "pos",
+    `let $queue = ["draft", "review", "ship"]
+let $first = pos($queue)
+
+echo $first . "\\n"`,
+  ],
+  [
     "end",
     `let $queue = ["draft", "review", "ship"]
 let $last = end($queue)
@@ -3861,6 +3874,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "current",
     "Use `current()` when compatibility code reads the first value from an array-like cursor path. Echo's current baseline does not model pointer movement yet.",
+  ],
+  [
+    "pos",
+    "Use `pos()` when maintaining PHP code that calls the alias of `current()`. Echo's current baseline returns the first value without persistent pointer movement.",
   ],
   [
     "end",
@@ -6584,7 +6601,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 238 PHP compatibility fixtures, 271 implemented Core and standard functions out of 607, 336 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 239 PHP compatibility fixtures, 272 implemented Core and standard functions out of 607, 335 remaining, and about 45% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
