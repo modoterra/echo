@@ -1529,6 +1529,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Looks up a network service port by service name and protocol.",
       },
       {
+        name: "getservbyport",
+        signature: "getservbyport(int $port, string $protocol): string|false",
+        description: "Looks up a network service name by port and protocol.",
+      },
+      {
         name: "get_current_user",
         signature: "get_current_user(): string",
         description: "Returns the current process user name baseline.",
@@ -2478,6 +2483,14 @@ if ($name !== false) {
 
 if ($port !== false) {
     echo "HTTP port: " . $port . "\\n"
+}`,
+  ],
+  [
+    "getservbyport",
+    `let $service = getservbyport(53, "udp")
+
+if ($service !== false) {
+    echo "UDP/53 service: " . $service . "\\n"
 }`,
   ],
   [
@@ -3818,6 +3831,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getservbyname",
     "Use `getservbyname()` when legacy configuration names a service such as `http` and the program needs the conventional local port number without making a network connection.",
+  ],
+  [
+    "getservbyport",
+    "Use `getservbyport()` when imported data stores numeric ports and the program needs the canonical local service label for display or compatibility logic.",
   ],
   [
     "get_current_user",
@@ -6853,7 +6870,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 255 PHP compatibility fixtures, 288 implemented Core and standard functions out of 607, 319 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 256 PHP compatibility fixtures, 289 implemented Core and standard functions out of 607, 318 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

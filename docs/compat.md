@@ -351,7 +351,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getprotobynumber` | implemented | Returns the canonical protocol name for numbers found in `/etc/protocols`, with common built-in fallbacks for `1`, `6`, `17`, and `41`; returns `false` for unknown protocol numbers. Source: https://www.php.net/manual/en/function.getprotobynumber.php |
 | `getrusage` | missing |  |
 | `getservbyname` | implemented | Returns a service port for names and aliases found in `/etc/services` for the requested protocol, with common built-in fallbacks for `http`, `https`, `domain`, and `ssh`; returns `false` for unknown services. Source: https://www.php.net/manual/en/function.getservbyname.php |
-| `getservbyport` | missing |  |
+| `getservbyport` | implemented | Returns the canonical service name for ports found in `/etc/services` for the requested protocol, with common built-in fallbacks for `22`, `53`, `80`, and `443`; returns `false` for unknown ports. Source: https://www.php.net/manual/en/function.getservbyport.php |
 | `gettimeofday` | implemented | Returns an associative array with `sec`, `usec`, `minuteswest`, and `dsttime` by default, or a float timestamp when `as_float` is true. Source: https://www.php.net/manual/en/function.gettimeofday.php |
 | `gettype` | implemented | Returns PHP type names for Echo's current value tags. Source: https://www.php.net/manual/en/function.gettype.php |
 | `glob` | missing |  |

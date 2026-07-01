@@ -90,6 +90,17 @@ pub extern "C" fn echo_php_getservbyname(service: EchoValue, protocol: EchoValue
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getservbyport(port: EchoValue, protocol: EchoValue) -> EchoValue {
+    let (Some(port), Some(protocol)) = (port.int_value(), protocol.string_bytes()) else {
+        return EchoValue::bool(false);
+    };
+
+    service_name_by_port(port, &protocol)
+        .map(echo_runtime_string)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }
@@ -188,6 +199,15 @@ fn service_port_by_name(service: &[u8], protocol: &[u8]) -> Option<i64> {
     .or_else(|| common_service_port_by_name(service, protocol))
 }
 
+fn service_name_by_port(port: i64, protocol: &[u8]) -> Option<Vec<u8>> {
+    parse_service_name_by_port(
+        &std::fs::read("/etc/services").unwrap_or_default(),
+        port,
+        protocol,
+    )
+    .or_else(|| common_service_name_by_port(port, protocol))
+}
+
 fn parse_protocol_number_by_name(content: &[u8], name: &[u8]) -> Option<i64> {
     for line in content.split(|byte| *byte == b'\n') {
         let before_comment = line.split(|byte| *byte == b'#').next().unwrap_or_default();
@@ -266,6 +286,45 @@ fn parse_service_port_by_name(content: &[u8], service: &[u8], protocol: &[u8]) -
     None
 }
 
+fn parse_service_name_by_port(
+    content: &[u8],
+    target_port: i64,
+    protocol: &[u8],
+) -> Option<Vec<u8>> {
+    for line in content.split(|byte| *byte == b'\n') {
+        let before_comment = line.split(|byte| *byte == b'#').next().unwrap_or_default();
+        let mut fields = before_comment
+            .split(|byte| byte.is_ascii_whitespace())
+            .filter(|field| !field.is_empty());
+
+        let Some(service_name) = fields.next() else {
+            continue;
+        };
+        let Some(port_protocol) = fields.next() else {
+            continue;
+        };
+        let Some(separator) = port_protocol.iter().position(|byte| *byte == b'/') else {
+            continue;
+        };
+        let port = &port_protocol[..separator];
+        let service_protocol = &port_protocol[separator + 1..];
+
+        if service_protocol != protocol {
+            continue;
+        }
+
+        let Ok(port) = std::str::from_utf8(port).ok()?.parse::<i64>() else {
+            continue;
+        };
+
+        if port == target_port {
+            return Some(service_name.to_vec());
+        }
+    }
+
+    None
+}
+
 fn common_protocol_number_by_name(name: &[u8]) -> Option<i64> {
     match name {
         b"icmp" => Some(1),
@@ -292,6 +351,16 @@ fn common_service_port_by_name(service: &[u8], protocol: &[u8]) -> Option<i64> {
         (b"https", b"tcp") => Some(443),
         (b"domain", b"tcp" | b"udp") => Some(53),
         (b"ssh", b"tcp") => Some(22),
+        _ => None,
+    }
+}
+
+fn common_service_name_by_port(port: i64, protocol: &[u8]) -> Option<Vec<u8>> {
+    match (port, protocol) {
+        (22, b"tcp") => Some(b"ssh".to_vec()),
+        (53, b"tcp" | b"udp") => Some(b"domain".to_vec()),
+        (80, b"tcp") => Some(b"http".to_vec()),
+        (443, b"tcp") => Some(b"https".to_vec()),
         _ => None,
     }
 }

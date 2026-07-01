@@ -511,6 +511,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueBinaryExpression,
         },
         PhpBuiltin {
+            php_name: "getservbyport",
+            symbol: "echo_php_getservbyport",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueBinaryExpression,
+        },
+        PhpBuiltin {
             php_name: "get_current_user",
             symbol: "echo_php_get_current_user",
             helper_symbol: None,
