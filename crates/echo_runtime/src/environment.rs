@@ -62,6 +62,26 @@ pub extern "C" fn echo_php_getmypid() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getmyuid() -> EchoValue {
+    proc_status_id("Uid")
+        .map(EchoValue::int)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[cfg(target_os = "linux")]
+fn proc_status_id(field: &str) -> Option<i64> {
+    let content = std::fs::read_to_string("/proc/self/status").ok()?;
+    let prefix = format!("{field}:");
+    let line = content.lines().find(|line| line.starts_with(&prefix))?;
+    line[prefix.len()..].split_whitespace().next()?.parse().ok()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn proc_status_id(_field: &str) -> Option<i64> {
+    None
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sys_getloadavg() -> EchoValue {
     let Some(loads) = load_average_values() else {
         return EchoValue::bool(false);

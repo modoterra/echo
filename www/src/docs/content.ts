@@ -1519,6 +1519,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current process ID.",
       },
       {
+        name: "getmyuid",
+        signature: "getmyuid(): int|false",
+        description: "Returns the current process user ID.",
+      },
+      {
         name: "uniqid",
         signature: "uniqid(string $prefix, bool $more_entropy): string",
         description:
@@ -2422,6 +2427,12 @@ echo "Processing import on " . $host . "\\n"`,
 let $statusPath = sys_get_temp_dir() . "/echo-worker-" . $pid . ".status"
 
 echo "Status file: " . $statusPath . "\\n"`,
+  ],
+  [
+    "getmyuid",
+    `let $owner = getmyuid()
+
+echo "Owner uid: " . $owner . "\\n"`,
   ],
   [
     "nl2br",
@@ -3716,6 +3727,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getmypid",
     "Use `getmypid()` for operational labels such as status-file names or logs tied to a running worker. Do not use process IDs as secret tokens or security entropy.",
+  ],
+  [
+    "getmyuid",
+    "Use `getmyuid()` for compatibility diagnostics that need to report which user owns the current PHP-compatible process.",
   ],
   [
     "rmdir",
@@ -6727,7 +6742,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 247 PHP compatibility fixtures, 280 implemented Core and standard functions out of 607, 327 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 248 PHP compatibility fixtures, 281 implemented Core and standard functions out of 607, 326 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
