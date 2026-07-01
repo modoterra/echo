@@ -1,0 +1,6 @@
+sapi:[cli]
+eol:[1]
+hash:[1]
+bcrypt:[2y]
+defined:[1]
+exists:[1]

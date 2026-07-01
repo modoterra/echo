@@ -61,12 +61,19 @@ pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoVal
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_constant(name: EchoValue) -> EchoValue {
+    let Some(name) = name.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    php_compat_constant_value(&name).unwrap_or_else(EchoValue::error)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_defined(name: EchoValue) -> EchoValue {
-    let is_defined = name.string_bytes().is_some_and(|bytes| {
-        PHP_COMPAT_CONSTANTS
-            .iter()
-            .any(|(constant_name, _)| constant_name.as_bytes() == bytes.as_slice())
-    });
+    let is_defined = name
+        .string_bytes()
+        .is_some_and(|bytes| php_compat_constant_value(&bytes).is_some());
 
     EchoValue::bool(is_defined)
 }
@@ -135,6 +142,16 @@ fn php_compat_constants_array() -> EchoValue {
     }
 
     EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+fn php_compat_constant_value(name: &[u8]) -> Option<EchoValue> {
+    PHP_COMPAT_CONSTANTS
+        .iter()
+        .find(|(constant_name, _)| constant_name.as_bytes() == name)
+        .map(|(_, value)| match value {
+            PhpConstantValue::Int(value) => EchoValue::int(*value),
+            PhpConstantValue::String(bytes) => echo_runtime_string(bytes.to_vec()),
+        })
 }
 
 fn php_array_from_pairs(pairs: Vec<(&str, EchoValue)>) -> EchoValue {

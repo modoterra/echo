@@ -118,6 +118,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::VoidStatement,
         },
         PhpBuiltin {
+            php_name: "constant",
+            symbol: "echo_php_constant",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "define",
             symbol: "echo_php_define",
             helper_symbol: None,

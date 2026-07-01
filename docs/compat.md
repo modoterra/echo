@@ -242,7 +242,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `compact` | missing |  |
 | `connection_aborted` | implemented | Returns `0` because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-aborted.php |
 | `connection_status` | implemented | Returns `0` (`CONNECTION_NORMAL`) because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-status.php |
-| `constant` | missing |  |
+| `constant` | partial | Returns Echo's compiler-owned PHP compatibility constants by name; dynamically defined constants and PHP's missing-constant `Error` parity are deferred. Source: https://www.php.net/manual/en/function.constant.php |
 | `convert_uudecode` | missing |  |
 | `convert_uuencode` | missing |  |
 | `copy` | implemented | Copies local files and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.copy.php |

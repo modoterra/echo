@@ -4,6 +4,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
     [
         php_builtin_reflection("abs", &[("num", Some("int|float"))], Some("int|float")),
         php_builtin_reflection("flush", &[], Some("void")),
+        php_builtin_reflection("constant", &[("name", Some("string"))], Some("mixed")),
         php_builtin_reflection(
             "define",
             &[("constant_name", Some("string")), ("value", Some("mixed"))],

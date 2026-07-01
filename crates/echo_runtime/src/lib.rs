@@ -28,7 +28,7 @@ pub mod value;
 pub use assertions::{echo_std_assert_equals, echo_std_assert_ok};
 pub use callable::{
     EchoCallable, EchoSymbol, echo_call, echo_call_function, echo_normalize_callable,
-    echo_php_define, echo_php_defined, echo_php_get_defined_constants,
+    echo_php_constant, echo_php_define, echo_php_defined, echo_php_get_defined_constants,
 };
 pub use collections::{
     EchoArray, EchoList, echo_php_array_chunk, echo_php_array_combine, echo_php_array_count_values,
