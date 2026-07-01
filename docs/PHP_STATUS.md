@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 193 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 194 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 208.
-- Remaining Core + standard functions in inventory: 399.
+- Implemented Core + standard functions in inventory: 209.
+- Remaining Core + standard functions in inventory: 398.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `208 / 607`, or about 34%, for the Core + standard baseline,
+coverage alone is `209 / 607`, or about 34%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~30% | Core + standard function coverage is 208/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~30% | Core + standard function coverage is 209/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -145,10 +145,11 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
   - TODO: add runtime error-handler registry and coordinate with
     `set_error_handler()` and `restore_error_handler()`.
 
-- `[ ]` `get_exception_handler(): ?callable`.
-  - Requires runtime exception-handler registry.
-  - Coordinate with `set_exception_handler()` and
-    `restore_exception_handler()`.
+- `[~]` `get_exception_handler(): ?callable`.
+  - Returns `null` before a custom handler is installed.
+  - Covered by `tests/php/196_get_exception_handler_initial`.
+  - TODO: add runtime exception-handler registry and coordinate with
+    `set_exception_handler()` and `restore_exception_handler()`.
 
 - `[ ]` `Closure::getCurrent()`.
   - Requires first-class closure object/runtime identity.

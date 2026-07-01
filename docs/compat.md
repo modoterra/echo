@@ -108,7 +108,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_defined_functions` | missing |  |
 | `get_defined_vars` | missing |  |
 | `get_error_handler` | partial | Returns `null` before any custom error handler is installed. Handler registry support through `set_error_handler()` and `restore_error_handler()` is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
-| `get_exception_handler` | missing |  |
+| `get_exception_handler` | partial | Returns `null` before any custom exception handler is installed. Handler registry support through `set_exception_handler()` and `restore_exception_handler()` is deferred. Source: https://www.php.net/manual/en/function.get-exception-handler.php |
 | `get_extension_funcs` | implemented | Returns `false` for named extensions because Echo does not model PHP extension function metadata yet. Source: https://www.php.net/manual/en/function.get-extension-funcs.php |
 | `get_included_files` | missing |  |
 | `get_loaded_extensions` | implemented | Returns an empty array because Echo does not model PHP extension metadata yet; accepts the optional Zend-extension flag. Source: https://www.php.net/manual/en/function.get-loaded-extensions.php |

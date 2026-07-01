@@ -157,6 +157,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array|float"),
         ),
         php_builtin_reflection("get_error_handler", &[], Some("?callable")),
+        php_builtin_reflection("get_exception_handler", &[], Some("?callable")),
         php_builtin_reflection(
             "hrtime",
             &[("as_number", Some("bool"))],
