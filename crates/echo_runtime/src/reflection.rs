@@ -79,6 +79,29 @@ pub extern "C" fn echo_php_get_defined_functions(_exclude_disabled: EchoValue) -
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_class_exists(_class: EchoValue, _autoload: EchoValue) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_interface_exists(
+    _interface: EchoValue,
+    _autoload: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_trait_exists(_trait: EchoValue, _autoload: EchoValue) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_enum_exists(_enum: EchoValue, _autoload: EchoValue) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_callable(value: EchoValue) -> EchoValue {
     let Some(bytes) = value.string_bytes() else {
         return EchoValue::bool(false);

@@ -7,6 +7,38 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_class_exists",
+            echo_runtime::echo_php_class_exists
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_interface_exists",
+            echo_runtime::echo_php_interface_exists
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_trait_exists",
+            echo_runtime::echo_php_trait_exists
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_enum_exists",
+            echo_runtime::echo_php_enum_exists
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_get_defined_functions",
             echo_runtime::echo_php_get_defined_functions
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

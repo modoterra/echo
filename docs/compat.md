@@ -76,14 +76,14 @@ Related baseline functions tracked below: `get_included_files`,
 | Function | Status | Notes |
 | --- | --- | --- |
 | `class_alias` | missing |  |
-| `class_exists` | missing |  |
+| `class_exists` | partial | Returns `false` until Echo has class metadata and autoload semantics. Source: https://www.php.net/manual/en/function.class-exists.php |
 | `clone` | missing |  |
 | `debug_backtrace` | missing |  |
 | `debug_print_backtrace` | missing |  |
 | `define` | missing |  |
 | `defined` | missing |  |
 | `die` | missing |  |
-| `enum_exists` | missing |  |
+| `enum_exists` | partial | Returns `false` until Echo has enum metadata and autoload semantics. Source: https://www.php.net/manual/en/function.enum-exists.php |
 | `error_reporting` | missing |  |
 | `exit` | missing |  |
 | `extension_loaded` | implemented | Accepts extension names and returns `false` because Echo does not model PHP extensions yet. Source: https://www.php.net/manual/en/function.extension-loaded.php |
@@ -119,7 +119,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_resource_id` | missing |  |
 | `get_resource_type` | missing |  |
 | `get_resources` | missing |  |
-| `interface_exists` | missing |  |
+| `interface_exists` | partial | Returns `false` until Echo has interface metadata and autoload semantics. Source: https://www.php.net/manual/en/function.interface-exists.php |
 | `is_a` | missing |  |
 | `is_subclass_of` | missing |  |
 | `method_exists` | missing |  |
@@ -133,7 +133,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `strlen` | implemented | Returns byte length for strings, matching PHP's byte-oriented string model rather than character count. Source: https://www.php.net/manual/en/function.strlen.php |
 | `strncasecmp` | implemented | Source: https://www.php.net/manual/en/function.strncasecmp.php |
 | `strncmp` | implemented | Source: https://www.php.net/manual/en/function.strncmp.php |
-| `trait_exists` | missing |  |
+| `trait_exists` | partial | Returns `false` until Echo has trait metadata and autoload semantics. Source: https://www.php.net/manual/en/function.trait-exists.php |
 | `trigger_error` | missing |  |
 | `user_error` | missing |  |
 | `zend_version` | implemented | Returns Echo's Zend Engine compatibility version string. Source: https://www.php.net/manual/en/function.zend-version.php |

@@ -546,6 +546,38 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
     builtins.extend_from_slice(crypto_entries::CRYPTO_BUILTINS);
     builtins.extend_from_slice(&[
         PhpBuiltin {
+            php_name: "class_exists",
+            symbol: "echo_php_class_exists",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryOptionalBoolExpression,
+        },
+        PhpBuiltin {
+            php_name: "interface_exists",
+            symbol: "echo_php_interface_exists",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryOptionalBoolExpression,
+        },
+        PhpBuiltin {
+            php_name: "trait_exists",
+            symbol: "echo_php_trait_exists",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryOptionalBoolExpression,
+        },
+        PhpBuiltin {
+            php_name: "enum_exists",
+            symbol: "echo_php_enum_exists",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryOptionalBoolExpression,
+        },
+        PhpBuiltin {
             php_name: "function_exists",
             symbol: "echo_php_function_exists",
             helper_symbol: None,

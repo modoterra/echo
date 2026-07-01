@@ -159,6 +159,26 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("get_error_handler", &[], Some("?callable")),
         php_builtin_reflection("get_exception_handler", &[], Some("?callable")),
         php_builtin_reflection(
+            "class_exists",
+            &[("class", Some("string")), ("autoload", Some("bool"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "interface_exists",
+            &[("interface", Some("string")), ("autoload", Some("bool"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "trait_exists",
+            &[("trait", Some("string")), ("autoload", Some("bool"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "enum_exists",
+            &[("enum", Some("string")), ("autoload", Some("bool"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "set_error_handler",
             &[("callback", Some("?callable"))],
             Some("?callable"),
