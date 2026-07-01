@@ -615,6 +615,61 @@ $instance = new $provider($app);
 }
 
 #[test]
+fn parses_php_anonymous_class_expression() {
+    let program = parse(
+        r#"<?php
+$logger = new readonly class("debug") extends BaseLogger implements LoggerInterface, JsonSerializable {
+    use FormatsMessages;
+    private $prefix = "app";
+    public const CHANNEL = "debug";
+    public function log($message) { echo $message; }
+};
+"#,
+    )
+    .expect("PHP anonymous class expression parses");
+
+    let Stmt::Assign(statement) = &program.statements[0] else {
+        panic!("expected anonymous class assignment");
+    };
+    let Expr::New(new_expr) = &statement.value else {
+        panic!("expected new expression");
+    };
+    let echo_ast::NewTarget::AnonymousClass(class) = &new_expr.target else {
+        panic!("expected anonymous class target");
+    };
+
+    assert_eq!(new_expr.args.len(), 1);
+    assert_eq!(class.modifiers, [ClassModifier::Readonly]);
+    assert_eq!(
+        class.parent,
+        Some(QualifiedName::new(vec!["BaseLogger".to_string()]))
+    );
+    assert_eq!(
+        class.interfaces,
+        vec![
+            QualifiedName::new(vec!["LoggerInterface".to_string()]),
+            QualifiedName::new(vec!["JsonSerializable".to_string()]),
+        ]
+    );
+    assert!(matches!(
+        &class.members[0],
+        ClassMember::TraitUse(name) if name.as_string() == "FormatsMessages"
+    ));
+    assert!(matches!(
+        &class.members[1],
+        ClassMember::Property(property) if property.name == "prefix"
+    ));
+    assert!(matches!(
+        &class.members[2],
+        ClassMember::Const(constant) if constant.name == "CHANNEL"
+    ));
+    assert!(matches!(
+        &class.members[3],
+        ClassMember::Method(method) if method.name == "log"
+    ));
+}
+
+#[test]
 fn parses_php_not_equal_expression() {
     let program = parse(
         r#"<?php

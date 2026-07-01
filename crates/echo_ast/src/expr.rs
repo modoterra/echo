@@ -1,4 +1,4 @@
-use crate::{QualifiedName, Stmt};
+use crate::{ClassMember, ClassModifier, QualifiedName, Stmt};
 use echo_source::Span;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -300,12 +300,22 @@ pub struct StaticCallExpr {
 pub enum NewTarget {
     Class(QualifiedName),
     Expr(Box<Expr>),
+    AnonymousClass(Box<AnonymousClassExpr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewExpr {
     pub target: NewTarget,
     pub args: Vec<CallArg>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AnonymousClassExpr {
+    pub modifiers: Vec<ClassModifier>,
+    pub parent: Option<QualifiedName>,
+    pub interfaces: Vec<QualifiedName>,
+    pub members: Vec<ClassMember>,
     pub span: Span,
 }
 

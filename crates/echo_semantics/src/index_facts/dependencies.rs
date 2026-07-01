@@ -82,6 +82,40 @@ impl IndexFactExtractor {
                     echo_ast::NewTarget::Expr(target) => {
                         self.extract_expr_dependencies(target);
                     }
+                    echo_ast::NewTarget::AnonymousClass(class) => {
+                        if let Some(parent) = &class.parent {
+                            self.references.push(ReferenceFact {
+                                kind: ReferenceKind::ClassLike,
+                                range: span_range(class.span),
+                                name: parent.as_string(),
+                                qualifier: None,
+                            });
+                        }
+                        for interface in &class.interfaces {
+                            self.references.push(ReferenceFact {
+                                kind: ReferenceKind::ClassLike,
+                                range: span_range(class.span),
+                                name: interface.as_string(),
+                                qualifier: None,
+                            });
+                        }
+                        for member in &class.members {
+                            match member {
+                                echo_ast::ClassMember::Method(method) => {
+                                    self.extract_statements(&method.body);
+                                }
+                                echo_ast::ClassMember::Property(property) => {
+                                    if let Some(value) = &property.value {
+                                        self.extract_expr_dependencies(value);
+                                    }
+                                }
+                                echo_ast::ClassMember::Const(constant) => {
+                                    self.extract_expr_dependencies(&constant.value);
+                                }
+                                echo_ast::ClassMember::TraitUse(_) => {}
+                            }
+                        }
+                    }
                 }
                 for arg in &expr.args {
                     self.extract_expr_dependencies(&arg.value);

@@ -2,22 +2,22 @@ use chumsky::input::MapExtra;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 use echo_ast::{
-    AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr, AssignRefStmt, AssignStmt,
-    BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
-    ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClassModifier, ClosureExpr,
-    CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt, DeferExpr,
-    DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause,
-    EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForeachStmt, ForkExpr,
-    FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt,
-    IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt, InterfaceMember, JoinExpr, LetStmt,
-    ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
-    MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt,
-    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl,
-    QualifiedName, ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr,
-    StaticCallExpr, StaticPropertyAssignExpr, StaticPropertyFetchExpr, Stmt, StringLiteral,
-    TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr,
-    TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt,
-    VariableExpr, WhileStmt, YieldStmt,
+    AnonymousClassExpr, AppendStmt, ArrayElement, ArrayExpr, ArrowFunctionExpr, AssignExpr,
+    AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr,
+    CatchClause, ClassConstDecl, ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClassModifier,
+    ClosureExpr, CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt,
+    DeferExpr, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt,
+    ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr,
+    ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt,
+    ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt,
+    InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt,
+    MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr, MethodDecl,
+    MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
+    NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst,
+    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
+    TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
+    UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -585,8 +585,14 @@ fn normalize_php_compat_expr(expr: &mut Expr) {
             }
         }
         Expr::New(expr) => {
-            if let NewTarget::Expr(target) = &mut expr.target {
-                normalize_php_compat_expr(target);
+            match &mut expr.target {
+                NewTarget::Expr(target) => normalize_php_compat_expr(target),
+                NewTarget::AnonymousClass(class) => {
+                    for member in &mut class.members {
+                        normalize_php_compat_class_member(member);
+                    }
+                }
+                NewTarget::Class(_) => {}
             }
             for arg in &mut expr.args {
                 normalize_php_compat_expr(&mut arg.value);
@@ -755,10 +761,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
     let mut expr = Recursive::declare();
     let mut statement = Recursive::declare();
+    let mut anonymous_class_target = Recursive::declare();
 
     expr.define({
         let expr = expr.clone();
         let statement = statement.clone();
+        let anonymous_class_target = anonymous_class_target.clone();
 
         let null = text::keyword(kw::NULL.text)
             .or(text::keyword("NULL"))
@@ -1038,20 +1046,27 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(variable.clone().map(|expr| NewTarget::Expr(Box::new(expr))))
             .or(php_qualified_name.clone().map(NewTarget::Class));
 
-        let new_expr = text::keyword(kw::NEW.text)
+        let anonymous_new_target = anonymous_class_target.clone();
+        let named_new_target = new_target
             .padded()
-            .ignore_then(new_target.padded())
             .then(
                 args.clone()
                     .delimited_by(just('(').padded(), just(')').padded())
                     .or_not(),
             )
-            .map_with(|(target, args): (NewTarget, Option<Vec<CallArg>>), extra| {
+            .map(|(target, args): (NewTarget, Option<Vec<CallArg>>)| {
+                (target, args.unwrap_or_default())
+            });
+
+        let new_expr = text::keyword(kw::NEW.text)
+            .padded()
+            .ignore_then(anonymous_new_target.or(named_new_target))
+            .map_with(|(target, args): (NewTarget, Vec<CallArg>), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Expr::New(Box::new(NewExpr {
                     target,
-                    args: args.unwrap_or_default(),
+                    args,
                     span: Span::new(span.start, span.end),
                 }))
             })
@@ -2508,6 +2523,73 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(text::keyword(kw::FINAL.text).to(ClassModifier::Final))
             .or(text::keyword(kw::READONLY.text).to(ClassModifier::Readonly))
             .padded();
+
+        anonymous_class_target.define(
+            class_modifier
+                .clone()
+                .repeated()
+                .collect::<Vec<_>>()
+                .then_ignore(just(kw::CLASS.text).padded())
+                .then(
+                    statement_args
+                        .clone()
+                        .delimited_by(just('(').padded(), just(')').padded())
+                        .or_not(),
+                )
+                .then(
+                    text::keyword("extends")
+                        .padded()
+                        .ignore_then(php_name.clone().or(dotted_name.clone()))
+                        .or_not(),
+                )
+                .then(
+                    text::keyword("implements")
+                        .padded()
+                        .ignore_then(
+                            php_name
+                                .clone()
+                                .or(dotted_name.clone())
+                                .separated_by(just(',').padded())
+                                .at_least(1)
+                                .collect::<Vec<_>>(),
+                        )
+                        .or_not(),
+                )
+                .then(
+                    class_member
+                        .clone()
+                        .repeated()
+                        .collect::<Vec<_>>()
+                        .delimited_by(just('{').padded(), just('}').padded()),
+                )
+                .map_with(
+                    |((((modifiers, args), parent), interfaces), members): (
+                        (
+                            (
+                                (Vec<ClassModifier>, Option<Vec<CallArg>>),
+                                Option<QualifiedName>,
+                            ),
+                            Option<Vec<QualifiedName>>,
+                        ),
+                        Vec<ClassMember>,
+                    ),
+                     extra| {
+                        let span: SimpleSpan = extra.span();
+
+                        (
+                            NewTarget::AnonymousClass(Box::new(AnonymousClassExpr {
+                                modifiers,
+                                parent,
+                                interfaces: interfaces.unwrap_or_default(),
+                                members,
+                                span: Span::new(span.start, span.end),
+                            })),
+                            args.unwrap_or_default(),
+                        )
+                    },
+                )
+                .boxed(),
+        );
 
         let class_decl_stmt = class_modifier
             .repeated()

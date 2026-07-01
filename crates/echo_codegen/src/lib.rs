@@ -597,6 +597,7 @@ impl IrModule {
                         self.render_dynamic_class_autoload_if_known(body, &target)?;
                         None
                     }
+                    echo_mir::MirNewTarget::AnonymousClass(_) => None,
                 };
                 for arg in args {
                     self.render_mir_expr_as_echo_value(body, arg)?;

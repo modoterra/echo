@@ -359,6 +359,28 @@ impl Analyzer {
         self.variables = saved_variables;
     }
 
+    fn analyze_class_member(&mut self, member: &ClassMember, has_parent: bool) {
+        match member {
+            ClassMember::Method(method) => self.analyze_method_decl(
+                method,
+                ReceiverContext {
+                    has_instance: !method.is_static,
+                    has_self_type: true,
+                    has_parent,
+                },
+            ),
+            ClassMember::Property(property) => {
+                if let Some(value) = &property.value {
+                    self.analyze_expr(value);
+                }
+            }
+            ClassMember::Const(constant) => {
+                self.analyze_expr(&constant.value);
+            }
+            ClassMember::TraitUse(_) => {}
+        }
+    }
+
     fn analyze_expr(&mut self, expr: &Expr) -> Type {
         let ty = match expr {
             Expr::Null(_) => Type::Null,
@@ -431,6 +453,12 @@ impl Analyzer {
                     echo_ast::NewTarget::Class(class_name) => Some(class_name.as_string()),
                     echo_ast::NewTarget::Expr(target) => {
                         self.analyze_expr(target);
+                        None
+                    }
+                    echo_ast::NewTarget::AnonymousClass(class) => {
+                        for member in &class.members {
+                            self.analyze_class_member(member, class.parent.is_some());
+                        }
                         None
                     }
                 };

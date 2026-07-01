@@ -593,6 +593,19 @@ fn collect_expr_contextual_class_references(
                 echo_ast::NewTarget::Expr(target) => {
                     collect_expr_contextual_class_references(target, namespace, uses, names)
                 }
+                echo_ast::NewTarget::AnonymousClass(class) => {
+                    if let Some(parent) = &class.parent {
+                        collect_contextual_name_references(parent, namespace, uses, names);
+                    }
+                    for interface in &class.interfaces {
+                        collect_contextual_name_references(interface, namespace, uses, names);
+                    }
+                    for member in &class.members {
+                        collect_class_member_contextual_class_references(
+                            member, namespace, uses, names,
+                        );
+                    }
+                }
             }
             for arg in &expr.args {
                 collect_call_arg_contextual_class_references(arg, namespace, uses, names);
@@ -1044,6 +1057,17 @@ fn collect_expr_class_references(expr: &Expr, names: &mut std::collections::Hash
             match &expr.target {
                 echo_ast::NewTarget::Class(name) => collect_qualified_name_references(name, names),
                 echo_ast::NewTarget::Expr(target) => collect_expr_class_references(target, names),
+                echo_ast::NewTarget::AnonymousClass(class) => {
+                    if let Some(parent) = &class.parent {
+                        collect_qualified_name_references(parent, names);
+                    }
+                    for interface in &class.interfaces {
+                        collect_qualified_name_references(interface, names);
+                    }
+                    for member in &class.members {
+                        collect_class_member_class_references(member, names);
+                    }
+                }
             }
             for arg in &expr.args {
                 collect_call_arg_class_references(arg, names);
@@ -1977,6 +2001,27 @@ fn resolve_static_includes(
     Ok(())
 }
 
+fn collect_static_include_class_member(
+    member: &mut echo_ast::ClassMember,
+    source_dir: &std::path::Path,
+    paths: &mut Vec<StaticIncludePath>,
+) {
+    match member {
+        echo_ast::ClassMember::Method(method) => {
+            collect_static_include_paths(&mut method.body, source_dir, paths);
+        }
+        echo_ast::ClassMember::Property(property) => {
+            if let Some(value) = &mut property.value {
+                collect_static_include_expr(value, source_dir, paths);
+            }
+        }
+        echo_ast::ClassMember::Const(constant) => {
+            collect_static_include_expr(&mut constant.value, source_dir, paths);
+        }
+        echo_ast::ClassMember::TraitUse(_) => {}
+    }
+}
+
 fn collect_static_include_paths(
     statements: &mut [Stmt],
     source_dir: &Path,
@@ -2217,8 +2262,16 @@ fn collect_static_include_expr(
             }
         }
         Expr::New(expr) => {
-            if let echo_ast::NewTarget::Expr(target) = &mut expr.target {
-                collect_static_include_expr(target, source_dir, paths);
+            match &mut expr.target {
+                echo_ast::NewTarget::Expr(target) => {
+                    collect_static_include_expr(target, source_dir, paths);
+                }
+                echo_ast::NewTarget::AnonymousClass(class) => {
+                    for member in &mut class.members {
+                        collect_static_include_class_member(member, source_dir, paths);
+                    }
+                }
+                echo_ast::NewTarget::Class(_) => {}
             }
             for arg in &mut expr.args {
                 collect_static_include_expr(&mut arg.value, source_dir, paths);
@@ -2772,6 +2825,7 @@ mod tests {
                 }),
                 Stmt::ClassDecl(echo_ast::ClassDeclStmt {
                     name: "ServerProvider".to_string(),
+                    modifiers: Vec::new(),
                     parent: None,
                     interfaces: Vec::new(),
                     members: Vec::new(),

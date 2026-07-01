@@ -186,6 +186,7 @@ pub enum MirExpr {
 pub enum MirNewTarget {
     Class(echo_ast::QualifiedName),
     Expr(Box<MirExpr>),
+    AnonymousClass(echo_ast::AnonymousClassExpr),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -899,6 +899,7 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::New(expr) => match &expr.target {
             echo_ast::NewTarget::Class(class_name) => class_name.as_string(),
             echo_ast::NewTarget::Expr(_) => "unknown".to_string(),
+            echo_ast::NewTarget::AnonymousClass(_) => "object".to_string(),
         },
         Expr::Closure(_) | Expr::ArrowFunction(_) => "unknown".to_string(),
         Expr::TypeAscription(expr) => expr.ty.clone(),

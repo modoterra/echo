@@ -373,6 +373,9 @@ pub fn lower_expr(expr: &Expr) -> MirExpr {
                 echo_ast::NewTarget::Expr(target) => {
                     MirNewTarget::Expr(Box::new(lower_expr(target)))
                 }
+                echo_ast::NewTarget::AnonymousClass(class) => {
+                    MirNewTarget::AnonymousClass((**class).clone())
+                }
             },
             args: value.args.iter().map(lower_call_arg).collect(),
         },
