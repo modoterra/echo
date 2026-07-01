@@ -488,7 +488,7 @@ impl Analyzer {
             Expr::Constant(expr)
                 if matches!(
                     expr.name.as_str(),
-                    "PHP_VERSION" | "PHP_SAPI" | "PHP_EOL" | "STDERR"
+                    "PHP_VERSION" | "PHP_BUILD_DATE" | "PHP_SAPI" | "PHP_EOL" | "STDERR"
                 ) =>
             {
                 Type::String

@@ -387,6 +387,9 @@ impl IrModule {
             echo_mir::MirExpr::Constant { name, .. } if name == "PHP_VERSION" => {
                 Ok(RuntimeValue::StaticString("8.2.0".to_string()))
             }
+            echo_mir::MirExpr::Constant { name, .. } if name == "PHP_BUILD_DATE" => Ok(
+                RuntimeValue::StaticString("Jul  1 2026 00:00:00".to_string()),
+            ),
             echo_mir::MirExpr::Constant { name, .. } if name == "PHP_SAPI" => {
                 Ok(RuntimeValue::StaticString("cli".to_string()))
             }

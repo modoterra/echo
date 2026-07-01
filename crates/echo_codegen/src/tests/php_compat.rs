@@ -218,3 +218,20 @@ fn password_and_crypt_constants_lower_to_expected_php_compat_shapes() {
         );
     }
 }
+
+#[test]
+fn php_build_date_lowers_to_php_shaped_string_constant() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::Constant(echo_ast::ConstantExpr {
+            name: "PHP_BUILD_DATE".to_string(),
+            span: Span::new(0, 1),
+        })],
+        span: Span::new(0, 1),
+    })]))
+    .expect("PHP_BUILD_DATE should lower to an LLVM string constant");
+
+    assert!(
+        ir.contains("c\"Jul  1 2026 00:00:00\", "),
+        "PHP_BUILD_DATE should be materialized as a PHP-shaped build date string"
+    );
+}

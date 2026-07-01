@@ -24,7 +24,7 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 191 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 192 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
 - Implemented Core + standard functions in inventory: 207.
@@ -154,12 +154,15 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 
 ### New Predefined Constants
 
-- `[ ]` `PHP_BUILD_DATE`.
-  - Decide whether Echo exposes PHP-compatible build metadata or an Echo-owned
-    compatibility value.
+- `[x]` `PHP_BUILD_DATE`.
+  - Echo exposes a stable PHP-shaped compatibility value.
+  - Covered by `tests/php/194_php_build_date_constant`.
 
 - `[ ]` `PHP_BUILD_PROVIDER`.
-  - Same policy as `PHP_BUILD_DATE`; document value stability once chosen.
+  - PHP documents this as build-dependent and it is absent from the local PHP
+    8.5 build when no provider is configured.
+  - TODO: decide whether Echo omits it for parity with source-built PHP or
+    exposes an Echo-owned provider value.
 
 ### URI Extension
 
