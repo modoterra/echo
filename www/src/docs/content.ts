@@ -1524,6 +1524,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Looks up an IP protocol name by protocol number.",
       },
       {
+        name: "getservbyname",
+        signature: "getservbyname(string $service, string $protocol): int|false",
+        description: "Looks up a network service port by service name and protocol.",
+      },
+      {
         name: "get_current_user",
         signature: "get_current_user(): string",
         description: "Returns the current process user name baseline.",
@@ -2465,6 +2470,14 @@ if ($protocol !== false) {
 
 if ($name !== false) {
     echo "Protocol 17: " . $name . "\\n"
+}`,
+  ],
+  [
+    "getservbyname",
+    `let $port = getservbyname("http", "tcp")
+
+if ($port !== false) {
+    echo "HTTP port: " . $port . "\\n"
 }`,
   ],
   [
@@ -3801,6 +3814,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getprotobynumber",
     "Use `getprotobynumber()` when old configuration or logs store numeric protocol identifiers and the program needs the canonical local protocol name.",
+  ],
+  [
+    "getservbyname",
+    "Use `getservbyname()` when legacy configuration names a service such as `http` and the program needs the conventional local port number without making a network connection.",
   ],
   [
     "get_current_user",
@@ -6836,7 +6853,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 254 PHP compatibility fixtures, 287 implemented Core and standard functions out of 607, 320 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 255 PHP compatibility fixtures, 288 implemented Core and standard functions out of 607, 319 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
