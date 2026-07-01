@@ -421,7 +421,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_writable` | implemented | Checks local filesystem paths by probing append access or temporary creation inside directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `is_writeable` | implemented | Alias of `is_writable()`. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `join` | implemented | Alias of `implode()`. Source: https://www.php.net/manual/en/function.join.php |
-| `key` | missing |  |
+| `key` | partial | Returns the first array key for Echo's current no-pointer baseline, or `null` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.key.php |
 | `key_exists` | implemented | Alias of `array_key_exists()`. Source: https://www.php.net/manual/en/function.key-exists.php |
 | `krsort` | partial | Sorts arrays by string-compatible keys in descending byte order while preserving key/value associations and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.krsort.php |
 | `ksort` | partial | Sorts arrays by string-compatible keys in ascending byte order while preserving key/value associations and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.ksort.php |

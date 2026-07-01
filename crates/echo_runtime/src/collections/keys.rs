@@ -37,6 +37,23 @@ pub extern "C" fn echo_php_current(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_key(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    array
+        .keys
+        .first()
+        .map(EchoArrayKey::to_value)
+        .unwrap_or_else(EchoValue::null)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_reset(array: EchoValue) -> EchoValue {
     echo_php_current(array)
 }

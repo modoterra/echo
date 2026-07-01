@@ -446,6 +446,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the first array value. Echo currently exposes a no-pointer baseline.",
       },
       {
+        name: "key",
+        signature: "key(array $array): int|string|null",
+        description:
+          "Returns the current array key. Echo currently exposes the first key baseline.",
+      },
+      {
         name: "array_keys",
         signature: "array_keys(array $array, mixed $filter_value, bool $strict): array",
         description: "Returns array keys, optionally filtered by value.",
@@ -2889,6 +2895,13 @@ let $first = reset($queue)
 echo $first . "\\n"`,
   ],
   [
+    "key",
+    `let $queue = ["first": "draft", "second": "review"]
+let $firstKey = key($queue)
+
+echo $firstKey . "\\n"`,
+  ],
+  [
     "array_keys",
     `let $row = ["id": "A-42", "qty": "3"]
 let $columns = array_keys($row)
@@ -3828,6 +3841,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "reset",
     "Use `reset()` when compatibility code expects to rewind an array cursor before reading the first value. Echo's current baseline does not model persistent pointer movement yet.",
+  ],
+  [
+    "key",
+    "Use `key()` when compatibility code needs the current array key. Echo's current baseline reports the first key until persistent pointer movement is modeled.",
   ],
   [
     "array_keys",
@@ -6531,7 +6548,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 235 PHP compatibility fixtures, 268 implemented Core and standard functions out of 607, 339 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 236 PHP compatibility fixtures, 269 implemented Core and standard functions out of 607, 338 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
