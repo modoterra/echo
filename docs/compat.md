@@ -81,7 +81,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `debug_backtrace` | missing |  |
 | `debug_print_backtrace` | missing |  |
 | `define` | missing |  |
-| `defined` | missing |  |
+| `defined` | partial | Recognizes compiler-owned PHP compatibility constants that Echo already lowers; user-defined constants from `define()` are deferred. Source: https://www.php.net/manual/en/function.defined.php |
 | `die` | missing |  |
 | `enum_exists` | partial | Returns `false` until Echo has enum metadata and autoload semantics. Source: https://www.php.net/manual/en/function.enum-exists.php |
 | `error_reporting` | partial | Stores and returns the process-local reporting level; integration with emitted PHP warnings/notices is deferred. Source: https://www.php.net/manual/en/function.error-reporting.php |

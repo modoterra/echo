@@ -10,6 +10,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "defined",
+            &[("constant_name", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "crypt",
             &[("str", Some("string")), ("salt", Some("string"))],
             Some("string|false"),

@@ -126,6 +126,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueBinaryExpression,
         },
         PhpBuiltin {
+            php_name: "defined",
+            symbol: "echo_php_defined",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "gettimeofday",
             symbol: "echo_php_gettimeofday",
             helper_symbol: None,

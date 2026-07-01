@@ -29,6 +29,35 @@ pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoVal
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_defined(name: EchoValue) -> EchoValue {
+    let is_defined = name.string_bytes().is_some_and(|bytes| {
+        matches!(
+            bytes.as_slice(),
+            b"PHP_VERSION_ID"
+                | b"PHP_VERSION"
+                | b"PHP_BUILD_DATE"
+                | b"PHP_SAPI"
+                | b"PHP_EOL"
+                | b"STDERR"
+                | b"PASSWORD_DEFAULT"
+                | b"PASSWORD_BCRYPT"
+                | b"PASSWORD_ARGON2I"
+                | b"PASSWORD_ARGON2ID"
+                | b"PASSWORD_BCRYPT_DEFAULT_COST"
+                | b"HASH_HMAC"
+                | b"CRYPT_BLOWFISH"
+                | b"CRYPT_STD_DES"
+                | b"CRYPT_EXT_DES"
+                | b"CRYPT_MD5"
+                | b"CRYPT_SHA256"
+                | b"CRYPT_SHA512"
+        )
+    });
+
+    EchoValue::bool(is_defined)
+}
+
 pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>, EchoError> {
     if value.is_null() {
         return Ok(None);
