@@ -3675,15 +3675,33 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then_ignore(just("=>").padded())
             .then(just('$').ignore_then(text::ident().padded()))
             .map(|(key, value): (&str, &str)| (Some(key.to_string()), value.to_string()));
-        let foreach_stmt = text::keyword("foreach")
+        let foreach_header = text::keyword("foreach")
             .padded()
             .ignore_then(just('(').padded())
             .ignore_then(expr.clone())
             .then_ignore(text::keyword("as").padded())
             .then(foreach_key_value.or(foreach_value.map(|value: &str| (None, value.to_string()))))
             .then_ignore(just(')').padded())
-            .then(block.clone())
-            .then_ignore(terminator.clone().or_not())
+            .boxed();
+        let foreach_alternate_body_boundary = text::keyword("endforeach").padded().ignored();
+        let foreach_alternate_body_statement = foreach_alternate_body_boundary
+            .clone()
+            .not()
+            .ignore_then(statement.clone())
+            .boxed();
+        let foreach_alternate_body = just(':')
+            .padded()
+            .ignore_then(
+                foreach_alternate_body_statement
+                    .then_ignore(stray_terminators.clone())
+                    .repeated()
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(foreach_alternate_body_boundary)
+            .then_ignore(terminator.clone());
+        let foreach_alternate_stmt = foreach_header
+            .clone()
+            .then(foreach_alternate_body)
             .map_with(|((iterable, (key, value)), body), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -3695,6 +3713,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+        let foreach_stmt = foreach_alternate_stmt
+            .or(foreach_header
+                .then(block.clone())
+                .then_ignore(terminator.clone().or_not())
+                .map_with(|((iterable, (key, value)), body), extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::Foreach(ForeachStmt {
+                        iterable,
+                        key,
+                        value,
+                        body,
+                        span: Span::new(span.start, span.end),
+                    })
+                }))
             .boxed();
 
         let switch_case_separator = just(':').or(just(';')).padded();

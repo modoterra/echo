@@ -996,6 +996,11 @@ fn parses_php_continue_statement() {
 foreach ($items as $item) {
     continue;
 }
+foreach ($items as $key => $item):
+    continue;
+endforeach;
+foreach ($items as $item):
+endforeach;
 "#,
     )
     .expect("PHP continue statement parses");
@@ -1004,6 +1009,20 @@ foreach ($items as $item) {
         &program.statements[0],
         Stmt::Foreach(statement)
             if matches!(statement.body.first(), Some(Stmt::Continue(_)))
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Foreach(statement)
+            if statement.key.as_deref() == Some("key")
+                && statement.value == "item"
+                && matches!(statement.body.first(), Some(Stmt::Continue(_)))
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::Foreach(statement)
+            if statement.key.is_none()
+                && statement.value == "item"
+                && statement.body.is_empty()
     ));
 }
 
