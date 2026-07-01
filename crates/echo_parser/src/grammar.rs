@@ -13,11 +13,11 @@ use echo_ast::{
     InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt,
     MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr, MethodDecl,
     MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst,
-    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
-    StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
-    TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
-    UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    NumberLiteral, ObjectExpr, ObjectField, PrintExpr, Program, PropertyDecl, QualifiedName,
+    ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
+    StaticPropertyAssignExpr, StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr,
+    TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField,
+    TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -491,6 +491,7 @@ fn normalize_php_compat_expr(expr: &mut Expr) {
                 normalize_php_compat_expr(&mut arg.value);
             }
         }
+        Expr::Print(expr) => normalize_php_compat_expr(&mut expr.value),
         Expr::DynamicFunctionCall(expr) => {
             for arg in &mut expr.args {
                 normalize_php_compat_expr(&mut arg.value);
@@ -1453,8 +1454,22 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let callable_expr = dynamic_function_call_expr.or(function_call_expr).boxed();
 
+        let print_expr = text::keyword("print")
+            .padded()
+            .ignore_then(expr.clone())
+            .map_with(|value, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::Print(Box::new(PrintExpr {
+                    value,
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
+
         let primary_atom = choice((
             match_expr,
+            print_expr,
             run_expr,
             fork_expr,
             spawn_expr,
@@ -2254,6 +2269,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .then(statement_args.clone())
             .then_ignore(just(')').padded())
             .then_ignore(terminator.clone())
+            .try_map(|(name, args): (String, Vec<CallArg>), span| {
+                if name.eq_ignore_ascii_case("print") {
+                    Err(Rich::custom(
+                        span,
+                        "print is a language construct expression, not a function-call statement",
+                    ))
+                } else {
+                    Ok((name, args))
+                }
+            })
             .map_with(|(name, args): (String, Vec<CallArg>), extra| {
                 let span: SimpleSpan = extra.span();
 

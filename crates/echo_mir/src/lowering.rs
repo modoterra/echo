@@ -343,6 +343,10 @@ pub fn lower_expr(expr: &Expr) -> MirExpr {
                 span: value.span,
             },
         },
+        Expr::Print(value) => MirExpr::Print {
+            source: expr.clone(),
+            value: Box::new(lower_expr(&value.value)),
+        },
         Expr::DynamicFunctionCall(value) => MirExpr::DynamicFunctionCall {
             source: expr.clone(),
             name: value.name.clone(),

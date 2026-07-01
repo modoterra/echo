@@ -491,6 +491,11 @@ impl IrModule {
             echo_mir::MirExpr::FunctionCall { call, .. } => {
                 self.render_mir_function_call_expr(body, call)
             }
+            echo_mir::MirExpr::Print { value, .. } => {
+                let value = self.render_mir_expr(body, value)?;
+                self.write_value(body, value);
+                Ok(RuntimeValue::EchoValue("{ i32 2, i64 1 }".to_string()))
+            }
             echo_mir::MirExpr::DynamicFunctionCall {
                 source, name, args, ..
             } => self.render_mir_dynamic_function_call_expr(body, source, name, args),

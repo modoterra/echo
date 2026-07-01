@@ -518,6 +518,36 @@ time.sleep(300)
 }
 
 #[test]
+fn parses_php_print_expression() {
+    let program = parse(
+        r#"<?php
+$ok = print "ready";
+print($ok);
+"#,
+    )
+    .expect("PHP print expressions parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(
+                &statement.value,
+                Expr::Print(expr)
+                    if matches!(&expr.value, Expr::String(string) if string.value == "ready")
+            )
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Expr(statement)
+            if matches!(
+                &statement.expr,
+                Expr::Print(expr)
+                    if matches!(&expr.value, Expr::Variable(variable) if variable.name == "ok")
+            )
+    ));
+}
+
+#[test]
 fn parses_negative_numeric_function_arguments() {
     let program = parse(r#"<?php echo substr_compare("abcde", "de", -2, 2);"#)
         .expect("negative numeric argument parses");

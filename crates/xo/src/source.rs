@@ -616,6 +616,9 @@ fn collect_expr_contextual_class_references(
                 collect_call_arg_contextual_class_references(arg, namespace, uses, names);
             }
         }
+        Expr::Print(expr) => {
+            collect_expr_contextual_class_references(&expr.value, namespace, uses, names);
+        }
         Expr::DynamicFunctionCall(expr) => {
             for arg in &expr.args {
                 collect_call_arg_contextual_class_references(arg, namespace, uses, names);
@@ -1030,6 +1033,7 @@ fn collect_expr_class_references(expr: &Expr, names: &mut std::collections::Hash
                 collect_call_arg_class_references(arg, names);
             }
         }
+        Expr::Print(expr) => collect_expr_class_references(&expr.value, names),
         Expr::DynamicFunctionCall(expr) => {
             for arg in &expr.args {
                 collect_call_arg_class_references(arg, names);
@@ -2239,6 +2243,7 @@ fn collect_static_include_expr(
                 collect_static_include_expr(&mut arg.value, source_dir, paths);
             }
         }
+        Expr::Print(expr) => collect_static_include_expr(&mut expr.value, source_dir, paths),
         Expr::DynamicFunctionCall(expr) => {
             for arg in &mut expr.args {
                 collect_static_include_expr(&mut arg.value, source_dir, paths);

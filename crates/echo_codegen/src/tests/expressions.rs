@@ -79,6 +79,27 @@ fn integer_subtraction_lowers_to_echo_value_sub() {
 }
 
 #[test]
+fn print_expression_writes_value_and_returns_one() {
+    let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
+        exprs: vec![Expr::Print(Box::new(PrintExpr {
+            value: Expr::String(StringLiteral {
+                value: "ready".to_string(),
+                span: Span::new(11, 18),
+            }),
+            span: Span::new(5, 18),
+        }))],
+        span: Span::new(0, 19),
+    })]))
+    .expect("IR");
+
+    assert!(ir.contains("call void @echo_write(ptr @"), "{ir}");
+    assert!(
+        ir.contains("call void @echo_write_value(%EchoValue { i32 2, i64 1 })"),
+        "{ir}"
+    );
+}
+
+#[test]
 fn instanceof_literal_class_name_does_not_lower_rhs_as_constant_lookup() {
     let ir = compile_to_ir(&program(vec![Stmt::Echo(EchoStmt {
         exprs: vec![Expr::Binary(Box::new(echo_ast::BinaryExpr {

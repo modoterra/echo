@@ -798,6 +798,7 @@ fn expression_kind(expr: &Expr) -> &'static str {
         Expr::StaticPropertyCoalesceAssign(_) => "static property coalesce assignment",
         Expr::ClassConstantFetch(_) => "class constant fetch",
         Expr::FunctionCall(_) => "function call",
+        Expr::Print(_) => "print expression",
         Expr::DynamicFunctionCall(_) => "dynamic function call",
         Expr::DynamicCall(_) => "dynamic call",
         Expr::MethodCall(_) => "method call",
@@ -892,6 +893,7 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::FunctionCall(call) => echo_reflection::function(&call.name)
             .and_then(|function| function.return_type.clone())
             .unwrap_or_else(|| "unknown".to_string()),
+        Expr::Print(_) => "int".to_string(),
         Expr::DynamicFunctionCall(_)
         | Expr::DynamicCall(_)
         | Expr::MethodCall(_)

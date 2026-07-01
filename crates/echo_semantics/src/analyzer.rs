@@ -421,6 +421,10 @@ impl Analyzer {
                     .map(Type::Named)
                     .unwrap_or(Type::Unknown)
             }
+            Expr::Print(expr) => {
+                self.analyze_expr(&expr.value);
+                Type::Int
+            }
             Expr::DynamicFunctionCall(expr) => {
                 self.resolve_variable(&expr.name, expr.span);
                 for arg in &expr.args {

@@ -15,6 +15,7 @@ pub enum Expr {
     StaticPropertyCoalesceAssign(Box<StaticPropertyAssignExpr>),
     ClassConstantFetch(Box<ClassConstantFetchExpr>),
     FunctionCall(FunctionCallExpr),
+    Print(Box<PrintExpr>),
     DynamicFunctionCall(DynamicFunctionCallExpr),
     DynamicCall(Box<DynamicCallExpr>),
     MethodCall(Box<MethodCallExpr>),
@@ -60,6 +61,7 @@ impl Expr {
             Self::StaticPropertyCoalesceAssign(expr) => expr.span,
             Self::ClassConstantFetch(expr) => expr.span,
             Self::FunctionCall(expr) => expr.span,
+            Self::Print(expr) => expr.span,
             Self::DynamicFunctionCall(expr) => expr.span,
             Self::DynamicCall(expr) => expr.span,
             Self::MethodCall(expr) => expr.span,
@@ -248,6 +250,12 @@ pub struct ClassConstantFetchExpr {
 pub struct FunctionCallExpr {
     pub name: String,
     pub args: Vec<CallArg>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PrintExpr {
+    pub value: Expr,
     pub span: Span,
 }
 

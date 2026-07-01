@@ -48,6 +48,7 @@ Related baseline functions tracked below: `get_included_files`,
 | enum declarations | partial | Parser/AST support covers pure enums, backed enums, implemented interfaces, cases, methods, and trait-use members. Runtime enum object semantics are not implemented yet. Sources: https://www.php.net/manual/en/language.enumerations.php and https://www.php.net/manual/en/language.enumerations.backed.php |
 | interface declarations | partial | Parser/AST support covers interface declarations, multiple parent interfaces, method signatures, and constants. PHP 8.4 interface property declarations with get/set hooks are still deferred. Source: https://www.php.net/manual/en/language.oop5.interfaces.php |
 | `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
+| `print` | partial | Parser/AST and codegen support covers `print` as an expression that writes one value and returns `1`. Source: https://www.php.net/manual/en/function.print.php |
 
 ## Totals
 

@@ -4,8 +4,8 @@ use echo_ast::{
     ClassDeclStmt, ClassMember, DeferExpr, EchoStmt, Expr, ExprStmt, FunctionCallExpr,
     FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportStmt, IncludeExpr, IncludeKind, LetStmt,
     ListExpr, LoopExpr, LoopStmt, MethodCallExpr, MethodDecl, MethodVisibility, NewExpr, NewTarget,
-    NullLiteral, NumberLiteral, ObjectExpr, ObjectField, QualifiedName, ReturnStmt, StringLiteral,
-    TraitDeclStmt, TypeAscriptionExpr, TypedParam, UseStmt, VariableExpr,
+    NullLiteral, NumberLiteral, ObjectExpr, ObjectField, PrintExpr, QualifiedName, ReturnStmt,
+    StringLiteral, TraitDeclStmt, TypeAscriptionExpr, TypedParam, UseStmt, VariableExpr,
 };
 
 fn program(statements: Vec<Stmt>) -> Program {

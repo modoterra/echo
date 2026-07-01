@@ -11,6 +11,7 @@ impl IndexFactExtractor {
                     self.extract_expr_dependencies(&arg.value);
                 }
             }
+            Expr::Print(expr) => self.extract_expr_dependencies(&expr.value),
             Expr::DynamicFunctionCall(expr) => {
                 for arg in &expr.args {
                     self.extract_expr_dependencies(&arg.value);

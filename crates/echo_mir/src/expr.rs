@@ -52,6 +52,10 @@ pub enum MirExpr {
         source: Expr,
         call: MirFunctionCall,
     },
+    Print {
+        source: Expr,
+        value: Box<MirExpr>,
+    },
     DynamicFunctionCall {
         source: Expr,
         name: String,
@@ -250,6 +254,7 @@ impl MirExpr {
             | Self::StaticPropertyAssign { source, .. }
             | Self::ClassConstantFetch { source, .. }
             | Self::FunctionCall { source, .. }
+            | Self::Print { source, .. }
             | Self::DynamicFunctionCall { source, .. }
             | Self::DynamicCall { source, .. }
             | Self::MethodCall { source, .. }
@@ -292,6 +297,7 @@ impl MirExpr {
             | Self::StaticPropertyAssign { source, .. }
             | Self::ClassConstantFetch { source, .. }
             | Self::FunctionCall { source, .. }
+            | Self::Print { source, .. }
             | Self::DynamicFunctionCall { source, .. }
             | Self::DynamicCall { source, .. }
             | Self::MethodCall { source, .. }
