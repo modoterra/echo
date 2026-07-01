@@ -1334,6 +1334,33 @@ fn parses_php_short_echo_tags() {
 }
 
 #[test]
+fn parses_php_closing_tag_statement_terminators() {
+    let program = parse(
+        r#"<?php echo "no semicolon" ?>
+"#,
+    )
+    .expect("PHP closing tag terminates final statement");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Echo(statement)
+            if statement.exprs.len() == 1
+    ));
+
+    let program = parse(
+        r#"<?php echo "semicolon"; ?>
+"#,
+    )
+    .expect("PHP closing tag may follow an explicit semicolon");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Echo(statement)
+            if statement.exprs.len() == 1
+    ));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php

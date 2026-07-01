@@ -2068,7 +2068,12 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         let statement = statement.clone();
         let expr = expr.clone();
 
-        let terminator = just(';').padded().ignored().or(end().ignored());
+        let close_php = just("?>").padded().ignored();
+        let terminator = just(';')
+            .padded()
+            .ignored()
+            .or(close_php.clone())
+            .or(end().ignored());
 
         let php_name = qualified_name('\\');
         let dotted_name = qualified_name('.');
@@ -4285,6 +4290,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         .or_not()
         .ignore_then(open_php)
         .then(statement.repeated().at_least(1).collect::<Vec<_>>())
+        .then_ignore(just("?>").padded().or_not())
         .then_ignore(end())
         .map_with(|(open_tag, statements), extra| {
             let span: SimpleSpan = extra.span();
