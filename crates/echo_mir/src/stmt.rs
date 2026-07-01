@@ -57,6 +57,11 @@ pub enum MirStmt {
         condition: MirExpr,
         body: Vec<MirStmt>,
     },
+    DoWhile {
+        source: Stmt,
+        body: Vec<MirStmt>,
+        condition: MirExpr,
+    },
     For {
         source: Stmt,
         init: Vec<MirExpr>,
@@ -145,6 +150,7 @@ impl MirStmt {
             | Self::Expr { source, .. }
             | Self::Loop { source, .. }
             | Self::While { source, .. }
+            | Self::DoWhile { source, .. }
             | Self::For { source, .. }
             | Self::Foreach { source, .. }
             | Self::Switch { source, .. }

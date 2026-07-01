@@ -137,6 +137,15 @@ pub(crate) fn lower_syntax_statement(
                 .map(|statement| lower_syntax_statement(statement, imports, functions))
                 .collect(),
         },
+        Stmt::DoWhile(statement) => MirStmt::DoWhile {
+            source: Stmt::DoWhile(statement.clone()),
+            body: statement
+                .body
+                .iter()
+                .map(|statement| lower_syntax_statement(statement, imports, functions))
+                .collect(),
+            condition: lower_expr(&statement.condition),
+        },
         Stmt::For(statement) => MirStmt::For {
             source: Stmt::For(statement.clone()),
             init: statement.init.iter().map(lower_expr).collect(),

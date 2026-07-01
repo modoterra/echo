@@ -6,13 +6,13 @@ use echo_ast::{
     AssignRefStmt, AssignStmt, BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr,
     CatchClause, ClassConstDecl, ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClassModifier,
     ClosureExpr, CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt,
-    DeferExpr, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt,
-    ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForStmt,
-    ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, GlobalStmt,
-    IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt,
-    InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt,
-    MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr, MethodDecl,
-    MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
+    DeferExpr, DoWhileStmt, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt,
+    EchoStmt, ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr,
+    ForStmt, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt,
+    GlobalStmt, IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr,
+    InterfaceDeclStmt, InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr,
+    LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
+    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
     NumberLiteral, ObjectExpr, ObjectField, PrintExpr, Program, PropertyDecl, QualifiedName,
     ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
     StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt,
@@ -258,6 +258,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
         Stmt::While(statement) => statement.span,
+        Stmt::DoWhile(statement) => statement.span,
         Stmt::For(statement) => statement.span,
         Stmt::Foreach(statement) => statement.span,
         Stmt::Switch(statement) => statement.span,
@@ -333,6 +334,12 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
             for statement in &mut statement.body {
                 normalize_php_compat_statement(statement);
             }
+        }
+        Stmt::DoWhile(statement) => {
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+            normalize_php_compat_expr(&mut statement.condition);
         }
         Stmt::For(statement) => {
             for expr in &mut statement.init {
@@ -3425,6 +3432,26 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let do_while_stmt = just("do")
+            .padded()
+            .ignore_then(block.clone())
+            .then_ignore(text::keyword("while").padded())
+            .then(
+                expr.clone()
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(|(body, condition), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::DoWhile(DoWhileStmt {
+                    body,
+                    condition,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let for_exprs = expr
             .clone()
             .padded()
@@ -3844,6 +3871,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(global_stmt)
             .or(static_var_stmt)
             .or(loop_stmt)
+            .or(do_while_stmt.clone())
             .or(while_stmt)
             .or(for_stmt)
             .or(foreach_stmt)
@@ -3876,10 +3904,9 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(expr_stmt)
             .boxed();
 
-        try_stmt
+        flow_stmt
             .or(declaration_stmt)
             .or(module_import_stmt)
-            .or(flow_stmt)
             .or(binding_stmt)
             .or(call_or_expr_stmt)
             .boxed()

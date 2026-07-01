@@ -48,6 +48,7 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
         Stmt::While(statement) => statement.span,
+        Stmt::DoWhile(statement) => statement.span,
         Stmt::For(statement) => statement.span,
         Stmt::Foreach(statement) => statement.span,
         Stmt::Switch(statement) => statement.span,

@@ -1040,6 +1040,24 @@ for (; ; ) {
 }
 
 #[test]
+fn parses_php_do_while_statement() {
+    let program = parse(
+        r#"<?php
+do {
+} while ($i);
+"#,
+    )
+    .expect("PHP do-while statement parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::DoWhile(statement)
+            if statement.body.is_empty()
+                && matches!(statement.condition, Expr::Variable(_))
+    ));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php

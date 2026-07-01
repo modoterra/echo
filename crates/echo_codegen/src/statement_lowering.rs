@@ -83,6 +83,15 @@ impl IrModule {
                     stmt_span(source),
                 ))
             }
+            echo_mir::MirStmt::DoWhile {
+                source, condition, ..
+            } => {
+                self.render_mir_expr_as_echo_value(body, condition)?;
+                Err(Diagnostic::new(
+                    "unsupported do-while statement in LLVM codegen",
+                    stmt_span(source),
+                ))
+            }
             echo_mir::MirStmt::For {
                 source,
                 init,

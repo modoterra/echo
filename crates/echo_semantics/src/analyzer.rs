@@ -263,6 +263,10 @@ impl Analyzer {
                 self.analyze_expr(&statement.condition);
                 self.analyze_statements(&statement.body);
             }
+            Stmt::DoWhile(statement) => {
+                self.analyze_statements(&statement.body);
+                self.analyze_expr(&statement.condition);
+            }
             Stmt::For(statement) => {
                 for expr in &statement.init {
                     self.analyze_expr(expr);

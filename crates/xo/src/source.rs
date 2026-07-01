@@ -501,6 +501,12 @@ fn collect_statement_contextual_class_references(
                 collect_statement_contextual_class_references(statement, namespace, uses, names);
             }
         }
+        Stmt::DoWhile(statement) => {
+            for statement in &statement.body {
+                collect_statement_contextual_class_references(statement, namespace, uses, names);
+            }
+            collect_expr_contextual_class_references(&statement.condition, namespace, uses, names);
+        }
         Stmt::For(statement) => {
             for expr in &statement.init {
                 collect_expr_contextual_class_references(expr, namespace, uses, names);
@@ -992,6 +998,12 @@ fn collect_statement_class_references(
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
             }
+        }
+        Stmt::DoWhile(statement) => {
+            for statement in &statement.body {
+                collect_statement_class_references(statement, names);
+            }
+            collect_expr_class_references(&statement.condition, names);
         }
         Stmt::For(statement) => {
             for expr in &statement.init {
@@ -2145,6 +2157,10 @@ fn collect_static_include_paths(
             Stmt::While(statement) => {
                 collect_static_include_expr(&mut statement.condition, source_dir, paths);
                 collect_static_include_paths(&mut statement.body, source_dir, paths);
+            }
+            Stmt::DoWhile(statement) => {
+                collect_static_include_paths(&mut statement.body, source_dir, paths);
+                collect_static_include_expr(&mut statement.condition, source_dir, paths);
             }
             Stmt::For(statement) => {
                 for expr in &mut statement.init {

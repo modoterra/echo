@@ -31,6 +31,7 @@ pub enum Stmt {
     TypeDecl(TypeDeclStmt),
     Loop(LoopStmt),
     While(WhileStmt),
+    DoWhile(DoWhileStmt),
     For(ForStmt),
     Foreach(ForeachStmt),
     Switch(SwitchStmt),
@@ -278,6 +279,13 @@ pub struct LoopStmt {
 pub struct WhileStmt {
     pub condition: Expr,
     pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DoWhileStmt {
+    pub body: Vec<Stmt>,
+    pub condition: Expr,
     pub span: Span,
 }
 
