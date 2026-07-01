@@ -548,6 +548,40 @@ print($ok);
 }
 
 #[test]
+fn parses_php_global_and_static_variable_statements() {
+    let program = parse(
+        r#"<?php
+function counter($seed) {
+    global $total, $label;
+    static $count = 0, $next = next_value($seed), $name;
+    return $count;
+}
+"#,
+    )
+    .expect("PHP global and static variable statements parse");
+
+    let Stmt::FunctionDecl(function) = &program.statements[0] else {
+        panic!("expected function declaration");
+    };
+    assert!(matches!(
+        &function.body[0],
+        Stmt::Global(statement)
+            if statement.names == ["total".to_string(), "label".to_string()]
+    ));
+    assert!(matches!(
+        &function.body[1],
+        Stmt::StaticVar(statement)
+            if statement.vars.len() == 3
+                && statement.vars[0].name == "count"
+                && matches!(&statement.vars[0].value, Some(Expr::Number(number)) if number.value == "0")
+                && statement.vars[1].name == "next"
+                && matches!(&statement.vars[1].value, Some(Expr::FunctionCall(call)) if call.name == "next_value")
+                && statement.vars[2].name == "name"
+                && statement.vars[2].value.is_none()
+    ));
+}
+
+#[test]
 fn parses_negative_numeric_function_arguments() {
     let program = parse(r#"<?php echo substr_compare("abcde", "de", -2, 2);"#)
         .expect("negative numeric argument parses");

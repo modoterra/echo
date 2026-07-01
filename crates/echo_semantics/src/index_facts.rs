@@ -579,7 +579,14 @@ impl IndexFactExtractor {
             Stmt::CoalesceAssign(statement) => self.extract_expr_dependencies(&statement.value),
             Stmt::ListAssign(statement) => self.extract_expr_dependencies(&statement.value),
             Stmt::Let(statement) => self.extract_expr_dependencies(&statement.value),
-            Stmt::AssignRef(_) | Stmt::Break(_) | Stmt::Continue(_) => {}
+            Stmt::AssignRef(_) | Stmt::Global(_) | Stmt::Break(_) | Stmt::Continue(_) => {}
+            Stmt::StaticVar(statement) => {
+                for var in &statement.vars {
+                    if let Some(value) = &var.value {
+                        self.extract_expr_dependencies(value);
+                    }
+                }
+            }
             Stmt::Return(statement) => {
                 if let Some(value) = &statement.value {
                     self.extract_expr_dependencies(value);

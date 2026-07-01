@@ -120,6 +120,19 @@ impl Analyzer {
             Stmt::Yield(statement) => {
                 self.analyze_expr(&statement.value);
             }
+            Stmt::Global(statement) => {
+                for name in &statement.names {
+                    self.bind_variable(name, Type::Unknown, statement.span);
+                }
+            }
+            Stmt::StaticVar(statement) => {
+                for var in &statement.vars {
+                    if let Some(value) = &var.value {
+                        self.analyze_expr(value);
+                    }
+                    self.bind_variable(&var.name, Type::Unknown, var.span);
+                }
+            }
             Stmt::Expr(statement) => {
                 self.analyze_expr(&statement.expr);
             }

@@ -479,6 +479,14 @@ fn collect_statement_contextual_class_references(
         Stmt::Yield(statement) => {
             collect_expr_contextual_class_references(&statement.value, namespace, uses, names)
         }
+        Stmt::Global(_) => {}
+        Stmt::StaticVar(statement) => {
+            for var in &statement.vars {
+                if let Some(value) = &var.value {
+                    collect_expr_contextual_class_references(value, namespace, uses, names);
+                }
+            }
+        }
         Stmt::Expr(statement) => {
             collect_expr_contextual_class_references(&statement.expr, namespace, uses, names)
         }
@@ -896,6 +904,14 @@ fn collect_statement_class_references(
         }
         Stmt::Throw(statement) => collect_expr_class_references(&statement.value, names),
         Stmt::Yield(statement) => collect_expr_class_references(&statement.value, names),
+        Stmt::Global(_) => {}
+        Stmt::StaticVar(statement) => {
+            for var in &statement.vars {
+                if let Some(value) = &var.value {
+                    collect_expr_class_references(value, names);
+                }
+            }
+        }
         Stmt::Expr(statement) => collect_expr_class_references(&statement.expr, names),
         Stmt::Namespace(_) => {}
         Stmt::Use(statement) => collect_qualified_name_references(&statement.name, names),
@@ -2114,6 +2130,14 @@ fn collect_static_include_paths(
             }
             Stmt::Yield(statement) => {
                 collect_static_include_expr(&mut statement.value, source_dir, paths)
+            }
+            Stmt::Global(_) => {}
+            Stmt::StaticVar(statement) => {
+                for var in &mut statement.vars {
+                    if let Some(value) = &mut var.value {
+                        collect_static_include_expr(value, source_dir, paths);
+                    }
+                }
             }
             Stmt::AssignRef(_)
             | Stmt::Compile(_)

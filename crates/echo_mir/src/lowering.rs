@@ -225,6 +225,8 @@ pub(crate) fn lower_syntax_statement(
         },
         Stmt::FunctionDecl(_)
         | Stmt::Compile(_)
+        | Stmt::Global(_)
+        | Stmt::StaticVar(_)
         | Stmt::Namespace(_)
         | Stmt::Use(_)
         | Stmt::Import(_)

@@ -33,6 +33,8 @@ pub(crate) fn stmt_span(statement: &Stmt) -> Span {
         Stmt::Return(statement) => statement.span,
         Stmt::Throw(statement) => statement.span,
         Stmt::Yield(statement) => statement.span,
+        Stmt::Global(statement) => statement.span,
+        Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,
         Stmt::Namespace(statement) => statement.span,
         Stmt::Use(statement) => statement.span,

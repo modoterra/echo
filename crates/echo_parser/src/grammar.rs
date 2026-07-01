@@ -8,16 +8,17 @@ use echo_ast::{
     ClosureExpr, CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt,
     DeferExpr, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt,
     ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr,
-    ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt,
-    ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt,
+    ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, GlobalStmt,
+    IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt,
     InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt,
     MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr, MethodDecl,
     MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
     NumberLiteral, ObjectExpr, ObjectField, PrintExpr, Program, PropertyDecl, QualifiedName,
     ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
-    StaticPropertyAssignExpr, StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr,
-    TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField,
-    TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt,
+    StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
+    TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
+    UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -242,6 +243,8 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::Return(statement) => statement.span,
         Stmt::Throw(statement) => statement.span,
         Stmt::Yield(statement) => statement.span,
+        Stmt::Global(statement) => statement.span,
+        Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,
         Stmt::Namespace(statement) => statement.span,
         Stmt::Use(statement) => statement.span,
@@ -309,6 +312,14 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
         }
         Stmt::Throw(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::Yield(statement) => normalize_php_compat_expr(&mut statement.value),
+        Stmt::Global(_) => {}
+        Stmt::StaticVar(statement) => {
+            for var in &mut statement.vars {
+                if let Some(value) = &mut var.value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+        }
         Stmt::Expr(statement) => normalize_php_compat_expr(&mut statement.expr),
         Stmt::Loop(statement) => {
             for statement in &mut statement.body {
@@ -2214,6 +2225,59 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let global_name = just('$')
+            .ignore_then(text::ident().padded())
+            .map(str::to_string);
+        let global_stmt = text::keyword("global")
+            .padded()
+            .ignore_then(
+                global_name
+                    .separated_by(just(',').padded())
+                    .at_least(1)
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(|names, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Global(GlobalStmt {
+                    names,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let static_var_decl = just('$')
+            .ignore_then(text::ident().padded())
+            .then(just('=').padded().ignore_then(expr.clone()).or_not())
+            .map_with(|(name, value): (&str, Option<Expr>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                StaticVarDecl {
+                    name: name.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
+            });
+        let static_var_stmt = text::keyword(kw::STATIC.text)
+            .padded()
+            .ignore_then(
+                static_var_decl
+                    .separated_by(just(',').padded())
+                    .at_least(1)
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(terminator.clone())
+            .map_with(|vars, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::StaticVar(StaticVarStmt {
+                    vars,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let statement_function_name = dotted_function_name();
 
         let statement_named_arg = text::ident()
@@ -3671,6 +3735,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(return_stmt)
             .or(throw_stmt)
             .or(yield_stmt)
+            .or(global_stmt)
+            .or(static_var_stmt)
             .or(loop_stmt)
             .or(while_stmt)
             .or(foreach_stmt)

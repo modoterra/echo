@@ -426,6 +426,8 @@ fn is_repl_persistent_statement(statement: &Stmt) -> bool {
         Stmt::Assign(_)
             | Stmt::Let(_)
             | Stmt::AssignRef(_)
+            | Stmt::Global(_)
+            | Stmt::StaticVar(_)
             | Stmt::Compile(_)
             | Stmt::Namespace(_)
             | Stmt::Use(_)

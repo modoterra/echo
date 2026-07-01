@@ -16,6 +16,8 @@ pub enum Stmt {
     Return(ReturnStmt),
     Throw(ThrowStmt),
     Yield(YieldStmt),
+    Global(GlobalStmt),
+    StaticVar(StaticVarStmt),
     Expr(ExprStmt),
     Namespace(NamespaceStmt),
     Use(UseStmt),
@@ -131,6 +133,25 @@ pub struct ThrowStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct YieldStmt {
     pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlobalStmt {
+    pub names: Vec<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticVarStmt {
+    pub vars: Vec<StaticVarDecl>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticVarDecl {
+    pub name: String,
+    pub value: Option<Expr>,
     pub span: Span,
 }
 
