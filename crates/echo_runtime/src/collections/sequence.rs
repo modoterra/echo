@@ -220,6 +220,15 @@ pub extern "C" fn echo_php_array_splice(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sort(array: EchoValue) -> EchoValue {
+    sort_array_by_string_values(array, false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rsort(array: EchoValue) -> EchoValue {
+    sort_array_by_string_values(array, true)
+}
+
+fn sort_array_by_string_values(array: EchoValue, descending: bool) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
     }
@@ -238,6 +247,9 @@ pub extern "C" fn echo_php_sort(array: EchoValue) -> EchoValue {
     array
         .values
         .sort_by(|left, right| left.string_bytes().cmp(&right.string_bytes()));
+    if descending {
+        array.values.reverse();
+    }
     array.keys = (0..array.values.len())
         .map(|index| EchoArrayKey::Int(index as i64))
         .collect();
