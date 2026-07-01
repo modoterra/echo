@@ -691,7 +691,7 @@ impl Analyzer {
                     | BinaryOp::Mod
                     | BinaryOp::Pow => Type::Number,
                     BinaryOp::Concat => Type::String,
-                    BinaryOp::Coalesce => Type::Unknown,
+                    BinaryOp::Coalesce | BinaryOp::Pipe => Type::Unknown,
                     BinaryOp::LessThan
                     | BinaryOp::LessThanOrEqual
                     | BinaryOp::GreaterThan

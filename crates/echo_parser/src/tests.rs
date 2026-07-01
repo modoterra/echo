@@ -97,6 +97,27 @@ fn parses_php_void_cast_expression_statement() {
 }
 
 #[test]
+fn parses_php_pipe_operator_expression() {
+    let program = parse(
+        r#"<?php
+echo " PHP 8.5 " |> trim(...) |> strtoupper(...);
+"#,
+    )
+    .expect("PHP 8.5 pipe operator parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Echo(statement)
+            if matches!(
+                &statement.exprs[0],
+                Expr::Binary(outer)
+                    if outer.op == BinaryOp::Pipe
+                        && matches!(&outer.left, Expr::Binary(inner) if inner.op == BinaryOp::Pipe)
+            )
+    ));
+}
+
+#[test]
 fn echo_compat_mode_parses_php_trait_declaration() {
     let program = parse(
         r#"<?php

@@ -1,0 +1,2 @@
+Parser-only PHP 8.5 fixture: pipe operator syntax is represented in AST, but
+callable pipeline lowering is not implemented yet.

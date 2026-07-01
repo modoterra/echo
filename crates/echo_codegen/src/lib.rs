@@ -834,6 +834,9 @@ impl IrModule {
             echo_mir::MirExpr::Binary { source, op, .. } if *op == BinaryOp::And => Err(
                 Diagnostic::new("unsupported && expression in LLVM codegen", source.span()),
             ),
+            echo_mir::MirExpr::Binary { source, op, .. } if *op == BinaryOp::Pipe => Err(
+                Diagnostic::new("unsupported pipe expression in LLVM codegen", source.span()),
+            ),
             echo_mir::MirExpr::Ternary { source, .. } => Err(Diagnostic::new(
                 "unsupported ternary expression in LLVM codegen",
                 source.span(),

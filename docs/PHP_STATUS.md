@@ -73,12 +73,13 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 
 ### Syntax and Language Semantics
 
-- `[ ]` Pipe operator `|>`.
-  - Add lexer token and parser precedence.
-  - Add AST shape that preserves pipe expressions distinctly.
-  - Lower to callable invocation semantics rather than stringing together
-    nested call syntax.
-  - Cover first-class callables, closures, named functions, and error cases.
+- `[~]` Pipe operator `|>`.
+  - Parser/AST support preserves pipe expressions as `BinaryOp::Pipe`.
+  - Covered by parser-only fixture `tests/php/192_pipe_operator`.
+  - TODO: lower to callable invocation semantics rather than stringing
+    together nested call syntax.
+  - TODO: cover first-class callables, closures, named functions, and error
+    cases end to end.
 
 - `[~]` Clone expressions.
   - Existing status: parser/AST supports unary `clone`.
@@ -270,8 +271,9 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
    - Recognize the predefined attribute symbol.
    - Treat `(void) marked_call()` as explicit discard.
 
-2. Pipe operator parser/AST.
-   - Add fixture from the PHP 8.5 release example.
+2. Pipe operator lowering.
+   - Invoke the right-hand callable with the left-hand value.
+   - Support first-class callable placeholder syntax such as `trim(...)`.
    - Keep AST truthful: do not lower to nested calls inside the parser.
 
 3. `clone($object, [...])` parser/AST.

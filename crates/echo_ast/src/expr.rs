@@ -511,6 +511,7 @@ pub enum BinaryOp {
     NotEqual,
     InstanceOf,
     Coalesce,
+    Pipe,
     And,
     Or,
     Is,

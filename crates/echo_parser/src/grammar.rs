@@ -2094,7 +2094,28 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             )
             .boxed();
 
-        let ternary = coalesce
+        let pipe = coalesce
+            .clone()
+            .foldl(
+                just("|>")
+                    .to(BinaryOp::Pipe)
+                    .padded()
+                    .then(coalesce.clone())
+                    .repeated(),
+                |left, (op, right)| {
+                    let span = Span::new(left.span().start, right.span().end);
+
+                    Expr::Binary(Box::new(BinaryExpr {
+                        left,
+                        op,
+                        right,
+                        span,
+                    }))
+                },
+            )
+            .boxed();
+
+        let ternary = pipe
             .clone()
             .then(
                 just('?')
