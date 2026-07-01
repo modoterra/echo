@@ -260,6 +260,12 @@ impl Analyzer {
             | Stmt::Label(_)
             | Stmt::Break(_)
             | Stmt::Continue(_) => {}
+            Stmt::PhpDeclare(statement) => {
+                for directive in &statement.directives {
+                    self.analyze_expr(&directive.value);
+                }
+                self.analyze_statements(&statement.body);
+            }
             Stmt::Loop(statement) => self.analyze_statements(&statement.body),
             Stmt::While(statement) => {
                 self.analyze_expr(&statement.condition);

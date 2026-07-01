@@ -480,6 +480,14 @@ fn collect_statement_contextual_class_references(
             collect_expr_contextual_class_references(&statement.value, namespace, uses, names)
         }
         Stmt::Goto(_) | Stmt::Label(_) => {}
+        Stmt::PhpDeclare(statement) => {
+            for directive in &statement.directives {
+                collect_expr_contextual_class_references(&directive.value, namespace, uses, names);
+            }
+            for statement in &statement.body {
+                collect_statement_contextual_class_references(statement, namespace, uses, names);
+            }
+        }
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &statement.vars {
@@ -990,6 +998,14 @@ fn collect_statement_class_references(
         }
         Stmt::TypeDecl(_) => {}
         Stmt::Goto(_) | Stmt::Label(_) => {}
+        Stmt::PhpDeclare(statement) => {
+            for directive in &statement.directives {
+                collect_expr_class_references(&directive.value, names);
+            }
+            for statement in &statement.body {
+                collect_statement_class_references(statement, names);
+            }
+        }
         Stmt::Loop(statement) => {
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
@@ -2151,6 +2167,12 @@ fn collect_static_include_paths(
                 collect_static_include_expr(&mut statement.value, source_dir, paths)
             }
             Stmt::Goto(_) | Stmt::Label(_) => {}
+            Stmt::PhpDeclare(statement) => {
+                for directive in &mut statement.directives {
+                    collect_static_include_expr(&mut directive.value, source_dir, paths);
+                }
+                collect_static_include_paths(&mut statement.body, source_dir, paths);
+            }
             Stmt::Expr(statement) => {
                 collect_static_include_expr(&mut statement.expr, source_dir, paths)
             }

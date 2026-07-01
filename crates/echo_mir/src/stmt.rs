@@ -52,6 +52,10 @@ pub enum MirStmt {
         source: Stmt,
         name: String,
     },
+    PhpDeclare {
+        source: Stmt,
+        body: Vec<MirStmt>,
+    },
     Expr {
         source: Stmt,
         expr: MirExpr,
@@ -157,6 +161,7 @@ impl MirStmt {
             | Self::Throw { source, .. }
             | Self::Goto { source, .. }
             | Self::Label { source, .. }
+            | Self::PhpDeclare { source, .. }
             | Self::Expr { source, .. }
             | Self::Loop { source, .. }
             | Self::While { source, .. }

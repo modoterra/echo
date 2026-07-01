@@ -536,6 +536,12 @@ impl IndexFactExtractor {
                 });
             }
             Stmt::Goto(_) | Stmt::Label(_) => {}
+            Stmt::PhpDeclare(statement) => {
+                for directive in &statement.directives {
+                    self.extract_expr_dependencies(&directive.value);
+                }
+                self.extract_statements(&statement.body);
+            }
             Stmt::Loop(statement) => self.extract_statements(&statement.body),
             Stmt::While(statement) => {
                 self.extract_expr_dependencies(&statement.condition);

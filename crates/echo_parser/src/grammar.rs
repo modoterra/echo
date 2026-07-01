@@ -13,12 +13,12 @@ use echo_ast::{
     InterfaceDeclStmt, InterfaceMember, JoinExpr, LabelStmt, LetStmt, ListAssignStmt, ListExpr,
     LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
     MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, PrintExpr, Program, PropertyDecl, QualifiedName,
-    ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
-    StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt,
-    StringLiteral, SwitchCase, SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt,
-    TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp,
-    UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective, PhpDeclareStmt, PrintExpr,
+    Program, PropertyDecl, QualifiedName, ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr,
+    SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl,
+    StaticVarStmt, Stmt, StringLiteral, SwitchCase, SwitchStmt, TargetAssignExpr, TernaryExpr,
+    ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam,
+    UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -245,6 +245,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::Yield(statement) => statement.span,
         Stmt::Goto(statement) => statement.span,
         Stmt::Label(statement) => statement.span,
+        Stmt::PhpDeclare(statement) => statement.span,
         Stmt::Global(statement) => statement.span,
         Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,
@@ -318,6 +319,14 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
         Stmt::Throw(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::Yield(statement) => normalize_php_compat_expr(&mut statement.value),
         Stmt::Goto(_) | Stmt::Label(_) => {}
+        Stmt::PhpDeclare(statement) => {
+            for directive in &mut statement.directives {
+                normalize_php_compat_expr(&mut directive.value);
+            }
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &mut statement.vars {
@@ -2291,6 +2300,21 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let declare_directive = text::ident()
+            .padded()
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .map_with(|(name, value): (&str, Expr), extra| {
+                let span: SimpleSpan = extra.span();
+
+                PhpDeclareDirective {
+                    name: name.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                }
+            })
+            .boxed();
+
         let global_name = just('$')
             .ignore_then(text::ident().padded())
             .map(str::to_string);
@@ -3260,6 +3284,27 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .delimited_by(just('{').padded(), just('}').padded())
             .boxed();
 
+        let declare_stmt = text::keyword("declare")
+            .padded()
+            .ignore_then(
+                declare_directive
+                    .separated_by(just(',').padded())
+                    .at_least(1)
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .then(block.clone().map(Some).or(just(';').padded().to(None)))
+            .map_with(|(directives, body), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::PhpDeclare(PhpDeclareStmt {
+                    directives,
+                    body: body.unwrap_or_default(),
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let let_binding = just('$').ignore_then(text::ident().padded()).then(
             just(':')
                 .padded()
@@ -3905,6 +3950,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(yield_stmt)
             .or(goto_stmt)
             .or(label_stmt)
+            .or(declare_stmt)
             .or(global_stmt)
             .or(static_var_stmt)
             .or(loop_stmt)

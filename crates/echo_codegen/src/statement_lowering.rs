@@ -72,6 +72,19 @@ impl IrModule {
                 stmt_span(source),
             )),
             echo_mir::MirStmt::Label { .. } => Ok(()),
+            echo_mir::MirStmt::PhpDeclare {
+                source,
+                body: declare_body,
+            } => {
+                if declare_body.is_empty() {
+                    Ok(())
+                } else {
+                    Err(Diagnostic::new(
+                        "unsupported declare block in LLVM codegen",
+                        stmt_span(source),
+                    ))
+                }
+            }
             echo_mir::MirStmt::Expr { expr, .. } => {
                 self.render_mir_expr(body, expr)?;
                 Ok(())

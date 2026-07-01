@@ -1100,6 +1100,33 @@ echo "done";
 }
 
 #[test]
+fn parses_php_declare_statements() {
+    let program = parse(
+        r#"<?php
+declare(strict_types=1);
+declare(ticks=1, encoding='UTF-8');
+"#,
+    )
+    .expect("PHP declare statements parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::PhpDeclare(statement)
+            if statement.directives.len() == 1
+                && statement.directives[0].name == "strict_types"
+                && statement.body.is_empty()
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::PhpDeclare(statement)
+            if statement.directives.len() == 2
+                && statement.directives[0].name == "ticks"
+                && statement.directives[1].name == "encoding"
+                && statement.body.is_empty()
+    ));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php

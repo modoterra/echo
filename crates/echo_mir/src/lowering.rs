@@ -124,6 +124,14 @@ pub(crate) fn lower_syntax_statement(
             source: Stmt::Label(statement.clone()),
             name: statement.name.clone(),
         },
+        Stmt::PhpDeclare(statement) => MirStmt::PhpDeclare {
+            source: Stmt::PhpDeclare(statement.clone()),
+            body: statement
+                .body
+                .iter()
+                .map(|statement| lower_syntax_statement(statement, imports, functions))
+                .collect(),
+        },
         Stmt::Expr(statement) => MirStmt::Expr {
             source: Stmt::Expr(statement.clone()),
             expr: lower_expr(&statement.expr),

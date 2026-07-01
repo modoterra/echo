@@ -18,6 +18,7 @@ pub enum Stmt {
     Yield(YieldStmt),
     Goto(GotoStmt),
     Label(LabelStmt),
+    PhpDeclare(PhpDeclareStmt),
     Global(GlobalStmt),
     StaticVar(StaticVarStmt),
     Expr(ExprStmt),
@@ -150,6 +151,20 @@ pub struct GotoStmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LabelStmt {
     pub name: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhpDeclareStmt {
+    pub directives: Vec<PhpDeclareDirective>,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhpDeclareDirective {
+    pub name: String,
+    pub value: Expr,
     pub span: Span,
 }
 
