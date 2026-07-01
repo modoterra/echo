@@ -30,6 +30,27 @@ Primary upstream references:
 - Implemented Core + standard functions in inventory: 205.
 - Remaining Core + standard functions in inventory: 402.
 
+## Estimated Completion
+
+Overall PHP 8.5 compatibility estimate: **about 20% complete**.
+
+This is a rough engineering estimate, not a mechanically exact score. Function
+coverage alone is `205 / 607`, or about 34%, for the Core + standard baseline,
+but language compatibility is weighted lower because many syntax forms parse
+without executable semantics yet. The estimate uses this model:
+
+| Area | Weight | Current estimate | Notes |
+| --- | ---: | ---: | --- |
+| Syntax and AST coverage | 25% | ~45% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
+| Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
+| Runtime behavior and built-ins | 35% | ~30% | Core + standard function coverage is 205/607, with deeper object/error/extension behavior still missing. |
+| Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
+
+Treat this as a prioritization signal: Echo has a meaningful parser/runtime
+base, but it is not close to full PHP 8.5 compatibility until classes,
+functions, constants, callables, references, exceptions, and PHP 8.5 headline
+features run through the shared pipeline.
+
 ## Fixture Workflow
 
 Start every user-observable PHP compatibility item with a PHP fixture and let
@@ -267,4 +288,3 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 5. Constant expression evaluator.
    - Needed for PHP 8.5 closure/cast/callable constant expressions and for
      attribute correctness.
-
