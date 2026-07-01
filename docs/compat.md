@@ -468,7 +468,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `natcasesort` | missing |  |
 | `natsort` | missing |  |
 | `net_get_interfaces` | missing |  |
-| `next` | missing |  |
+| `next` | partial | Returns the second array value for Echo's current no-pointer baseline, or `false` when no next value exists; PHP internal array pointer state and persistent movement are deferred. Source: https://www.php.net/manual/en/function.next.php |
 | `nl2br` | implemented | Inserts `<br />` or `<br>` before newline sequences while preserving the original newline bytes. Source: https://www.php.net/manual/en/function.nl2br.php |
 | `nl_langinfo` | missing |  |
 | `number_format` | implemented | Formats a number with grouped thousands, half-up rounding, PHP's 1-, 2-, and 4-argument separator forms, and PHP 8.3 negative decimal precision. Source: https://www.php.net/manual/en/function.number-format.php |

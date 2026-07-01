@@ -40,6 +40,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("current", &[("array", Some("array"))], Some("mixed")),
         php_builtin_reflection("end", &[("array", Some("array"))], Some("mixed")),
         php_builtin_reflection("key", &[("array", Some("array"))], Some("int|string|null")),
+        php_builtin_reflection("next", &[("array", Some("array"))], Some("mixed")),
         php_builtin_reflection("reset", &[("array", Some("array"))], Some("mixed")),
         php_builtin_reflection(
             "array_push",
