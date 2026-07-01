@@ -1,4 +1,6 @@
-use echo_ast::{ClassMember, FunctionDeclStmt, ImportSource, NamespaceSource, Program, Stmt};
+use echo_ast::{
+    ClassMember, EnumMember, FunctionDeclStmt, ImportSource, NamespaceSource, Program, Stmt,
+};
 use echo_index::{
     DependencyFact, DependencyKind, FileId, FqName, IndexFacts, ReferenceFact, ReferenceKind,
     Signature, SymbolFact, SymbolKind, SymbolName, TextRange,
@@ -320,6 +322,73 @@ impl IndexFactExtractor {
                             self.extract_expr_dependencies(&constant.value);
                         }
                         ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::EnumDecl(statement) => {
+                self.declarations.push(SymbolFact {
+                    name: SymbolName::new(statement.name.as_str()),
+                    fq_name: Some(self.fq_name(&statement.name)),
+                    kind: SymbolKind::Enum,
+                    range: span_range(statement.span),
+                    selection_range: self
+                        .span_range_for_text(statement.span, &statement.name)
+                        .unwrap_or_else(|| span_range(statement.span)),
+                    visibility: None,
+                    signature: None,
+                });
+
+                for interface in &statement.interfaces {
+                    self.references.push(ReferenceFact {
+                        kind: ReferenceKind::ClassLike,
+                        name: interface.as_string(),
+                        qualifier: None,
+                        range: span_range(statement.span),
+                    });
+                }
+
+                for member in &statement.members {
+                    match member {
+                        EnumMember::Case(case) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(case.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, case.name)),
+                                ),
+                                kind: SymbolKind::Constant,
+                                range: span_range(case.span),
+                                selection_range: self
+                                    .span_range_for_text(case.span, &case.name)
+                                    .unwrap_or_else(|| span_range(case.span)),
+                                visibility: None,
+                                signature: None,
+                            });
+                            if let Some(value) = &case.value {
+                                self.extract_expr_dependencies(value);
+                            }
+                        }
+                        EnumMember::Method(method) => {
+                            self.declarations.push(SymbolFact {
+                                name: SymbolName::new(method.name.as_str()),
+                                fq_name: Some(
+                                    self.fq_name(&format!("{}::{}", statement.name, method.name)),
+                                ),
+                                kind: SymbolKind::Method,
+                                range: span_range(method.span),
+                                selection_range: self
+                                    .span_range_for_text(method.span, &method.name)
+                                    .unwrap_or_else(|| span_range(method.span)),
+                                visibility: None,
+                                signature: Some(Signature {
+                                    text: method_signature(
+                                        &method.params,
+                                        method.return_type.as_deref(),
+                                    ),
+                                }),
+                            });
+                            self.extract_statements(&method.body);
+                        }
+                        EnumMember::TraitUse(_) => {}
                     }
                 }
             }

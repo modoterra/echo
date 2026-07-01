@@ -12,6 +12,10 @@ on 2026-06-17. PHP reports many ordinary-looking functions through the
 surface and keeps other PHP extensions optional unless we explicitly promote
 one.
 
+Echo's PHP compatibility target is locked to PHP 8.5. PHP syntax or runtime
+features introduced after PHP 8.5 are out of scope unless Echo adopts them as
+Echo-native extensions.
+
 ## Syntax-Adjacent Compatibility
 
 These PHP constructs are not reported by `get_defined_functions()`, but they
@@ -38,6 +42,7 @@ Related baseline functions tracked below: `get_included_files`,
 | assignment expressions | partial | Assignments are expressions and evaluate to the assigned value. Source: https://www.php.net/manual/en/language.operators.assignment.php |
 | `__DIR__` | partial | File-backed `xo` compilation resolves it from the canonical source path. Source: https://www.php.net/manual/en/language.constants.magic.php |
 | `define` | partial | Echo accepts runtime constant definitions for bootstrap compatibility, but constant lookup is not implemented yet. Source: https://www.php.net/manual/en/function.define.php |
+| enum declarations | partial | Parser/AST support covers pure enums, backed enums, implemented interfaces, cases, methods, and trait-use members. Runtime enum object semantics are not implemented yet. Sources: https://www.php.net/manual/en/language.enumerations.php and https://www.php.net/manual/en/language.enumerations.backed.php |
 | `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
 
 ## Totals

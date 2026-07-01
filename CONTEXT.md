@@ -8,6 +8,10 @@ Echo is a Rust implementation of a PHP superset. Existing PHP programs should
 remain valid while Echo adds modern runtime features and new language
 constructs.
 
+Echo's PHP compatibility target is PHP 8.5. PHP syntax or runtime features
+introduced after PHP 8.5 are not part of the compatibility baseline unless Echo
+adopts them separately as Echo-native extensions.
+
 The compatibility promise means valid PHP remains valid Echo. It does not mean
 every Echo-accepted `.php` file remains runnable by stock PHP after using
 Echo-only syntax.

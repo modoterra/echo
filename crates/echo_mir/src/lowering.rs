@@ -2,7 +2,9 @@ use crate::{
     MirArrayElement, MirCallArg, MirCatchClause, MirElseIfClause, MirExpr, MirForkExpr,
     MirFunction, MirFunctionCall, MirNewTarget, MirObjectField, MirProgram, MirRunExpr, MirStmt,
 };
-use echo_ast::{CallArg, ClassMember, Expr, FunctionDeclStmt, ImportStmt, MethodDecl, Stmt};
+use echo_ast::{
+    CallArg, ClassMember, EnumMember, Expr, FunctionDeclStmt, ImportStmt, MethodDecl, Stmt,
+};
 use echo_diagnostics::Diagnostic;
 use echo_hir::{HirProgram, HirStmt};
 
@@ -53,6 +55,13 @@ pub(crate) fn lower_syntax_statement(
         Stmt::TraitDecl(statement) => {
             for member in &statement.members {
                 if let ClassMember::Method(method) = member {
+                    functions.push(lower_method(&statement.name, method));
+                }
+            }
+        }
+        Stmt::EnumDecl(statement) => {
+            for member in &statement.members {
+                if let EnumMember::Method(method) = member {
                     functions.push(lower_method(&statement.name, method));
                 }
             }
@@ -222,6 +231,7 @@ pub(crate) fn lower_syntax_statement(
         | Stmt::UnnamedExport(_)
         | Stmt::ClassDecl(_)
         | Stmt::TraitDecl(_)
+        | Stmt::EnumDecl(_)
         | Stmt::FacetDecl(_)
         | Stmt::TypeDecl(_) => MirStmt::Noop {
             source: statement.clone(),

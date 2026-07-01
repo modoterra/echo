@@ -99,6 +99,7 @@ pub mod keywords {
     pub const ECHO: Keyword = Keyword::new("echo", KeywordRole::Statement, SyntaxMode::Php);
     pub const ELSE: Keyword = Keyword::new("else", KeywordRole::Statement, SyntaxMode::Php);
     pub const ELSEIF: Keyword = Keyword::new("elseif", KeywordRole::Statement, SyntaxMode::Php);
+    pub const ENUM: Keyword = Keyword::new("enum", KeywordRole::Declaration, SyntaxMode::Php);
     pub const FALSE: Keyword = Keyword::new("false", KeywordRole::Literal, SyntaxMode::Php);
     pub const FACET: Keyword = Keyword::new("facet", KeywordRole::Declaration, SyntaxMode::Echo);
     pub const FN: Keyword = Keyword::new("fn", KeywordRole::Declaration, SyntaxMode::Echo);
@@ -153,6 +154,7 @@ pub mod keywords {
         ECHO,
         ELSE,
         ELSEIF,
+        ENUM,
         FALSE,
         FACET,
         FN,

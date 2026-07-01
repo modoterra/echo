@@ -6,17 +6,17 @@ use echo_ast::{
     BinaryExpr, BinaryOp, BoolLiteral, BreakStmt, CallArg, CastExpr, CatchClause, ClassConstDecl,
     ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClosureExpr, CoalesceAssignStmt,
     CompileEntry, CompileStmt, ConstantExpr, ContinueStmt, DeferExpr, DynamicCallExpr,
-    DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, Expr, FacetDeclStmt,
-    FieldExpr, ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt,
-    ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt,
-    ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
-    MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt,
-    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl,
-    QualifiedName, ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr,
-    StaticCallExpr, StaticPropertyAssignExpr, StaticPropertyFetchExpr, Stmt, StringLiteral,
-    TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr,
-    TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt,
-    VariableExpr, WhileStmt, YieldStmt,
+    DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt, ElseIfClause, EnumCaseDecl,
+    EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForeachStmt, ForkExpr,
+    FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, IfStmt, ImportSource, ImportStmt,
+    IncludeExpr, IncludeKind, IndexExpr, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr,
+    LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
+    MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
+    NumberLiteral, ObjectExpr, ObjectField, Program, PropertyDecl, QualifiedName, ReceiverConst,
+    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    StaticPropertyFetchExpr, Stmt, StringLiteral, TargetAssignExpr, TernaryExpr, ThrowStmt,
+    TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr,
+    UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -248,6 +248,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::UnnamedExport(statement) => statement.span,
         Stmt::ClassDecl(statement) => statement.span,
         Stmt::TraitDecl(statement) => statement.span,
+        Stmt::EnumDecl(statement) => statement.span,
         Stmt::FacetDecl(statement) => statement.span,
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
@@ -367,6 +368,11 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
                 normalize_php_compat_class_member(member);
             }
         }
+        Stmt::EnumDecl(statement) => {
+            for member in &mut statement.members {
+                normalize_php_compat_enum_member(member);
+            }
+        }
         Stmt::FacetDecl(statement) => {
             for member in &mut statement.members {
                 normalize_php_compat_class_member(member);
@@ -395,6 +401,27 @@ fn normalize_php_compat_class_member(member: &mut ClassMember) {
         }
         ClassMember::Const(constant) => normalize_php_compat_expr(&mut constant.value),
         ClassMember::TraitUse(_) => {}
+    }
+}
+
+fn normalize_php_compat_enum_member(member: &mut EnumMember) {
+    match member {
+        EnumMember::Case(case) => {
+            if let Some(value) = &mut case.value {
+                normalize_php_compat_expr(value);
+            }
+        }
+        EnumMember::Method(method) => {
+            for param in &mut method.params {
+                if let Some(value) = &mut param.default_value {
+                    normalize_php_compat_expr(value);
+                }
+            }
+            for statement in &mut method.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        EnumMember::TraitUse(_) => {}
     }
 }
 
@@ -2422,6 +2449,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .boxed();
 
         let class_member = trait_use_member
+            .clone()
             .or(method_decl.clone())
             .or(class_const_decl)
             .or(property_decl)
@@ -2490,6 +2518,80 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+
+        let enum_case_member = text::keyword("case")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then(just('=').padded().ignore_then(expr.clone()).or_not())
+            .then_ignore(terminator.clone())
+            .map_with(|(name, value): (&str, Option<Expr>), extra| {
+                let span: SimpleSpan = extra.span();
+
+                EnumMember::Case(EnumCaseDecl {
+                    name: name.to_string(),
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
+        let enum_member = enum_case_member
+            .or(trait_use_member.clone().map(|member| match member {
+                ClassMember::TraitUse(name) => EnumMember::TraitUse(name),
+                _ => unreachable!("trait_use_member only produces trait use members"),
+            }))
+            .or(method_decl.clone().map(|member| match member {
+                ClassMember::Method(method) => EnumMember::Method(method),
+                _ => unreachable!("method_decl only produces method members"),
+            }))
+            .boxed();
+
+        let enum_decl_stmt = text::keyword("enum")
+            .padded()
+            .ignore_then(text::ident().padded())
+            .then(
+                just(':')
+                    .padded()
+                    .ignore_then(type_expr.clone().padded())
+                    .or_not(),
+            )
+            .then(
+                text::keyword("implements")
+                    .padded()
+                    .ignore_then(
+                        php_name
+                            .clone()
+                            .or(dotted_name.clone())
+                            .separated_by(just(',').padded())
+                            .at_least(1)
+                            .collect::<Vec<_>>(),
+                    )
+                    .or_not(),
+            )
+            .then(
+                enum_member
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(
+                |(((name, backing_type), interfaces), members): (
+                    ((&str, Option<String>), Option<Vec<QualifiedName>>),
+                    Vec<EnumMember>,
+                ),
+                 extra| {
+                    let span: SimpleSpan = extra.span();
+
+                    Stmt::EnumDecl(EnumDeclStmt {
+                        name: name.to_string(),
+                        backing_type,
+                        interfaces: interfaces.unwrap_or_default(),
+                        members,
+                        span: Span::new(span.start, span.end),
+                    })
+                },
+            )
             .boxed();
 
         let facet_decl_stmt = just("facet")
@@ -3329,6 +3431,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let declaration_stmt = class_decl_stmt
             .or(trait_decl_stmt)
+            .or(enum_decl_stmt)
             .or(facet_decl_stmt)
             .or(gen_fn_decl_stmt)
             .or(fn_decl_stmt)

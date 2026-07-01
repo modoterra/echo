@@ -100,6 +100,77 @@ trait ReflectsClosures {
 }
 
 #[test]
+fn parses_php_unit_enum_declaration() {
+    let program = parse(
+        r#"<?php
+enum Status {
+    case Draft;
+    case Published;
+}
+"#,
+    )
+    .expect("PHP unit enum declaration parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::EnumDecl(statement)
+            if statement.name == "Status"
+                && statement.backing_type.is_none()
+                && matches!(
+                    &statement.members[..],
+                    [
+                        EnumMember::Case(first),
+                        EnumMember::Case(second),
+                    ] if first.name == "Draft"
+                        && first.value.is_none()
+                        && second.name == "Published"
+                        && second.value.is_none()
+                )
+    ));
+}
+
+#[test]
+fn parses_php_backed_enum_with_members() {
+    let program = parse(
+        r#"<?php
+enum HttpMethod: string implements Stringable {
+    use HasLabel;
+
+    case Get = "GET";
+    case Post = "POST";
+
+    public function label(): string {
+        return $this->value;
+    }
+}
+"#,
+    )
+    .expect("PHP backed enum declaration parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::EnumDecl(statement)
+            if statement.name == "HttpMethod"
+                && statement.backing_type.as_deref() == Some("string")
+                && statement.interfaces == [QualifiedName::new(vec!["Stringable".to_string()])]
+                && matches!(
+                    &statement.members[..],
+                    [
+                        EnumMember::TraitUse(name),
+                        EnumMember::Case(get),
+                        EnumMember::Case(post),
+                        EnumMember::Method(method),
+                    ] if name.parts == ["HasLabel"]
+                        && get.name == "Get"
+                        && matches!(get.value, Some(Expr::String(_)))
+                        && post.name == "Post"
+                        && matches!(post.value, Some(Expr::String(_)))
+                        && method.name == "label"
+                )
+    ));
+}
+
+#[test]
 fn preserves_multiline_concat_expressions() {
     let program = parse(
         r#"<?php

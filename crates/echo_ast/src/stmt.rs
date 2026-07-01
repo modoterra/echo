@@ -23,6 +23,7 @@ pub enum Stmt {
     UnnamedExport(UnnamedExportStmt),
     ClassDecl(ClassDeclStmt),
     TraitDecl(TraitDeclStmt),
+    EnumDecl(EnumDeclStmt),
     FacetDecl(FacetDeclStmt),
     TypeDecl(TypeDeclStmt),
     Loop(LoopStmt),
@@ -196,6 +197,15 @@ pub struct TraitDeclStmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct EnumDeclStmt {
+    pub name: String,
+    pub backing_type: Option<String>,
+    pub interfaces: Vec<QualifiedName>,
+    pub members: Vec<EnumMember>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct FacetDeclStmt {
     pub target: String,
     pub receiver: String,
@@ -297,6 +307,20 @@ pub enum ClassMember {
     Property(PropertyDecl),
     Const(ClassConstDecl),
     TraitUse(QualifiedName),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EnumMember {
+    Case(EnumCaseDecl),
+    Method(MethodDecl),
+    TraitUse(QualifiedName),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumCaseDecl {
+    pub name: String,
+    pub value: Option<Expr>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

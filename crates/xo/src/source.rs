@@ -210,6 +210,18 @@ fn class_names_for_program(program: &Program) -> Vec<String> {
                     }
                 }
             }
+            Stmt::EnumDecl(statement) => {
+                names.push(statement.name.clone());
+                if let Some(namespace) = namespace {
+                    let dot_name = format!("{}.{}", namespace.parts.join("."), statement.name);
+                    let php_name = format!("{}\\{}", namespace.as_string(), statement.name);
+                    names.push(dot_name);
+                    names.push(php_name);
+                    if let Some(php_namespace) = echo_module_php_namespace(namespace) {
+                        names.push(format!("{php_namespace}\\{}", statement.name));
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -323,6 +335,29 @@ fn collect_class_member_contextual_class_references(
     }
 }
 
+fn collect_enum_member_contextual_class_references(
+    member: &echo_ast::EnumMember,
+    namespace: Option<&QualifiedName>,
+    uses: &std::collections::HashMap<String, QualifiedName>,
+    names: &mut std::collections::HashSet<String>,
+) {
+    match member {
+        echo_ast::EnumMember::Case(case) => {
+            if let Some(value) = &case.value {
+                collect_expr_contextual_class_references(value, namespace, uses, names);
+            }
+        }
+        echo_ast::EnumMember::Method(method) => {
+            for statement in &method.body {
+                collect_statement_contextual_class_references(statement, namespace, uses, names);
+            }
+        }
+        echo_ast::EnumMember::TraitUse(name) => {
+            collect_contextual_name_references(name, namespace, uses, names);
+        }
+    }
+}
+
 fn collect_statement_contextual_class_references(
     statement: &Stmt,
     namespace: Option<&QualifiedName>,
@@ -344,6 +379,14 @@ fn collect_statement_contextual_class_references(
         Stmt::TraitDecl(statement) => {
             for member in &statement.members {
                 collect_class_member_contextual_class_references(member, namespace, uses, names);
+            }
+        }
+        Stmt::EnumDecl(statement) => {
+            for interface in &statement.interfaces {
+                collect_contextual_name_references(interface, namespace, uses, names);
+            }
+            for member in &statement.members {
+                collect_enum_member_contextual_class_references(member, namespace, uses, names);
             }
         }
         Stmt::FacetDecl(statement) => {
@@ -710,6 +753,30 @@ fn collect_class_member_class_references(
     }
 }
 
+fn collect_enum_member_class_references(
+    member: &echo_ast::EnumMember,
+    names: &mut std::collections::HashSet<String>,
+) {
+    match member {
+        echo_ast::EnumMember::Case(case) => {
+            if let Some(value) = &case.value {
+                collect_expr_class_references(value, names);
+            }
+        }
+        echo_ast::EnumMember::Method(method) => {
+            for statement in &method.body {
+                collect_statement_class_references(statement, names);
+            }
+            for param in &method.params {
+                if let Some(default_value) = &param.default_value {
+                    collect_expr_class_references(default_value, names);
+                }
+            }
+        }
+        echo_ast::EnumMember::TraitUse(name) => collect_qualified_name_references(name, names),
+    }
+}
+
 fn collect_statement_class_references(
     statement: &Stmt,
     names: &mut std::collections::HashSet<String>,
@@ -772,6 +839,14 @@ fn collect_statement_class_references(
         Stmt::TraitDecl(statement) => {
             for member in &statement.members {
                 collect_class_member_class_references(member, names);
+            }
+        }
+        Stmt::EnumDecl(statement) => {
+            for interface in &statement.interfaces {
+                collect_qualified_name_references(interface, names);
+            }
+            for member in &statement.members {
+                collect_enum_member_class_references(member, names);
             }
         }
         Stmt::FacetDecl(statement) => {
@@ -1968,6 +2043,21 @@ fn collect_static_include_paths(
                             collect_static_include_expr(&mut constant.value, source_dir, paths);
                         }
                         echo_ast::ClassMember::TraitUse(_) => {}
+                    }
+                }
+            }
+            Stmt::EnumDecl(statement) => {
+                for member in &mut statement.members {
+                    match member {
+                        echo_ast::EnumMember::Case(case) => {
+                            if let Some(value) = &mut case.value {
+                                collect_static_include_expr(value, source_dir, paths);
+                            }
+                        }
+                        echo_ast::EnumMember::Method(method) => {
+                            collect_static_include_paths(&mut method.body, source_dir, paths);
+                        }
+                        echo_ast::EnumMember::TraitUse(_) => {}
                     }
                 }
             }
