@@ -97,7 +97,7 @@ export function buildDocsSearchRecords(): DocsSearchRecord[] {
           .map((builtin) => `${builtin.name} ${builtin.signature} ${builtin.description}`)
           .join(" "),
         code: family.builtins.map((builtin) => builtinExample(builtin.name)).join("\n\n"),
-        tags: joinTerms(["php builtins", family.slug, family.title]),
+        tags: joinTerms(["php surface", "php compatibility", family.slug, family.title]),
         aliases: joinTerms([family.title, `${family.title} functions`]),
         excerpt: family.description,
       },
@@ -232,8 +232,8 @@ function phpBuiltinsOverviewRecord(): DocsSearchRecord {
       "The Echo PHP Surface keeps familiar names and signatures across strings, arrays, types, math, filesystem, reflection, shell integration, output buffering, and core runtime helpers.",
     body: builtinFamilies.map((family) => `${family.title} ${family.description}`).join(" "),
     code: "",
-    tags: "php builtins functions runtime helpers standard library",
-    aliases: "php functions builtin functions built in functions",
+    tags: "php surface php compatibility functions runtime helpers standard library",
+    aliases: "php functions php surface functions compatibility functions",
     excerpt: "The PHP Surface keeps familiar names and signatures.",
   };
 }
@@ -256,7 +256,7 @@ function builtinRecord(
     code: example,
     tags: joinTerms([
       "php",
-      "builtin",
+      "php surface",
       "function",
       familySlug,
       familyTitle,

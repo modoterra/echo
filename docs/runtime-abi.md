@@ -6,11 +6,11 @@ Echo's generated LLVM IR may declare many runtime symbols as PHP compatibility g
 
 - `echo_*`: core compiler/runtime ABI for language semantics such as output writes, value construction, dynamic calls, and shutdown.
 - `echo_std_*`: approved intrinsic ABI used by trusted Echo standard library declarations.
-- `echo_php_*`: PHP builtin ABI for known PHP function implementations such as `ob_start()` and `ob_flush()`.
+- `echo_php_*`: Echo PHP Surface ABI for known PHP function implementations such as `ob_start()` and `ob_flush()`.
 - `echo_ext_*`: reserved for a future extension/module ABI.
 - `echo_internal_*`: runtime-private implementation details. Codegen must not emit declarations or calls to these symbols.
 
-The core ABI should stay small and stable. PHP builtin coverage and standard-library intrinsic coverage may become large, but they are routed through registries rather than ad hoc codegen symbol construction.
+The core ABI should stay small and stable. Echo PHP Surface coverage and standard-library intrinsic coverage may become large, but they are routed through registries rather than ad hoc codegen symbol construction.
 
 ## Rust Runtime Ownership
 
@@ -26,9 +26,10 @@ and `target/debug/libecho_runtime.a`; that driver is not part of the language
 semantics and should not be used to smuggle in C runtime behavior. Future build
 plumbing should move toward a Rust-owned link path where practical.
 
-## Static Builtin Calls
+## Static Echo PHP Surface Calls
 
-When source code names a known PHP builtin directly, codegen may lower it to the PHP builtin ABI through the compile-time builtin registry.
+When source code names a known Echo PHP Surface function directly, codegen may
+lower it to the Echo PHP Surface ABI through the compile-time surface registry.
 
 Example:
 
@@ -38,7 +39,7 @@ echo "hello";
 ob_flush();
 ```
 
-This source-level example uses a statically named PHP builtin, so codegen can route it directly through the PHP builtin ABI.
+This source-level example uses a statically named Echo PHP Surface function, so codegen can route it directly through the Echo PHP Surface ABI.
 
 Expected shape:
 
@@ -50,11 +51,14 @@ call i1 @echo_php_ob_flush()
 
 The expected IR shape shows the ABI split: `ob_*` calls use `echo_php_*`, while `echo` syntax stays on the core output ABI.
 
-`echo` remains syntax, not a PHP function call, so it uses the core output ABI rather than an `echo_php_echo` builtin.
+`echo` remains syntax, not a PHP function call, so it uses the core output ABI
+rather than an `echo_php_echo` surface function.
 
 ## Dynamic Function Calls
 
-Variable function calls are runtime operations in PHP. They must not be rewritten to direct builtin calls just because a local variable currently holds a string literal.
+Variable function calls are runtime operations in PHP. They must not be
+rewritten to direct Echo PHP Surface calls just because a local variable
+currently holds a string literal.
 
 Example:
 
@@ -63,7 +67,9 @@ $fn = "ob_start";
 $fn();
 ```
 
-This source uses PHP's variable-function behavior, so it must remain a runtime dispatch even when the variable currently contains a builtin name.
+This source uses PHP's variable-function behavior, so it must remain a runtime
+dispatch even when the variable currently contains an Echo PHP Surface function
+name.
 
 Expected shape:
 
@@ -71,7 +77,8 @@ Expected shape:
 call %EchoValue @echo_call_function(ptr @echo_str_0, i64 8)
 ```
 
-The expected IR shape preserves PHP dynamism by sending the callable name to the runtime dispatcher rather than baking in a static builtin symbol.
+The expected IR shape preserves PHP dynamism by sending the callable name to
+the runtime dispatcher rather than baking in a static Echo PHP Surface symbol.
 
 The runtime dispatcher resolves the string and may fail at runtime if the callable is undefined or invalid. This preserves PHP-compatible behavior for `.php` inputs.
 
@@ -92,19 +99,26 @@ Direct `echo "literal"` may still use `echo_write(ptr, i64)` as a core output fa
 
 Echo has two distinct lookup concepts:
 
-- Codegen builtin registry: maps static PHP source-level function names to direct `echo_php_*` symbols.
+- Codegen Echo PHP Surface registry: maps static PHP source-level function names to direct `echo_php_*` symbols.
 - Runtime function dispatcher: resolves dynamic callables such as `$fn()` and reports runtime failures.
-- Runtime reflection registry: receives generated PHP builtin, Echo std, and userland function metadata at program startup through `echo_reflection_register_function(ptr, i64, ptr, i64, ptr, i64, i32)`. The final `i32` is the source kind, so PHP compatibility helpers such as `function_exists()` can filter to PHP globals while `std.reflect` can inspect every registered function.
+- Runtime reflection registry: receives generated Echo PHP Surface function,
+  Echo std, and userland function metadata at program startup through
+  `echo_reflection_register_function(ptr, i64, ptr, i64, ptr, i64, i32)`. The
+  final `i32` is the source kind, so PHP compatibility helpers such as
+  `function_exists()` can filter to PHP globals while `std.reflect` can inspect
+  every registered function.
 
-The codegen registry is an ABI-routing table, not a compile-time proof that every possible call is safe. Compile-time safety checks belong in a later semantic resolver, not in ABI declaration code.
+The codegen registry is an ABI-routing table, not a compile-time proof that
+every possible call is safe. Compile-time safety checks belong in a later
+semantic resolver, not in ABI declaration code.
 
 ## Standard Library Boundary
 
-`echo_std` is the Echo-facing standard library layer. It should expose APIs such as networking and HTTP to Echo programs while depending on lower-level runtime primitives where needed. PHP compatibility builtins remain in the `echo_php_*` ABI, and future optional modules should use the `echo_ext_*` ABI.
+`echo_std` is the Echo-facing standard library layer. It should expose APIs such as networking and HTTP to Echo programs while depending on lower-level runtime primitives where needed. Echo PHP Surface functions remain in the `echo_php_*` ABI, and future optional modules should use the `echo_ext_*` ABI.
 
 The first HTTP server should be written as an Echo program using `echo_std`, not as an `xo serve` command.
 
-Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: codegen depends on the small core runtime ABI, PHP-compatible functions use `echo_php_*`, Echo-native library APIs live in `echo_std`, optional modules use `echo_ext_*`, and runtime internals stay private.
+Ownership rules are documented in [Echo Standard Library](stdlib.md). In short: codegen depends on the small core runtime ABI, Echo PHP Surface functions use `echo_php_*`, Echo-native library APIs live in `echo_std`, optional modules use `echo_ext_*`, and runtime internals stay private.
 
 Trusted stdlib Echo source may contain regular Echo functions/classes and may also declare intrinsic `fn` functions and methods. Regular std declarations compile through the normal Echo pipeline. Intrinsic declarations lower through a compiler-owned intrinsic binding registry to `echo_std_*` or core runtime ABI symbols. Public class methods use `pub fn` or `pub intrinsic fn`; unprefixed Echo class methods are private by default.
 
@@ -150,13 +164,13 @@ xo run file.echo
 xo build file.xo -o /tmp/app
 ```
 
-The ABI namespace still separates core runtime symbols, PHP builtins, stdlib
+The ABI namespace still separates core runtime symbols, the Echo PHP Surface, stdlib
 intrinsics, and future extensions. That separation is about symbol ownership,
 not parser mode.
 
 ## Current Output-Buffering ABI
 
-Current PHP-facing output-buffering builtins use `echo_php_*` symbols:
+Current PHP-facing output-buffering functions use `echo_php_*` symbols:
 
 ```llvm
 declare i1 @echo_php_ob_start()
@@ -172,7 +186,8 @@ declare %EchoValue @echo_php_ob_get_length()
 declare %EchoValue @echo_php_ob_get_level()
 ```
 
-This declaration group is the current PHP-facing output-buffering ABI surface; adding an `ob_*` builtin should extend this layer, not core `echo_*`.
+This declaration group is the current PHP-facing output-buffering ABI surface;
+adding an `ob_*` function should extend this layer, not core `echo_*`.
 
 Current Echo stdlib PHP reflection intrinsics use unary `%EchoValue` calls:
 
@@ -183,9 +198,10 @@ declare %EchoValue @echo_std_reflect_return_type(%EchoValue)
 declare %EchoValue @echo_std_reflect_type_of(%EchoValue)
 ```
 
-These declarations are Echo stdlib intrinsics, so they use `echo_std_*` even though they expose reflection information about PHP builtins.
+These declarations are Echo stdlib intrinsics, so they use `echo_std_*` even
+though they expose reflection information about Echo PHP Surface functions.
 
-Current PHP-facing builtins use `%EchoValue` calls so PHP scalar coercion and
+Current Echo PHP Surface functions use `%EchoValue` calls so PHP scalar coercion and
 array behavior stay centralized in the runtime value layer:
 
 ```llvm
@@ -394,7 +410,7 @@ declare %EchoValue @echo_php_strncmp(%EchoValue, %EchoValue, %EchoValue)
 declare %EchoValue @echo_php_strncasecmp(%EchoValue, %EchoValue, %EchoValue)
 ```
 
-This declaration group documents the value-ABI pattern for PHP builtins: runtime coercion and PHP-compatible return values stay centralized behind `%EchoValue`.
+This declaration group documents the value-ABI pattern for Echo PHP Surface functions: runtime coercion and PHP-compatible return values stay centralized behind `%EchoValue`.
 
 Core output behavior remains under `echo_*`:
 
@@ -405,4 +421,4 @@ declare void @echo_shutdown()
 declare %EchoValue @echo_call_function(ptr, i64)
 ```
 
-These symbols are core language/runtime ABI, so codegen may use them for syntax and dynamic dispatch without treating them as PHP builtins.
+These symbols are core language/runtime ABI, so codegen may use them for syntax and dynamic dispatch without treating them as Echo PHP Surface functions.

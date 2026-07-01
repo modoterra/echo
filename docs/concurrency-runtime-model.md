@@ -6,7 +6,7 @@ Echo's concurrency model should be owned by Echo, not by Rust async runtimes.
 
 The language-level vocabulary is:
 
-- `defer`: create a non-started `EchoTask`.
+- `defer`: create a non-started `task<T>` runtime handle.
 - `run`: start lightweight Echo task/fiber work.
 - `fork`: start OS-thread-backed parallel work.
 - `spawn`: start a child process.
@@ -14,7 +14,9 @@ The language-level vocabulary is:
 - `loop`: repeat a block until the body terminates it.
 - `gen fn`: declare a generator function that may `yield`.
 
-Do not introduce `async` / `await` in this phase. Do not use `spawn` for lightweight tasks. Do not introduce `EchoJob`.
+Do not introduce `async` functions. `await` is reserved for imperative waiting
+on monadic `future<T, E>` action values, not for runtime task handles. Do not
+use `spawn` for lightweight tasks. Do not introduce `EchoJob`.
 
 Core rule:
 
@@ -25,18 +27,24 @@ Echo wakes tasks.
 
 Use this boundary when choosing where behavior belongs: readiness and OS polling stay in `echo_runtime`; task state and scheduling stay in Echo-owned runtime concepts.
 
-Mio, Crossbeam, Parking Lot, Slab, and similar crates are implementation details inside `echo_runtime`. Echo AST, parser, codegen, and user-facing APIs must not expose those crates or Rust `Future` concepts.
+Mio, Crossbeam, Parking Lot, Slab, and similar crates are implementation
+details inside `echo_runtime`. Echo AST, parser, codegen, and user-facing APIs
+must not expose those crates or Rust `Future` concepts. Source-level
+`future<T, E>` is Echo's action-family value, not Rust's `Future`.
 
 ## Runtime Concepts
 
 The runtime concepts are:
 
-- `EchoTask`: lightweight Echo task, eventually backed by PHP-compatible stackful fibers.
+- `task<T>`: source-level runtime handle for lightweight Echo work, eventually
+  backed by PHP-compatible stackful fibers.
+- `EchoTask`: runtime-internal representation of `task<T>`.
 - `EchoTaskGroup`: ordered collection of tasks/results for a future task-group expression.
 - `EchoThread`: OS-thread-backed parallel work handle.
 - `EchoProcess`: child-process handle.
 
-There is no `EchoJob` type. Deferred work is represented by `EchoTask` with state `Deferred`.
+There is no source-level `EchoJob` type. Deferred work is represented by a
+`task<T>` handle whose runtime `EchoTask` is in state `Deferred`.
 
 ## Keyword Semantics
 
@@ -114,7 +122,8 @@ Meaning:
 
 ### `defer`
 
-`defer { ... }` creates an `EchoTask<T>` in `Deferred` state.
+`defer { ... }` creates a source-level `task<T>` handle whose runtime task is
+in `Deferred` state.
 
 ```php
 $task = defer {
@@ -147,7 +156,7 @@ This is the normal lightweight concurrency pattern: start I/O-oriented work, kee
 
 Meaning:
 
-- Returns an `EchoTask<T>` handle.
+- Returns a `task<T>` handle.
 - Intended for I/O-heavy concurrent work.
 - Concurrent but not necessarily parallel.
 - May suspend on Echo-aware I/O, timers, `yield`, `join`, or Fiber suspension.
@@ -258,7 +267,7 @@ $status = join $proc
 
 Meaning:
 
-- `join EchoTask<T> -> T`
+- `join task<T> -> T`
 - `join EchoThread<T> -> T`
 - `join EchoProcess -> process status/result`
 - If already finished, return the stored result.
@@ -368,7 +377,7 @@ This output should distinguish child-process execution from both task and thread
 
 ## Task State Model
 
-Use one `EchoTask` type with one generic waiting state.
+Use one runtime-internal `EchoTask` type with one generic waiting state.
 
 ```rust
 pub enum TaskState {
@@ -695,7 +704,7 @@ Callbacks are not a separate execution model.
 Rule:
 
 ```text
-All asynchronous callbacks run as EchoTasks.
+All asynchronous callbacks run as runtime-internal EchoTasks.
 ```
 
 This keeps callbacks inside the same scheduling model as user-created tasks. There should not be a second callback runner with separate lifetime rules.
@@ -711,7 +720,8 @@ Scheduler runs that task.
 
 This sequence converts readiness into normal Echo work. It prevents I/O callbacks from bypassing task state, diagnostics, and cancellation policy later.
 
-This keeps one executable unit: `EchoTask`.
+This keeps one executable unit in the runtime: `EchoTask`. Source programs see
+ordinary `task<T>` handles.
 
 ## Minimal Types
 

@@ -4477,7 +4477,7 @@ export const docsPages: DocsPage[] = [
     sections: [
       {
         title: "Compatibility First",
-        tags: ["php", "fixtures", "builtins"],
+        tags: ["php", "fixtures", "php surface"],
         blocks: [
           {
             kind: "paragraph",

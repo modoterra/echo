@@ -229,7 +229,7 @@ from std use net\TcpServer
 This spelling opts into Echo's stdlib resolver explicitly and avoids reserving
 PHP namespaces globally.
 
-## Parser And Resolver Shape
+## Parser and Resolver Shape
 
 The AST should distinguish PHP imports from Echo-owned imports.
 

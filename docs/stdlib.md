@@ -20,16 +20,16 @@ lower to approved runtime ABI symbols.
 | Layer | Owns | Must Not Own |
 | --- | --- | --- |
 | `echo_runtime` | Low-level execution machinery: values, allocation, output, dynamic calls, task scheduling, polling, sockets, files, timers, process handles. | User-facing library design, PHP compatibility naming, high-level HTTP server APIs. |
-| `echo_std` | Echo-facing standard APIs such as networking, HTTP, time, assertions, and reflection. Regular APIs compile as Echo source; trusted intrinsics bind to runtime primitives. | Runtime scheduler internals, PHP builtin compatibility shims, optional extension packaging. |
-| `echo_php_*` | PHP builtin compatibility functions with PHP source-level names and behavior, such as `ob_start()` and `strlen()`. | Echo-native standard library APIs or runtime-private helpers. |
-| `echo_ext_*` | Future optional extension/module ABI for features that are not part of the core runtime or standard library. | Core language semantics, PHP builtins that are required for compatibility. |
+| `echo_std` | Echo-facing standard APIs such as networking, HTTP, time, assertions, and reflection. Regular APIs compile as Echo source; trusted intrinsics bind to runtime primitives. | Runtime scheduler internals, Echo PHP Surface compatibility shims, optional extension packaging. |
+| `echo_php_*` | Echo PHP Surface functions with PHP source-level names and behavior, such as `ob_start()` and `strlen()`. | Echo-native standard library APIs or runtime-private helpers. |
+| `echo_ext_*` | Future optional extension/module ABI for features that are not part of the core runtime or standard library. | Core language semantics, Echo PHP Surface functions that are required for compatibility. |
 | `echo_internal_*` | Private runtime implementation details. | Anything generated LLVM IR calls directly. |
 
 The default decision rule is:
 
 - If generated code needs a primitive for language semantics, put a small stable ABI in `echo_runtime` under `echo_*`.
 - If Echo users should call it as part of the standard library, put the public API in `echo_std`.
-- If PHP code expects a PHP builtin function, put the compatibility entry under `echo_php_*`.
+- If PHP code expects a PHP-compatible function, put the compatibility entry under `echo_php_*`.
 - If it is optional/module-like, reserve it for `echo_ext_*`.
 - If it is only an implementation detail, keep it private and never emit it from codegen.
 
@@ -174,7 +174,7 @@ inspect function metadata without importing PHP reflection APIs.
 return `false` from `exists()` and an empty string from the string accessors.
 `typeOf()` reflects the runtime category of an Echo value, such as `null`,
 `bool`, `int`, `string`, `array`, `task`, resource-like std values, or `object`.
-Generated IR registers PHP builtins, Echo std functions, and userland functions
+Generated IR registers Echo PHP Surface functions, Echo std functions, and userland functions
 with the runtime reflection registry during program startup. PHP globals are not
 declared by an Echo source file and are not importable std symbols. Echo std
 function metadata is derived from packaged `std/*.echo` module declarations,
@@ -281,21 +281,21 @@ sockets, files, processes, timers, and scheduler operations backed by Rust.
 Examples:
 
 - `echo_write(ptr, len)` is core runtime ABI because `echo` syntax needs output semantics.
-- `echo_php_strlen(...)` is PHP builtin ABI because `strlen()` is a PHP compatibility function.
-- `echo_php_count(...)` is PHP builtin ABI because `count()` is a PHP compatibility function.
-- `echo_php_array_values(...)`, `echo_php_array_keys(...)`, `echo_php_array_fill(...)`, `echo_php_array_fill_keys(...)`, `echo_php_array_combine(...)`, `echo_php_array_pad(...)`, `echo_php_array_reverse(...)`, `echo_php_array_slice(...)`, `echo_php_array_chunk(...)`, `echo_php_array_merge(...)`, `echo_php_array_replace(...)`, `echo_php_array_flip(...)`, `echo_php_array_count_values(...)`, `echo_php_array_key_exists(...)`, `echo_php_array_key_first(...)`, `echo_php_array_key_last(...)`, `echo_php_in_array(...)`, `echo_php_array_search(...)`, `echo_php_array_sum(...)`, and `echo_php_array_product(...)` are PHP builtin ABI because PHP exposes helpers for reading array keys, constructing repeated arrays, combining parallel arrays, padding rows to a target width, changing array order, extracting windows, batching values, merging numeric rows, applying keyed replacements, building value-to-key lookups, counting repeated values, checking membership, finding the first matching key, reindexing values, and aggregating numeric array contents.
-- `echo_php_function_exists(...)` is PHP builtin ABI because `function_exists()` is a PHP compatibility function.
-- `echo_php_gettype(...)` is PHP builtin ABI because `gettype()` is a PHP compatibility function.
-- `echo_php_is_array(...)` is PHP builtin ABI because `is_array()` is a PHP compatibility function.
-- `echo_php_is_null(...)`, `echo_php_is_bool(...)`, `echo_php_is_int(...)`, `echo_php_is_string(...)`, `echo_php_is_countable(...)`, `echo_php_is_iterable(...)`, `echo_php_is_numeric(...)`, and `echo_php_is_scalar(...)` are PHP builtin ABI because the corresponding `is_*()` functions are PHP compatibility functions.
-- `echo_php_strval(...)` is PHP builtin ABI because `strval()` is a PHP compatibility function.
-- `echo_php_boolval(...)` is PHP builtin ABI because `boolval()` is a PHP compatibility function.
-- `echo_php_intval(...)` is PHP builtin ABI because `intval()` is a PHP compatibility function.
-- `echo_php_floatval(...)` is PHP builtin ABI because `floatval()` and its `doubleval()` alias are PHP compatibility functions.
-- `echo_php_strtoupper(...)` and `echo_php_strtolower(...)` are PHP builtin ABI because `strtoupper()` and `strtolower()` are PHP compatibility functions.
-- `echo_php_ucwords(...)` is PHP builtin ABI because `ucwords()` is a PHP compatibility function.
-- `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are PHP builtin ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
-- `echo_php_ord(...)`, `echo_php_str_rot13(...)`, `echo_php_soundex(...)`, and `echo_php_crc32(...)` are PHP builtin ABI because `ord()`, `str_rot13()`, `soundex()`, and `crc32()` are PHP compatibility functions.
+- `echo_php_strlen(...)` is Echo PHP Surface ABI because `strlen()` is a PHP compatibility function.
+- `echo_php_count(...)` is Echo PHP Surface ABI because `count()` is a PHP compatibility function.
+- `echo_php_array_values(...)`, `echo_php_array_keys(...)`, `echo_php_array_fill(...)`, `echo_php_array_fill_keys(...)`, `echo_php_array_combine(...)`, `echo_php_array_pad(...)`, `echo_php_array_reverse(...)`, `echo_php_array_slice(...)`, `echo_php_array_chunk(...)`, `echo_php_array_merge(...)`, `echo_php_array_replace(...)`, `echo_php_array_flip(...)`, `echo_php_array_count_values(...)`, `echo_php_array_key_exists(...)`, `echo_php_array_key_first(...)`, `echo_php_array_key_last(...)`, `echo_php_in_array(...)`, `echo_php_array_search(...)`, `echo_php_array_sum(...)`, and `echo_php_array_product(...)` are Echo PHP Surface ABI because PHP exposes helpers for reading array keys, constructing repeated arrays, combining parallel arrays, padding rows to a target width, changing array order, extracting windows, batching values, merging numeric rows, applying keyed replacements, building value-to-key lookups, counting repeated values, checking membership, finding the first matching key, reindexing values, and aggregating numeric array contents.
+- `echo_php_function_exists(...)` is Echo PHP Surface ABI because `function_exists()` is a PHP compatibility function.
+- `echo_php_gettype(...)` is Echo PHP Surface ABI because `gettype()` is a PHP compatibility function.
+- `echo_php_is_array(...)` is Echo PHP Surface ABI because `is_array()` is a PHP compatibility function.
+- `echo_php_is_null(...)`, `echo_php_is_bool(...)`, `echo_php_is_int(...)`, `echo_php_is_string(...)`, `echo_php_is_countable(...)`, `echo_php_is_iterable(...)`, `echo_php_is_numeric(...)`, and `echo_php_is_scalar(...)` are Echo PHP Surface ABI because the corresponding `is_*()` functions are PHP compatibility functions.
+- `echo_php_strval(...)` is Echo PHP Surface ABI because `strval()` is a PHP compatibility function.
+- `echo_php_boolval(...)` is Echo PHP Surface ABI because `boolval()` is a PHP compatibility function.
+- `echo_php_intval(...)` is Echo PHP Surface ABI because `intval()` is a PHP compatibility function.
+- `echo_php_floatval(...)` is Echo PHP Surface ABI because `floatval()` and its `doubleval()` alias are PHP compatibility functions.
+- `echo_php_strtoupper(...)` and `echo_php_strtolower(...)` are Echo PHP Surface ABI because `strtoupper()` and `strtolower()` are PHP compatibility functions.
+- `echo_php_ucwords(...)` is Echo PHP Surface ABI because `ucwords()` is a PHP compatibility function.
+- `echo_php_strrev(...)`, `echo_php_ucfirst(...)`, and `echo_php_lcfirst(...)` are Echo PHP Surface ABI because `strrev()`, `ucfirst()`, and `lcfirst()` are PHP compatibility functions.
+- `echo_php_ord(...)`, `echo_php_str_rot13(...)`, `echo_php_soundex(...)`, and `echo_php_crc32(...)` are Echo PHP Surface ABI because `ord()`, `str_rot13()`, `soundex()`, and `crc32()` are PHP compatibility functions.
 
 `soundex()` is useful for PHP-compatible phonetic bucketing of short ASCII names:
 
@@ -308,16 +308,16 @@ echo "Same bucket: " . ($left === $right ? "yes" : "no") . "\n"
 ```
 
 Use it only as a coarse compatibility key for legacy matching workflows. It is not a general fuzzy search algorithm, and many distinct names intentionally collide into the same four-character code.
-- `echo_php_chr(...)`, `echo_php_bin2hex(...)`, `echo_php_hex2bin(...)`, `echo_php_md5(...)`, and `echo_php_sha1(...)` are PHP builtin ABI because `chr()`, `bin2hex()`, `hex2bin()`, `md5()`, and `sha1()` are PHP compatibility functions.
-- `echo_php_bindec(...)`, `echo_php_hexdec(...)`, `echo_php_octdec(...)`, and `echo_php_base_convert(...)` are PHP builtin ABI because PHP exposes explicit binary, hexadecimal, octal, and arbitrary-base conversion functions.
-- `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are PHP builtin ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
-- `echo_php_implode(...)` is PHP builtin ABI because `implode()` and its `join()` alias are PHP compatibility functions for joining array values into a string.
-- `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are PHP builtin ABI because PHP exposes separate raw URL and form/query URL encoding functions.
-- `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are PHP builtin ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
-- `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are PHP builtin ABI because PHP exposes trigonometric helpers as compatibility functions.
-- `echo_php_intdiv(...)` is PHP builtin ABI because `intdiv()` is a PHP compatibility function for integer quotient division.
-- `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are PHP builtin ABI because PHP exposes hyperbolic math helpers as compatibility functions.
-- `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_round(...)`, `echo_php_number_format(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are PHP builtin ABI because PHP exposes rounding, numeric display formatting, and magnitude helpers as compatibility functions.
+- `echo_php_chr(...)`, `echo_php_bin2hex(...)`, `echo_php_hex2bin(...)`, `echo_php_md5(...)`, and `echo_php_sha1(...)` are Echo PHP Surface ABI because `chr()`, `bin2hex()`, `hex2bin()`, `md5()`, and `sha1()` are PHP compatibility functions.
+- `echo_php_bindec(...)`, `echo_php_hexdec(...)`, `echo_php_octdec(...)`, and `echo_php_base_convert(...)` are Echo PHP Surface ABI because PHP exposes explicit binary, hexadecimal, octal, and arbitrary-base conversion functions.
+- `echo_php_base64_encode(...)` and `echo_php_base64_decode(...)` are Echo PHP Surface ABI because `base64_encode()` and `base64_decode()` are PHP compatibility functions.
+- `echo_php_implode(...)` is Echo PHP Surface ABI because `implode()` and its `join()` alias are PHP compatibility functions for joining array values into a string.
+- `echo_php_rawurlencode(...)`, `echo_php_rawurldecode(...)`, `echo_php_urlencode(...)`, and `echo_php_urldecode(...)` are Echo PHP Surface ABI because PHP exposes separate raw URL and form/query URL encoding functions.
+- `echo_php_deg2rad(...)` and `echo_php_rad2deg(...)` are Echo PHP Surface ABI because `deg2rad()` and `rad2deg()` are PHP compatibility functions.
+- `echo_php_sin(...)`, `echo_php_cos(...)`, `echo_php_tan(...)`, `echo_php_asin(...)`, `echo_php_acos(...)`, `echo_php_atan(...)`, and `echo_php_atan2(...)` are Echo PHP Surface ABI because PHP exposes trigonometric helpers as compatibility functions.
+- `echo_php_intdiv(...)` is Echo PHP Surface ABI because `intdiv()` is a PHP compatibility function for integer quotient division.
+- `echo_php_sinh(...)`, `echo_php_cosh(...)`, `echo_php_tanh(...)`, `echo_php_asinh(...)`, `echo_php_acosh(...)`, and `echo_php_atanh(...)` are Echo PHP Surface ABI because PHP exposes hyperbolic math helpers as compatibility functions.
+- `echo_php_ceil(...)`, `echo_php_floor(...)`, `echo_php_round(...)`, `echo_php_number_format(...)`, `echo_php_sqrt(...)`, and `echo_php_hypot(...)` are Echo PHP Surface ABI because PHP exposes rounding, numeric display formatting, and magnitude helpers as compatibility functions.
 
 `number_format()` is useful at display boundaries where a numeric subtotal needs stable grouping and decimal separators:
 
@@ -330,10 +330,10 @@ echo "Invoice total: $" . $display . "\n"
 ```
 
 Use it when producing reports, invoices, or status summaries that must match PHP's familiar thousands grouping. Keep calculations in numeric values and format only at the output boundary so separators do not leak back into arithmetic.
-- `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, `echo_php_pow(...)`, `echo_php_fdiv(...)`, and `echo_php_fpow(...)` are PHP builtin ABI because PHP exposes exponential, logarithmic, IEEE division, and IEEE power helpers as compatibility functions.
-- `echo_php_pi(...)` and `echo_php_fmod(...)` are PHP builtin ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
-- `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are PHP builtin ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
-- `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, `echo_php_stripcslashes(...)`, and `echo_php_quotemeta(...)` are PHP builtin ABI because `addslashes()`, `stripslashes()`, `stripcslashes()`, and `quotemeta()` are PHP compatibility functions.
+- `echo_php_exp(...)`, `echo_php_expm1(...)`, `echo_php_log(...)`, `echo_php_log10(...)`, `echo_php_log1p(...)`, `echo_php_pow(...)`, `echo_php_fdiv(...)`, and `echo_php_fpow(...)` are Echo PHP Surface ABI because PHP exposes exponential, logarithmic, IEEE division, and IEEE power helpers as compatibility functions.
+- `echo_php_pi(...)` and `echo_php_fmod(...)` are Echo PHP Surface ABI because PHP exposes pi and floating-point remainder helpers as compatibility functions.
+- `echo_php_trim(...)`, `echo_php_ltrim(...)`, and `echo_php_rtrim(...)` are Echo PHP Surface ABI because `trim()`, `ltrim()`, and `rtrim()` are PHP compatibility functions.
+- `echo_php_addslashes(...)`, `echo_php_stripslashes(...)`, `echo_php_stripcslashes(...)`, and `echo_php_quotemeta(...)` are Echo PHP Surface ABI because `addslashes()`, `stripslashes()`, `stripcslashes()`, and `quotemeta()` are PHP compatibility functions.
 
 `stripcslashes()` is useful when legacy configuration or fixture data stores byte escapes that need to become real control bytes before parsing:
 
@@ -346,28 +346,28 @@ echo bin2hex($decoded) . "\n"
 ```
 
 Use it at the input boundary for PHP-compatible escaped byte strings, then keep the decoded value as ordinary text or binary data. `bin2hex()` is a practical way to inspect the result when decoded bytes include tabs, newlines, or NUL.
-- `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are PHP builtin ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
-- `echo_php_str_repeat(...)` and `echo_php_str_pad(...)` are PHP builtin ABI because `str_repeat()` and `str_pad()` are PHP compatibility functions for constructing strings with repeated bytes.
-- `echo_php_str_split(...)` and `echo_php_chunk_split(...)` are PHP builtin ABI because `str_split()` and `chunk_split()` are PHP compatibility functions for fixed-width byte chunks.
-- `echo_php_substr(...)` is PHP builtin ABI because `substr()` is a PHP compatibility function.
-- `echo_php_strpos(...)` is PHP builtin ABI because `strpos()` is a PHP compatibility function.
-- `echo_php_stripos(...)` is PHP builtin ABI because `stripos()` is a PHP compatibility function.
-- `echo_php_strrpos(...)` is PHP builtin ABI because `strrpos()` is a PHP compatibility function.
-- `echo_php_strripos(...)` is PHP builtin ABI because `strripos()` is a PHP compatibility function.
-- `echo_php_strstr(...)` is PHP builtin ABI because `strstr()` is a PHP compatibility function.
+- `echo_php_str_contains(...)`, `echo_php_str_starts_with(...)`, and `echo_php_str_ends_with(...)` are Echo PHP Surface ABI because `str_contains()`, `str_starts_with()`, and `str_ends_with()` are PHP compatibility functions.
+- `echo_php_str_repeat(...)` and `echo_php_str_pad(...)` are Echo PHP Surface ABI because `str_repeat()` and `str_pad()` are PHP compatibility functions for constructing strings with repeated bytes.
+- `echo_php_str_split(...)` and `echo_php_chunk_split(...)` are Echo PHP Surface ABI because `str_split()` and `chunk_split()` are PHP compatibility functions for fixed-width byte chunks.
+- `echo_php_substr(...)` is Echo PHP Surface ABI because `substr()` is a PHP compatibility function.
+- `echo_php_strpos(...)` is Echo PHP Surface ABI because `strpos()` is a PHP compatibility function.
+- `echo_php_stripos(...)` is Echo PHP Surface ABI because `stripos()` is a PHP compatibility function.
+- `echo_php_strrpos(...)` is Echo PHP Surface ABI because `strrpos()` is a PHP compatibility function.
+- `echo_php_strripos(...)` is Echo PHP Surface ABI because `strripos()` is a PHP compatibility function.
+- `echo_php_strstr(...)` is Echo PHP Surface ABI because `strstr()` is a PHP compatibility function.
 - `strchr()` is mapped to `echo_php_strstr(...)` because PHP defines it as an alias of `strstr()`.
-- `echo_php_stristr(...)` is PHP builtin ABI because `stristr()` is a PHP compatibility function.
-- `echo_php_strrchr(...)` is PHP builtin ABI because `strrchr()` is a PHP compatibility function.
-- `echo_php_strpbrk(...)` is PHP builtin ABI because `strpbrk()` is a PHP compatibility function.
-- `echo_php_strspn(...)` is PHP builtin ABI because `strspn()` is a PHP compatibility function.
-- `echo_php_strcspn(...)` is PHP builtin ABI because `strcspn()` is a PHP compatibility function.
-- `echo_php_substr_count(...)` is PHP builtin ABI because `substr_count()` is a PHP compatibility function.
-- `echo_php_substr_compare(...)` is PHP builtin ABI because `substr_compare()` is a PHP compatibility function.
-- `echo_php_substr_replace(...)` is PHP builtin ABI because `substr_replace()` is a PHP compatibility function.
-- `echo_php_strcmp(...)` is PHP builtin ABI because `strcmp()` is a PHP compatibility function.
-- `echo_php_strcasecmp(...)` is PHP builtin ABI because `strcasecmp()` is a PHP compatibility function.
-- `echo_php_strnatcmp(...)` and `echo_php_strnatcasecmp(...)` are PHP builtin ABI because `strnatcmp()` and `strnatcasecmp()` are PHP compatibility functions for natural-order string comparisons.
-- `echo_php_levenshtein(...)` is PHP builtin ABI because `levenshtein()` is a PHP compatibility function for edit-distance comparisons.
+- `echo_php_stristr(...)` is Echo PHP Surface ABI because `stristr()` is a PHP compatibility function.
+- `echo_php_strrchr(...)` is Echo PHP Surface ABI because `strrchr()` is a PHP compatibility function.
+- `echo_php_strpbrk(...)` is Echo PHP Surface ABI because `strpbrk()` is a PHP compatibility function.
+- `echo_php_strspn(...)` is Echo PHP Surface ABI because `strspn()` is a PHP compatibility function.
+- `echo_php_strcspn(...)` is Echo PHP Surface ABI because `strcspn()` is a PHP compatibility function.
+- `echo_php_substr_count(...)` is Echo PHP Surface ABI because `substr_count()` is a PHP compatibility function.
+- `echo_php_substr_compare(...)` is Echo PHP Surface ABI because `substr_compare()` is a PHP compatibility function.
+- `echo_php_substr_replace(...)` is Echo PHP Surface ABI because `substr_replace()` is a PHP compatibility function.
+- `echo_php_strcmp(...)` is Echo PHP Surface ABI because `strcmp()` is a PHP compatibility function.
+- `echo_php_strcasecmp(...)` is Echo PHP Surface ABI because `strcasecmp()` is a PHP compatibility function.
+- `echo_php_strnatcmp(...)` and `echo_php_strnatcasecmp(...)` are Echo PHP Surface ABI because `strnatcmp()` and `strnatcasecmp()` are PHP compatibility functions for natural-order string comparisons.
+- `echo_php_levenshtein(...)` is Echo PHP Surface ABI because `levenshtein()` is a PHP compatibility function for edit-distance comparisons.
 
 Natural-order comparisons are useful when labels contain numeric suffixes that should sort by number rather than byte order:
 
@@ -395,7 +395,7 @@ echo "distance: " . $distance . "\n"
 
 Use `levenshtein()` for small labels, names, and compatibility checks where byte-based edit distance is enough. Pass custom costs when replacement should be more expensive than an insert/delete pair.
 
-- `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_str_word_count(...)`, `echo_php_wordwrap(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are PHP builtin ABI because the corresponding string rewrite, HTML escaping, tag stripping, word-counting, word-wrapping, and transfer-encoding helpers are PHP compatibility functions.
+- `echo_php_quoted_printable_encode(...)`, `echo_php_quoted_printable_decode(...)`, `echo_php_htmlspecialchars(...)`, `echo_php_htmlspecialchars_decode(...)`, `echo_php_strip_tags(...)`, `echo_php_str_word_count(...)`, `echo_php_wordwrap(...)`, `echo_php_nl2br(...)`, `echo_php_str_replace(...)`, `echo_php_str_ireplace(...)`, and `echo_php_strtr(...)` are Echo PHP Surface ABI because the corresponding string rewrite, HTML escaping, tag stripping, word-counting, word-wrapping, and transfer-encoding helpers are PHP compatibility functions.
 
 `str_word_count()` is useful when an import or summary pipeline needs a quick scalar measure of plain-text content before heavier processing:
 
@@ -421,9 +421,9 @@ echo $wrapped . "\n"
 
 Use the default break string for terminal-oriented text, or pass a custom break string when preparing pipe-delimited previews. Set `cut_long_words` only when long tokens must be split instead of preserved.
 
-- `echo_php_microtime(...)`, `echo_php_gettimeofday(...)`, `echo_php_hrtime(...)`, `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_cli_get_process_title(...)`, `echo_php_cli_set_process_title(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, `echo_php_zend_version(...)`, `echo_php_extension_loaded(...)`, `echo_php_get_loaded_extensions(...)`, `echo_php_get_extension_funcs(...)`, `echo_php_get_cfg_var(...)`, `echo_php_ini_get(...)`, `echo_php_ini_get_all(...)`, `echo_php_ini_parse_quantity(...)`, `echo_php_get_include_path(...)`, `echo_php_connection_aborted(...)`, `echo_php_connection_status(...)`, `echo_php_ignore_user_abort(...)`, `echo_php_headers_list(...)`, `echo_php_headers_sent(...)`, `echo_php_header(...)`, `echo_php_header_remove(...)`, `echo_php_http_response_code(...)`, `echo_php_ini_set(...)`, `echo_php_ini_alter(...)`, `echo_php_ini_restore(...)`, `echo_php_php_ini_loaded_file(...)`, `echo_php_php_ini_scanned_files(...)`, and `echo_php_putenv(...)` are PHP builtin ABI because the corresponding wall-clock microtime, wall-clock timeval array, high-resolution time, working-directory, environment, hostname, process-ID, CLI process-title state, PHP version, Server API name, Zend Engine version, extension availability, extension listing, extension function listing, configuration option lookup, ini option lookup, ini option listing, ini shorthand parsing, include-path lookup, connection-abort state, connection-status state, user-abort policy state, HTTP header listing, HTTP header sent-state lookup, HTTP header queueing, HTTP header removal, HTTP response-code state, ini option mutation, ini option mutation alias, ini option restore, configuration-file lookup, scanned-configuration lookup, and environment mutation helpers are PHP compatibility functions for process-local state.
-- `echo_php_clearstatcache(...)`, `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are PHP builtin ABI because the corresponding stat-cache clearing hook, temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
-- `echo_php_uniqid(...)` is PHP builtin ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.
+- `echo_php_microtime(...)`, `echo_php_gettimeofday(...)`, `echo_php_hrtime(...)`, `echo_php_chdir(...)`, `echo_php_getcwd(...)`, `echo_php_getenv(...)`, `echo_php_gethostname(...)`, `echo_php_getmypid(...)`, `echo_php_cli_get_process_title(...)`, `echo_php_cli_set_process_title(...)`, `echo_php_phpversion(...)`, `echo_php_php_sapi_name(...)`, `echo_php_zend_version(...)`, `echo_php_extension_loaded(...)`, `echo_php_get_loaded_extensions(...)`, `echo_php_get_extension_funcs(...)`, `echo_php_get_cfg_var(...)`, `echo_php_ini_get(...)`, `echo_php_ini_get_all(...)`, `echo_php_ini_parse_quantity(...)`, `echo_php_get_include_path(...)`, `echo_php_connection_aborted(...)`, `echo_php_connection_status(...)`, `echo_php_ignore_user_abort(...)`, `echo_php_headers_list(...)`, `echo_php_headers_sent(...)`, `echo_php_header(...)`, `echo_php_header_remove(...)`, `echo_php_http_response_code(...)`, `echo_php_ini_set(...)`, `echo_php_ini_alter(...)`, `echo_php_ini_restore(...)`, `echo_php_php_ini_loaded_file(...)`, `echo_php_php_ini_scanned_files(...)`, and `echo_php_putenv(...)` are Echo PHP Surface ABI because the corresponding wall-clock microtime, wall-clock timeval array, high-resolution time, working-directory, environment, hostname, process-ID, CLI process-title state, PHP version, Server API name, Zend Engine version, extension availability, extension listing, extension function listing, configuration option lookup, ini option lookup, ini option listing, ini shorthand parsing, include-path lookup, connection-abort state, connection-status state, user-abort policy state, HTTP header listing, HTTP header sent-state lookup, HTTP header queueing, HTTP header removal, HTTP response-code state, ini option mutation, ini option mutation alias, ini option restore, configuration-file lookup, scanned-configuration lookup, and environment mutation helpers are PHP compatibility functions for process-local state.
+- `echo_php_clearstatcache(...)`, `echo_php_sys_get_temp_dir(...)`, `echo_php_tempnam(...)`, `echo_php_is_readable(...)`, `echo_php_is_writable(...)`, `echo_php_is_executable(...)`, `echo_php_filesize(...)`, `echo_php_fileatime(...)`, `echo_php_filectime(...)`, `echo_php_filemtime(...)`, `echo_php_fileinode(...)`, `echo_php_fileowner(...)`, `echo_php_filegroup(...)`, `echo_php_fileperms(...)`, `echo_php_filetype(...)`, `echo_php_file_get_contents(...)`, `echo_php_file_put_contents(...)`, `echo_php_readfile(...)`, `echo_php_readlink(...)`, `echo_php_link(...)`, `echo_php_symlink(...)`, `echo_php_touch(...)`, `echo_php_copy(...)`, `echo_php_rename(...)`, `echo_php_unlink(...)`, `echo_php_mkdir(...)`, `echo_php_rmdir(...)`, and `echo_php_realpath(...)` are Echo PHP Surface ABI because the corresponding stat-cache clearing hook, temporary-file, filesystem metadata, local file content, link, and local filesystem mutation functions are PHP compatibility functions.
+- `echo_php_uniqid(...)` is Echo PHP Surface ABI because `uniqid()` is a PHP compatibility helper for time-based string identifiers.
 
 `gettimeofday()` is useful when compatibility code expects PHP's structured wall-clock timestamp:
 
@@ -1029,7 +1029,7 @@ loop {
     run {
         let $request = http.readRequest($conn)
 
-        $users.push({
+        $users.append({
             id: count($users) + 1
             email: "visitor" . count($users) . "@echo.local"
         }: User)

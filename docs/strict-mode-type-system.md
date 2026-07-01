@@ -326,7 +326,7 @@ is not list append:
 let $xs: list<int> = {1, 2, 3}
 
 $xs[] = 4 // reject: list is not array
-$xs.push(4)
+$xs.append(4)
 let $last: ?int = $xs.pop()
 ```
 
@@ -536,7 +536,7 @@ let $wide = uu"Unicode 16"
 
 The prefixes describe the literal decoding rule and produce buffer/string-family values without overloading plain strings.
 
-## Objects And Shapes
+## Objects and Shapes
 
 Strict Echo uses structural objects for named-field data.
 
@@ -740,7 +740,7 @@ type Port = int where $ >= 1 && $ <= 65535;
 
 This sketch shows the likely future direction while keeping v1 focused on simpler aliases and structural types.
 
-## Receiver Functions And `facet`
+## Receiver Functions and `facet`
 
 Current preferred keyword: `facet`.
 
@@ -755,7 +755,7 @@ Syntax:
 
 ```php
 facet list<T> as $list {
-    fn push($value: T): void {
+    fn append($value: T): void {
         // implementation
     }
 

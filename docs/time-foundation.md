@@ -91,7 +91,7 @@ fn period(
 Module functions create values, access clocks, or interact with the runtime.
 Receiver methods provide behavior on existing values.
 
-## Module Functions And Receiver Methods
+## Module Functions and Receiver Methods
 
 Module-level functions construct values, access clocks, or interact with the
 runtime:
@@ -589,7 +589,7 @@ facet Period as $period {
 Keep the initial `Period` surface minimal until `Date`, `Clock`, `DateTime`,
 and `Zone` exist.
 
-## AST And Typing Plan
+## AST and Typing Plan
 
 The next natural implementation step is a parser-visible `DurationLiteral`
 slice. That should land before widening the runtime `time.sleep` implementation,
@@ -776,7 +776,7 @@ a monotonic clock source for `time.monotonic()`, and exact duration sleeps for
 from the current monotonic instant, and `reset()` returns that elapsed duration
 while replacing the stored start instant.
 
-## Runtime And Std Support Plan
+## Runtime and Std Support Plan
 
 The first implementation should keep the public Echo surface in `std/time.echo`
 and route privileged operations through approved runtime intrinsics. The public

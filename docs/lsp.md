@@ -268,10 +268,10 @@ operators.
 PHPDoc `@var Type $name` annotations are indexed by `echo_semantics` for local
 variable hover/type facts, which covers Laravel bootstrap annotations such as
 `/** @var Application $app */`.
-Completion currently includes reflected PHP builtins, PHP `use` imports, indexed
-local variables, and the Laravel bootstrap `Application` method surface needed
-for `$app->handleRequest(...)`.
-Signature help currently includes reflected PHP builtin functions and the
+Completion currently includes reflected Echo PHP Surface functions, PHP `use`
+imports, indexed local variables, and the Laravel bootstrap `Application`
+method surface needed for `$app->handleRequest(...)`.
+Signature help currently includes reflected Echo PHP Surface functions and the
 Laravel bootstrap call shapes for `Request::capture()` and
 `Application::handleRequest(Request $request)`.
 Rename is same-file and covers PHP variables, PHPDoc local-variable annotations,
