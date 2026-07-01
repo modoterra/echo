@@ -544,7 +544,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rename` | implemented | Renames or moves local files/directories using host filesystem semantics; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rename.php |
 | `request_parse_body` | missing |  |
 | `restore_include_path` | missing | Source: https://www.php.net/manual/en/function.restore-include-path.php |
-| `reset` | missing |  |
+| `reset` | partial | Returns the first array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.reset.php |
 | `rewind` | missing |  |
 | `rewinddir` | missing |  |
 | `rmdir` | implemented | Removes empty local directories and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rmdir.php |

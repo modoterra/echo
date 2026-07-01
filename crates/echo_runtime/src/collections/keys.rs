@@ -37,6 +37,11 @@ pub extern "C" fn echo_php_current(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_reset(array: EchoValue) -> EchoValue {
+    echo_php_current(array)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_end(array: EchoValue) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();

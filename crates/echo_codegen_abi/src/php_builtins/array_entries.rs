@@ -35,6 +35,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "reset",
+        symbol: "echo_php_reset",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_keys",
         symbol: "echo_php_array_keys",
         helper_symbol: None,
