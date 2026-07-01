@@ -1514,6 +1514,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the local machine hostname when it is available.",
       },
       {
+        name: "getprotobyname",
+        signature: "getprotobyname(string $protocol): int|false",
+        description: "Looks up an IP protocol number by protocol name or alias.",
+      },
+      {
         name: "get_current_user",
         signature: "get_current_user(): string",
         description: "Returns the current process user name baseline.",
@@ -2440,6 +2445,14 @@ if (!$host) {
 }
 
 echo "Processing import on " . $host . "\\n"`,
+  ],
+  [
+    "getprotobyname",
+    `let $protocol = getprotobyname("tcp")
+
+if ($protocol !== false) {
+    echo "TCP protocol number: " . $protocol . "\\n"
+}`,
   ],
   [
     "get_current_user",
@@ -3767,6 +3780,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "gethostname",
     "Use `gethostname()` to add host context to logs, diagnostics, or generated status records. Keep a fallback because some hosts may not report a name.",
+  ],
+  [
+    "getprotobyname",
+    "Use `getprotobyname()` when importing legacy network configuration that names protocols such as `tcp` or `udp`. Echo resolves local protocol database entries and common built-in protocol names without opening network sockets.",
   ],
   [
     "get_current_user",
@@ -6802,7 +6819,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 252 PHP compatibility fixtures, 285 implemented Core and standard functions out of 607, 322 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 253 PHP compatibility fixtures, 286 implemented Core and standard functions out of 607, 321 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -347,7 +347,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getmypid` | implemented | Returns the current process ID as an integer; like PHP, this is process metadata and not a secure entropy source. Source: https://www.php.net/manual/en/function.getmypid.php |
 | `getmyuid` | partial | Returns the current Linux process effective user ID from `/proc/self/status`, or `false` when unavailable. Source: https://www.php.net/manual/en/function.getmyuid.php |
 | `getopt` | missing |  |
-| `getprotobyname` | missing |  |
+| `getprotobyname` | implemented | Returns a protocol number for names and aliases found in `/etc/protocols`, with common built-in fallbacks for `icmp`, `tcp`, `udp`, and `ipv6`; returns `false` for unknown protocols. Source: https://www.php.net/manual/en/function.getprotobyname.php |
 | `getprotobynumber` | missing |  |
 | `getrusage` | missing |  |
 | `getservbyname` | missing |  |

@@ -57,6 +57,17 @@ pub extern "C" fn echo_php_gethostname() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
+    let Some(name) = name.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    protocol_number_by_name(&name)
+        .map(EchoValue::int)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }
@@ -134,6 +145,43 @@ fn proc_status_id(field: &str) -> Option<i64> {
 #[cfg(not(target_os = "linux"))]
 fn proc_status_id(_field: &str) -> Option<i64> {
     None
+}
+
+fn protocol_number_by_name(name: &[u8]) -> Option<i64> {
+    parse_protocol_number_by_name(&std::fs::read("/etc/protocols").unwrap_or_default(), name)
+        .or_else(|| common_protocol_number_by_name(name))
+}
+
+fn parse_protocol_number_by_name(content: &[u8], name: &[u8]) -> Option<i64> {
+    for line in content.split(|byte| *byte == b'\n') {
+        let before_comment = line.split(|byte| *byte == b'#').next().unwrap_or_default();
+        let mut fields = before_comment
+            .split(|byte| byte.is_ascii_whitespace())
+            .filter(|field| !field.is_empty());
+
+        let Some(protocol_name) = fields.next() else {
+            continue;
+        };
+        let Some(number) = fields.next() else {
+            continue;
+        };
+
+        if protocol_name == name || fields.any(|alias| alias == name) {
+            return std::str::from_utf8(number).ok()?.parse().ok();
+        }
+    }
+
+    None
+}
+
+fn common_protocol_number_by_name(name: &[u8]) -> Option<i64> {
+    match name {
+        b"icmp" => Some(1),
+        b"tcp" => Some(6),
+        b"udp" => Some(17),
+        b"ipv6" => Some(41),
+        _ => None,
+    }
 }
 
 #[unsafe(no_mangle)]
