@@ -428,6 +428,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the input values reindexed from zero.",
       },
       {
+        name: "current",
+        signature: "current(array $array): mixed",
+        description:
+          "Returns the current array value. Echo currently exposes the first value baseline.",
+      },
+      {
         name: "array_keys",
         signature: "array_keys(array $array, mixed $filter_value, bool $strict): array",
         description: "Returns array keys, optionally filtered by value.",
@@ -2850,6 +2856,13 @@ let $cells = array_values($row)
 echo implode(",", $cells) . "\\n"`,
   ],
   [
+    "current",
+    `let $queue = ["draft", "review", "ship"]
+let $first = current($queue)
+
+echo $first . "\\n"`,
+  ],
+  [
     "array_keys",
     `let $row = ["id": "A-42", "qty": "3"]
 let $columns = array_keys($row)
@@ -3777,6 +3790,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "array_values",
     "Use `array_values()` to reindex a filtered or keyed array when downstream code expects consecutive numeric positions.",
+  ],
+  [
+    "current",
+    "Use `current()` when compatibility code reads the first value from an array-like cursor path. Echo's current baseline does not model pointer movement yet.",
   ],
   [
     "array_keys",
@@ -6480,7 +6497,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 232 PHP compatibility fixtures, 265 implemented Core and standard functions out of 607, 342 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 233 PHP compatibility fixtures, 266 implemented Core and standard functions out of 607, 341 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

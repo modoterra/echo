@@ -10,6 +10,7 @@ pub use keys::{
     echo_php_array_intersect_key, echo_php_array_key_exists, echo_php_array_key_first,
     echo_php_array_key_last, echo_php_array_keys, echo_php_array_last, echo_php_array_pop,
     echo_php_array_push, echo_php_array_shift, echo_php_array_unshift, echo_php_array_values,
+    echo_php_current,
 };
 pub use search::{
     echo_php_array_count_values, echo_php_array_diff, echo_php_array_diff_assoc,

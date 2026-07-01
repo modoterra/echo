@@ -252,7 +252,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `count_chars` | missing |  |
 | `crc32` | implemented | Calculates a CRC32 checksum over the string bytes and returns the positive integer result used by 64-bit PHP. Source: https://www.php.net/manual/en/function.crc32.php |
 | `crypt` | implemented | Uses Echo's bcrypt implementation through `crypt()` salt prefix dispatch for supported variants; unsupported salts and algorithm formats return `false`. Source: https://www.php.net/manual/en/function.crypt.php |
-| `current` | missing |  |
+| `current` | partial | Returns the first array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.current.php |
 | `debug_zval_dump` | missing |  |
 | `decbin` | implemented | Converts integers to unsigned binary strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.decbin.php |
 | `dechex` | implemented | Converts integers to lowercase unsigned hexadecimal strings; current runtime follows the 64-bit target width for negative integers. Source: https://www.php.net/manual/en/function.dechex.php |
