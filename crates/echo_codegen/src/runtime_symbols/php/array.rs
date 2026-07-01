@@ -19,6 +19,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_end",
+            echo_runtime::echo_php_end
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_array_keys",
             echo_runtime::echo_php_array_keys
                 as extern "C" fn(

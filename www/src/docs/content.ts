@@ -434,6 +434,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the current array value. Echo currently exposes the first value baseline.",
       },
       {
+        name: "end",
+        signature: "end(array $array): mixed",
+        description:
+          "Returns the final array value. Echo currently exposes a no-pointer baseline.",
+      },
+      {
         name: "array_keys",
         signature: "array_keys(array $array, mixed $filter_value, bool $strict): array",
         description: "Returns array keys, optionally filtered by value.",
@@ -2863,6 +2869,13 @@ let $first = current($queue)
 echo $first . "\\n"`,
   ],
   [
+    "end",
+    `let $queue = ["draft", "review", "ship"]
+let $last = end($queue)
+
+echo $last . "\\n"`,
+  ],
+  [
     "array_keys",
     `let $row = ["id": "A-42", "qty": "3"]
 let $columns = array_keys($row)
@@ -3794,6 +3807,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "current",
     "Use `current()` when compatibility code reads the first value from an array-like cursor path. Echo's current baseline does not model pointer movement yet.",
+  ],
+  [
+    "end",
+    "Use `end()` when compatibility code needs the last array value. Echo's current baseline returns the final value without modeling persistent pointer movement.",
   ],
   [
     "array_keys",
@@ -6497,7 +6514,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 233 PHP compatibility fixtures, 266 implemented Core and standard functions out of 607, 341 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 234 PHP compatibility fixtures, 267 implemented Core and standard functions out of 607, 340 remaining, and about 44% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

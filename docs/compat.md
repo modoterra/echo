@@ -268,7 +268,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `dns_get_mx` | missing |  |
 | `dns_get_record` | missing |  |
 | `doubleval` | implemented | Alias of `floatval()`. Source: https://www.php.net/manual/en/function.doubleval.php |
-| `end` | missing |  |
+| `end` | partial | Returns the last array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.end.php |
 | `error_clear_last` | missing |  |
 | `error_get_last` | missing |  |
 | `error_log` | missing |  |
