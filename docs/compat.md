@@ -134,8 +134,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `strncasecmp` | implemented | Source: https://www.php.net/manual/en/function.strncasecmp.php |
 | `strncmp` | implemented | Source: https://www.php.net/manual/en/function.strncmp.php |
 | `trait_exists` | partial | Returns `false` until Echo has trait metadata and autoload semantics. Source: https://www.php.net/manual/en/function.trait-exists.php |
-| `trigger_error` | missing |  |
-| `user_error` | missing |  |
+| `trigger_error` | partial | Validates message and level and returns `true`; warning emission, custom error-handler dispatch, and omitted-level defaulting are deferred. Source: https://www.php.net/manual/en/function.trigger-error.php |
+| `user_error` | partial | Alias of Echo's current `trigger_error` baseline; warning emission, custom error-handler dispatch, and omitted-level defaulting are deferred. Source: https://www.php.net/manual/en/function.user-error.php |
 | `zend_version` | implemented | Returns Echo's Zend Engine compatibility version string. Source: https://www.php.net/manual/en/function.zend-version.php |
 
 ### standard (175/528)

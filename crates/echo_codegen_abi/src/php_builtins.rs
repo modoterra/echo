@@ -571,6 +571,22 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueOptionalNullExpression,
         },
         PhpBuiltin {
+            php_name: "trigger_error",
+            symbol: "echo_php_trigger_error",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueBinaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "user_error",
+            symbol: "echo_php_user_error",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueBinaryExpression,
+        },
+        PhpBuiltin {
             php_name: "gc_collect_cycles",
             symbol: "echo_php_gc_collect_cycles",
             helper_symbol: None,

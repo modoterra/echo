@@ -21,6 +21,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "trigger_error",
+            &[("message", Some("string")), ("error_level", Some("int"))],
+            Some("true"),
+        ),
+        php_builtin_reflection(
+            "user_error",
+            &[("message", Some("string")), ("error_level", Some("int"))],
+            Some("true"),
+        ),
+        php_builtin_reflection(
             "defined",
             &[("constant_name", Some("string"))],
             Some("bool"),
