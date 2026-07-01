@@ -1,9 +1,16 @@
 use super::*;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static TEMP_FILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 fn temp_file(path_fragment: &str, contents: &[u8]) -> (PathBuf, EchoValue) {
-    let temp_dir =
-        std::env::temp_dir().join(format!("echo-runtime-runtime-hash-{}", std::process::id()));
+    let temp_id = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temp_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-runtime-hash-{}-{}",
+        std::process::id(),
+        temp_id
+    ));
     let path = temp_dir.join(path_fragment);
     std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
     std::fs::write(&path, contents).expect("write temp test file");

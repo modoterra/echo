@@ -1,9 +1,28 @@
 use super::*;
 use crate::value::{ECHO_VALUE_TCP_CONNECTION, ECHO_VALUE_TCP_LISTENER};
+use std::net::{TcpListener, TcpStream};
 use std::thread;
+
+fn loopback_exchange_available() -> bool {
+    let Ok(listener) = TcpListener::bind("127.0.0.1:0") else {
+        return false;
+    };
+    let Ok(address) = listener.local_addr() else {
+        return false;
+    };
+
+    let client = thread::spawn(move || TcpStream::connect(address).is_ok());
+    let accepted = listener.accept().is_ok();
+    accepted && client.join().unwrap_or(false)
+}
 
 #[test]
 fn std_net_abi_exchanges_loopback_bytes() {
+    if !loopback_exchange_available() {
+        eprintln!("skipping std.net loopback test because local TCP loopback is unavailable");
+        return;
+    }
+
     let address = unsafe { echo_value_string(c"127.0.0.1:0".as_ptr().cast(), 11) };
     let server = echo_std_net_listen(address);
     assert_eq!(server.kind, ECHO_VALUE_TCP_LISTENER);

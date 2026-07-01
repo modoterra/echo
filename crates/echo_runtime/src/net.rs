@@ -264,11 +264,29 @@ pub extern "C" fn echo_std_http_read_request(connection: EchoValue) -> EchoValue
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::TcpStream;
+    use std::net::{TcpListener, TcpStream};
     use std::thread;
+
+    fn loopback_exchange_available() -> bool {
+        let Ok(listener) = TcpListener::bind("127.0.0.1:0") else {
+            return false;
+        };
+        let Ok(address) = listener.local_addr() else {
+            return false;
+        };
+
+        let client = thread::spawn(move || TcpStream::connect(address).is_ok());
+        let accepted = listener.accept().is_ok();
+        accepted && client.join().unwrap_or(false)
+    }
 
     #[test]
     fn accepts_reads_writes_and_closes_loopback_connection() {
+        if !loopback_exchange_available() {
+            eprintln!("skipping loopback exchange test because local TCP loopback is unavailable");
+            return;
+        }
+
         let listener = listen("127.0.0.1:0").expect("listen");
         let addr = listener.local_addr().expect("local addr");
 

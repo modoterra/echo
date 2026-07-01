@@ -90,6 +90,40 @@ run_quiet() {
   fi
 }
 
+loopback_exchange_available() {
+  command -v python3 >/dev/null || return 0
+  python3 - <<'PY'
+import socket
+import threading
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    address = listener.getsockname()
+    result = {"connected": False}
+
+    def connect():
+        try:
+            with socket.create_connection(address, timeout=1):
+                result["connected"] = True
+        except OSError:
+            result["connected"] = False
+
+    client = threading.Thread(target=connect)
+    client.start()
+    listener.settimeout(1)
+    try:
+        connection, _ = listener.accept()
+        connection.close()
+        accepted = True
+    except OSError:
+        accepted = False
+    client.join(timeout=1)
+
+raise SystemExit(0 if accepted and result["connected"] else 1)
+PY
+}
+
 test_crate() {
   run_quiet cargo test -q -p "$1"
 }
@@ -1612,7 +1646,9 @@ case "$command" in
     run_quiet cargo test -q -p echo_runtime accepts_reads_writes_and_closes_loopback_connection
     run_quiet cargo test -q -p echo_runtime std_net_abi_exchanges_loopback_bytes
     run_quiet cargo test -q -p echo_runtime std_http_response_text_formats_http_response
-    run_with_optional_fixture "009_net_loopback_exchange,010_http_response_over_net,023_http_read_request_path,024_http_server_one_request,026_concurrent_http_tasks" tests/echo -- cargo test -q -p xo --test jit
+    if loopback_exchange_available; then
+      run_with_optional_fixture "009_net_loopback_exchange,010_http_response_over_net,023_http_read_request_path,024_http_server_one_request,026_concurrent_http_tasks" tests/echo -- cargo test -q -p xo --test jit
+    fi
     ;;
   runtime-process)
     run_quiet cargo test -q -p echo_runtime process::
