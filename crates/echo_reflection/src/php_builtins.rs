@@ -370,6 +370,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("getmyuid", &[], Some("int|false")),
         php_builtin_reflection("getmygid", &[], Some("int|false")),
         php_builtin_reflection("getmyinode", &[], Some("int|false")),
+        php_builtin_reflection("getlastmod", &[], Some("int|false")),
         php_builtin_reflection("cli_get_process_title", &[], Some("?string")),
         php_builtin_reflection(
             "cli_set_process_title",

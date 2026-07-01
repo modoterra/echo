@@ -1539,6 +1539,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current executable inode baseline.",
       },
       {
+        name: "getlastmod",
+        signature: "getlastmod(): int|false",
+        description: "Returns the current executable modification timestamp baseline.",
+      },
+      {
         name: "uniqid",
         signature: "uniqid(string $prefix, bool $more_entropy): string",
         description:
@@ -2466,6 +2471,12 @@ echo "Owner gid: " . $group . "\\n"`,
     `let $inode = getmyinode()
 
 echo "Runtime inode: " . $inode . "\\n"`,
+  ],
+  [
+    "getlastmod",
+    `let $modified = getlastmod()
+
+echo "Modified at: " . $modified . "\\n"`,
   ],
   [
     "nl2br",
@@ -3776,6 +3787,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getmyinode",
     "Use `getmyinode()` for compatibility diagnostics that expect an inode-shaped process/script identifier. Echo currently reports the executable inode rather than the source script inode.",
+  ],
+  [
+    "getlastmod",
+    "Use `getlastmod()` for compatibility diagnostics that expect a timestamp-shaped script modification value. Echo currently reports the executable timestamp rather than the source script timestamp.",
   ],
   [
     "rmdir",
@@ -6787,7 +6802,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 251 PHP compatibility fixtures, 284 implemented Core and standard functions out of 607, 323 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 252 PHP compatibility fixtures, 285 implemented Core and standard functions out of 607, 322 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

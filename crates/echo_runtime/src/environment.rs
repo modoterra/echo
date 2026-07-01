@@ -82,6 +82,13 @@ pub extern "C" fn echo_php_getmyinode() -> EchoValue {
         .unwrap_or_else(|| EchoValue::bool(false))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getlastmod() -> EchoValue {
+    current_exe_modified_timestamp()
+        .map(EchoValue::int)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
 #[cfg(unix)]
 fn current_exe_inode() -> Option<i64> {
     use std::os::unix::fs::MetadataExt;
@@ -93,6 +100,19 @@ fn current_exe_inode() -> Option<i64> {
 #[cfg(not(unix))]
 fn current_exe_inode() -> Option<i64> {
     None
+}
+
+fn current_exe_modified_timestamp() -> Option<i64> {
+    let modified = std::env::current_exe()
+        .ok()?
+        .metadata()
+        .ok()?
+        .modified()
+        .ok()?;
+    modified
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
 }
 
 #[unsafe(no_mangle)]

@@ -86,6 +86,11 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_getlastmod",
+            echo_runtime::echo_php_getlastmod as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_sys_getloadavg",
             echo_runtime::echo_php_sys_getloadavg as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

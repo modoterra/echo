@@ -340,7 +340,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `gethostname` | implemented | Returns the local host name as a string when the host can report one, otherwise `false`. Source: https://www.php.net/manual/en/function.gethostname.php |
 | `getimagesize` | missing |  |
 | `getimagesizefromstring` | missing |  |
-| `getlastmod` | missing |  |
+| `getlastmod` | partial | Returns the current executable modification timestamp, or `false` when unavailable; PHP's source script modification time is deferred until source identity is available at runtime. Source: https://www.php.net/manual/en/function.getlastmod.php |
 | `getmxrr` | missing |  |
 | `getmygid` | partial | Returns the current Linux process effective group ID from `/proc/self/status`, or `false` when unavailable. Source: https://www.php.net/manual/en/function.getmygid.php |
 | `getmyinode` | partial | Returns the current executable inode on Unix, or `false` when unavailable; PHP's source script inode is deferred until source identity is available at runtime. Source: https://www.php.net/manual/en/function.getmyinode.php |
