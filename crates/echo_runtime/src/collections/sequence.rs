@@ -243,6 +243,11 @@ pub extern "C" fn echo_php_ksort(array: EchoValue) -> EchoValue {
     sort_array_by_string_keys(array, false)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_krsort(array: EchoValue) -> EchoValue {
+    sort_array_by_string_keys(array, true)
+}
+
 fn sort_array_by_string_values(
     array: EchoValue,
     descending: bool,

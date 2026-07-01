@@ -423,7 +423,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `join` | implemented | Alias of `implode()`. Source: https://www.php.net/manual/en/function.join.php |
 | `key` | missing |  |
 | `key_exists` | implemented | Alias of `array_key_exists()`. Source: https://www.php.net/manual/en/function.key-exists.php |
-| `krsort` | missing |  |
+| `krsort` | partial | Sorts arrays by string-compatible keys in descending byte order while preserving key/value associations and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.krsort.php |
 | `ksort` | partial | Sorts arrays by string-compatible keys in ascending byte order while preserving key/value associations and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.ksort.php |
 | `lcfirst` | implemented | Lowercases the first ASCII alphabetic byte of a string and leaves the rest unchanged. Source: https://www.php.net/manual/en/function.lcfirst.php |
 | `lchgrp` | missing |  |

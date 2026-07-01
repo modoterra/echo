@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 231 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 232 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 264.
-- Remaining Core + standard functions in inventory: 343.
+- Implemented Core + standard functions in inventory: 265.
+- Remaining Core + standard functions in inventory: 342.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `264 / 607`, or about 43%, for the Core + standard baseline,
+coverage alone is `265 / 607`, or about 44%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
