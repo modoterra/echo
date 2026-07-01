@@ -56,7 +56,7 @@ pub use encoding::{
     echo_php_urlencode,
 };
 pub use environment::*;
-pub use error::EchoError;
+pub use error::{EchoError, echo_php_get_error_handler};
 pub use execution::echo_join;
 pub use filesystem::{
     echo_php_basename, echo_php_chdir, echo_php_clearstatcache, echo_php_copy, echo_php_dirname,

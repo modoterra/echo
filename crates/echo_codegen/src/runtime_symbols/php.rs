@@ -1,6 +1,7 @@
 mod array;
 mod crypto;
 mod environment;
+mod error;
 mod filesystem;
 mod math;
 mod output;
@@ -11,6 +12,7 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
     let mut symbols = Vec::new();
     symbols.extend(array::symbols());
     symbols.extend(environment::symbols());
+    symbols.extend(error::symbols());
     symbols.extend(filesystem::symbols());
     symbols.extend(crypto::symbols());
     symbols.extend(math::symbols());
