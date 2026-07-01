@@ -106,6 +106,11 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_debug_backtrace",
+            echo_runtime::echo_php_debug_backtrace as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_get_defined_functions",
             echo_runtime::echo_php_get_defined_functions
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

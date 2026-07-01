@@ -79,6 +79,11 @@ pub extern "C" fn echo_php_get_defined_functions(_exclude_disabled: EchoValue) -
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_debug_backtrace() -> EchoValue {
+    echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_get_declared_classes() -> EchoValue {
     echo_value_array_new()
 }
