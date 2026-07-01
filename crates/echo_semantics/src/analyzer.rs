@@ -570,6 +570,7 @@ impl Analyzer {
                 match expr.op {
                     UnaryOp::Plus | UnaryOp::Minus => Type::Number,
                     UnaryOp::Not => Type::Bool,
+                    UnaryOp::Clone => Type::Object(None),
                 }
             }
             Expr::Cast(expr) => {

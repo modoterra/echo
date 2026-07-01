@@ -1642,6 +1642,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .to(UnaryOp::Plus)
             .or(just('-').to(UnaryOp::Minus))
             .or(just('!').to(UnaryOp::Not))
+            .or(text::keyword("clone").to(UnaryOp::Clone))
+            .map_with(|op, extra| {
+                let span: SimpleSpan = extra.span();
+                (op, Span::new(span.start, span.end))
+            })
             .padded();
 
         let cast_type = text::keyword("array")
@@ -1672,8 +1677,8 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let signed = unary_op
             .repeated()
-            .foldr(casted, |op, expr| {
-                let span = Span::new(expr.span().start.saturating_sub(1), expr.span().end);
+            .foldr(casted, |(op, op_span), expr| {
+                let span = Span::new(op_span.start, expr.span().end);
                 Expr::Unary(Box::new(UnaryExpr { op, expr, span }))
             })
             .boxed();

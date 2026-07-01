@@ -615,6 +615,39 @@ $instance = new $provider($app);
 }
 
 #[test]
+fn parses_php_clone_expression() {
+    let program = parse(
+        r#"<?php
+$copy = clone $object;
+$year = (clone $dateTime)->format("Y");
+"#,
+    )
+    .expect("PHP clone expressions parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Assign(statement)
+            if matches!(
+                &statement.value,
+                Expr::Unary(expr)
+                    if expr.op == UnaryOp::Clone
+                        && matches!(&expr.expr, Expr::Variable(variable) if variable.name == "object")
+                        && expr.span.start == 14
+            )
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Assign(statement)
+            if matches!(
+                &statement.value,
+                Expr::MethodCall(call)
+                    if call.method == "format"
+                        && matches!(&call.object, Expr::Unary(expr) if expr.op == UnaryOp::Clone)
+            )
+    ));
+}
+
+#[test]
 fn parses_php_anonymous_class_expression() {
     let program = parse(
         r#"<?php

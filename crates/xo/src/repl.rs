@@ -631,6 +631,9 @@ fn const_eval_expr(expr: &Expr, session_statements: &[Stmt]) -> Option<ConstValu
             Some(ConstValue::Int(80200))
         }
         Expr::Unary(value) => {
+            if value.op == echo_ast::UnaryOp::Clone {
+                return None;
+            }
             let value = const_eval_expr(&value.expr, session_statements)?;
             match value.as_number()? {
                 number if value_is_int(&value) => {
@@ -815,6 +818,7 @@ fn expression_kind(expr: &Expr) -> &'static str {
             echo_ast::UnaryOp::Plus => "numeric identity expression",
             echo_ast::UnaryOp::Minus => "negate expression",
             echo_ast::UnaryOp::Not => "not expression",
+            echo_ast::UnaryOp::Clone => "clone expression",
         },
         Expr::Cast(_) => "cast expression",
         Expr::Binary(expr) => match expr.op {
@@ -861,6 +865,7 @@ fn expression_static_type(expr: &Expr) -> String {
         Expr::Unary(expr) => match expr.op {
             echo_ast::UnaryOp::Plus | echo_ast::UnaryOp::Minus => "number".to_string(),
             echo_ast::UnaryOp::Not => "bool".to_string(),
+            echo_ast::UnaryOp::Clone => "object".to_string(),
         },
         Expr::Cast(expr) => expr.ty.clone(),
         Expr::Binary(expr) => match expr.op {

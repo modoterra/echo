@@ -807,6 +807,14 @@ impl IrModule {
                 "unsupported ternary expression in LLVM codegen",
                 source.span(),
             )),
+            echo_mir::MirExpr::Unary {
+                source,
+                op: UnaryOp::Clone,
+                ..
+            } => Err(Diagnostic::new(
+                "unsupported clone expression in LLVM codegen",
+                source.span(),
+            )),
             echo_mir::MirExpr::Unary { op, expr, .. } => self.render_mir_numeric_unary_expr(
                 body,
                 expr,
@@ -814,6 +822,7 @@ impl IrModule {
                     UnaryOp::Plus => CoreRuntimeSymbol::ValueUnaryPlus,
                     UnaryOp::Minus => CoreRuntimeSymbol::ValueUnaryMinus,
                     UnaryOp::Not => CoreRuntimeSymbol::ValueNot,
+                    UnaryOp::Clone => unreachable!("clone expression handled above"),
                 },
             ),
             echo_mir::MirExpr::Cast { expr, .. } => self.render_mir_expr(body, expr),
