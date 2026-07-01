@@ -6,7 +6,10 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use crate::{EchoValue, echo_runtime_string, echo_value_array_new, echo_value_array_set};
+use crate::{
+    EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new,
+    echo_value_array_set,
+};
 
 pub const PHP_COMPAT_VERSION: &str = "8.2.0";
 pub const ZEND_COMPAT_VERSION: &str = "8.2.0";
@@ -56,6 +59,35 @@ pub extern "C" fn echo_php_gethostname() -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sys_getloadavg() -> EchoValue {
+    let Some(loads) = load_average_values() else {
+        return EchoValue::bool(false);
+    };
+
+    let mut result = echo_value_array_new();
+    for load in loads {
+        result = echo_value_array_append(result, EchoValue::float(load));
+    }
+    result
+}
+
+#[cfg(target_os = "linux")]
+fn load_average_values() -> Option<[f64; 3]> {
+    let content = std::fs::read_to_string("/proc/loadavg").ok()?;
+    let mut parts = content.split_whitespace();
+    Some([
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+    ])
+}
+
+#[cfg(not(target_os = "linux"))]
+fn load_average_values() -> Option<[f64; 3]> {
+    None
 }
 
 #[unsafe(no_mangle)]

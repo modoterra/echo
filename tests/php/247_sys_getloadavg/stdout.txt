@@ -1,0 +1,4 @@
+type:[array]
+count:[3]
+first_type:[double]
+exists:[1]

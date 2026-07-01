@@ -1343,6 +1343,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Pauses execution for microseconds.",
       },
       {
+        name: "sys_getloadavg",
+        signature: "sys_getloadavg(): array|false",
+        description: "Returns system load averages for the last 1, 5, and 15 minutes.",
+      },
+      {
         name: "gettimeofday",
         signature: "gettimeofday(bool $as_float): array|float",
         description: "Returns the current wall-clock time as a timeval array or float.",
@@ -2170,6 +2175,14 @@ echo "remaining: " . $remaining . "\\n"`,
     `usleep(0)
 
 echo "continued\\n"`,
+  ],
+  [
+    "sys_getloadavg",
+    `let $load = sys_getloadavg()
+
+if (is_array($load)) {
+    echo "load samples: " . count($load) . "\\n"
+}`,
   ],
   [
     "gettimeofday",
@@ -4397,6 +4410,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "usleep",
     "Use `usleep()` for PHP-compatible short delay points where legacy code measures pauses in microseconds. New Echo code should prefer typed durations through `std.time.sleep()`.",
+  ],
+  [
+    "sys_getloadavg",
+    "Use `sys_getloadavg()` for CLI diagnostics that report host pressure before starting background or batch work. Echo currently reads Linux procfs and returns false where load averages are unavailable.",
   ],
   [
     "gettimeofday",
@@ -6677,7 +6694,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 244 PHP compatibility fixtures, 277 implemented Core and standard functions out of 607, 330 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 245 PHP compatibility fixtures, 278 implemented Core and standard functions out of 607, 329 remaining, and about 46% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

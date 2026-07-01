@@ -68,6 +68,11 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_getmypid as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_sys_getloadavg",
+            echo_runtime::echo_php_sys_getloadavg as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_cli_get_process_title",
             echo_runtime::echo_php_cli_get_process_title
                 as extern "C" fn() -> echo_runtime::EchoValue as usize,

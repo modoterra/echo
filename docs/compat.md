@@ -671,7 +671,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `substr_replace` | implemented | Supports scalar string replacement with positive and negative offsets, omitted length, zero-length insertion, and negative length windows; array operands are deferred. Source: https://www.php.net/manual/en/function.substr-replace.php |
 | `symlink` | implemented | Creates local symbolic links and returns a bool success value; Windows-specific target-type behavior, privilege differences, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.symlink.php |
 | `sys_get_temp_dir` | implemented | Returns the host process temporary directory path; PHP INI overrides and virtual-host/open_basedir behavior are deferred. Source: https://www.php.net/manual/en/function.sys-get-temp-dir.php |
-| `sys_getloadavg` | missing |  |
+| `sys_getloadavg` | partial | Returns Linux `/proc/loadavg` 1, 5, and 15 minute load averages as floats, or `false` when load averages are unavailable. Source: https://www.php.net/manual/en/function.sys-getloadavg.php |
 | `syslog` | missing |  |
 | `system` | missing |  |
 | `tan` | implemented | Returns the tangent of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.tan.php |
