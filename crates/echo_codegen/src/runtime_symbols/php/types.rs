@@ -112,6 +112,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_get_defined_constants",
+            echo_runtime::echo_php_get_defined_constants
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_get_declared_classes",
             echo_runtime::echo_php_get_declared_classes
                 as extern "C" fn() -> echo_runtime::EchoValue as usize,

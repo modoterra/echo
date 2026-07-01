@@ -1,5 +1,36 @@
+use crate::collections::{EchoArray, EchoArrayKey};
 use crate::error::EchoError;
-use crate::{EchoString, EchoValue, output};
+use crate::{EchoString, EchoValue, echo_runtime_string, output};
+
+#[derive(Debug, Clone, Copy)]
+enum PhpConstantValue {
+    Int(i64),
+    String(&'static [u8]),
+}
+
+const PHP_COMPAT_CONSTANTS: &[(&str, PhpConstantValue)] = &[
+    ("PHP_VERSION_ID", PhpConstantValue::Int(80200)),
+    ("PHP_VERSION", PhpConstantValue::String(b"8.2.0")),
+    (
+        "PHP_BUILD_DATE",
+        PhpConstantValue::String(b"Jul  1 2026 00:00:00"),
+    ),
+    ("PHP_SAPI", PhpConstantValue::String(b"cli")),
+    ("PHP_EOL", PhpConstantValue::String(b"\n")),
+    ("STDERR", PhpConstantValue::String(b"php://stderr")),
+    ("PASSWORD_DEFAULT", PhpConstantValue::String(b"2y")),
+    ("PASSWORD_BCRYPT", PhpConstantValue::String(b"2y")),
+    ("PASSWORD_ARGON2I", PhpConstantValue::String(b"argon2i")),
+    ("PASSWORD_ARGON2ID", PhpConstantValue::String(b"argon2id")),
+    ("PASSWORD_BCRYPT_DEFAULT_COST", PhpConstantValue::Int(10)),
+    ("HASH_HMAC", PhpConstantValue::Int(1)),
+    ("CRYPT_BLOWFISH", PhpConstantValue::Int(1)),
+    ("CRYPT_STD_DES", PhpConstantValue::Int(1)),
+    ("CRYPT_EXT_DES", PhpConstantValue::Int(1)),
+    ("CRYPT_MD5", PhpConstantValue::Int(1)),
+    ("CRYPT_SHA256", PhpConstantValue::Int(1)),
+    ("CRYPT_SHA512", PhpConstantValue::Int(1)),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchoSymbol {
@@ -32,30 +63,22 @@ pub extern "C" fn echo_php_define(name: EchoValue, _value: EchoValue) -> EchoVal
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_defined(name: EchoValue) -> EchoValue {
     let is_defined = name.string_bytes().is_some_and(|bytes| {
-        matches!(
-            bytes.as_slice(),
-            b"PHP_VERSION_ID"
-                | b"PHP_VERSION"
-                | b"PHP_BUILD_DATE"
-                | b"PHP_SAPI"
-                | b"PHP_EOL"
-                | b"STDERR"
-                | b"PASSWORD_DEFAULT"
-                | b"PASSWORD_BCRYPT"
-                | b"PASSWORD_ARGON2I"
-                | b"PASSWORD_ARGON2ID"
-                | b"PASSWORD_BCRYPT_DEFAULT_COST"
-                | b"HASH_HMAC"
-                | b"CRYPT_BLOWFISH"
-                | b"CRYPT_STD_DES"
-                | b"CRYPT_EXT_DES"
-                | b"CRYPT_MD5"
-                | b"CRYPT_SHA256"
-                | b"CRYPT_SHA512"
-        )
+        PHP_COMPAT_CONSTANTS
+            .iter()
+            .any(|(constant_name, _)| constant_name.as_bytes() == bytes.as_slice())
     });
 
     EchoValue::bool(is_defined)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_defined_constants(categorize: EchoValue) -> EchoValue {
+    let constants = php_compat_constants_array();
+    if categorize.bool_value().unwrap_or(false) {
+        return php_array_from_pairs(vec![("Core", constants)]);
+    }
+
+    constants
 }
 
 pub fn echo_normalize_callable(value: EchoValue) -> Result<Option<EchoCallable>, EchoError> {
@@ -97,4 +120,31 @@ pub unsafe extern "C" fn echo_call_function(ptr: *const u8, len: usize) -> EchoV
 
     let callable = EchoCallable::Function(EchoSymbol::new(name));
     echo_call(&callable, &[]).unwrap_or_else(|_| EchoValue::error())
+}
+
+fn php_compat_constants_array() -> EchoValue {
+    let mut keys = Vec::with_capacity(PHP_COMPAT_CONSTANTS.len());
+    let mut values = Vec::with_capacity(PHP_COMPAT_CONSTANTS.len());
+
+    for (name, value) in PHP_COMPAT_CONSTANTS {
+        keys.push(EchoArrayKey::String(name.as_bytes().to_vec()));
+        values.push(match value {
+            PhpConstantValue::Int(value) => EchoValue::int(*value),
+            PhpConstantValue::String(bytes) => echo_runtime_string(bytes.to_vec()),
+        });
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+fn php_array_from_pairs(pairs: Vec<(&str, EchoValue)>) -> EchoValue {
+    let mut keys = Vec::with_capacity(pairs.len());
+    let mut values = Vec::with_capacity(pairs.len());
+
+    for (name, value) in pairs {
+        keys.push(EchoArrayKey::String(name.as_bytes().to_vec()));
+        values.push(value);
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
 }

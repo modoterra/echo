@@ -1,0 +1,8 @@
+has-version:[1]
+has-sapi:[1]
+has-password:[1]
+has-missing:[]
+sapi:[cli]
+has-core:[1]
+core-version:[1]
+exists:[1]

@@ -104,7 +104,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_declared_classes` | partial | Returns an empty array until Echo has runtime class metadata. Source: https://www.php.net/manual/en/function.get-declared-classes.php |
 | `get_declared_interfaces` | partial | Returns an empty array until Echo has runtime interface metadata. Source: https://www.php.net/manual/en/function.get-declared-interfaces.php |
 | `get_declared_traits` | partial | Returns an empty array until Echo has runtime trait metadata. Source: https://www.php.net/manual/en/function.get-declared-traits.php |
-| `get_defined_constants` | missing |  |
+| `get_defined_constants` | partial | Returns Echo's compiler-owned PHP compatibility constants, optionally categorized under `Core`; dynamically defined constants and full extension inventories are deferred. Source: https://www.php.net/manual/en/function.get-defined-constants.php |
 | `get_defined_functions` | partial | Returns supported PHP builtin names under `internal` and compiler-registered userland names under `user`; disabled-function filtering and full PHP internal inventory parity are deferred. Source: https://www.php.net/manual/en/function.get-defined-functions.php |
 | `get_defined_vars` | missing |  |
 | `get_error_handler` | partial | Returns the current stored error-handler callback or `null` when none is installed; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
