@@ -56,7 +56,10 @@ pub use encoding::{
     echo_php_urlencode,
 };
 pub use environment::*;
-pub use error::{EchoError, echo_php_get_error_handler, echo_php_get_exception_handler};
+pub use error::{
+    EchoError, echo_php_get_error_handler, echo_php_get_exception_handler,
+    echo_php_restore_error_handler, echo_php_set_error_handler,
+};
 pub use execution::echo_join;
 pub use filesystem::{
     echo_php_basename, echo_php_chdir, echo_php_clearstatcache, echo_php_copy, echo_php_dirname,
@@ -150,6 +153,7 @@ pub fn reset_execution_state() {
     reset_output_runtime();
     execution::reset();
     assertions::reset();
+    error::reset();
 }
 
 pub fn capture_stdout<T>(repl_inspect: bool, f: impl FnOnce() -> T) -> (T, Vec<u8>) {

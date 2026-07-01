@@ -1,0 +1,8 @@
+first-null:[1]
+current:[strlen]
+second-prev:[strlen]
+current2:[trim]
+restore1:[1]
+after-restore1:[strlen]
+restore2:[1]
+after-restore2-null:[1]

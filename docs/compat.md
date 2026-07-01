@@ -107,7 +107,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_defined_constants` | missing |  |
 | `get_defined_functions` | missing |  |
 | `get_defined_vars` | missing |  |
-| `get_error_handler` | partial | Returns `null` before any custom error handler is installed. Handler registry support through `set_error_handler()` and `restore_error_handler()` is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
+| `get_error_handler` | partial | Returns the current stored error-handler callback or `null` when none is installed; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
 | `get_exception_handler` | partial | Returns `null` before any custom exception handler is installed. Handler registry support through `set_exception_handler()` and `restore_exception_handler()` is deferred. Source: https://www.php.net/manual/en/function.get-exception-handler.php |
 | `get_extension_funcs` | implemented | Returns `false` for named extensions because Echo does not model PHP extension function metadata yet. Source: https://www.php.net/manual/en/function.get-extension-funcs.php |
 | `get_included_files` | missing |  |
@@ -124,9 +124,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_subclass_of` | missing |  |
 | `method_exists` | missing |  |
 | `property_exists` | missing |  |
-| `restore_error_handler` | missing |  |
+| `restore_error_handler` | partial | Restores the previous stored error-handler callback and returns `true`; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.restore-error-handler.php |
 | `restore_exception_handler` | missing |  |
-| `set_error_handler` | missing |  |
+| `set_error_handler` | partial | Stores callable error handlers, returns the previous handler or `null`, and cooperates with `get_error_handler()`/`restore_error_handler()`. Actual error dispatch is deferred. Source: https://www.php.net/manual/en/function.set-error-handler.php |
 | `set_exception_handler` | missing |  |
 | `strcasecmp` | implemented | Performs binary-safe ASCII case-insensitive string comparison and returns the PHP-style ordering sign. Source: https://www.php.net/manual/en/function.strcasecmp.php |
 | `strcmp` | implemented | Performs binary-safe string comparison and returns the PHP-style ordering sign. Source: https://www.php.net/manual/en/function.strcmp.php |
