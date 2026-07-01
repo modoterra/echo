@@ -2226,8 +2226,21 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let echo_stmt = just("echo")
             .padded()
-            .ignore_then(echo_exprs)
+            .ignore_then(echo_exprs.clone())
             .then_ignore(terminator.clone())
+            .map_with(|exprs, extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::Echo(EchoStmt {
+                    exprs,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+        let short_echo_stmt = just("<?=")
+            .padded()
+            .ignore_then(echo_exprs.clone())
+            .then_ignore(just("?>").padded())
             .map_with(|exprs, extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -4216,6 +4229,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .clone()
             .or(declare_stmt)
             .or(php_exit_stmt)
+            .or(short_echo_stmt)
             .or(echo_stmt)
             .or(return_stmt)
             .or(throw_stmt)

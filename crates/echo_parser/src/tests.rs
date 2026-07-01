@@ -1313,6 +1313,27 @@ die(1);
 }
 
 #[test]
+fn parses_php_short_echo_tags() {
+    let program = parse(
+        r#"<?= $name ?>
+<?= $first, " ", $last ?>
+"#,
+    )
+    .expect("PHP short echo tags parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Echo(statement)
+            if statement.exprs.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Echo(statement)
+            if statement.exprs.len() == 3
+    ));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php
