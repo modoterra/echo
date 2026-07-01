@@ -68,6 +68,17 @@ pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getprotobynumber(number: EchoValue) -> EchoValue {
+    let Some(number) = number.int_value() else {
+        return EchoValue::bool(false);
+    };
+
+    protocol_name_by_number(number)
+        .map(echo_runtime_string)
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }
@@ -152,6 +163,11 @@ fn protocol_number_by_name(name: &[u8]) -> Option<i64> {
         .or_else(|| common_protocol_number_by_name(name))
 }
 
+fn protocol_name_by_number(number: i64) -> Option<Vec<u8>> {
+    parse_protocol_name_by_number(&std::fs::read("/etc/protocols").unwrap_or_default(), number)
+        .or_else(|| common_protocol_name_by_number(number))
+}
+
 fn parse_protocol_number_by_name(content: &[u8], name: &[u8]) -> Option<i64> {
     for line in content.split(|byte| *byte == b'\n') {
         let before_comment = line.split(|byte| *byte == b'#').next().unwrap_or_default();
@@ -174,12 +190,47 @@ fn parse_protocol_number_by_name(content: &[u8], name: &[u8]) -> Option<i64> {
     None
 }
 
+fn parse_protocol_name_by_number(content: &[u8], target_number: i64) -> Option<Vec<u8>> {
+    for line in content.split(|byte| *byte == b'\n') {
+        let before_comment = line.split(|byte| *byte == b'#').next().unwrap_or_default();
+        let mut fields = before_comment
+            .split(|byte| byte.is_ascii_whitespace())
+            .filter(|field| !field.is_empty());
+
+        let Some(protocol_name) = fields.next() else {
+            continue;
+        };
+        let Some(number) = fields.next() else {
+            continue;
+        };
+        let Ok(number) = std::str::from_utf8(number).ok()?.parse::<i64>() else {
+            continue;
+        };
+
+        if number == target_number {
+            return Some(protocol_name.to_vec());
+        }
+    }
+
+    None
+}
+
 fn common_protocol_number_by_name(name: &[u8]) -> Option<i64> {
     match name {
         b"icmp" => Some(1),
         b"tcp" => Some(6),
         b"udp" => Some(17),
         b"ipv6" => Some(41),
+        _ => None,
+    }
+}
+
+fn common_protocol_name_by_number(number: i64) -> Option<Vec<u8>> {
+    match number {
+        1 => Some(b"icmp".to_vec()),
+        6 => Some(b"tcp".to_vec()),
+        17 => Some(b"udp".to_vec()),
+        41 => Some(b"ipv6".to_vec()),
         _ => None,
     }
 }

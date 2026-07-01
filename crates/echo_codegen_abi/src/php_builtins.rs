@@ -495,6 +495,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "getprotobynumber",
+            symbol: "echo_php_getprotobynumber",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "get_current_user",
             symbol: "echo_php_get_current_user",
             helper_symbol: None,

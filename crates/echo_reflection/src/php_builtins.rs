@@ -370,6 +370,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("protocol", Some("string"))],
             Some("int|false"),
         ),
+        php_builtin_reflection(
+            "getprotobynumber",
+            &[("protocol", Some("int"))],
+            Some("string|false"),
+        ),
         php_builtin_reflection("get_current_user", &[], Some("string")),
         php_builtin_reflection("getmypid", &[], Some("int|false")),
         php_builtin_reflection("getmyuid", &[], Some("int|false")),

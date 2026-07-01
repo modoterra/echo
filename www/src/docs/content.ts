@@ -1519,6 +1519,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Looks up an IP protocol number by protocol name or alias.",
       },
       {
+        name: "getprotobynumber",
+        signature: "getprotobynumber(int $protocol): string|false",
+        description: "Looks up an IP protocol name by protocol number.",
+      },
+      {
         name: "get_current_user",
         signature: "get_current_user(): string",
         description: "Returns the current process user name baseline.",
@@ -2452,6 +2457,14 @@ echo "Processing import on " . $host . "\\n"`,
 
 if ($protocol !== false) {
     echo "TCP protocol number: " . $protocol . "\\n"
+}`,
+  ],
+  [
+    "getprotobynumber",
+    `let $name = getprotobynumber(17)
+
+if ($name !== false) {
+    echo "Protocol 17: " . $name . "\\n"
 }`,
   ],
   [
@@ -3784,6 +3797,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getprotobyname",
     "Use `getprotobyname()` when importing legacy network configuration that names protocols such as `tcp` or `udp`. Echo resolves local protocol database entries and common built-in protocol names without opening network sockets.",
+  ],
+  [
+    "getprotobynumber",
+    "Use `getprotobynumber()` when old configuration or logs store numeric protocol identifiers and the program needs the canonical local protocol name.",
   ],
   [
     "get_current_user",
@@ -6819,7 +6836,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 253 PHP compatibility fixtures, 286 implemented Core and standard functions out of 607, 321 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 254 PHP compatibility fixtures, 287 implemented Core and standard functions out of 607, 320 remaining, and about 47% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
