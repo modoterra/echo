@@ -209,7 +209,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `arsort` | missing |  |
 | `asin` | implemented | Returns the arc sine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.asin.php |
 | `asinh` | implemented | Returns inverse hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.asinh.php |
-| `asort` | missing |  |
+| `asort` | partial | Sorts arrays containing string-compatible values in ascending byte order while preserving original keys and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.asort.php |
 | `assert` | missing |  |
 | `assert_options` | missing |  |
 | `atan` | implemented | Returns the arc tangent in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.atan.php |

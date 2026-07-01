@@ -478,6 +478,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Sorts an array in descending order and reindexes the keys from zero.",
       },
       {
+        name: "asort",
+        signature: "asort(array &$array, int $flags): bool",
+        description:
+          "Sorts an array in ascending order while preserving the original keys.",
+      },
+      {
         name: "array_chunk",
         signature: "array_chunk(array $array, int $length, bool $preserve_keys): array",
         description: "Splits an array into fixed-size chunks.",
@@ -2890,6 +2896,13 @@ rsort($statuses)
 echo implode(",", $statuses) . "\\n"`,
   ],
   [
+    "asort",
+    `let $statuses = ["first": "review", "second": "draft", "third": "ship"]
+asort($statuses)
+
+echo $statuses["second"] . "\\n"`,
+  ],
+  [
     "array_chunk",
     `let $ids = ["A1", "A2", "A3", "A4"]
 let $batches = array_chunk($ids, 2, false)
@@ -3761,6 +3774,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "rsort",
     "Use `rsort()` when compatibility code needs newest, largest, or highest-priority string values first and does not need to preserve the original keys.",
+  ],
+  [
+    "asort",
+    "Use `asort()` when compatibility code needs values in ascending order but later logic still depends on the original associative keys.",
   ],
   [
     "array_chunk",
@@ -6412,7 +6429,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 228 PHP compatibility fixtures, 261 implemented Core and standard functions out of 607, 346 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 229 PHP compatibility fixtures, 262 implemented Core and standard functions out of 607, 345 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

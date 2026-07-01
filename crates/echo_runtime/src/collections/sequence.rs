@@ -220,15 +220,24 @@ pub extern "C" fn echo_php_array_splice(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_sort(array: EchoValue) -> EchoValue {
-    sort_array_by_string_values(array, false)
+    sort_array_by_string_values(array, false, false)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_rsort(array: EchoValue) -> EchoValue {
-    sort_array_by_string_values(array, true)
+    sort_array_by_string_values(array, true, false)
 }
 
-fn sort_array_by_string_values(array: EchoValue, descending: bool) -> EchoValue {
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_asort(array: EchoValue) -> EchoValue {
+    sort_array_by_string_values(array, false, true)
+}
+
+fn sort_array_by_string_values(
+    array: EchoValue,
+    descending: bool,
+    preserve_keys: bool,
+) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
     }
@@ -244,15 +253,24 @@ fn sort_array_by_string_values(array: EchoValue, descending: bool) -> EchoValue 
         return EchoValue::error();
     }
 
-    array
-        .values
-        .sort_by(|left, right| left.string_bytes().cmp(&right.string_bytes()));
-    if descending {
-        array.values.reverse();
-    }
-    array.keys = (0..array.values.len())
-        .map(|index| EchoArrayKey::Int(index as i64))
+    let mut entries: Vec<(EchoArrayKey, EchoValue)> = array
+        .keys
+        .iter()
+        .cloned()
+        .zip(array.values.iter().copied())
         .collect();
+    entries.sort_by(|(_, left), (_, right)| left.string_bytes().cmp(&right.string_bytes()));
+    if descending {
+        entries.reverse();
+    }
+    array.values = entries.iter().map(|(_, value)| *value).collect();
+    array.keys = if preserve_keys {
+        entries.into_iter().map(|(key, _)| key).collect()
+    } else {
+        (0..array.values.len())
+            .map(|index| EchoArrayKey::Int(index as i64))
+            .collect()
+    };
 
     EchoValue::bool(true)
 }
