@@ -3632,11 +3632,11 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .boxed();
 
         let switch_case_separator = just(':').or(just(';')).padded();
-        let switch_case_boundary =
-            text::keyword("case")
-                .padded()
-                .ignored()
-                .or(text::keyword("default").padded().ignored());
+        let switch_case_boundary = text::keyword("case")
+            .padded()
+            .ignored()
+            .or(text::keyword("default").padded().ignored())
+            .or(text::keyword("endswitch").padded().ignored());
         let switch_case_body_statement = switch_case_boundary
             .not()
             .ignore_then(statement.clone())
@@ -3657,18 +3657,31 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 }
             })
             .boxed();
-        let switch_stmt = text::keyword("switch")
+        let switch_braced_body = switch_case
+            .clone()
+            .repeated()
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded());
+        let switch_alternate_body_boundary = text::keyword("endswitch").padded().ignored();
+        let switch_alternate_case = switch_alternate_body_boundary
+            .clone()
+            .not()
+            .ignore_then(switch_case.clone())
+            .boxed();
+        let switch_alternate_body = just(':')
+            .padded()
+            .ignore_then(switch_alternate_case.repeated().collect::<Vec<_>>())
+            .then_ignore(switch_alternate_body_boundary)
+            .then_ignore(terminator.clone());
+        let switch_header = text::keyword("switch")
             .padded()
             .ignore_then(just('(').padded())
             .ignore_then(expr.clone())
             .then_ignore(just(')').padded())
-            .then(
-                switch_case
-                    .repeated()
-                    .collect::<Vec<_>>()
-                    .delimited_by(just('{').padded(), just('}').padded()),
-            )
-            .then_ignore(terminator.clone().or_not())
+            .boxed();
+        let switch_alternate_stmt = switch_header
+            .clone()
+            .then(switch_alternate_body)
             .map_with(|(expr, cases), extra| {
                 let span: SimpleSpan = extra.span();
                 Stmt::Switch(SwitchStmt {
@@ -3677,6 +3690,19 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     span: Span::new(span.start, span.end),
                 })
             })
+            .boxed();
+        let switch_stmt = switch_alternate_stmt
+            .or(switch_header
+                .then(switch_braced_body)
+                .then_ignore(terminator.clone().or_not())
+                .map_with(|(expr, cases), extra| {
+                    let span: SimpleSpan = extra.span();
+                    Stmt::Switch(SwitchStmt {
+                        expr,
+                        cases,
+                        span: Span::new(span.start, span.end),
+                    })
+                }))
             .boxed();
 
         let elseif_clause = text::keyword(kw::ELSEIF.text)

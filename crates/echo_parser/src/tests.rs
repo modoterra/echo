@@ -1179,6 +1179,14 @@ switch ($status) {
     default;
         echo "unknown";
 }
+switch ($status):
+    case "new":
+    case "queued";
+        echo "pending";
+        break;
+    default:
+        echo "unknown";
+endswitch;
 "#,
     )
     .expect("PHP switch statement parses");
@@ -1195,6 +1203,17 @@ switch ($status) {
                 && statement.cases[2].body.len() == 2
                 && statement.cases[3].condition.is_none()
                 && statement.cases[3].body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::Switch(statement)
+            if statement.cases.len() == 3
+                && statement.cases[0].condition.is_some()
+                && statement.cases[0].body.is_empty()
+                && statement.cases[1].condition.is_some()
+                && statement.cases[1].body.len() == 2
+                && statement.cases[2].condition.is_none()
+                && statement.cases[2].body.len() == 1
     ));
 }
 
