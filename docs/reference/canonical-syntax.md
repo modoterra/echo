@@ -1,10 +1,15 @@
 # Canonical Echo Syntax
 
-Echo accepts PHP-compatible source forms, but documentation, examples, generated code, and formatter output should prefer the canonical Echo forms below.
+This reference defines the canonical Echo spellings for source syntax,
+generated code, and formatter output. PHP-compatible forms remain legal, but
+examples should prefer the Echo-native forms below unless compatibility
+requires otherwise.
 
-## File And Module Names
+## File and Module Names
 
-Echo source files use `snake_case.echo` file names, and directories use lowercase names with underscores when needed. Echo-native package files declare module names as lowercase `snake_case` segments separated by dots.
+Echo source files use `snake_case.echo` file names, and directories use
+lowercase names with underscores when needed. Echo-native package files declare
+module names as lowercase `snake_case` segments separated by dots.
 
 ```echo
 module modoterra.laravel_echo.console
@@ -12,7 +17,8 @@ module modoterra.laravel_echo.console
 let $command_name = "echo:start"
 ```
 
-This keeps Echo package structure readable without carrying PHP class-file naming conventions into Echo source.
+This keeps Echo package structure readable without carrying PHP class-file
+naming conventions into Echo source.
 
 Module names must stay lowercase and snake_case.
 
@@ -29,11 +35,14 @@ module app.2http.router
 module app..router
 ```
 
-This gives Echo package modules one canonical spelling instead of inheriting PHP namespace casing rules.
+This gives Echo package modules one canonical spelling instead of inheriting
+PHP namespace casing rules.
 
 The parser may still parse a non-canonical module declaration so diagnostics can point at the exact segment. The resolver or semantic layer should reject it with a module-name diagnostic rather than treating it as a distinct module identity.
 
-Every Echo file that is meant to be imported by module identity should declare a `module`. Entry scripts and anonymous one-off scripts may omit the declaration; they do not need a placeholder such as `module main`.
+Every Echo file that is meant to be imported by module identity should declare
+a `module`. Entry scripts and anonymous one-off scripts may omit the
+declaration; they do not need a placeholder such as `module main`.
 
 ```echo
 use app.http.router
@@ -41,11 +50,14 @@ use app.http.router
 echo router.route($request)
 ```
 
-This keeps importable package files explicit while preserving lightweight script files for entrypoints.
+This keeps importable package files explicit while preserving lightweight
+script files for entrypoints.
 
-## Types And Declarations
+## Types and Declarations
 
-Classes, traits, interfaces, enums, and type names use `PascalCase`. Functions, variables, modules, and file/module identifiers use `snake_case`. Echo-native exported declarations use `pub`.
+Classes, traits, interfaces, enums, and type names use `PascalCase`.
+Functions, variables, modules, and file/module identifiers use `snake_case`.
+Echo-native exported declarations use `pub`.
 
 ```echo
 module app.console
@@ -61,7 +73,8 @@ fn normalize_path($input) {
 }
 ```
 
-This style separates type-like names from value-like names and keeps Echo examples consistent across packages.
+This style separates type-like names from value-like names and keeps Echo
+examples consistent across packages.
 
 Module exports are explicit. Use Echo declaration forms such as `pub fn` and `pub type`; non-`pub` declarations are module-private.
 
@@ -100,6 +113,90 @@ pub class User {
 Class properties use suffix type annotations, matching `let` bindings. Class members are private by default. `pub $field` allows outside code to read and assign that property; a private field may only be accessed by class methods and factories. `pub fn` allows outside code to call the method.
 
 Methods do not declare an explicit receiver parameter. Use `$this` inside class instance methods and factories. Use `$parent` for superclass instance access. Do not use bare `this`, bare `self`, or `Self` in strict Echo. `$static` has no special meaning.
+
+`$this` is not reassignable and has no `mut $this` form. Object field access refers to the object's field storage; assigning `$this->name` updates the field when visibility permits. Binding a field into a local with `let` copies the current field value into fresh local storage.
+
+```echo
+let $name = $this->name
+```
+
+Later reassignment of `$name` does not update `$this->name`.
+
+Structural object fields follow the same storage rule as class fields. Field access is an assignable place when visibility and mutability allow it; `let` copies the current value into fresh local storage; passing a field to a `mut` parameter aliases that field storage for the call.
+
+```echo
+let $user = { name: "Ada" }
+
+$user.name = "Grace"
+let $name = $user.name
+trim_in_place($user.name)
+```
+
+Object literals, class factories, and Echo list literals produce reference values. Binding an object or list value copies the reference value, not the underlying object or list.
+
+```echo
+let $copy = $user
+```
+
+After this binding, `$copy` and `$user` refer to the same object.
+
+Use `copy <expression>` when a new underlying object or collection graph should be created from the current data.
+
+`copy` is a reserved keyword in strict Echo.
+
+`copy` applies to readable existing storage places, not literals or temporary expression results. The operand does not need to be assignable because `copy` does not mutate the source place. Valid operands include readable variables, field access, and indexed elements. Function calls, factory calls, literals, arithmetic expressions, and string expressions are invalid operands because they already produce fresh temporary values.
+
+```echo
+let $source = { name: "Ada" }
+let $copy = copy $source
+
+let $name_copy = copy $source.name
+let $first_copy = copy $items[0]
+
+let $bad_call = copy get_user()
+let $bad_factory = copy User.create("Ada")
+let $bad_number = copy 443
+let $bad_total = copy ($a + $b)
+```
+
+The first three copies are valid. The call, factory, literal, and arithmetic copies are invalid.
+
+```echo
+let $copy = copy $user
+let $items_copy = copy $items
+```
+
+The `copy` expression performs a deep graph copy for Echo reference values. It creates new storage for the copied object or collection graph, recursively copies nested reference values, and preserves internal sharing and cycles within the copied graph.
+
+```echo
+let $shared = {1, 2}
+let $object = { a: $shared, b: $shared }
+let $copy = copy $object
+```
+
+In the copy, `$copy.a` and `$copy.b` refer to the same copied list, while neither refers to the original `$shared` list.
+
+Class instances, structural objects, and Echo lists participate in `copy` by default. Values that are not copyable, such as runtime task handles, file handles, processes, sockets, and futures, cannot be copied. This is a compile-time error when the type is statically known and a runtime error otherwise. There is no magic clone hook or implicit clone API for `copy`.
+
+Copying a class instance preserves the instance's full internal state, including private fields, and preserves the instance's dynamic runtime type. If a binding has static type `User` but currently refers to an `AdminUser`, `copy` creates a new `AdminUser` instance. `copy` operates on the object's storage graph; it does not require source-level access to each field.
+
+Copying an `unknown` value is allowed when the operand is an existing storage place. The copy is checked at runtime and fails if the actual value is not copyable.
+
+Copying a nullable value preserves `null` and copies present values according to their normal copy rules. If a `?User` value is `null`, `copy` produces `null`; if it contains a `User` reference, `copy` deep-copies that user graph.
+
+`copy` is legal but redundant for discrete copyable values such as integers and strings. It produces the same value a normal binding copy would produce, but can be useful in generic code.
+
+PHP-compatible arrays keep PHP compatibility semantics. Do not redefine PHP array copy behavior through Echo reference-value or `copy` rules.
+
+Reference identity and strict value equality are distinct. `is same` checks whether two reference values point at the same underlying storage. `==` checks strict structural value equality and must be cycle-aware for copied object or collection graphs.
+
+```echo
+let $a = { field: 4 }
+let $b = $a
+let $c = copy $a
+```
+
+Here, `$a is same $b` is true, `$a is same $c` is false, and `$a == $c` is true. Later compiler layers may remove or simplify `copy` when it is applied to a value that cannot carry observable reference identity, such as a discrete integer or string. Copies of reference-value graphs remain source-observable because they create new underlying storage.
 
 `$parent` is a superclass instance receiver, so it uses class instance access with `->`.
 
@@ -340,6 +437,8 @@ Function and method return types use `: Type` after the parameter list.
 
 Functions, methods, and factories use explicit `return` for returned values. Do not rely on the last expression in a normal function body. If a function or method omits a return annotation, the return type is inferred.
 
+A bare `return` carries no value and has `void` meaning. It is not `null`, does not satisfy a nullable return type, and must not be treated as an implicit `return null`.
+
 ```echo
 fn display_name($user: User): string {
     return $user->name()
@@ -355,6 +454,58 @@ Function type signatures may include parameter names. Names narrow the signature
 ```echo
 type Handler = fn(Request): Response
 type NamedHandler = fn($request: Request): Response
+```
+
+Callable compatibility uses contravariant parameter types and covariant return types. A callable may accept broader parameter types than required, and may return a narrower result type than required.
+
+```echo
+type AdminRenderer = fn($user: AdminUser): string
+
+fn render_user($user: User): string {
+    return $user.name()
+}
+
+let $renderer: AdminRenderer = render_user
+```
+
+`render_user` is assignable because every `AdminUser` is also a `User`.
+
+Default parameters participate in callable compatibility. A callable with defaults may satisfy a callable type that provides fewer arguments, but a callable with extra required parameters may not.
+
+```echo
+type Greeter = fn($name: string): string
+
+fn greet($name: string, $punctuation: string = "!"): string {
+    return "Hello {$name}{$punctuation}"
+}
+
+let $greeter: Greeter = greet
+```
+
+Variadic parameters follow the same rule: the assigned callable must handle every call the target callable type permits.
+
+```echo
+type Logger = fn($message: string): void
+
+fn log($message: string, ...$context: string): void {
+    write_log($message, $context)
+}
+
+let $logger: Logger = log
+```
+
+A fixed-arity callable is not assignable to a variadic callable type unless it can accept the variadic calls promised by that type.
+
+`mut` parameters are part of callable compatibility. A callable that requires a `mut` parameter is not assignable to a non-`mut` callable type because callers of the non-`mut` type may pass non-assignable expressions. A non-`mut` callable may satisfy a `mut` callable type because it can accept the assignable argument and choose not to mutate it.
+
+```echo
+type MutFormatter = fn(mut $value: string): string
+
+fn trimmed($value: string): string {
+    return $value.trim()
+}
+
+let $format: MutFormatter = trimmed
 ```
 
 `fn(Request): Response` matches `fn($request: Request): Response`, but `fn($request: Request): Response` does not match an arbitrary `fn(Request): Response`.
@@ -443,12 +594,12 @@ unsafe {
 
 `unsafe` is a strict Echo block for explicitly risky operations. It does not disable normal type checking for the whole block; it only permits operations that are otherwise unavailable, such as unchecked casts, FFI calls, or runtime layout assumptions. Strict Echo has no pointer types and no dereference syntax; if low-level operations are ever needed, add them explicitly inside the unsafe design instead of reserving pointer syntax now.
 
-Primitive types include booleans, text, bytes, bottom markers, sized numeric types, and arbitrary-precision integers.
+Primitive types include booleans, text, bytes, bottom markers, sized numeric types, arbitrary-precision integers, and action values.
 
 ```echo
 let $ok: bool = true
 let $name: string = "Ada"
-let $payload: bytes = b"hello"
+let $payload: bytes = b'hello'
 let $count: int = 42
 let $offset: int64 = 9_223_372_036_854_775_807
 let $limit: uint = 100
@@ -610,7 +761,163 @@ Do not add a separate `byte` primitive. A single byte is `uint8`; a sequence of 
 
 ```echo
 let $tag: uint8 = 0xff
-let $payload: bytes = x"ff00a1"
+let $payload: bytes = x'ff00a1'
+```
+
+`success<T>` and `failure<E>` are primitive wrapper types for action results. `success<T>` carries a successful value `T`; `failure<E>` carries a short-circuit value `E`.
+
+```echo
+let $loaded: success<User> = ok $user
+let $missing: failure<FindUserError> = fail FindUserError.NotFound
+```
+
+`action<T, E>` is the primitive effect-compatible supertype for computations that either produce `success<T>` or short-circuit with `failure<E>`. Concrete action families narrow from it.
+
+```echo
+option<T> <: action<T, void>
+outcome<T, E> <: action<T, E>
+future<T, E> <: action<T, E>
+```
+
+All action families expose the same effect-binding shape. `option<T>` contains `some<T>` or `none`; `outcome<T, E>` contains `success<T>` or `failure<E>`; `future<T, E>` eventually completes as `success<T>` or `failure<E>`. Inside `effect`, binding an action unwraps the success payload `T`, not the wrapper, and short-circuiting preserves the selected concrete action family.
+
+`option<T>` is the primitive concrete action type for computations that either produce a value `T` or short-circuit with explicit absence. Construct option values with `some <expression>` and `none`.
+
+`some<T>` is the primitive wrapper type for present option values. Conceptually, `option<T>` is the action container for `some<T>|none`, but it remains a primitive action type rather than an ordinary union because `effect` gives it sequencing semantics.
+
+`ok`, `fail`, `some`, and `none` are reserved keywords in strict Echo.
+
+```echo
+fn find_cached_user($id: UserId): option<User> {
+    if cache.has($id) {
+        return some cache.get($id)
+    }
+
+    return none
+}
+```
+
+`none` is not `null` and is not a stored `void` value. `null` is the null value for nullable types such as `?T`; `none` is the absence value for `option<T>`; bare `return` carries no value and has `void` meaning. `option<T>` narrows from `action<T, void>` because its short-circuit channel carries no payload. Do not implicitly convert between `null`, `none`, and bare `void` control flow.
+
+```echo
+let $missing_user: option<User> = none
+let $empty_name: ?string = null
+let $bad_option: option<User> = null
+let $bad_nullable: ?User = none
+let $maybe_nullable: option<?User> = some null
+```
+
+The `some null` value means the option is present and carries `null`; it is distinct from `none`.
+
+Action wrapper values are matchable outside `effect`.
+
+```echo
+let $label = match $maybe_user {
+    some as $user => $user.name,
+    none => "guest"
+}
+```
+
+Use `some <expression>` and `none` to construct option values. Use `some as pattern` and `none` in patterns. Wrapper names are type and pattern forms, not constructor calls; do not write `some($value)` as an expression.
+
+Omit `as` when a wrapper pattern only needs to test the case and ignore the payload.
+
+```echo
+let $label = match $maybe_user {
+    some => "present",
+    none => "missing"
+}
+```
+
+`outcome<T, E>` is the primitive concrete action type for computations that either produce `success<T>` or short-circuit with a typed `failure<E>`. Conceptually, it is the action container for `success<T>|failure<E>`, but it remains a primitive action type rather than an ordinary union because `effect` gives it sequencing semantics.
+
+```echo
+fn find_user($id: UserId): outcome<User, FindUserError>
+```
+
+Effect blocks understand `action` directly: binding an `action<T, E>` unwraps `success<T>` to `T` or short-circuits with `failure<E>`. An `effect` block resolves to a concrete action family, chosen by its postfix type annotation, surrounding expected type, or the first effectful binding when unambiguous.
+
+Construct outcome values with `ok <expression>` and `fail <expression>`.
+
+```echo
+fn find_user($id: UserId): outcome<User, FindUserError> {
+    if not users.exists($id) {
+        return fail FindUserError.NotFound
+    }
+
+    return ok users.get($id)
+}
+```
+
+`ok` and `fail` are expressions that construct `success<T>` and `failure<E>`. When used where an `outcome<T, E>` is expected, `ok $value` supplies the success side and needs context for the failure type; `fail $error` supplies the failure side and needs context for the success type.
+
+```echo
+let $ready: outcome<User, FindUserError> = ok $user
+let $missing: outcome<User, FindUserError> = fail FindUserError.NotFound
+let $ambiguous = ok $user
+```
+
+The ambiguous binding is invalid because the failure type cannot be inferred.
+
+Inside an `effect` block, `fail <expression>` may rely on the enclosing expected `outcome<T, E>` type. If no surrounding annotation or return contract supplies the missing success type, the expression is ambiguous.
+
+```echo
+fn load_user($id: UserId): outcome<User, LoadError> {
+    return effect {
+        fail LoadError.NotFound
+    }
+}
+```
+
+Outcome wrapper values are matchable outside `effect`.
+
+```echo
+let $label = match $result {
+    ok as $user => $user.name,
+    fail as $error => $error.message
+}
+```
+
+Use `ok <expression>` and `fail <expression>` to construct outcome wrapper values. Use `ok as pattern` and `fail as pattern` in patterns. Wrapper names are type and pattern forms, not constructor calls; do not write `success($value)` or `failure($error)` as expressions.
+
+Omit `as` when an outcome wrapper pattern only needs to test the case and ignore the payload.
+
+```echo
+let $label = match $result {
+    ok => "success",
+    fail => "failure"
+}
+```
+
+`future<T, E>` is the primitive concrete action type for monadic future-like work. It is not tied to the Echo event loop in the language model. An implementation may back future values with runtime tasks, but that is not part of the source-level contract. Future values come from future-targeted `effect` blocks and future-specific standard-library or runtime APIs, not from raw `run`, `ok`, or `fail` syntax.
+
+`future<T, E>` has no direct keyword constructor. Use future-producing APIs or a future-targeted `effect` block.
+
+Future values are opaque to pattern matching. Do not match a `future<T, E>` directly with `success` or `failure` patterns; observe or sequence it through future APIs or `effect`.
+
+Use `await` in imperative code to wait for a `future<T, E>` to finalize. `await future<T, E>` produces `T` on success and panics with `E` on failure. It does not return `outcome<T, E>` and it is unrelated to `join`, which only works on runtime `task<T>` handles.
+
+```echo
+let $user = await fetch_user($id)
+
+try {
+    let $profile = await fetch_profile($user)
+} recover {
+    LoadError => echo "could not load profile"
+}
+```
+
+`await` is valid inside imperative task bodies created by `defer` and `run`. If the awaited future fails and the task body does not recover the panic, the task fails according to normal task panic behavior.
+
+Top-level scripts are imperative execution contexts, so `await` is valid at top level. A failed future panics unless the script recovers it.
+
+Functions do not need an `async` marker to use `await`. `await` is an explicit blocking operation in ordinary imperative code, not syntax for declaring an async function.
+
+`await` is a unary prefix operator. Member access and calls bind tighter than `await`, so use parentheses when accessing the awaited result.
+
+```echo
+let $user = await fetch_user($id)
+let $name = (await fetch_user($id)).name
 ```
 
 `null` is a literal value, not a standalone type name. Nullable types use concise `?T` spelling. General unions use `A|B|C` spelling for real type alternatives. Do not write `T|null` in strict Echo.
@@ -639,7 +946,7 @@ fn log_user($user: User): void {
 }
 ```
 
-A `void` function may return early with `return`, but it may not return an expression.
+A `void` function may return early with bare `return`, but it may not return an expression. A function returning `?T` must use `return null` when it returns the null value; a bare `return` is still `void`, not `null`.
 
 Preserve author order in union type syntax. The compiler may canonicalize unions internally for type equality, but a formatter should not reorder source unions because order can communicate intent.
 
@@ -658,6 +965,25 @@ let $users: list<User> = {}
 let $counts: array<string, int> = []
 let $result: Result<SavedUser, ValidationError> = save_user($input)
 ```
+
+Generic type parameters are covariant when they are only produced by the generic type. Use explicit `in` for contravariant parameters that are only consumed. A parameter used in both produced and consumed positions is invariant.
+
+```echo
+type Loader<T> = {
+    load: fn(): outcome<T, LoadError>
+}
+
+type Sink<in T> = {
+    send: fn($value: T): void
+}
+
+type Cell<T> = {
+    get: fn(): T
+    set: fn($value: T): void
+}
+```
+
+`Loader<T>` is covariant in `T` because it only returns values. `Sink<in T>` is contravariant because it only accepts values. `Cell<T>` is invariant because it both returns and accepts `T`. Declaring `in T` and then returning `T` from the type is invalid.
 
 Multiline calls use commas between arguments, but no trailing comma.
 
@@ -764,12 +1090,92 @@ let $format = fn ($value: int, $base: int = 10): string => int.format($value, $b
 let $sum = fn (...$values: int): int => values.total($values)
 ```
 
-Closures capture variables lexically. Strict Echo does not use PHP-style closure `use` capture lists.
+Function and closure parameters are fresh local bindings by default: the argument value is copied into new parameter storage for the call. Add `mut` before a parameter when the parameter should alias the same storage as the assignable place passed by the caller.
+
+Echo distinguishes binding storage from the value stored in that binding. Non-`mut` binding creates fresh storage and copies the current value into it. If the copied value is discrete, such as an integer or string, the new binding is independent. If the copied value is a reference value, such as an object or Echo list value, the new binding stores a copy of that reference and points at the same underlying object or collection. `mut` does not copy the value; it aliases the original assignable storage.
+
+```echo
+let $count = 4
+let $count_copy = $count
+$count_copy = 5
+
+let $object = { field: 4 }
+let $object_copy = $object
+$object_copy.field = 5
+
+let $items = {1, 2}
+let $items_copy = $items
+$items_copy.append(3)
+```
+
+After these assignments, `$count` is still `4`, while `$object.field` is `5` because both object bindings hold reference values for the same underlying object. `$items` and `$items_copy` refer to the same Echo list, so the append is visible through both bindings.
+
+```echo
+let $normalize = fn (mut $name: string): string {
+    $name = $name.trim()
+
+    return $name.lower()
+}
+```
+
+`mut` is an explicit mutable argument contract. Passing an assignable variable to a `mut` parameter makes the parameter point at the same storage, so reassignment in the callable updates that caller-visible binding. Non-assignable expressions cannot be passed to `mut` parameters.
+
+Call sites do not repeat `mut`. The compiler checks assignability from the callee signature.
+
+```echo
+let $name = " Ada "
+trim_in_place($name)
+```
+
+Any assignable place may be passed to a `mut` parameter, including local variables, fields, and indexed elements. Non-assignable expressions are invalid.
+
+```echo
+trim_in_place($user.name)
+trim_in_place($names[$index])
+trim_in_place(" Ada ")
+trim_in_place($first . $last)
+```
+
+The first two calls are valid assignment targets. The string literal and concatenation expression are invalid for `mut`.
+
+Closures capture outer bindings by value at call time. Strict Echo does not use PHP-style closure `use` capture lists.
 
 ```echo
 let $offset = 10
 let $add_offset = fn ($value: int): int => $value + $offset
 ```
+
+When a closure is called, it initializes fresh closure-local captured storage from the current values of the outer bindings it references. A closure body may pass a captured binding to a `mut` parameter, but that mutation applies to the closure's captured storage for that invocation, not to the original outer binding.
+
+```echo
+let $name = " Ada "
+
+let $normalize = fn (): void {
+    trim_in_place($name)
+}
+
+$normalize()
+echo $name
+```
+
+The call may trim the `$name` captured inside `$normalize`, but it does not reassign the outer `$name`.
+
+Caller-visible mutation requires `mut` through the whole call chain. If any function or closure boundary captures a value without a `mut` parameter contract, mutation stops at that boundary and cannot reassign the original caller binding.
+
+```echo
+fn trim_in_place(mut $value: string): void {
+    $value = $value.trim()
+}
+
+let $normalize = fn (mut $name: string): void {
+    trim_in_place($name)
+}
+
+let $name = " Ada "
+$normalize($name)
+```
+
+The outer `$name` is trimmed because both callable boundaries use `mut`.
 
 Functions, methods, factories, receiver methods, closures, and callbacks are different source forms for callables. After resolution, each can be modeled as a callable body with parameter slots, bound receiver or captured values when present, and a return contract.
 
@@ -1103,16 +1509,149 @@ facet OrderStatus as $status {
 }
 ```
 
-Use `match` as an expression. Match arms use `=>`, are comma-separated, and strict Echo checks enum matches for exhaustiveness.
+Use `match` as an expression. Match arms use `=>`, are comma-separated, and strict Echo checks matches for exhaustiveness whenever the input type has statically known cases, including enums, `option`, `outcome`, wrapper values, and finite unions.
 
 ```echo
 let $message = match $result {
-    Result.Ok($user) => "Saved {$user.name}",
-    Result.Err($error) => $error.message
+    Result.Ok as $user => "Saved {$user.name}",
+    Result.Err as $error => $error.message
 }
 ```
 
-Match arms use commas between arms and no trailing comma.
+Enum case construction and enum case matching use different syntax because they do different things. Construction passes existing values into the enum case constructor, while matching creates new bindings from the matched payload.
+
+```echo
+let $result = Result.Ok($user)
+
+let $message = match $result {
+    Result.Ok as $saved_user => "Saved {$saved_user.name}",
+    Result.Err as $error => $error.message
+}
+```
+
+An enum case pattern may omit `as` when the arm only needs to test the case and ignore its payload.
+
+```echo
+let $label = match $result {
+    Result.Ok => "saved",
+    Result.Err => "failed"
+}
+```
+
+When an enum case pattern uses `as`, the payload pattern may be any shared destructuring pattern.
+
+```echo
+let $label = match $result {
+    Result.Ok as { name: $name } => $name,
+    Result.Err as $error => $error.message
+}
+```
+
+Match arms use commas between arms and no trailing comma. Match arm source order is not semantic; the compiler normalizes arms before checking and lowering. Use `_` as a catch-all arm when the match intentionally ignores remaining cases. `_` may appear anywhere in source, and specific arms after `_` are still meaningful before normalization. If `_` is absent, the compiler should report the missing cases it can prove. Duplicate or conflicting arms are diagnostics after normalization.
+
+The formatter should not alphabetically sort match arms. It may move `_` to the end. The compiler always treats `_` as the final catch-all arm during normalization regardless of source order.
+
+Match arms may include guards with `if` after the pattern. A guarded arm does not make that pattern exhaustive because the guard may be false.
+
+```echo
+let $label = match $user {
+    User { name: $name } if $name != "" => $name,
+    _ => "guest"
+}
+```
+
+Match patterns use the same destructuring pattern language as `let` and assignment destructuring. Tuple, object, wrapper, and enum-case patterns may nest the same way destructuring patterns nest elsewhere. Pattern bindings are scoped to the arm guard and expression.
+
+```echo
+let $label = match $result {
+    ok as { name: $name, email: $email } => "{$name} <{$email}>",
+    fail as $error => $error.message
+}
+```
+
+Type patterns narrow and bind values with `Type as $name`. Type patterns may also destructure using the same shared destructuring rules.
+
+```echo
+let $label = match $value {
+    User as $user => $user.name,
+    Team { name: $name } => $name,
+    _ => "unknown"
+}
+```
+
+Use a bare type pattern when the arm only needs to test the type and does not need a bound value.
+
+```echo
+let $kind = match $value {
+    User => "user",
+    Team => "team",
+    _ => "unknown"
+}
+```
+
+Match exhaustiveness is checked against the static input type. A union is exhausted when all of its remaining alternatives are matched. `unknown` is a type and can be matched as a type pattern. `_` matches whatever remains unmatched for the static input type.
+
+Literal patterns are allowed and follow the same strict comparison and type rules as normal Echo values.
+
+```echo
+let $label = match $status_code {
+    200 => "ok",
+    404 => "missing",
+    _ => "other"
+}
+```
+
+Range patterns use inclusive `start..end` syntax. Endpoints must be compile-time constants, and range patterns are limited to ordered integer-like types for now.
+
+```echo
+let $category = match $status_code {
+    200..299 => "ok",
+    400..499 => "client error",
+    _ => "other"
+}
+```
+
+Unguarded overlapping literal and range patterns are compile-time diagnostics after normalization. Guarded arms may overlap because their guards are evaluated in source order among non-`_` arms.
+
+Use `or` for pattern alternatives. Do not use `|` for OR-patterns.
+
+```echo
+let $kind = match $method {
+    "GET" or "HEAD" => "read",
+    "POST" or "PUT" or "PATCH" => "write",
+    _ => "other"
+}
+```
+
+Each alternative in an OR-pattern must bind the same variable names with compatible types. OR-patterns participate in exhaustiveness and overlap checks after normalization.
+
+There are no `and` patterns. Use a guarded arm when a pattern also needs a boolean condition.
+
+```echo
+let $label = match $value {
+    User as $user if $user.active => $user.name,
+    _ => "inactive"
+}
+```
+
+There are no `not` patterns. Use positive patterns plus `_` for the remaining cases.
+
+```echo
+let $presence = match $value {
+    null => "missing",
+    _ => "present"
+}
+```
+
+A bare variable pattern matches any remaining value and binds it for the arm guard and expression. It is a catch-all binding pattern, so the compiler normalizes it with other catch-all arms after specific patterns unless it has a guard.
+
+```echo
+let $debug = match $value {
+    $anything => inspect($anything)
+}
+```
+
+Multiple unguarded catch-all arms are invalid. Do not combine an unguarded bare variable pattern with an unguarded `_` arm.
 
 Use `_` for wildcard match arms.
 
@@ -1124,7 +1663,7 @@ let $label = match $status {
 }
 ```
 
-## Control Flow And Operators
+## Control Flow and Operators
 
 Strict Echo control-flow conditions do not use PHP-style parentheses.
 
@@ -1213,13 +1752,89 @@ If a type cannot be verified from available runtime metadata, semantics should r
 
 ```echo
 if $value is not UserPayload {
-    return
+    return null
 }
 
 save_user($value)
 ```
 
 For unions, the negative check removes the tested alternative when that is statically knowable.
+
+Strict Echo has no labeled `break` or labeled `continue`. Loop control remains local to the innermost loop.
+
+Explicit jumps use `jump`, not `goto`, and are only valid inside a `flow` block. Labels are scoped to the containing `flow` block, and `jump label` may only target a label in the same block. Labels may appear anywhere inside the `flow` block, including nested ordinary blocks.
+
+```echo
+let $result = flow {
+    start:
+    if is_ready() {
+        break "ready"
+    }
+
+    prepare()
+    jump start
+}: string
+```
+
+The `flow` block is an expression. It produces values through `break value`, using the same value-exit mechanism as `loop`. A bare `break` exits with `void`, not `null`. `break` always exits the nearest breakable expression, such as the innermost `loop` or `flow`. `continue` is only valid for loops, not for `flow`. `jump label` only transfers control inside the same `flow` block and does not carry a value. Fallthrough to the end of a `flow` block returns `void`.
+
+```echo
+let $status = flow {
+    retry:
+    if fetch_ready() {
+        break "ready"
+    }
+
+    if should_stop() {
+        break "stopped"
+    }
+
+    wait()
+    jump retry
+}: string
+```
+
+The optional `: Type` annotation after the block declares the `flow` result type. Without an annotation, the result type is inferred from all `break value` exits plus possible `void` fallthrough.
+
+The `flow` block is a visible boundary for unstructured local control flow. Do not jump into or out of a `flow` block. A `flow` block creates an isolated lexical scope; bindings declared inside it are not visible after the block. Existing outer bindings remain visible inside the block and may be mutated according to their normal mutability rules.
+
+A `jump` may cross ordinary block structure, including jumping into or out of `if` bodies, nested lexical blocks, and loop bodies inside the same `flow`. This is intentionally unstructured; `flow` exists for code that needs complete local control over execution order. Lexical visibility is still textual: jumping into a block does not make that block's local names visible outside their declared lexical scope.
+
+A `jump` must not bypass required local initialization or otherwise violate memory and value safety. Each label has an incoming variable state, and every `jump label` must satisfy the same definitely-initialized local requirements as normal fallthrough to that label. Violations are compile-time errors. The compiler also rejects jumps that would observe moved or invalidated values or cross protected execution boundaries such as nested functions, closures, generators, `recover`, or `ensure`.
+
+Within `flow`, `jump` behaves like explicit local instruction-pointer movement. Statements only take effect when execution reaches them. Jumping over a `defer` is legal; the skipped `defer` is not registered. Already registered defers are not cancelled by later jumps. Jumping out of a lexical scope runs any active defers owned by that scope in normal defer order.
+
+A `jump` may enter or leave a `try` body when the jump is otherwise safe. It may not jump into `recover` or `ensure` bodies, because those regions are entered by panic handling and finalization control flow rather than by ordinary execution. `ensure` runs only when the `try` body's own flow completes through the `try` construct; jumping out of a `try` body skips that `ensure`.
+
+```echo
+flow {
+    try {
+        jump done
+    } ensure {
+        cleanup()
+    }
+
+    done:
+    break "ok"
+}: string
+```
+
+The example returns `"ok"` without running `cleanup()`.
+
+Panic control flow is unchanged inside `flow`. A `panic` reached inside a `try` body enters that `try` construct's `recover` and `ensure` handling normally.
+
+```echo
+flow {
+    jump show
+
+    let $name = "Ada"
+
+    show:
+    echo $name
+}
+```
+
+The example is invalid because the jump reaches `show` without initializing `$name`.
 
 ```echo
 let $value: User|Admin|Guest = load()
@@ -1374,17 +1989,32 @@ let $same_name = encoding.utf8.decode($bytes)
 
 Literal prefixes should be reserved for byte-oriented literals, not alternate Unicode string widths. Strict Echo should not add `u""` or `uu""` string spellings unless a future design gives them behavior that is not better expressed through standard library encoding APIs.
 
-Byte literals produce `bytes`, not `string`. Use `b'...'` for raw UTF-8 byte text and `x'...'` for exact hexadecimal bytes. Byte literal prefixes only apply to single-quoted literals, so byte literals never interpolate.
+Byte literals produce `bytes`, not `string`. Use `b'...'` for raw byte text encoded from the literal source text as UTF-8, and use `x'...'` for exact hexadecimal bytes. Byte literal prefixes only apply to single-quoted literals, so byte literals never interpolate.
 
 ```echo
 let $line = b'GET /health HTTP/1.1\r\n'
+let $nul = b'\x00'
 let $template = b'GET {$path} HTTP/1.1\r\n'
 let $fire_text = "🔥"
 let $fire_bytes = b'🔥'
 let $same_fire_bytes = x'f09f94a5'
 ```
 
-Hex byte literals must contain only valid static hex pairs. If already-built text must become bytes, encode or decode the text explicitly through the standard library.
+The only escapes allowed inside `b'...'` are byte-oriented escapes: `\\`, `\'`, `\n`, `\r`, `\t`, `\0`, and `\xNN`. Unicode escapes such as `\u{1F525}` are not valid in byte text; write the Unicode text directly when UTF-8 bytes are intended, or use `x'...'` when exact byte values matter.
+
+Hex byte literals contain case-insensitive hex byte pairs. ASCII whitespace may separate pairs for readability, but `_`, `,`, `0x`, comments, and non-ASCII whitespace are invalid inside `x'...'`. After removing ASCII whitespace, the literal must contain an even number of hex digits.
+
+```echo
+let $packet = x'ff 00 a1'
+let $multiline = x'
+    48 54 54 50
+    2f 31 2e 31
+'
+```
+
+Each pair becomes one byte. If already-built text must become bytes, encode or decode the text explicitly through the standard library.
+
+The `b'🔥'` literal is valid and produces the same bytes as `x'f09f94a5'`.
 
 `string` and `bytes` do not implicitly convert to each other. Encode or decode explicitly.
 
@@ -1395,9 +2025,9 @@ let $encoded = encoding.utf8.encode($text)
 let $decoded = encoding.utf8.decode($encoded)
 ```
 
-## Effects And Concurrency
+## Effects and Concurrency
 
-`effect {}` is an expression for direct-style optional, result, task, future, and error-producing code. First bindings inside effects still use `let`; the effect-specific behavior is that supported effect shapes unwrap on success or short-circuit on failure.
+`effect {}` is an expression for direct-style `action<T, E>` code. First bindings inside effects still use `let`; the effect-specific behavior is that action values unwrap on success or short-circuit on failure. An effect's result type may be written after the closing brace.
 
 ```echo
 let $account = effect {
@@ -1405,14 +2035,67 @@ let $account = effect {
     let $profile = load_profile($user)
 
     load_account($profile)
-}
+}: outcome<Account, LoadError>
 ```
 
-The final expression is the implicit effect result. Use explicit `return` when it makes a longer effect block clearer.
+Effect result inference may start from the final wrapper expression and then narrow from context. A final `ok $value` defaults the block to an `outcome<T, unknown>` shape until an expected type or postfix annotation supplies a more precise failure type. A final `fail $error` defaults to `outcome<unknown, E>` until context supplies the success type. A final `some $value` defaults to `option<T>`, and a final `none` defaults to `option<unknown>` until context supplies `T`.
 
-Normal strict binding rules still apply inside effects: use `let` for first binding and assignment for rebinding.
+```echo
+let $ready = effect {
+    ok $user
+}: outcome<User, LoadError>
 
-Strict Echo concurrency uses `defer`, `run`, `fork`, `spawn`, and `join`. `run` and `defer` are for concurrent Echo tasks, `fork` is for OS-thread-backed work, and `spawn` is for child processes.
+let $maybe = effect {
+    some $user
+}: option<User>
+```
+
+When an effect block sequences action values with different failure payload types in the same concrete family, the inferred failure type is their union. Handle or narrow the union with `match` after the effect when a caller needs to distinguish cases.
+
+```echo
+let $account = effect {
+    let $user = load_user($id)
+    let $profile = load_profile($id)
+
+    Account.create($user, $profile)
+}: outcome<Account, UserError|ProfileError>
+```
+
+An effect block uses one concrete action family. Do not implicitly mix `option`, `outcome`, and `future` in the same effect. Convert explicitly at the boundary when a sequence needs to move from one family to another.
+
+```echo
+let $user = effect {
+    let $id = maybe_user_id($request).ok_or(missing_user_id_error())
+    let $user = load_user($id)
+
+    $user
+}: outcome<User, LoadError>
+```
+
+Ordinary `effect` can target `future<T, E>` when the selected concrete action family is `future`. The postfix annotation or surrounding expected type tells the compiler and runtime to sequence future-producing expressions.
+
+```echo
+let $user_task = effect {
+    let $id = fetch_user_id($request)
+    let $user = fetch_user($id)
+
+    $user
+}: future<User, NetworkError|LoadError>
+```
+
+Inside a future-targeted effect, pure bindings are immediate local computations and future-valued bindings sequence future completion. A successful future binds its success payload; a failed future short-circuits the resulting future. A pure final expression is lifted into a completed successful future.
+
+The final expression is the implicit effect result. `return` is invalid inside an effect block.
+
+Effects are special expression regions for Echo's monadic and functional model, not imperative control-flow regions. Effect bodies contain zero or more `let` bindings followed by one final result expression. Each non-final line must be a `let` binding; if the right-hand side is effectful, the binding automatically unwraps the successful value or short-circuits failure, and if it is pure, the binding behaves like a normal local helper. The final result expression may be pure or effectful.
+
+Effects do not allow reassignment, `const`, labels, `flow`, `loop`, `if`, `match`, `return`, `break`, `continue`, `yield`, `panic`, `await`, or `jump`. Branching belongs in effect-producing functions or combinators, not as imperative statements inside the effect block.
+
+Strict Echo concurrency uses `defer`, `run`, `fork`, `spawn`, and `join`. `defer` creates an unscheduled `task<T>` runtime handle, `run` schedules a task handle on the Echo event loop, `fork` is for OS-thread-backed work, and `spawn` is for child processes.
+
+The runtime `task<T>` handle is distinct from the monadic `future<T, E>` action type. A task handle represents scheduled or unscheduled executable work for `run` and `join`; `future<T, E>` is an action-family type used by `effect`.
+
+Task bodies are imperative callable-like blocks, not effect blocks. Use `return` inside a task body to complete it. A task body returns whatever its body returns; it does not automatically wrap the result in monadic `future<T, E>`. Use `effect` inside a task body when it wants monadic action sequencing.
 
 ```echo
 let $task = defer {
@@ -1424,12 +2107,18 @@ let $user = join $task
 ```
 
 ```echo
-let $task = run {
+let $task = run defer {
     return fetch_user($id)
 }
 
 let $user = join $task
 ```
+
+`run { ... }` is shorthand for `run defer { ... }`.
+
+`run $task` returns the same task handle after scheduling, so scheduled handles can be assigned and joined.
+
+`join` works on runtime `task<T>` handles. It has no relationship to monadic `future<T, E>` action values.
 
 `run` can also start a group of lightweight tasks. A comma-separated `run` block starts each entry concurrently, preserves result order by source order, and does not use a trailing comma.
 
@@ -1458,7 +2147,7 @@ let $php = spawn {"php", "--version"}
 let $status = join $php
 ```
 
-## Errors And Recovery
+## Errors and Recovery
 
 Errors are nominal failure types. `error` is a special case of `type` for values that participate in panic/recovery and result error channels.
 
@@ -1659,7 +2348,7 @@ require $target
 
 The declaration makes dynamic include targets part of the closed compilation graph before execution.
 
-## Variables And Inference
+## Variables and Inference
 
 Echo variables keep PHP's `$` sigil permanently. Use `let` with inference for Echo examples, and omit semicolons unless the documented mode specifically requires PHP syntax.
 

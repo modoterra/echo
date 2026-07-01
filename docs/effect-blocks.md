@@ -1,431 +1,143 @@
 # Effect Blocks
 
-This document captures the design direction for first-class `effect {}` blocks
-in Echo.
+`effect {}` is Echo's monadic expression block for action values. It sequences
+`option<T>`, `outcome<T, E>`, and `future<T, E>` without turning ordinary Echo
+code into callback chains or adding a runtime monad framework.
 
-## Goal
-
-`effect {}` should make optional, result, task, future, and error-producing
-code read like direct imperative code while preserving strong static typing.
-
-The feature is inspired by monadic bind, Rust's `?`, and Effect-TS-style typed
-errors, but the user-facing value is not functional-programming purity. The
-value is flatter control flow, less manual unwrap boilerplate, and precise type
-information through the compiler.
-
-## Core Syntax
-
-An effect block is an expression:
+The core action relationship is:
 
 ```echo
-$result = effect {
-    $user = findUser($id)
-    $profile = loadProfile($user)
-    loadAccount($profile)
-}
+option<T> <: action<T, void>
+outcome<T, E> <: action<T, E>
+future<T, E> <: action<T, E>
 ```
 
-This is the user-facing shape: sequential code can depend on successful prior steps without hand-written unwrap checks between every call.
-
-The block evaluates to a value. The resulting type is inferred from the final
-expression or from an explicit `return`.
-
-The last expression is returned implicitly:
+An effect block contains zero or more `let` bindings followed by one final
+expression. If a `let` binding receives an action value, the binding unwraps the
+success payload or short-circuits the selected action family. If a binding
+receives a pure value, it behaves like a normal local helper.
 
 ```echo
-$account = effect {
-    $user = findUser($id)
-    loadAccount($user)
-}
+let $label = effect {
+    let $user = load_user($id)
+    let $prefix = "User"
+
+    ok "{$prefix}: {$user.name}"
+}: outcome<string, LoadError>
 ```
 
-This example shows the compact form for simple pipelines where the last operation is the value the caller wants.
+The final expression may be pure or action-valued. The postfix type after the
+closing brace selects or narrows the concrete action family. Without an
+annotation, wrapper expressions can seed inference: `ok $value` defaults toward
+`outcome<T, unknown>`, `fail $error` toward `outcome<unknown, E>`, `some $value`
+toward `option<T>`, and `none` toward `option<unknown>` until context narrows
+the missing type.
 
-is equivalent to:
+## Action Families
+
+`option<T>` represents a present value or absence:
 
 ```echo
-$account = effect {
-    $user = findUser($id)
-    return loadAccount($user)
-}
+let $found: option<User> = some $user
+let $missing: option<User> = none
 ```
 
-The explicit `return` form is useful when a block has extra statements and the final value should be made visually obvious.
+`none` is not `null` and is not bare `void` control flow. `option<T>` narrows
+from `action<T, void>` because its short-circuit channel carries no payload.
 
-## Flattening Semantics
-
-Inside an effect block, assignments bind successful inner values and
-short-circuit on failure:
+`outcome<T, E>` represents success or typed failure:
 
 ```echo
-$account = effect {
-    $user = findUser($id)
-    $profile = loadProfile($user)
-    $account = loadAccount($profile)
-
-    return $account
-}
+let $loaded: outcome<User, LoadError> = ok $user
+let $failed: outcome<User, LoadError> = fail $error
 ```
 
-This example shows the compiler-owned short-circuit boundary: each assignment either binds the successful inner value or exits the effect.
+`ok` constructs `success<T>`, and `fail` constructs `failure<E>`. In an
+`outcome<T, E>` context, the missing side is inferred from the expected type.
 
-For optional values, this behaves like:
+`future<T, E>` is a monadic future-like action value. It is not an event-loop
+handle, has no direct constructor syntax, and is opaque to pattern matching.
+Future values come from future-producing APIs or from future-targeted effects.
 
 ```echo
-$user = findUser($id)
+let $profile = effect {
+    let $user = fetch_user($id)
 
-if ($user === none) {
-    return none
-}
-
-$profile = loadProfile($user)
-
-if ($profile === none) {
-    return none
-}
-
-$account = loadAccount($profile)
-
-if ($account === none) {
-    return none
-}
-
-return $account
+    $user.profile
+}: future<Profile, NetworkError|LoadError>
 ```
 
-The expanded form explains why effect blocks matter: they remove repeated short-circuit boilerplate while preserving the same control-flow meaning.
-
-The surface syntax stays imperative. The compiler owns the unwrapping and
-short-circuiting semantics.
-
-## Supported Effect Shapes
-
-Initial support should target these generic shapes:
+`effect` uses one concrete action family per block. Do not implicitly mix
+`option`, `outcome`, and `future`; convert explicitly when moving between
+families.
 
 ```echo
-optional<T>
-result<T, E>
-task<T>
-future<T>
+let $user = effect {
+    let $id = maybe_user_id($request).ok_or(missing_user_id_error())
+    let $user = load_user($id)
+
+    $user
+}: outcome<User, LoadError>
 ```
 
-These are the initial generic shapes the compiler must recognize before it can safely unwrap values inside an effect block.
-
-### Optional
-
-`optional<T>` unwraps to `T` inside the block and short-circuits with `none`.
+Within one concrete action family, failure payloads union naturally:
 
 ```echo
-$user = effect {
-    $id = parseUserId($input)
-    findUser($id)
-}
+let $account = effect {
+    let $user = load_user($id)
+    let $profile = load_profile($id)
+
+    Account.create($user, $profile)
+}: outcome<Account, UserError|ProfileError>
 ```
 
-This pattern applies to parse-and-lookup flows where any missing intermediate value should make the whole result absent.
+## Imperative Boundaries
 
-If `parseUserId()` returns `none`, the whole effect returns `none`.
+Effects are not imperative control-flow blocks. They do not allow reassignment,
+`const`, labels, `flow`, `loop`, `if`, `match`, `return`, `break`, `continue`,
+`yield`, `panic`, `await`, or `jump`. Branching belongs in effect-producing
+functions or combinators.
 
-### Result
-
-`result<T, E>` unwraps to `T` inside the block and short-circuits on error.
-Error types are accumulated by the compiler.
+Use `await` in imperative code to wait for a `future<T, E>`:
 
 ```echo
-function findUser(int $id): result<User, UserNotFound>
-function loadProfile(User $user): result<Profile, ProfileMissing>
-function loadAccount(Profile $profile): result<Account, AccountMissing>
-
-$account = effect {
-    $user = findUser($id)
-    $profile = loadProfile($user)
-    loadAccount($profile)
-}
+let $user = await fetch_user($id)
 ```
 
-This example is a realistic result pipeline: each domain step can fail with its own typed error, but the success path stays direct.
+`await` returns `T` on success and panics with `E` on failure. It does not
+return `outcome<T, E>` and it is unrelated to `join`.
 
-The inferred type is:
-
-```echo
-result<Account, UserNotFound | ProfileMissing | AccountMissing>
-```
-
-The inferred type is the important compiler product: callers can see every error the block may produce without manually constructing the union.
-
-### Task And Future
-
-Tasks and futures should integrate with `effect {}` without forcing nested
-success/error handling around every asynchronous boundary.
-
-Explicit `join` is the conservative initial syntax:
+Runtime `task<T>` handles are separate from monadic `future<T, E>` action
+values. `defer` creates an unscheduled task handle, `run` schedules a task
+handle, and `join` waits for runtime task handles only.
 
 ```echo
-$task = defer {
-    return loadUser(123)
+let $task = defer {
+    return fetch_user($id)
 }
 
-$user = effect {
-    join $task
-}
+run $task
+let $user = join $task
 ```
 
-This shows the conservative async boundary: `join` remains explicit, so the reader can see where task completion is observed.
-
-For a task whose joined result is `result<User, LoadUserError>`, the effect
-returns:
-
-```echo
-result<User, LoadUserError>
-```
-
-The returned type preserves the task's inner result shape instead of forcing callers to unwrap task and result layers separately.
-
-More complex task chaining stays flat:
-
-```echo
-$userTask = defer {
-    return findUser(123)
-}
-
-$account = effect {
-    $user = join $userTask
-    $profile = loadProfile($user)
-    loadAccount($profile)
-}
-```
-
-This pattern keeps asynchronous loading and typed result propagation in one readable sequence.
-
-Open design point: allowing implicit task binding:
-
-```echo
-$user = $userTask
-```
-
-This snippet is intentionally questionable: it shows the convenience that must be weighed against hiding task boundaries.
-
-inside `effect {}` is attractive, but it makes task boundaries less visible.
-The first implementation should prefer explicit `join` unless the type system
-and diagnostics make implicit joins obvious and predictable.
-
-## Type Inference
-
-The compiler must track generic effect shapes through the whole block:
-
-```echo
-optional<T>
-result<T, E>
-task<T>
-future<T>
-```
-
-These generic forms are the type-system contract for effect lowering; the compiler needs to identify both the outer shape and the success type.
-
-Within the block, a binding sees the unwrapped success type:
-
-```echo
-$account = effect {
-    $user = findUser($id)          // result<User, UserError> binds User
-    $profile = loadProfile($user) // result<Profile, ProfileError> binds Profile
-    loadAccount($profile)         // result<Account, AccountError>
-}
-```
-
-The comments show what each local variable should type as after compiler unwrapping, which is the key IDE and diagnostics behavior.
-
-The block result preserves the outer effect shape and accumulates failures:
-
-```echo
-result<Account, UserError | ProfileError | AccountError>
-```
-
-The resulting type is what downstream code should see in hover, signature help, and type checking.
-
-Mixed effect shapes need a clear unification rule before implementation. For
-example, combining `optional<T>` and `result<U, E>` could either be rejected or
-lift `none` into a typed result error. The first version should reject ambiguous
-mixing unless an explicit conversion exists.
-
-## Typed Error Accumulation
-
-Typed error accumulation is a core requirement, not a later presentation layer.
-
-Given:
-
-```echo
-function findUser(int $id): result<User, UserNotFound>
-function loadProfile(User $user): result<Profile, ProfileMissing>
-function loadAccount(Profile $profile): result<Account, AccountMissing>
-```
-
-These signatures define independent failure sources that the compiler should track through the block.
-
-This:
-
-```echo
-$account = effect {
-    $user = findUser($id)
-    $profile = loadProfile($user)
-    loadAccount($profile)
-}
-```
-
-This source block is deliberately ordinary imperative code; the error-union work happens in type analysis, not in user syntax.
-
-infers:
-
-```echo
-result<
-    Account,
-    UserNotFound
-    | ProfileMissing
-    | AccountMissing
->
-```
-
-This inferred union is the documentation target for diagnostics and reflection: no runtime list of errors should be needed.
-
-No manual union construction should be required. Error unions are compiler type
-facts, not runtime list values.
-
-## Error Handling Integration
-
-Effect results should work naturally with the broader error-handling model:
-
-```echo
-try {
-    $account = effect {
-        $user = findUser($id)
-        $profile = loadProfile($user)
-        loadAccount($profile)
-    }
-
-    render($account)
-}
-catch ($error) {
-    renderError($error)
-}
-```
-
-This example shows how effect results should compose with application error boundaries, even though the exact `try`/`catch` relationship still needs a decision.
-
-The exact relationship between `result<T, E>` and `try`/`catch` still needs an
-ADR-level decision:
-
-- `try` may unwrap `result<T, E>` and catch `E`.
-- `try` may remain exception-only while results are handled explicitly.
-- Echo may provide a conversion boundary between typed results and thrown
-  errors.
-
-The effect-block design should not assume exception-heavy control flow.
+`run { ... }` is shorthand for `run defer { ... }`. Task bodies are imperative
+callable-like blocks and use `return`; they do not automatically produce
+`future<T, E>`.
 
 ## Compiler Model
 
-The compiler should lower effect blocks into explicit bind-like control flow.
-The source-level model is:
+Effect lowering belongs in the shared compiler pipeline. The semantic analysis
+for action unwrapping, short-circuiting, failure unioning, and final result
+typing should be shared by file compilation, REPL behavior, future LSP features,
+HIR, MIR, and codegen.
 
-```echo
-effect {
-    $a = step1()
-    $b = step2($a)
-    step3($b)
-}
-```
+The lowering model is efficient imperative control flow:
 
-This source-level block is the syntax the compiler should lower; it is not a request for runtime callback chains.
+1. Evaluate the next expression.
+2. If it is pure, bind the value directly.
+3. If it is action-valued, test for success or short-circuit.
+4. Bind the success payload into the local variable.
+5. Continue to the next binding or final expression.
 
-Conceptually, this is:
-
-```echo
-step1()
-    .bind(fn($a) =>
-        step2($a)
-            .bind(fn($b) =>
-                step3($b)
-            )
-    )
-```
-
-The bind-style view is only a mental model for lowering and type rules; generated code should still be efficient imperative control flow.
-
-Actual generated IR does not need runtime monad objects or a runtime monad
-framework. Prefer compile-time lowering to efficient imperative control flow:
-
-1. Evaluate the next step.
-2. Test the effect shape for short-circuit state.
-3. Return the short-circuit value if present.
-4. Bind the unwrapped value into the local variable.
-5. Continue.
-
-This lowering belongs in the shared compiler pipeline, not in the REPL or CLI.
-REPL examples should exercise the same parser, type analysis, IR, and runtime
-semantics as files.
-
-## Interaction With Existing Echo Features
-
-### Imperative Syntax
-
-Effect blocks should preserve Echo's imperative programming model. They are not
-a request to make ordinary code point-free or callback-heavy.
-
-### Generics
-
-Effect blocks depend on first-class generic type understanding. The compiler
-must be able to inspect `optional<T>`, `result<T, E>`, `task<T>`, and
-`future<T>`, bind `T`, and preserve or combine the outer shape.
-
-### Reflection
-
-Reflection should eventually expose effect-block-inferred function return
-types. For example, a function returning an effect block should reflect the
-inferred `result<T, E1 | E2>` or explicit declared return type.
-
-### Concurrency
-
-`defer` and `join` are the initial concurrency bridge:
-
-```echo
-$account = effect {
-    $user = join $userTask
-    $profile = loadProfile($user)
-    loadAccount($profile)
-}
-```
-
-This concurrency example demonstrates the intended bridge: task completion is explicit, while result propagation remains flat inside the effect.
-
-This should flatten task completion and typed error propagation without hiding
-where concurrency boundaries occur.
-
-## Acceptance Criteria
-
-- `effect {}` parses as an expression.
-- The block result type is inferred from the final expression or explicit
-  `return`.
-- `optional<T>` is supported and short-circuits on `none`.
-- `result<T, E>` is supported and short-circuits on error.
-- `task<T>` and `future<T>` integrate with `join`.
-- Successful bindings see unwrapped `T` values.
-- Error types accumulate automatically into precise unions.
-- Generic type information is preserved.
-- Nested unwrapping and pyramid-of-doom conditionals are unnecessary.
-- Lowering produces efficient imperative control flow.
-- No runtime monad framework is required.
-- The behavior works through regular files and the REPL because it is owned by
-  shared parser, type, lowering, and runtime layers.
-
-## Open Questions
-
-- Should task/future values bind implicitly inside `effect {}`, or should
-  `join` remain required?
-- What is the first-class spelling for optional absence: `none`, `null`, or a
-  distinct optional constructor?
-- Can optional and result effects mix in one block, and if so what converts
-  `none` into a typed error?
-- Does `try` unwrap typed results, or does it remain separate from result-based
-  error handling?
-- Where in the compiler pipeline should effect lowering happen relative to type
-  inference and IR generation?
-- Should effect blocks support custom effect-like types through traits,
-  interfaces, or compiler-known generic shapes only?
+No runtime monad framework is required. The bind-style vocabulary is a mental
+model for type checking and lowering, not a request to emit callback chains.

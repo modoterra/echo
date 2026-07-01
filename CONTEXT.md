@@ -24,6 +24,10 @@ The regular language pipeline is:
 
 Behavior belongs in the earliest shared layer that owns it. User-facing tools
 may expose or format behavior, but should not define language semantics locally.
+Source constructs that are the same semantic operation should lower through the
+same shared compiler path. For example, destructuring in `let`, assignment, and
+`match` patterns should share semantic analysis and lowering rather than grow
+parallel implementations in parser, HIR, MIR, codegen, REPL, or tooling layers.
 
 ## Module Ownership
 
