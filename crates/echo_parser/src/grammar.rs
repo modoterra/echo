@@ -7,7 +7,7 @@ use echo_ast::{
     CatchClause, ClassConstDecl, ClassConstantFetchExpr, ClassDeclStmt, ClassMember, ClassModifier,
     ClosureExpr, CoalesceAssignStmt, CompileEntry, CompileStmt, ConstantExpr, ContinueStmt,
     DeferExpr, DynamicCallExpr, DynamicFunctionCallExpr, DynamicFunctionCallStmt, EchoStmt,
-    ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr,
+    ElseIfClause, EnumCaseDecl, EnumDeclStmt, EnumMember, Expr, FacetDeclStmt, FieldExpr, ForStmt,
     ForeachStmt, ForkExpr, FunctionCallExpr, FunctionCallStmt, FunctionDeclStmt, GlobalStmt,
     IfStmt, ImportSource, ImportStmt, IncludeExpr, IncludeKind, IndexExpr, InterfaceDeclStmt,
     InterfaceMember, JoinExpr, LetStmt, ListAssignStmt, ListExpr, LoopExpr, LoopStmt,
@@ -258,6 +258,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::TypeDecl(statement) => statement.span,
         Stmt::Loop(statement) => statement.span,
         Stmt::While(statement) => statement.span,
+        Stmt::For(statement) => statement.span,
         Stmt::Foreach(statement) => statement.span,
         Stmt::If(statement) => statement.span,
         Stmt::Try(statement) => statement.span,
@@ -328,6 +329,20 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
         }
         Stmt::While(statement) => {
             normalize_php_compat_expr(&mut statement.condition);
+            for statement in &mut statement.body {
+                normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::For(statement) => {
+            for expr in &mut statement.init {
+                normalize_php_compat_expr(expr);
+            }
+            for expr in &mut statement.conditions {
+                normalize_php_compat_expr(expr);
+            }
+            for expr in &mut statement.increments {
+                normalize_php_compat_expr(expr);
+            }
             for statement in &mut statement.body {
                 normalize_php_compat_statement(statement);
             }
@@ -3398,6 +3413,37 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             })
             .boxed();
 
+        let for_exprs = expr
+            .clone()
+            .padded()
+            .separated_by(just(',').padded())
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .boxed();
+        let for_stmt = text::keyword("for")
+            .padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(for_exprs.clone())
+            .then_ignore(just(';').padded())
+            .then(for_exprs.clone())
+            .then_ignore(just(';').padded())
+            .then(for_exprs)
+            .then_ignore(just(')').padded())
+            .then(block.clone())
+            .then_ignore(terminator.clone().or_not())
+            .map_with(|(((init, conditions), increments), body), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::For(ForStmt {
+                    init,
+                    conditions,
+                    increments,
+                    body,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let foreach_value = just('$').ignore_then(text::ident().padded());
         let foreach_key_value = just('$')
             .ignore_then(text::ident().padded())
@@ -3739,6 +3785,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(static_var_stmt)
             .or(loop_stmt)
             .or(while_stmt)
+            .or(for_stmt)
             .or(foreach_stmt)
             .or(if_stmt)
             .or(break_stmt)

@@ -501,6 +501,20 @@ fn collect_statement_contextual_class_references(
                 collect_statement_contextual_class_references(statement, namespace, uses, names);
             }
         }
+        Stmt::For(statement) => {
+            for expr in &statement.init {
+                collect_expr_contextual_class_references(expr, namespace, uses, names);
+            }
+            for expr in &statement.conditions {
+                collect_expr_contextual_class_references(expr, namespace, uses, names);
+            }
+            for expr in &statement.increments {
+                collect_expr_contextual_class_references(expr, namespace, uses, names);
+            }
+            for statement in &statement.body {
+                collect_statement_contextual_class_references(statement, namespace, uses, names);
+            }
+        }
         Stmt::Foreach(statement) => {
             collect_expr_contextual_class_references(&statement.iterable, namespace, uses, names);
             for statement in &statement.body {
@@ -962,6 +976,20 @@ fn collect_statement_class_references(
         }
         Stmt::While(statement) => {
             collect_expr_class_references(&statement.condition, names);
+            for statement in &statement.body {
+                collect_statement_class_references(statement, names);
+            }
+        }
+        Stmt::For(statement) => {
+            for expr in &statement.init {
+                collect_expr_class_references(expr, names);
+            }
+            for expr in &statement.conditions {
+                collect_expr_class_references(expr, names);
+            }
+            for expr in &statement.increments {
+                collect_expr_class_references(expr, names);
+            }
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
             }
@@ -2092,6 +2120,18 @@ fn collect_static_include_paths(
             }
             Stmt::While(statement) => {
                 collect_static_include_expr(&mut statement.condition, source_dir, paths);
+                collect_static_include_paths(&mut statement.body, source_dir, paths);
+            }
+            Stmt::For(statement) => {
+                for expr in &mut statement.init {
+                    collect_static_include_expr(expr, source_dir, paths);
+                }
+                for expr in &mut statement.conditions {
+                    collect_static_include_expr(expr, source_dir, paths);
+                }
+                for expr in &mut statement.increments {
+                    collect_static_include_expr(expr, source_dir, paths);
+                }
                 collect_static_include_paths(&mut statement.body, source_dir, paths);
             }
             Stmt::Foreach(statement) => {

@@ -263,6 +263,18 @@ impl Analyzer {
                 self.analyze_expr(&statement.condition);
                 self.analyze_statements(&statement.body);
             }
+            Stmt::For(statement) => {
+                for expr in &statement.init {
+                    self.analyze_expr(expr);
+                }
+                for expr in &statement.conditions {
+                    self.analyze_expr(expr);
+                }
+                for expr in &statement.increments {
+                    self.analyze_expr(expr);
+                }
+                self.analyze_statements(&statement.body);
+            }
             Stmt::Foreach(statement) => {
                 self.analyze_expr(&statement.iterable);
                 if let Some(key) = &statement.key {

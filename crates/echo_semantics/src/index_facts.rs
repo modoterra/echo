@@ -540,6 +540,18 @@ impl IndexFactExtractor {
                 self.extract_expr_dependencies(&statement.condition);
                 self.extract_statements(&statement.body);
             }
+            Stmt::For(statement) => {
+                for expr in &statement.init {
+                    self.extract_expr_dependencies(expr);
+                }
+                for expr in &statement.conditions {
+                    self.extract_expr_dependencies(expr);
+                }
+                for expr in &statement.increments {
+                    self.extract_expr_dependencies(expr);
+                }
+                self.extract_statements(&statement.body);
+            }
             Stmt::Foreach(statement) => {
                 self.extract_expr_dependencies(&statement.iterable);
                 self.extract_statements(&statement.body);

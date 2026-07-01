@@ -136,6 +136,17 @@ pub(crate) fn lower_syntax_statement(
                 .map(|statement| lower_syntax_statement(statement, imports, functions))
                 .collect(),
         },
+        Stmt::For(statement) => MirStmt::For {
+            source: Stmt::For(statement.clone()),
+            init: statement.init.iter().map(lower_expr).collect(),
+            conditions: statement.conditions.iter().map(lower_expr).collect(),
+            increments: statement.increments.iter().map(lower_expr).collect(),
+            body: statement
+                .body
+                .iter()
+                .map(|statement| lower_syntax_statement(statement, imports, functions))
+                .collect(),
+        },
         Stmt::Foreach(statement) => MirStmt::Foreach {
             source: Stmt::Foreach(statement.clone()),
             iterable: lower_expr(&statement.iterable),

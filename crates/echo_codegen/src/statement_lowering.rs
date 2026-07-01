@@ -83,6 +83,27 @@ impl IrModule {
                     stmt_span(source),
                 ))
             }
+            echo_mir::MirStmt::For {
+                source,
+                init,
+                conditions,
+                increments,
+                ..
+            } => {
+                for expr in init {
+                    self.render_mir_expr_as_echo_value(body, expr)?;
+                }
+                for expr in conditions {
+                    self.render_mir_expr_as_echo_value(body, expr)?;
+                }
+                for expr in increments {
+                    self.render_mir_expr_as_echo_value(body, expr)?;
+                }
+                Err(Diagnostic::new(
+                    "unsupported for statement in LLVM codegen",
+                    stmt_span(source),
+                ))
+            }
             echo_mir::MirStmt::Foreach {
                 iterable,
                 key,

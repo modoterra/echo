@@ -1008,6 +1008,38 @@ foreach ($items as $item) {
 }
 
 #[test]
+fn parses_php_for_statement_expression_lists() {
+    let program = parse(
+        r#"<?php
+for ($i = 0, $j = count($items); $i < $j; print $i, $i = $i + 1) {
+    echo $i;
+}
+for (; ; ) {
+    break;
+}
+"#,
+    )
+    .expect("PHP for statements parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::For(statement)
+            if statement.init.len() == 2
+                && statement.conditions.len() == 1
+                && statement.increments.len() == 2
+                && statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::For(statement)
+            if statement.init.is_empty()
+                && statement.conditions.is_empty()
+                && statement.increments.is_empty()
+                && matches!(statement.body.first(), Some(Stmt::Break(_)))
+    ));
+}
+
+#[test]
 fn parses_php_null_coalescing_assignment_statement() {
     let program = parse(
         r#"<?php
