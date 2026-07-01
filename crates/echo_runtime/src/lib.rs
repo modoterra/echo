@@ -58,9 +58,9 @@ pub use encoding::{
 };
 pub use environment::*;
 pub use error::{
-    EchoError, echo_php_get_error_handler, echo_php_get_exception_handler,
-    echo_php_restore_error_handler, echo_php_restore_exception_handler, echo_php_set_error_handler,
-    echo_php_set_exception_handler,
+    EchoError, echo_php_error_reporting, echo_php_get_error_handler,
+    echo_php_get_exception_handler, echo_php_restore_error_handler,
+    echo_php_restore_exception_handler, echo_php_set_error_handler, echo_php_set_exception_handler,
 };
 pub use execution::echo_join;
 pub use filesystem::{

@@ -7,6 +7,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_error_reporting",
+            echo_runtime::echo_php_error_reporting
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_gc_collect_cycles",
             echo_runtime::echo_php_gc_collect_cycles as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

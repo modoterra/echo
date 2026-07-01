@@ -158,6 +158,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("get_error_handler", &[], Some("?callable")),
         php_builtin_reflection("get_exception_handler", &[], Some("?callable")),
+        php_builtin_reflection(
+            "error_reporting",
+            &[("error_level", Some("?int"))],
+            Some("int"),
+        ),
         php_builtin_reflection("gc_collect_cycles", &[], Some("int")),
         php_builtin_reflection("gc_disable", &[], Some("void")),
         php_builtin_reflection("gc_enable", &[], Some("void")),

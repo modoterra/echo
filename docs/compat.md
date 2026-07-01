@@ -84,7 +84,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `defined` | missing |  |
 | `die` | missing |  |
 | `enum_exists` | partial | Returns `false` until Echo has enum metadata and autoload semantics. Source: https://www.php.net/manual/en/function.enum-exists.php |
-| `error_reporting` | missing |  |
+| `error_reporting` | partial | Stores and returns the process-local reporting level; integration with emitted PHP warnings/notices is deferred. Source: https://www.php.net/manual/en/function.error-reporting.php |
 | `exit` | missing |  |
 | `extension_loaded` | implemented | Accepts extension names and returns `false` because Echo does not model PHP extensions yet. Source: https://www.php.net/manual/en/function.extension-loaded.php |
 | `func_get_arg` | missing |  |

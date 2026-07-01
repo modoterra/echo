@@ -1,0 +1,8 @@
+initial:[22527]
+set0:[22527]
+after0:[0]
+set-null:[0]
+after-null:[0]
+set5:[0]
+after5:[5]
+exists:[1]

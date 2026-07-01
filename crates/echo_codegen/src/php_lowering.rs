@@ -272,6 +272,29 @@ impl IrModule {
                     builtin.symbol
                 ));
             }
+            BuiltinCodegen::ValueOptionalNullExpression => {
+                if args.len() > 1 {
+                    return Err(Diagnostic::new(
+                        format!(
+                            "unsupported argument count for builtin `{}` in LLVM codegen",
+                            builtin.php_name
+                        ),
+                        span,
+                    ));
+                }
+
+                let value = match args.first() {
+                    Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
+                    None => "%EchoValue { i32 0, i64 0 }".to_string(),
+                };
+                let call_id = self.next_call_id;
+                self.next_call_id += 1;
+
+                body.push_str(&format!(
+                    "  %runtime_call_{call_id} = call %EchoValue @{}({value})\n",
+                    builtin.symbol
+                ));
+            }
             BuiltinCodegen::ValueUnaryExpression => {
                 let [arg] = args else {
                     return Err(Diagnostic::new(

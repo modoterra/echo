@@ -1,5 +1,8 @@
 use crate::{EchoSymbol, EchoValue, echo_normalize_callable};
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicI64, Ordering},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EchoError {
@@ -9,6 +12,7 @@ pub enum EchoError {
 
 static ERROR_HANDLERS: Mutex<Vec<EchoValue>> = Mutex::new(Vec::new());
 static EXCEPTION_HANDLERS: Mutex<Vec<EchoValue>> = Mutex::new(Vec::new());
+static ERROR_REPORTING_LEVEL: AtomicI64 = AtomicI64::new(22527);
 
 pub(crate) fn reset() {
     if let Ok(mut handlers) = ERROR_HANDLERS.lock() {
@@ -27,6 +31,20 @@ pub extern "C" fn echo_php_get_error_handler() -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_get_exception_handler() -> EchoValue {
     current_handler(&EXCEPTION_HANDLERS)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_error_reporting(level: EchoValue) -> EchoValue {
+    let previous = ERROR_REPORTING_LEVEL.load(Ordering::Relaxed);
+    if level.is_null() {
+        return EchoValue::int(previous);
+    }
+
+    let Some(next) = level.php_int_value() else {
+        return EchoValue::error();
+    };
+    ERROR_REPORTING_LEVEL.store(next, Ordering::Relaxed);
+    EchoValue::int(previous)
 }
 
 #[unsafe(no_mangle)]

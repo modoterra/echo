@@ -50,6 +50,7 @@ pub enum BuiltinCodegen {
     VoidUnaryStatement,
     BoolStatement,
     ValueExpression,
+    ValueOptionalNullExpression,
     ValueUnaryExpression,
     ValueBinaryExpression,
     ValueBinaryOptionalBoolExpression,
@@ -545,6 +546,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
     builtins.extend_from_slice(filesystem_entries::FILESYSTEM_BUILTINS);
     builtins.extend_from_slice(crypto_entries::CRYPTO_BUILTINS);
     builtins.extend_from_slice(&[
+        PhpBuiltin {
+            php_name: "error_reporting",
+            symbol: "echo_php_error_reporting",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueOptionalNullExpression,
+        },
         PhpBuiltin {
             php_name: "gc_collect_cycles",
             symbol: "echo_php_gc_collect_cycles",
