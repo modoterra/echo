@@ -68,6 +68,42 @@ pub extern "C" fn echo_php_array_unique(array: EchoValue, flags: EchoValue) -> E
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_diff(array: EchoValue, other: EchoValue) -> EchoValue {
+    if !array.is_array() || !other.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let Some(other) = (unsafe { (other.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut other_values = Vec::with_capacity(other.values.len());
+    for value in &other.values {
+        let Some(bytes) = value.string_bytes() else {
+            return EchoValue::error();
+        };
+        other_values.push(bytes);
+    }
+
+    let mut keys = Vec::new();
+    let mut values = Vec::new();
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        let Some(bytes) = value.string_bytes() else {
+            return EchoValue::error();
+        };
+        if !other_values.iter().any(|other| other == &bytes) {
+            keys.push(key.clone());
+            values.push(*value);
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_in_array(
     needle: EchoValue,
     haystack: EchoValue,

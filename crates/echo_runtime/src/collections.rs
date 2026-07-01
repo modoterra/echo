@@ -11,7 +11,8 @@ pub use keys::{
     echo_php_array_key_last, echo_php_array_keys, echo_php_array_last, echo_php_array_values,
 };
 pub use search::{
-    echo_php_array_count_values, echo_php_array_search, echo_php_array_unique, echo_php_in_array,
+    echo_php_array_count_values, echo_php_array_diff, echo_php_array_search, echo_php_array_unique,
+    echo_php_in_array,
 };
 pub use sequence::{
     echo_php_array_chunk, echo_php_array_pad, echo_php_array_reverse, echo_php_array_slice,

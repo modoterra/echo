@@ -32,16 +32,16 @@ pub use callable::{
 };
 pub use collections::{
     EchoArray, EchoList, echo_php_array_change_key_case, echo_php_array_chunk,
-    echo_php_array_combine, echo_php_array_count_values, echo_php_array_diff_key,
-    echo_php_array_fill, echo_php_array_fill_keys, echo_php_array_first, echo_php_array_flip,
-    echo_php_array_intersect_key, echo_php_array_is_list, echo_php_array_key_exists,
-    echo_php_array_key_first, echo_php_array_key_last, echo_php_array_keys, echo_php_array_last,
-    echo_php_array_merge, echo_php_array_pad, echo_php_array_product, echo_php_array_replace,
-    echo_php_array_reverse, echo_php_array_search, echo_php_array_slice, echo_php_array_sum,
-    echo_php_array_unique, echo_php_array_values, echo_php_count, echo_php_in_array,
-    echo_value_array_append, echo_value_array_key_at, echo_value_array_len, echo_value_array_new,
-    echo_value_array_set, echo_value_array_value_at, echo_value_index_get, echo_value_list_append,
-    echo_value_list_new,
+    echo_php_array_combine, echo_php_array_count_values, echo_php_array_diff,
+    echo_php_array_diff_key, echo_php_array_fill, echo_php_array_fill_keys, echo_php_array_first,
+    echo_php_array_flip, echo_php_array_intersect_key, echo_php_array_is_list,
+    echo_php_array_key_exists, echo_php_array_key_first, echo_php_array_key_last,
+    echo_php_array_keys, echo_php_array_last, echo_php_array_merge, echo_php_array_pad,
+    echo_php_array_product, echo_php_array_replace, echo_php_array_reverse, echo_php_array_search,
+    echo_php_array_slice, echo_php_array_sum, echo_php_array_unique, echo_php_array_values,
+    echo_php_count, echo_php_in_array, echo_value_array_append, echo_value_array_key_at,
+    echo_value_array_len, echo_value_array_new, echo_value_array_set, echo_value_array_value_at,
+    echo_value_index_get, echo_value_list_append, echo_value_list_new,
 };
 pub use crypto::{
     echo_php_crypt, echo_php_hash, echo_php_hash_algos, echo_php_hash_copy, echo_php_hash_equals,

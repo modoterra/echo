@@ -9,6 +9,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "array_diff",
+            &[("array", Some("array")), ("arrays", Some("array"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_diff_key",
             &[("array", Some("array")), ("arrays", Some("array"))],
             Some("array"),
