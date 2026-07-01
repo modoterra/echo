@@ -542,6 +542,11 @@ impl IndexFactExtractor {
                 }
                 self.extract_statements(&statement.body);
             }
+            Stmt::PhpExit(statement) => {
+                if let Some(value) = &statement.value {
+                    self.extract_expr_dependencies(value);
+                }
+            }
             Stmt::Loop(statement) => self.extract_statements(&statement.body),
             Stmt::While(statement) => {
                 self.extract_expr_dependencies(&statement.condition);

@@ -85,6 +85,7 @@ impl IrModule {
                     ))
                 }
             }
+            echo_mir::MirStmt::PhpExit { value, .. } => self.render_mir_php_exit_stmt(body, value),
             echo_mir::MirStmt::Expr { expr, .. } => {
                 self.render_mir_expr(body, expr)?;
                 Ok(())
@@ -288,6 +289,34 @@ impl IrModule {
                     "unsupported exit argument count in LLVM codegen",
                     call.span,
                 ));
+            }
+        };
+
+        body.push_str(&format!(
+            "  call void @{}()\n",
+            CoreRuntimeSymbol::Shutdown.symbol()
+        ));
+        body.push_str(&format!("  ret i32 {status}\n"));
+        self.terminated = true;
+
+        Ok(())
+    }
+
+    fn render_mir_php_exit_stmt(
+        &mut self,
+        body: &mut String,
+        value: &Option<echo_mir::MirExpr>,
+    ) -> Result<(), Diagnostic> {
+        let status = match value {
+            None => "0".to_string(),
+            Some(value) => {
+                let value = self.render_mir_expr_as_echo_value(body, value)?;
+                let status_name = self.next_runtime_call_name();
+                body.push_str(&format!(
+                    "  {status_name} = call i32 @{}({value})\n",
+                    CoreRuntimeSymbol::ValueExitStatus.symbol()
+                ));
+                status_name
             }
         };
 

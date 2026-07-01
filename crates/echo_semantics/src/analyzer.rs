@@ -266,6 +266,11 @@ impl Analyzer {
                 }
                 self.analyze_statements(&statement.body);
             }
+            Stmt::PhpExit(statement) => {
+                if let Some(value) = &statement.value {
+                    self.analyze_expr(value);
+                }
+            }
             Stmt::Loop(statement) => self.analyze_statements(&statement.body),
             Stmt::While(statement) => {
                 self.analyze_expr(&statement.condition);

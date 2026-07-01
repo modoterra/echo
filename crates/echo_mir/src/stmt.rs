@@ -56,6 +56,10 @@ pub enum MirStmt {
         source: Stmt,
         body: Vec<MirStmt>,
     },
+    PhpExit {
+        source: Stmt,
+        value: Option<MirExpr>,
+    },
     Expr {
         source: Stmt,
         expr: MirExpr,
@@ -162,6 +166,7 @@ impl MirStmt {
             | Self::Goto { source, .. }
             | Self::Label { source, .. }
             | Self::PhpDeclare { source, .. }
+            | Self::PhpExit { source, .. }
             | Self::Expr { source, .. }
             | Self::Loop { source, .. }
             | Self::While { source, .. }

@@ -488,6 +488,11 @@ fn collect_statement_contextual_class_references(
                 collect_statement_contextual_class_references(statement, namespace, uses, names);
             }
         }
+        Stmt::PhpExit(statement) => {
+            if let Some(value) = &statement.value {
+                collect_expr_contextual_class_references(value, namespace, uses, names);
+            }
+        }
         Stmt::Global(_) => {}
         Stmt::StaticVar(statement) => {
             for var in &statement.vars {
@@ -1004,6 +1009,11 @@ fn collect_statement_class_references(
             }
             for statement in &statement.body {
                 collect_statement_class_references(statement, names);
+            }
+        }
+        Stmt::PhpExit(statement) => {
+            if let Some(value) = &statement.value {
+                collect_expr_class_references(value, names);
             }
         }
         Stmt::Loop(statement) => {
@@ -2172,6 +2182,11 @@ fn collect_static_include_paths(
                     collect_static_include_expr(&mut directive.value, source_dir, paths);
                 }
                 collect_static_include_paths(&mut statement.body, source_dir, paths);
+            }
+            Stmt::PhpExit(statement) => {
+                if let Some(value) = &mut statement.value {
+                    collect_static_include_expr(value, source_dir, paths);
+                }
             }
             Stmt::Expr(statement) => {
                 collect_static_include_expr(&mut statement.expr, source_dir, paths)

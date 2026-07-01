@@ -132,6 +132,10 @@ pub(crate) fn lower_syntax_statement(
                 .map(|statement| lower_syntax_statement(statement, imports, functions))
                 .collect(),
         },
+        Stmt::PhpExit(statement) => MirStmt::PhpExit {
+            source: Stmt::PhpExit(statement.clone()),
+            value: statement.value.as_ref().map(lower_expr),
+        },
         Stmt::Expr(statement) => MirStmt::Expr {
             source: Stmt::Expr(statement.clone()),
             expr: lower_expr(&statement.expr),

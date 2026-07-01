@@ -1261,6 +1261,58 @@ enddeclare;
 }
 
 #[test]
+fn parses_php_exit_and_die_construct_statements() {
+    let program = parse(
+        r#"<?php
+exit;
+exit 1;
+exit("done");
+die;
+die "done";
+die(1);
+"#,
+    )
+    .expect("PHP exit and die constructs parse");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::PhpExit(statement)
+            if statement.kind == echo_ast::PhpExitKind::Exit
+                && statement.value.is_none()
+    ));
+    assert!(matches!(
+        &program.statements[1],
+        Stmt::PhpExit(statement)
+            if statement.kind == echo_ast::PhpExitKind::Exit
+                && matches!(statement.value, Some(Expr::Number(_)))
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::PhpExit(statement)
+            if statement.kind == echo_ast::PhpExitKind::Exit
+                && matches!(statement.value, Some(Expr::String(_)))
+    ));
+    assert!(matches!(
+        &program.statements[3],
+        Stmt::PhpExit(statement)
+            if statement.kind == echo_ast::PhpExitKind::Die
+                && statement.value.is_none()
+    ));
+    assert!(matches!(
+        &program.statements[4],
+        Stmt::PhpExit(statement)
+            if statement.kind == echo_ast::PhpExitKind::Die
+                && matches!(statement.value, Some(Expr::String(_)))
+    ));
+    assert!(matches!(
+        &program.statements[5],
+        Stmt::PhpExit(statement)
+            if statement.kind == echo_ast::PhpExitKind::Die
+                && matches!(statement.value, Some(Expr::Number(_)))
+    ));
+}
+
+#[test]
 fn parses_php_switch_statement_cases() {
     let program = parse(
         r#"<?php

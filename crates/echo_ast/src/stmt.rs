@@ -19,6 +19,7 @@ pub enum Stmt {
     Goto(GotoStmt),
     Label(LabelStmt),
     PhpDeclare(PhpDeclareStmt),
+    PhpExit(PhpExitStmt),
     Global(GlobalStmt),
     StaticVar(StaticVarStmt),
     Expr(ExprStmt),
@@ -166,6 +167,19 @@ pub struct PhpDeclareDirective {
     pub name: String,
     pub value: Expr,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhpExitStmt {
+    pub kind: PhpExitKind,
+    pub value: Option<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhpExitKind {
+    Exit,
+    Die,
 }
 
 #[derive(Debug, Clone, PartialEq)]

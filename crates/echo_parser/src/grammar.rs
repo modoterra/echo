@@ -13,12 +13,13 @@ use echo_ast::{
     InterfaceDeclStmt, InterfaceMember, JoinExpr, LabelStmt, LetStmt, ListAssignStmt, ListExpr,
     LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm, MatchExpr, MethodCallExpr,
     MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt, NewExpr, NewTarget, NullLiteral,
-    NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective, PhpDeclareStmt, PrintExpr,
-    Program, PropertyDecl, QualifiedName, ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr,
-    SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl,
-    StaticVarStmt, Stmt, StringLiteral, SwitchCase, SwitchStmt, TargetAssignExpr, TernaryExpr,
-    ThrowStmt, TraitDeclStmt, TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam,
-    UnaryExpr, UnaryOp, UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective, PhpDeclareStmt, PhpExitKind,
+    PhpExitStmt, PrintExpr, Program, PropertyDecl, QualifiedName, ReceiverConst, ReceiverConstExpr,
+    ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
+    StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt, StringLiteral, SwitchCase,
+    SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
+    TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
+    UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -246,6 +247,7 @@ fn statement_span(statement: &Stmt) -> Span {
         Stmt::Goto(statement) => statement.span,
         Stmt::Label(statement) => statement.span,
         Stmt::PhpDeclare(statement) => statement.span,
+        Stmt::PhpExit(statement) => statement.span,
         Stmt::Global(statement) => statement.span,
         Stmt::StaticVar(statement) => statement.span,
         Stmt::Expr(statement) => statement.span,
@@ -325,6 +327,11 @@ fn normalize_php_compat_statement(statement: &mut Stmt) {
             }
             for statement in &mut statement.body {
                 normalize_php_compat_statement(statement);
+            }
+        }
+        Stmt::PhpExit(statement) => {
+            if let Some(value) = &mut statement.value {
+                normalize_php_compat_expr(value);
             }
         }
         Stmt::Global(_) => {}
@@ -3345,6 +3352,31 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 }))
             .boxed();
 
+        let php_exit_value = expr
+            .clone()
+            .or_not()
+            .delimited_by(just('(').padded(), just(')').padded())
+            .or(expr.clone().map(Some))
+            .or_not()
+            .map(Option::flatten)
+            .boxed();
+        let php_exit_stmt = text::keyword("exit")
+            .to(PhpExitKind::Exit)
+            .or(text::keyword("die").to(PhpExitKind::Die))
+            .padded()
+            .then(php_exit_value)
+            .then_ignore(terminator.clone())
+            .map_with(|(kind, value), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Stmt::PhpExit(PhpExitStmt {
+                    kind,
+                    value,
+                    span: Span::new(span.start, span.end),
+                })
+            })
+            .boxed();
+
         let let_binding = just('$').ignore_then(text::ident().padded()).then(
             just(':')
                 .padded()
@@ -4183,6 +4215,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         let flow_stmt = try_stmt
             .clone()
             .or(declare_stmt)
+            .or(php_exit_stmt)
             .or(echo_stmt)
             .or(return_stmt)
             .or(throw_stmt)
