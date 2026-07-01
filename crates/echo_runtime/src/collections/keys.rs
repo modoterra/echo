@@ -282,3 +282,17 @@ pub extern "C" fn echo_php_array_last(array: EchoValue) -> EchoValue {
 
     array.values.last().copied().unwrap_or_else(EchoValue::null)
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_pop(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    array.keys.pop();
+    array.values.pop().unwrap_or_else(EchoValue::null)
+}

@@ -182,7 +182,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_merge_recursive` | missing |  |
 | `array_multisort` | missing |  |
 | `array_pad` | implemented | Pads copies of arrays to positive lengths on the right or negative lengths on the left; numeric keys are reindexed when padding occurs, while no-op pads preserve keys. Source: https://www.php.net/manual/en/function.array-pad.php |
-| `array_pop` | missing |  |
+| `array_pop` | partial | Removes and returns the last value from Echo's mutable PHP array storage; warning behavior for non-arrays and full by-reference diagnostics are deferred. Source: https://www.php.net/manual/en/function.array-pop.php |
 | `array_product` | implemented | Multiplies array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `1`. Source: https://www.php.net/manual/en/function.array-product.php |
 | `array_push` | missing |  |
 | `array_rand` | missing |  |

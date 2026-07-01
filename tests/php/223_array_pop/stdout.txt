@@ -1,0 +1,6 @@
+popped:[three]
+count:[2]
+a:[1]
+has-int:[]
+empty:[1]
+exists:[1]
