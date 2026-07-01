@@ -171,6 +171,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("restore_exception_handler", &[], Some("bool")),
         php_builtin_reflection(
+            "get_defined_functions",
+            &[("exclude_disabled", Some("bool"))],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "hrtime",
             &[("as_number", Some("bool"))],
             Some("array|int|float"),

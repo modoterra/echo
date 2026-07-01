@@ -319,7 +319,7 @@ impl IrModule {
             | BuiltinCodegen::ChunkSplit
             | BuiltinCodegen::Getenv
             | BuiltinCodegen::IniGetAll
-            | BuiltinCodegen::GetLoadedExtensions
+            | BuiltinCodegen::ValueOptionalBoolExpression
             | BuiltinCodegen::InArray
             | BuiltinCodegen::Implode
             | BuiltinCodegen::Levenshtein

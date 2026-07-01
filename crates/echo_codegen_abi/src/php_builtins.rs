@@ -33,7 +33,7 @@ pub enum BuiltinCodegen {
     HttpResponseCode,
     IgnoreUserAbort,
     IniGetAll,
-    GetLoadedExtensions,
+    ValueOptionalBoolExpression,
     InArray,
     Implode,
     Levenshtein,
@@ -250,7 +250,7 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             helper_symbol: None,
             signature: RuntimeSignature::EchoValueEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
-            codegen: BuiltinCodegen::GetLoadedExtensions,
+            codegen: BuiltinCodegen::ValueOptionalBoolExpression,
         },
         PhpBuiltin {
             php_name: "get_extension_funcs",
@@ -552,6 +552,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             signature: RuntimeSignature::EchoValueEchoValue,
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "get_defined_functions",
+            symbol: "echo_php_get_defined_functions",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueOptionalBoolExpression,
         },
         PhpBuiltin {
             php_name: "gettype",

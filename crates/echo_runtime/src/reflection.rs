@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use crate::{EchoValue, echo_runtime_string};
+use crate::{
+    EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new,
+    echo_value_array_set,
+};
 
 pub(crate) const REFLECTION_SOURCE_PHP_BUILTIN: i32 = 1;
+const REFLECTION_SOURCE_USERLAND: i32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RuntimeFunctionReflection {
@@ -51,6 +55,27 @@ pub extern "C" fn echo_php_function_exists(value: EchoValue) -> EchoValue {
     EchoValue::bool(
         function_reflection_by_name_and_source(name, REFLECTION_SOURCE_PHP_BUILTIN).is_some(),
     )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_defined_functions(_exclude_disabled: EchoValue) -> EchoValue {
+    let registry = function_registry()
+        .lock()
+        .expect("function reflection registry should not be poisoned");
+
+    let mut internal = echo_value_array_new();
+    for function in registry.names_by_source(REFLECTION_SOURCE_PHP_BUILTIN) {
+        internal = echo_value_array_append(internal, echo_runtime_string(function.into_bytes()));
+    }
+
+    let mut user = echo_value_array_new();
+    for function in registry.names_by_source(REFLECTION_SOURCE_USERLAND) {
+        user = echo_value_array_append(user, echo_runtime_string(function.into_bytes()));
+    }
+
+    let mut result = echo_value_array_new();
+    result = echo_value_array_set(result, echo_runtime_string(b"internal".to_vec()), internal);
+    echo_value_array_set(result, echo_runtime_string(b"user".to_vec()), user)
 }
 
 #[unsafe(no_mangle)]
@@ -193,6 +218,17 @@ impl FunctionReflectionRegistry {
         self.by_name_and_source
             .get(&(normalize_function_name(name), source_kind))
             .cloned()
+    }
+
+    fn names_by_source(&self, source_kind: i32) -> Vec<String> {
+        let mut names = self
+            .by_name_and_source
+            .values()
+            .filter(|function| function.source_kind == source_kind)
+            .map(|function| function.name.clone())
+            .collect::<Vec<_>>();
+        names.sort_by_key(|name| normalize_function_name(name));
+        names
     }
 }
 

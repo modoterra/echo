@@ -1553,7 +1553,7 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
-            BuiltinCodegen::GetLoadedExtensions => {
+            BuiltinCodegen::ValueOptionalBoolExpression => {
                 if call.args.len() > 1 {
                     return Err(Diagnostic::new(
                         format!(
@@ -1564,7 +1564,7 @@ impl IrModule {
                     ));
                 }
 
-                let zend_extensions = match call.args.first() {
+                let flag = match call.args.first() {
                     Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
                     None => "%EchoValue { i32 1, i64 0 }".to_string(),
                 };
@@ -1573,7 +1573,7 @@ impl IrModule {
                 let name = format!("%runtime_call_{call_id}");
 
                 body.push_str(&format!(
-                    "  {name} = call %EchoValue @{}({zend_extensions})\n",
+                    "  {name} = call %EchoValue @{}({flag})\n",
                     builtin.symbol
                 ));
 

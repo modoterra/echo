@@ -105,7 +105,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_declared_interfaces` | missing |  |
 | `get_declared_traits` | missing |  |
 | `get_defined_constants` | missing |  |
-| `get_defined_functions` | missing |  |
+| `get_defined_functions` | partial | Returns supported PHP builtin names under `internal` and compiler-registered userland names under `user`; disabled-function filtering and full PHP internal inventory parity are deferred. Source: https://www.php.net/manual/en/function.get-defined-functions.php |
 | `get_defined_vars` | missing |  |
 | `get_error_handler` | partial | Returns the current stored error-handler callback or `null` when none is installed; dispatching PHP errors through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-error-handler.php |
 | `get_exception_handler` | partial | Returns the current stored exception-handler callback or `null` when none is installed; dispatching uncaught exceptions through the stored callback is deferred. Source: https://www.php.net/manual/en/function.get-exception-handler.php |
