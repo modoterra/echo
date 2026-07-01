@@ -1001,6 +1001,12 @@ foreach ($items as $key => $item):
 endforeach;
 foreach ($items as $item):
 endforeach;
+foreach ($items as &$item) {
+    continue;
+}
+foreach ($items as $key => &$item):
+    continue;
+endforeach;
 "#,
     )
     .expect("PHP continue statement parses");
@@ -1022,7 +1028,24 @@ endforeach;
         Stmt::Foreach(statement)
             if statement.key.is_none()
                 && statement.value == "item"
+                && !statement.value_by_ref
                 && statement.body.is_empty()
+    ));
+    assert!(matches!(
+        &program.statements[3],
+        Stmt::Foreach(statement)
+            if statement.key.is_none()
+                && statement.value == "item"
+                && statement.value_by_ref
+                && matches!(statement.body.first(), Some(Stmt::Continue(_)))
+    ));
+    assert!(matches!(
+        &program.statements[4],
+        Stmt::Foreach(statement)
+            if statement.key.as_deref() == Some("key")
+                && statement.value == "item"
+                && statement.value_by_ref
+                && matches!(statement.body.first(), Some(Stmt::Continue(_)))
     ));
 }
 

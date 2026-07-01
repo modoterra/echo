@@ -332,6 +332,7 @@ pub struct ForeachStmt {
     pub iterable: Expr,
     pub key: Option<String>,
     pub value: String,
+    pub value_by_ref: bool,
     pub body: Vec<Stmt>,
     pub span: Span,
 }

@@ -3669,18 +3669,31 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                 }))
             .boxed();
 
-        let foreach_value = just('$').ignore_then(text::ident().padded());
+        let foreach_value = just('&')
+            .padded()
+            .or_not()
+            .then(just('$').ignore_then(text::ident().padded()))
+            .map(|(by_ref, value): (Option<char>, &str)| {
+                (None, value.to_string(), by_ref.is_some())
+            });
         let foreach_key_value = just('$')
             .ignore_then(text::ident().padded())
             .then_ignore(just("=>").padded())
-            .then(just('$').ignore_then(text::ident().padded()))
-            .map(|(key, value): (&str, &str)| (Some(key.to_string()), value.to_string()));
+            .then(
+                just('&')
+                    .padded()
+                    .or_not()
+                    .then(just('$').ignore_then(text::ident().padded())),
+            )
+            .map(|(key, (by_ref, value)): (&str, (Option<char>, &str))| {
+                (Some(key.to_string()), value.to_string(), by_ref.is_some())
+            });
         let foreach_header = text::keyword("foreach")
             .padded()
             .ignore_then(just('(').padded())
             .ignore_then(expr.clone())
             .then_ignore(text::keyword("as").padded())
-            .then(foreach_key_value.or(foreach_value.map(|value: &str| (None, value.to_string()))))
+            .then(foreach_key_value.or(foreach_value))
             .then_ignore(just(')').padded())
             .boxed();
         let foreach_alternate_body_boundary = text::keyword("endforeach").padded().ignored();
@@ -3702,13 +3715,14 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
         let foreach_alternate_stmt = foreach_header
             .clone()
             .then(foreach_alternate_body)
-            .map_with(|((iterable, (key, value)), body), extra| {
+            .map_with(|((iterable, (key, value, value_by_ref)), body), extra| {
                 let span: SimpleSpan = extra.span();
 
                 Stmt::Foreach(ForeachStmt {
                     iterable,
                     key,
                     value,
+                    value_by_ref,
                     body,
                     span: Span::new(span.start, span.end),
                 })
@@ -3718,13 +3732,14 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(foreach_header
                 .then(block.clone())
                 .then_ignore(terminator.clone().or_not())
-                .map_with(|((iterable, (key, value)), body), extra| {
+                .map_with(|((iterable, (key, value, value_by_ref)), body), extra| {
                     let span: SimpleSpan = extra.span();
 
                     Stmt::Foreach(ForeachStmt {
                         iterable,
                         key,
                         value,
+                        value_by_ref,
                         body,
                         span: Span::new(span.start, span.end),
                     })
