@@ -726,6 +726,7 @@ fn parses_php_clone_expression() {
         r#"<?php
 $copy = clone $object;
 $year = (clone $dateTime)->format("Y");
+$changed = clone($user, ["name" => "Echo"]);
 "#,
     )
     .expect("PHP clone expressions parse");
@@ -749,6 +750,16 @@ $year = (clone $dateTime)->format("Y");
                 Expr::MethodCall(call)
                     if call.method == "format"
                         && matches!(&call.object, Expr::Unary(expr) if expr.op == UnaryOp::Clone)
+            )
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::Assign(statement)
+            if matches!(
+                &statement.value,
+                Expr::PhpCloneWith(expr)
+                    if matches!(&expr.object, Expr::Variable(variable) if variable.name == "user")
+                        && matches!(&expr.updates, Expr::Array(array) if array.elements.len() == 1)
             )
     ));
 }

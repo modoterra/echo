@@ -859,6 +859,10 @@ impl IrModule {
                     UnaryOp::Clone => unreachable!("clone expression handled above"),
                 },
             ),
+            echo_mir::MirExpr::PhpCloneWith { source, .. } => Err(Diagnostic::new(
+                "PHP clone-with overrides are not supported in LLVM codegen",
+                source.span(),
+            )),
             echo_mir::MirExpr::Cast { expr, .. } => self.render_mir_expr(body, expr),
             echo_mir::MirExpr::Field { object, field, .. } => {
                 self.render_mir_field_expr(body, object, field)

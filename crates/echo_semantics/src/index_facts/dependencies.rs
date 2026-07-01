@@ -200,6 +200,10 @@ impl IndexFactExtractor {
             Expr::Join(expr) => self.extract_expr_dependencies(&expr.handle),
             Expr::Loop(expr) => self.extract_statements(&expr.body),
             Expr::Unary(expr) => self.extract_expr_dependencies(&expr.expr),
+            Expr::PhpCloneWith(expr) => {
+                self.extract_expr_dependencies(&expr.object);
+                self.extract_expr_dependencies(&expr.updates);
+            }
             Expr::Cast(expr) => self.extract_expr_dependencies(&expr.expr),
             Expr::Binary(expr) => {
                 if let Some(target) = self.const_dir_path_binary(expr) {

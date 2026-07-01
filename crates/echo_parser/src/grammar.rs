@@ -13,14 +13,14 @@ use echo_ast::{
     IncludeKind, IndexExpr, InterfaceDeclStmt, InterfaceMember, JoinExpr, LabelStmt, LetStmt,
     ListAssignStmt, ListExpr, LoopExpr, LoopStmt, MagicConstantExpr, MagicConstantKind, MatchArm,
     MatchExpr, MethodCallExpr, MethodDecl, MethodVisibility, NamespaceSource, NamespaceStmt,
-    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, PhpDeclareDirective,
-    PhpDeclareStmt, PhpExitKind, PhpExitStmt, PhpInlineHtmlStmt, PrintExpr, Program, PropertyDecl,
-    PropertyHookBody, PropertyHookDecl, PropertyHookKind, QualifiedName, ReceiverConst,
-    ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr, StaticPropertyAssignExpr,
-    StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt, StringLiteral, SwitchCase,
-    SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt, TryStmt,
-    TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp, UnnamedExportStmt,
-    UseStmt, VariableExpr, WhileStmt, YieldStmt,
+    NewExpr, NewTarget, NullLiteral, NumberLiteral, ObjectExpr, ObjectField, PhpCloneWithExpr,
+    PhpDeclareDirective, PhpDeclareStmt, PhpExitKind, PhpExitStmt, PhpInlineHtmlStmt, PrintExpr,
+    Program, PropertyDecl, PropertyHookBody, PropertyHookDecl, PropertyHookKind, QualifiedName,
+    ReceiverConst, ReceiverConstExpr, ReturnStmt, RunExpr, SpawnExpr, StaticCallExpr,
+    StaticPropertyAssignExpr, StaticPropertyFetchExpr, StaticVarDecl, StaticVarStmt, Stmt,
+    StringLiteral, SwitchCase, SwitchStmt, TargetAssignExpr, TernaryExpr, ThrowStmt, TraitDeclStmt,
+    TryStmt, TypeAscriptionExpr, TypeDeclStmt, TypeField, TypedParam, UnaryExpr, UnaryOp,
+    UnnamedExportStmt, UseStmt, VariableExpr, WhileStmt, YieldStmt,
 };
 use echo_diagnostics::Diagnostic;
 use echo_source::{SourceFile, Span};
@@ -681,6 +681,10 @@ fn normalize_php_compat_expr(expr: &mut Expr) {
             }
         }
         Expr::Unary(expr) => normalize_php_compat_expr(&mut expr.expr),
+        Expr::PhpCloneWith(expr) => {
+            normalize_php_compat_expr(&mut expr.object);
+            normalize_php_compat_expr(&mut expr.updates);
+        }
         Expr::Cast(expr) => normalize_php_compat_expr(&mut expr.expr),
         Expr::TypeAscription(expr) => normalize_php_compat_expr(&mut expr.expr),
         Expr::Field(expr) => normalize_php_compat_expr(&mut expr.object),
@@ -1531,6 +1535,25 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .delimited_by(just('(').padded(), just(')').padded())
             .boxed();
 
+        let php_clone_with_expr = text::keyword("clone")
+            .padded()
+            .ignore_then(
+                expr.clone()
+                    .then_ignore(just(',').padded())
+                    .then(expr.clone())
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .map_with(|(object, updates), extra| {
+                let span: SimpleSpan = extra.span();
+
+                Expr::PhpCloneWith(Box::new(PhpCloneWithExpr {
+                    object,
+                    updates,
+                    span: Span::new(span.start, span.end),
+                }))
+            })
+            .boxed();
+
         let match_condition = text::keyword("default")
             .padded()
             .to(Vec::<Expr>::new())
@@ -1604,6 +1627,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             closure_expr,
             arrow_function_expr,
             new_expr,
+            php_clone_with_expr,
             parenthesized,
             type_ascribed_structural_object_expr,
             structural_object_expr,
@@ -1783,7 +1807,9 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .to(UnaryOp::Plus)
             .or(just('-').to(UnaryOp::Minus))
             .or(just('!').to(UnaryOp::Not))
-            .or(text::keyword("clone").to(UnaryOp::Clone))
+            .or(text::keyword("clone")
+                .then_ignore(just('(').padded().not())
+                .to(UnaryOp::Clone))
             .map_with(|op, extra| {
                 let span: SimpleSpan = extra.span();
                 (op, Span::new(span.start, span.end))

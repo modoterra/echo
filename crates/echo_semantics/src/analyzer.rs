@@ -670,6 +670,11 @@ impl Analyzer {
                     UnaryOp::Clone => Type::Object(None),
                 }
             }
+            Expr::PhpCloneWith(expr) => {
+                self.analyze_expr(&expr.object);
+                self.analyze_expr(&expr.updates);
+                Type::Object(None)
+            }
             Expr::Cast(expr) => {
                 self.analyze_expr(&expr.expr);
                 match expr.ty.as_str() {

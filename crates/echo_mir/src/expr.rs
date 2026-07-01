@@ -139,6 +139,11 @@ pub enum MirExpr {
         op: UnaryOp,
         expr: Box<MirExpr>,
     },
+    PhpCloneWith {
+        source: Expr,
+        object: Box<MirExpr>,
+        updates: Box<MirExpr>,
+    },
     Cast {
         source: Expr,
         ty: String,
@@ -272,6 +277,7 @@ impl MirExpr {
             | Self::Join { source, .. }
             | Self::Loop { source, .. }
             | Self::Unary { source, .. }
+            | Self::PhpCloneWith { source, .. }
             | Self::Cast { source, .. }
             | Self::Binary { source, .. }
             | Self::Ternary { source, .. }
@@ -315,6 +321,7 @@ impl MirExpr {
             | Self::Join { source, .. }
             | Self::Loop { source, .. }
             | Self::Unary { source, .. }
+            | Self::PhpCloneWith { source, .. }
             | Self::Cast { source, .. }
             | Self::Binary { source, .. }
             | Self::Ternary { source, .. }

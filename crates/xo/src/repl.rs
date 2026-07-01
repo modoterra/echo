@@ -833,6 +833,7 @@ fn expression_kind(expr: &Expr) -> &'static str {
             echo_ast::UnaryOp::Not => "not expression",
             echo_ast::UnaryOp::Clone => "clone expression",
         },
+        Expr::PhpCloneWith(_) => "clone-with expression",
         Expr::Cast(_) => "cast expression",
         Expr::Binary(expr) => match expr.op {
             BinaryOp::Add => "add expression",
@@ -883,6 +884,7 @@ fn expression_static_type(expr: &Expr) -> String {
             echo_ast::UnaryOp::Not => "bool".to_string(),
             echo_ast::UnaryOp::Clone => "object".to_string(),
         },
+        Expr::PhpCloneWith(_) => "object".to_string(),
         Expr::Cast(expr) => expr.ty.clone(),
         Expr::Binary(expr) => match expr.op {
             BinaryOp::Add

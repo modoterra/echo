@@ -537,6 +537,11 @@ pub fn lower_expr(expr: &Expr) -> MirExpr {
             op: value.op,
             expr: Box::new(lower_expr(&value.expr)),
         },
+        Expr::PhpCloneWith(value) => MirExpr::PhpCloneWith {
+            source: expr.clone(),
+            object: Box::new(lower_expr(&value.object)),
+            updates: Box::new(lower_expr(&value.updates)),
+        },
         Expr::Cast(value) => MirExpr::Cast {
             source: expr.clone(),
             ty: value.ty.clone(),

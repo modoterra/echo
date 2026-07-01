@@ -21,6 +21,7 @@ pub enum Expr {
     MethodCall(Box<MethodCallExpr>),
     StaticCall(StaticCallExpr),
     New(Box<NewExpr>),
+    PhpCloneWith(Box<PhpCloneWithExpr>),
     Closure(Box<ClosureExpr>),
     ArrowFunction(Box<ArrowFunctionExpr>),
     Assign(Box<AssignExpr>),
@@ -67,6 +68,7 @@ impl Expr {
             Self::MethodCall(expr) => expr.span,
             Self::StaticCall(expr) => expr.span,
             Self::New(expr) => expr.span,
+            Self::PhpCloneWith(expr) => expr.span,
             Self::Closure(expr) => expr.span,
             Self::ArrowFunction(expr) => expr.span,
             Self::Assign(expr) => expr.span,
@@ -112,6 +114,13 @@ pub struct FieldExpr {
 pub struct IndexExpr {
     pub collection: Expr,
     pub index: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhpCloneWithExpr {
+    pub object: Expr,
+    pub updates: Expr,
     pub span: Span,
 }
 

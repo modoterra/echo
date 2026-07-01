@@ -24,7 +24,7 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 190 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 191 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
 - Implemented Core + standard functions in inventory: 207.
@@ -41,9 +41,9 @@ without executable semantics yet. The estimate uses this model:
 
 | Area | Weight | Current estimate | Notes |
 | --- | ---: | ---: | --- |
-| Syntax and AST coverage | 25% | ~45% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
+| Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~30% | Core + standard function coverage is 205/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~30% | Core + standard function coverage is 207/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -83,7 +83,9 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 
 - `[~]` Clone expressions.
   - Existing status: parser/AST supports unary `clone`.
-  - TODO: add PHP 8.5 `clone($object, ["property" => $value])` syntax.
+  - Parser/AST support covers PHP 8.5
+    `clone($object, ["property" => $value])`.
+  - Covered by parser-only fixture `tests/php/193_clone_with`.
   - TODO: implement object-copy semantics, `__clone()` dispatch, readonly
     property update rules, and diagnostics for invalid property updates.
 
@@ -276,9 +278,9 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
    - Support first-class callable placeholder syntax such as `trim(...)`.
    - Keep AST truthful: do not lower to nested calls inside the parser.
 
-3. `clone($object, [...])` parser/AST.
-   - Extends existing `clone` support.
-   - Runtime object semantics can land separately if the AST shape is explicit.
+3. Clone-with runtime semantics.
+   - Copy the source object, apply property updates, dispatch `__clone()`, and
+     enforce visibility/readonly update rules.
 
 4. Constant expression evaluator.
    - Needed for PHP 8.5 closure/cast/callable constant expressions and for

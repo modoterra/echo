@@ -1,0 +1,1 @@
+PHP 8.5 clone-with object copy semantics are not implemented yet.

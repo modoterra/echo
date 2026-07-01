@@ -790,6 +790,10 @@ fn collect_expr_contextual_class_references(
         Expr::Unary(expr) => {
             collect_expr_contextual_class_references(&expr.expr, namespace, uses, names)
         }
+        Expr::PhpCloneWith(expr) => {
+            collect_expr_contextual_class_references(&expr.object, namespace, uses, names);
+            collect_expr_contextual_class_references(&expr.updates, namespace, uses, names);
+        }
         Expr::Cast(expr) => {
             collect_expr_contextual_class_references(&expr.expr, namespace, uses, names)
         }
@@ -1301,6 +1305,10 @@ fn collect_expr_class_references(expr: &Expr, names: &mut std::collections::Hash
             }
         }
         Expr::Unary(expr) => collect_expr_class_references(&expr.expr, names),
+        Expr::PhpCloneWith(expr) => {
+            collect_expr_class_references(&expr.object, names);
+            collect_expr_class_references(&expr.updates, names);
+        }
         Expr::Cast(expr) => collect_expr_class_references(&expr.expr, names),
         Expr::Binary(expr) => {
             collect_expr_class_references(&expr.left, names);
@@ -2552,6 +2560,10 @@ fn collect_static_include_expr(
         Expr::Join(expr) => collect_static_include_expr(&mut expr.handle, source_dir, paths),
         Expr::Loop(expr) => collect_static_include_paths(&mut expr.body, source_dir, paths),
         Expr::Unary(expr) => collect_static_include_expr(&mut expr.expr, source_dir, paths),
+        Expr::PhpCloneWith(expr) => {
+            collect_static_include_expr(&mut expr.object, source_dir, paths);
+            collect_static_include_expr(&mut expr.updates, source_dir, paths);
+        }
         Expr::Cast(expr) => collect_static_include_expr(&mut expr.expr, source_dir, paths),
         Expr::Binary(expr) => {
             collect_static_include_expr(&mut expr.left, source_dir, paths);
