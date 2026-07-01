@@ -155,6 +155,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "array_intersect_assoc",
+        symbol: "echo_php_array_intersect_assoc",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_diff_key",
         symbol: "echo_php_array_diff_key",
         helper_symbol: None,
