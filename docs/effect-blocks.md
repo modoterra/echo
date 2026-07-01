@@ -7,9 +7,14 @@ code into callback chains or adding a runtime monad framework.
 The core action relationship is:
 
 ```echo
-option<T> <: action<T, void>
-outcome<T, E> <: action<T, E>
-future<T, E> <: action<T, E>
+// option<User> is an action<User, void>.
+let $maybe_user: option<User> = some $user
+
+// outcome<User, LoadError> is an action<User, LoadError>.
+let $loaded: outcome<User, LoadError> = ok $user
+
+// future<User, LoadError> is an action<User, LoadError>.
+let $profile: future<User, LoadError> = fetch_profile($user)
 ```
 
 An effect block contains zero or more `let` bindings followed by one final

@@ -774,9 +774,14 @@ let $missing: failure<FindUserError> = fail FindUserError.NotFound
 `action<T, E>` is the primitive effect-compatible supertype for computations that either produce `success<T>` or short-circuit with `failure<E>`. Concrete action families narrow from it.
 
 ```echo
-option<T> <: action<T, void>
-outcome<T, E> <: action<T, E>
-future<T, E> <: action<T, E>
+// option<User> is an action<User, void>.
+let $maybe_user: option<User> = some $user
+
+// outcome<User, LoadError> is an action<User, LoadError>.
+let $loaded: outcome<User, LoadError> = ok $user
+
+// future<User, LoadError> is an action<User, LoadError>.
+let $profile: future<User, LoadError> = fetch_profile($user)
 ```
 
 All action families expose the same effect-binding shape. `option<T>` contains `some<T>` or `none`; `outcome<T, E>` contains `success<T>` or `failure<E>`; `future<T, E>` eventually completes as `success<T>` or `failure<E>`. Inside `effect`, binding an action unwraps the success payload `T`, not the wrapper, and short-circuiting preserves the selected concrete action family.

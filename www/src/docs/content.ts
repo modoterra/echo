@@ -5047,7 +5047,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: "option<User> <: action<User, void>\noutcome<User, LoadError> <: action<User, LoadError>\nfuture<User, LoadError> <: action<User, LoadError>",
+            code: "// option<User> is an action<User, void>.\nlet $maybe_user: option<User> = some $user\n\n// outcome<User, LoadError> is an action<User, LoadError>.\nlet $loaded: outcome<User, LoadError> = ok $user\n\n// future<User, LoadError> is an action<User, LoadError>.\nlet $profile: future<User, LoadError> = fetch_profile($user)",
           },
           {
             kind: "paragraph",
