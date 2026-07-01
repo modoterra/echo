@@ -34,6 +34,40 @@ pub extern "C" fn echo_php_array_count_values(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_unique(array: EchoValue, flags: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(flags) = flags.php_int_value() else {
+        return EchoValue::error();
+    };
+    if flags != 2 {
+        return EchoValue::error();
+    }
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut seen: Vec<Vec<u8>> = Vec::new();
+    let mut keys = Vec::new();
+    let mut values = Vec::new();
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        let Some(string_key) = value.string_bytes() else {
+            return EchoValue::error();
+        };
+        if seen.iter().any(|existing| existing == &string_key) {
+            continue;
+        }
+        seen.push(string_key);
+        keys.push(key.clone());
+        values.push(*value);
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_in_array(
     needle: EchoValue,
     haystack: EchoValue,

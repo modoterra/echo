@@ -1,0 +1,6 @@
+count:[3]
+a:[1]
+has-b:[]
+c:[2]
+int:[3]
+exists:[1]
