@@ -82,6 +82,16 @@ function docsPage(path: string) {
   return page;
 }
 
+function RedirectTo({ to }: { to: string }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    void navigate({ to, replace: true });
+  }, [navigate, to]);
+
+  return null;
+}
+
 type DocsShellProps = {
   category: string;
   title: string;
@@ -577,7 +587,7 @@ function DocsSearch({
                 >
                   {!query.trim() ? (
                     <p className="px-3 py-10 text-center text-sm text-slate-500">
-                      Search built-ins, examples, commands, and docs.
+                      Search the Echo PHP Surface, examples, commands, and docs.
                     </p>
                   ) : null}
                   {query.trim() && !isLoadingIndex && results.length === 0 ? (
@@ -679,7 +689,7 @@ function searchResultIcon(result: DocsSearchResult): RemixiconComponentType {
       return RiTerminalBoxLine;
     case "Language":
       return RiBookOpenLine;
-    case "PHP Built-ins":
+    case "PHP Surface":
       return RiPhpLine;
     default:
       return result.kind === "section" ? RiFileSearchLine : RiFileTextLine;
@@ -1067,7 +1077,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
     title: "Explore",
     links: [
       { label: "Single Language Mode", href: "/docs/single-language-mode" },
-      { label: "PHP Built-ins", href: "/docs/php-built-ins" },
+      { label: "PHP Surface", href: "/docs/php" },
       { label: "Compatibility", href: "/docs/php-compatibility" },
       { label: "Examples", href: "/docs/examples" },
     ],
@@ -1236,23 +1246,65 @@ function DocsNavLinkItem({
   link,
   onNavigate,
   pathname,
+  itemRef,
 }: {
   link: DocsNavLink;
   onNavigate?: () => void;
   pathname: string;
+  itemRef?: (element: HTMLLIElement | null) => void;
 }) {
   const isActive = pathname === link.to;
   const hasActiveChild = link.children?.some((child) => pathname === child.to);
   const activeChildIndex = link.children?.findIndex((child) => pathname === child.to) ?? -1;
   const shouldShowChildren = Boolean(link.children && (isActive || hasActiveChild));
+  const childRailRef = useRef<HTMLDivElement | null>(null);
+  const childItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [childTrainY, setChildTrainY] = useState(0);
   const textClass = link.disabled
     ? "text-sm leading-6 text-slate-300"
     : isActive
       ? "text-sm font-semibold leading-6 text-slate-950"
       : "text-sm leading-6 text-slate-500 transition hover:text-slate-950";
 
+  useLayoutEffect(() => {
+    if (!shouldShowChildren || activeChildIndex < 0) {
+      setChildTrainY(0);
+      return;
+    }
+
+    let animationFrame = 0;
+
+    function updateChildTrainPosition() {
+      const rail = childRailRef.current;
+      const activeChild = link.children?.[activeChildIndex];
+      const item = activeChild ? childItemRefs.current[activeChild.to] : null;
+
+      if (!rail || !item) {
+        setChildTrainY(0);
+        return;
+      }
+
+      const railRect = rail.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      setChildTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
+    }
+
+    function scheduleUpdate() {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updateChildTrainPosition);
+    }
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [activeChildIndex, link.children, shouldShowChildren]);
+
   return (
-    <li>
+    <li ref={itemRef}>
       {link.disabled ? (
         <span className={textClass}>{link.label}</span>
       ) : (
@@ -1269,7 +1321,7 @@ function DocsNavLinkItem({
             initial={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <div className="relative mt-3 pl-3">
+            <div className="relative mt-3 pl-3" ref={childRailRef}>
               <span
                 aria-hidden="true"
                 className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
@@ -1278,9 +1330,7 @@ function DocsNavLinkItem({
                 <span
                   aria-hidden="true"
                   className="docs-primary-nav-train docs-logo-gradient-rail absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full transition-transform duration-200 ease-out"
-                  style={{
-                    transform: `translateY(${activeChildIndex * 36}px)`,
-                  }}
+                  style={{ transform: `translateY(${childTrainY}px)` }}
                 />
               ) : null}
               <ul className="space-y-3">
@@ -1290,6 +1340,9 @@ function DocsNavLinkItem({
                     link={child}
                     onNavigate={onNavigate}
                     pathname={pathname}
+                    itemRef={(element) => {
+                      childItemRefs.current[child.to] = element;
+                    }}
                   />
                 ))}
               </ul>
@@ -1663,12 +1716,12 @@ function PhpBuiltinsPage() {
     <DocsShell
       category="Language"
       headings={builtinFamilies.map((family) => family.title)}
-      title="PHP Built-ins"
+      title="PHP Surface"
     >
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        PHP built-ins keep familiar names and signatures. They are grouped by family so each page
-        can stay focused: strings, arrays, types, math, filesystem, reflection, shell integration,
-        output buffering, and core runtime helpers.
+        The Echo PHP Surface keeps familiar names and signatures for compatibility-focused code.
+        It is grouped by family so each page can stay focused: strings, arrays, types, math,
+        filesystem, reflection, shell integration, output buffering, and core runtime helpers.
       </p>
 
       <div className="mt-10 grid gap-6">
@@ -1698,34 +1751,34 @@ function PhpBuiltinsPage() {
 function phpBuiltinFamilyPath(slug: string) {
   switch (slug) {
     case "strings":
-      return "/docs/php-built-ins/strings";
+      return "/docs/php/strings";
     case "arrays":
-      return "/docs/php-built-ins/arrays";
+      return "/docs/php/arrays";
     case "types":
-      return "/docs/php-built-ins/types";
+      return "/docs/php/types";
     case "math":
-      return "/docs/php-built-ins/math";
+      return "/docs/php/math";
     case "hashes":
-      return "/docs/php-built-ins/hashes";
+      return "/docs/php/cryptography";
     case "filesystem":
-      return "/docs/php-built-ins/filesystem";
+      return "/docs/php/filesystem";
     case "reflection":
-      return "/docs/php-built-ins/reflection";
+      return "/docs/php/reflection";
     case "shell":
-      return "/docs/php-built-ins/shell";
+      return "/docs/php/shell";
     case "output-buffering":
-      return "/docs/php-built-ins/output-buffering";
+      return "/docs/php/output-buffering";
     case "core":
-      return "/docs/php-built-ins/core";
+      return "/docs/php/core";
     default:
-      return "/docs/php-built-ins";
+      return "/docs/php";
   }
 }
 
 function PhpBuiltinFamilyPage({ family }: { family: BuiltinFamily }) {
   return (
     <DocsShell
-      category="PHP Built-ins"
+      category="PHP"
       headings={family.builtins.map((builtin) => builtin.name)}
       title={family.title}
     >
@@ -1892,6 +1945,24 @@ const dataStructuresEnumRoute = createRoute({
   component: () => <DocsContentPage page={docsPage("/docs/data-structures/enum")} />,
 });
 
+const referenceValuesAndCopyRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "reference-values-and-copy",
+  component: () => <DocsContentPage page={docsPage("/docs/reference-values-and-copy")} />,
+});
+
+const actionsAndEffectsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "actions-and-effects",
+  component: () => <DocsContentPage page={docsPage("/docs/actions-and-effects")} />,
+});
+
+const patternMatchingRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "pattern-matching",
+  component: () => <DocsContentPage page={docsPage("/docs/pattern-matching")} />,
+});
+
 const standardLibraryRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
   path: "std",
@@ -1930,80 +2001,170 @@ const standardLibraryAssertRoute = createRoute({
 
 const phpBuiltinsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins",
+  path: "php",
   component: PhpBuiltinsPage,
 });
 
 const phpBuiltinStringsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/strings",
+  path: "php/strings",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("strings")!} />,
 });
 
 const phpBuiltinArraysRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/arrays",
+  path: "php/arrays",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("arrays")!} />,
 });
 
 const phpBuiltinTypesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/types",
+  path: "php/types",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("types")!} />,
 });
 
 const phpBuiltinMathRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/math",
+  path: "php/math",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("math")!} />,
 });
 
 const phpBuiltinHashesRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/hashes",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />,
+  path: "php/hashes",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
+});
+
+const phpBuiltinCryptographyRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php/cryptography",
+  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("cryptography")!} />,
 });
 
 const phpBuiltinHashRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/hash",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />,
+  path: "php/hash",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
 });
 
 const phpBuiltinHashesAndChecksumsRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/hashes-and-checksums",
-  component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("hashes")!} />,
+  path: "php/hashes-and-checksums",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
 });
 
 const phpBuiltinFilesystemRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/filesystem",
+  path: "php/filesystem",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("filesystem")!} />,
 });
 
 const phpBuiltinReflectionRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/reflection",
+  path: "php/reflection",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("reflection")!} />,
 });
 
 const phpBuiltinShellRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/shell",
+  path: "php/shell",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("shell")!} />,
 });
 
 const phpBuiltinOutputBufferingRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/output-buffering",
+  path: "php/output-buffering",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("output-buffering")!} />,
 });
 
 const phpBuiltinCoreRoute = createRoute({
   getParentRoute: () => docsLayoutRoute,
-  path: "php-built-ins/core",
+  path: "php/core",
   component: () => <PhpBuiltinFamilyPage family={builtinFamilyBySlug.get("core")!} />,
+});
+
+const legacyPhpBuiltinsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins",
+  component: () => <RedirectTo to="/docs/php" />,
+});
+
+const legacyPhpBuiltinStringsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/strings",
+  component: () => <RedirectTo to="/docs/php/strings" />,
+});
+
+const legacyPhpBuiltinArraysRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/arrays",
+  component: () => <RedirectTo to="/docs/php/arrays" />,
+});
+
+const legacyPhpBuiltinTypesRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/types",
+  component: () => <RedirectTo to="/docs/php/types" />,
+});
+
+const legacyPhpBuiltinMathRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/math",
+  component: () => <RedirectTo to="/docs/php/math" />,
+});
+
+const legacyPhpBuiltinHashesRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/hashes",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
+});
+
+const legacyPhpBuiltinCryptographyRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/cryptography",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
+});
+
+const legacyPhpBuiltinHashRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/hash",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
+});
+
+const legacyPhpBuiltinHashesAndChecksumsRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/hashes-and-checksums",
+  component: () => <RedirectTo to="/docs/php/cryptography" />,
+});
+
+const legacyPhpBuiltinFilesystemRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/filesystem",
+  component: () => <RedirectTo to="/docs/php/filesystem" />,
+});
+
+const legacyPhpBuiltinReflectionRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/reflection",
+  component: () => <RedirectTo to="/docs/php/reflection" />,
+});
+
+const legacyPhpBuiltinShellRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/shell",
+  component: () => <RedirectTo to="/docs/php/shell" />,
+});
+
+const legacyPhpBuiltinOutputBufferingRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/output-buffering",
+  component: () => <RedirectTo to="/docs/php/output-buffering" />,
+});
+
+const legacyPhpBuiltinCoreRoute = createRoute({
+  getParentRoute: () => docsLayoutRoute,
+  path: "php-built-ins/core",
+  component: () => <RedirectTo to="/docs/php/core" />,
 });
 
 const phpCompatibilityRoute = createRoute({
@@ -2087,6 +2248,9 @@ const routeTree = rootRoute.addChildren([
     dataStructuresClassRoute,
     dataStructuresArrayRoute,
     dataStructuresEnumRoute,
+    referenceValuesAndCopyRoute,
+    actionsAndEffectsRoute,
+    patternMatchingRoute,
     standardLibraryRoute,
     standardLibraryNetRoute,
     standardLibraryHttpRoute,
@@ -2099,6 +2263,7 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinTypesRoute,
     phpBuiltinMathRoute,
     phpBuiltinHashesRoute,
+    phpBuiltinCryptographyRoute,
     phpBuiltinHashRoute,
     phpBuiltinHashesAndChecksumsRoute,
     phpBuiltinFilesystemRoute,
@@ -2106,6 +2271,20 @@ const routeTree = rootRoute.addChildren([
     phpBuiltinShellRoute,
     phpBuiltinOutputBufferingRoute,
     phpBuiltinCoreRoute,
+    legacyPhpBuiltinsRoute,
+    legacyPhpBuiltinStringsRoute,
+    legacyPhpBuiltinArraysRoute,
+    legacyPhpBuiltinTypesRoute,
+    legacyPhpBuiltinMathRoute,
+    legacyPhpBuiltinHashesRoute,
+    legacyPhpBuiltinCryptographyRoute,
+    legacyPhpBuiltinHashRoute,
+    legacyPhpBuiltinHashesAndChecksumsRoute,
+    legacyPhpBuiltinFilesystemRoute,
+    legacyPhpBuiltinReflectionRoute,
+    legacyPhpBuiltinShellRoute,
+    legacyPhpBuiltinOutputBufferingRoute,
+    legacyPhpBuiltinCoreRoute,
     phpCompatibilityRoute,
     examplesRoute,
     semanticProfilesRoute,

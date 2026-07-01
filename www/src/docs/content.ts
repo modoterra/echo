@@ -4200,7 +4200,7 @@ export function builtinExample(name: string) {
   const example = builtinExamples.get(name);
 
   if (!example) {
-    throw new Error(`Missing documentation example for PHP builtin: ${name}`);
+    throw new Error(`Missing documentation example for Echo PHP Surface function: ${name}`);
   }
 
   return example;
@@ -4210,7 +4210,7 @@ export function builtinExampleNote(builtin: BuiltinDoc) {
   const note = builtinExampleNotes.get(builtin.name);
 
   if (!note) {
-    throw new Error(`Missing documentation note for PHP builtin: ${builtin.name}`);
+    throw new Error(`Missing documentation note for Echo PHP Surface function: ${builtin.name}`);
   }
 
   return note;
@@ -4239,7 +4239,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Echo is a Rust implementation of a PHP superset. Existing PHP should stay familiar, while Echo adds compiler tooling, native concurrency, parallel execution, and a path toward compiled binaries with predictable performance gains.",
+              "Echo is a Rust implementation of a PHP superset. PHP compatibility is the floor; Echo layers explicit modules, typed bindings, closed compilation graphs, structural data, classes, facets, effects, and checked numeric behavior on top.",
             ],
           },
           {
@@ -4247,7 +4247,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "The command line entrypoint is ",
               { code: "xo" },
-              ". Echo is early-stage software, so unsupported PHP behavior should fail explicitly rather than silently approximate semantics.",
+              ". Use it to run programs, inspect AST and IR output, and build binaries. Unsupported behavior should fail explicitly rather than silently approximate PHP semantics.",
             ],
           },
         ],
@@ -4261,7 +4261,9 @@ export const docsPages: DocsPage[] = [
             text: [
               "Install the ",
               { code: "xo" },
-              " command and keep it on your path. Echo is still early, so the public installer and release flow are evolving.",
+              " command and keep it on your path. The release flow is still evolving, so ",
+              { code: "xo --help" },
+              " is the stable place to discover the available commands.",
             ],
           },
           {
@@ -4280,7 +4282,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "Use ",
               { code: "xo run" },
-              " to execute an Echo-compatible PHP file directly from the command line.",
+              " to execute a supported file through Echo's compiler and runtime path rather than the system PHP binary.",
             ],
           },
           { kind: "code", code: "xo run examples/hello.php", language: "shellscript" },
@@ -4312,7 +4314,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Echo currently supports a small but growing PHP-compatible slice across parsing, AST generation, LLVM IR codegen, runtime behavior, and CLI execution. The docs should make that boundary visible as the language grows.",
+              "Echo currently supports a small but growing PHP-compatible slice across parsing, AST generation, LLVM IR codegen, runtime behavior, and CLI execution. The docs should make that boundary visible as the language grows, so readers can tell what is implemented, what is partial, and what is still planned.",
             ],
           },
         ],
@@ -4335,7 +4337,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Start with ordinary PHP syntax. Echo accepts PHP-compatible source while the stricter Echo surface grows around it.",
+              "Start with ordinary PHP syntax if you want the smallest valid Echo program. Echo accepts PHP-compatible source first, then layers stricter Echo syntax when you opt into it.",
             ],
           },
           {
@@ -4345,7 +4347,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "This keeps the first program inside the PHP-compatible lane, which is the safest starting point when checking Echo against existing PHP habits.",
+              "This keeps the first program inside the compatibility lane, which is the safest place to verify that the toolchain and runtime are wired correctly.",
             ],
           },
         ],
@@ -4358,7 +4360,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "Use ",
               { code: "xo run" },
-              " when you want the supported program to execute through Echo's compiler and runtime path.",
+              " when you want the supported program to execute through Echo's parser, lowering, and runtime path.",
             ],
           },
           { kind: "code", code: "xo run hello.php", language: "shellscript" },
@@ -4492,7 +4494,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "The next language slices focus on keeping imports, typed bindings, Echo collections, receiver calls, HIR, MIR, and codegen models clean enough for more PHP built-ins, standard library modules, and Echo control flow.",
+              "The next language slices focus on keeping imports, typed bindings, Echo collections, receiver calls, HIR, MIR, and codegen models clean enough for more PHP surface functions, standard library modules, and Echo control flow.",
             ],
           },
           {
@@ -4566,14 +4568,14 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'let $items: list<string> = {}\n$items.push("draft")\n\nlet $fixedArray: array<number>[3] = [1, 2, 3]\nlet $tuple = (1, "draft", true)\nlet $range = 1..30\nlet $bytes = x"AABBEE"\n\nlet $user = {\n    id: 42\n    email: "admin@example.com"\n}: User',
+            code: 'let $items: list<string> = {}\n$items.append("draft")\n\nlet $fixedArray: array<number>[3] = [1, 2, 3]\nlet $tuple = (1, "draft", true)\nlet $range = 1..30\nlet $bytes = x\'aa bb ee\'\n\nlet $user = {\n    id: 42\n    email: "admin@example.com"\n}: User',
           },
           {
             kind: "paragraph",
             text: [
-              "Keep these shapes separate when designing APIs. Echo list mutation goes through receiver functions, structural objects use named fields, class instances come from ",
-              { code: "new" },
-              ", and PHP arrays stay available as the compatibility floor rather than the shape for every collection.",
+              "Keep these shapes separate when designing APIs. Echo lists and structural objects are reference values, explicit ",
+              { code: "copy" },
+              " creates a new underlying graph, strict Echo class instances come from factories, and PHP arrays stay available as the compatibility floor rather than the shape for every collection.",
             ],
           },
           {
@@ -4593,8 +4595,8 @@ export const docsPages: DocsPage[] = [
     category: "Data Structures",
     title: "List",
     summary: "Create Echo lists with brace literals and mutate them with list receiver functions.",
-    tags: ["data structures", "list", "push", "collection"],
-    aliases: ["lists", "linked list", "list push"],
+    tags: ["data structures", "list", "append", "collection"],
+    aliases: ["lists", "linked list", "list append"],
     sections: [
       {
         title: "List Literals",
@@ -4607,7 +4609,7 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'let $items: list<string> = {}\n$items.push("first")\n$items.push("second")\n\necho count($items)\necho "\\n"',
+            code: 'let $items: list<string> = {}\n$items.append("first")\n$items.append("second")\n\necho count($items)\necho "\\n"',
           },
           {
             kind: "paragraph",
@@ -4620,32 +4622,36 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
-        title: "push",
-        tags: ["push", "append", "mutation"],
+        title: "append",
+        tags: ["append", "mutation"],
         blocks: [
           {
             kind: "paragraph",
-            text: [{ code: "push(T $value): list<T>" }],
+            text: [{ code: "append(T $value): void" }],
           },
           {
             kind: "paragraph",
             text: [
-              { code: "push()" },
-              " appends a value to a list and updates the receiver when it is a local variable.",
+              { code: "append()" },
+              " appends a value to a list reference and returns ",
+              { code: "void" },
+              ".",
             ],
           },
           {
             kind: "code",
-            code: 'let $users: list<User> = {}\n$users.push({\n    id: 1\n    email: "first@example.test"\n}: User)\n\necho count($users)\necho "\\n"',
+            code: 'let $users: list<User> = {}\n$users.append({\n    id: 1\n    email: "first@example.test"\n}: User)\n\nlet $same_users = $users\n$same_users.append({\n    id: 2\n    email: "second@example.test"\n}: User)\n\necho count($users)\necho "\\n"',
           },
           {
             kind: "paragraph",
             text: [
               "Use ",
-              { code: "push()" },
+              { code: "append()" },
               " for Echo lists instead of PHP ",
               { code: "$value[] = item" },
-              ". The PHP append form is reserved for non-fixed PHP arrays, so it does not define list growth.",
+              ". The PHP append form is reserved for non-fixed PHP arrays, so it does not define list growth. Binding a list copies the reference value; use ",
+              { code: "copy $users" },
+              " when a new list graph is required.",
             ],
           },
         ],
@@ -4668,17 +4674,19 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Echo structural objects are named-field values. They are useful when the data shape matters more than PHP class identity.",
+              "Echo structural objects are named-field reference values. They are useful when the data shape matters more than PHP class identity.",
             ],
           },
           {
             kind: "code",
-            code: 'type User = {\n    const id: int\n    email: string\n}\n\nlet $user = User {\n    id: 1\n    email: "first@example.test"\n}\n\necho $user.email',
+            code: 'type User = {\n    id: int\n    email: string\n}\n\nlet $user: User = {\n    id: 1\n    email: "first@example.test"\n}\n\nlet $copy = copy $user\n$copy.email = "copy@example.test"\n\necho $user.email',
           },
           {
             kind: "paragraph",
             text: [
-              "Use structural objects for request payloads, configuration records, and typed data that should be easy to construct and inspect.",
+              "Use structural objects for request payloads, configuration records, and typed data that should be easy to construct and inspect. A normal binding copies the reference value; ",
+              { code: "copy" },
+              " creates a new underlying object graph.",
             ],
           },
         ],
@@ -4736,7 +4744,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Square brackets create PHP-compatible arrays. Use them when code depends on PHP array built-ins, keyed rows, or compatibility with existing PHP programs.",
+              "Square brackets create PHP-compatible arrays. Use them when code depends on Echo PHP Surface array functions, keyed rows, or compatibility with existing PHP programs.",
             ],
           },
           {
@@ -4833,12 +4841,14 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Enum matches can destructure payloads and should become exhaustive under an explicit semantic profile.",
+              "Enum matches bind or destructure payloads with ",
+              { code: "as" },
+              " and must be exhaustive unless a catch-all arm handles the rest.",
             ],
           },
           {
             kind: "code",
-            code: "match result {\n    Ok(value) => compile(value)\n    Err(error) => report(error)\n}",
+            code: "let $message = match $result {\n    Result.Ok as $value => compile($value),\n    Result.Err as $error => report($error)\n}",
           },
           {
             kind: "paragraph",
@@ -4878,6 +4888,476 @@ export const docsPages: DocsPage[] = [
     ],
   },
   {
+    id: "reference-values-and-copy",
+    path: "/docs/reference-values-and-copy",
+    navGroup: "Language",
+    category: "Language",
+    title: "Reference Values and Copy",
+    summary: "Understand binding storage, reference values, mut parameters, identity, and explicit copy.",
+    tags: ["reference values", "copy", "mut", "identity", "storage", "lists", "objects"],
+    aliases: ["copy keyword", "reference semantics", "mut parameters", "object identity"],
+    sections: [
+      {
+        title: "Binding Storage",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo separates binding storage from the value stored in that binding. A normal non-",
+              { code: "mut" },
+              " binding creates fresh storage and copies the current value into it.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $count = 4\nlet $count_copy = $count\n$count_copy = 5\n\nlet $user = { name: "Ada" }\nlet $same_user = $user\n$same_user.name = "Grace"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The integer copy is independent, so ",
+              { code: "$count" },
+              " remains ",
+              { code: "4" },
+              ". The object binding copies a reference value, so both object bindings point at the same underlying storage.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Reference Values",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Class instances, structural objects, and Echo lists are reference values. Object literals, class factories, and list literals produce values that point at underlying storage.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $items = {"draft"}\nlet $same_items = $items\n$same_items.append("published")\n\nlet $record = { title: "Draft" }\nlet $same_record = $record\n$same_record.title = "Published"',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Normal binding copies the reference value, not the underlying list or object. PHP arrays remain governed by PHP compatibility semantics and are not redefined by Echo reference-value rules.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Copy",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "copy" },
+              " creates a new underlying object or collection graph from an existing readable storage place. It is a reserved keyword, not a clone hook or normal function call.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $shared = {1, 2}\nlet $record = { a: $shared, b: $shared }\nlet $copy = copy $record\n\nlet $bad_call = copy make_record()\nlet $bad_literal = copy { a: $shared }',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The valid copy deeply copies Echo reference values, preserves internal sharing and cycles, and preserves class dynamic type and private fields. Calls and literals are invalid operands because they already produce temporary values.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Mut Parameters",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "mut" },
+              " parameters alias the caller's assignable storage. Non-",
+              { code: "mut" },
+              " parameters receive fresh storage copied from the argument value.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'fn trim_in_place(mut $value: string): void {\n    $value = $value.trim()\n}\n\nlet $name = " Ada "\ntrim_in_place($name)',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Call sites do not repeat ",
+              { code: "mut" },
+              ". The callee signature carries the mutation contract, and the compiler checks that the argument is an assignable place such as a variable, field, or indexed element.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Identity and Equality",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "is same" },
+              " checks whether two reference values point at the same underlying storage. ",
+              { code: "==" },
+              " checks strict structural value equality.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $a = { field: 4 }\nlet $b = $a\nlet $c = copy $a\n\nlet $same = $a is same $b\nlet $different = $a is same $c\nlet $equal = $a == $c",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "A copied graph has new identity but can still be structurally equal. Equality for copied graphs must be cycle-aware.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "actions-and-effects",
+    path: "/docs/actions-and-effects",
+    navGroup: "Language",
+    category: "Language",
+    title: "Actions and Effects",
+    summary: "Use action, option, outcome, future, effect, await, and runtime task handles precisely.",
+    tags: ["action", "effect", "option", "outcome", "future", "await", "task"],
+    aliases: ["effects", "futures", "outcomes", "options", "runtime tasks"],
+    sections: [
+      {
+        title: "Action Types",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "action<T, E>" },
+              " is the primitive supertype for effect-compatible computations. Concrete action families include ",
+              { code: "option<T>" },
+              ", ",
+              { code: "outcome<T, E>" },
+              ", and ",
+              { code: "future<T, E>" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "option<User> <: action<User, void>\noutcome<User, LoadError> <: action<User, LoadError>\nfuture<User, LoadError> <: action<User, LoadError>",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Action bindings unwrap success payloads and short-circuit through the selected concrete family. Do not implicitly mix action families in one effect block; convert explicitly at the boundary.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Option and Outcome",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "option<T>" },
+              " contains ",
+              { code: "some<T>" },
+              " or ",
+              { code: "none" },
+              ". ",
+              { code: "outcome<T, E>" },
+              " contains ",
+              { code: "success<T>" },
+              " or ",
+              { code: "failure<E>" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $maybe_user: option<User> = some $user\nlet $missing_user: option<User> = none\n\nlet $loaded: outcome<User, LoadError> = ok $user\nlet $failed: outcome<User, LoadError> = fail $error",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "none" },
+              " is not ",
+              { code: "null" },
+              " and is not a stored ",
+              { code: "void" },
+              " value. Bare ",
+              { code: "return" },
+              " remains ",
+              { code: "void" },
+              ", never implicit ",
+              { code: "none" },
+              " or ",
+              { code: "null" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Effect Blocks",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "effect" },
+              " is a monadic expression block. It contains zero or more ",
+              { code: "let" },
+              " bindings followed by one final result expression. It does not allow imperative control flow such as ",
+              { code: "if" },
+              ", ",
+              { code: "match" },
+              ", ",
+              { code: "loop" },
+              ", ",
+              { code: "return" },
+              ", or ",
+              { code: "await" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $label = effect {\n    let $user = load_user($id)\n    let $prefix = \"User\"\n\n    ok \"{$prefix}: {$user.name}\"\n}: outcome<string, LoadError>",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "If a binding's right-hand side is action-valued, it unwraps on success or short-circuits on failure. If it is pure, it behaves like a normal local helper. The postfix type after the closing brace narrows the selected action family.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Futures and Await",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "future<T, E>" },
+              " is a monadic action family, not an event-loop handle. It has no direct constructor and is opaque to pattern matching.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $profile = await fetch_profile($user)\n\ntry {\n    let $avatar = await fetch_avatar($user)\n} recover {\n    LoadError => use_default_avatar()\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "await" },
+              " is an imperative keyword that waits for a future to finalize. On success it produces ",
+              { code: "T" },
+              "; on failure it panics with ",
+              { code: "E" },
+              ". It is unrelated to ",
+              { code: "join" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Runtime Tasks",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "task<T>" },
+              " is the runtime handle created by ",
+              { code: "defer" },
+              " and scheduled by ",
+              { code: "run" },
+              ". ",
+              { code: "join" },
+              " works on runtime task handles only.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $task = defer {\n    return fetch_user($id)\n}\n\nlet $running = run $task\nlet $user = join $running\n\nlet $same = run defer {\n    return fetch_user($id)\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Task bodies are imperative callable-like blocks and use ",
+              { code: "return" },
+              ". They do not automatically wrap results in ",
+              { code: "future<T, E>" },
+              "; use ",
+              { code: "effect" },
+              " inside a task body when monadic sequencing is wanted.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "pattern-matching",
+    path: "/docs/pattern-matching",
+    navGroup: "Language",
+    category: "Language",
+    title: "Pattern Matching",
+    summary: "Match enums, wrappers, literals, ranges, types, and destructuring patterns exhaustively.",
+    tags: ["match", "patterns", "enum", "destructuring", "exhaustive", "guards"],
+    aliases: ["match patterns", "exhaustive match", "type patterns", "range patterns"],
+    sections: [
+      {
+        title: "Exhaustiveness",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "match" },
+              " is an expression and must be exhaustive for the static input type. Use ",
+              { code: "_" },
+              " to intentionally cover whatever remains unmatched.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $label = match $maybe_user {\n    some as $user => $user.name,\n    none => \"guest\"\n}\n\nlet $kind = match $value {\n    User => \"user\",\n    _ => \"other\"\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The compiler normalizes ",
+              { code: "_" },
+              " last regardless of source order. Non-",
+              { code: "_" },
+              " guarded arms keep source order because guards can overlap.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Enum and Wrapper Patterns",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Enum construction uses case-call syntax, but matching creates bindings with ",
+              { code: "as" },
+              ". Primitive wrappers use ",
+              { code: "ok as" },
+              ", ",
+              { code: "fail as" },
+              ", ",
+              { code: "some as" },
+              ", and ",
+              { code: "none" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $result = Result.Ok($user)\n\nlet $message = match $result {\n    Result.Ok as $saved_user => \"Saved {$saved_user.name}\",\n    Result.Err as $error => $error.message\n}\n\nlet $label = match $loaded {\n    ok as $user => $user.name,\n    fail as $error => $error.message\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Omit ",
+              { code: "as" },
+              " when the arm only needs to test the case and ignore its payload.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Destructuring Patterns",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Match patterns use the same destructuring language as ",
+              { code: "let" },
+              " and assignment destructuring. Tuple, object, wrapper, and enum-case payload patterns may nest.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $display = match $result {\n    Result.Ok as { name: $name, email: $email } => \"{$name} <{$email}>\",\n    Result.Err as $error => $error.message\n}\n\nlet $name = match $value {\n    User { name: $name } => $name,\n    _ => \"guest\"\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This is one pattern system. Destructuring in ",
+              { code: "let" },
+              ", assignment, and ",
+              { code: "match" },
+              " should lower through the same shared compiler path.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Literals, Ranges, and Or",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Literal patterns follow normal strict comparison and type rules. Range patterns use inclusive ",
+              { code: "start..end" },
+              " syntax for ordered integer-like types. Use ",
+              { code: "or" },
+              " for pattern alternatives.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'let $category = match $status_code {\n    200..299 => "ok",\n    400..499 => "client error",\n    _ => "other"\n}\n\nlet $method_kind = match $method {\n    "GET" or "HEAD" => "read",\n    "POST" or "PUT" or "PATCH" => "write",\n    _ => "other"\n}',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "There are no ",
+              { code: "and" },
+              " or ",
+              { code: "not" },
+              " patterns. Use guards or positive patterns plus ",
+              { code: "_" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Guards and Catch-All Bindings",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A guard uses ",
+              { code: "if" },
+              " after the pattern and does not make that pattern exhaustive because the guard can be false. A bare variable pattern is a catch-all that binds the remaining value.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "let $label = match $user {\n    User { name: $name } if $name != \"\" => $name,\n    $anything => inspect($anything)\n}",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Multiple unguarded catch-all arms are invalid. Do not combine an unguarded bare variable pattern with an unguarded ",
+              { code: "_" },
+              " arm.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "standard-library",
     path: "/docs/std",
     navGroup: "Language",
@@ -4897,7 +5377,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "Echo packages standard library modules under the ",
               { code: "std" },
-              " module root. Import a module when program behavior should come from Echo's standard library rather than PHP compatibility built-ins.",
+              " module root. Import a module when program behavior should come from Echo's standard library rather than the Echo PHP Surface.",
             ],
           },
           {
@@ -4907,7 +5387,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. A std API can be regular Echo source compiled through the normal pipeline or a trusted intrinsic that lowers to an approved runtime ABI. PHP built-ins remain available for compatibility code, while ",
+              "Use standard library imports for Echo-native capabilities such as scheduling, networking, and introspection. A std API can be regular Echo source compiled through the normal pipeline or a trusted intrinsic that lowers to an approved runtime ABI. PHP surface functions remain available for compatibility code, while ",
               { code: "std" },
               " modules mark code that intentionally targets Echo's standard library surface.",
             ],
@@ -5851,19 +6331,19 @@ export const docsPages: DocsPage[] = [
     path: "/docs/php-compatibility",
     navGroup: "Language",
     category: "Language",
-    title: "PHP Compatibility",
+    title: "PHP Surface",
     summary:
-      "Understand Echo's PHP compatibility floor, supported built-ins, and explicit unsupported behavior.",
-    tags: ["php", "compatibility", "builtins", "fixtures", "runtime"],
+      "Understand the PHP Surface, supported functions, and explicit unsupported behavior.",
+    tags: ["php", "surface", "compatibility", "fixtures", "runtime"],
     aliases: ["php parity", "compatibility inventory", "supported php"],
     sections: [
       {
-        title: "Compatibility Floor",
+        title: "What Is the Echo PHP Surface?",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Echo is a PHP superset. Existing PHP syntax and behavior should remain valid unless Echo explicitly documents an unsupported edge or a stricter Echo-only mode.",
+              "The Echo PHP Surface is the part of PHP Echo aims to support for real programs. Echo is a PHP superset, so existing PHP syntax and behavior should remain valid unless Echo explicitly documents an unsupported edge or a stricter Echo-only mode.",
             ],
           },
           {
@@ -5873,18 +6353,18 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Compatibility work is tracked through fixtures and the PHP built-in inventory. Unsupported behavior should produce a clear diagnostic instead of silently taking a near match.",
+              "Compatibility work is tracked through fixtures and the PHP surface inventory. Unsupported behavior should produce a clear diagnostic instead of silently taking a near match.",
             ],
           },
         ],
       },
       {
-        title: "Built-ins",
+        title: "Surface Functions",
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "PHP built-ins live in the compatibility surface. Use the PHP Built-ins pages to see current support, signatures, examples, and semantic notes for search.",
+              "PHP surface functions live in the Echo PHP Surface. Use the PHP pages to see current support, signatures, examples, and semantic notes for search.",
             ],
           },
           {
@@ -5894,7 +6374,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "This example combines string search and transformation so the built-ins appear in the kind of validation-and-output path users search for.",
+              "This example combines string search and transformation so the surface functions appear in the kind of validation-and-output path users search for.",
             ],
           },
         ],
@@ -5966,7 +6446,7 @@ export const docsPages: DocsPage[] = [
     navGroup: "Language",
     category: "Language",
     title: "Semantic Profiles",
-    summary: "Plan explicit source declarations for stricter Echo semantics without file-extension modes.",
+    summary: "Declare explicit semantic profiles without reviving file-extension modes.",
     tags: ["semantics", "strict", "echo", "types", "let"],
     aliases: ["semantic profiles", "modernization profiles", "explicit semantics"],
     sections: [
@@ -5976,7 +6456,9 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Echo no longer chooses strictness from file extension. Future modernization policies should be explicit source declarations consumed by semantic analysis, while the base parser remains the shared PHP-compatible Echo superset.",
+              "Echo no longer chooses strictness from file extension. A ",
+              { code: "semantics { strict }" },
+              " declaration gives the compiler an explicit policy it can enforce from parse through lowering, while the base parser remains the shared PHP-compatible Echo superset.",
             ],
           },
           {
@@ -5986,7 +6468,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "The profile declaration is Echo syntax. It gives the compiler a place to enforce stronger rules and expose better optimization facts without reviving ",
+              "The profile declaration is Echo syntax. It keeps modernization policy visible in the source and gives tools one shared place to read stronger rules without reviving ",
               { code: "--strict" },
               " flags or extension-driven modes.",
             ],
@@ -6006,12 +6488,12 @@ export const docsPages: DocsPage[] = [
           },
           {
             kind: "code",
-            code: 'let $users: list<User> = {}\n\n$users.push({\n    id: 1,\n    email: "first@example.test",\n}: User)',
+            code: 'let $users: list<User> = {}\n\n$users.append({\n    id: 1\n    email: "first@example.test"\n}: User)',
           },
           {
             kind: "paragraph",
             text: [
-              "The explicit list type gives the empty literal enough information for later pushes, while the object literal stays readable at the call site.",
+              "The explicit list type gives the empty literal enough information for later appends, while the object literal stays readable at the call site.",
             ],
           },
         ],
@@ -6219,7 +6701,7 @@ export const docsPages: DocsPage[] = [
     category: "Tooling",
     title: "Language Server",
     summary:
-      "Track the Echo language server direction and the shared compiler facts it should consume.",
+      "Keep the Echo language server thin by reusing parser, semantics, and index facts.",
     tags: ["lsp", "language server", "diagnostics", "semantics", "editor"],
     aliases: ["editor support", "lsp"],
     sections: [
@@ -6229,9 +6711,27 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "The language server is a tooling surface over the shared compiler pipeline. Parser diagnostics, semantic facts, type information, and source spans should come from the same crates used by ",
+              "The language server is a thin protocol boundary over the shared compiler pipeline. Parser diagnostics, semantic facts, type information, and source spans should come from the same crates used by ",
               { code: "xo" },
               " rather than from an editor-only implementation.",
+            ],
+          },
+          {
+            kind: "code",
+            code: "RUST_LOG=info xo lsp 2> /tmp/echo-lsp.log",
+            language: "shellscript",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Keep stdout reserved for JSON-RPC traffic and push logs to stderr or LSP log messages. As capabilities grow, the server should still translate shared facts instead of reconstructing syntax or semantics locally.",
+              " The first slice should open documents, publish syntax diagnostics on ",
+              { code: "didOpen" },
+              " and ",
+              { code: "didChange" },
+              ", and clear them on ",
+              { code: "didClose" },
+              ".",
             ],
           },
           {
@@ -6239,7 +6739,7 @@ export const docsPages: DocsPage[] = [
             text: [
               "Diagnostic codes, severity, primary spans, and related spans belong in ",
               { code: "echo_diagnostics" },
-              ". The language server should translate that shared model to LSP diagnostics instead of inventing editor-only categories.",
+              ". The language server should translate that shared model to LSP diagnostics instead of inventing editor-only categories. That keeps hover, go-to-definition, references, rename, and diagnostics aligned with the compiler and CLI output.",
             ],
           },
         ],
@@ -6265,7 +6765,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Echo is a PHP-compatible language path with a stricter Echo surface layered on top. Existing PHP remains part of the language story, while Echo syntax gives programs explicit modules, typed bindings, closed compilation graphs, structural data, classes, facets, effects, and checked numeric behavior.",
+              "Echo is a PHP-compatible language path with an explicit strict surface layered on top. Valid PHP stays valid, but Echo adds modules, typed bindings, closed compilation graphs, structural data, classes, facets, effects, and checked numeric behavior where those rules make programs easier to reason about.",
             ],
           },
           {
@@ -6275,7 +6775,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "The rest of this book walks through the canonical strict Echo style. The reference remains useful when you need a precise rule; the book is meant to be read front to back.",
+              "The rest of this book walks through the canonical strict Echo style. The reference pages stay precise for edge cases; the book stays readable and is meant to be read front to back.",
             ],
           },
         ],
@@ -6286,7 +6786,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Start with files and modules, then move into values, types, control flow, and program boundaries. Each chapter introduces the surface syntax through complete examples and explains the design pressure behind the rule.",
+              "Start with files and modules, then move into values, types, control flow, and program boundaries. Each chapter introduces the surface syntax through complete examples and explains the design pressure behind the rule so later chapters can assume the earlier vocabulary.",
             ],
           },
         ],
@@ -6298,7 +6798,7 @@ export const bookPages: DocsPage[] = [
     path: "/book/files-and-modules",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Files And Modules",
+    title: "Files and Modules",
     summary: "Name Echo files and modules, order the prelude, and import code canonically.",
     tags: ["book", "module", "imports", "compile", "semantics"],
     aliases: ["modules", "imports", "file order"],
@@ -6309,12 +6809,12 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Echo files that are imported by module identity declare a module. Module names use lowercase snake_case segments separated by dots, which gives packages one stable spelling independent of PHP namespace casing.",
+              "Echo files that are imported by module identity declare a module, and that declaration must come first. Module names use lowercase snake_case segments separated by dots, which gives packages one stable spelling independent of PHP namespace casing or filesystem naming habits.",
             ],
           },
           {
             kind: "code",
-            code: "module app.http.router\n\npub fn route($request: Request): Response {\n    return Response.ok()\n}",
+            code: "module app.http.router\n\npub fn route($request) {\n    return $request.path\n}",
           },
           {
             kind: "paragraph",
@@ -6330,7 +6830,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "A strict Echo file starts with its declarations about the file itself, then imports, then declarations and executable statements. The canonical order is module, semantics, compile, imports, declarations, and finally executable code.",
+              "A strict Echo file starts by describing itself, then its import graph, then its declarations and executable statements. The canonical order is module, semantics, compile, imports, declarations, and finally runtime code.",
             ],
           },
           {
@@ -6340,7 +6840,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Keeping the prelude stable makes the top of a file scannable and gives tools a predictable place to find semantic and graph declarations.",
+              "Keeping the prelude stable makes the top of a file scannable and gives tools a predictable place to find semantic and graph declarations before normal code begins.",
             ],
           },
         ],
@@ -6351,7 +6851,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Use direct imports for one symbol and grouped imports when several symbols come from the same module. Filesystem paths stay quoted; bare names belong to the module system.",
+              "Use direct imports for one symbol and grouped imports when several symbols come from the same module. Filesystem paths stay quoted; bare names belong to the module system, not to ad hoc path parsing.",
             ],
           },
           {
@@ -6367,7 +6867,7 @@ export const bookPages: DocsPage[] = [
     path: "/book/bindings-and-types",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Bindings And Types",
+    title: "Bindings and Types",
     summary: "Use let, const, primitive types, nullable values, unknown, and safe numeric conversion.",
     tags: ["book", "let", "const", "types", "unknown", "numeric"],
     aliases: ["bindings", "primitive types", "const"],
@@ -6382,9 +6882,9 @@ export const bookPages: DocsPage[] = [
               { code: "$" },
               " sigil for runtime variables. Use ",
               { code: "let" },
-              " to introduce a binding and plain assignment to reassign it. Use local ",
+              " to introduce a binding, plain assignment to reassign it, and local ",
               { code: "const" },
-              " when the variable must keep pointing at the same value location.",
+              " when the binding itself must not be reassigned.",
             ],
           },
           {
@@ -6397,6 +6897,33 @@ export const bookPages: DocsPage[] = [
               "Local ",
               { code: "const" },
               " is a binding rule, not a deep freeze. Fields inside the value still follow the value's normal mutation rules.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Storage and Mut Parameters",
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Non-",
+              { code: "mut" },
+              " parameters get fresh local storage copied from the argument value. ",
+              { code: "mut" },
+              " parameters alias the caller's assignable storage, so reassignment in the callee updates the caller-visible binding.",
+            ],
+          },
+          {
+            kind: "code",
+            code: 'fn trim_in_place(mut $value: string): void {\n    $value = $value.trim()\n}\n\nlet $name = " Ada "\ntrim_in_place($name)',
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Call sites do not repeat ",
+              { code: "mut" },
+              ". The callee signature provides the contract, and the compiler checks that the argument is an assignable place.",
             ],
           },
         ],
@@ -6447,7 +6974,7 @@ export const bookPages: DocsPage[] = [
         ],
       },
       {
-        title: "Null And Unknown",
+        title: "Null and Unknown",
         blocks: [
           {
             kind: "paragraph",
@@ -6457,7 +6984,7 @@ export const bookPages: DocsPage[] = [
               { code: "?T" },
               ". External data that must be checked before use should enter as ",
               { code: "unknown" },
-              ".",
+              ", not as a guessed concrete type.",
             ],
           },
           {
@@ -6476,7 +7003,7 @@ export const bookPages: DocsPage[] = [
               { code: "string" },
               " and ",
               { code: "bytes" },
-              " never implicitly convert.",
+              " never implicitly convert. Convert at the boundary where the meaning is clear, not deep in the call tree.",
             ],
           },
           {
@@ -6492,7 +7019,7 @@ export const bookPages: DocsPage[] = [
     path: "/book/data-and-destructuring",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Data And Destructuring",
+    title: "Data and Destructuring",
     summary: "Work with lists, arrays, tuples, structural objects, object literals, and destructuring patterns.",
     tags: ["book", "objects", "lists", "arrays", "tuples", "destructuring"],
     aliases: ["data structures", "object literals", "destructuring"],
@@ -6518,6 +7045,16 @@ export const bookPages: DocsPage[] = [
             kind: "code",
             code: "let $ids: array<int> = [1, 2, 3]\nlet $fixed: array<int>[3] = [255, 128, 0]\nlet $names: list<string> = {\"Ada\", \"Grace\"}\nlet $pair = (\"Ada\", 36)",
           },
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "append()" },
+              " for list growth and PHP array append syntax only for arrays. Echo lists are reference values, so normal bindings share the same list until ",
+              { code: "copy" },
+              " creates a new underlying graph.",
+            ],
+          },
         ],
       },
       {
@@ -6526,7 +7063,7 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Structural objects are plain public data. Fields always exist, can be read and assigned with dot access, and cannot be added dynamically.",
+              "Structural objects are plain public reference values. Fields always exist, can be read and assigned with dot access, and cannot be added dynamically.",
             ],
           },
           {
@@ -6536,7 +7073,9 @@ export const bookPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "There are no undefined fields in strict Echo. If a field can lack a real value, model that with ",
+              "There are no undefined fields in strict Echo. A normal binding copies the object reference value, while ",
+              { code: "copy" },
+              " deep-copies the underlying object graph. If a field can lack a real value, model that with ",
               { code: "?T" },
               " and assign ",
               { code: "null" },
@@ -6577,7 +7116,7 @@ export const bookPages: DocsPage[] = [
     path: "/book/classes-facets-and-enums",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Classes, Facets, And Enums",
+    title: "Classes, Facets, and Enums",
     summary: "Use classes for identity and encapsulation, facets for receiver methods, and enums for variants.",
     tags: ["book", "classes", "facets", "enums", "factory"],
     aliases: ["classes", "facets", "enums"],
@@ -6665,25 +7204,25 @@ export const bookPages: DocsPage[] = [
     path: "/book/control-flow-and-effects",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Control Flow And Effects",
+    title: "Control Flow and Effects",
     summary: "Write strict Echo conditions, matches, loops, effects, and concurrent work.",
     tags: ["book", "if", "match", "loop", "effect", "concurrency"],
     aliases: ["control flow", "effects", "loop"],
     sections: [
       {
-        title: "Conditions And Match",
+        title: "Conditions and Match",
         blocks: [
           {
             kind: "paragraph",
             text: [
               "Strict Echo conditions do not use PHP-style parentheses. Boolean operators are words, and ",
               { code: "match" },
-              " is the expression form for multi-branch value selection.",
+              " is the expression form for multi-branch value selection. Prefer it when the compiler can check the set of outcomes, especially for enums and other closed shapes.",
             ],
           },
           {
             kind: "code",
-            code: "if not $user.active or $user.locked {\n    return false\n}\n\nlet $message = match $result {\n    Result.Ok($user) => \"Saved {$user.name}\",\n    Result.Err($error) => $error.message\n}",
+            code: "if not $user.active or $user.locked {\n    return false\n}\n\nlet $message = match $result {\n    Result.Ok as $user => \"Saved {$user.name}\",\n    Result.Err as $error => $error.message\n}",
           },
         ],
       },
@@ -6707,13 +7246,19 @@ export const bookPages: DocsPage[] = [
         ],
       },
       {
-        title: "Effects And Concurrency",
+        title: "Effects and Concurrency",
         blocks: [
           {
             kind: "paragraph",
             text: [
               { code: "effect" },
-              " is a direct-style expression for effectful code. Concurrent work uses ",
+              " is a monadic expression for action values such as ",
+              { code: "option" },
+              ", ",
+              { code: "outcome" },
+              ", and ",
+              { code: "future" },
+              ". Concurrent work uses ",
               { code: "defer" },
               ", ",
               { code: "run" },
@@ -6723,12 +7268,39 @@ export const bookPages: DocsPage[] = [
               { code: "spawn" },
               ", and ",
               { code: "join" },
-              ".",
+              ". ",
+              { code: "defer" },
+              " creates an unscheduled ",
+              { code: "task<T>" },
+              " handle, ",
+              { code: "run" },
+              " schedules it, and ",
+              { code: "join" },
+              " observes task handles only.",
             ],
           },
           {
             kind: "code",
-            code: "let $tasks = run {\n    fetch_user($id),\n    fetch_posts($id)\n}\n\nlet ($user, $posts) = join $tasks",
+            code: "let $loaded = effect {\n    let $user = load_user($id)\n\n    ok $user.name\n}: outcome<string, LoadError>\n\nlet $task = defer {\n    return fetch_user($id)\n}\n\nrun $task\nlet $user = join $task\n\nlet $profile = await fetch_profile($user)",
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "task<T>" },
+              " is the runtime handle used by ",
+              { code: "defer" },
+              ", ",
+              { code: "run" },
+              ", and ",
+              { code: "join" },
+              ". ",
+              { code: "future<T, E>" },
+              " is a monadic action family used by ",
+              { code: "effect" },
+              "; ",
+              { code: "await" },
+              " waits for a future in imperative code and panics with its failure value if it fails.",
+            ],
           },
         ],
       },
@@ -6739,13 +7311,13 @@ export const bookPages: DocsPage[] = [
     path: "/book/strings-bytes-and-numbers",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Strings, Bytes, And Numbers",
+    title: "Strings, Bytes, and Numbers",
     summary: "Understand interpolation, raw strings, byte literals, checked arithmetic, and delete.",
     tags: ["book", "strings", "bytes", "numbers", "delete"],
     aliases: ["strings", "bytes", "numbers"],
     sections: [
       {
-        title: "Strings And Bytes",
+        title: "Strings and Bytes",
         blocks: [
           {
             kind: "paragraph",
@@ -6802,12 +7374,12 @@ export const bookPages: DocsPage[] = [
             kind: "paragraph",
             text: [
               { code: "delete" },
-              " removes entries from primitive deletable containers and returns whether removal happened. It does not delete variables, fields, properties, or memory.",
+              " removes entries from arrays and other deletable containers and returns whether removal happened. It does not delete variables, fields, properties, or memory.",
             ],
           },
           {
             kind: "code",
-            code: "let $removed = delete $users[2]\n\n$items.append($item)\n$dict.remove($key)",
+            code: "let $removed = delete $users[2]\n\nif $removed {\n    echo \"removed\"\n}",
           },
         ],
       },
@@ -6818,7 +7390,7 @@ export const bookPages: DocsPage[] = [
     path: "/book/errors-and-programs",
     navGroup: "Book",
     category: "The Echo Book",
-    title: "Errors And Programs",
+    title: "Errors and Programs",
     summary: "Declare errors, recover from panics, and define the closed compilation graph.",
     tags: ["book", "errors", "panic", "recover", "compile"],
     aliases: ["errors", "compile graph", "programs"],
@@ -6834,7 +7406,7 @@ export const bookPages: DocsPage[] = [
               { code: "panic" },
               " to raise them and ",
               { code: "recover" },
-              " to handle them.",
+              " to handle them when failure is part of normal control flow.",
             ],
           },
           {
@@ -6851,7 +7423,7 @@ export const bookPages: DocsPage[] = [
             text: [
               "Echo compiles a closed graph. Static includes add edges automatically; dynamic includes may execute only files admitted by the graph. Use ",
               { code: "compile { ... }" },
-              " for known dynamic targets and packages.",
+              " for known dynamic targets and packages so runtime file selection stays inside the admitted graph.",
             ],
           },
           {
@@ -6892,12 +7464,15 @@ export const docsNavigation: DocsNavGroup[] = [
           { label: "Enum", to: "/docs/data-structures/enum" },
         ],
       },
+      { label: "Reference Values and Copy", to: "/docs/reference-values-and-copy" },
+      { label: "Actions and Effects", to: "/docs/actions-and-effects" },
+      { label: "Pattern Matching", to: "/docs/pattern-matching" },
       {
-        label: "PHP Built-ins",
-        to: "/docs/php-built-ins",
+        label: "PHP Surface",
+        to: "/docs/php",
         children: builtinFamilies.map((family) => ({
           label: family.title,
-          to: "/docs/php-built-ins/" + family.slug,
+          to: "/docs/php/" + family.slug,
         })),
       },
       {
@@ -6911,7 +7486,7 @@ export const docsNavigation: DocsNavGroup[] = [
           { label: "assert", to: "/docs/std/assert" },
         ],
       },
-      { label: "PHP Compatibility", to: "/docs/php-compatibility" },
+      { label: "Compatibility", to: "/docs/php-compatibility" },
       { label: "Examples", to: "/docs/examples" },
       { label: "Semantic Profiles", to: "/docs/semantic-profiles" },
       { label: "Imports", to: "/docs/imports" },
@@ -6932,13 +7507,13 @@ export const bookNavigation: DocsNavGroup[] = [
     title: "The Echo Book",
     links: [
       { label: "The Echo Language", to: "/book" },
-      { label: "Files And Modules", to: "/book/files-and-modules" },
-      { label: "Bindings And Types", to: "/book/bindings-and-types" },
-      { label: "Data And Destructuring", to: "/book/data-and-destructuring" },
-      { label: "Classes, Facets, And Enums", to: "/book/classes-facets-and-enums" },
-      { label: "Control Flow And Effects", to: "/book/control-flow-and-effects" },
-      { label: "Strings, Bytes, And Numbers", to: "/book/strings-bytes-and-numbers" },
-      { label: "Errors And Programs", to: "/book/errors-and-programs" },
+      { label: "Files and Modules", to: "/book/files-and-modules" },
+      { label: "Bindings and Types", to: "/book/bindings-and-types" },
+      { label: "Data and Destructuring", to: "/book/data-and-destructuring" },
+      { label: "Classes, Facets, and Enums", to: "/book/classes-facets-and-enums" },
+      { label: "Control Flow and Effects", to: "/book/control-flow-and-effects" },
+      { label: "Strings, Bytes, and Numbers", to: "/book/strings-bytes-and-numbers" },
+      { label: "Errors and Programs", to: "/book/errors-and-programs" },
     ],
   },
 ];

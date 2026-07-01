@@ -88,9 +88,9 @@ export function buildDocsSearchRecords(): DocsSearchRecord[] {
     ...builtinFamilies.flatMap((family) => [
       {
         id: `builtin-family:${family.slug}`,
-        path: `/docs/php-built-ins/${family.slug}`,
+        path: `/docs/php/${family.slug}`,
         title: family.title,
-        category: "PHP Built-ins",
+        category: "PHP",
         kind: "section" as const,
         summary: family.description,
         body: family.builtins
@@ -223,18 +223,18 @@ function sectionRecords(page: DocsPage, section: DocsSection): DocsSearchRecord[
 
 function phpBuiltinsOverviewRecord(): DocsSearchRecord {
   return {
-    id: "page:php-built-ins",
-    path: "/docs/php-built-ins",
-    title: "PHP Built-ins",
+    id: "page:php",
+    path: "/docs/php",
+    title: "PHP Surface",
     category: "Language",
     kind: "page",
     summary:
-      "PHP built-ins keep familiar names and signatures across strings, arrays, types, math, filesystem, reflection, shell integration, output buffering, and core runtime helpers.",
+      "The Echo PHP Surface keeps familiar names and signatures across strings, arrays, types, math, filesystem, reflection, shell integration, output buffering, and core runtime helpers.",
     body: builtinFamilies.map((family) => `${family.title} ${family.description}`).join(" "),
     code: "",
     tags: "php builtins functions runtime helpers standard library",
     aliases: "php functions builtin functions built in functions",
-    excerpt: "PHP built-ins keep familiar names and signatures.",
+    excerpt: "The PHP Surface keeps familiar names and signatures.",
   };
 }
 
@@ -247,7 +247,7 @@ function builtinRecord(
 
   return {
     id: `builtin:${builtin.name}`,
-    path: `/docs/php-built-ins/${familySlug}#${headingId(builtin.name)}`,
+    path: `/docs/php/${familySlug}#${headingId(builtin.name)}`,
     title: builtin.name,
     category: familyTitle,
     kind: "builtin",
