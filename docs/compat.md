@@ -155,7 +155,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_combine` | implemented | Creates an array from one array of keys and one array of values, using PHP array-key coercion; duplicate keys keep the latest value, and mismatched input lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-combine.php |
 | `array_count_values` | implemented | Counts occurrences of int/string values using PHP array-key coercion; unsupported value types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-count-values.php |
 | `array_diff` | partial | Compares values against one other array using PHP's string comparison semantics and preserves left-array keys for unmatched values; variadic comparisons are deferred. Source: https://www.php.net/manual/en/function.array-diff.php |
-| `array_diff_assoc` | missing |  |
+| `array_diff_assoc` | partial | Compares keys and values against one other array using PHP's string value comparison and preserves unmatched left-array entries; variadic comparisons are deferred. Source: https://www.php.net/manual/en/function.array-diff-assoc.php |
 | `array_diff_key` | partial | Compares keys against one other array and preserves left-array keys and values that are absent from the right array; variadic comparisons are deferred. Source: https://www.php.net/manual/en/function.array-diff-key.php |
 | `array_diff_uassoc` | missing |  |
 | `array_diff_ukey` | missing |  |

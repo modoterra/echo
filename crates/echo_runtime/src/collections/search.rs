@@ -104,6 +104,44 @@ pub extern "C" fn echo_php_array_diff(array: EchoValue, other: EchoValue) -> Ech
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_diff_assoc(array: EchoValue, other: EchoValue) -> EchoValue {
+    if !array.is_array() || !other.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let Some(other) = (unsafe { (other.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+
+    let mut keys = Vec::new();
+    let mut values = Vec::new();
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        let Some(bytes) = value.string_bytes() else {
+            return EchoValue::error();
+        };
+        let matched = other
+            .keys
+            .iter()
+            .zip(&other.values)
+            .any(|(other_key, other_value)| {
+                other_key == key
+                    && other_value
+                        .string_bytes()
+                        .is_some_and(|other| other == bytes)
+            });
+        if !matched {
+            keys.push(key.clone());
+            values.push(*value);
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_intersect(array: EchoValue, other: EchoValue) -> EchoValue {
     if !array.is_array() || !other.is_array() {
         return EchoValue::error();
