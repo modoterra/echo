@@ -1105,6 +1105,11 @@ fn parses_php_declare_statements() {
         r#"<?php
 declare(strict_types=1);
 declare(ticks=1, encoding='UTF-8');
+declare(ticks=1) {
+    echo "declared";
+}
+declare(ticks=1)
+    echo "single";
 "#,
     )
     .expect("PHP declare statements parse");
@@ -1123,6 +1128,20 @@ declare(ticks=1, encoding='UTF-8');
                 && statement.directives[0].name == "ticks"
                 && statement.directives[1].name == "encoding"
                 && statement.body.is_empty()
+    ));
+    assert!(matches!(
+        &program.statements[2],
+        Stmt::PhpDeclare(statement)
+            if statement.directives.len() == 1
+                && statement.directives[0].name == "ticks"
+                && statement.body.len() == 1
+    ));
+    assert!(matches!(
+        &program.statements[3],
+        Stmt::PhpDeclare(statement)
+            if statement.directives.len() == 1
+                && statement.directives[0].name == "ticks"
+                && statement.body.len() == 1
     ));
 }
 

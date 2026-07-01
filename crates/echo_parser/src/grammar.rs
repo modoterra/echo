@@ -3284,7 +3284,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .delimited_by(just('{').padded(), just('}').padded())
             .boxed();
 
-        let declare_stmt = text::keyword("declare")
+        let declare_header = text::keyword("declare")
             .padded()
             .ignore_then(
                 declare_directive
@@ -3293,7 +3293,16 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
                     .collect::<Vec<_>>()
                     .delimited_by(just('(').padded(), just(')').padded()),
             )
-            .then(block.clone().map(Some).or(just(';').padded().to(None)))
+            .boxed();
+        let declare_body = block
+            .clone()
+            .map(Some)
+            .or(just(';').padded().to(None))
+            .or(statement.clone().map(|statement| Some(vec![statement])))
+            .boxed();
+        let declare_stmt = declare_header
+            .then(declare_body)
+            .then_ignore(terminator.clone().or_not())
             .map_with(|(directives, body), extra| {
                 let span: SimpleSpan = extra.span();
 
@@ -3944,13 +3953,13 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
 
         let flow_stmt = try_stmt
             .clone()
+            .or(declare_stmt)
             .or(echo_stmt)
             .or(return_stmt)
             .or(throw_stmt)
             .or(yield_stmt)
             .or(goto_stmt)
             .or(label_stmt)
-            .or(declare_stmt)
             .or(global_stmt)
             .or(static_var_stmt)
             .or(loop_stmt)

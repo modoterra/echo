@@ -248,6 +248,17 @@ fn should_end_statement(line: &str, next: Option<u8>) -> bool {
         return false;
     }
 
+    if trimmed.starts_with("declare") && trimmed.ends_with(')') {
+        let after_declare = &trimmed["declare".len()..];
+        if after_declare
+            .chars()
+            .next()
+            .is_some_and(|ch| ch.is_ascii_whitespace() || ch == '(')
+        {
+            return false;
+        }
+    }
+
     if matches!(
         trimmed.as_bytes().last(),
         Some(b'=' | b'.' | b'+' | b'-' | b'*' | b'/' | b',' | b'(' | b'[' | b'{')
