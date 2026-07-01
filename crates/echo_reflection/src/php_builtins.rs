@@ -521,6 +521,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("resource", Some("resource"))],
             Some("int"),
         ),
+        php_builtin_reflection("get_resources", &[("type", Some("?string"))], Some("array")),
         php_builtin_reflection("is_string", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_scalar", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("strval", &[("value", Some("mixed"))], Some("string")),

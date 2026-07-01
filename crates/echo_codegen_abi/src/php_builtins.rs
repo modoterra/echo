@@ -843,6 +843,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "get_resources",
+            symbol: "echo_php_get_resources",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueOptionalNullExpression,
+        },
+        PhpBuiltin {
             php_name: "is_string",
             symbol: "echo_php_is_string",
             helper_symbol: None,

@@ -1,5 +1,7 @@
 use crate::collections::{EchoArray, EchoList, echo_arrays_equal, echo_lists_equal};
-use crate::{echo_runtime_string, filesystem, net, process, task, task_group, thread};
+use crate::{
+    echo_runtime_string, echo_value_array_new, filesystem, net, process, task, task_group, thread,
+};
 
 mod arithmetic;
 mod coercion;
@@ -507,6 +509,11 @@ pub extern "C" fn echo_php_get_resource_id(value: EchoValue) -> EchoValue {
     }
 
     EchoValue::int(value.payload as i64)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_resources(_type: EchoValue) -> EchoValue {
+    echo_value_array_new()
 }
 
 fn is_resource_kind(kind: i32) -> bool {
