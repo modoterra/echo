@@ -575,7 +575,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `socket_get_status` | missing |  |
 | `socket_set_blocking` | missing |  |
 | `socket_set_timeout` | missing |  |
-| `sort` | missing |  |
+| `sort` | partial | Sorts arrays containing string-compatible values in ascending byte order, reindexes keys from zero, and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.sort.php |
 | `soundex` | implemented | Returns a four-character Soundex key using PHP's Knuth Soundex behavior for ASCII-compatible names, or `0000` when no letters are present. Source: https://www.php.net/manual/en/function.soundex.php |
 | `sprintf` | missing |  |
 | `sqrt` | implemented | Returns a square root as float and `NAN` for negative inputs using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sqrt.php |

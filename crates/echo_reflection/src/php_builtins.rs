@@ -533,6 +533,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "sort",
+            &[("array", Some("array")), ("flags", Some("int"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "array_chunk",
             &[
                 ("array", Some("array")),

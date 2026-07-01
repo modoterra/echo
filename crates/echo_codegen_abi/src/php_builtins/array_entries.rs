@@ -91,6 +91,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueTernaryExpression,
     },
     PhpBuiltin {
+        php_name: "sort",
+        symbol: "echo_php_sort",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_chunk",
         symbol: "echo_php_array_chunk",
         helper_symbol: None,

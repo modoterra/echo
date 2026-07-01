@@ -99,6 +99,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_sort",
+            echo_runtime::echo_php_sort
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_array_chunk",
             echo_runtime::echo_php_array_chunk
                 as extern "C" fn(

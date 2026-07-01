@@ -219,6 +219,33 @@ pub extern "C" fn echo_php_array_splice(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_sort(array: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+    if array
+        .values
+        .iter()
+        .any(|value| value.string_bytes().is_none())
+    {
+        return EchoValue::error();
+    }
+
+    array
+        .values
+        .sort_by(|left, right| left.string_bytes().cmp(&right.string_bytes()));
+    array.keys = (0..array.values.len())
+        .map(|index| EchoArrayKey::Int(index as i64))
+        .collect();
+
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_chunk(
     array: EchoValue,
     length: EchoValue,

@@ -18,7 +18,7 @@ pub use search::{
 };
 pub use sequence::{
     echo_php_array_chunk, echo_php_array_pad, echo_php_array_reverse, echo_php_array_slice,
-    echo_php_array_splice,
+    echo_php_array_splice, echo_php_sort,
 };
 
 use crate::{

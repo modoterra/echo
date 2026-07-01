@@ -466,6 +466,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Removes a positional segment from an array and returns the removed values.",
       },
       {
+        name: "sort",
+        signature: "sort(array &$array, int $flags): bool",
+        description:
+          "Sorts an array in ascending order and reindexes the keys from zero.",
+      },
+      {
         name: "array_chunk",
         signature: "array_chunk(array $array, int $length, bool $preserve_keys): array",
         description: "Splits an array into fixed-size chunks.",
@@ -2864,6 +2870,13 @@ echo implode(",", $removed) . "\\n"
 echo implode(",", $queue) . "\\n"`,
   ],
   [
+    "sort",
+    `let $statuses = ["review", "draft", "ship"]
+sort($statuses)
+
+echo implode(",", $statuses) . "\\n"`,
+  ],
+  [
     "array_chunk",
     `let $ids = ["A1", "A2", "A3", "A4"]
 let $batches = array_chunk($ids, 2, false)
@@ -3727,6 +3740,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "array_splice",
     "Use `array_splice()` when compatibility code needs to remove a positional segment and keep the removed values for logging, undo, or later processing.",
+  ],
+  [
+    "sort",
+    "Use `sort()` when compatibility code needs a positional list in ascending order and does not need to preserve the original keys.",
   ],
   [
     "array_chunk",
@@ -6378,7 +6395,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 226 PHP compatibility fixtures, 259 implemented Core and standard functions out of 607, 348 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 227 PHP compatibility fixtures, 260 implemented Core and standard functions out of 607, 347 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
