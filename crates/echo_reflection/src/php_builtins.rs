@@ -206,6 +206,9 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("exclude_disabled", Some("bool"))],
             Some("array"),
         ),
+        php_builtin_reflection("get_declared_classes", &[], Some("array")),
+        php_builtin_reflection("get_declared_interfaces", &[], Some("array")),
+        php_builtin_reflection("get_declared_traits", &[], Some("array")),
         php_builtin_reflection(
             "hrtime",
             &[("as_number", Some("bool"))],

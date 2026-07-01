@@ -105,6 +105,7 @@ pub use output::{
 pub use process::{echo_process_join, echo_process_spawn};
 pub use reflection::{
     echo_php_class_exists, echo_php_enum_exists, echo_php_function_exists,
+    echo_php_get_declared_classes, echo_php_get_declared_interfaces, echo_php_get_declared_traits,
     echo_php_get_defined_functions, echo_php_interface_exists, echo_php_is_callable,
     echo_php_trait_exists, echo_reflection_register_function, echo_std_reflect_exists,
     echo_std_reflect_params, echo_std_reflect_return_type, echo_std_reflect_type_of,

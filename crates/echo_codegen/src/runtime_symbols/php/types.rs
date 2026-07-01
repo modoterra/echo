@@ -78,6 +78,21 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_get_declared_classes",
+            echo_runtime::echo_php_get_declared_classes
+                as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_get_declared_interfaces",
+            echo_runtime::echo_php_get_declared_interfaces
+                as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_get_declared_traits",
+            echo_runtime::echo_php_get_declared_traits as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_gettype",
             echo_runtime::echo_php_gettype
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

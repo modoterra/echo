@@ -101,9 +101,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_class` | missing |  |
 | `get_class_methods` | missing |  |
 | `get_class_vars` | missing |  |
-| `get_declared_classes` | missing |  |
-| `get_declared_interfaces` | missing |  |
-| `get_declared_traits` | missing |  |
+| `get_declared_classes` | partial | Returns an empty array until Echo has runtime class metadata. Source: https://www.php.net/manual/en/function.get-declared-classes.php |
+| `get_declared_interfaces` | partial | Returns an empty array until Echo has runtime interface metadata. Source: https://www.php.net/manual/en/function.get-declared-interfaces.php |
+| `get_declared_traits` | partial | Returns an empty array until Echo has runtime trait metadata. Source: https://www.php.net/manual/en/function.get-declared-traits.php |
 | `get_defined_constants` | missing |  |
 | `get_defined_functions` | partial | Returns supported PHP builtin names under `internal` and compiler-registered userland names under `user`; disabled-function filtering and full PHP internal inventory parity are deferred. Source: https://www.php.net/manual/en/function.get-defined-functions.php |
 | `get_defined_vars` | missing |  |

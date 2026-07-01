@@ -79,6 +79,21 @@ pub extern "C" fn echo_php_get_defined_functions(_exclude_disabled: EchoValue) -
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_declared_classes() -> EchoValue {
+    echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_declared_interfaces() -> EchoValue {
+    echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_declared_traits() -> EchoValue {
+    echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_class_exists(_class: EchoValue, _autoload: EchoValue) -> EchoValue {
     EchoValue::bool(false)
 }
