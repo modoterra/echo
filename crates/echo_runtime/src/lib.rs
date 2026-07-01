@@ -32,8 +32,8 @@ pub use callable::{
 };
 pub use collections::{
     EchoArray, EchoList, echo_php_array_change_key_case, echo_php_array_chunk,
-    echo_php_array_combine, echo_php_array_count_values, echo_php_array_diff,
-    echo_php_array_diff_assoc, echo_php_array_diff_key, echo_php_array_fill,
+    echo_php_array_column, echo_php_array_combine, echo_php_array_count_values,
+    echo_php_array_diff, echo_php_array_diff_assoc, echo_php_array_diff_key, echo_php_array_fill,
     echo_php_array_fill_keys, echo_php_array_filter, echo_php_array_first, echo_php_array_flip,
     echo_php_array_intersect, echo_php_array_intersect_assoc, echo_php_array_intersect_key,
     echo_php_array_is_list, echo_php_array_key_exists, echo_php_array_key_first,

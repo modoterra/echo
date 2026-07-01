@@ -87,6 +87,41 @@ pub extern "C" fn echo_php_array_change_key_case(array: EchoValue, case: EchoVal
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_column(array: EchoValue, column_key: EchoValue) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let column_key = if column_key.is_null() {
+        None
+    } else {
+        Some(EchoArrayKey::from_value(column_key).unwrap_or_else(|| EchoArrayKey::String(vec![])))
+    };
+
+    let mut values = Vec::new();
+    for row in &array.values {
+        let Some(column_key) = &column_key else {
+            values.push(*row);
+            continue;
+        };
+        if !row.is_array() {
+            continue;
+        }
+        let Some(row_array) = (unsafe { (row.payload as *const EchoArray).as_ref() }) else {
+            continue;
+        };
+        if let Some(position) = row_array.keys.iter().position(|key| key == column_key) {
+            values.push(row_array.values[position]);
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(values))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_fill(
     start_index: EchoValue,
     count: EchoValue,

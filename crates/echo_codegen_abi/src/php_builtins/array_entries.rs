@@ -35,6 +35,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "array_column",
+        symbol: "echo_php_array_column",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_fill",
         symbol: "echo_php_array_fill",
         helper_symbol: None,

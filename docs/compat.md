@@ -151,7 +151,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_any` | missing |  |
 | `array_change_key_case` | partial | Changes string keys to ASCII lowercase or uppercase while preserving integer keys; omitted-case defaulting and non-ASCII casing are deferred. Source: https://www.php.net/manual/en/function.array-change-key-case.php |
 | `array_chunk` | implemented | Splits arrays into numerically indexed chunks, optionally preserving original keys inside each chunk; invalid chunk lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-chunk.php |
-| `array_column` | missing |  |
+| `array_column` | partial | Extracts values from array rows by integer or string column key, returning numerically reindexed results and skipping rows missing the key; `null` column keys return whole rows, while `index_key` support is deferred. Source: https://www.php.net/manual/en/function.array-column.php |
 | `array_combine` | implemented | Creates an array from one array of keys and one array of values, using PHP array-key coercion; duplicate keys keep the latest value, and mismatched input lengths surface as runtime errors. Source: https://www.php.net/manual/en/function.array-combine.php |
 | `array_count_values` | implemented | Counts occurrences of int/string values using PHP array-key coercion; unsupported value types are skipped without PHP warning emission for now. Source: https://www.php.net/manual/en/function.array-count-values.php |
 | `array_diff` | partial | Compares values against one other array using PHP's string comparison semantics and preserves left-array keys for unmatched values; variadic comparisons are deferred. Source: https://www.php.net/manual/en/function.array-diff.php |

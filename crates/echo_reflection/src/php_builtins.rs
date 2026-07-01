@@ -19,6 +19,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "array_column",
+            &[
+                ("array", Some("array")),
+                ("column_key", Some("int|string|null")),
+                ("index_key", Some("int|string|null")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_filter",
             &[
                 ("array", Some("array")),
