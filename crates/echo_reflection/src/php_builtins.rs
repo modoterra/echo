@@ -523,6 +523,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection(
+            "array_splice",
+            &[
+                ("array", Some("array")),
+                ("offset", Some("int")),
+                ("length", Some("?int")),
+                ("replacement", Some("mixed")),
+            ],
+            Some("array"),
+        ),
+        php_builtin_reflection(
             "array_chunk",
             &[
                 ("array", Some("array")),

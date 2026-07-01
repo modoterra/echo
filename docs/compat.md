@@ -193,7 +193,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `array_search` | implemented | Returns the first key for a matching value using loose comparison by default, optional strict comparison, and `false` on misses. Source: https://www.php.net/manual/en/function.array-search.php |
 | `array_shift` | partial | Removes and returns the first value from Echo's mutable PHP array storage, preserving string keys and reindexing remaining integer keys; warning behavior for non-arrays and full by-reference diagnostics are deferred. Source: https://www.php.net/manual/en/function.array-shift.php |
 | `array_slice` | implemented | Extracts offset/length windows by array position, reindexing integer keys by default while always preserving string keys. Source: https://www.php.net/manual/en/function.array-slice.php |
-| `array_splice` | missing |  |
+| `array_splice` | partial | Removes a positional segment from Echo's mutable PHP array storage, returns the removed values reindexed from zero, and reindexes remaining integer keys; omitted length, replacement insertion, and full by-reference diagnostics are deferred. Source: https://www.php.net/manual/en/function.array-splice.php |
 | `array_sum` | implemented | Sums array values with PHP-compatible numeric coercion for current scalar values; empty arrays return `0`. Source: https://www.php.net/manual/en/function.array-sum.php |
 | `array_udiff` | missing |  |
 | `array_udiff_assoc` | missing |  |

@@ -459,6 +459,13 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Extracts a window from an array.",
       },
       {
+        name: "array_splice",
+        signature:
+          "array_splice(array &$array, int $offset, ?int $length, mixed $replacement): array",
+        description:
+          "Removes a positional segment from an array and returns the removed values.",
+      },
+      {
         name: "array_chunk",
         signature: "array_chunk(array $array, int $length, bool $preserve_keys): array",
         description: "Splits an array into fixed-size chunks.",
@@ -2849,6 +2856,14 @@ let $active = array_slice($queue, 1, 2, false)
 echo implode(",", $active) . "\\n"`,
   ],
   [
+    "array_splice",
+    `let $queue = ["draft", "review", "ship", "archive"]
+let $removed = array_splice($queue, 1, 2)
+
+echo implode(",", $removed) . "\\n"
+echo implode(",", $queue) . "\\n"`,
+  ],
+  [
     "array_chunk",
     `let $ids = ["A1", "A2", "A3", "A4"]
 let $batches = array_chunk($ids, 2, false)
@@ -3708,6 +3723,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "array_slice",
     "Use `array_slice()` to take a page, preview, or bounded segment from an array without mutating the original collection.",
+  ],
+  [
+    "array_splice",
+    "Use `array_splice()` when compatibility code needs to remove a positional segment and keep the removed values for logging, undo, or later processing.",
   ],
   [
     "array_chunk",
@@ -6354,6 +6373,12 @@ export const docsPages: DocsPage[] = [
             kind: "paragraph",
             text: [
               "Compatibility work is tracked through fixtures and the PHP surface inventory. Unsupported behavior should produce a clear diagnostic instead of silently taking a near match.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Current PHP 8.5 status: 226 PHP compatibility fixtures, 259 implemented Core and standard functions out of 607, 348 remaining, and about 43% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -171,6 +171,54 @@ pub extern "C" fn echo_php_array_slice(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_array_splice(
+    array: EchoValue,
+    offset: EchoValue,
+    length: EchoValue,
+) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+    let Some(offset) = offset.php_int_value() else {
+        return EchoValue::error();
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::error();
+    };
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+
+    let array_len = array.values.len() as i64;
+    let start = if offset < 0 {
+        array_len.saturating_add(offset).max(0)
+    } else {
+        offset.min(array_len)
+    };
+    let end = if length < 0 {
+        array_len.saturating_add(length).max(start)
+    } else {
+        start.saturating_add(length).min(array_len)
+    };
+
+    let removed_values: Vec<EchoValue> = array.values.drain(start as usize..end as usize).collect();
+    array.keys.drain(start as usize..end as usize);
+
+    let mut next_index = 0_i64;
+    for key in &mut array.keys {
+        if matches!(key, EchoArrayKey::Int(_)) {
+            *key = EchoArrayKey::Int(next_index);
+            next_index += 1;
+        }
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        removed_values,
+    ))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_array_chunk(
     array: EchoValue,
     length: EchoValue,

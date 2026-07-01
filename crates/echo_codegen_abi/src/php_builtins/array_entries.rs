@@ -83,6 +83,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ArraySlice,
     },
     PhpBuiltin {
+        php_name: "array_splice",
+        symbol: "echo_php_array_splice",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
         php_name: "array_chunk",
         symbol: "echo_php_array_chunk",
         helper_symbol: None,
