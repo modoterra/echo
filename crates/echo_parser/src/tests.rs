@@ -76,6 +76,27 @@ $static = $parent->getName();
 }
 
 #[test]
+fn parses_php_void_cast_expression_statement() {
+    let program = parse(
+        r#"<?php
+(void) strlen("ignored");
+"#,
+    )
+    .expect("PHP 8.5 void cast parses");
+
+    assert!(matches!(
+        &program.statements[0],
+        Stmt::Expr(statement)
+            if matches!(
+                &statement.expr,
+                Expr::Cast(cast)
+                    if cast.ty == "void"
+                        && matches!(&cast.expr, Expr::FunctionCall(call) if call.name == "strlen")
+            )
+    ));
+}
+
+#[test]
 fn echo_compat_mode_parses_php_trait_declaration() {
     let program = parse(
         r#"<?php

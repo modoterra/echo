@@ -1798,6 +1798,7 @@ fn parser<'src>() -> impl Parser<'src, &'src str, Program, ParseExtra<'src>> {
             .or(text::keyword("boolean"))
             .or(text::keyword("float"))
             .or(text::keyword("double"))
+            .or(text::keyword("void"))
             .padded()
             .delimited_by(just('(').padded(), just(')').padded());
 

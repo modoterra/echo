@@ -1,0 +1,2 @@
+Parser-only PHP 8.5 fixture: `(void)` cast syntax is represented in AST, but
+discard lowering and `NoDiscard` diagnostics are not implemented yet.

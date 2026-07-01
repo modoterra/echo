@@ -86,9 +86,9 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
   - TODO: implement object-copy semantics, `__clone()` dispatch, readonly
     property update rules, and diagnostics for invalid property updates.
 
-- `[ ]` `(void)` cast.
-  - Parse as a PHP-specific cast form.
-  - Lower to value discard for `#[\NoDiscard]` suppression.
+- `[~]` `(void)` cast.
+  - Parser/AST support records it as a PHP-specific cast form.
+  - TODO: lower to value discard for `#[\NoDiscard]` suppression.
   - Keep deprecated non-canonical casts separately tracked.
 
 - `[ ]` `#[\NoDiscard]` predefined attribute.
@@ -266,10 +266,9 @@ when the behavior must pass through `xo ast`, `xo ir`, `xo run`, and `xo build`.
 
 ## Next Useful Slices
 
-1. `(void)` cast plus `NoDiscard` AST representation.
-   - Parser/AST first, then diagnostics.
-   - Establishes PHP-specific naming such as `PhpVoidCast` or equivalent where
-     the node is compatibility-only.
+1. `NoDiscard` diagnostics for explicit discard.
+   - Recognize the predefined attribute symbol.
+   - Treat `(void) marked_call()` as explicit discard.
 
 2. Pipe operator parser/AST.
    - Add fixture from the PHP 8.5 release example.
