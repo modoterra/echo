@@ -12,6 +12,10 @@ Echo's PHP compatibility target is PHP 8.5. PHP syntax or runtime features
 introduced after PHP 8.5 are not part of the compatibility baseline unless Echo
 adopts them separately as Echo-native extensions.
 
+Echo's host platform baseline is Linux and macOS. Windows-native behavior is out
+of scope for the current compatibility target; WSL is acceptable because it
+presents a Linux host model.
+
 The compatibility promise means valid PHP remains valid Echo. It does not mean
 every Echo-accepted `.php` file remains runnable by stock PHP after using
 Echo-only syntax.
