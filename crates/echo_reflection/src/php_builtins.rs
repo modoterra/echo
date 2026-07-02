@@ -364,6 +364,21 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("name", Some("?string")), ("local_only", Some("bool"))],
             Some("string|array|false"),
         ),
+        php_builtin_reflection(
+            "openlog",
+            &[
+                ("prefix", Some("string")),
+                ("flags", Some("int")),
+                ("facility", Some("int")),
+            ],
+            Some("true"),
+        ),
+        php_builtin_reflection(
+            "syslog",
+            &[("priority", Some("int")), ("message", Some("string"))],
+            Some("true"),
+        ),
+        php_builtin_reflection("closelog", &[], Some("true")),
         php_builtin_reflection("gethostname", &[], Some("string|false")),
         php_builtin_reflection(
             "gethostbyname",

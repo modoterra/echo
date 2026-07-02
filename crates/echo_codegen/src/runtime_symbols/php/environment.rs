@@ -59,6 +59,27 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_openlog",
+            echo_runtime::echo_php_openlog
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_syslog",
+            echo_runtime::echo_php_syslog
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_closelog",
+            echo_runtime::echo_php_closelog as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_gethostname",
             echo_runtime::echo_php_gethostname as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

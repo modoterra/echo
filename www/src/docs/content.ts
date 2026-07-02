@@ -1765,6 +1765,24 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Looks up a network service name by port and protocol.",
       },
       {
+        name: "openlog",
+        signature: "openlog(string $prefix, int $flags, int $facility): true",
+        description:
+          "Opens a system logger connection in PHP; Echo currently treats this as a successful no-op.",
+      },
+      {
+        name: "syslog",
+        signature: "syslog(int $priority, string $message): true",
+        description:
+          "Sends a system log message in PHP; Echo currently treats host syslog delivery as a successful no-op.",
+      },
+      {
+        name: "closelog",
+        signature: "closelog(): true",
+        description:
+          "Closes a system logger connection in PHP; Echo currently treats this as a successful no-op.",
+      },
+      {
         name: "ip2long",
         signature: "ip2long(string $ip): int|false",
         description: "Converts a dotted IPv4 address to an unsigned 32-bit integer.",
@@ -3021,6 +3039,24 @@ if ($port !== false) {
 
 if ($service !== false) {
     echo "UDP/53 service: " . $service . "\\n"
+}`,
+  ],
+  [
+    "openlog",
+    `if (openlog("import-worker", 0, 8)) {
+    echo "Logger ready\\n"
+}`,
+  ],
+  [
+    "syslog",
+    `if (syslog(6, "import completed")) {
+    echo "Log accepted\\n"
+}`,
+  ],
+  [
+    "closelog",
+    `if (closelog()) {
+    echo "Logger closed\\n"
 }`,
   ],
   [
@@ -4606,6 +4642,18 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getservbyport",
     "Use `getservbyport()` when imported data stores numeric ports and the program needs the canonical local service label for display or compatibility logic.",
+  ],
+  [
+    "openlog",
+    "Use `openlog()` when preserving PHP logging setup code. Echo currently returns `true` without opening a host syslog connection, so compatibility code can keep its control flow.",
+  ],
+  [
+    "syslog",
+    "Use `syslog()` for PHP-compatible logging calls that should not interrupt execution. Echo currently accepts the call and returns `true` without delivering to the host logger.",
+  ],
+  [
+    "closelog",
+    "Use `closelog()` to preserve PHP logger cleanup calls. Echo currently returns `true` because no host syslog descriptor is kept open.",
   ],
   [
     "ip2long",
@@ -7737,7 +7785,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 303 PHP compatibility fixtures, 340 implemented Core and standard functions out of 607, 267 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 304 PHP compatibility fixtures, 343 implemented Core and standard functions out of 607, 264 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -48,6 +48,25 @@ pub extern "C" fn echo_php_getenv(name: EchoValue, _local_only: EchoValue) -> Ec
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_openlog(
+    _prefix: EchoValue,
+    _flags: EchoValue,
+    _facility: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_syslog(_priority: EchoValue, _message: EchoValue) -> EchoValue {
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_closelog() -> EchoValue {
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_gethostname() -> EchoValue {
     env::var_os("HOSTNAME")
         .and_then(non_empty_os_string_bytes)

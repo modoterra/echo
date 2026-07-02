@@ -235,6 +235,26 @@ fn environment_process_builtins_follow_php_shapes() {
 }
 
 #[test]
+fn syslog_builtins_return_true_for_cli_baseline() {
+    assert_eq!(
+        echo_php_openlog(
+            test_string_value(b"echo-test"),
+            EchoValue::int(0),
+            EchoValue::int(8)
+        ),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_php_syslog(
+            EchoValue::int(6),
+            test_string_value(b"compatibility message")
+        ),
+        EchoValue::bool(true)
+    );
+    assert_eq!(echo_php_closelog(), EchoValue::bool(true));
+}
+
+#[test]
 fn gethostbyname_returns_ipv4_or_original_hostname() {
     assert_eq!(
         echo_php_gethostbyname(test_string_value(b"localhost")).string_bytes(),

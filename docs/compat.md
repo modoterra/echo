@@ -238,7 +238,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `cli_get_process_title` | implemented | Returns the process-local title last set through `cli_set_process_title()`, or `null` before one is set. Source: https://www.php.net/manual/en/function.cli-get-process-title.php |
 | `cli_set_process_title` | implemented | Stores a process-local title string and returns `true`; host OS process-title mutation is deferred. Source: https://www.php.net/manual/en/function.cli-set-process-title.php |
 | `closedir` | missing |  |
-| `closelog` | missing |  |
+| `closelog` | implemented | Returns `true` and treats the system logger connection as a no-op process-local compatibility surface. Source: https://www.php.net/manual/en/function.closelog.php |
 | `compact` | missing |  |
 | `connection_aborted` | implemented | Returns `0` because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-aborted.php |
 | `connection_status` | implemented | Returns `0` (`CONNECTION_NORMAL`) because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-status.php |
@@ -487,7 +487,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ob_start` | implemented | Starts a new output buffer and stores optional callback metadata; callback invocation is deferred. Source: https://www.php.net/manual/en/function.ob-start.php |
 | `octdec` | implemented | Converts octal strings to unsigned decimal int or float values while ignoring non-octal characters. Source: https://www.php.net/manual/en/function.octdec.php |
 | `opendir` | missing |  |
-| `openlog` | missing |  |
+| `openlog` | implemented | Returns `true` and records no host logger state because Echo currently does not model a system logger connection. Source: https://www.php.net/manual/en/function.openlog.php |
 | `ord` | implemented | Returns the integer value of the first byte in a string. Source: https://www.php.net/manual/en/function.ord.php |
 | `output_add_rewrite_var` | missing |  |
 | `output_reset_rewrite_vars` | missing |  |
@@ -672,7 +672,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `symlink` | implemented | Creates local symbolic links and returns a bool success value; Windows-specific target-type behavior, privilege differences, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.symlink.php |
 | `sys_get_temp_dir` | implemented | Returns the host process temporary directory path; PHP INI overrides and virtual-host/open_basedir behavior are deferred. Source: https://www.php.net/manual/en/function.sys-get-temp-dir.php |
 | `sys_getloadavg` | partial | Returns Linux `/proc/loadavg` 1, 5, and 15 minute load averages as floats, or `false` when load averages are unavailable. Source: https://www.php.net/manual/en/function.sys-getloadavg.php |
-| `syslog` | missing |  |
+| `syslog` | implemented | Returns `true` while treating host syslog delivery as a no-op in Echo's current CLI-style runtime. Source: https://www.php.net/manual/en/function.syslog.php |
 | `system` | missing |  |
 | `tan` | implemented | Returns the tangent of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.tan.php |
 | `tanh` | implemented | Returns hyperbolic tangent as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.tanh.php |
