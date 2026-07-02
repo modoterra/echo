@@ -813,6 +813,26 @@ pub extern "C" fn echo_php_mail(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ip2long(ip: EchoValue) -> EchoValue {
+    let Some(bytes) = ip.string_bytes() else {
+        return EchoValue::error();
+    };
+    match parse_ipv4_bytes(&bytes) {
+        Some(value) => EchoValue::int(value as i64),
+        None => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_long2ip(ip: EchoValue) -> EchoValue {
+    let Some(value) = ip.php_int_value() else {
+        return EchoValue::error();
+    };
+    let bytes = (value as u32).to_be_bytes();
+    echo_runtime_string(format!("{}.{}.{}.{}", bytes[0], bytes[1], bytes[2], bytes[3]).into_bytes())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
     let Some(_option) = option.string_bytes() else {
         return EchoValue::bool(false);
@@ -874,6 +894,37 @@ pub extern "C" fn echo_php_putenv(assignment: EchoValue) -> EchoValue {
     }
 
     EchoValue::bool(true)
+}
+
+fn parse_ipv4_bytes(bytes: &[u8]) -> Option<u32> {
+    let mut parts = [0u8; 4];
+    let mut part_index = 0;
+
+    for part in bytes.split(|byte| *byte == b'.') {
+        if part_index == 4 || part.is_empty() {
+            return None;
+        }
+        let mut value = 0u16;
+        for byte in part {
+            if !byte.is_ascii_digit() {
+                return None;
+            }
+            value = value
+                .checked_mul(10)?
+                .checked_add(u16::from(*byte - b'0'))?;
+            if value > u8::MAX as u16 {
+                return None;
+            }
+        }
+        parts[part_index] = value as u8;
+        part_index += 1;
+    }
+
+    if part_index != 4 {
+        return None;
+    }
+
+    Some(u32::from_be_bytes(parts))
 }
 
 #[cfg(unix)]

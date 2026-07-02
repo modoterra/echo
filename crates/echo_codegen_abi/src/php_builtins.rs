@@ -439,6 +439,22 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueTernaryExpression,
         },
         PhpBuiltin {
+            php_name: "ip2long",
+            symbol: "echo_php_ip2long",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
+            php_name: "long2ip",
+            symbol: "echo_php_long2ip",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "ini_set",
             symbol: "echo_php_ini_set",
             helper_symbol: None,

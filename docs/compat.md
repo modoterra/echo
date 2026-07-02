@@ -390,7 +390,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ini_set` | implemented | Returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-set.php |
 | `intdiv` | implemented | Divides integer-compatible operands and returns the quotient truncated toward zero; division by zero and overflow currently surface as runtime errors. Source: https://www.php.net/manual/en/function.intdiv.php |
 | `intval` | implemented | Converts current scalar values to integers using PHP-style bool, null, float, and numeric-string coercion. Source: https://www.php.net/manual/en/function.intval.php |
-| `ip2long` | missing |  |
+| `ip2long` | implemented | Converts canonical dotted IPv4 strings to unsigned 32-bit integer values and returns `false` for invalid input. Source: https://www.php.net/manual/en/function.ip2long.php |
 | `iptcembed` | missing |  |
 | `iptcparse` | missing |  |
 | `is_array` | implemented | Supports Echo list values as PHP arrays. Source: https://www.php.net/manual/en/function.is-array.php |
@@ -435,7 +435,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `log` | implemented | Calculates natural logarithms by default and supports an optional positive base; non-positive bases are surfaced as runtime errors for now. Source: https://www.php.net/manual/en/function.log.php |
 | `log10` | implemented | Calculates base-10 logarithms with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.log10.php |
 | `log1p` | implemented | Calculates log(1 + num) with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.log1p.php |
-| `long2ip` | missing |  |
+| `long2ip` | implemented | Converts signed or unsigned 32-bit integer values to canonical dotted IPv4 strings. Source: https://www.php.net/manual/en/function.long2ip.php |
 | `lstat` | missing |  |
 | `ltrim` | implemented | Removes PHP's default leading ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.ltrim.php |
 | `mail` | partial | Accepts required `to`, `subject`, and `message` string arguments and returns `false` because Echo has no configured mail transport; additional headers, parameters, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mail.php |

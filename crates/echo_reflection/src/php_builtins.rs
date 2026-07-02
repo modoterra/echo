@@ -480,6 +480,8 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             ],
             Some("bool"),
         ),
+        php_builtin_reflection("ip2long", &[("ip", Some("string"))], Some("int|false")),
+        php_builtin_reflection("long2ip", &[("ip", Some("int"))], Some("string")),
         php_builtin_reflection(
             "ini_set",
             &[("option", Some("string")), ("value", Some("string"))],

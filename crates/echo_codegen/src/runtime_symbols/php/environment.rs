@@ -279,6 +279,18 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_ip2long",
+            echo_runtime::echo_php_ip2long
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_long2ip",
+            echo_runtime::echo_php_long2ip
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_ini_set",
             echo_runtime::echo_php_ini_set
                 as extern "C" fn(

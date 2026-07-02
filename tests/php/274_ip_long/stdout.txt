@@ -1,0 +1,7 @@
+loopback:2130706433
+private:3232235786
+invalid:
+long:127.0.0.1
+signed:255.255.255.255
+ip2long-exists:1
+long2ip-exists:1

@@ -1594,6 +1594,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Looks up a network service name by port and protocol.",
       },
       {
+        name: "ip2long",
+        signature: "ip2long(string $ip): int|false",
+        description: "Converts a dotted IPv4 address to an unsigned 32-bit integer.",
+      },
+      {
+        name: "long2ip",
+        signature: "long2ip(int $ip): string",
+        description: "Converts a signed or unsigned 32-bit integer to a dotted IPv4 address.",
+      },
+      {
         name: "getrusage",
         signature: "getrusage(): array|false",
         description: "Returns current process resource usage counters.",
@@ -2606,6 +2616,20 @@ if ($port !== false) {
 if ($service !== false) {
     echo "UDP/53 service: " . $service . "\\n"
 }`,
+  ],
+  [
+    "ip2long",
+    `let $packed = ip2long("192.168.1.10")
+
+if ($packed !== false) {
+    echo "IPv4 integer: " . $packed . "\\n"
+}`,
+  ],
+  [
+    "long2ip",
+    `let $address = long2ip(2130706433)
+
+echo "IPv4 address: " . $address . "\\n"`,
   ],
   [
     "getrusage",
@@ -4031,6 +4055,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getservbyport",
     "Use `getservbyport()` when imported data stores numeric ports and the program needs the canonical local service label for display or compatibility logic.",
+  ],
+  [
+    "ip2long",
+    "Use `ip2long()` when compatibility code stores or compares IPv4 addresses as 32-bit integers. Echo accepts canonical dotted-quad strings and returns false for invalid input.",
+  ],
+  [
+    "long2ip",
+    "Use `long2ip()` to display signed or unsigned 32-bit IPv4 integers as canonical dotted addresses.",
   ],
   [
     "getrusage",
@@ -7114,7 +7146,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 271 PHP compatibility fixtures, 305 implemented Core and standard functions out of 607, 302 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 272 PHP compatibility fixtures, 307 implemented Core and standard functions out of 607, 300 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
