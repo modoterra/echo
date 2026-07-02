@@ -510,7 +510,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `php_sapi_name` | implemented | Returns Echo's PHP compatibility Server API name, currently `cli`, matching the `PHP_SAPI` constant. Source: https://www.php.net/manual/en/function.php-sapi-name.php |
 | `php_strip_whitespace` | missing |  |
 | `php_uname` | partial | Returns host system identity fields for explicit mode strings such as `s`, `n`, `r`, `v`, and `m`; no-argument default lowering is deferred. Source: https://www.php.net/manual/en/function.php-uname.php |
-| `phpcredits` | missing |  |
+| `phpcredits` | partial | Emits compact CLI-style Echo/PHP compatibility credit text and returns `true`; full credit categories, exact upstream credit text, and HTML rendering are deferred. Source: https://www.php.net/manual/en/function.phpcredits.php |
 | `phpinfo` | missing |  |
 | `phpversion` | implemented | Returns Echo's PHP compatibility version for no extension or `null`; named extension versions are not modeled yet and return `false`. Source: https://www.php.net/manual/en/function.phpversion.php |
 | `pi` | implemented | Returns an approximation of pi as a float. Source: https://www.php.net/manual/en/function.pi.php |

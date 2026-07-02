@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::{
     EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new,
-    echo_value_array_set,
+    echo_value_array_set, write_runtime_output,
 };
 
 pub const PHP_COMPAT_VERSION: &str = "8.2.0";
@@ -762,6 +762,12 @@ pub extern "C" fn echo_php_phpversion(extension: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_php_sapi_name() -> EchoValue {
     echo_runtime_string(b"cli".to_vec())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_phpcredits(_flags: EchoValue) -> EchoValue {
+    write_runtime_output(b"PHP Credits\nEcho PHP compatibility runtime\n");
+    EchoValue::bool(true)
 }
 
 #[unsafe(no_mangle)]

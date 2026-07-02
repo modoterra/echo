@@ -41,6 +41,10 @@ fn environment_process_builtins_follow_php_shapes() {
         Some(b"cli".to_vec())
     );
     assert_eq!(
+        echo_php_phpcredits(EchoValue::int(0)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
         echo_php_zend_version().string_bytes(),
         Some(b"8.2.0".to_vec())
     );

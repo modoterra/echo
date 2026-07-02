@@ -1784,6 +1784,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the PHP Server API name for the current runtime.",
       },
       {
+        name: "phpcredits",
+        signature: "phpcredits(int $flags = CREDITS_ALL): true",
+        description: "Prints PHP compatibility credit information.",
+      },
+      {
         name: "php_uname",
         signature: "php_uname(string $mode): string",
         description: "Returns host system identity information.",
@@ -3250,6 +3255,14 @@ echo "PHP compatibility: " . $version . "\\n"`,
     `let $system = php_uname("s")
 
 echo "System: " . $system . "\\n"`,
+  ],
+  [
+    "phpcredits",
+    `ob_start()
+phpcredits(0)
+let $credits = ob_get_clean()
+
+echo "Credits captured: " . strlen($credits) . "\\n"`,
   ],
   [
     "zend_version",
@@ -6213,6 +6226,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `php_uname()` for compatibility diagnostics that include host OS, node, release, version, or machine information.",
   ],
   [
+    "phpcredits",
+    "Use `phpcredits()` when preserving diagnostics pages or CLI support commands that display PHP credit information. Echo currently emits compact CLI-style compatibility text and leaves exact PHP credit categories and HTML output for later.",
+  ],
+  [
     "zend_version",
     "Use `zend_version()` for legacy diagnostics and version banners that expect a Zend Engine version label.",
   ],
@@ -8487,7 +8504,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 335 PHP compatibility fixtures, 384 implemented Core and standard functions out of 607, 223 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 336 PHP compatibility fixtures, 385 implemented Core and standard functions out of 607, 222 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
