@@ -1,0 +1,4 @@
+foo=bar+baz&items%5B0%5D=red+apple&items%5B1%5D=blue&n_0=lead
+foo=bar+baz&amp;items%5B0%5D=red+apple&amp;items%5B1%5D=blue&amp;n_0=lead
+space=a%20b
+exists:1

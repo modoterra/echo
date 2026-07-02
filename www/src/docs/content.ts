@@ -460,6 +460,13 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Encodes form/query text with spaces as plus signs.",
       },
       {
+        name: "http_build_query",
+        signature:
+          "http_build_query(array|object $data, string $numeric_prefix = \"\", ?string $arg_separator = null, int $encoding_type = PHP_QUERY_RFC1738): string",
+        description:
+          "Builds a URL-encoded query string from array data using PHP query encoding rules.",
+      },
+      {
         name: "urldecode",
         signature: "urldecode(string $string): string",
         description: "Decodes form/query text, including plus signs as spaces.",
@@ -3585,6 +3592,13 @@ let $url = "/search?q=" . urlencode($query)
 echo $url . "\\n"`,
   ],
   [
+    "http_build_query",
+    `let $params = ["q" => "status ready", "page" => 2]
+let $query = http_build_query($params, "", "&", 1)
+
+echo "/search?" . $query . "\\n"`,
+  ],
+  [
     "urldecode",
     `let $raw = "status%3A+ready"
 let $query = urldecode($raw)
@@ -4784,6 +4798,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "urlencode",
     "Use `urlencode()` for classic form-style query values where spaces are encoded as `+` for PHP compatibility.",
+  ],
+  [
+    "http_build_query",
+    "Use `http_build_query()` when compatibility code turns a PHP array into a query string. Echo supports array data, nested keys, null omission, custom separators, and RFC1738/RFC3986 encoding modes.",
   ],
   [
     "urldecode",
@@ -7579,7 +7597,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 296 PHP compatibility fixtures, 331 implemented Core and standard functions out of 607, 276 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 297 PHP compatibility fixtures, 332 implemented Core and standard functions out of 607, 275 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -2,7 +2,10 @@ use crc32fast::Hasher as Crc32Hasher;
 use md5_digest::{Digest as _, Md5};
 use sha1::Sha1;
 
-use crate::{EchoString, EchoValue, string::php_string_map_builtin};
+use crate::{
+    EchoArray, EchoString, EchoValue, collections::EchoArrayKey, echo_runtime_string,
+    string::php_string_map_builtin,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PercentEncodingMode {
@@ -215,6 +218,72 @@ pub(crate) fn percent_encode(bytes: &[u8], mode: PercentEncodingMode) -> Vec<u8>
     encoded
 }
 
+fn http_build_query_array(
+    data: &EchoArray,
+    numeric_prefix: &[u8],
+    separator: &[u8],
+    encoding_mode: PercentEncodingMode,
+) -> Vec<u8> {
+    let mut pairs = Vec::new();
+    for (key, value) in data.keys.iter().zip(&data.values) {
+        if value.is_null() {
+            continue;
+        }
+        let key = http_query_key_bytes(key, Some(numeric_prefix));
+        append_http_query_pairs(&mut pairs, key, *value, encoding_mode);
+    }
+    pairs.join(separator)
+}
+
+fn append_http_query_pairs(
+    pairs: &mut Vec<Vec<u8>>,
+    key: Vec<u8>,
+    value: EchoValue,
+    encoding_mode: PercentEncodingMode,
+) {
+    if value.is_null() {
+        return;
+    }
+
+    if value.is_array() {
+        let Some(array) = (unsafe { (value.payload as *const EchoArray).as_ref() }) else {
+            return;
+        };
+        for (child_key, child_value) in array.keys.iter().zip(&array.values) {
+            let child_key = http_query_nested_key_bytes(&key, child_key);
+            append_http_query_pairs(pairs, child_key, *child_value, encoding_mode);
+        }
+        return;
+    }
+
+    let Some(value) = value.string_bytes() else {
+        return;
+    };
+    let mut pair = percent_encode(&key, encoding_mode);
+    pair.push(b'=');
+    pair.extend(percent_encode(&value, encoding_mode));
+    pairs.push(pair);
+}
+
+fn http_query_key_bytes(key: &EchoArrayKey, numeric_prefix: Option<&[u8]>) -> Vec<u8> {
+    match key {
+        EchoArrayKey::Int(value) => {
+            let mut bytes = numeric_prefix.unwrap_or_default().to_vec();
+            bytes.extend(value.to_string().as_bytes());
+            bytes
+        }
+        EchoArrayKey::String(bytes) => bytes.clone(),
+    }
+}
+
+fn http_query_nested_key_bytes(parent: &[u8], key: &EchoArrayKey) -> Vec<u8> {
+    let mut bytes = parent.to_vec();
+    bytes.push(b'[');
+    bytes.extend(http_query_key_bytes(key, None));
+    bytes.push(b']');
+    bytes
+}
+
 pub(crate) fn percent_decode(bytes: &[u8], decode_plus: bool) -> Vec<u8> {
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -255,6 +324,42 @@ pub extern "C" fn echo_php_urlencode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| {
         percent_encode(bytes, PercentEncodingMode::FormUrl)
     })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_http_build_query(
+    data: EchoValue,
+    numeric_prefix: EchoValue,
+    arg_separator: EchoValue,
+    encoding_type: EchoValue,
+) -> EchoValue {
+    if !data.is_array() {
+        return EchoValue::error();
+    }
+    let Some(data) = (unsafe { (data.payload as *const EchoArray).as_ref() }) else {
+        return EchoValue::error();
+    };
+    let Some(numeric_prefix) = numeric_prefix.string_bytes() else {
+        return EchoValue::error();
+    };
+    let separator = if arg_separator.is_null() {
+        b"&".to_vec()
+    } else {
+        arg_separator
+            .string_bytes()
+            .unwrap_or_else(|| b"&".to_vec())
+    };
+    let encoding_mode = match encoding_type.php_int_value().unwrap_or(1) {
+        2 => PercentEncodingMode::RawUrl,
+        _ => PercentEncodingMode::FormUrl,
+    };
+
+    echo_runtime_string(http_build_query_array(
+        data,
+        &numeric_prefix,
+        &separator,
+        encoding_mode,
+    ))
 }
 
 #[unsafe(no_mangle)]

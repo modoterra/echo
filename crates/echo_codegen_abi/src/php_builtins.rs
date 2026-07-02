@@ -441,6 +441,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::HttpResponseCode,
         },
         PhpBuiltin {
+            php_name: "http_build_query",
+            symbol: "echo_php_http_build_query",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueQuaternaryExpression,
+        },
+        PhpBuiltin {
             php_name: "mail",
             symbol: "echo_php_mail",
             helper_symbol: None,

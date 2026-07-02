@@ -1,4 +1,5 @@
 use super::*;
+use crate::collections::EchoArrayKey;
 
 #[test]
 fn url_encoding_builtins_preserve_php_byte_behavior() {
@@ -31,5 +32,69 @@ fn url_encoding_builtins_preserve_php_byte_behavior() {
     assert_eq!(
         echo_php_rawurlencode(string_value(&[0xc3, 0x84])).string_bytes(),
         Some(b"%C3%84".to_vec())
+    );
+}
+
+#[test]
+fn http_build_query_encodes_arrays_and_nested_arrays() {
+    fn string_value(bytes: &[u8]) -> EchoValue {
+        EchoValue::string(Box::into_raw(Box::new(EchoString {
+            bytes: bytes.to_vec(),
+        })))
+    }
+
+    let nested = EchoValue::array(Box::into_raw(Box::new(EchoArray {
+        keys: vec![EchoArrayKey::Int(0), EchoArrayKey::Int(1)],
+        values: vec![string_value(b"red apple"), string_value(b"blue")],
+    })));
+    let data = EchoValue::array(Box::into_raw(Box::new(EchoArray {
+        keys: vec![
+            EchoArrayKey::String(b"foo".to_vec()),
+            EchoArrayKey::String(b"null".to_vec()),
+            EchoArrayKey::String(b"items".to_vec()),
+            EchoArrayKey::Int(0),
+        ],
+        values: vec![
+            string_value(b"bar baz"),
+            EchoValue::null(),
+            nested,
+            string_value(b"lead"),
+        ],
+    })));
+
+    assert_eq!(
+        echo_php_http_build_query(
+            data,
+            string_value(b"n_"),
+            string_value(b"&"),
+            EchoValue::int(1)
+        )
+        .string_bytes(),
+        Some(b"foo=bar+baz&items%5B0%5D=red+apple&items%5B1%5D=blue&n_0=lead".to_vec())
+    );
+    assert_eq!(
+        echo_php_http_build_query(
+            data,
+            string_value(b"n_"),
+            string_value(b"&amp;"),
+            EchoValue::int(1)
+        )
+        .string_bytes(),
+        Some(b"foo=bar+baz&amp;items%5B0%5D=red+apple&amp;items%5B1%5D=blue&amp;n_0=lead".to_vec())
+    );
+
+    let rfc3986 = EchoValue::array(Box::into_raw(Box::new(EchoArray {
+        keys: vec![EchoArrayKey::String(b"space".to_vec())],
+        values: vec![string_value(b"a b")],
+    })));
+    assert_eq!(
+        echo_php_http_build_query(
+            rfc3986,
+            string_value(b""),
+            string_value(b"&"),
+            EchoValue::int(2)
+        )
+        .string_bytes(),
+        Some(b"space=a%20b".to_vec())
     );
 }

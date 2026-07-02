@@ -985,6 +985,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection("urlencode", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "http_build_query",
+            &[
+                ("data", Some("array|object")),
+                ("numeric_prefix", Some("string")),
+                ("arg_separator", Some("?string")),
+                ("encoding_type", Some("int")),
+            ],
+            Some("string"),
+        ),
         php_builtin_reflection("urldecode", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "hex2bin",

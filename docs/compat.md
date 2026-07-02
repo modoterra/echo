@@ -370,7 +370,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `htmlentities` | partial | Escapes the default special HTML characters using the current `htmlspecialchars()` path; optional flags, encoding, double-encode control, and the broader named entity table are deferred. Source: https://www.php.net/manual/en/function.htmlentities.php |
 | `htmlspecialchars` | implemented | Escapes `&`, `"`, `'`, `<`, and `>` using PHP's default `ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401` shape; optional flags, encoding, and double-encode control are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars.php |
 | `htmlspecialchars_decode` | implemented | Decodes the default `htmlspecialchars()` entity set for `&amp;`, `&quot;`, `&#039;`, `&lt;`, and `&gt;`; optional flags are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars-decode.php |
-| `http_build_query` | missing |  |
+| `http_build_query` | partial | Builds URL-encoded query strings from Echo PHP arrays, including nested arrays, null omission, top-level numeric prefixes, custom separators, and RFC1738/RFC3986 encoding modes; object properties and omitted optional argument lowering are deferred. Source: https://www.php.net/manual/en/function.http-build-query.php |
 | `http_clear_last_response_headers` | missing |  |
 | `http_get_last_response_headers` | missing |  |
 | `http_response_code` | implemented | Tracks the process-local response code; returns `false` before a code is set, `true` for the first set, and the previous/current code as documented for CLI-style use. Source: https://www.php.net/manual/en/function.http-response-code.php |
