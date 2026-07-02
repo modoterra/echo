@@ -463,6 +463,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             ],
             Some("int|bool"),
         ),
+        php_builtin_reflection(
+            "print_r",
+            &[("value", Some("mixed")), ("return", Some("bool"))],
+            Some("string|true"),
+        ),
         php_builtin_reflection("var_dump", &[("value", Some("mixed"))], Some("void")),
         php_builtin_reflection(
             "var_export",

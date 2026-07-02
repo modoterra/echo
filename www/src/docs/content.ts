@@ -845,6 +845,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Generates PHP's storable byte-stream representation for scalar values and arrays.",
       },
       {
+        name: "print_r",
+        signature: "print_r(mixed $value, bool $return = false): string|true",
+        description: "Outputs or returns human-readable scalar and array information.",
+      },
+      {
         name: "var_dump",
         signature: "var_dump(mixed $value): void",
         description: "Dumps PHP-shaped scalar and array debugging output.",
@@ -4207,6 +4212,13 @@ let $encoded = serialize($payload)
 echo $encoded . "\\n"`,
   ],
   [
+    "print_r",
+    `let $payload = ["id" => 42, "name" => "Ada"]
+let $summary = print_r($payload, true)
+
+echo $summary`,
+  ],
+  [
     "var_dump",
     `ob_start()
 let $ignored = var_dump("Echo")
@@ -5970,6 +5982,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "serialize",
     "Use `serialize()` when compatibility code stores scalar or array state in PHP's native wire format. Echo currently supports scalars and PHP arrays while object hooks, resources, references, and `unserialize()` remain deferred.",
+  ],
+  [
+    "print_r",
+    "Use `print_r()` when compatibility code needs readable debug output that can either be written directly or captured as a string. Echo currently supports scalars and PHP arrays while objects, resources, references, cycles, and recursive edge cases remain deferred.",
   ],
   [
     "var_dump",
@@ -8589,7 +8605,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 341 PHP compatibility fixtures, 390 implemented Core and standard functions out of 607, 217 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 342 PHP compatibility fixtures, 391 implemented Core and standard functions out of 607, 216 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

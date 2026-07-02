@@ -1,0 +1,11 @@
+Array
+(
+    [id] => 42
+    [name] => Ada
+    [active] => 1
+    [none] => 
+)
+
+Echo
+returned:boolean:1
+exists:1

@@ -493,6 +493,19 @@ pub extern "C" fn echo_php_var_export(value: EchoValue, return_output: EchoValue
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_print_r(value: EchoValue, return_output: EchoValue) -> EchoValue {
+    let mut output = Vec::new();
+    write_php_print_r_value(&mut output, value, 0);
+
+    if return_output.bool_value().unwrap_or(false) {
+        echo_runtime_string(output)
+    } else {
+        crate::write_runtime_output(&output);
+        EchoValue::bool(true)
+    }
+}
+
 fn write_php_var_dump_value(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
     match value.kind {
         ECHO_VALUE_NULL | ECHO_VALUE_ERROR => output.extend_from_slice(b"NULL\n"),
@@ -535,6 +548,31 @@ fn write_php_var_dump_value(output: &mut Vec<u8>, value: EchoValue, depth: usize
     }
 }
 
+fn write_php_print_r_value(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
+    match value.kind {
+        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => {}
+        ECHO_VALUE_BOOL => {
+            if value.payload != 0 {
+                output.push(b'1');
+            }
+        }
+        ECHO_VALUE_INT => output.extend_from_slice(format!("{}", value.payload as i64).as_bytes()),
+        ECHO_VALUE_FLOAT => {
+            output.extend_from_slice(format_php_float(f64::from_bits(value.payload)).as_bytes());
+        }
+        ECHO_VALUE_STRING => output.extend_from_slice(&value.string_bytes().unwrap_or_default()),
+        ECHO_VALUE_ARRAY => write_php_print_r_array(output, value, depth),
+        ECHO_VALUE_LIST => write_php_print_r_list(output, value, depth),
+        ECHO_VALUE_TASK
+        | ECHO_VALUE_TASK_GROUP
+        | ECHO_VALUE_OBJECT
+        | ECHO_VALUE_PROCESS
+        | ECHO_VALUE_THREAD => output.extend_from_slice(b"stdClass Object\n(\n)\n"),
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION | ECHO_VALUE_STREAM => {}
+        _ => {}
+    }
+}
+
 fn write_php_var_export_value(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
     match value.kind {
         ECHO_VALUE_NULL | ECHO_VALUE_ERROR => output.extend_from_slice(b"NULL"),
@@ -565,6 +603,64 @@ fn write_php_var_export_value(output: &mut Vec<u8>, value: EchoValue, depth: usi
             output.extend_from_slice(b"NULL");
         }
         _ => output.extend_from_slice(b"NULL"),
+    }
+}
+
+fn write_php_print_r_array(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
+    let Some(array) = (unsafe { (value.payload as *const EchoArray).as_ref() }) else {
+        output.extend_from_slice(b"Array\n(\n)\n");
+        return;
+    };
+
+    output.extend_from_slice(b"Array\n");
+    write_php_print_r_indent(output, depth);
+    output.extend_from_slice(b"(\n");
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        write_php_print_r_indent(output, depth + 1);
+        write_php_print_r_key(output, key);
+        output.extend_from_slice(b" => ");
+        write_php_print_r_value(output, *value, depth + 1);
+        output.push(b'\n');
+    }
+    write_php_print_r_indent(output, depth);
+    output.push(b')');
+    output.push(b'\n');
+}
+
+fn write_php_print_r_list(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
+    let Some(list) = (unsafe { (value.payload as *const EchoList).as_ref() }) else {
+        output.extend_from_slice(b"Array\n(\n)\n");
+        return;
+    };
+
+    output.extend_from_slice(b"Array\n");
+    write_php_print_r_indent(output, depth);
+    output.extend_from_slice(b"(\n");
+    for (index, value) in list.values.iter().enumerate() {
+        write_php_print_r_indent(output, depth + 1);
+        output.extend_from_slice(format!("[{index}] => ").as_bytes());
+        write_php_print_r_value(output, *value, depth + 1);
+        output.push(b'\n');
+    }
+    write_php_print_r_indent(output, depth);
+    output.push(b')');
+    output.push(b'\n');
+}
+
+fn write_php_print_r_key(output: &mut Vec<u8>, key: &EchoArrayKey) {
+    match key {
+        EchoArrayKey::Int(value) => output.extend_from_slice(format!("[{value}]").as_bytes()),
+        EchoArrayKey::String(bytes) => {
+            output.push(b'[');
+            output.extend_from_slice(bytes);
+            output.push(b']');
+        }
+    }
+}
+
+fn write_php_print_r_indent(output: &mut Vec<u8>, depth: usize) {
+    for _ in 0..depth {
+        output.extend_from_slice(b"    ");
     }
 }
 

@@ -1352,6 +1352,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "print_r",
+            symbol: "echo_php_print_r",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryOptionalBoolExpression,
+        },
+        PhpBuiltin {
             php_name: "var_export",
             symbol: "echo_php_var_export",
             helper_symbol: None,
