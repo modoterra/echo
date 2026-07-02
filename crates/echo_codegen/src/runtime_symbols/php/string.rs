@@ -134,6 +134,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_convert_uudecode",
+            echo_runtime::echo_php_convert_uudecode
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_base64_decode",
             echo_runtime::echo_php_base64_decode
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

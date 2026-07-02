@@ -149,6 +149,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Encodes bytes using PHP's uuencode line format.",
       },
       {
+        name: "convert_uudecode",
+        signature: "convert_uudecode(string $string): string|false",
+        description: "Decodes PHP uuencoded line data.",
+      },
+      {
         name: "base64_decode",
         signature: "base64_decode(string $string): string|false",
         description: "Decodes a Base64 string.",
@@ -1657,6 +1662,12 @@ echo $header . "\\n"`,
     `let $encoded = convert_uuencode("Hi")
 
 echo $encoded`,
+  ],
+  [
+    "convert_uudecode",
+    `let $decoded = convert_uudecode(convert_uuencode("Hi"))
+
+echo $decoded . "\\n"`,
   ],
   [
     "basename",
@@ -4036,6 +4047,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "convert_uuencode",
     "Use `convert_uuencode()` only for legacy formats that already expect uuencoded payloads. New text-safe binary transport should usually use Base64.",
+  ],
+  [
+    "convert_uudecode",
+    "Use `convert_uudecode()` at legacy import boundaries where uuencoded payloads must become raw bytes before validation.",
   ],
   [
     "base64_decode",
@@ -6975,7 +6990,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 263 PHP compatibility fixtures, 296 implemented Core and standard functions out of 607, 311 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 264 PHP compatibility fixtures, 297 implemented Core and standard functions out of 607, 310 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -921,6 +921,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection(
+            "convert_uudecode",
+            &[("string", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "base64_decode",
             &[("string", Some("string"))],
             Some("string|false"),

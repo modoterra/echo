@@ -181,6 +181,17 @@ pub extern "C" fn echo_php_convert_uuencode(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_convert_uudecode(value: EchoValue) -> EchoValue {
+    match value
+        .string_bytes()
+        .and_then(|bytes| uudecode_bytes(&bytes))
+    {
+        Some(bytes) => EchoValue::string(Box::into_raw(Box::new(EchoString::new(bytes)))),
+        None => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, decode_base64_non_strict)
 }
@@ -418,6 +429,57 @@ fn uuencode_bytes(bytes: &[u8]) -> Vec<u8> {
 fn uuencode_byte(value: u8) -> u8 {
     let value = (value & 0x3f) + 0x20;
     if value == b' ' { b'`' } else { value }
+}
+
+fn uudecode_bytes(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut decoded = Vec::new();
+    let mut saw_terminator = false;
+
+    for raw_line in bytes.split(|byte| *byte == b'\n') {
+        let line = raw_line.strip_suffix(b"\r").unwrap_or(raw_line);
+        if line.is_empty() {
+            continue;
+        }
+
+        let expected_len = uudecode_byte(line[0])? as usize;
+        if expected_len == 0 {
+            saw_terminator = true;
+            break;
+        }
+
+        let encoded = &line[1..];
+        let needed_groups = expected_len.div_ceil(3);
+        if encoded.len() < needed_groups * 4 {
+            return None;
+        }
+
+        let mut line_bytes = Vec::with_capacity(needed_groups * 3);
+        for group in encoded[..needed_groups * 4].chunks_exact(4) {
+            let first = uudecode_byte(group[0])?;
+            let second = uudecode_byte(group[1])?;
+            let third = uudecode_byte(group[2])?;
+            let fourth = uudecode_byte(group[3])?;
+
+            line_bytes.push((first << 2) | (second >> 4));
+            line_bytes.push((second << 4) | (third >> 2));
+            line_bytes.push((third << 6) | fourth);
+        }
+
+        if line_bytes.len() < expected_len {
+            return None;
+        }
+        decoded.extend_from_slice(&line_bytes[..expected_len]);
+    }
+
+    saw_terminator.then_some(decoded)
+}
+
+fn uudecode_byte(byte: u8) -> Option<u8> {
+    match byte {
+        b'`' => Some(0),
+        0x20..=0x5f => Some((byte - 0x20) & 0x3f),
+        _ => None,
+    }
 }
 
 pub(crate) fn hex_nibble(byte: u8) -> Option<u8> {

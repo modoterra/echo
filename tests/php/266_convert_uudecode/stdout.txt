@@ -1,0 +1,3 @@
+decoded:[Hi]
+bad_type:[boolean]
+exists:[1]
