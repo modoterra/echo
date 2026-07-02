@@ -87,6 +87,53 @@ pub extern "C" fn echo_php_fgetc(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fgets(stream: EchoValue, length: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    let max_bytes = if length.is_null() {
+        None
+    } else {
+        let Some(length) = length.php_int_value() else {
+            return EchoValue::bool(false);
+        };
+        if length <= 1 {
+            return EchoValue::bool(false);
+        }
+        let Ok(length) = usize::try_from(length) else {
+            return EchoValue::bool(false);
+        };
+
+        Some(length - 1)
+    };
+
+    let mut bytes = Vec::new();
+    while max_bytes.is_none_or(|max_bytes| bytes.len() < max_bytes) {
+        let mut byte = [0_u8; 1];
+        match file.read(&mut byte) {
+            Ok(1) => {
+                bytes.push(byte[0]);
+                if byte[0] == b'\n' {
+                    break;
+                }
+            }
+            Ok(_) => break,
+            Err(_) => return EchoValue::bool(false),
+        }
+    }
+
+    if bytes.is_empty() {
+        return EchoValue::bool(false);
+    }
+
+    echo_runtime_string(bytes)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fclose(stream: EchoValue) -> EchoValue {
     let Some(stream) = stream.as_stream_mut() else {
         return EchoValue::bool(false);

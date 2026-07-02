@@ -1242,6 +1242,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Reads one byte from a local file stream.",
       },
       {
+        name: "fgets",
+        signature: "fgets(resource $stream, ?int $length = null): string|false",
+        description:
+          "Reads up to the requested byte count from a stream, including the trailing newline when encountered.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2096,6 +2102,15 @@ if ($stream) {
 
 if ($stream) {
     echo "First byte: " . fgetc($stream) . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "fgets",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream) {
+    echo "Next chunk: " . fgets($stream, 16) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -4164,6 +4179,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "fgetc",
     "Use `fgetc()` for byte-oriented parsers that inspect a local file stream one character at a time. Echo reads one byte from local streams and returns false at EOF or for invalid streams.",
+  ],
+  [
+    "fgets",
+    "Use `fgets()` for bounded line-oriented reads when a compatibility script expects chunked or newline-aware tokenization from local file streams.",
   ],
   [
     "readfile",
@@ -7351,7 +7370,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 283 PHP compatibility fixtures, 319 implemented Core and standard functions out of 607, 288 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 287 PHP compatibility fixtures, 320 implemented Core and standard functions out of 607, 287 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

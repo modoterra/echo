@@ -1,0 +1,5 @@
+first:abc
+pos:3
+second:def
+exists:1
+all:abcdef

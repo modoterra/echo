@@ -66,6 +66,50 @@ fn fopen_and_stream_reading_updates_pointer_state() {
 }
 
 #[test]
+fn fgets_reads_until_limit_or_eof() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-fgets-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-fgets.txt");
+    {
+        let mut file = std::fs::File::create(&path).expect("create stream fixture");
+        file.write_all(b"abcdef").expect("write stream fixture");
+    }
+
+    let path = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path),
+        test_string_value(b"r"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(
+        echo_php_fgets(stream, test_string_value(b"4")).string_bytes(),
+        Some(b"abc".to_vec())
+    );
+    assert_eq!(echo_php_ftell(stream), EchoValue::int(3));
+    assert_eq!(
+        echo_php_fgets(stream, test_string_value(b"4")).string_bytes(),
+        Some(b"def".to_vec())
+    );
+    assert_eq!(echo_php_ftell(stream), EchoValue::int(6));
+    assert_eq!(
+        echo_php_fgets(stream, test_string_value(b"4")),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+
+    unsafe {
+        drop(Box::from_raw(path));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn fopen_rejects_unsupported_mode() {
     let temp_file = std::env::temp_dir().join(format!(
         "echo-runtime-stream-mode-{}.txt",

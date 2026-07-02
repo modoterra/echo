@@ -286,7 +286,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fflush` | missing |  |
 | `fgetc` | implemented | Reads one byte from Echo local file stream resources and returns `false` at EOF or on invalid streams. Source: https://www.php.net/manual/en/function.fgetc.php |
 | `fgetcsv` | missing |  |
-| `fgets` | missing |  |
+| `fgets` | partial | Reads up to `length - 1` bytes (or less at line breaks and EOF) from Echo local file stream resources and returns `false` when no bytes are available. Source: https://www.php.net/manual/en/function.fgets.php |
 | `file` | missing |  |
 | `file_exists` | implemented | Checks local filesystem paths for files or directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-exists.php |
 | `file_get_contents` | implemented | Reads local files into byte strings with offset and nullable length support, including negative offsets; include path lookup, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.file-get-contents.php |

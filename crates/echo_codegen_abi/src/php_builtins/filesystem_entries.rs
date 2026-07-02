@@ -275,6 +275,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "fgets",
+        symbol: "echo_php_fgets",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryOptionalNullExpression,
+    },
+    PhpBuiltin {
         php_name: "fclose",
         symbol: "echo_php_fclose",
         helper_symbol: None,
