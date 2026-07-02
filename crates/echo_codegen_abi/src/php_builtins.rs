@@ -451,6 +451,22 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueExpression,
         },
         PhpBuiltin {
+            php_name: "http_get_last_response_headers",
+            symbol: "echo_php_http_get_last_response_headers",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
+            php_name: "http_clear_last_response_headers",
+            symbol: "echo_php_http_clear_last_response_headers",
+            helper_symbol: None,
+            signature: RuntimeSignature::VoidNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::VoidStatement,
+        },
+        PhpBuiltin {
             php_name: "header",
             symbol: "echo_php_header",
             helper_symbol: None,

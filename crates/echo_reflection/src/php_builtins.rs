@@ -510,6 +510,8 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("headers_list", &[], Some("array")),
         php_builtin_reflection("headers_sent", &[], Some("bool")),
+        php_builtin_reflection("http_get_last_response_headers", &[], Some("?array")),
+        php_builtin_reflection("http_clear_last_response_headers", &[], Some("void")),
         php_builtin_reflection(
             "header",
             &[

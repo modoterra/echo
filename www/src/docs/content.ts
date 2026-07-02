@@ -1762,6 +1762,17 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Reports whether HTTP headers have already been sent.",
       },
       {
+        name: "http_get_last_response_headers",
+        signature: "http_get_last_response_headers(): ?array",
+        description:
+          "Returns the last HTTP wrapper response headers, or null when none are stored.",
+      },
+      {
+        name: "http_clear_last_response_headers",
+        signature: "http_clear_last_response_headers(): void",
+        description: "Clears stored HTTP wrapper response headers.",
+      },
+      {
         name: "header",
         signature: "header(string $header, bool $replace, int $response_code): void",
         description: "Queues an HTTP response header.",
@@ -3073,6 +3084,18 @@ echo "headers: " . count($headers) . "\\n"`,
     `if (headers_sent() === false) {
     echo "headers can still be queued\\n"
 }`,
+  ],
+  [
+    "http_get_last_response_headers",
+    `let $headers = http_get_last_response_headers()
+
+echo "response headers: " . gettype($headers) . "\\n"`,
+  ],
+  [
+    "http_clear_last_response_headers",
+    `http_clear_last_response_headers()
+
+echo "last response headers cleared\\n"`,
   ],
   [
     "header",
@@ -5887,6 +5910,14 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `headers_sent()` before compatibility code queues response headers after output may have started. Echo currently returns false because it does not model an HTTP header layer.",
   ],
   [
+    "http_get_last_response_headers",
+    "Use `http_get_last_response_headers()` when compatibility code checks metadata captured by PHP's HTTP wrapper. Echo currently returns null until URL-wrapper response capture is modeled.",
+  ],
+  [
+    "http_clear_last_response_headers",
+    "Use `http_clear_last_response_headers()` to preserve cleanup calls around HTTP wrapper metadata. Echo currently treats it as a no-op because no wrapper response headers are stored.",
+  ],
+  [
     "header",
     "Use `header()` when compatibility code queues HTTP response headers before writing a body. Echo currently treats it as a no-op because it does not model an HTTP header layer.",
   ],
@@ -8085,7 +8116,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 320 PHP compatibility fixtures, 361 implemented Core and standard functions out of 607, 246 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 321 PHP compatibility fixtures, 363 implemented Core and standard functions out of 607, 244 remaining, and about 60% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

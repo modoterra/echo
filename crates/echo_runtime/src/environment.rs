@@ -960,6 +960,14 @@ pub extern "C" fn echo_php_headers_sent() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_http_get_last_response_headers() -> EchoValue {
+    EchoValue::null()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_http_clear_last_response_headers() {}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_header(
     header: EchoValue,
     _replace: EchoValue,

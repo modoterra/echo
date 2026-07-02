@@ -283,6 +283,13 @@ fn image_type_helpers_map_documented_constants() {
 }
 
 #[test]
+fn http_last_response_headers_start_empty_and_clear_is_noop() {
+    assert_eq!(echo_php_http_get_last_response_headers(), EchoValue::null());
+    echo_php_http_clear_last_response_headers();
+    assert_eq!(echo_php_http_get_last_response_headers(), EchoValue::null());
+}
+
+#[test]
 fn gethostbyname_returns_ipv4_or_original_hostname() {
     assert_eq!(
         echo_php_gethostbyname(test_string_value(b"localhost")).string_bytes(),

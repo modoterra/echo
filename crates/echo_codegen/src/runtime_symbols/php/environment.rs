@@ -336,6 +336,15 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_http_get_last_response_headers",
+            echo_runtime::echo_php_http_get_last_response_headers
+                as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_http_clear_last_response_headers",
+            echo_runtime::echo_php_http_clear_last_response_headers as extern "C" fn() as usize,
+        ),
+        (
             "echo_php_header",
             echo_runtime::echo_php_header
                 as extern "C" fn(
