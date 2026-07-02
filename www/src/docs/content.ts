@@ -1397,6 +1397,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets blocking or non-blocking mode on a stream.",
       },
       {
+        name: "stream_set_read_buffer",
+        signature: "stream_set_read_buffer(resource $stream, int $size): int",
+        description: "Sets read buffering on a stream.",
+      },
+      {
+        name: "stream_set_write_buffer",
+        signature: "stream_set_write_buffer(resource $stream, int $size): int",
+        description: "Sets write buffering on a stream.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2600,6 +2610,24 @@ if ($stream && !stream_isatty($stream)) {
 
 if ($stream && stream_set_blocking($stream, false)) {
     echo "Stream mode updated\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_set_read_buffer",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream && stream_set_read_buffer($stream, 0) === 0) {
+    echo "Read buffering request accepted\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_set_write_buffer",
+    `let $stream = fopen("storage/exports/report.csv", "r+")
+
+if ($stream) {
+    echo "Write buffering status: " . stream_set_write_buffer($stream, 0) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -4984,6 +5012,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_set_blocking",
     "Use `stream_set_blocking()` when compatibility code configures stream reads around polling or multiplexing. Echo currently accepts the call for local file streams while actual non-blocking I/O remains future work.",
+  ],
+  [
+    "stream_set_read_buffer",
+    "Use `stream_set_read_buffer()` when compatibility code requests unbuffered reads before coordinating with another process. Echo currently reports local file stream status while real buffering control remains future work.",
+  ],
+  [
+    "stream_set_write_buffer",
+    "Use `stream_set_write_buffer()` when compatibility code requests unbuffered writes before interprocess handoff. Echo currently reports that the request cannot be honored for local files until write buffering is modeled.",
   ],
   [
     "glob",
@@ -8303,7 +8339,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 328 PHP compatibility fixtures, 374 implemented Core and standard functions out of 607, 233 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 329 PHP compatibility fixtures, 376 implemented Core and standard functions out of 607, 231 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -76,6 +76,29 @@ pub extern "C" fn echo_php_stream_set_blocking(stream: EchoValue, _enable: EchoV
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_set_read_buffer(
+    stream: EchoValue,
+    _size: EchoValue,
+) -> EchoValue {
+    if stream
+        .as_stream_ref()
+        .is_some_and(|stream| stream.file.is_some())
+    {
+        EchoValue::int(0)
+    } else {
+        EchoValue::int(-1)
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_set_write_buffer(
+    _stream: EchoValue,
+    _size: EchoValue,
+) -> EchoValue {
+    EchoValue::int(-1)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fopen(
     filename: EchoValue,
     mode: EchoValue,

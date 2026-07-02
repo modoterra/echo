@@ -172,6 +172,25 @@ fn stream_set_blocking_accepts_open_local_file_streams() {
 }
 
 #[test]
+fn stream_buffer_setters_report_php_integer_statuses() {
+    let stream = echo_php_tmpfile();
+
+    assert_eq!(
+        echo_php_stream_set_read_buffer(stream, EchoValue::int(0)),
+        EchoValue::int(0)
+    );
+    assert_eq!(
+        echo_php_stream_set_write_buffer(stream, EchoValue::int(0)),
+        EchoValue::int(-1)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_stream_set_read_buffer(stream, EchoValue::int(0)),
+        EchoValue::int(-1)
+    );
+}
+
+#[test]
 fn glob_returns_sorted_matches_for_local_directory_patterns() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));
