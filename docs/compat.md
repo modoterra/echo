@@ -555,7 +555,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `serialize` | missing |  |
 | `set_file_buffer` | missing |  |
 | `set_include_path` | partial | Delegates to Echo's current no-op `ini_set("include_path", ...)` baseline and returns `false` until mutable PHP ini option values are modeled. Source: https://www.php.net/manual/en/function.set-include-path.php |
-| `set_time_limit` | missing |  |
+| `set_time_limit` | partial | Returns `false` because Echo currently does not model PHP's max execution timer control; timer enforcement and reset semantics are deferred. Source: https://www.php.net/manual/en/function.set-time-limit.php |
 | `setcookie` | missing |  |
 | `setlocale` | missing |  |
 | `setrawcookie` | missing |  |

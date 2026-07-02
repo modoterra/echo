@@ -1551,6 +1551,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Pauses execution for microseconds.",
       },
       {
+        name: "set_time_limit",
+        signature: "set_time_limit(int $seconds): bool",
+        description:
+          "Resets PHP's max execution timer; Echo currently reports this timer control as unsupported.",
+      },
+      {
         name: "sys_getloadavg",
         signature: "sys_getloadavg(): array|false",
         description: "Returns system load averages for the last 1, 5, and 15 minutes.",
@@ -2740,6 +2746,12 @@ echo "remaining: " . $remaining . "\\n"`,
     `usleep(0)
 
 echo "continued\\n"`,
+  ],
+  [
+    "set_time_limit",
+    `if (!set_time_limit(0)) {
+    echo "Timer control unavailable\\n"
+}`,
   ],
   [
     "sys_getloadavg",
@@ -5491,6 +5503,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `usleep()` for PHP-compatible short delay points where legacy code measures pauses in microseconds. New Echo code should prefer typed durations through `std.time.sleep()`.",
   ],
   [
+    "set_time_limit",
+    "Use `set_time_limit()` only when preserving PHP timeout-control calls. Echo currently returns `false` because it does not enforce or reset PHP max execution timers.",
+  ],
+  [
     "sys_getloadavg",
     "Use `sys_getloadavg()` for CLI diagnostics that report host pressure before starting background or batch work. Echo currently reads Linux procfs and returns false where load averages are unavailable.",
   ],
@@ -7785,7 +7801,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 304 PHP compatibility fixtures, 343 implemented Core and standard functions out of 607, 264 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 305 PHP compatibility fixtures, 344 implemented Core and standard functions out of 607, 263 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

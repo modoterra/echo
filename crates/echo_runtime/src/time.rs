@@ -58,6 +58,11 @@ pub extern "C" fn echo_php_usleep(microseconds: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_set_time_limit(_seconds: EchoValue) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_microtime(as_float: EchoValue) -> EchoValue {
     let now = unix_duration_now_or_zero();
 

@@ -256,6 +256,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("sleep", &[("seconds", Some("int"))], Some("int")),
         php_builtin_reflection("usleep", &[("microseconds", Some("int"))], Some("void")),
+        php_builtin_reflection("set_time_limit", &[("seconds", Some("int"))], Some("bool")),
         php_builtin_reflection("sys_getloadavg", &[], Some("array|false")),
         php_builtin_reflection(
             "gettimeofday",

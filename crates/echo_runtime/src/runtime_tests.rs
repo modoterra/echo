@@ -29,4 +29,5 @@ mod string_search;
 mod string_span;
 mod string_substr;
 mod task;
+mod time;
 mod value;
