@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 316 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 317 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 356.
-- Remaining Core + standard functions in inventory: 251.
+- Implemented Core + standard functions in inventory: 357.
+- Remaining Core + standard functions in inventory: 250.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `356 / 607`, or about 59%, for the Core + standard baseline,
+coverage alone is `357 / 607`, or about 59%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~35% | Core + standard function coverage is 356/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~35% | Core + standard function coverage is 357/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -68,6 +68,10 @@ full support for an entire family of PHP functions.
 - URL rewriting for output buffers is not modeled yet. This keeps
   `output_add_rewrite_var()`, `output_reset_rewrite_vars()`, and the
   `URL-Rewriter` output handler partial or missing.
+- PHP URL parsing currently covers common absolute URLs only. Component
+  constants, relative and malformed URL quirks, empty query/fragment
+  distinctions, and control-character substitution remain family-level gaps for
+  `parse_url()` and future URI compatibility.
 - PHP warning/error emission is not modeled as observable runtime state yet.
   This keeps many failure paths partial even when their return values match PHP.
 

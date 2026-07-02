@@ -1,0 +1,9 @@
+scheme:http
+host:hostname
+port:9090
+user:username
+pass:password
+path:/path
+query:arg=value
+fragment:anchor
+exists:1

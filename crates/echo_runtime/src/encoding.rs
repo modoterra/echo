@@ -4,7 +4,7 @@ use sha1::Sha1;
 
 use crate::{
     EchoArray, EchoString, EchoValue, collections::EchoArrayKey, echo_runtime_string,
-    string::php_string_map_builtin,
+    echo_value_array_new, echo_value_array_set, string::php_string_map_builtin,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -447,6 +447,183 @@ pub extern "C" fn echo_php_rawurldecode(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_urldecode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| percent_decode(bytes, true))
+}
+
+#[derive(Debug, Default)]
+struct ParsedUrl {
+    scheme: Option<Vec<u8>>,
+    host: Option<Vec<u8>>,
+    port: Option<i64>,
+    user: Option<Vec<u8>>,
+    pass: Option<Vec<u8>>,
+    path: Option<Vec<u8>>,
+    query: Option<Vec<u8>>,
+    fragment: Option<Vec<u8>>,
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_parse_url(url: EchoValue) -> EchoValue {
+    let Some(bytes) = url.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    let Some(parsed) = parse_url_parts(&bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    parsed_url_array(parsed)
+}
+
+fn parsed_url_array(parsed: ParsedUrl) -> EchoValue {
+    let mut result = echo_value_array_new();
+    if let Some(value) = parsed.scheme {
+        result = parsed_url_string_part(result, b"scheme", value);
+    }
+    if let Some(value) = parsed.host {
+        result = parsed_url_string_part(result, b"host", value);
+    }
+    if let Some(value) = parsed.port {
+        result = echo_value_array_set(
+            result,
+            echo_runtime_string(b"port".to_vec()),
+            EchoValue::int(value),
+        );
+    }
+    if let Some(value) = parsed.user {
+        result = parsed_url_string_part(result, b"user", value);
+    }
+    if let Some(value) = parsed.pass {
+        result = parsed_url_string_part(result, b"pass", value);
+    }
+    if let Some(value) = parsed.path {
+        result = parsed_url_string_part(result, b"path", value);
+    }
+    if let Some(value) = parsed.query {
+        result = parsed_url_string_part(result, b"query", value);
+    }
+    if let Some(value) = parsed.fragment {
+        result = parsed_url_string_part(result, b"fragment", value);
+    }
+    result
+}
+
+fn parsed_url_string_part(array: EchoValue, key: &[u8], value: Vec<u8>) -> EchoValue {
+    echo_value_array_set(
+        array,
+        echo_runtime_string(key.to_vec()),
+        echo_runtime_string(value),
+    )
+}
+
+fn parse_url_parts(bytes: &[u8]) -> Option<ParsedUrl> {
+    if bytes.is_empty() {
+        return Some(ParsedUrl {
+            path: Some(Vec::new()),
+            ..ParsedUrl::default()
+        });
+    }
+
+    let mut parsed = ParsedUrl::default();
+    let mut rest = bytes;
+
+    if let Some(colon) = first_url_scheme_colon(rest) {
+        parsed.scheme = Some(rest[..colon].to_vec());
+        rest = &rest[colon + 1..];
+    }
+
+    if rest.starts_with(b"//") {
+        rest = &rest[2..];
+        let authority_end = rest
+            .iter()
+            .position(|byte| matches!(*byte, b'/' | b'?' | b'#'))
+            .unwrap_or(rest.len());
+        parse_url_authority(&mut parsed, &rest[..authority_end])?;
+        rest = &rest[authority_end..];
+    }
+
+    let path_end = rest
+        .iter()
+        .position(|byte| matches!(*byte, b'?' | b'#'))
+        .unwrap_or(rest.len());
+    if path_end > 0 {
+        parsed.path = Some(rest[..path_end].to_vec());
+    }
+    rest = &rest[path_end..];
+
+    if rest.starts_with(b"?") {
+        rest = &rest[1..];
+        let query_end = rest
+            .iter()
+            .position(|byte| *byte == b'#')
+            .unwrap_or(rest.len());
+        parsed.query = Some(rest[..query_end].to_vec());
+        rest = &rest[query_end..];
+    }
+
+    if rest.starts_with(b"#") {
+        parsed.fragment = Some(rest[1..].to_vec());
+    }
+
+    Some(parsed)
+}
+
+fn first_url_scheme_colon(bytes: &[u8]) -> Option<usize> {
+    let colon = bytes.iter().position(|byte| *byte == b':')?;
+    if colon == 0
+        || bytes[..colon]
+            .iter()
+            .any(|byte| matches!(*byte, b'/' | b'?' | b'#'))
+    {
+        return None;
+    }
+    Some(colon)
+}
+
+fn parse_url_authority(parsed: &mut ParsedUrl, authority: &[u8]) -> Option<()> {
+    let host_port = match authority.iter().rposition(|byte| *byte == b'@') {
+        Some(at) => {
+            let userinfo = &authority[..at];
+            match userinfo.iter().position(|byte| *byte == b':') {
+                Some(colon) => {
+                    parsed.user = Some(userinfo[..colon].to_vec());
+                    parsed.pass = Some(userinfo[colon + 1..].to_vec());
+                }
+                None => parsed.user = Some(userinfo.to_vec()),
+            }
+            &authority[at + 1..]
+        }
+        None => authority,
+    };
+
+    if host_port.is_empty() {
+        return Some(());
+    }
+
+    if host_port.starts_with(b"[") {
+        let end = host_port.iter().position(|byte| *byte == b']')?;
+        parsed.host = Some(host_port[..=end].to_vec());
+        if matches!(host_port.get(end + 1), Some(b':')) {
+            parsed.port = parse_url_port(&host_port[end + 2..]);
+        }
+        return Some(());
+    }
+
+    match host_port.iter().rposition(|byte| *byte == b':') {
+        Some(colon) if host_port[colon + 1..].iter().all(u8::is_ascii_digit) => {
+            parsed.host = Some(host_port[..colon].to_vec());
+            parsed.port = parse_url_port(&host_port[colon + 1..]);
+        }
+        _ => parsed.host = Some(host_port.to_vec()),
+    }
+
+    Some(())
+}
+
+fn parse_url_port(bytes: &[u8]) -> Option<i64> {
+    if bytes.is_empty() {
+        return None;
+    }
+    std::str::from_utf8(bytes).ok()?.parse().ok()
 }
 
 #[unsafe(no_mangle)]

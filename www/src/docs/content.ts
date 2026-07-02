@@ -479,6 +479,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Builds a URL-encoded query string from array data using PHP query encoding rules.",
       },
       {
+        name: "parse_url",
+        signature: "parse_url(string $url): array|false",
+        description:
+          "Parses common absolute URLs into PHP-shaped component arrays.",
+      },
+      {
         name: "urldecode",
         signature: "urldecode(string $string): string",
         description: "Decodes form/query text, including plus signs as spaces.",
@@ -3911,6 +3917,12 @@ let $query = http_build_query($params, "", "&", 1)
 echo "/search?" . $query . "\\n"`,
   ],
   [
+    "parse_url",
+    `let $parts = parse_url("https://user:pass@example.com:8443/docs?q=echo#install")
+
+echo $parts["host"] . "\\n"`,
+  ],
+  [
     "urldecode",
     `let $raw = "status%3A+ready"
 let $query = urldecode($raw)
@@ -5166,6 +5178,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "http_build_query",
     "Use `http_build_query()` when compatibility code turns a PHP array into a query string. Echo supports array data, nested keys, null omission, custom separators, and RFC1738/RFC3986 encoding modes.",
+  ],
+  [
+    "parse_url",
+    "Use `parse_url()` when compatibility code needs PHP-shaped URL component arrays. Echo currently supports common absolute URLs and defers component constants and parser edge cases.",
   ],
   [
     "urldecode",
@@ -8005,7 +8021,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 316 PHP compatibility fixtures, 356 implemented Core and standard functions out of 607, 251 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 317 PHP compatibility fixtures, 357 implemented Core and standard functions out of 607, 250 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -495,7 +495,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `parse_ini_file` | missing |  |
 | `parse_ini_string` | missing |  |
 | `parse_str` | missing |  |
-| `parse_url` | missing |  |
+| `parse_url` | partial | Parses common absolute URL strings into PHP-shaped associative arrays for omitted-component calls; component constants, malformed and relative URL edge cases, control-character substitution, and exact parser quirks are deferred. Source: https://www.php.net/manual/en/function.parse-url.php |
 | `passthru` | missing |  |
 | `password_algos` | implemented | Returns the supported password algorithm IDs for `password_hash()` validation and `password_get_info()`. Source: https://www.php.net/manual/en/password.constants.php |
 | `password_get_info` | implemented | Returns a map with `algo`, `algoName`, and `options` for bcrypt-compatible hashes. Source: https://www.php.net/manual/en/function.password-get-info.php |

@@ -36,6 +36,38 @@ fn url_encoding_builtins_preserve_php_byte_behavior() {
 }
 
 #[test]
+fn parse_url_returns_common_full_url_parts() {
+    fn string_value(bytes: &[u8]) -> EchoValue {
+        EchoValue::string(Box::into_raw(Box::new(EchoString {
+            bytes: bytes.to_vec(),
+        })))
+    }
+
+    let parts = echo_php_parse_url(string_value(
+        b"http://username:password@hostname:9090/path?arg=value#anchor",
+    ));
+
+    assert!(parts.is_array());
+    assert_eq!(crate::echo_value_array_len(parts), 8);
+    assert_eq!(
+        crate::echo_value_array_key_at(parts, 0).string_bytes(),
+        Some(b"scheme".to_vec())
+    );
+    assert_eq!(
+        crate::echo_value_array_value_at(parts, 0).string_bytes(),
+        Some(b"http".to_vec())
+    );
+    assert_eq!(
+        crate::echo_value_array_key_at(parts, 2).string_bytes(),
+        Some(b"port".to_vec())
+    );
+    assert_eq!(
+        crate::echo_value_array_value_at(parts, 2),
+        EchoValue::int(9090)
+    );
+}
+
+#[test]
 fn http_build_query_encodes_arrays_and_nested_arrays() {
     fn string_value(bytes: &[u8]) -> EchoValue {
         EchoValue::string(Box::into_raw(Box::new(EchoString {
