@@ -503,6 +503,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("strlen", &[("string", Some("string"))], Some("int")),
         php_builtin_reflection("str_word_count", &[("string", Some("string"))], Some("int")),
         php_builtin_reflection(
+            "count_chars",
+            &[("string", Some("string")), ("mode", Some("int"))],
+            Some("array|string"),
+        ),
+        php_builtin_reflection(
             "basename",
             &[("path", Some("string")), ("suffix", Some("string"))],
             Some("string"),

@@ -19,6 +19,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "count_chars",
+        symbol: "echo_php_count_chars",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "strtoupper",
         symbol: "echo_php_strtoupper",
         helper_symbol: None,

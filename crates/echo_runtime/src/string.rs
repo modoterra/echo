@@ -1,5 +1,7 @@
 use crate::encoding::{quoted_printable_decode_bytes, quoted_printable_encode_bytes};
-use crate::{EchoString, EchoValue, echo_runtime_string};
+use crate::{
+    EchoString, EchoValue, echo_runtime_string, echo_value_array_new, echo_value_array_set,
+};
 
 mod compare;
 mod pattern;
@@ -114,6 +116,50 @@ pub extern "C" fn echo_php_strlen(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_str_word_count(value: EchoValue) -> EchoValue {
     php_string_to_number_builtin(value, |bytes| EchoValue::int(count_php_words(bytes) as i64))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_count_chars(value: EchoValue, mode: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(mode) = mode.php_int_value() else {
+        return EchoValue::error();
+    };
+
+    let mut counts = [0_i64; 256];
+    for byte in bytes {
+        counts[byte as usize] += 1;
+    }
+
+    match mode {
+        0 => count_chars_array(&counts, |_| true),
+        1 => count_chars_array(&counts, |count| count > 0),
+        2 => count_chars_array(&counts, |count| count == 0),
+        3 => count_chars_string(&counts, |count| count > 0),
+        4 => count_chars_string(&counts, |count| count == 0),
+        _ => EchoValue::error(),
+    }
+}
+
+fn count_chars_array(counts: &[i64; 256], include: impl Fn(i64) -> bool) -> EchoValue {
+    let mut result = echo_value_array_new();
+    for (byte, count) in counts.iter().enumerate() {
+        if include(*count) {
+            result =
+                echo_value_array_set(result, EchoValue::int(byte as i64), EchoValue::int(*count));
+        }
+    }
+    result
+}
+
+fn count_chars_string(counts: &[i64; 256], include: impl Fn(i64) -> bool) -> EchoValue {
+    let bytes = counts
+        .iter()
+        .enumerate()
+        .filter_map(|(byte, count)| include(*count).then_some(byte as u8))
+        .collect();
+    echo_runtime_string(bytes)
 }
 
 #[unsafe(no_mangle)]

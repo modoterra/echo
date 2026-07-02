@@ -63,6 +63,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the number of bytes in a string. This is byte length, not character length, so multibyte text can be longer than the number of visible characters.",
       },
       {
+        name: "count_chars",
+        signature: "count_chars(string $string, int $mode): array|string",
+        description: "Counts byte frequencies and returns the selected PHP mode shape.",
+      },
+      {
         name: "strtoupper",
         signature: "strtoupper(string $string): string",
         description: "Returns the string with alphabetic characters converted to uppercase.",
@@ -2718,6 +2723,12 @@ let $words = str_word_count($summary)
 echo "Summary words: " . $words . "\\n"`,
   ],
   [
+    "count_chars",
+    `let $used = count_chars("banana", 3)
+
+echo "Used bytes: " . $used . "\\n"`,
+  ],
+  [
     "realpath",
     `let $report = realpath("storage/../storage/report.csv")
 
@@ -3715,6 +3726,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "str_word_count",
     "Use the default scalar `str_word_count()` form for simple plain-text validation thresholds, such as detecting empty summaries after tags are removed. Echo currently implements the count return mode; PHP's array return modes and extra character list are separate compatibility work.",
+  ],
+  [
+    "count_chars",
+    "Use `count_chars()` when byte-level frequency data matters, such as compact diagnostics for legacy encodings or protocol payloads. Echo currently requires the mode argument explicitly.",
   ],
   [
     "file_exists",
@@ -6930,7 +6945,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 260 PHP compatibility fixtures, 293 implemented Core and standard functions out of 607, 314 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 261 PHP compatibility fixtures, 294 implemented Core and standard functions out of 607, 313 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

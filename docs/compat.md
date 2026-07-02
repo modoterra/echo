@@ -249,7 +249,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `cos` | implemented | Returns the cosine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.cos.php |
 | `cosh` | implemented | Returns hyperbolic cosine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.cosh.php |
 | `count` | implemented | Supports PHP array/list counting; recursive mode and Countable objects are deferred. Source: https://www.php.net/manual/en/function.count.php |
-| `count_chars` | missing |  |
+| `count_chars` | partial | Counts byte frequencies and supports explicit PHP modes `0` through `4`; omitted-mode default argument lowering is deferred. Source: https://www.php.net/manual/en/function.count-chars.php |
 | `crc32` | implemented | Calculates a CRC32 checksum over the string bytes and returns the positive integer result used by 64-bit PHP. Source: https://www.php.net/manual/en/function.crc32.php |
 | `crypt` | implemented | Uses Echo's bcrypt implementation through `crypt()` salt prefix dispatch for supported variants; unsupported salts and algorithm formats return `false`. Source: https://www.php.net/manual/en/function.crypt.php |
 | `current` | partial | Returns the first array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.current.php |
