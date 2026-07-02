@@ -87,3 +87,35 @@ fn filesystem_mutation_builtins_create_move_and_remove_paths() {
 
     std::fs::remove_dir_all(&temp_dir).ok();
 }
+
+#[test]
+fn upload_file_builtins_reject_ordinary_local_paths() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-upload-file-guards-{}",
+        std::process::id()
+    ));
+    let source_path = temp_dir.join("candidate.txt");
+    let target_path = temp_dir.join("moved.txt");
+    std::fs::remove_dir_all(&temp_dir).ok();
+    std::fs::create_dir_all(&temp_dir).expect("create upload guard fixture");
+    std::fs::write(&source_path, b"payload\n").expect("write upload guard fixture");
+
+    fn path_value(path: &Path) -> EchoValue {
+        EchoValue::string(Box::into_raw(Box::new(EchoString {
+            bytes: path.to_string_lossy().as_bytes().to_vec(),
+        })))
+    }
+
+    let source = path_value(&source_path);
+    let target = path_value(&target_path);
+
+    assert_eq!(echo_php_is_uploaded_file(source), EchoValue::bool(false));
+    assert_eq!(
+        echo_php_move_uploaded_file(source, target),
+        EchoValue::bool(false)
+    );
+    assert!(source_path.is_file());
+    assert!(!target_path.exists());
+
+    std::fs::remove_dir_all(&temp_dir).ok();
+}

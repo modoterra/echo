@@ -417,7 +417,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `is_resource` | implemented | Reports Echo runtime resource handles such as TCP listeners/connections. Source: https://www.php.net/manual/en/function.is-resource.php |
 | `is_scalar` | implemented | Supports current scalar values: bool, int, string. Source: https://www.php.net/manual/en/function.is-scalar.php |
 | `is_string` | implemented | Source: https://www.php.net/manual/en/function.is-string.php |
-| `is_uploaded_file` | missing |  |
+| `is_uploaded_file` | implemented | Returns `false` because Echo currently has no HTTP POST upload registry; ordinary local files are not treated as uploaded files. Source: https://www.php.net/manual/en/function.is-uploaded-file.php |
 | `is_writable` | implemented | Checks local filesystem paths by probing append access or temporary creation inside directories; stat cache, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `is_writeable` | implemented | Alias of `is_writable()`. Source: https://www.php.net/manual/en/function.is-writable.php |
 | `join` | implemented | Alias of `implode()`. Source: https://www.php.net/manual/en/function.join.php |
@@ -464,7 +464,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
 | `min` | partial | Supports two-argument scalar numeric comparisons; array input, string/object comparison ordering, and three-or-more variadic arguments are deferred. Source: https://www.php.net/manual/en/function.min.php |
 | `mkdir` | implemented | Creates local directories, including recursive creation and Unix mode hints; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mkdir.php |
-| `move_uploaded_file` | missing |  |
+| `move_uploaded_file` | implemented | Returns `false` and leaves files untouched because Echo currently has no HTTP POST upload registry, so no local path is considered a valid uploaded file. Source: https://www.php.net/manual/en/function.move-uploaded-file.php |
 | `natcasesort` | partial | Sorts array values in place using case-insensitive natural string ordering while preserving keys; full PHP comparison edge cases are deferred. Source: https://www.php.net/manual/en/function.natcasesort.php |
 | `natsort` | partial | Sorts array values in place using natural string ordering while preserving keys; full PHP comparison edge cases are deferred. Source: https://www.php.net/manual/en/function.natsort.php |
 | `net_get_interfaces` | missing |  |

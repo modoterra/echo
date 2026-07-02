@@ -1156,6 +1156,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns true when a local file can be executed by the current process.",
       },
       {
+        name: "is_uploaded_file",
+        signature: "is_uploaded_file(string $filename): bool",
+        description:
+          "Returns true only for files proven to come from an HTTP POST upload; Echo currently has no upload registry, so ordinary local paths return false.",
+      },
+      {
         name: "filesize",
         signature: "filesize(string $filename): int|false",
         description:
@@ -1363,6 +1369,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         name: "rename",
         signature: "rename(string $from, string $to, ?resource $context): bool",
         description: "Renames or moves a local file or directory.",
+      },
+      {
+        name: "move_uploaded_file",
+        signature: "move_uploaded_file(string $from, string $to): bool",
+        description:
+          "Moves a file only when the source is a validated HTTP POST upload; Echo currently rejects ordinary local paths and leaves them untouched.",
       },
       {
         name: "unlink",
@@ -2502,6 +2514,14 @@ if (is_executable($tool)) {
 }`,
   ],
   [
+    "is_uploaded_file",
+    `let $tmp = "storage/uploads/tmp-file"
+
+if (is_uploaded_file($tmp)) {
+    echo "Safe upload candidate\\n"
+}`,
+  ],
+  [
     "is_finite",
     `let $cost = 42
 
@@ -2567,6 +2587,15 @@ if (is_readable($source)) {
 
 if (is_writable($cacheDir)) {
     echo "Cache can be refreshed\\n"
+}`,
+  ],
+  [
+    "move_uploaded_file",
+    `let $tmp = "storage/uploads/tmp-file"
+let $target = "storage/uploads/final.bin"
+
+if (move_uploaded_file($tmp, $target)) {
+    echo "Upload stored\\n"
 }`,
   ],
   [
@@ -4314,6 +4343,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "is_executable",
     "Use `is_executable()` before dispatching a local tool from a deployment or maintenance script, especially when the path comes from configuration.",
+  ],
+  [
+    "is_uploaded_file",
+    "Use `is_uploaded_file()` as a guard before accepting upload paths. Echo currently returns false for ordinary local files because it does not yet model HTTP POST upload provenance.",
+  ],
+  [
+    "move_uploaded_file",
+    "Use `move_uploaded_file()` for PHP-compatible upload flows rather than a plain rename. Echo currently refuses the move unless a future upload registry marks the source as a valid upload.",
   ],
   [
     "filesize",
@@ -7629,7 +7666,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 298 PHP compatibility fixtures, 334 implemented Core and standard functions out of 607, 273 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 299 PHP compatibility fixtures, 336 implemented Core and standard functions out of 607, 271 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -51,6 +51,22 @@ pub extern "C" fn echo_php_rename(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_is_uploaded_file(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(_) => EchoValue::bool(false),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_move_uploaded_file(from: EchoValue, to: EchoValue) -> EchoValue {
+    match (from.string_bytes(), to.string_bytes()) {
+        (Some(_), Some(_)) => EchoValue::bool(false),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_unlink(filename: EchoValue, _context: EchoValue) -> EchoValue {
     match filename.string_bytes() {
         Some(bytes) => EchoValue::bool(path_unlink(&bytes)),

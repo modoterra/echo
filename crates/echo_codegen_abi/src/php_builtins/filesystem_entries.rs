@@ -155,6 +155,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "is_uploaded_file",
+        symbol: "echo_php_is_uploaded_file",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "filesize",
         symbol: "echo_php_filesize",
         helper_symbol: None,
@@ -489,6 +497,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,
         codegen: BuiltinCodegen::ValueBinaryOptionalContextExpression,
+    },
+    PhpBuiltin {
+        php_name: "move_uploaded_file",
+        symbol: "echo_php_move_uploaded_file",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
         php_name: "unlink",

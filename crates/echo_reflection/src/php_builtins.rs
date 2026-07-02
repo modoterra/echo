@@ -1065,6 +1065,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "is_uploaded_file",
+            &[("filename", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "filesize",
             &[("filename", Some("string"))],
             Some("int|false"),
@@ -1135,6 +1140,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
                 ("context", Some("?resource")),
             ],
             Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "move_uploaded_file",
+            &[("from", Some("string")), ("to", Some("string"))],
+            Some("bool"),
         ),
         php_builtin_reflection(
             "fopen",
