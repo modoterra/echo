@@ -572,9 +572,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `sinh` | implemented | Returns hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.sinh.php |
 | `sizeof` | implemented | Alias of `count()`. Source: https://www.php.net/manual/en/function.sizeof.php |
 | `sleep` | partial | Sleeps for non-negative whole seconds and returns `0` on completion; interrupted sleep reporting is deferred. Source: https://www.php.net/manual/en/function.sleep.php |
-| `socket_get_status` | missing |  |
-| `socket_set_blocking` | missing |  |
-| `socket_set_timeout` | missing |  |
+| `socket_get_status` | partial | Alias of `stream_get_meta_data()`; returns Echo local file stream metadata and shares the stream metadata gaps. Source: https://www.php.net/manual/en/function.socket-get-status.php |
+| `socket_set_blocking` | partial | Alias of `stream_set_blocking()`; accepts blocking-mode changes for open Echo local file streams while real non-blocking I/O remains deferred. Source: https://www.php.net/manual/en/function.socket-set-blocking.php |
+| `socket_set_timeout` | partial | Alias of `stream_set_timeout()`; returns PHP's false status for regular local file streams while socket timeout behavior is deferred. Source: https://www.php.net/manual/en/function.socket-set-timeout.php |
 | `sort` | partial | Sorts arrays containing string-compatible values in ascending byte order, reindexes keys from zero, and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.sort.php |
 | `soundex` | implemented | Returns a four-character Soundex key using PHP's Knuth Soundex behavior for ASCII-compatible names, or `0000` when no letters are present. Source: https://www.php.net/manual/en/function.soundex.php |
 | `sprintf` | missing |  |

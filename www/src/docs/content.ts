@@ -1422,6 +1422,21 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets the timeout period for a stream.",
       },
       {
+        name: "socket_get_status",
+        signature: "socket_get_status(resource $stream): array",
+        description: "Alias of stream_get_meta_data.",
+      },
+      {
+        name: "socket_set_blocking",
+        signature: "socket_set_blocking(resource $stream, bool $enable): bool",
+        description: "Alias of stream_set_blocking.",
+      },
+      {
+        name: "socket_set_timeout",
+        signature: "socket_set_timeout(resource $stream, int $seconds, int $microseconds = 0): bool",
+        description: "Alias of stream_set_timeout.",
+      },
+      {
         name: "stream_set_write_buffer",
         signature: "stream_set_write_buffer(resource $stream, int $size): int",
         description: "Sets write buffering on a stream.",
@@ -2683,6 +2698,34 @@ if ($stream && stream_set_read_buffer($stream, 0) === 0) {
 if ($stream) {
     let $ok = stream_set_timeout($stream, 2, 0)
     echo "Timeout configured: " . $ok . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "socket_get_status",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    let $status = socket_get_status($stream)
+    echo "Wrapper: " . $status["wrapper_type"] . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "socket_set_blocking",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream && socket_set_blocking($stream, false)) {
+    echo "Blocking mode accepted\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "socket_set_timeout",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    echo "Timeout status: " . socket_set_timeout($stream, 2, 0) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -5105,6 +5148,18 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_set_timeout",
     "Use `stream_set_timeout()` when compatibility code configures socket or wrapper read timeouts. Echo currently matches PHP's regular-file false status and leaves real socket timeout state for later.",
+  ],
+  [
+    "socket_get_status",
+    "Use `socket_get_status()` for legacy PHP network code that still calls the alias for `stream_get_meta_data()`. Echo routes it through the same local stream metadata baseline.",
+  ],
+  [
+    "socket_set_blocking",
+    "Use `socket_set_blocking()` for legacy PHP network code that still calls the alias for `stream_set_blocking()`. Echo accepts the call for local file streams while real non-blocking socket behavior remains future work.",
+  ],
+  [
+    "socket_set_timeout",
+    "Use `socket_set_timeout()` for legacy PHP network code that still calls the alias for `stream_set_timeout()`. Echo currently matches PHP's regular-file false status.",
   ],
   [
     "stream_set_write_buffer",
@@ -8432,7 +8487,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 334 PHP compatibility fixtures, 381 implemented Core and standard functions out of 607, 226 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 335 PHP compatibility fixtures, 384 implemented Core and standard functions out of 607, 223 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

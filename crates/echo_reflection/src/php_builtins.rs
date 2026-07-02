@@ -1347,6 +1347,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("stream", Some("resource"))],
             Some("array"),
         ),
+        php_builtin_reflection(
+            "socket_get_status",
+            &[("stream", Some("resource"))],
+            Some("array"),
+        ),
         php_builtin_reflection("stream_get_transports", &[], Some("array")),
         php_builtin_reflection("stream_get_wrappers", &[], Some("array")),
         php_builtin_reflection(
@@ -1365,6 +1370,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "socket_set_blocking",
+            &[("stream", Some("resource")), ("enable", Some("bool"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "stream_set_chunk_size",
             &[("stream", Some("resource")), ("size", Some("int"))],
             Some("int"),
@@ -1376,6 +1386,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection(
             "stream_set_timeout",
+            &[
+                ("stream", Some("resource")),
+                ("seconds", Some("int")),
+                ("microseconds", Some("int")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
+            "socket_set_timeout",
             &[
                 ("stream", Some("resource")),
                 ("seconds", Some("int")),

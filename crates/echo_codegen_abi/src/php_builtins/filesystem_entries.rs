@@ -483,6 +483,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "socket_get_status",
+        symbol: "echo_php_stream_get_meta_data",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "stream_is_local",
         symbol: "echo_php_stream_is_local",
         helper_symbol: None,
@@ -507,6 +515,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "socket_set_blocking",
+        symbol: "echo_php_stream_set_blocking",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "stream_set_chunk_size",
         symbol: "echo_php_stream_set_chunk_size",
         helper_symbol: None,
@@ -524,6 +540,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
     },
     PhpBuiltin {
         php_name: "stream_set_timeout",
+        symbol: "echo_php_stream_set_timeout",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "socket_set_timeout",
         symbol: "echo_php_stream_set_timeout",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,

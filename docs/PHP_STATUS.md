@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 334 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 335 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 381.
-- Remaining Core + standard functions in inventory: 226.
+- Implemented Core + standard functions in inventory: 384.
+- Remaining Core + standard functions in inventory: 223.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `381 / 607`, or about 63%, for the Core + standard baseline,
+coverage alone is `384 / 607`, or about 63%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 381/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 384/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -99,7 +99,7 @@ full support for an entire family of PHP functions.
   diagnostics remain gaps for `stream_isatty()`.
 - Stream blocking mode changes are currently accepted as a local file stream
   no-op. Actual non-blocking read/write behavior, sockets, and PHP warning/type
-  diagnostics remain gaps for `stream_set_blocking()`.
+  diagnostics remain gaps for `stream_set_blocking()`/`socket_set_blocking()`.
 - Stream buffer setters currently report PHP-style integer status for local file
   streams only. Actual read/write buffering control, sockets, and PHP
   warning/type diagnostics remain gaps for
@@ -110,7 +110,7 @@ full support for an entire family of PHP functions.
 - Stream metadata currently reports local file stream fields only. Socket/TLS
   metadata, custom wrapper data, timeout state, unread-byte tracking, non-file
   seekability, and PHP warning/type diagnostics remain gaps for
-  `stream_get_meta_data()`.
+  `stream_get_meta_data()`/`socket_get_status()`.
 - Stream line reads currently cover local file stream bytes, explicit length,
   and explicit delimiters. Optional argument defaults in codegen, socket stream
   edge cases, multibyte delimiter buffering beyond simple byte matching, and
@@ -118,7 +118,7 @@ full support for an entire family of PHP functions.
 - Stream timeouts currently match PHP's regular-file false status only. Socket
   timeout configuration, timeout state propagation into `stream_get_meta_data()`,
   optional microsecond argument lowering, and PHP warning/type diagnostics remain
-  gaps for `stream_set_timeout()`.
+  gaps for `stream_set_timeout()`/`socket_set_timeout()`.
 - HTTP wrapper response metadata is not populated yet. This keeps
   `$http_response_header`, `http_get_last_response_headers()`, and
   `http_clear_last_response_headers()` limited to the no-response baseline.
