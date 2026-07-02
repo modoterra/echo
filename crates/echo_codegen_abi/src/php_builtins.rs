@@ -55,6 +55,7 @@ pub enum BuiltinCodegen {
     ValueUnaryExpression,
     ValueUnaryOptionalNullExpression,
     ValueBinaryExpression,
+    ValueBinaryOptionalNullExpression,
     ValueBinaryOptionalBoolExpression,
     ValueUnaryOptionalContextExpression,
     ValueBinaryOptionalContextExpression,

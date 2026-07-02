@@ -156,6 +156,45 @@ fn feof_flips_after_read_attempt_past_end_and_resets_on_rewind() {
 }
 
 #[test]
+fn fwrite_writes_full_or_limited_data_to_stream() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-fwrite-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-fwrite.txt");
+
+    let path_value = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path_value),
+        test_string_value(b"w+"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(
+        echo_php_fwrite(stream, test_string_value(b"abcdef"), EchoValue::int(3)),
+        EchoValue::int(3)
+    );
+    assert_eq!(
+        echo_php_fwrite(stream, test_string_value(b"XYZ"), EchoValue::null()),
+        EchoValue::int(3)
+    );
+    assert_eq!(echo_php_rewind(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_fread(stream, test_string_value(b"32")).string_bytes(),
+        Some(b"abcXYZ".to_vec())
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+
+    unsafe {
+        drop(Box::from_raw(path_value));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn fopen_rejects_unsupported_mode() {
     let temp_file = std::env::temp_dir().join(format!(
         "echo-runtime-stream-mode-{}.txt",

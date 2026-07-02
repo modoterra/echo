@@ -173,6 +173,45 @@ pub extern "C" fn echo_php_fflush(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fwrite(
+    stream: EchoValue,
+    data: EchoValue,
+    length: EchoValue,
+) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(data) = data.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    let bytes = if length.is_null() {
+        data
+    } else {
+        let Some(length) = length.php_int_value() else {
+            return EchoValue::bool(false);
+        };
+        if length < 0 {
+            return EchoValue::bool(false);
+        }
+        let Ok(length) = usize::try_from(length) else {
+            return EchoValue::bool(false);
+        };
+        data[..data.len().min(length)].to_vec()
+    };
+
+    match file.write(&bytes) {
+        Ok(written) => i64::try_from(written)
+            .map(EchoValue::int)
+            .unwrap_or_else(|_| EchoValue::bool(false)),
+        Err(_) => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fclose(stream: EchoValue) -> EchoValue {
     let Some(stream) = stream.as_stream_mut() else {
         return EchoValue::bool(false);

@@ -299,6 +299,22 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "fwrite",
+        symbol: "echo_php_fwrite",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryOptionalNullExpression,
+    },
+    PhpBuiltin {
+        php_name: "fputs",
+        symbol: "echo_php_fwrite",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryOptionalNullExpression,
+    },
+    PhpBuiltin {
         php_name: "fclose",
         symbol: "echo_php_fclose",
         helper_symbol: None,

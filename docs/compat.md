@@ -313,7 +313,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fpow` | implemented | Raises a numeric base to a numeric exponent and always returns a float, including `INF` for zero raised to a negative exponent and `NAN` for unsupported negative fractional powers. Source: https://www.php.net/manual/en/function.fpow.php |
 | `fprintf` | missing |  |
 | `fputcsv` | missing |  |
-| `fputs` | missing |  |
+| `fputs` | implemented | Alias of `fwrite()` for Echo local file stream resources, with nullable length support. Source: https://www.php.net/manual/en/function.fputs.php |
 | `fread` | implemented | Reads up to the requested byte count from Echo local file stream resources and advances the cursor. Source: https://www.php.net/manual/en/function.fread.php |
 | `fscanf` | missing |  |
 | `fseek` | partial | Seeks Echo local file stream resources from the beginning of the file and returns `0` on success or `-1` on failure; `whence` modes are deferred. Source: https://www.php.net/manual/en/function.fseek.php |
@@ -323,7 +323,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ftell` | implemented | Returns the current byte offset for Echo local file stream resources and `false` for invalid or closed streams. Source: https://www.php.net/manual/en/function.ftell.php |
 | `ftok` | missing |  |
 | `ftruncate` | missing |  |
-| `fwrite` | missing |  |
+| `fwrite` | implemented | Writes byte strings to Echo local file stream resources and returns the number of bytes written, with nullable length support. Source: https://www.php.net/manual/en/function.fwrite.php |
 | `get_browser` | missing |  |
 | `get_cfg_var` | implemented | Returns `false` for configuration options because Echo does not load PHP configuration values. Source: https://www.php.net/manual/en/function.get-cfg-var.php |
 | `get_current_user` | partial | Returns the process `USER`/`LOGNAME` value, or an empty string when unavailable; PHP's script-owner lookup is deferred. Source: https://www.php.net/manual/en/function.get-current-user.php |

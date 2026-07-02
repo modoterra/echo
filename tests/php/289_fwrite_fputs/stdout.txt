@@ -1,0 +1,5 @@
+write:3
+puts:3
+content:abcXYZ
+fwrite-exists:1
+fputs-exists:1

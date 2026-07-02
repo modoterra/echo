@@ -1146,6 +1146,24 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("feof", &[("stream", Some("resource"))], Some("bool")),
         php_builtin_reflection("fflush", &[("stream", Some("resource"))], Some("bool")),
+        php_builtin_reflection(
+            "fwrite",
+            &[
+                ("stream", Some("resource")),
+                ("data", Some("string")),
+                ("length", Some("?int")),
+            ],
+            Some("int|false"),
+        ),
+        php_builtin_reflection(
+            "fputs",
+            &[
+                ("stream", Some("resource")),
+                ("data", Some("string")),
+                ("length", Some("?int")),
+            ],
+            Some("int|false"),
+        ),
         php_builtin_reflection("fclose", &[("stream", Some("resource"))], Some("bool")),
         php_builtin_reflection("ftell", &[("stream", Some("resource"))], Some("int|false")),
         php_builtin_reflection(
