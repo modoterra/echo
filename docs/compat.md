@@ -616,11 +616,11 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_filter_register` | missing |  |
 | `stream_filter_remove` | missing |  |
 | `stream_get_contents` | implemented | Reads remaining bytes, or an optional bounded range, from Echo local file stream resources. Source: https://www.php.net/manual/en/function.stream-get-contents.php |
-| `stream_get_filters` | missing |  |
+| `stream_get_filters` | partial | Returns Echo's static baseline stream filter list; dynamic filter registration and full extension-provided filter inventory are deferred. Source: https://www.php.net/manual/en/function.stream-get-filters.php |
 | `stream_get_line` | missing |  |
 | `stream_get_meta_data` | missing |  |
-| `stream_get_transports` | missing |  |
-| `stream_get_wrappers` | missing |  |
+| `stream_get_transports` | partial | Returns Echo's static baseline socket transport list (`tcp`, `udp`, `unix`, `udg`); dynamic transport registration and platform-specific inventories are deferred. Source: https://www.php.net/manual/en/function.stream-get-transports.php |
+| `stream_get_wrappers` | partial | Returns Echo's static baseline stream wrapper list (`php`, `file`); dynamic wrapper registration and extension-provided wrappers are deferred. Source: https://www.php.net/manual/en/function.stream-get-wrappers.php |
 | `stream_is_local` | missing |  |
 | `stream_isatty` | missing |  |
 | `stream_register_wrapper` | missing |  |

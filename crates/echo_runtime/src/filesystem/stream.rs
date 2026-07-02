@@ -1,5 +1,5 @@
 use crate::{
-    EchoValue, echo_runtime_string,
+    EchoArray, EchoValue, echo_runtime_string,
     filesystem::{path_buf_from_bytes, php_stat_from_metadata, stat_array},
     write_runtime_output,
 };
@@ -13,6 +13,21 @@ pub struct EchoFileStream {
     pub file: Option<File>,
     eof: bool,
     delete_on_close: Option<PathBuf>,
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_get_wrappers() -> EchoValue {
+    string_array(&[b"php", b"file"])
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_get_transports() -> EchoValue {
+    string_array(&[b"tcp", b"udp", b"unix", b"udg"])
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_get_filters() -> EchoValue {
+    string_array(&[b"string.rot13", b"string.toupper", b"string.tolower"])
 }
 
 #[unsafe(no_mangle)]
@@ -452,6 +467,15 @@ pub extern "C" fn echo_php_stream_get_contents(
 
 fn fopen_path(filename: &[u8]) -> Option<PathBuf> {
     path_buf_from_bytes(filename)
+}
+
+fn string_array(values: &[&[u8]]) -> EchoValue {
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        values
+            .iter()
+            .map(|value| echo_runtime_string(value.to_vec()))
+            .collect(),
+    ))))
 }
 
 fn fopen_options_from_mode(mode: &[u8]) -> Option<OpenOptions> {

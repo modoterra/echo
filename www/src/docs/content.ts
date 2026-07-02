@@ -1362,6 +1362,21 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Resizes a writable local file stream without moving the current stream position.",
       },
       {
+        name: "stream_get_filters",
+        signature: "stream_get_filters(): array",
+        description: "Returns the registered stream filter names.",
+      },
+      {
+        name: "stream_get_transports",
+        signature: "stream_get_transports(): array",
+        description: "Returns the registered socket transport names.",
+      },
+      {
+        name: "stream_get_wrappers",
+        signature: "stream_get_wrappers(): array",
+        description: "Returns the registered stream wrapper names.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2513,6 +2528,24 @@ if ($stream) {
     rewind($stream)
     echo fread($stream, 128)
     fclose($stream)
+}`,
+  ],
+  [
+    "stream_get_filters",
+    `if (in_array("string.rot13", stream_get_filters(), true)) {
+    echo "rot13 filter is registered\\n"
+}`,
+  ],
+  [
+    "stream_get_transports",
+    `if (in_array("tcp", stream_get_transports(), true)) {
+    echo "TCP streams are available\\n"
+}`,
+  ],
+  [
+    "stream_get_wrappers",
+    `if (in_array("file", stream_get_wrappers(), true)) {
+    echo "Local file wrapper is available\\n"
 }`,
   ],
   [
@@ -4868,6 +4901,18 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ftruncate",
     "Use `ftruncate()` for compatibility code that compacts or preallocates local files through an existing writable stream. Echo follows PHP's pointer rule: resizing the file does not move the current stream position.",
+  ],
+  [
+    "stream_get_filters",
+    "Use `stream_get_filters()` when compatibility code branches on an optional stream filter. Echo currently reports a static baseline and leaves dynamic filter registration for later.",
+  ],
+  [
+    "stream_get_transports",
+    "Use `stream_get_transports()` before exposing transport-dependent stream options. Echo currently reports a static socket transport baseline.",
+  ],
+  [
+    "stream_get_wrappers",
+    "Use `stream_get_wrappers()` when compatibility code needs to check whether a stream scheme such as `file://` is available. Echo currently reports a static wrapper baseline and leaves wrapper registration for later.",
   ],
   [
     "glob",
@@ -8187,7 +8232,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 323 PHP compatibility fixtures, 367 implemented Core and standard functions out of 607, 240 remaining, and about 60% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 324 PHP compatibility fixtures, 370 implemented Core and standard functions out of 607, 237 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

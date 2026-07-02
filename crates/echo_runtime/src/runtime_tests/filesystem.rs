@@ -82,6 +82,35 @@ fn disk_space_reports_float_counts_for_existing_directories() {
 }
 
 #[test]
+fn stream_registry_lists_include_core_entries() {
+    let wrappers = echo_php_stream_get_wrappers();
+    let transports = echo_php_stream_get_transports();
+    let filters = echo_php_stream_get_filters();
+
+    assert_eq!(
+        unsafe { (wrappers.payload as *const EchoArray).as_ref() }
+            .expect("wrapper array")
+            .values[1]
+            .string_bytes(),
+        Some(b"file".to_vec())
+    );
+    assert_eq!(
+        unsafe { (transports.payload as *const EchoArray).as_ref() }
+            .expect("transport array")
+            .values[0]
+            .string_bytes(),
+        Some(b"tcp".to_vec())
+    );
+    assert_eq!(
+        unsafe { (filters.payload as *const EchoArray).as_ref() }
+            .expect("filter array")
+            .values[0]
+            .string_bytes(),
+        Some(b"string.rot13".to_vec())
+    );
+}
+
+#[test]
 fn glob_returns_sorted_matches_for_local_directory_patterns() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));
