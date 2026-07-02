@@ -1,4 +1,4 @@
-use crate::collections::{EchoArray, EchoList, echo_arrays_equal, echo_lists_equal};
+use crate::collections::{EchoArray, EchoArrayKey, EchoList, echo_arrays_equal, echo_lists_equal};
 use crate::{
     echo_runtime_string, echo_value_array_new, filesystem, net, process, task, task_group, thread,
 };
@@ -546,6 +546,62 @@ pub extern "C" fn echo_php_get_resource_id(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_get_resources(_type: EchoValue) -> EchoValue {
     echo_value_array_new()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_serialize(value: EchoValue) -> EchoValue {
+    match serialize_value(value) {
+        Some(bytes) => echo_runtime_string(bytes),
+        None => EchoValue::bool(false),
+    }
+}
+
+fn serialize_value(value: EchoValue) -> Option<Vec<u8>> {
+    match value.kind {
+        ECHO_VALUE_NULL => Some(b"N;".to_vec()),
+        ECHO_VALUE_BOOL => Some(if value.payload == 0 {
+            b"b:0;".to_vec()
+        } else {
+            b"b:1;".to_vec()
+        }),
+        ECHO_VALUE_INT => Some(format!("i:{};", value.payload as i64).into_bytes()),
+        ECHO_VALUE_FLOAT => {
+            Some(format!("d:{};", format_php_float(f64::from_bits(value.payload))).into_bytes())
+        }
+        ECHO_VALUE_STRING => {
+            let bytes = value.string_bytes()?;
+            let mut serialized = format!("s:{}:\"", bytes.len()).into_bytes();
+            serialized.extend_from_slice(&bytes);
+            serialized.extend_from_slice(b"\";");
+            Some(serialized)
+        }
+        ECHO_VALUE_ARRAY => serialize_array(value),
+        _ => None,
+    }
+}
+
+fn serialize_array(value: EchoValue) -> Option<Vec<u8>> {
+    let array = unsafe { (value.payload as *const EchoArray).as_ref() }?;
+    let mut serialized = format!("a:{}:{{", array.values.len()).into_bytes();
+
+    for (key, value) in array.keys.iter().zip(array.values.iter()) {
+        serialize_array_key(key, &mut serialized);
+        serialized.extend_from_slice(&serialize_value(*value)?);
+    }
+
+    serialized.push(b'}');
+    Some(serialized)
+}
+
+fn serialize_array_key(key: &EchoArrayKey, serialized: &mut Vec<u8>) {
+    match key {
+        EchoArrayKey::Int(value) => serialized.extend_from_slice(format!("i:{value};").as_bytes()),
+        EchoArrayKey::String(bytes) => {
+            serialized.extend_from_slice(format!("s:{}:\"", bytes.len()).as_bytes());
+            serialized.extend_from_slice(bytes);
+            serialized.extend_from_slice(b"\";");
+        }
+    }
 }
 
 fn is_resource_kind(kind: i32) -> bool {

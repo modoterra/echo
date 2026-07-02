@@ -1312,6 +1312,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueOptionalNullExpression,
         },
         PhpBuiltin {
+            php_name: "serialize",
+            symbol: "echo_php_serialize",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "is_string",
             symbol: "echo_php_is_string",
             helper_symbol: None,

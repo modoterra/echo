@@ -278,6 +278,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_serialize",
+            echo_runtime::echo_php_serialize
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_is_string",
             echo_runtime::echo_php_is_string
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

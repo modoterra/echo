@@ -834,6 +834,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts a value to a string.",
       },
       {
+        name: "serialize",
+        signature: "serialize(mixed $value): string",
+        description:
+          "Generates PHP's storable byte-stream representation for scalar values and arrays.",
+      },
+      {
         name: "boolval",
         signature: "boolval(mixed $value): bool",
         description: "Converts a value to a boolean.",
@@ -3857,6 +3863,13 @@ let $cacheKey = "invoice:" . strval($invoiceId)
 echo $cacheKey . "\\n"`,
   ],
   [
+    "serialize",
+    `let $payload = ["id" => 42, "name" => "Ada"]
+let $encoded = serialize($payload)
+
+echo $encoded . "\\n"`,
+  ],
+  [
     "substr",
     `let $bearer = "Bearer token-value"
 let $token = substr($bearer, 7)
@@ -5517,6 +5530,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "strval",
     "Use `strval()` when PHP-compatible string coercion is required before concatenation, logging, or building keys.",
+  ],
+  [
+    "serialize",
+    "Use `serialize()` when compatibility code stores scalar or array state in PHP's native wire format. Echo currently supports scalars and PHP arrays while object hooks, resources, references, and `unserialize()` remain deferred.",
   ],
   [
     "boolval",
@@ -8116,7 +8133,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 321 PHP compatibility fixtures, 363 implemented Core and standard functions out of 607, 244 remaining, and about 60% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 322 PHP compatibility fixtures, 364 implemented Core and standard functions out of 607, 243 remaining, and about 60% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

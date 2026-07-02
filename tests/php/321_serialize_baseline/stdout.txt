@@ -1,0 +1,7 @@
+N;
+b:1;
+b:0;
+i:42;
+s:4:"Echo";
+a:2:{s:2:"id";i:42;s:4:"name";s:3:"Ada";}
+exists:1

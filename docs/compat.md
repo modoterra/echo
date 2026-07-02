@@ -552,7 +552,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rsort` | partial | Sorts arrays containing string-compatible values in descending byte order, reindexes keys from zero, and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.rsort.php |
 | `rtrim` | implemented | Removes PHP's default trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.rtrim.php |
 | `scandir` | partial | Returns sorted local directory entries, including `.` and `..`, for one-argument calls; sorting-order constants, unsorted mode, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.scandir.php |
-| `serialize` | missing |  |
+| `serialize` | partial | Serializes null, bool, int, string, and current PHP array values with PHP's byte-length wire format; object hooks, resources, references/cycles, Echo lists, and exact float precision parity are deferred. Source: https://www.php.net/manual/en/function.serialize.php |
 | `set_file_buffer` | missing |  |
 | `set_include_path` | partial | Delegates to Echo's current no-op `ini_set("include_path", ...)` baseline and returns `false` until mutable PHP ini option values are modeled. Source: https://www.php.net/manual/en/function.set-include-path.php |
 | `set_time_limit` | partial | Returns `false` because Echo currently does not model PHP's max execution timer control; timer enforcement and reset semantics are deferred. Source: https://www.php.net/manual/en/function.set-time-limit.php |

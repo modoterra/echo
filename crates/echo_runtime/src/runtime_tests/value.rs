@@ -51,6 +51,39 @@ fn arrays_are_distinct_from_lists() {
 }
 
 #[test]
+fn serialize_preserves_scalar_and_array_shapes() {
+    assert_eq!(
+        echo_php_serialize(EchoValue::null()).string_bytes(),
+        Some(b"N;".to_vec())
+    );
+    assert_eq!(
+        echo_php_serialize(EchoValue::bool(true)).string_bytes(),
+        Some(b"b:1;".to_vec())
+    );
+    assert_eq!(
+        echo_php_serialize(EchoValue::bool(false)).string_bytes(),
+        Some(b"b:0;".to_vec())
+    );
+    assert_eq!(
+        echo_php_serialize(EchoValue::int(42)).string_bytes(),
+        Some(b"i:42;".to_vec())
+    );
+    assert_eq!(
+        echo_php_serialize(test_string_value(b"Echo")).string_bytes(),
+        Some(b"s:4:\"Echo\";".to_vec())
+    );
+
+    let mut array = echo_value_array_new();
+    array = echo_value_array_set(array, test_string_value(b"id"), EchoValue::int(42));
+    array = echo_value_array_set(array, test_string_value(b"name"), test_string_value(b"Ada"));
+
+    assert_eq!(
+        echo_php_serialize(array).string_bytes(),
+        Some(b"a:2:{s:2:\"id\";i:42;s:4:\"name\";s:3:\"Ada\";}".to_vec())
+    );
+}
+
+#[test]
 fn assert_intrinsics_report_success() {
     let left = Box::into_raw(Box::new(EchoString {
         bytes: b"same".to_vec(),
