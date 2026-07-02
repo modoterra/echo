@@ -147,6 +147,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "utf8_encode",
+        symbol: "echo_php_utf8_encode",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "md5",
         symbol: "echo_php_md5",
         helper_symbol: None,

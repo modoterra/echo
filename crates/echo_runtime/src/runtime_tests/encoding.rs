@@ -17,6 +17,15 @@ fn bin2hex_preserves_php_byte_behavior() {
 }
 
 #[test]
+fn utf8_encode_converts_latin1_bytes_to_utf8() {
+    assert_eq!(
+        echo_php_bin2hex(echo_php_utf8_encode(test_string_value(&[b'Z', b'o', 0xeb])))
+            .string_bytes(),
+        Some("5a6fc3ab".as_bytes().to_vec())
+    );
+}
+
+#[test]
 fn checksum_builtins_preserve_php_byte_behavior() {
     assert_eq!(
         echo_php_crc32(test_string_value(b"Echo\nPHP")),

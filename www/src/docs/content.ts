@@ -149,6 +149,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts bytes to a hexadecimal string.",
       },
       {
+        name: "utf8_encode",
+        signature: "utf8_encode(string $string): string",
+        description:
+          "Converts ISO-8859-1 bytes to UTF-8 bytes for legacy PHP compatibility.",
+      },
+      {
         name: "hex2bin",
         signature: "hex2bin(string $string): string|false",
         description: "Converts a hexadecimal string back into bytes.",
@@ -2003,6 +2009,13 @@ echo $file . "\\n"`,
 let $traceId = bin2hex($bytes)
 
 echo "trace-" . $traceId . "\\n"`,
+  ],
+  [
+    "utf8_encode",
+    `let $latin1 = "Zo" . chr(235)
+let $utf8 = utf8_encode($latin1)
+
+echo bin2hex($utf8) . "\\n"`,
   ],
   [
     "boolval",
@@ -4933,6 +4946,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "bin2hex",
     "Use `bin2hex()` when raw bytes need a printable lowercase hexadecimal representation for logs, manifests, or fixtures.",
+  ],
+  [
+    "utf8_encode",
+    "Use `utf8_encode()` only for legacy PHP data that is known to be ISO-8859-1. The PHP function is deprecated upstream and does not detect Windows-1252 or other encodings.",
   ],
   [
     "hex2bin",
@@ -7972,7 +7989,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 314 PHP compatibility fixtures, 354 implemented Core and standard functions out of 607, 253 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 315 PHP compatibility fixtures, 355 implemented Core and standard functions out of 607, 252 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

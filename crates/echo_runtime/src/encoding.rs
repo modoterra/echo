@@ -58,6 +58,22 @@ pub extern "C" fn echo_php_hex2bin(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_utf8_encode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| {
+        let mut encoded = Vec::with_capacity(bytes.len());
+        for byte in bytes {
+            if *byte < 0x80 {
+                encoded.push(*byte);
+            } else {
+                encoded.push(0xc0 | (*byte >> 6));
+                encoded.push(0x80 | (*byte & 0x3f));
+            }
+        }
+        encoded
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => {

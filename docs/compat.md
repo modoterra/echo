@@ -697,7 +697,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `usleep` | partial | Sleeps for non-negative microseconds and returns `null`; platform timer precision and signal interruption behavior are deferred. Source: https://www.php.net/manual/en/function.usleep.php |
 | `usort` | missing |  |
 | `utf8_decode` | missing |  |
-| `utf8_encode` | missing |  |
+| `utf8_encode` | implemented | Converts ISO-8859-1 bytes to UTF-8 bytes and preserves PHP's deprecated Latin-1-only behavior. Source: https://www.php.net/manual/en/function.utf8-encode.php |
 | `var_dump` | missing |  |
 | `var_export` | missing |  |
 | `version_compare` | missing |  |

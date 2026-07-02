@@ -62,6 +62,7 @@ pub use encoding::{
     echo_php_convert_uuencode, echo_php_crc32, echo_php_escapeshellarg, echo_php_escapeshellcmd,
     echo_php_hex2bin, echo_php_http_build_query, echo_php_md5, echo_php_rawurldecode,
     echo_php_rawurlencode, echo_php_sha1, echo_php_urldecode, echo_php_urlencode,
+    echo_php_utf8_encode,
 };
 pub use environment::*;
 pub use error::{
