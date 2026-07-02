@@ -1,5 +1,7 @@
 use crate::{
-    EchoValue, echo_runtime_string, filesystem::path_buf_from_bytes, write_runtime_output,
+    EchoValue, echo_runtime_string,
+    filesystem::{path_buf_from_bytes, php_stat_from_metadata, stat_array},
+    write_runtime_output,
 };
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -233,6 +235,22 @@ pub extern "C" fn echo_php_fpassthru(stream: EchoValue) -> EchoValue {
         }
         Err(_) => EchoValue::bool(false),
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fstat(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_ref() else {
+        return EchoValue::bool(false);
+    };
+
+    file.metadata()
+        .ok()
+        .and_then(php_stat_from_metadata)
+        .map(stat_array)
+        .unwrap_or_else(|| EchoValue::bool(false))
 }
 
 #[unsafe(no_mangle)]

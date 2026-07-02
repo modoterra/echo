@@ -1,4 +1,5 @@
 use super::*;
+use crate::collections::EchoArrayKey;
 use std::io::Write;
 use std::path::Path;
 
@@ -227,6 +228,44 @@ fn fpassthru_outputs_remaining_stream_bytes_and_returns_count() {
     assert_eq!(stdout, b"cdef");
     assert_eq!(echo_php_feof(stream), EchoValue::bool(true));
     assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+
+    unsafe {
+        drop(Box::from_raw(path_value));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
+fn fstat_reports_stat_array_for_open_stream() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-fstat-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-fstat.txt");
+    std::fs::write(&path, b"abcdef").expect("write stream fixture");
+
+    let path_value = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path_value),
+        test_string_value(b"r"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    let stat = echo_php_fstat(stream);
+    let array = unsafe { (stat.payload as *const EchoArray).as_ref() }.expect("stat array");
+    let size_index = array
+        .keys
+        .iter()
+        .position(|key| *key == EchoArrayKey::String(b"size".to_vec()))
+        .expect("size key");
+    assert_eq!(array.values[size_index], EchoValue::int(6));
+    assert_eq!(array.keys[7], EchoArrayKey::Int(7));
+    assert_eq!(array.values[7], EchoValue::int(6));
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_fstat(stream), EchoValue::bool(false));
 
     unsafe {
         drop(Box::from_raw(path_value));

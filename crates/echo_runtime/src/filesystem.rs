@@ -23,7 +23,9 @@ pub use metadata::{
     echo_php_filetype, echo_php_is_dir, echo_php_is_executable, echo_php_is_file, echo_php_is_link,
     echo_php_is_readable, echo_php_is_writable, echo_php_lstat, echo_php_stat,
 };
-pub(crate) use metadata::{path_chdir, path_exists, path_getcwd};
+pub(crate) use metadata::{
+    path_chdir, path_exists, path_getcwd, php_stat_from_metadata, stat_array,
+};
 #[cfg(test)]
 pub(crate) use metadata::{path_is_dir, path_is_file};
 pub use mutation::{
@@ -33,8 +35,9 @@ pub use mutation::{
 pub(crate) use stream::EchoFileStream;
 pub use stream::{
     echo_php_fclose, echo_php_feof, echo_php_fflush, echo_php_fgetc, echo_php_fgets,
-    echo_php_fopen, echo_php_fpassthru, echo_php_fread, echo_php_fseek, echo_php_ftell,
-    echo_php_fwrite, echo_php_rewind, echo_php_stream_get_contents, echo_php_tmpfile,
+    echo_php_fopen, echo_php_fpassthru, echo_php_fread, echo_php_fseek, echo_php_fstat,
+    echo_php_ftell, echo_php_fwrite, echo_php_rewind, echo_php_stream_get_contents,
+    echo_php_tmpfile,
 };
 pub use temporary::{echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_uniqid};
 

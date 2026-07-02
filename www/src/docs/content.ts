@@ -1273,6 +1273,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Outputs all remaining bytes from a local file stream.",
       },
       {
+        name: "fstat",
+        signature: "fstat(resource $stream): array|false",
+        description:
+          "Returns numeric and named stat fields for the file behind an open local stream.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2185,6 +2191,16 @@ if ($stream) {
 
 if ($stream) {
     fpassthru($stream)
+    fclose($stream)
+}`,
+  ],
+  [
+    "fstat",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    let $stat = fstat($stream)
+    echo "Export bytes: " . $stat["size"] . "\\n"
     fclose($stream)
 }`,
   ],
@@ -4277,6 +4293,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "fpassthru",
     "Use `fpassthru()` when compatibility code streams the remaining contents of an already-open local file handle directly to output.",
+  ],
+  [
+    "fstat",
+    "Use `fstat()` when code already has a stream handle and needs the same metadata shape as `stat()` without resolving the path again.",
   ],
   [
     "readfile",
@@ -7464,7 +7484,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 291 PHP compatibility fixtures, 325 implemented Core and standard functions out of 607, 282 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 292 PHP compatibility fixtures, 326 implemented Core and standard functions out of 607, 281 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

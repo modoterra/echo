@@ -318,7 +318,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fscanf` | missing |  |
 | `fseek` | partial | Seeks Echo local file stream resources from the beginning of the file and returns `0` on success or `-1` on failure; `whence` modes are deferred. Source: https://www.php.net/manual/en/function.fseek.php |
 | `fsockopen` | missing |  |
-| `fstat` | missing |  |
+| `fstat` | implemented | Returns PHP-style numeric and named stat fields for Echo local file stream resources, or false for invalid streams. Source: https://www.php.net/manual/en/function.fstat.php |
 | `fsync` | missing |  |
 | `ftell` | implemented | Returns the current byte offset for Echo local file stream resources and `false` for invalid or closed streams. Source: https://www.php.net/manual/en/function.ftell.php |
 | `ftok` | missing |  |

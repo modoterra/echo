@@ -451,7 +451,7 @@ fn path_filetype(bytes: &[u8]) -> Option<Vec<u8>> {
 }
 
 #[derive(Clone, Copy)]
-struct PhpStat {
+pub(crate) struct PhpStat {
     dev: i64,
     ino: i64,
     mode: i64,
@@ -467,7 +467,7 @@ struct PhpStat {
     blocks: i64,
 }
 
-fn stat_array(stat: PhpStat) -> EchoValue {
+pub(crate) fn stat_array(stat: PhpStat) -> EchoValue {
     let fields = [
         ("dev", stat.dev),
         ("ino", stat.ino),
@@ -510,7 +510,7 @@ fn path_stat(bytes: &[u8]) -> Option<PhpStat> {
 }
 
 #[cfg(unix)]
-fn php_stat_from_metadata(metadata: std::fs::Metadata) -> Option<PhpStat> {
+pub(crate) fn php_stat_from_metadata(metadata: std::fs::Metadata) -> Option<PhpStat> {
     use std::os::unix::fs::MetadataExt;
 
     Some(PhpStat {
@@ -545,7 +545,7 @@ fn path_stat(bytes: &[u8]) -> Option<PhpStat> {
 }
 
 #[cfg(not(unix))]
-fn php_stat_from_metadata(metadata: std::fs::Metadata) -> Option<PhpStat> {
+pub(crate) fn php_stat_from_metadata(metadata: std::fs::Metadata) -> Option<PhpStat> {
     Some(PhpStat {
         dev: 0,
         ino: 0,
