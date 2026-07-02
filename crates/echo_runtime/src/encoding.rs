@@ -176,6 +176,11 @@ pub extern "C" fn echo_php_base64_encode(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_convert_uuencode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, uuencode_bytes)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_base64_decode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, decode_base64_non_strict)
 }
@@ -386,6 +391,33 @@ fn base64_value(byte: u8) -> Option<u8> {
         b'/' => Some(63),
         _ => None,
     }
+}
+
+fn uuencode_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut encoded = Vec::new();
+
+    for chunk in bytes.chunks(45) {
+        encoded.push(uuencode_byte(chunk.len() as u8));
+        for triple in chunk.chunks(3) {
+            let first = triple[0];
+            let second = *triple.get(1).unwrap_or(&0);
+            let third = *triple.get(2).unwrap_or(&0);
+
+            encoded.push(uuencode_byte(first >> 2));
+            encoded.push(uuencode_byte(((first << 4) | (second >> 4)) & 0x3f));
+            encoded.push(uuencode_byte(((second << 2) | (third >> 6)) & 0x3f));
+            encoded.push(uuencode_byte(third & 0x3f));
+        }
+        encoded.push(b'\n');
+    }
+
+    encoded.extend_from_slice(b"`\n");
+    encoded
+}
+
+fn uuencode_byte(value: u8) -> u8 {
+    let value = (value & 0x3f) + 0x20;
+    if value == b' ' { b'`' } else { value }
 }
 
 pub(crate) fn hex_nibble(byte: u8) -> Option<u8> {

@@ -244,7 +244,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `connection_status` | implemented | Returns `0` (`CONNECTION_NORMAL`) because Echo currently uses CLI-style execution and does not model an abortable client connection. Source: https://www.php.net/manual/en/function.connection-status.php |
 | `constant` | partial | Returns Echo's compiler-owned PHP compatibility constants by name; dynamically defined constants and PHP's missing-constant `Error` parity are deferred. Source: https://www.php.net/manual/en/function.constant.php |
 | `convert_uudecode` | missing |  |
-| `convert_uuencode` | missing |  |
+| `convert_uuencode` | implemented | Encodes bytes with PHP's uuencode line format and terminating backtick line. Source: https://www.php.net/manual/en/function.convert-uuencode.php |
 | `copy` | implemented | Copies local files and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.copy.php |
 | `cos` | implemented | Returns the cosine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.cos.php |
 | `cosh` | implemented | Returns hyperbolic cosine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.cosh.php |

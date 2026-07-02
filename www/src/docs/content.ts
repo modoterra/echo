@@ -144,6 +144,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Encodes bytes using Base64.",
       },
       {
+        name: "convert_uuencode",
+        signature: "convert_uuencode(string $string): string",
+        description: "Encodes bytes using PHP's uuencode line format.",
+      },
+      {
         name: "base64_decode",
         signature: "base64_decode(string $string): string|false",
         description: "Decodes a Base64 string.",
@@ -1646,6 +1651,12 @@ echo $token . "\\n"`,
 let $header = "X-Session: " . base64_encode($payload)
 
 echo $header . "\\n"`,
+  ],
+  [
+    "convert_uuencode",
+    `let $encoded = convert_uuencode("Hi")
+
+echo $encoded`,
   ],
   [
     "basename",
@@ -4021,6 +4032,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "base64_encode",
     "Use `base64_encode()` to carry binary data through text-only fields such as JSON payloads, headers, or form values.",
+  ],
+  [
+    "convert_uuencode",
+    "Use `convert_uuencode()` only for legacy formats that already expect uuencoded payloads. New text-safe binary transport should usually use Base64.",
   ],
   [
     "base64_decode",
@@ -6960,7 +6975,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 262 PHP compatibility fixtures, 295 implemented Core and standard functions out of 607, 312 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 263 PHP compatibility fixtures, 296 implemented Core and standard functions out of 607, 311 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
