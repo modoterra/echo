@@ -210,6 +210,39 @@ fn stream_buffer_setters_report_php_integer_statuses() {
 }
 
 #[test]
+fn stream_get_meta_data_reports_local_file_fields() {
+    let stream = echo_php_tmpfile();
+    let metadata = echo_php_stream_get_meta_data(stream);
+    let metadata =
+        unsafe { (metadata.payload as *const EchoArray).as_ref() }.expect("metadata array");
+
+    assert_eq!(
+        array_string_field(metadata, b"wrapper_type"),
+        Some(b"plainfile".to_vec())
+    );
+    assert_eq!(
+        array_string_field(metadata, b"stream_type"),
+        Some(b"STDIO".to_vec())
+    );
+    assert_eq!(array_string_field(metadata, b"mode"), Some(b"r+".to_vec()));
+    assert_eq!(array_bool_field(metadata, b"seekable"), Some(true));
+    assert_eq!(array_bool_field(metadata, b"blocked"), Some(true));
+    assert_eq!(array_bool_field(metadata, b"timed_out"), Some(false));
+    assert_eq!(array_int_field(metadata, b"unread_bytes"), Some(0));
+    assert!(
+        array_string_field(metadata, b"uri")
+            .expect("uri string")
+            .starts_with(std::env::temp_dir().to_string_lossy().as_bytes())
+    );
+
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_stream_get_meta_data(stream),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn glob_returns_sorted_matches_for_local_directory_patterns() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));
@@ -272,6 +305,35 @@ fn glob_returns_sorted_matches_for_local_directory_patterns() {
         drop(Box::from_raw(missing_pattern));
     }
     std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+fn array_field(array: &EchoArray, key: &[u8]) -> Option<EchoValue> {
+    array
+        .keys
+        .iter()
+        .zip(array.values.iter())
+        .find_map(|(candidate, value)| match candidate {
+            EchoArrayKey::String(bytes) if bytes == key => Some(*value),
+            _ => None,
+        })
+}
+
+fn array_string_field(array: &EchoArray, key: &[u8]) -> Option<Vec<u8>> {
+    array_field(array, key).and_then(|value| value.string_bytes())
+}
+
+fn array_bool_field(array: &EchoArray, key: &[u8]) -> Option<bool> {
+    array_field(array, key).and_then(|value| {
+        if value.is_bool() {
+            Some(value.payload != 0)
+        } else {
+            None
+        }
+    })
+}
+
+fn array_int_field(array: &EchoArray, key: &[u8]) -> Option<i64> {
+    array_field(array, key).and_then(|value| value.php_int_value())
 }
 
 #[test]

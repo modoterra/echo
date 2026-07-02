@@ -467,6 +467,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueExpression,
     },
     PhpBuiltin {
+        php_name: "stream_get_meta_data",
+        symbol: "echo_php_stream_get_meta_data",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "stream_is_local",
         symbol: "echo_php_stream_is_local",
         helper_symbol: None,

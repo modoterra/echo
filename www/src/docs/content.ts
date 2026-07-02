@@ -1377,6 +1377,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the registered stream wrapper names.",
       },
       {
+        name: "stream_get_meta_data",
+        signature: "stream_get_meta_data(resource $stream): array",
+        description: "Returns metadata for an open stream.",
+      },
+      {
         name: "stream_is_local",
         signature: "stream_is_local(resource|string $stream): bool",
         description: "Checks whether a stream resource or URL is local.",
@@ -2597,6 +2602,16 @@ if (stream_is_local($path)) {
 
 if ($stream && stream_supports_lock($stream)) {
     echo "Stream can participate in file locking\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_get_meta_data",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    let $meta = stream_get_meta_data($stream)
+    echo "Mode: " . $meta["mode"] . "\\n"
     fclose($stream)
 }`,
   ],
@@ -5019,6 +5034,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_supports_lock",
     "Use `stream_supports_lock()` before compatibility code assumes a stream can be guarded by advisory locks. Echo currently reports true for open local file streams while actual `flock()` behavior remains future work.",
+  ],
+  [
+    "stream_get_meta_data",
+    "Use `stream_get_meta_data()` when compatibility code needs to inspect stream mode, wrapper type, or seekability before choosing a read path. Echo currently reports local file stream metadata and leaves socket, TLS, custom wrapper, timeout, and unread-byte details for later.",
   ],
   [
     "stream_isatty",
@@ -8358,7 +8377,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 330 PHP compatibility fixtures, 377 implemented Core and standard functions out of 607, 230 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 331 PHP compatibility fixtures, 378 implemented Core and standard functions out of 607, 229 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

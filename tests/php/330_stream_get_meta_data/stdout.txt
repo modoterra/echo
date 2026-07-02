@@ -1,0 +1,11 @@
+array:1
+wrapper:plainfile
+stream:STDIO
+mode:r
+uri-match:1
+seekable:1
+blocked:1
+timed-out:
+unread-int:1
+eof-bool:1
+exists:1

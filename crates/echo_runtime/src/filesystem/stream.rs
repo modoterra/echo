@@ -1,5 +1,5 @@
 use crate::{
-    EchoArray, EchoValue, echo_runtime_string,
+    EchoArray, EchoValue, echo_runtime_string, echo_value_array_new, echo_value_array_set,
     filesystem::{path_buf_from_bytes, php_stat_from_metadata, stat_array},
     write_runtime_output,
 };
@@ -13,6 +13,8 @@ pub struct EchoFileStream {
     pub file: Option<File>,
     eof: bool,
     chunk_size: i64,
+    mode: Vec<u8>,
+    uri: Vec<u8>,
     delete_on_close: Option<PathBuf>,
 }
 
@@ -120,6 +122,35 @@ pub extern "C" fn echo_php_stream_set_write_buffer(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_get_meta_data(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_ref() else {
+        return EchoValue::bool(false);
+    };
+    if stream.file.is_none() {
+        return EchoValue::bool(false);
+    }
+
+    let mut result = echo_value_array_new();
+    result = stream_meta_set(result, b"timed_out", EchoValue::bool(false));
+    result = stream_meta_set(result, b"blocked", EchoValue::bool(true));
+    result = stream_meta_set(result, b"eof", EchoValue::bool(stream.eof));
+    result = stream_meta_set(result, b"unread_bytes", EchoValue::int(0));
+    result = stream_meta_set(
+        result,
+        b"stream_type",
+        echo_runtime_string(b"STDIO".to_vec()),
+    );
+    result = stream_meta_set(
+        result,
+        b"wrapper_type",
+        echo_runtime_string(b"plainfile".to_vec()),
+    );
+    result = stream_meta_set(result, b"mode", echo_runtime_string(stream.mode.clone()));
+    result = stream_meta_set(result, b"seekable", EchoValue::bool(true));
+    stream_meta_set(result, b"uri", echo_runtime_string(stream.uri.clone()))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fopen(
     filename: EchoValue,
     mode: EchoValue,
@@ -145,6 +176,8 @@ pub extern "C" fn echo_php_fopen(
                 file: Some(file),
                 eof: false,
                 chunk_size: 8192,
+                mode,
+                uri: filename,
                 delete_on_close: None,
             }));
             EchoValue::file_stream(stream)
@@ -498,6 +531,8 @@ pub extern "C" fn echo_php_tmpfile() -> EchoValue {
                 file: Some(file),
                 eof: false,
                 chunk_size: 8192,
+                mode: b"r+".to_vec(),
+                uri: path.to_string_lossy().as_bytes().to_vec(),
                 delete_on_close: Some(path),
             }));
             return EchoValue::file_stream(stream);
@@ -567,6 +602,10 @@ fn string_array(values: &[&[u8]]) -> EchoValue {
             .map(|value| echo_runtime_string(value.to_vec()))
             .collect(),
     ))))
+}
+
+fn stream_meta_set(array: EchoValue, key: &[u8], value: EchoValue) -> EchoValue {
+    echo_value_array_set(array, echo_runtime_string(key.to_vec()), value)
 }
 
 fn stream_name_is_local(bytes: &[u8]) -> bool {
