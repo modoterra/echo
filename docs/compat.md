@@ -582,7 +582,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `sscanf` | missing |  |
 | `stat` | missing |  |
 | `str_contains` | implemented | Performs binary-safe substring detection, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-contains.php |
-| `str_decrement` | missing |  |
+| `str_decrement` | partial | Decrements in-range ASCII alphanumeric strings using PHP's right-to-left borrow rules for digits and letters; PHP `ValueError` diagnostics for out-of-range or invalid input are deferred. Source: https://www.php.net/manual/en/function.str-decrement.php |
 | `str_ends_with` | implemented | Performs binary-safe suffix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-ends-with.php |
 | `str_getcsv` | partial | Parses one string with PHP's default comma separator and double-quote enclosure, including doubled quote escapes; custom separator, enclosure, and escape arguments are deferred. Source: https://www.php.net/manual/en/function.str-getcsv.php |
 | `str_increment` | partial | Increments non-empty ASCII alphanumeric strings using PHP's right-to-left carry rules for digits and letters; PHP `ValueError` diagnostics for invalid input are deferred. Source: https://www.php.net/manual/en/function.str-increment.php |

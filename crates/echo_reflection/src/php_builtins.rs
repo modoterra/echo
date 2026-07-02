@@ -776,6 +776,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("string", Some("string"))],
             Some("string"),
         ),
+        php_builtin_reflection(
+            "str_decrement",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
         php_builtin_reflection("hebrev", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("soundex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(

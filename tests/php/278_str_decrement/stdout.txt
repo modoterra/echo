@@ -1,0 +1,7 @@
+b:a
+aa:z
+AA:Z
+ten:9
+ba:az
+AA0:Z9
+exists:1

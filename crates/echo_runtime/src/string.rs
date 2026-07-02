@@ -460,6 +460,11 @@ pub extern "C" fn echo_php_str_increment(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_decrement(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, php_string_decrement)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hebrev(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| bytes.to_vec())
 }
@@ -575,6 +580,66 @@ fn php_string_increment(bytes: &[u8]) -> Vec<u8> {
 
     if let Some(byte) = prepend {
         result.insert(0, byte);
+    }
+    result
+}
+
+fn php_string_decrement(bytes: &[u8]) -> Vec<u8> {
+    if bytes.is_empty() || !bytes.iter().all(u8::is_ascii_alphanumeric) {
+        return Vec::new();
+    }
+    if bytes.iter().all(|byte| *byte == b'0')
+        || (bytes.len() > 1 && bytes.first() == Some(&b'0'))
+        || matches!(bytes, [b'a' | b'A'])
+    {
+        return Vec::new();
+    }
+
+    let mut result = bytes.to_vec();
+    let mut index = result.len();
+    let mut borrowed = false;
+    let mut carried_past_start = true;
+
+    while index > 0 {
+        index -= 1;
+        match result[index] {
+            b'1'..=b'9' => {
+                result[index] -= 1;
+                borrowed = true;
+                carried_past_start = false;
+                break;
+            }
+            b'0' => {
+                result[index] = b'9';
+                borrowed = true;
+            }
+            b'b'..=b'z' | b'B'..=b'Z' => {
+                result[index] -= 1;
+                borrowed = true;
+                carried_past_start = false;
+                break;
+            }
+            b'a' => {
+                result[index] = b'z';
+                borrowed = true;
+            }
+            b'A' => {
+                result[index] = b'Z';
+                borrowed = true;
+            }
+            _ => return Vec::new(),
+        }
+    }
+
+    if !borrowed {
+        return Vec::new();
+    }
+
+    if matches!(result.first(), Some(b'0')) && result.len() > 1 {
+        result.remove(0);
+    } else if carried_past_start && matches!(result.first(), Some(b'z' | b'Z')) && result.len() > 1
+    {
+        result.remove(0);
     }
     result
 }

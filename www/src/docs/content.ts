@@ -108,6 +108,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Increments an ASCII alphanumeric string using PHP's carry rules.",
       },
       {
+        name: "str_decrement",
+        signature: "str_decrement(string $string): string",
+        description: "Decrements an ASCII alphanumeric string using PHP's borrow rules.",
+      },
+      {
         name: "hebrev",
         signature: "hebrev(string $string): string",
         description: "Converts Hebrew text from logical to visual order; currently a non-Hebrew identity baseline.",
@@ -3013,6 +3018,12 @@ echo $decoded . "\\n"`,
 echo "Next code: " . $next . "\\n"`,
   ],
   [
+    "str_decrement",
+    `let $previous = str_decrement("BA0")
+
+echo "Previous code: " . $previous . "\\n"`,
+  ],
+  [
     "hebrev",
     `let $label = hebrev("plain ascii")
 
@@ -4191,6 +4202,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "str_increment",
     "Use `str_increment()` for PHP-compatible sequence labels such as spreadsheet-like columns or mixed letter-number counters. Echo currently supports valid ASCII alphanumeric strings.",
+  ],
+  [
+    "str_decrement",
+    "Use `str_decrement()` when compatibility code walks backward through PHP-style sequence labels. Echo currently supports in-range ASCII alphanumeric strings.",
   ],
   [
     "hebrev",
@@ -7194,7 +7209,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 275 PHP compatibility fixtures, 310 implemented Core and standard functions out of 607, 297 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 276 PHP compatibility fixtures, 311 implemented Core and standard functions out of 607, 296 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
