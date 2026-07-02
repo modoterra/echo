@@ -553,7 +553,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `rtrim` | implemented | Removes PHP's default trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.rtrim.php |
 | `scandir` | partial | Returns sorted local directory entries, including `.` and `..`, for one-argument calls; sorting-order constants, unsorted mode, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.scandir.php |
 | `serialize` | partial | Serializes null, bool, int, string, and current PHP array values with PHP's byte-length wire format; object hooks, resources, references/cycles, Echo lists, and exact float precision parity are deferred. Source: https://www.php.net/manual/en/function.serialize.php |
-| `set_file_buffer` | missing |  |
+| `set_file_buffer` | partial | Alias of `stream_set_write_buffer()`; currently returns `-1` because Echo does not expose write buffering control for local file streams. Source: https://www.php.net/manual/en/function.set-file-buffer.php |
 | `set_include_path` | partial | Delegates to Echo's current no-op `ini_set("include_path", ...)` baseline and returns `false` until mutable PHP ini option values are modeled. Source: https://www.php.net/manual/en/function.set-include-path.php |
 | `set_time_limit` | partial | Returns `false` because Echo currently does not model PHP's max execution timer control; timer enforcement and reset semantics are deferred. Source: https://www.php.net/manual/en/function.set-time-limit.php |
 | `setcookie` | missing |  |

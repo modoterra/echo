@@ -1389,6 +1389,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection(
+            "set_file_buffer",
+            &[("stream", Some("resource")), ("size", Some("int"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "stream_supports_lock",
             &[("stream", Some("resource"))],
             Some("bool"),

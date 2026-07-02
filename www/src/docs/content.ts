@@ -1427,6 +1427,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets write buffering on a stream.",
       },
       {
+        name: "set_file_buffer",
+        signature: "set_file_buffer(resource $stream, int $size): int",
+        description: "Alias of stream_set_write_buffer.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2687,6 +2692,15 @@ if ($stream) {
 
 if ($stream) {
     echo "Write buffering status: " . stream_set_write_buffer($stream, 0) . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "set_file_buffer",
+    `let $stream = fopen("storage/exports/report.csv", "r+")
+
+if ($stream) {
+    echo "Write buffering status: " . set_file_buffer($stream, 0) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -5095,6 +5109,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_set_write_buffer",
     "Use `stream_set_write_buffer()` when compatibility code requests unbuffered writes before interprocess handoff. Echo currently reports that the request cannot be honored for local files until write buffering is modeled.",
+  ],
+  [
+    "set_file_buffer",
+    "Use `set_file_buffer()` for older PHP code that uses the filesystem alias for `stream_set_write_buffer()`. Echo routes it through the same write-buffer baseline and reports `-1` for local files.",
   ],
   [
     "glob",
@@ -8414,7 +8432,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 333 PHP compatibility fixtures, 380 implemented Core and standard functions out of 607, 227 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 334 PHP compatibility fixtures, 381 implemented Core and standard functions out of 607, 226 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
