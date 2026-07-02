@@ -84,6 +84,31 @@ fn serialize_preserves_scalar_and_array_shapes() {
 }
 
 #[test]
+fn var_dump_writes_php_scalar_and_array_shapes() {
+    let (_, stdout) = capture_stdout(false, || {
+        assert_eq!(echo_php_var_dump(EchoValue::null()), EchoValue::null());
+        assert_eq!(echo_php_var_dump(EchoValue::bool(true)), EchoValue::null());
+        assert_eq!(echo_php_var_dump(EchoValue::bool(false)), EchoValue::null());
+        assert_eq!(echo_php_var_dump(EchoValue::int(42)), EchoValue::null());
+        assert_eq!(echo_php_var_dump(EchoValue::float(3.5)), EchoValue::null());
+        assert_eq!(
+            echo_php_var_dump(test_string_value(b"Echo")),
+            EchoValue::null()
+        );
+
+        let mut array = echo_value_array_new();
+        array = echo_value_array_set(array, test_string_value(b"id"), EchoValue::int(42));
+        array = echo_value_array_set(array, test_string_value(b"name"), test_string_value(b"Ada"));
+        assert_eq!(echo_php_var_dump(array), EchoValue::null());
+    });
+
+    assert_eq!(
+        stdout,
+        b"NULL\nbool(true)\nbool(false)\nint(42)\nfloat(3.5)\nstring(4) \"Echo\"\narray(2) {\n  [\"id\"]=>\n  int(42)\n  [\"name\"]=>\n  string(3) \"Ada\"\n}\n".to_vec()
+    );
+}
+
+#[test]
 fn assert_intrinsics_report_success() {
     let left = Box::into_raw(Box::new(EchoString {
         bytes: b"same".to_vec(),

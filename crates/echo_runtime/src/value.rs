@@ -473,6 +473,107 @@ pub extern "C" fn echo_php_get_debug_type(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_var_dump(value: EchoValue) -> EchoValue {
+    let mut output = Vec::new();
+    write_php_var_dump_value(&mut output, value, 0);
+    crate::write_runtime_output(&output);
+    EchoValue::null()
+}
+
+fn write_php_var_dump_value(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
+    match value.kind {
+        ECHO_VALUE_NULL | ECHO_VALUE_ERROR => output.extend_from_slice(b"NULL\n"),
+        ECHO_VALUE_BOOL => {
+            if value.payload == 0 {
+                output.extend_from_slice(b"bool(false)\n");
+            } else {
+                output.extend_from_slice(b"bool(true)\n");
+            }
+        }
+        ECHO_VALUE_INT => {
+            output.extend_from_slice(format!("int({})\n", value.payload as i64).as_bytes());
+        }
+        ECHO_VALUE_FLOAT => {
+            output.extend_from_slice(
+                format!(
+                    "float({})\n",
+                    format_php_float(f64::from_bits(value.payload))
+                )
+                .as_bytes(),
+            );
+        }
+        ECHO_VALUE_STRING => {
+            let bytes = value.string_bytes().unwrap_or_default();
+            output.extend_from_slice(format!("string({}) \"", bytes.len()).as_bytes());
+            output.extend_from_slice(&bytes);
+            output.extend_from_slice(b"\"\n");
+        }
+        ECHO_VALUE_ARRAY => write_php_var_dump_array(output, value, depth),
+        ECHO_VALUE_LIST => write_php_var_dump_list(output, value, depth),
+        ECHO_VALUE_TASK
+        | ECHO_VALUE_TASK_GROUP
+        | ECHO_VALUE_OBJECT
+        | ECHO_VALUE_PROCESS
+        | ECHO_VALUE_THREAD => output.extend_from_slice(b"object(stdClass)#0 (0) {\n}\n"),
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION | ECHO_VALUE_STREAM => {
+            output.extend_from_slice(b"resource(0) of type (stream)\n");
+        }
+        _ => output.extend_from_slice(b"UNKNOWN:0\n"),
+    }
+}
+
+fn write_php_var_dump_array(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
+    let Some(array) = (unsafe { (value.payload as *const EchoArray).as_ref() }) else {
+        output.extend_from_slice(b"array(0) {\n}\n");
+        return;
+    };
+
+    output.extend_from_slice(format!("array({}) {{\n", array.values.len()).as_bytes());
+    for (key, value) in array.keys.iter().zip(&array.values) {
+        write_php_var_dump_indent(output, depth + 1);
+        write_php_var_dump_key(output, key);
+        write_php_var_dump_indent(output, depth + 1);
+        write_php_var_dump_value(output, *value, depth + 1);
+    }
+    write_php_var_dump_indent(output, depth);
+    output.extend_from_slice(b"}\n");
+}
+
+fn write_php_var_dump_list(output: &mut Vec<u8>, value: EchoValue, depth: usize) {
+    let Some(list) = (unsafe { (value.payload as *const EchoList).as_ref() }) else {
+        output.extend_from_slice(b"array(0) {\n}\n");
+        return;
+    };
+
+    output.extend_from_slice(format!("array({}) {{\n", list.values.len()).as_bytes());
+    for (index, value) in list.values.iter().enumerate() {
+        write_php_var_dump_indent(output, depth + 1);
+        output.extend_from_slice(format!("[{index}]=>\n").as_bytes());
+        write_php_var_dump_indent(output, depth + 1);
+        write_php_var_dump_value(output, *value, depth + 1);
+    }
+    write_php_var_dump_indent(output, depth);
+    output.extend_from_slice(b"}\n");
+}
+
+fn write_php_var_dump_key(output: &mut Vec<u8>, key: &EchoArrayKey) {
+    match key {
+        EchoArrayKey::Int(value) => output.extend_from_slice(format!("[{value}]=>\n").as_bytes()),
+        EchoArrayKey::String(bytes) => {
+            output.extend_from_slice(b"[\"");
+            output.extend_from_slice(bytes);
+            output.extend_from_slice(b"\"]=>\n");
+        }
+    }
+}
+
+fn write_php_var_dump_indent(output: &mut Vec<u8>, depth: usize) {
+    for _ in 0..depth {
+        output.extend_from_slice(b"  ");
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_is_array(value: EchoValue) -> EchoValue {
     EchoValue::bool(value.is_array())
 }

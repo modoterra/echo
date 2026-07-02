@@ -463,6 +463,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             ],
             Some("int|bool"),
         ),
+        php_builtin_reflection("var_dump", &[("value", Some("mixed"))], Some("void")),
         php_builtin_reflection("zend_version", &[], Some("string")),
         php_builtin_reflection(
             "dl",

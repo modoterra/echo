@@ -845,6 +845,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Generates PHP's storable byte-stream representation for scalar values and arrays.",
       },
       {
+        name: "var_dump",
+        signature: "var_dump(mixed $value): void",
+        description: "Dumps PHP-shaped scalar and array debugging output.",
+      },
+      {
         name: "boolval",
         signature: "boolval(mixed $value): bool",
         description: "Converts a value to a boolean.",
@@ -4197,6 +4202,14 @@ let $encoded = serialize($payload)
 echo $encoded . "\\n"`,
   ],
   [
+    "var_dump",
+    `ob_start()
+let $ignored = var_dump("Echo")
+let $dump = ob_get_clean()
+
+echo "Captured bytes: " . strlen($dump) . "\\n"`,
+  ],
+  [
     "substr",
     `let $bearer = "Bearer token-value"
 let $token = substr($bearer, 7)
@@ -5945,6 +5958,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "serialize",
     "Use `serialize()` when compatibility code stores scalar or array state in PHP's native wire format. Echo currently supports scalars and PHP arrays while object hooks, resources, references, and `unserialize()` remain deferred.",
+  ],
+  [
+    "var_dump",
+    "Use `var_dump()` when preserving PHP debugging flows that write directly to output. Echo currently matches scalar and PHP array dump shapes and leaves objects, resources, references, cycles, recursive edge cases, and variadic dumping for later.",
   ],
   [
     "boolval",
@@ -8556,7 +8573,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 339 PHP compatibility fixtures, 388 implemented Core and standard functions out of 607, 219 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 340 PHP compatibility fixtures, 389 implemented Core and standard functions out of 607, 218 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

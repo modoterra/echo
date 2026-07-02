@@ -1,0 +1,13 @@
+NULL
+bool(true)
+bool(false)
+int(42)
+float(3.5)
+string(4) "Echo"
+array(2) {
+  ["id"]=>
+  int(42)
+  ["name"]=>
+  string(3) "Ada"
+}
+exists:1
