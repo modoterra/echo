@@ -527,6 +527,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueExpression,
         },
         PhpBuiltin {
+            php_name: "memory_get_usage",
+            symbol: "echo_php_memory_get_usage",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
             php_name: "get_current_user",
             symbol: "echo_php_get_current_user",
             helper_symbol: None,

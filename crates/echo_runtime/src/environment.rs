@@ -106,6 +106,11 @@ pub extern "C" fn echo_php_getrusage() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_memory_get_usage() -> EchoValue {
+    EchoValue::int(current_resident_memory_bytes().unwrap_or(0))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }
@@ -453,6 +458,24 @@ fn proc_self_status_vm_hwm_kb() -> Option<i64> {
 #[cfg(not(target_os = "linux"))]
 fn proc_self_status_vm_hwm_kb() -> Option<i64> {
     None
+}
+
+#[cfg(target_os = "linux")]
+fn current_resident_memory_bytes() -> Option<i64> {
+    proc_self_status_kb("VmRSS").and_then(|kb| kb.checked_mul(1024))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn current_resident_memory_bytes() -> Option<i64> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn proc_self_status_kb(field: &str) -> Option<i64> {
+    let content = std::fs::read_to_string("/proc/self/status").ok()?;
+    let prefix = format!("{field}:");
+    let line = content.lines().find(|line| line.starts_with(&prefix))?;
+    line[prefix.len()..].split_whitespace().next()?.parse().ok()
 }
 
 #[unsafe(no_mangle)]
