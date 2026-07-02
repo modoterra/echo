@@ -103,6 +103,27 @@ pub extern "C" fn echo_php_ftell(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fseek(stream: EchoValue, offset: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::int(-1);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::int(-1);
+    };
+    let Some(offset) = offset.php_int_value() else {
+        return EchoValue::int(-1);
+    };
+    let Ok(offset) = u64::try_from(offset) else {
+        return EchoValue::int(-1);
+    };
+
+    match file.seek(SeekFrom::Start(offset)) {
+        Ok(_) => EchoValue::int(0),
+        Err(_) => EchoValue::int(-1),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_tmpfile() -> EchoValue {
     let temp_dir = std::env::temp_dir();
     let pid = std::process::id();

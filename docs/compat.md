@@ -316,7 +316,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fputs` | missing |  |
 | `fread` | implemented | Reads up to the requested byte count from Echo local file stream resources and advances the cursor. Source: https://www.php.net/manual/en/function.fread.php |
 | `fscanf` | missing |  |
-| `fseek` | missing |  |
+| `fseek` | partial | Seeks Echo local file stream resources from the beginning of the file and returns `0` on success or `-1` on failure; `whence` modes are deferred. Source: https://www.php.net/manual/en/function.fseek.php |
 | `fsockopen` | missing |  |
 | `fstat` | missing |  |
 | `fsync` | missing |  |

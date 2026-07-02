@@ -1227,6 +1227,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the current byte offset for a local file stream.",
       },
       {
+        name: "fseek",
+        signature: "fseek(resource $stream, int $offset): int",
+        description: "Moves a local file stream to an absolute byte offset.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2052,6 +2057,15 @@ if (is_int($bytes)) {
 if ($stream) {
     fread($stream, 64)
     echo "Offset: " . ftell($stream) . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "fseek",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream && fseek($stream, 64) === 0) {
+    echo "Next chunk: " . fread($stream, 16) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -4108,6 +4122,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ftell",
     "Use `ftell()` when stream-oriented compatibility code needs to resume parsing from a known byte offset. Echo currently reports positions for local file streams and returns false for invalid or closed streams.",
+  ],
+  [
+    "fseek",
+    "Use `fseek()` when compatibility code needs to reread or skip fixed-width file sections. Echo currently supports absolute seeks on local file streams and leaves `whence` modes for later.",
   ],
   [
     "readfile",
@@ -7295,7 +7313,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 280 PHP compatibility fixtures, 316 implemented Core and standard functions out of 607, 291 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 281 PHP compatibility fixtures, 317 implemented Core and standard functions out of 607, 290 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

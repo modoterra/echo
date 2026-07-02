@@ -36,8 +36,14 @@ fn fopen_and_stream_reading_updates_pointer_state() {
         Some(b" world".to_vec())
     );
     assert_eq!(echo_php_ftell(stream), EchoValue::int(11));
+    assert_eq!(echo_php_fseek(stream, EchoValue::int(6)), EchoValue::int(0));
+    assert_eq!(echo_php_ftell(stream), EchoValue::int(6));
     assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
     assert_eq!(echo_php_ftell(stream), EchoValue::bool(false));
+    assert_eq!(
+        echo_php_fseek(stream, EchoValue::int(0)),
+        EchoValue::int(-1)
+    );
     assert_eq!(echo_php_fclose(stream), EchoValue::bool(false));
     assert_eq!(
         echo_php_fread(stream, test_string_value(b"3")),
