@@ -435,6 +435,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_stream_resolve_include_path",
+            echo_runtime::echo_php_stream_resolve_include_path
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_stream_supports_lock",
             echo_runtime::echo_php_stream_supports_lock
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

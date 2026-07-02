@@ -73,6 +73,22 @@ pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_resolve_include_path(filename: EchoValue) -> EchoValue {
+    let Some(bytes) = filename.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Some(path) = path_buf_from_bytes(&bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    std::fs::canonicalize(path)
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .map(|path| echo_runtime_string(path.into_bytes()))
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_disk_free_space(directory: EchoValue) -> EchoValue {
     path_statvfs_float(directory, |stat| {
         stat.f_bavail.saturating_mul(stat.f_frsize)

@@ -330,7 +330,6 @@ fn is_platform_check_utility_call(name: &str) -> bool {
             | "implode"
             | "str_replace"
             | "defined"
-            | "stream_resolve_include_path"
             | "fwrite"
             | "spl_autoload_register"
             | "spl_autoload_unregister"

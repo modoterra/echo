@@ -1422,6 +1422,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Checks whether a stream resource or URL is local.",
       },
       {
+        name: "stream_resolve_include_path",
+        signature: "stream_resolve_include_path(string $filename): string|false",
+        description: "Resolves a filename to an absolute local path.",
+      },
+      {
         name: "stream_supports_lock",
         signature: "stream_supports_lock(resource $stream): bool",
         description: "Checks whether a stream supports advisory locking.",
@@ -2705,6 +2710,14 @@ if ($stream) {
 
 if (stream_is_local($path)) {
     echo "Safe to inspect with local filesystem APIs\\n"
+}`,
+  ],
+  [
+    "stream_resolve_include_path",
+    `let $path = stream_resolve_include_path("storage/bootstrap.php")
+
+if ($path !== false) {
+    echo "Resolved: " . basename($path) . "\\n"
 }`,
   ],
   [
@@ -5283,6 +5296,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_is_local",
     "Use `stream_is_local()` before taking a path or URL through local-only filesystem logic. Echo currently recognizes local file streams, plain paths, and `file://` URLs while leaving custom wrapper locality for later.",
+  ],
+  [
+    "stream_resolve_include_path",
+    "Use `stream_resolve_include_path()` when compatibility code wants an absolute local filename before including or opening a file. Echo currently canonicalizes existing local paths and leaves actual include_path searching, custom wrappers, URL wrappers, and cache quirks for later.",
   ],
   [
     "stream_supports_lock",
@@ -8702,7 +8719,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 348 PHP compatibility fixtures, 397 implemented Core and standard functions out of 607, 210 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 349 PHP compatibility fixtures, 398 implemented Core and standard functions out of 607, 209 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -1452,6 +1452,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection(
+            "stream_resolve_include_path",
+            &[("filename", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "stream_supports_lock",
             &[("stream", Some("resource"))],
             Some("bool"),

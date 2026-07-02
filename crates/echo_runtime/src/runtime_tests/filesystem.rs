@@ -54,6 +54,38 @@ fn file_exists_reports_existing_files_and_directories() {
 }
 
 #[test]
+fn stream_resolve_include_path_resolves_existing_local_paths() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-stream-resolve-{}",
+        std::process::id()
+    ));
+    let file_path = temp_dir.join("module.php");
+    let missing_path = temp_dir.join("missing.php");
+    std::fs::remove_dir_all(&temp_dir).ok();
+    std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+    std::fs::write(&file_path, b"<?php echo 'loaded';\n").expect("write sample file");
+
+    let resolved = echo_php_stream_resolve_include_path(test_string_value(
+        file_path.to_string_lossy().as_bytes(),
+    ));
+    let expected = std::fs::canonicalize(&file_path)
+        .expect("canonical file path")
+        .to_string_lossy()
+        .as_bytes()
+        .to_vec();
+
+    assert_eq!(resolved.string_bytes(), Some(expected));
+    assert_eq!(
+        echo_php_stream_resolve_include_path(test_string_value(
+            missing_path.to_string_lossy().as_bytes()
+        )),
+        EchoValue::bool(false)
+    );
+
+    std::fs::remove_dir_all(&temp_dir).ok();
+}
+
+#[test]
 fn disk_space_reports_float_counts_for_existing_directories() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let missing_path = manifest_dir.join("definitely_missing_echo_directory");
