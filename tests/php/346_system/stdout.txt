@@ -1,0 +1,6 @@
+first
+last
+
+returned:'last'
+empty:''
+exists:1

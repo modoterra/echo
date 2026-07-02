@@ -20,6 +20,14 @@ fn shell_command_output(command: &[u8]) -> std::io::Result<std::process::Output>
     }
 }
 
+fn last_output_line(stdout: &[u8]) -> &[u8] {
+    let without_trailing_newline = stdout.strip_suffix(b"\n").unwrap_or(stdout);
+    without_trailing_newline
+        .rsplit(|byte| *byte == b'\n')
+        .next()
+        .unwrap_or_default()
+}
+
 #[derive(Debug)]
 pub struct EchoProcess {
     id: ProcessId,
@@ -91,6 +99,19 @@ pub extern "C" fn echo_php_passthru(command: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_system(command: EchoValue) -> EchoValue {
+    let Some(command) = command.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Ok(output) = shell_command_output(&command) else {
+        return EchoValue::bool(false);
+    };
+    write_runtime_output(&output.stdout);
+    echo_runtime_string(last_output_line(&output.stdout).to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_process_spawn(command: EchoValue) -> EchoValue {
     let Some(command) = command.string_bytes() else {
         return EchoValue::error();
@@ -153,5 +174,19 @@ mod tests {
 
         assert_eq!(result, EchoValue::null());
         assert_eq!(stdout, b"raw-pass".to_vec());
+    }
+
+    #[test]
+    fn system_writes_stdout_and_returns_last_line() {
+        let (result, stdout) = crate::capture_stdout(false, || {
+            echo_php_system(string_value(b"printf 'first\nlast\n'"))
+        });
+
+        assert_eq!(result.string_bytes(), Some(b"last".to_vec()));
+        assert_eq!(stdout, b"first\nlast\n".to_vec());
+        assert_eq!(
+            echo_php_system(string_value(b"printf ''")).string_bytes(),
+            Some(Vec::new())
+        );
     }
 }

@@ -673,7 +673,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `sys_get_temp_dir` | implemented | Returns the host process temporary directory path; PHP INI overrides and virtual-host/open_basedir behavior are deferred. Source: https://www.php.net/manual/en/function.sys-get-temp-dir.php |
 | `sys_getloadavg` | partial | Returns Linux `/proc/loadavg` 1, 5, and 15 minute load averages as floats, or `false` when load averages are unavailable. Source: https://www.php.net/manual/en/function.sys-getloadavg.php |
 | `syslog` | implemented | Returns `true` while treating host syslog delivery as a no-op in Echo's current CLI-style runtime. Source: https://www.php.net/manual/en/function.syslog.php |
-| `system` | missing |  |
+| `system` | partial | Executes a command through the Linux/macOS shell, writes stdout to runtime output, and returns the last stdout line or an empty string for empty stdout; by-reference `result_code`, stderr handling, automatic server-buffer flushing, disabled-function policy, `ValueError`/warning emission, and interactive process behavior are deferred. Source: https://www.php.net/manual/en/function.system.php |
 | `tan` | implemented | Returns the tangent of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.tan.php |
 | `tanh` | implemented | Returns hyperbolic tangent as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.tanh.php |
 | `tempnam` | implemented | Creates a local temporary file with a unique name and requested prefix, falling back to the host temp directory when the requested directory cannot be used; PHP notices and Windows prefix truncation are deferred. Source: https://www.php.net/manual/en/function.tempnam.php |
