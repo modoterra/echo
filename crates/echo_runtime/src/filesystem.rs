@@ -65,6 +65,20 @@ pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_disk_free_space(directory: EchoValue) -> EchoValue {
+    path_statvfs_float(directory, |stat| {
+        stat.f_bavail.saturating_mul(stat.f_frsize)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_disk_total_space(directory: EchoValue) -> EchoValue {
+    path_statvfs_float(directory, |stat| {
+        stat.f_blocks.saturating_mul(stat.f_frsize)
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fnmatch(pattern: EchoValue, filename: EchoValue) -> EchoValue {
     match (pattern.string_bytes(), filename.string_bytes()) {
         (Some(pattern), Some(filename)) => EchoValue::bool(fnmatch_bytes(&pattern, &filename)),
@@ -176,6 +190,22 @@ fn php_scandir(directory: &[u8]) -> Option<EchoValue> {
         result = echo_value_array_append(result, echo_runtime_string(entry));
     }
     Some(result)
+}
+
+fn path_statvfs_float(
+    directory: EchoValue,
+    metric: impl FnOnce(rustix::fs::StatVfs) -> u64,
+) -> EchoValue {
+    let Some(bytes) = directory.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Some(path) = path_buf_from_bytes(&bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    rustix::fs::statvfs(&path)
+        .map(|stat| EchoValue::float(metric(stat) as f64))
+        .unwrap_or_else(|_| EchoValue::bool(false))
 }
 
 #[cfg(unix)]

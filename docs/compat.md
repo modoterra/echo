@@ -260,9 +260,9 @@ Related baseline functions tracked below: `get_included_files`,
 | `deg2rad` | implemented | Converts degrees to radians using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.deg2rad.php |
 | `dir` | missing |  |
 | `dirname` | implemented | Supports Unix-style `/` separators and positive `levels`; Windows `\` separator behavior and direct PHP ValueError diagnostics are deferred. Source: https://www.php.net/manual/en/function.dirname.php |
-| `disk_free_space` | missing |  |
-| `disk_total_space` | missing |  |
-| `diskfreespace` | missing |  |
+| `disk_free_space` | partial | Returns available bytes for local filesystem directories as a float using the host `statvfs` view, or `false` on failure; remote wrappers, open_basedir checks, file-path unspecified behavior, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.disk-free-space.php |
+| `disk_total_space` | partial | Returns total bytes for local filesystem directories as a float using the host `statvfs` view, or `false` on failure; remote wrappers, file-path unspecified behavior, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.disk-total-space.php |
+| `diskfreespace` | partial | Alias of `disk_free_space()` for local filesystem directories. Source: https://www.php.net/manual/en/function.diskfreespace.php |
 | `dl` | partial | Accepts an extension filename and returns `false` because Echo does not dynamically load PHP extensions; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.dl.php |
 | `dns_check_record` | missing |  |
 | `dns_get_mx` | missing |  |

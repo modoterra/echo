@@ -54,6 +54,34 @@ fn file_exists_reports_existing_files_and_directories() {
 }
 
 #[test]
+fn disk_space_reports_float_counts_for_existing_directories() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let missing_path = manifest_dir.join("definitely_missing_echo_directory");
+    let existing = Box::into_raw(Box::new(EchoString {
+        bytes: manifest_dir.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let missing = Box::into_raw(Box::new(EchoString {
+        bytes: missing_path.to_string_lossy().as_bytes().to_vec(),
+    }));
+
+    let free = echo_php_disk_free_space(EchoValue::string(existing));
+    let total = echo_php_disk_total_space(EchoValue::string(existing));
+
+    assert!(free.is_float());
+    assert!(total.is_float());
+    assert!(f64::from_bits(free.payload) <= f64::from_bits(total.payload));
+    assert_eq!(
+        echo_php_disk_free_space(EchoValue::string(missing)),
+        EchoValue::bool(false)
+    );
+
+    unsafe {
+        drop(Box::from_raw(existing));
+        drop(Box::from_raw(missing));
+    }
+}
+
+#[test]
 fn glob_returns_sorted_matches_for_local_directory_patterns() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));

@@ -1131,6 +1131,21 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("file_exists", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection(
+            "disk_free_space",
+            &[("directory", Some("string"))],
+            Some("float|false"),
+        ),
+        php_builtin_reflection(
+            "diskfreespace",
+            &[("directory", Some("string"))],
+            Some("float|false"),
+        ),
+        php_builtin_reflection(
+            "disk_total_space",
+            &[("directory", Some("string"))],
+            Some("float|false"),
+        ),
+        php_builtin_reflection(
             "fnmatch",
             &[("pattern", Some("string")), ("filename", Some("string"))],
             Some("bool"),

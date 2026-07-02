@@ -1116,6 +1116,23 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns true when a local path exists.",
       },
       {
+        name: "disk_free_space",
+        signature: "disk_free_space(string $directory): float|false",
+        description:
+          "Returns available bytes for the filesystem containing a local directory.",
+      },
+      {
+        name: "disk_total_space",
+        signature: "disk_total_space(string $directory): float|false",
+        description:
+          "Returns total bytes for the filesystem containing a local directory.",
+      },
+      {
+        name: "diskfreespace",
+        signature: "diskfreespace(string $directory): float|false",
+        description: "Alias of disk_free_space.",
+      },
+      {
         name: "fnmatch",
         signature: "fnmatch(string $pattern, string $filename): bool",
         description: "Matches a filename against a shell-style byte pattern with `*` and `?`.",
@@ -2175,6 +2192,31 @@ echo "First accepted type: " . $types[0] . "\\n"`,
 
 if (file_exists($configPath)) {
     echo "Load application config\\n"
+}`,
+  ],
+  [
+    "disk_free_space",
+    `let $free = disk_free_space("/var")
+let $total = disk_total_space("/var")
+
+if ($free !== false && $total !== false) {
+    echo "Free ratio: " . ($free / $total) . "\\n"
+}`,
+  ],
+  [
+    "disk_total_space",
+    `let $total = disk_total_space("/var")
+
+if (is_float($total)) {
+    echo "Filesystem bytes: " . $total . "\\n"
+}`,
+  ],
+  [
+    "diskfreespace",
+    `let $free = diskfreespace("/var")
+
+if (is_float($free)) {
+    echo "Available bytes: " . $free . "\\n"
 }`,
   ],
   [
@@ -4650,6 +4692,18 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "file_exists",
     "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing later.",
+  ],
+  [
+    "disk_free_space",
+    "Use `disk_free_space()` before writing large local artifacts such as exports, caches, or generated archives. Echo currently supports local filesystem directories and leaves remote wrappers, `open_basedir`, and warning emission for later.",
+  ],
+  [
+    "disk_total_space",
+    "Use `disk_total_space()` with `disk_free_space()` when compatibility code reports capacity or decides whether a local filesystem has enough headroom.",
+  ],
+  [
+    "diskfreespace",
+    "`diskfreespace()` is the PHP alias of `disk_free_space()`. Keep the alias when ported code already uses that spelling.",
   ],
   [
     "fnmatch",
@@ -8133,7 +8187,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 322 PHP compatibility fixtures, 364 implemented Core and standard functions out of 607, 243 remaining, and about 60% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 323 PHP compatibility fixtures, 367 implemented Core and standard functions out of 607, 240 remaining, and about 60% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

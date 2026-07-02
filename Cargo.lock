@@ -523,6 +523,7 @@ dependencies = [
  "md-5 0.11.0",
  "mio",
  "rand 0.8.6",
+ "rustix",
  "sha1",
  "sha2",
  "sha3",
