@@ -551,7 +551,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `round` | implemented | Rounds numeric values to a precision using PHP's default half-away-from-zero mode; explicit rounding mode constants are deferred. Source: https://www.php.net/manual/en/function.round.php |
 | `rsort` | partial | Sorts arrays containing string-compatible values in descending byte order, reindexes keys from zero, and returns `true`; flags and non-string comparison modes are deferred. Source: https://www.php.net/manual/en/function.rsort.php |
 | `rtrim` | implemented | Removes PHP's default trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.rtrim.php |
-| `scandir` | missing |  |
+| `scandir` | partial | Returns sorted local directory entries, including `.` and `..`, for one-argument calls; sorting-order constants, unsorted mode, stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.scandir.php |
 | `serialize` | missing |  |
 | `set_file_buffer` | missing |  |
 | `set_include_path` | partial | Delegates to Echo's current no-op `ini_set("include_path", ...)` baseline and returns `false` until mutable PHP ini option values are modeled. Source: https://www.php.net/manual/en/function.set-include-path.php |

@@ -119,6 +119,45 @@ fn glob_returns_sorted_matches_for_local_directory_patterns() {
 }
 
 #[test]
+fn scandir_returns_sorted_directory_entries_with_dots() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-scandir-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create scandir fixture");
+    std::fs::write(fixture_dir.join("b.txt"), b"b").expect("write scandir fixture");
+    std::fs::write(fixture_dir.join("a.txt"), b"a").expect("write scandir fixture");
+
+    let path = Box::into_raw(Box::new(EchoString {
+        bytes: fixture_dir.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let result = echo_php_scandir(EchoValue::string(path));
+    let array = unsafe { (result.payload as *const EchoArray).as_ref() }.expect("scandir array");
+
+    assert_eq!(
+        array.keys,
+        vec![
+            EchoArrayKey::Int(0),
+            EchoArrayKey::Int(1),
+            EchoArrayKey::Int(2),
+            EchoArrayKey::Int(3)
+        ]
+    );
+    assert_eq!(array.values[0].string_bytes(), Some(b".".to_vec()));
+    assert_eq!(array.values[1].string_bytes(), Some(b"..".to_vec()));
+    assert_eq!(array.values[2].string_bytes(), Some(b"a.txt".to_vec()));
+    assert_eq!(array.values[3].string_bytes(), Some(b"b.txt".to_vec()));
+    assert_eq!(
+        echo_php_scandir(test_string_value(b"/definitely/missing/echo/scandir")),
+        EchoValue::bool(false)
+    );
+
+    unsafe {
+        drop(Box::from_raw(path));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn chdir_and_getcwd_preserve_php_working_directory_behavior() {
     let original = env::current_dir().expect("current dir");
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));

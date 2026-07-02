@@ -1279,6 +1279,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("pattern", Some("string")), ("flags", Some("int"))],
             Some("array|false"),
         ),
+        php_builtin_reflection(
+            "scandir",
+            &[("directory", Some("string"))],
+            Some("array|false"),
+        ),
         php_builtin_reflection("fpassthru", &[("stream", Some("resource"))], Some("int")),
         php_builtin_reflection(
             "fstat",

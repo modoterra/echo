@@ -1,5 +1,7 @@
 use crate::collections::EchoArrayKey;
-use crate::{EchoArray, EchoValue, echo_runtime_string, echo_value_array_new};
+use crate::{
+    EchoArray, EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new,
+};
 #[cfg(unix)]
 use std::ffi::OsStr;
 #[cfg(unix)]
@@ -88,6 +90,15 @@ pub extern "C" fn echo_php_glob(pattern: EchoValue, flags: EchoValue) -> EchoVal
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_scandir(directory: EchoValue) -> EchoValue {
+    let Some(bytes) = directory.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    php_scandir(&bytes).unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_chdir(directory: EchoValue) -> EchoValue {
     match directory.string_bytes() {
         Some(bytes) => EchoValue::bool(path_chdir(&bytes)),
@@ -148,6 +159,33 @@ pub(crate) fn path_realpath(bytes: &[u8]) -> Option<Vec<u8>> {
         .ok()
         .and_then(|path| path.into_os_string().into_string().ok())
         .map(String::into_bytes)
+}
+
+fn php_scandir(directory: &[u8]) -> Option<EchoValue> {
+    let path = path_buf_from_bytes(directory)?;
+    let mut entries = vec![b".".to_vec(), b"..".to_vec()];
+
+    for entry in std::fs::read_dir(path).ok()? {
+        let entry = entry.ok()?;
+        entries.push(os_name_bytes(entry.file_name().as_ref()));
+    }
+
+    entries.sort();
+    let mut result = echo_value_array_new();
+    for entry in entries {
+        result = echo_value_array_append(result, echo_runtime_string(entry));
+    }
+    Some(result)
+}
+
+#[cfg(unix)]
+fn os_name_bytes(name: &OsStr) -> Vec<u8> {
+    name.as_bytes().to_vec()
+}
+
+#[cfg(not(unix))]
+fn os_name_bytes(name: &std::ffi::OsStr) -> Vec<u8> {
+    name.to_string_lossy().as_bytes().to_vec()
 }
 
 fn fnmatch_bytes(pattern: &[u8], filename: &[u8]) -> bool {
