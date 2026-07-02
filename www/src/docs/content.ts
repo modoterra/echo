@@ -1387,6 +1387,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Checks whether a stream supports advisory locking.",
       },
       {
+        name: "stream_isatty",
+        signature: "stream_isatty(resource $stream): bool",
+        description: "Checks whether a stream refers to a terminal device.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2572,6 +2577,15 @@ if (stream_is_local($path)) {
 
 if ($stream && stream_supports_lock($stream)) {
     echo "Stream can participate in file locking\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_isatty",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream && !stream_isatty($stream)) {
+    echo "Stream output is file-like\\n"
     fclose($stream)
 }`,
   ],
@@ -4948,6 +4962,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_supports_lock",
     "Use `stream_supports_lock()` before compatibility code assumes a stream can be guarded by advisory locks. Echo currently reports true for open local file streams while actual `flock()` behavior remains future work.",
+  ],
+  [
+    "stream_isatty",
+    "Use `stream_isatty()` when compatibility code changes formatting for interactive terminal streams. Echo currently checks local file stream resources and leaves standard stream constants for later.",
   ],
   [
     "glob",
@@ -8267,7 +8285,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 326 PHP compatibility fixtures, 372 implemented Core and standard functions out of 607, 235 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 327 PHP compatibility fixtures, 373 implemented Core and standard functions out of 607, 234 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

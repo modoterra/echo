@@ -1,0 +1,3 @@
+isatty:
+bool:1
+exists:1

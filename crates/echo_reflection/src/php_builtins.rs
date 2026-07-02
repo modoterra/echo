@@ -1341,6 +1341,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "stream_isatty",
+            &[("stream", Some("resource"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "stream_supports_lock",
             &[("stream", Some("resource"))],
             Some("bool"),

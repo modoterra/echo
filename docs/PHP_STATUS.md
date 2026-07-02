@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 326 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 327 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 372.
-- Remaining Core + standard functions in inventory: 235.
+- Implemented Core + standard functions in inventory: 373.
+- Remaining Core + standard functions in inventory: 234.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `372 / 607`, or about 61%, for the Core + standard baseline,
+coverage alone is `373 / 607`, or about 61%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 372/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 373/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -94,6 +94,9 @@ full support for an entire family of PHP functions.
   open and lock-capable in principle. Actual `flock()` behavior, custom wrapper
   lock hooks, and PHP warning/type diagnostics remain gaps for
   `stream_supports_lock()`.
+- TTY detection currently checks Echo local file stream resources only.
+  Standard stream constants, non-file stream resources, and PHP warning/type
+  diagnostics remain gaps for `stream_isatty()`.
 - HTTP wrapper response metadata is not populated yet. This keeps
   `$http_response_header`, `http_get_last_response_headers()`, and
   `http_clear_last_response_headers()` limited to the no-response baseline.

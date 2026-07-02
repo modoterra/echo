@@ -4,7 +4,7 @@ use crate::{
     write_runtime_output,
 };
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{IsTerminal, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -53,6 +53,16 @@ pub extern "C" fn echo_php_stream_supports_lock(stream: EchoValue) -> EchoValue 
         stream
             .as_stream_ref()
             .is_some_and(|stream| stream.file.is_some()),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_isatty(stream: EchoValue) -> EchoValue {
+    EchoValue::bool(
+        stream
+            .as_stream_ref()
+            .and_then(|stream| stream.file.as_ref())
+            .is_some_and(IsTerminal::is_terminal),
     )
 }
 
