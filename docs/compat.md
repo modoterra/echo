@@ -580,7 +580,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `sprintf` | missing |  |
 | `sqrt` | implemented | Returns a square root as float and `NAN` for negative inputs using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sqrt.php |
 | `sscanf` | missing |  |
-| `stat` | missing |  |
+| `stat` | partial | Returns PHP-style numeric and named local filesystem stat fields from `metadata` and returns `false` for missing paths; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.stat.php |
 | `str_contains` | implemented | Performs binary-safe substring detection, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-contains.php |
 | `str_decrement` | partial | Decrements in-range ASCII alphanumeric strings using PHP's right-to-left borrow rules for digits and letters; PHP `ValueError` diagnostics for out-of-range or invalid input are deferred. Source: https://www.php.net/manual/en/function.str-decrement.php |
 | `str_ends_with` | implemented | Performs binary-safe suffix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-ends-with.php |

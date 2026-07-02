@@ -1092,6 +1092,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("filename", Some("string"))],
             Some("array|false"),
         ),
+        php_builtin_reflection("stat", &[("filename", Some("string"))], Some("array|false")),
         php_builtin_reflection(
             "file_get_contents",
             &[

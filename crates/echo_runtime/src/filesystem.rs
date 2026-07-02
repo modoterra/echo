@@ -21,7 +21,7 @@ pub use metadata::{
     echo_php_fileatime, echo_php_filectime, echo_php_filegroup, echo_php_fileinode,
     echo_php_filemtime, echo_php_fileowner, echo_php_fileperms, echo_php_filesize,
     echo_php_filetype, echo_php_is_dir, echo_php_is_executable, echo_php_is_file, echo_php_is_link,
-    echo_php_is_readable, echo_php_is_writable, echo_php_lstat,
+    echo_php_is_readable, echo_php_is_writable, echo_php_lstat, echo_php_stat,
 };
 pub(crate) use metadata::{path_chdir, path_exists, path_getcwd};
 #[cfg(test)]

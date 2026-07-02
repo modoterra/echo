@@ -95,6 +95,16 @@ pub extern "C" fn echo_php_lstat(filename: EchoValue) -> EchoValue {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stat(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_stat(&bytes)
+            .map(stat_array)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
 fn path_bool_builtin(filename: EchoValue, f: impl FnOnce(&[u8]) -> bool) -> EchoValue {
     match filename.string_bytes() {
         Some(bytes) => EchoValue::bool(f(&bytes)),
@@ -489,9 +499,20 @@ fn stat_array(stat: PhpStat) -> EchoValue {
 
 #[cfg(unix)]
 fn path_lstat(bytes: &[u8]) -> Option<PhpStat> {
+    let metadata = std::fs::symlink_metadata(Path::new(OsStr::from_bytes(bytes))).ok()?;
+    php_stat_from_metadata(metadata)
+}
+
+#[cfg(unix)]
+fn path_stat(bytes: &[u8]) -> Option<PhpStat> {
+    let metadata = std::fs::metadata(Path::new(OsStr::from_bytes(bytes))).ok()?;
+    php_stat_from_metadata(metadata)
+}
+
+#[cfg(unix)]
+fn php_stat_from_metadata(metadata: std::fs::Metadata) -> Option<PhpStat> {
     use std::os::unix::fs::MetadataExt;
 
-    let metadata = std::fs::symlink_metadata(Path::new(OsStr::from_bytes(bytes))).ok()?;
     Some(PhpStat {
         dev: metadata.dev() as i64,
         ino: i64::try_from(metadata.ino()).ok()?,
@@ -513,6 +534,18 @@ fn path_lstat(bytes: &[u8]) -> Option<PhpStat> {
 fn path_lstat(bytes: &[u8]) -> Option<PhpStat> {
     let path = std::str::from_utf8(bytes).ok()?;
     let metadata = std::fs::symlink_metadata(Path::new(path)).ok()?;
+    php_stat_from_metadata(metadata)
+}
+
+#[cfg(not(unix))]
+fn path_stat(bytes: &[u8]) -> Option<PhpStat> {
+    let path = std::str::from_utf8(bytes).ok()?;
+    let metadata = std::fs::metadata(Path::new(path)).ok()?;
+    php_stat_from_metadata(metadata)
+}
+
+#[cfg(not(unix))]
+fn php_stat_from_metadata(metadata: std::fs::Metadata) -> Option<PhpStat> {
     Some(PhpStat {
         dev: 0,
         ino: 0,

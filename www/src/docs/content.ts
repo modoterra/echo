@@ -1203,6 +1203,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns local filesystem stat fields for a path without following symbolic links.",
       },
       {
+        name: "stat",
+        signature: "stat(string $filename): array|false",
+        description: "Returns local filesystem stat fields for a path, following symbolic links.",
+      },
+      {
         name: "file_get_contents",
         signature:
           "file_get_contents(string $filename, bool $use_include_path, ?resource $context, int $offset, ?int $length): string|false",
@@ -2008,6 +2013,14 @@ if (is_string($header)) {
   [
     "lstat",
     `let $stat = lstat("storage/reports/latest.csv")
+
+if (is_array($stat)) {
+    echo "Report bytes: " . $stat["size"] . "\\n"
+}`,
+  ],
+  [
+    "stat",
+    `let $stat = stat("storage/reports/latest.csv")
 
 if (is_array($stat)) {
     echo "Report bytes: " . $stat["size"] . "\\n"
@@ -3971,6 +3984,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "lstat",
     "Use `lstat()` when compatibility code needs filesystem metadata for a path while preserving symlink identity. Echo returns PHP's numeric and named stat fields and currently omits PHP warning emission for missing paths.",
+  ],
+  [
+    "stat",
+    "Use `stat()` when compatibility code needs filesystem metadata for a path after resolving symlinks. Echo returns PHP's numeric and named stat fields and currently omits PHP warning emission for missing paths.",
   ],
   [
     "clearstatcache",
@@ -7242,7 +7259,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 277 PHP compatibility fixtures, 313 implemented Core and standard functions out of 607, 294 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 278 PHP compatibility fixtures, 314 implemented Core and standard functions out of 607, 293 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
