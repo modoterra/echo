@@ -1,0 +1,8 @@
+depth:-1
+padding:0
+release:-1
+patch:1
+operator-true:1
+operator-false:
+not-equal:1
+exists:1

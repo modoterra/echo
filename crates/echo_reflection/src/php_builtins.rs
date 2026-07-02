@@ -454,6 +454,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("phpcredits", &[("flags", Some("int"))], Some("true")),
         php_builtin_reflection("phpinfo", &[("flags", Some("int"))], Some("true")),
         php_builtin_reflection("php_uname", &[("mode", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "version_compare",
+            &[
+                ("version1", Some("string")),
+                ("version2", Some("string")),
+                ("operator", Some("?string")),
+            ],
+            Some("int|bool"),
+        ),
         php_builtin_reflection("zend_version", &[], Some("string")),
         php_builtin_reflection(
             "dl",

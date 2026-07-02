@@ -1799,6 +1799,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns host system identity information.",
       },
       {
+        name: "version_compare",
+        signature: "version_compare(string $version1, string $version2, ?string $operator): int|bool",
+        description: "Compares PHP-standardized version strings.",
+      },
+      {
         name: "zend_version",
         signature: "zend_version(): string",
         description: "Returns the Zend Engine compatibility version.",
@@ -3276,6 +3281,14 @@ phpinfo(0)
 let $info = ob_get_clean()
 
 echo "Info captured: " . strlen($info) . "\\n"`,
+  ],
+  [
+    "version_compare",
+    `let $order = version_compare("8.2.0", "8.0.0", null)
+let $supported = version_compare("8.2.0", "8.0.0", ">=")
+
+echo "Order: " . $order . "\\n"
+echo "Supported: " . $supported . "\\n"`,
   ],
   [
     "zend_version",
@@ -6247,6 +6260,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `phpinfo()` when preserving diagnostics pages or CLI support commands that expect PHP configuration output. Echo currently emits compact CLI-style compatibility information and leaves full flag-specific tables and HTML output for later.",
   ],
   [
+    "version_compare",
+    "Use `version_compare()` for compatibility gates around PHP package versions and feature checks. Echo currently supports explicit three-argument calls with PHP-standardized numeric and pre-release ordering.",
+  ],
+  [
     "zend_version",
     "Use `zend_version()` for legacy diagnostics and version banners that expect a Zend Engine version label.",
   ],
@@ -8521,7 +8538,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 337 PHP compatibility fixtures, 386 implemented Core and standard functions out of 607, 221 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 338 PHP compatibility fixtures, 387 implemented Core and standard functions out of 607, 220 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

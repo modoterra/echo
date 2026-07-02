@@ -256,6 +256,15 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_version_compare",
+            echo_runtime::echo_php_version_compare
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_zend_version",
             echo_runtime::echo_php_zend_version as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

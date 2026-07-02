@@ -323,6 +323,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "version_compare",
+            symbol: "echo_php_version_compare",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueTernaryExpression,
+        },
+        PhpBuiltin {
             php_name: "zend_version",
             symbol: "echo_php_zend_version",
             helper_symbol: None,

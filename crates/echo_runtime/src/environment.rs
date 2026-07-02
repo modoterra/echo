@@ -1,3 +1,4 @@
+use std::cmp::Ordering as CmpOrdering;
 use std::env;
 use std::ffi::OsStr;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
@@ -782,6 +783,43 @@ pub extern "C" fn echo_php_phpinfo(_flags: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_version_compare(
+    version1: EchoValue,
+    version2: EchoValue,
+    operator: EchoValue,
+) -> EchoValue {
+    let Some(version1) = version1.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Some(version2) = version2.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    let ordering = php_version_compare_order(&version1, &version2);
+    if operator.is_null() {
+        return EchoValue::int(match ordering {
+            CmpOrdering::Less => -1,
+            CmpOrdering::Equal => 0,
+            CmpOrdering::Greater => 1,
+        });
+    }
+
+    let Some(operator) = operator.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(match operator.as_slice() {
+        b"<" | b"lt" => ordering == CmpOrdering::Less,
+        b"<=" | b"le" => !matches!(ordering, CmpOrdering::Greater),
+        b">" | b"gt" => ordering == CmpOrdering::Greater,
+        b">=" | b"ge" => !matches!(ordering, CmpOrdering::Less),
+        b"==" | b"=" | b"eq" => ordering == CmpOrdering::Equal,
+        b"!=" | b"<>" | b"ne" => ordering != CmpOrdering::Equal,
+        _ => false,
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_zend_version() -> EchoValue {
     echo_runtime_string(ZEND_COMPAT_VERSION.as_bytes().to_vec())
 }
@@ -1315,5 +1353,101 @@ fn ini_quantity_multiplier(byte: u8) -> Option<i64> {
         b'm' | b'M' => Some(1024 * 1024),
         b'g' | b'G' => Some(1024 * 1024 * 1024),
         _ => None,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum VersionPart {
+    Number(Vec<u8>),
+    Label(Vec<u8>),
+}
+
+fn php_version_compare_order(left: &[u8], right: &[u8]) -> CmpOrdering {
+    let left = php_version_parts(left);
+    let right = php_version_parts(right);
+    let max_len = left.len().max(right.len());
+
+    for index in 0..max_len {
+        let left = left.get(index);
+        let right = right.get(index);
+        let ordering = compare_version_part(left, right);
+        if ordering != CmpOrdering::Equal {
+            return ordering;
+        }
+    }
+
+    CmpOrdering::Equal
+}
+
+fn php_version_parts(version: &[u8]) -> Vec<VersionPart> {
+    let mut parts = Vec::new();
+    let mut index = 0;
+
+    while index < version.len() {
+        let byte = version[index];
+        if matches!(byte, b'.' | b'_' | b'-' | b'+') {
+            index += 1;
+            continue;
+        }
+
+        let is_number = byte.is_ascii_digit();
+        let start = index;
+        index += 1;
+        while index < version.len()
+            && !matches!(version[index], b'.' | b'_' | b'-' | b'+')
+            && version[index].is_ascii_digit() == is_number
+        {
+            index += 1;
+        }
+
+        let bytes = version[start..index].to_vec();
+        if is_number {
+            parts.push(VersionPart::Number(bytes));
+        } else {
+            parts.push(VersionPart::Label(bytes));
+        }
+    }
+
+    parts
+}
+
+fn compare_version_part(left: Option<&VersionPart>, right: Option<&VersionPart>) -> CmpOrdering {
+    match (left, right) {
+        (Some(VersionPart::Number(left)), Some(VersionPart::Number(right))) => {
+            compare_version_numbers(left, right)
+        }
+        (left, right) => version_part_rank(left).cmp(&version_part_rank(right)),
+    }
+}
+
+fn compare_version_numbers(left: &[u8], right: &[u8]) -> CmpOrdering {
+    let left = trim_leading_zeroes(left);
+    let right = trim_leading_zeroes(right);
+
+    left.len().cmp(&right.len()).then_with(|| left.cmp(right))
+}
+
+fn trim_leading_zeroes(bytes: &[u8]) -> &[u8] {
+    let trimmed = bytes
+        .iter()
+        .position(|byte| *byte != b'0')
+        .map(|index| &bytes[index..])
+        .unwrap_or(&[]);
+
+    if trimmed.is_empty() { b"0" } else { trimmed }
+}
+
+fn version_part_rank(part: Option<&VersionPart>) -> i8 {
+    match part {
+        Some(VersionPart::Number(_)) => 0,
+        Some(VersionPart::Label(label)) => match label.to_ascii_lowercase().as_slice() {
+            b"dev" => -5,
+            b"alpha" | b"a" => -4,
+            b"beta" | b"b" => -3,
+            b"rc" => -2,
+            b"pl" | b"p" => 1,
+            _ => -6,
+        },
+        None => -1,
     }
 }

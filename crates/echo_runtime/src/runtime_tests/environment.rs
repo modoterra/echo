@@ -46,6 +46,30 @@ fn environment_process_builtins_follow_php_shapes() {
     );
     assert_eq!(echo_php_phpinfo(EchoValue::int(0)), EchoValue::bool(true));
     assert_eq!(
+        echo_php_version_compare(
+            test_string_value(b"1"),
+            test_string_value(b"1.0"),
+            EchoValue::null()
+        ),
+        EchoValue::int(-1)
+    );
+    assert_eq!(
+        echo_php_version_compare(
+            test_string_value(b"1.0RC1"),
+            test_string_value(b"1.0"),
+            EchoValue::null()
+        ),
+        EchoValue::int(-1)
+    );
+    assert_eq!(
+        echo_php_version_compare(
+            test_string_value(b"8.2.0"),
+            test_string_value(b"8.0.0"),
+            test_string_value(b">=")
+        ),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
         echo_php_zend_version().string_bytes(),
         Some(b"8.2.0".to_vec())
     );

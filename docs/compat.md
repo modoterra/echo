@@ -700,7 +700,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `utf8_encode` | implemented | Converts ISO-8859-1 bytes to UTF-8 bytes and preserves PHP's deprecated Latin-1-only behavior. Source: https://www.php.net/manual/en/function.utf8-encode.php |
 | `var_dump` | missing |  |
 | `var_export` | missing |  |
-| `version_compare` | missing |  |
+| `version_compare` | partial | Compares PHP-standardized version strings with numeric and pre-release label ordering and supports explicit comparison operators; optional argument lowering, stricter case-sensitive label parity, invalid-operator null behavior, and unusual punctuation edge cases are deferred. Source: https://www.php.net/manual/en/function.version-compare.php |
 | `vfprintf` | missing |  |
 | `vprintf` | missing |  |
 | `vsprintf` | missing |  |
