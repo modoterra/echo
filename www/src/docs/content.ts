@@ -587,6 +587,17 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Sorts an array in descending order while preserving the original keys.",
       },
       {
+        name: "natsort",
+        signature: "natsort(array &$array): bool",
+        description: "Sorts array values in natural string order while preserving keys.",
+      },
+      {
+        name: "natcasesort",
+        signature: "natcasesort(array &$array): bool",
+        description:
+          "Sorts array values in case-insensitive natural string order while preserving keys.",
+      },
+      {
         name: "ksort",
         signature: "ksort(array &$array, int $flags): bool",
         description:
@@ -3452,6 +3463,20 @@ arsort($statuses)
 echo $statuses["third"] . "\\n"`,
   ],
   [
+    "natsort",
+    `let $files = ["img12.png", "img10.png", "img2.png"]
+natsort($files)
+
+echo implode(",", $files) . "\\n"`,
+  ],
+  [
+    "natcasesort",
+    `let $files = ["Img12.png", "img10.png", "img2.png"]
+natcasesort($files)
+
+echo implode(",", $files) . "\\n"`,
+  ],
+  [
     "ksort",
     `let $statuses = ["b": "review", "a": "draft", "c": "ship"]
 ksort($statuses)
@@ -4514,6 +4539,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "arsort",
     "Use `arsort()` when compatibility code needs values in descending order while preserving associative keys used by later lookups.",
+  ],
+  [
+    "natsort",
+    "Use `natsort()` when numbered labels should sort the way people expect, such as `img2` before `img10`, while preserving existing keys.",
+  ],
+  [
+    "natcasesort",
+    "Use `natcasesort()` for natural ordering where ASCII capitalization should not affect the order and existing keys must be preserved.",
   ],
   [
     "ksort",
@@ -7209,7 +7242,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 276 PHP compatibility fixtures, 311 implemented Core and standard functions out of 607, 296 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 277 PHP compatibility fixtures, 313 implemented Core and standard functions out of 607, 294 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

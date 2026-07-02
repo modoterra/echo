@@ -239,6 +239,16 @@ pub extern "C" fn echo_php_arsort(array: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_natsort(array: EchoValue) -> EchoValue {
+    sort_array_by_natural_string_values(array, false)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_natcasesort(array: EchoValue) -> EchoValue {
+    sort_array_by_natural_string_values(array, true)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ksort(array: EchoValue) -> EchoValue {
     sort_array_by_string_keys(array, false)
 }
@@ -290,6 +300,41 @@ fn sort_array_by_string_values(
     EchoValue::bool(true)
 }
 
+fn sort_array_by_natural_string_values(array: EchoValue, case_insensitive: bool) -> EchoValue {
+    if !array.is_array() {
+        return EchoValue::error();
+    }
+
+    let Some(array) = (unsafe { (array.payload as *mut EchoArray).as_mut() }) else {
+        return EchoValue::error();
+    };
+    if array
+        .values
+        .iter()
+        .any(|value| value.string_bytes().is_none())
+    {
+        return EchoValue::error();
+    }
+
+    let mut entries: Vec<(EchoArrayKey, EchoValue)> = array
+        .keys
+        .iter()
+        .cloned()
+        .zip(array.values.iter().copied())
+        .collect();
+    entries.sort_by(|(_, left), (_, right)| {
+        natural_cmp(
+            &left.string_bytes().unwrap_or_default(),
+            &right.string_bytes().unwrap_or_default(),
+            case_insensitive,
+        )
+    });
+    array.keys = entries.iter().map(|(key, _)| key.clone()).collect();
+    array.values = entries.into_iter().map(|(_, value)| value).collect();
+
+    EchoValue::bool(true)
+}
+
 fn sort_array_by_string_keys(array: EchoValue, descending: bool) -> EchoValue {
     if !array.is_array() {
         return EchoValue::error();
@@ -317,6 +362,60 @@ fn sort_array_by_string_keys(array: EchoValue, descending: bool) -> EchoValue {
     array.values = entries.into_iter().map(|(_, value)| value).collect();
 
     EchoValue::bool(true)
+}
+
+fn natural_cmp(left: &[u8], right: &[u8], case_insensitive: bool) -> std::cmp::Ordering {
+    let mut left_index = 0;
+    let mut right_index = 0;
+    while left_index < left.len() && right_index < right.len() {
+        if left[left_index].is_ascii_digit() && right[right_index].is_ascii_digit() {
+            let left_start = left_index;
+            let right_start = right_index;
+            while left_index < left.len() && left[left_index].is_ascii_digit() {
+                left_index += 1;
+            }
+            while right_index < right.len() && right[right_index].is_ascii_digit() {
+                right_index += 1;
+            }
+            let left_digits = trim_leading_zeroes(&left[left_start..left_index]);
+            let right_digits = trim_leading_zeroes(&right[right_start..right_index]);
+            let ordering = left_digits
+                .len()
+                .cmp(&right_digits.len())
+                .then_with(|| left_digits.cmp(right_digits));
+            if ordering != std::cmp::Ordering::Equal {
+                return ordering;
+            }
+            continue;
+        }
+
+        let left_byte = if case_insensitive {
+            left[left_index].to_ascii_lowercase()
+        } else {
+            left[left_index]
+        };
+        let right_byte = if case_insensitive {
+            right[right_index].to_ascii_lowercase()
+        } else {
+            right[right_index]
+        };
+        let ordering = left_byte.cmp(&right_byte);
+        if ordering != std::cmp::Ordering::Equal {
+            return ordering;
+        }
+        left_index += 1;
+        right_index += 1;
+    }
+
+    left.len().cmp(&right.len())
+}
+
+fn trim_leading_zeroes(bytes: &[u8]) -> &[u8] {
+    let trimmed = bytes
+        .iter()
+        .position(|byte| *byte != b'0')
+        .map_or(&[][..], |index| &bytes[index..]);
+    if trimmed.is_empty() { b"0" } else { trimmed }
 }
 
 #[unsafe(no_mangle)]

@@ -159,6 +159,18 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_natsort",
+            echo_runtime::echo_php_natsort
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_natcasesort",
+            echo_runtime::echo_php_natcasesort
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_ksort",
             echo_runtime::echo_php_ksort
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

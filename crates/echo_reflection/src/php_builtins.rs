@@ -613,6 +613,8 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("array", Some("array")), ("flags", Some("int"))],
             Some("bool"),
         ),
+        php_builtin_reflection("natsort", &[("array", Some("array"))], Some("bool")),
+        php_builtin_reflection("natcasesort", &[("array", Some("array"))], Some("bool")),
         php_builtin_reflection(
             "ksort",
             &[("array", Some("array")), ("flags", Some("int"))],

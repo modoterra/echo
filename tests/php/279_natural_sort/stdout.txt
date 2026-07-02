@@ -1,0 +1,4 @@
+natsort:img1.png|img2.png|img10.png|img12.png
+natcasesort:Img1.png|img2.png|img10.png|Img12.png
+natsort-exists:1
+natcasesort-exists:1

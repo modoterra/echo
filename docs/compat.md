@@ -465,8 +465,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `min` | partial | Supports two-argument scalar numeric comparisons; array input, string/object comparison ordering, and three-or-more variadic arguments are deferred. Source: https://www.php.net/manual/en/function.min.php |
 | `mkdir` | implemented | Creates local directories, including recursive creation and Unix mode hints; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mkdir.php |
 | `move_uploaded_file` | missing |  |
-| `natcasesort` | missing |  |
-| `natsort` | missing |  |
+| `natcasesort` | partial | Sorts array values in place using case-insensitive natural string ordering while preserving keys; full PHP comparison edge cases are deferred. Source: https://www.php.net/manual/en/function.natcasesort.php |
+| `natsort` | partial | Sorts array values in place using natural string ordering while preserving keys; full PHP comparison edge cases are deferred. Source: https://www.php.net/manual/en/function.natsort.php |
 | `net_get_interfaces` | missing |  |
 | `next` | partial | Returns the second array value for Echo's current no-pointer baseline, or `false` when no next value exists; PHP internal array pointer state and persistent movement are deferred. Source: https://www.php.net/manual/en/function.next.php |
 | `nl2br` | implemented | Inserts `<br />` or `<br>` before newline sequences while preserving the original newline bytes. Source: https://www.php.net/manual/en/function.nl2br.php |
