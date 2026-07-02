@@ -467,6 +467,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::StrSplit,
     },
     PhpBuiltin {
+        php_name: "str_getcsv",
+        symbol: "echo_php_str_getcsv",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "chunk_split",
         symbol: "echo_php_chunk_split",
         helper_symbol: None,

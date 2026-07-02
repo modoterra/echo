@@ -1,0 +1,4 @@
+simple:3:a|b|c
+quoted:3:a|b,c|d
+empty:3:a||c
+exists:1

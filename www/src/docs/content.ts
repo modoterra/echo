@@ -297,6 +297,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Splits a string into fixed-size byte chunks.",
       },
       {
+        name: "str_getcsv",
+        signature: "str_getcsv(string $string): array",
+        description: "Parses a CSV record string using PHP's default comma and quote rules.",
+      },
+      {
         name: "chunk_split",
         signature: "chunk_split(string $string, int $length, string $separator): string",
         description: "Splits a string into chunks and appends a separator after each chunk.",
@@ -3234,6 +3239,12 @@ let $pairs = str_split($token, 2)
 echo implode("-", $pairs) . "\\n"`,
   ],
   [
+    "str_getcsv",
+    `let $row = str_getcsv("Ada,\\"compiler engineer\\",active")
+
+echo "Name: " . $row[0] . "\\n"`,
+  ],
+  [
     "chunk_split",
     `let $key = "abcdef123456"
 let $grouped = chunk_split($key, 4, "-")
@@ -4269,6 +4280,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "str_split",
     "Use `str_split()` when a byte string needs to be processed in equal chunks, such as grouping short codes or fixed-width records.",
+  ],
+  [
+    "str_getcsv",
+    "Use `str_getcsv()` for a single CSV record already loaded into memory. Echo currently implements the default comma separator and double-quote enclosure; custom CSV controls are deferred.",
   ],
   [
     "chunk_split",
@@ -7164,7 +7179,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 273 PHP compatibility fixtures, 308 implemented Core and standard functions out of 607, 299 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 274 PHP compatibility fixtures, 309 implemented Core and standard functions out of 607, 298 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

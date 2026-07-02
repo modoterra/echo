@@ -584,7 +584,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_contains` | implemented | Performs binary-safe substring detection, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-contains.php |
 | `str_decrement` | missing |  |
 | `str_ends_with` | implemented | Performs binary-safe suffix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-ends-with.php |
-| `str_getcsv` | missing |  |
+| `str_getcsv` | partial | Parses one string with PHP's default comma separator and double-quote enclosure, including doubled quote escapes; custom separator, enclosure, and escape arguments are deferred. Source: https://www.php.net/manual/en/function.str-getcsv.php |
 | `str_increment` | missing |  |
 | `str_ireplace` | implemented | Performs ASCII case-insensitive scalar string search and replacement; array operands and by-reference count reporting are deferred. Source: https://www.php.net/manual/en/function.str-ireplace.php |
 | `str_pad` | implemented | Pads byte strings on the left, right, or both sides with PHP's default right padding and pad-string truncation behavior. Source: https://www.php.net/manual/en/function.str-pad.php |

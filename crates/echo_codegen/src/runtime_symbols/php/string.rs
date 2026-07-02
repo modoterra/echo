@@ -388,6 +388,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_str_getcsv",
+            echo_runtime::echo_php_str_getcsv
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_chunk_split",
             echo_runtime::echo_php_chunk_split
                 as extern "C" fn(

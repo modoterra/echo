@@ -127,6 +127,20 @@ pub extern "C" fn echo_php_str_split(value: EchoValue, length: EchoValue) -> Ech
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_getcsv(value: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
+        str_getcsv_default(&bytes)
+            .into_iter()
+            .map(echo_runtime_string)
+            .collect(),
+    ))))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_chunk_split(
     value: EchoValue,
     length: EchoValue,
@@ -161,4 +175,35 @@ fn php_chunk_split(bytes: &[u8], length: usize, separator: &[u8]) -> Vec<u8> {
         result.extend_from_slice(separator);
     }
     result
+}
+
+fn str_getcsv_default(bytes: &[u8]) -> Vec<Vec<u8>> {
+    let mut fields = Vec::new();
+    let mut field = Vec::new();
+    let mut index = 0;
+    let mut quoted = false;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'"' if quoted && bytes.get(index + 1) == Some(&b'"') => {
+                field.push(b'"');
+                index += 2;
+            }
+            b'"' => {
+                quoted = !quoted;
+                index += 1;
+            }
+            b',' if !quoted => {
+                fields.push(std::mem::take(&mut field));
+                index += 1;
+            }
+            byte => {
+                field.push(byte);
+                index += 1;
+            }
+        }
+    }
+
+    fields.push(field);
+    fields
 }

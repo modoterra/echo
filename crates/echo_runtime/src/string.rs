@@ -18,7 +18,10 @@ pub use pattern::{
     echo_php_strpbrk, echo_php_strpos, echo_php_strrchr, echo_php_strripos, echo_php_strrpos,
     echo_php_strspn, echo_php_strstr, echo_php_strtr, echo_php_substr_count,
 };
-pub use sequence::{echo_php_chunk_split, echo_php_explode, echo_php_implode, echo_php_str_split};
+pub use sequence::{
+    echo_php_chunk_split, echo_php_explode, echo_php_implode, echo_php_str_getcsv,
+    echo_php_str_split,
+};
 
 const PHP_DEFAULT_TRIM_BYTES: &[u8] = b" \n\r\t\x0b\0";
 

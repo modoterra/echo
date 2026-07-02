@@ -1340,6 +1340,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("string", Some("string")), ("length", Some("int"))],
             Some("array"),
         ),
+        php_builtin_reflection("str_getcsv", &[("string", Some("string"))], Some("array")),
         php_builtin_reflection(
             "chunk_split",
             &[
