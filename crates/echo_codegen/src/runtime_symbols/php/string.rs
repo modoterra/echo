@@ -98,6 +98,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_strtok",
+            echo_runtime::echo_php_strtok
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_similar_text",
             echo_runtime::echo_php_similar_text
                 as extern "C" fn(

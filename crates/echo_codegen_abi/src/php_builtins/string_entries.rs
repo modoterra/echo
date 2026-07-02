@@ -131,6 +131,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "strtok",
+        symbol: "echo_php_strtok",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "similar_text",
         symbol: "echo_php_similar_text",
         helper_symbol: None,

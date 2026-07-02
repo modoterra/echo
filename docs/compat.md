@@ -660,7 +660,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `strrpos` | implemented | Finds the last binary-safe byte occurrence and returns an offset or `false`. Source: https://www.php.net/manual/en/function.strrpos.php |
 | `strspn` | implemented | Counts the initial byte span containing only bytes from the mask string. Source: https://www.php.net/manual/en/function.strspn.php |
 | `strstr` | implemented | Finds a byte string and returns the matching tail or `false`; before-needle mode is deferred. Source: https://www.php.net/manual/en/function.strstr.php |
-| `strtok` | missing |  |
+| `strtok` | partial | Supports the two-argument initialization call by returning the first token after skipping leading delimiter runs; process-local one-argument continuation calls, tokenizer reset behavior, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.strtok.php |
 | `strtolower` | implemented | Lowercases ASCII alphabetic bytes and leaves non-ASCII bytes unchanged. Source: https://www.php.net/manual/en/function.strtolower.php |
 | `strtoupper` | implemented | Uppercases ASCII alphabetic bytes and leaves non-ASCII bytes unchanged. Source: https://www.php.net/manual/en/function.strtoupper.php |
 | `strtr` | implemented | Supports the three-argument byte translation form and ignores extra bytes in longer `from` or `to` strings; two-argument array replacement is deferred. Source: https://www.php.net/manual/en/function.strtr.php |

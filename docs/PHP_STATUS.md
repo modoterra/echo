@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 350 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 351 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 399.
-- Remaining Core + standard functions in inventory: 208.
+- Implemented Core + standard functions in inventory: 400.
+- Remaining Core + standard functions in inventory: 207.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `399 / 607`, or about 66%, for the Core + standard baseline,
+coverage alone is `400 / 607`, or about 66%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~38% | Core + standard function coverage is 399/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~38% | Core + standard function coverage is 400/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -161,6 +161,10 @@ full support for an entire family of PHP functions.
   numeric formatting baseline, and `strcoll()` follows C/POSIX byte ordering;
   `setlocale()`, locale categories, monetary locale data, and platform
   collation differences remain gaps for locale-sensitive string APIs.
+- Stateful string tokenization is not modeled yet. `strtok($string, $token)`
+  currently returns the first token for the initialization call, while
+  process-local tokenizer continuation through `strtok($token)`, tokenizer
+  reset behavior, and PHP warning details remain gaps.
 - Some expression-returning PHP built-ins still cannot be used as standalone
   statement calls through LLVM lowering. This blocks idiomatic cleanup calls
   such as `file_put_contents(...)` or `unlink(...)` as bare statements until

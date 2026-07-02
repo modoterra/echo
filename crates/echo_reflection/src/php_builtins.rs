@@ -923,6 +923,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("soundex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("localeconv", &[], Some("array")),
         php_builtin_reflection(
+            "strtok",
+            &[("string", Some("string")), ("token", Some("string"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "similar_text",
             &[("string1", Some("string")), ("string2", Some("string"))],
             Some("int"),

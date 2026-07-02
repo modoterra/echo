@@ -73,6 +73,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the string with alphabetic characters converted to uppercase.",
       },
       {
+        name: "strtok",
+        signature: "strtok(string $string, string $token): string|false",
+        description: "Returns the first token split by any delimiter byte.",
+      },
+      {
         name: "strtolower",
         signature: "strtolower(string $string): string",
         description: "Returns the string with alphabetic characters converted to lowercase.",
@@ -4274,6 +4279,12 @@ let $domain = strstr($email, "@")
 echo $domain . "\\n"`,
   ],
   [
+    "strtok",
+    `let $first = strtok(";alpha;;beta;", ";")
+
+echo "First token: " . $first . "\\n"`,
+  ],
+  [
     "strtolower",
     `let $email = "ADMIN@EXAMPLE.COM"
 let $normalized = strtolower($email)
@@ -5551,6 +5562,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "strtoupper",
     "Use `strtoupper()` to normalize ASCII-style identifiers, status codes, or case-insensitive labels before comparison or display.",
+  ],
+  [
+    "strtok",
+    "Use `strtok()` when compatibility code only needs the first token from a delimiter set. Echo currently supports the two-argument initialization call and leaves process-local continuation state, reset behavior, and warnings for later.",
   ],
   [
     "strtolower",
@@ -8734,7 +8749,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 350 PHP compatibility fixtures, 399 implemented Core and standard functions out of 607, 208 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 351 PHP compatibility fixtures, 400 implemented Core and standard functions out of 607, 207 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -82,6 +82,26 @@ fn localeconv_returns_c_locale_numeric_shape() {
 }
 
 #[test]
+fn strtok_returns_first_token_for_initial_call() {
+    assert_eq!(
+        echo_php_strtok(test_string_value(b";aaa;;bbb;"), test_string_value(b";")).string_bytes(),
+        Some(b"aaa".to_vec())
+    );
+    assert_eq!(
+        echo_php_strtok(
+            test_string_value(b"  first\tsecond"),
+            test_string_value(b" \t")
+        )
+        .string_bytes(),
+        Some(b"first".to_vec())
+    );
+    assert_eq!(
+        echo_php_strtok(test_string_value(b";;;"), test_string_value(b";")),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn str_pad_preserves_php_byte_behavior() {
     let right = Box::into_raw(Box::new(EchoString {
         bytes: "ID".as_bytes().to_vec(),

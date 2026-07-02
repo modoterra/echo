@@ -522,6 +522,29 @@ pub extern "C" fn echo_php_similar_text(first: EchoValue, second: EchoValue) -> 
     EchoValue::int(similar_text_count(&first, &second) as i64)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strtok(string: EchoValue, token: EchoValue) -> EchoValue {
+    let Some(bytes) = string.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(delimiters) = token.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Some(start) = bytes
+        .iter()
+        .position(|byte| !delimiters.iter().any(|delimiter| delimiter == byte))
+    else {
+        return EchoValue::bool(false);
+    };
+    let end = bytes[start..]
+        .iter()
+        .position(|byte| delimiters.iter().any(|delimiter| delimiter == byte))
+        .map_or(bytes.len(), |offset| start + offset);
+
+    echo_runtime_string(bytes[start..end].to_vec())
+}
+
 fn soundex_bytes(bytes: &[u8]) -> Vec<u8> {
     let Some((first_index, first_letter)) = bytes
         .iter()
