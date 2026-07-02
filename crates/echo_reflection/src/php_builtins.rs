@@ -472,6 +472,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int|bool"),
         ),
         php_builtin_reflection(
+            "mail",
+            &[
+                ("to", Some("string")),
+                ("subject", Some("string")),
+                ("message", Some("string")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "ini_set",
             &[("option", Some("string")), ("value", Some("string"))],
             Some("string|false"),

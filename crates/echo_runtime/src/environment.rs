@@ -797,6 +797,22 @@ pub extern "C" fn echo_php_http_response_code(response_code: EchoValue) -> EchoV
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_mail(
+    to: EchoValue,
+    subject: EchoValue,
+    message: EchoValue,
+) -> EchoValue {
+    if to.string_bytes().is_none()
+        || subject.string_bytes().is_none()
+        || message.string_bytes().is_none()
+    {
+        return EchoValue::error();
+    }
+
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_ini_set(option: EchoValue, value: EchoValue) -> EchoValue {
     let Some(_option) = option.string_bytes() else {
         return EchoValue::bool(false);

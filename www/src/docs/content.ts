@@ -1528,6 +1528,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Gets or sets the HTTP response status code.",
       },
       {
+        name: "mail",
+        signature: "mail(string $to, string $subject, string $message): bool",
+        description: "Attempts to send a message through PHP's configured mail transport.",
+      },
+      {
         name: "ini_set",
         signature: "ini_set(string $option, string $value): string|false",
         description: "Sets a PHP ini option and returns its previous value, or false on failure.",
@@ -2503,6 +2508,14 @@ echo "debug header cleared\\n"`,
 }
 
 echo "status: " . http_response_code() . "\\n"`,
+  ],
+  [
+    "mail",
+    `let $sent = mail("ops@example.test", "Import failed", "See the attached run log")
+
+if (!$sent) {
+    echo "queued fallback notification\\n"
+}`,
   ],
   [
     "ini_set",
@@ -4915,6 +4928,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `http_response_code()` when compatibility code records or inspects an HTTP status before writing a body. Echo tracks this process-local status value but does not send a status line because it does not model an HTTP header layer.",
   ],
   [
+    "mail",
+    "Use `mail()` compatibility paths with an explicit fallback. Echo accepts the required string arguments today and returns false because it does not provide a mail transport or PHP warning emission yet.",
+  ],
+  [
     "ini_set",
     "Use `ini_set()` when compatibility code attempts to change a PHP ini option and needs a fallback. Echo currently returns false because it does not model mutable PHP ini option values.",
   ],
@@ -7097,7 +7114,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 270 PHP compatibility fixtures, 304 implemented Core and standard functions out of 607, 303 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 271 PHP compatibility fixtures, 305 implemented Core and standard functions out of 607, 302 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

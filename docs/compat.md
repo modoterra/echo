@@ -438,7 +438,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `long2ip` | missing |  |
 | `lstat` | missing |  |
 | `ltrim` | implemented | Removes PHP's default leading ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.ltrim.php |
-| `mail` | missing |  |
+| `mail` | partial | Accepts required `to`, `subject`, and `message` string arguments and returns `false` because Echo has no configured mail transport; additional headers, parameters, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mail.php |
 | `hash` | implemented | Dispatches supported hash algorithms and returns raw bytes with `raw_output=true`, otherwise lowercase hex. Source: https://www.php.net/manual/en/function.hash.php |
 | `hash_algos` | implemented | Returns supported hash algorithm names from runtime registry. Source: https://www.php.net/manual/en/function.hash-algos.php |
 | `hash_copy` | implemented | Clones an active hash context object. Source: https://www.php.net/manual/en/function.hash-copy.php |
