@@ -116,6 +116,11 @@ pub extern "C" fn echo_php_memory_get_peak_usage() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_memory_reset_peak_usage() -> EchoValue {
+    EchoValue::null()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }

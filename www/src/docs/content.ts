@@ -1549,6 +1549,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns a peak process memory usage baseline in bytes.",
       },
       {
+        name: "memory_reset_peak_usage",
+        signature: "memory_reset_peak_usage(): void",
+        description: "Resets peak memory accounting in PHP; currently a no-op baseline in Echo.",
+      },
+      {
         name: "get_current_user",
         signature: "get_current_user(): string",
         description: "Returns the current process user name baseline.",
@@ -2525,6 +2530,12 @@ echo "Memory bytes: " . $bytes . "\\n"`,
     `let $peak = memory_get_peak_usage()
 
 echo "Peak memory bytes: " . $peak . "\\n"`,
+  ],
+  [
+    "memory_reset_peak_usage",
+    `memory_reset_peak_usage()
+
+echo "Peak accounting reset requested\\n"`,
   ],
   [
     "get_current_user",
@@ -3880,6 +3891,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "memory_get_peak_usage",
     "Use `memory_get_peak_usage()` to log high-water memory pressure around long-running compatibility workloads. Echo reports peak resident process memory today rather than Zend allocator memory.",
+  ],
+  [
+    "memory_reset_peak_usage",
+    "Use `memory_reset_peak_usage()` when compatibility code expects to start a fresh peak-memory observation window. Echo accepts the call today, while resettable allocator-level peaks are deferred.",
   ],
   [
     "get_current_user",
@@ -6915,7 +6930,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 259 PHP compatibility fixtures, 292 implemented Core and standard functions out of 607, 315 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 260 PHP compatibility fixtures, 293 implemented Core and standard functions out of 607, 314 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

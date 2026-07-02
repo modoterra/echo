@@ -106,6 +106,11 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_memory_reset_peak_usage",
+            echo_runtime::echo_php_memory_reset_peak_usage
+                as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_get_current_user",
             echo_runtime::echo_php_get_current_user as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,
