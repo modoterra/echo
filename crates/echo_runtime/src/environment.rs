@@ -1,6 +1,6 @@
 use std::env;
 use std::ffi::OsStr;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
@@ -58,6 +58,20 @@ pub extern "C" fn echo_php_gethostname() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_gethostbyname(hostname: EchoValue) -> EchoValue {
+    let Some(bytes) = hostname.string_bytes() else {
+        return EchoValue::error();
+    };
+    let lookup_bytes = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .map_or(bytes.as_slice(), |nul| &bytes[..nul]);
+
+    let result = resolve_ipv4_host(lookup_bytes).unwrap_or(lookup_bytes.to_vec());
+    echo_runtime_string(result)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
     let Some(name) = name.string_bytes() else {
         return EchoValue::bool(false);
@@ -66,6 +80,17 @@ pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
     protocol_number_by_name(&name)
         .map(EchoValue::int)
         .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+fn resolve_ipv4_host(hostname: &[u8]) -> Option<Vec<u8>> {
+    let hostname = std::str::from_utf8(hostname).ok()?;
+    (hostname, 0)
+        .to_socket_addrs()
+        .ok()?
+        .find_map(|address| match address.ip() {
+            IpAddr::V4(address) => Some(address.to_string().into_bytes()),
+            IpAddr::V6(_) => None,
+        })
 }
 
 #[unsafe(no_mangle)]

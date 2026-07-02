@@ -1727,6 +1727,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the local machine hostname when it is available.",
       },
       {
+        name: "gethostbyname",
+        signature: "gethostbyname(string $hostname): string",
+        description:
+          "Resolves a hostname to an IPv4 address string, or returns the original hostname when no IPv4 address is found.",
+      },
+      {
         name: "getprotobyname",
         signature: "getprotobyname(string $protocol): int|false",
         description: "Looks up an IP protocol number by protocol name or alias.",
@@ -2950,6 +2956,12 @@ if (!$host) {
 }
 
 echo "Processing import on " . $host . "\\n"`,
+  ],
+  [
+    "gethostbyname",
+    `let $address = gethostbyname("localhost")
+
+echo "Local IPv4 address: " . $address . "\\n"`,
   ],
   [
     "getprotobyname",
@@ -4538,6 +4550,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "gethostname",
     "Use `gethostname()` to add host context to logs, diagnostics, or generated status records. Keep a fallback because some hosts may not report a name.",
+  ],
+  [
+    "gethostbyname",
+    "Use `gethostbyname()` when compatibility code needs the PHP IPv4-only hostname lookup shape. A failed lookup returns the original hostname, so compare the result to the input when failure matters.",
   ],
   [
     "getprotobyname",
@@ -7685,7 +7701,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 300 PHP compatibility fixtures, 337 implemented Core and standard functions out of 607, 270 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 301 PHP compatibility fixtures, 338 implemented Core and standard functions out of 607, 269 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

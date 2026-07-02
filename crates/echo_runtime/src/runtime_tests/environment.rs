@@ -235,6 +235,18 @@ fn environment_process_builtins_follow_php_shapes() {
 }
 
 #[test]
+fn gethostbyname_returns_ipv4_or_original_hostname() {
+    assert_eq!(
+        echo_php_gethostbyname(test_string_value(b"localhost")).string_bytes(),
+        Some(b"127.0.0.1".to_vec())
+    );
+    assert_eq!(
+        echo_php_gethostbyname(test_string_value(b"echo.invalid")).string_bytes(),
+        Some(b"echo.invalid".to_vec())
+    );
+}
+
+#[test]
 fn inet_packed_address_builtins_round_trip_ipv4_and_ipv6() {
     assert_eq!(
         echo_php_bin2hex(echo_php_inet_pton(test_string_value(b"127.0.0.1"))).string_bytes(),

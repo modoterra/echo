@@ -366,6 +366,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("gethostname", &[], Some("string|false")),
         php_builtin_reflection(
+            "gethostbyname",
+            &[("hostname", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "getprotobyname",
             &[("protocol", Some("string"))],
             Some("int|false"),
