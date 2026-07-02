@@ -195,6 +195,46 @@ fn fwrite_writes_full_or_limited_data_to_stream() {
 }
 
 #[test]
+fn fpassthru_outputs_remaining_stream_bytes_and_returns_count() {
+    let fixture_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-fpassthru-tests-{}",
+        std::process::id()
+    ));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-fpassthru.txt");
+    {
+        let mut file = std::fs::File::create(&path).expect("create stream fixture");
+        file.write_all(b"abcdef").expect("write stream fixture");
+    }
+
+    let path_value = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path_value),
+        test_string_value(b"r"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(
+        echo_php_fread(stream, test_string_value(b"2")).string_bytes(),
+        Some(b"ab".to_vec())
+    );
+    let (count, stdout) = capture_stdout(false, || echo_php_fpassthru(stream));
+    assert_eq!(count, EchoValue::int(4));
+    assert_eq!(stdout, b"cdef");
+    assert_eq!(echo_php_feof(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+
+    unsafe {
+        drop(Box::from_raw(path_value));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn fopen_rejects_unsupported_mode() {
     let temp_file = std::env::temp_dir().join(format!(
         "echo-runtime-stream-mode-{}.txt",

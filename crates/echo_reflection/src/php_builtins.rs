@@ -1164,6 +1164,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             ],
             Some("int|false"),
         ),
+        php_builtin_reflection("fpassthru", &[("stream", Some("resource"))], Some("int")),
         php_builtin_reflection("fclose", &[("stream", Some("resource"))], Some("bool")),
         php_builtin_reflection("ftell", &[("stream", Some("resource"))], Some("int|false")),
         php_builtin_reflection(

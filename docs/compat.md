@@ -309,7 +309,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fopen` | implemented | Opens local filesystem streams for common read/write modes; include path lookup, URL wrappers, stream contexts, and warning emission are deferred. Source: https://www.php.net/manual/en/function.fopen.php |
 | `forward_static_call` | missing |  |
 | `forward_static_call_array` | missing |  |
-| `fpassthru` | missing |  |
+| `fpassthru` | implemented | Outputs all remaining bytes from an Echo local file stream and returns the emitted byte count. Source: https://www.php.net/manual/en/function.fpassthru.php |
 | `fpow` | implemented | Raises a numeric base to a numeric exponent and always returns a float, including `INF` for zero raised to a negative exponent and `NAN` for unsupported negative fractional powers. Source: https://www.php.net/manual/en/function.fpow.php |
 | `fprintf` | missing |  |
 | `fputcsv` | missing |  |

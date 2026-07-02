@@ -1268,6 +1268,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Alias of fwrite for writing bytes to a local file stream.",
       },
       {
+        name: "fpassthru",
+        signature: "fpassthru(resource $stream): int",
+        description: "Outputs all remaining bytes from a local file stream.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2171,6 +2176,15 @@ if ($stream) {
 
 if ($stream) {
     fputs($stream, "started\\n")
+    fclose($stream)
+}`,
+  ],
+  [
+    "fpassthru",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    fpassthru($stream)
     fclose($stream)
 }`,
   ],
@@ -4259,6 +4273,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "fputs",
     "`fputs()` is the PHP alias of `fwrite()`. Use it when ported code already uses that spelling for local stream writes.",
+  ],
+  [
+    "fpassthru",
+    "Use `fpassthru()` when compatibility code streams the remaining contents of an already-open local file handle directly to output.",
   ],
   [
     "readfile",
@@ -7446,7 +7464,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 290 PHP compatibility fixtures, 324 implemented Core and standard functions out of 607, 283 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 291 PHP compatibility fixtures, 325 implemented Core and standard functions out of 607, 282 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
