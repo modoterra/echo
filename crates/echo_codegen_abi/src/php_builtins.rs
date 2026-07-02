@@ -856,6 +856,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueExpression,
         },
+        PhpBuiltin {
+            php_name: "output_add_rewrite_var",
+            symbol: "echo_php_output_add_rewrite_var",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueBinaryExpression,
+        },
     ];
     builtins.extend_from_slice(array_entries::ARRAY_BUILTINS);
     builtins.extend_from_slice(filesystem_entries::FILESYSTEM_BUILTINS);

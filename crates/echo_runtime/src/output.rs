@@ -235,6 +235,15 @@ pub extern "C" fn echo_php_output_reset_rewrite_vars() -> EchoValue {
     EchoValue::bool(true)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_output_add_rewrite_var(name: EchoValue, value: EchoValue) -> EchoValue {
+    if name.string_bytes().is_none() || value.string_bytes().is_none() {
+        return EchoValue::bool(false);
+    }
+
+    EchoValue::bool(true)
+}
+
 fn output_buffer_status_array(status: buffer::OutputBufferStatus) -> EchoValue {
     let mut result = echo_value_array_new();
     result = echo_value_array_set(

@@ -489,7 +489,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `opendir` | missing |  |
 | `openlog` | implemented | Returns `true` and records no host logger state because Echo currently does not model a system logger connection. Source: https://www.php.net/manual/en/function.openlog.php |
 | `ord` | implemented | Returns the integer value of the first byte in a string. Source: https://www.php.net/manual/en/function.ord.php |
-| `output_add_rewrite_var` | missing |  |
+| `output_add_rewrite_var` | partial | Accepts string name/value pairs and returns `true`; storing rewrite variables, starting the `URL-Rewriter` handler, and rewriting output are deferred. Source: https://www.php.net/manual/en/function.output-add-rewrite-var.php |
 | `output_reset_rewrite_vars` | partial | Returns `true` and clears no state because Echo does not yet model URL-rewriter variables or the URL-Rewriter output handler. Source: https://www.php.net/manual/en/function.output-reset-rewrite-vars.php |
 | `pack` | missing |  |
 | `parse_ini_file` | missing |  |

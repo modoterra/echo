@@ -475,6 +475,17 @@ mod tests {
     }
 
     #[test]
+    fn output_add_rewrite_var_accepts_name_value_baseline() {
+        assert_eq!(
+            crate::echo_php_output_add_rewrite_var(
+                crate::echo_runtime_string(b"token".to_vec()),
+                crate::echo_runtime_string(b"abc".to_vec()),
+            ),
+            crate::EchoValue::bool(true)
+        );
+    }
+
+    #[test]
     fn get_length_returns_active_buffer_byte_length() {
         let mut runtime = OutputRuntime::new();
         let mut stdout = Vec::new();

@@ -1541,6 +1541,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description:
           "Clears URL rewriter variables; Echo currently treats this as a successful no-op.",
       },
+      {
+        name: "output_add_rewrite_var",
+        signature: "output_add_rewrite_var(string $name, string $value): bool",
+        description:
+          "Registers URL rewriter variables; Echo currently accepts the call without rewriting output.",
+      },
     ],
   },
   {
@@ -3378,6 +3384,12 @@ echo "Progress: 100%\\n"`,
     "output_reset_rewrite_vars",
     `if (output_reset_rewrite_vars()) {
     echo "URL rewrite vars cleared\\n"
+}`,
+  ],
+  [
+    "output_add_rewrite_var",
+    `if (output_add_rewrite_var("token", "abc")) {
+    echo "URL rewrite var accepted\\n"
 }`,
   ],
   [
@@ -5616,6 +5628,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "output_reset_rewrite_vars",
     "Use `output_reset_rewrite_vars()` to preserve legacy cleanup calls around URL rewriting. Echo currently reports success while URL-Rewriter output handling is still deferred.",
+  ],
+  [
+    "output_add_rewrite_var",
+    "Use `output_add_rewrite_var()` to preserve legacy URL-rewriter setup calls. Echo currently accepts name/value pairs and defers actual HTML URL rewriting.",
   ],
   [
     "define",
@@ -7956,7 +7972,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 313 PHP compatibility fixtures, 353 implemented Core and standard functions out of 607, 254 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 314 PHP compatibility fixtures, 354 implemented Core and standard functions out of 607, 253 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
