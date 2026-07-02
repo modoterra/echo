@@ -451,6 +451,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueExpression,
     },
     PhpBuiltin {
+        php_name: "stream_get_line",
+        symbol: "echo_php_stream_get_line",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueTernaryExpression,
+    },
+    PhpBuiltin {
         php_name: "stream_get_transports",
         symbol: "echo_php_stream_get_transports",
         helper_symbol: None,

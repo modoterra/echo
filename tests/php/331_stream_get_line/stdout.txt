@@ -1,0 +1,7 @@
+first:alpha
+second:beta
+third:
+bounded:alp
+zero:ha
+eof:
+exists:1

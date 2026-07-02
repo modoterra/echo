@@ -591,6 +591,63 @@ pub extern "C" fn echo_php_stream_get_contents(
     echo_runtime_string(bytes)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_get_line(
+    stream: EchoValue,
+    length: EchoValue,
+    ending: EchoValue,
+) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(length) = length.php_int_value() else {
+        return EchoValue::bool(false);
+    };
+    if length < 0 {
+        return EchoValue::bool(false);
+    }
+    let length = if length == 0 {
+        stream.chunk_size
+    } else {
+        length
+    };
+    let Ok(length) = usize::try_from(length) else {
+        return EchoValue::bool(false);
+    };
+    let Some(ending) = ending.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    let mut bytes = Vec::new();
+    while bytes.len() < length {
+        let mut byte = [0_u8; 1];
+        match file.read(&mut byte) {
+            Ok(1) => {
+                stream.eof = false;
+                bytes.push(byte[0]);
+                if !ending.is_empty() && bytes.ends_with(&ending) {
+                    bytes.truncate(bytes.len() - ending.len());
+                    break;
+                }
+            }
+            Ok(_) => {
+                stream.eof = true;
+                break;
+            }
+            Err(_) => return EchoValue::bool(false),
+        }
+    }
+
+    if bytes.is_empty() && stream.eof {
+        return EchoValue::bool(false);
+    }
+
+    echo_runtime_string(bytes)
+}
+
 fn fopen_path(filename: &[u8]) -> Option<PathBuf> {
     path_buf_from_bytes(filename)
 }

@@ -617,7 +617,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_filter_remove` | missing |  |
 | `stream_get_contents` | implemented | Reads remaining bytes, or an optional bounded range, from Echo local file stream resources. Source: https://www.php.net/manual/en/function.stream-get-contents.php |
 | `stream_get_filters` | partial | Returns Echo's static baseline stream filter list; dynamic filter registration and full extension-provided filter inventory are deferred. Source: https://www.php.net/manual/en/function.stream-get-filters.php |
-| `stream_get_line` | missing |  |
+| `stream_get_line` | partial | Reads from Echo local file streams up to an explicit length, delimiter, or EOF and omits the delimiter when consumed; optional argument lowering, socket edge cases, and PHP warning/value diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-get-line.php |
 | `stream_get_meta_data` | partial | Returns local file stream metadata fields including timeout, blocking, EOF, unread byte count, stream/wrapper type, mode, seekability, and URI; socket/TLS/custom wrapper metadata and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-get-meta-data.php |
 | `stream_get_transports` | partial | Returns Echo's static baseline socket transport list (`tcp`, `udp`, `unix`, `udg`); dynamic transport registration and platform-specific inventories are deferred. Source: https://www.php.net/manual/en/function.stream-get-transports.php |
 | `stream_get_wrappers` | partial | Returns Echo's static baseline stream wrapper list (`php`, `file`); dynamic wrapper registration and extension-provided wrappers are deferred. Source: https://www.php.net/manual/en/function.stream-get-wrappers.php |

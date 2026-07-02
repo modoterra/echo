@@ -1334,6 +1334,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("stream_get_filters", &[], Some("array")),
         php_builtin_reflection(
+            "stream_get_line",
+            &[
+                ("stream", Some("resource")),
+                ("length", Some("int")),
+                ("ending", Some("string")),
+            ],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "stream_get_meta_data",
             &[("stream", Some("resource"))],
             Some("array"),

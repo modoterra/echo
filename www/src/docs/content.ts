@@ -1377,6 +1377,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the registered stream wrapper names.",
       },
       {
+        name: "stream_get_line",
+        signature: "stream_get_line(resource $stream, int $length, string $ending = \"\"): string|false",
+        description: "Reads bytes from a stream up to a delimiter, length, or EOF.",
+      },
+      {
         name: "stream_get_meta_data",
         signature: "stream_get_meta_data(resource $stream): array",
         description: "Returns metadata for an open stream.",
@@ -2586,6 +2591,15 @@ if ($stream) {
     "stream_get_wrappers",
     `if (in_array("file", stream_get_wrappers(), true)) {
     echo "Local file wrapper is available\\n"
+}`,
+  ],
+  [
+    "stream_get_line",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    echo stream_get_line($stream, 4096, "\\n")
+    fclose($stream)
 }`,
   ],
   [
@@ -5026,6 +5040,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_get_wrappers",
     "Use `stream_get_wrappers()` when compatibility code needs to check whether a stream scheme such as `file://` is available. Echo currently reports a static wrapper baseline and leaves wrapper registration for later.",
+  ],
+  [
+    "stream_get_line",
+    "Use `stream_get_line()` when compatibility code needs a bounded record read with a delimiter that should not be included in the returned value. Echo currently supports local file streams with explicit length and delimiter arguments.",
   ],
   [
     "stream_is_local",
@@ -8377,7 +8395,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 331 PHP compatibility fixtures, 378 implemented Core and standard functions out of 607, 229 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 332 PHP compatibility fixtures, 379 implemented Core and standard functions out of 607, 228 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

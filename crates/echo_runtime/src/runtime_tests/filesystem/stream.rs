@@ -111,6 +111,62 @@ fn fgets_reads_until_limit_or_eof() {
 }
 
 #[test]
+fn stream_get_line_reads_to_length_delimiter_or_eof() {
+    let fixture_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-stream-get-line-{}",
+        std::process::id()
+    ));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-get-line.txt");
+    {
+        let mut file = std::fs::File::create(&path).expect("create stream fixture");
+        file.write_all(b"alpha|beta|gamma")
+            .expect("write stream fixture");
+    }
+
+    let path = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path),
+        test_string_value(b"r"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(
+        echo_php_stream_get_line(stream, EchoValue::int(20), test_string_value(b"|"))
+            .string_bytes(),
+        Some(b"alpha".to_vec())
+    );
+    assert_eq!(
+        echo_php_stream_get_line(stream, EchoValue::int(4), test_string_value(b"|")).string_bytes(),
+        Some(b"beta".to_vec())
+    );
+    assert_eq!(
+        echo_php_stream_get_line(stream, EchoValue::int(20), test_string_value(b"|"))
+            .string_bytes(),
+        Some(Vec::new())
+    );
+    assert_eq!(
+        echo_php_stream_get_line(stream, EchoValue::int(20), test_string_value(b"|"))
+            .string_bytes(),
+        Some(b"gamma".to_vec())
+    );
+    assert_eq!(
+        echo_php_stream_get_line(stream, EchoValue::int(20), test_string_value(b"|")),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+
+    unsafe {
+        drop(Box::from_raw(path));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn feof_flips_after_read_attempt_past_end_and_resets_on_rewind() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-feof-tests-{}", std::process::id()));
