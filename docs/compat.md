@@ -585,7 +585,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_decrement` | missing |  |
 | `str_ends_with` | implemented | Performs binary-safe suffix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-ends-with.php |
 | `str_getcsv` | partial | Parses one string with PHP's default comma separator and double-quote enclosure, including doubled quote escapes; custom separator, enclosure, and escape arguments are deferred. Source: https://www.php.net/manual/en/function.str-getcsv.php |
-| `str_increment` | missing |  |
+| `str_increment` | partial | Increments non-empty ASCII alphanumeric strings using PHP's right-to-left carry rules for digits and letters; PHP `ValueError` diagnostics for invalid input are deferred. Source: https://www.php.net/manual/en/function.str-increment.php |
 | `str_ireplace` | implemented | Performs ASCII case-insensitive scalar string search and replacement; array operands and by-reference count reporting are deferred. Source: https://www.php.net/manual/en/function.str-ireplace.php |
 | `str_pad` | implemented | Pads byte strings on the left, right, or both sides with PHP's default right padding and pad-string truncation behavior. Source: https://www.php.net/manual/en/function.str-pad.php |
 | `str_repeat` | implemented | Repeats a string a non-negative number of times and returns the concatenated byte string. Source: https://www.php.net/manual/en/function.str-repeat.php |

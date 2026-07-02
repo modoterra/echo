@@ -455,6 +455,11 @@ pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_str_increment(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, php_string_increment)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_hebrev(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| bytes.to_vec())
 }
@@ -530,6 +535,48 @@ fn soundex_digit(byte: u8) -> Option<u8> {
         b'R' => Some(b'6'),
         _ => None,
     }
+}
+
+fn php_string_increment(bytes: &[u8]) -> Vec<u8> {
+    if bytes.is_empty() || !bytes.iter().all(u8::is_ascii_alphanumeric) {
+        return Vec::new();
+    }
+
+    let mut result = bytes.to_vec();
+    let mut index = result.len();
+    let mut prepend = None;
+
+    while index > 0 {
+        index -= 1;
+        match result[index] {
+            b'0'..=b'8' => {
+                result[index] += 1;
+                return result;
+            }
+            b'9' => {
+                result[index] = b'0';
+                prepend = Some(b'1');
+            }
+            b'a'..=b'y' | b'A'..=b'Y' => {
+                result[index] += 1;
+                return result;
+            }
+            b'z' => {
+                result[index] = b'a';
+                prepend = Some(b'a');
+            }
+            b'Z' => {
+                result[index] = b'A';
+                prepend = Some(b'A');
+            }
+            _ => return Vec::new(),
+        }
+    }
+
+    if let Some(byte) = prepend {
+        result.insert(0, byte);
+    }
+    result
 }
 
 fn similar_text_count(first: &[u8], second: &[u8]) -> usize {

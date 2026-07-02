@@ -103,6 +103,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Applies the ROT13 substitution cipher to the string.",
       },
       {
+        name: "str_increment",
+        signature: "str_increment(string $string): string",
+        description: "Increments an ASCII alphanumeric string using PHP's carry rules.",
+      },
+      {
         name: "hebrev",
         signature: "hebrev(string $string): string",
         description: "Converts Hebrew text from logical to visual order; currently a non-Hebrew identity baseline.",
@@ -3002,6 +3007,12 @@ let $decoded = str_rot13($stored)
 echo $decoded . "\\n"`,
   ],
   [
+    "str_increment",
+    `let $next = str_increment("AZ9")
+
+echo "Next code: " . $next . "\\n"`,
+  ],
+  [
     "hebrev",
     `let $label = hebrev("plain ascii")
 
@@ -4176,6 +4187,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "str_rot13",
     "Use `str_rot13()` only for PHP-compatible ROT13 text transformations such as old fixtures, examples, or reversible non-secret obfuscation.",
+  ],
+  [
+    "str_increment",
+    "Use `str_increment()` for PHP-compatible sequence labels such as spreadsheet-like columns or mixed letter-number counters. Echo currently supports valid ASCII alphanumeric strings.",
   ],
   [
     "hebrev",
@@ -7179,7 +7194,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 274 PHP compatibility fixtures, 309 implemented Core and standard functions out of 607, 298 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 275 PHP compatibility fixtures, 310 implemented Core and standard functions out of 607, 297 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
