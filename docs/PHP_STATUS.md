@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 351 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 352 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 400.
-- Remaining Core + standard functions in inventory: 207.
+- Implemented Core + standard functions in inventory: 401.
+- Remaining Core + standard functions in inventory: 206.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `400 / 607`, or about 66%, for the Core + standard baseline,
+coverage alone is `401 / 607`, or about 66%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~38% | Core + standard function coverage is 400/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~38% | Core + standard function coverage is 401/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -86,6 +86,10 @@ full support for an entire family of PHP functions.
 - Filesystem permission helpers follow the Linux/macOS process model. `umask()`
   changes process-wide state; request-scoped restoration and thread-safety
   diagnostics are deferred.
+- Filesystem identity helpers follow local Linux/macOS metadata. `ftok()`
+  derives System V IPC keys from local inode/device values and the first
+  project-id byte; SysV IPC resource families, warning emission, and
+  cross-platform key parity remain gaps.
 - PHP source stripping currently uses a lexical whitespace/comment baseline.
   Exact `token_get_all()` parity, heredoc/nowdoc handling, inline HTML, and
   syntax-highlight output remain gaps for `php_strip_whitespace()`,

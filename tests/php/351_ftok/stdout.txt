@@ -1,0 +1,4 @@
+type:integer
+stable:1
+missing:-1
+exists:1

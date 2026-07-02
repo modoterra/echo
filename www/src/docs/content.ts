@@ -1279,6 +1279,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the inode number for a local file, or false when metadata cannot be read.",
       },
       {
+        name: "ftok",
+        signature: "ftok(string $filename, string $project_id): int",
+        description: "Builds a System V IPC key from a local file and project id.",
+      },
+      {
         name: "fileowner",
         signature: "fileowner(string $filename): int|false",
         description:
@@ -2444,6 +2449,14 @@ let $groupId = filegroup($report)
 
 if (is_int($groupId)) {
     echo "Group id: " . $groupId . "\\n"
+}`,
+  ],
+  [
+    "ftok",
+    `let $key = ftok("storage/ipc.key", "E")
+
+if ($key !== -1) {
+    echo "IPC key: " . $key . "\\n"
 }`,
   ],
   [
@@ -5206,6 +5219,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "filemtime",
     "Use `filemtime()` for stale-cache checks and asset version strings, where changing file contents should produce a new timestamp-backed URL or rebuild decision.",
+  ],
+  [
+    "ftok",
+    "Use `ftok()` when compatibility code needs a stable System V IPC key derived from a project file. Echo currently uses local Linux/macOS inode and device metadata with the first project-id byte, while SysV IPC resource families, warnings, and cross-platform key parity remain future work.",
   ],
   [
     "fileinode",
@@ -8749,7 +8766,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 351 PHP compatibility fixtures, 400 implemented Core and standard functions out of 607, 207 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 352 PHP compatibility fixtures, 401 implemented Core and standard functions out of 607, 206 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

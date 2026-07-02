@@ -89,10 +89,45 @@ pub extern "C" fn echo_php_stream_resolve_include_path(filename: EchoValue) -> E
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ftok(filename: EchoValue, project_id: EchoValue) -> EchoValue {
+    let Some(filename) = filename.string_bytes() else {
+        return EchoValue::int(-1);
+    };
+    let Some(project_id) = project_id.string_bytes() else {
+        return EchoValue::int(-1);
+    };
+    let Some(project_id) = project_id.first().copied() else {
+        return EchoValue::int(-1);
+    };
+
+    EchoValue::int(path_ftok(&filename, project_id))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_disk_free_space(directory: EchoValue) -> EchoValue {
     path_statvfs_float(directory, |stat| {
         stat.f_bavail.saturating_mul(stat.f_frsize)
     })
+}
+
+#[cfg(unix)]
+fn path_ftok(bytes: &[u8], project_id: u8) -> i64 {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .map(|metadata| {
+            let key = (metadata.ino() & 0xffff)
+                | ((metadata.dev() & 0xff) << 16)
+                | ((project_id as u64 & 0xff) << 24);
+            key as i32 as i64
+        })
+        .unwrap_or(-1)
+}
+
+#[cfg(not(unix))]
+fn path_ftok(_bytes: &[u8], _project_id: u8) -> i64 {
+    -1
 }
 
 #[unsafe(no_mangle)]

@@ -86,6 +86,43 @@ fn stream_resolve_include_path_resolves_existing_local_paths() {
 }
 
 #[test]
+fn ftok_returns_sysv_key_for_existing_local_path() {
+    let temp_dir = std::env::temp_dir().join(format!("echo-runtime-ftok-{}", std::process::id()));
+    let file_path = temp_dir.join("ipc-key.txt");
+    let missing_path = temp_dir.join("missing.txt");
+    std::fs::remove_dir_all(&temp_dir).ok();
+    std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+    std::fs::write(&file_path, b"ipc").expect("write sample file");
+
+    #[cfg(unix)]
+    let expected = {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = std::fs::metadata(&file_path).expect("stat sample file");
+        ((metadata.ino() & 0xffff) | ((metadata.dev() & 0xff) << 16) | ((b'E' as u64) << 24)) as i32
+            as i64
+    };
+    #[cfg(not(unix))]
+    let expected = -1;
+
+    assert_eq!(
+        echo_php_ftok(
+            test_string_value(file_path.to_string_lossy().as_bytes()),
+            test_string_value(b"Echo"),
+        ),
+        EchoValue::int(expected)
+    );
+    assert_eq!(
+        echo_php_ftok(
+            test_string_value(missing_path.to_string_lossy().as_bytes()),
+            test_string_value(b"E"),
+        ),
+        EchoValue::int(-1)
+    );
+
+    std::fs::remove_dir_all(&temp_dir).ok();
+}
+
+#[test]
 fn disk_space_reports_float_counts_for_existing_directories() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let missing_path = manifest_dir.join("definitely_missing_echo_directory");

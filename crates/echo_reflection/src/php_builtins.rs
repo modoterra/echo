@@ -1267,6 +1267,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("stat", &[("filename", Some("string"))], Some("array|false")),
         php_builtin_reflection(
+            "ftok",
+            &[("filename", Some("string")), ("project_id", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "file_get_contents",
             &[
                 ("filename", Some("string")),

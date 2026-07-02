@@ -321,7 +321,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fstat` | implemented | Returns PHP-style numeric and named stat fields for Echo local file stream resources, or false for invalid streams. Source: https://www.php.net/manual/en/function.fstat.php |
 | `fsync` | implemented | Flushes an Echo local file stream and synchronizes file data plus metadata to storage, returning false for invalid or closed streams. Source: https://www.php.net/manual/en/function.fsync.php |
 | `ftell` | implemented | Returns the current byte offset for Echo local file stream resources and `false` for invalid or closed streams. Source: https://www.php.net/manual/en/function.ftell.php |
-| `ftok` | missing |  |
+| `ftok` | partial | Builds a System V IPC key from local Linux/macOS inode/device metadata and the first project-id byte, returning `-1` on missing paths; SysV IPC resource families, PHP warning emission, and cross-platform key parity are deferred. Source: https://www.php.net/manual/en/function.ftok.php |
 | `ftruncate` | implemented | Resizes writable Echo local file stream resources without moving the current file pointer, extending with null bytes when needed. Source: https://www.php.net/manual/en/function.ftruncate.php |
 | `fwrite` | implemented | Writes byte strings to Echo local file stream resources and returns the number of bytes written, with nullable length support. Source: https://www.php.net/manual/en/function.fwrite.php |
 | `get_browser` | missing |  |
