@@ -678,7 +678,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `tanh` | implemented | Returns hyperbolic tangent as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.tanh.php |
 | `tempnam` | implemented | Creates a local temporary file with a unique name and requested prefix, falling back to the host temp directory when the requested directory cannot be used; PHP notices and Windows prefix truncation are deferred. Source: https://www.php.net/manual/en/function.tempnam.php |
 | `time_nanosleep` | partial | Sleeps for valid non-negative seconds plus nanoseconds in the PHP range and returns `true`; signal interruption arrays are deferred. Source: https://www.php.net/manual/en/function.time-nanosleep.php |
-| `time_sleep_until` | missing |  |
+| `time_sleep_until` | partial | Sleeps until a future Unix timestamp and returns `true`, or returns `false` for past timestamps; PHP warning emission and signal details are deferred. Source: https://www.php.net/manual/en/function.time-sleep-until.php |
 | `tmpfile` | implemented | Creates a process-local temporary file stream and removes the backing file when closed. Source: https://www.php.net/manual/en/function.tmpfile.php |
 | `touch` | implemented | Creates missing local files and sets modification/access timestamps with PHP's default timestamp behavior; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.touch.php |
 | `trim` | implemented | Removes PHP's default leading and trailing ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.trim.php |

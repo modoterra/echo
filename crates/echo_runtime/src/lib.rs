@@ -154,7 +154,8 @@ pub use task_group::{echo_task_group_add, echo_task_group_new, echo_task_group_r
 pub use thread::{echo_thread_fork, echo_thread_fork_task, echo_thread_join};
 pub use time::{
     echo_php_gettimeofday, echo_php_hrtime, echo_php_microtime, echo_php_set_time_limit,
-    echo_php_sleep, echo_php_time_nanosleep, echo_php_usleep, echo_time_sleep,
+    echo_php_sleep, echo_php_time_nanosleep, echo_php_time_sleep_until, echo_php_usleep,
+    echo_time_sleep,
 };
 pub(crate) use value::{
     ECHO_VALUE_ARRAY, ECHO_VALUE_BOOL, ECHO_VALUE_ERROR, ECHO_VALUE_FLOAT, ECHO_VALUE_INT,

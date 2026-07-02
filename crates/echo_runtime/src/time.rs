@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{
     EchoValue, echo_runtime_string, echo_value_array_append, echo_value_array_new,
-    echo_value_array_set,
+    echo_value_array_set, php_float_cast,
 };
 
 pub(crate) fn unix_duration_now_or_zero() -> Duration {
@@ -68,6 +68,23 @@ pub extern "C" fn echo_php_time_nanosleep(seconds: EchoValue, nanoseconds: EchoV
     }
 
     let duration = Duration::from_secs(seconds as u64) + Duration::from_nanos(nanoseconds as u64);
+    if !duration.is_zero() {
+        std::thread::sleep(duration);
+    }
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_time_sleep_until(timestamp: EchoValue) -> EchoValue {
+    let Some(timestamp) = php_float_cast(timestamp) else {
+        return EchoValue::error();
+    };
+    let now = unix_duration_now_or_zero().as_secs_f64();
+    if timestamp < now {
+        return EchoValue::bool(false);
+    }
+
+    let duration = Duration::from_secs_f64(timestamp - now);
     if !duration.is_zero() {
         std::thread::sleep(duration);
     }

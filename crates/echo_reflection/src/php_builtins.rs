@@ -261,6 +261,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("seconds", Some("int")), ("nanoseconds", Some("int"))],
             Some("array|bool"),
         ),
+        php_builtin_reflection(
+            "time_sleep_until",
+            &[("timestamp", Some("float"))],
+            Some("bool"),
+        ),
         php_builtin_reflection("set_time_limit", &[("seconds", Some("int"))], Some("bool")),
         php_builtin_reflection("sys_getloadavg", &[], Some("array|false")),
         php_builtin_reflection(

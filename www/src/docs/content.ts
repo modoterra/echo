@@ -1569,6 +1569,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Pauses execution for seconds plus nanoseconds and returns true when the sleep completes.",
       },
       {
+        name: "time_sleep_until",
+        signature: "time_sleep_until(float $timestamp): bool",
+        description:
+          "Pauses execution until a Unix timestamp and returns true when the sleep completes.",
+      },
+      {
         name: "set_time_limit",
         signature: "set_time_limit(int $seconds): bool",
         description:
@@ -2785,6 +2791,14 @@ echo "continued\\n"`,
     "time_nanosleep",
     `if (time_nanosleep(0, 1) === true) {
     echo "Short pause completed\\n"
+}`,
+  ],
+  [
+    "time_sleep_until",
+    `let $wakeAt = microtime(true) + 0.001
+
+if (time_sleep_until($wakeAt)) {
+    echo "Reached wake time\\n"
 }`,
   ],
   [
@@ -5555,6 +5569,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `time_nanosleep()` for PHP-compatible subsecond delay calls that express nanoseconds separately. Echo currently returns `true` for completed sleeps and does not yet report signal interruptions.",
   ],
   [
+    "time_sleep_until",
+    "Use `time_sleep_until()` when compatibility code sleeps until an absolute Unix timestamp. Echo returns `false` for past timestamps and currently omits PHP warning emission.",
+  ],
+  [
     "set_time_limit",
     "Use `set_time_limit()` only when preserving PHP timeout-control calls. Echo currently returns `false` because it does not enforce or reset PHP max execution timers.",
   ],
@@ -7853,7 +7871,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 307 PHP compatibility fixtures, 347 implemented Core and standard functions out of 607, 260 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 308 PHP compatibility fixtures, 348 implemented Core and standard functions out of 607, 259 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
