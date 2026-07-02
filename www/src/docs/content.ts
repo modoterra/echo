@@ -1632,6 +1632,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the Zend Engine compatibility version.",
       },
       {
+        name: "dl",
+        signature: "dl(string $extension_filename): bool",
+        description:
+          "Reports that dynamic PHP extension loading is unavailable in Echo.",
+      },
+      {
         name: "extension_loaded",
         signature: "extension_loaded(string $extension): bool",
         description: "Reports whether a named PHP extension is available.",
@@ -2874,6 +2880,12 @@ echo "System: " . $system . "\\n"`,
     `let $engine = zend_version()
 
 echo "Zend compatibility: " . $engine . "\\n"`,
+  ],
+  [
+    "dl",
+    `if (!dl("sqlite.so")) {
+    echo "Dynamic extension loading is unavailable\\n"
+}`,
   ],
   [
     "extension_loaded",
@@ -5629,6 +5641,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `zend_version()` for legacy diagnostics and version banners that expect a Zend Engine version label.",
   ],
   [
+    "dl",
+    "Use `dl()` only to preserve legacy extension-loading branches. Echo currently returns false because PHP extension loading is not part of the runtime model.",
+  ],
+  [
     "extension_loaded",
     "Use `extension_loaded()` for compatibility branches around optional PHP extensions. Echo currently returns false until extension metadata is modeled.",
   ],
@@ -7887,7 +7903,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 309 PHP compatibility fixtures, 349 implemented Core and standard functions out of 607, 258 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 310 PHP compatibility fixtures, 350 implemented Core and standard functions out of 607, 257 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

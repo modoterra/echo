@@ -263,7 +263,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `disk_free_space` | missing |  |
 | `disk_total_space` | missing |  |
 | `diskfreespace` | missing |  |
-| `dl` | missing |  |
+| `dl` | partial | Accepts an extension filename and returns `false` because Echo does not dynamically load PHP extensions; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.dl.php |
 | `dns_check_record` | missing |  |
 | `dns_get_mx` | missing |  |
 | `dns_get_record` | missing |  |

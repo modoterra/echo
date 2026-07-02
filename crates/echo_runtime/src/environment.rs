@@ -693,6 +693,15 @@ pub extern "C" fn echo_php_zend_version() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_dl(extension_filename: EchoValue) -> EchoValue {
+    let Some(_extension_filename) = extension_filename.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_php_uname(mode: EchoValue) -> EchoValue {
     let mode = mode
         .string_bytes()

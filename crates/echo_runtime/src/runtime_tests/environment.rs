@@ -45,6 +45,10 @@ fn environment_process_builtins_follow_php_shapes() {
         Some(b"8.2.0".to_vec())
     );
     assert_eq!(
+        echo_php_dl(test_string_value(b"missing_echo_extension.so")),
+        EchoValue::bool(false)
+    );
+    assert_eq!(
         echo_php_extension_loaded(test_string_value(b"json")),
         EchoValue::bool(false)
     );

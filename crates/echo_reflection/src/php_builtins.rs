@@ -454,6 +454,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("php_uname", &[("mode", Some("string"))], Some("string")),
         php_builtin_reflection("zend_version", &[], Some("string")),
         php_builtin_reflection(
+            "dl",
+            &[("extension_filename", Some("string"))],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "extension_loaded",
             &[("extension", Some("string"))],
             Some("bool"),
