@@ -1789,6 +1789,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Prints PHP compatibility credit information.",
       },
       {
+        name: "phpinfo",
+        signature: "phpinfo(int $flags = INFO_ALL): true",
+        description: "Prints PHP compatibility configuration information.",
+      },
+      {
         name: "php_uname",
         signature: "php_uname(string $mode): string",
         description: "Returns host system identity information.",
@@ -3263,6 +3268,14 @@ phpcredits(0)
 let $credits = ob_get_clean()
 
 echo "Credits captured: " . strlen($credits) . "\\n"`,
+  ],
+  [
+    "phpinfo",
+    `ob_start()
+phpinfo(0)
+let $info = ob_get_clean()
+
+echo "Info captured: " . strlen($info) . "\\n"`,
   ],
   [
     "zend_version",
@@ -6230,6 +6243,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `phpcredits()` when preserving diagnostics pages or CLI support commands that display PHP credit information. Echo currently emits compact CLI-style compatibility text and leaves exact PHP credit categories and HTML output for later.",
   ],
   [
+    "phpinfo",
+    "Use `phpinfo()` when preserving diagnostics pages or CLI support commands that expect PHP configuration output. Echo currently emits compact CLI-style compatibility information and leaves full flag-specific tables and HTML output for later.",
+  ],
+  [
     "zend_version",
     "Use `zend_version()` for legacy diagnostics and version banners that expect a Zend Engine version label.",
   ],
@@ -8504,7 +8521,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 336 PHP compatibility fixtures, 385 implemented Core and standard functions out of 607, 222 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 337 PHP compatibility fixtures, 386 implemented Core and standard functions out of 607, 221 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

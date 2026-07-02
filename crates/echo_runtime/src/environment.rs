@@ -771,6 +771,17 @@ pub extern "C" fn echo_php_phpcredits(_flags: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_phpinfo(_flags: EchoValue) -> EchoValue {
+    write_runtime_output(
+        format!(
+            "phpinfo()\nPHP Version => {PHP_COMPAT_VERSION}\nSystem => Echo\nServer API => cli\n"
+        )
+        .as_bytes(),
+    );
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_zend_version() -> EchoValue {
     echo_runtime_string(ZEND_COMPAT_VERSION.as_bytes().to_vec())
 }
