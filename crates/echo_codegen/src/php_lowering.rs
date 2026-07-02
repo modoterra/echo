@@ -404,6 +404,7 @@ impl IrModule {
             | BuiltinCodegen::ValueBinaryOptionalContextExpression
             | BuiltinCodegen::ValueUnaryOptionalBoolExpression
             | BuiltinCodegen::ValueUnaryOptionalTrueBoolExpression
+            | BuiltinCodegen::ValueBinaryOptionalIntOneExpression
             | BuiltinCodegen::ValueBinaryOptionalBoolExpression
             | BuiltinCodegen::ValueTernaryOptionalBoolExpression
             | BuiltinCodegen::ValueQuinaryOptionalBoolExpression

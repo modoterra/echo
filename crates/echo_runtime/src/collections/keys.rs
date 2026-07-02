@@ -1,4 +1,7 @@
-use crate::{ECHO_VALUE_PENDING, EchoValue, echo_values_equal, php_values_equal};
+use crate::{
+    ECHO_VALUE_PENDING, ECHO_VALUE_STRING, EchoValue, echo_runtime_string, echo_values_equal,
+    php_values_equal,
+};
 
 use super::{
     EchoArray, EchoArrayKey, echo_value_array_new, echo_value_array_set, next_array_append_key,
@@ -17,6 +20,86 @@ pub extern "C" fn echo_php_array_values(array: EchoValue) -> EchoValue {
     EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(
         array.values.clone(),
     ))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_range(start: EchoValue, end: EchoValue, step: EchoValue) -> EchoValue {
+    if start.kind == ECHO_VALUE_STRING && end.kind == ECHO_VALUE_STRING {
+        let (Some(start_bytes), Some(end_bytes)) = (start.string_bytes(), end.string_bytes())
+        else {
+            return EchoValue::error();
+        };
+        if start_bytes.len() == 1 && end_bytes.len() == 1 {
+            let Some(step) = range_step(step) else {
+                return EchoValue::error();
+            };
+            return byte_range(start_bytes[0], end_bytes[0], step);
+        }
+    }
+
+    let (Some(start), Some(end), Some(step)) =
+        (start.php_int_value(), end.php_int_value(), range_step(step))
+    else {
+        return EchoValue::error();
+    };
+
+    int_range(start, end, step)
+}
+
+fn range_step(step: EchoValue) -> Option<i64> {
+    let step = step.php_int_value()?;
+    if step == 0 { None } else { Some(step.abs()) }
+}
+
+fn int_range(start: i64, end: i64, step: i64) -> EchoValue {
+    let mut result = echo_value_array_new();
+    let mut current = start;
+
+    if start <= end {
+        while current <= end {
+            result = super::echo_value_array_append(result, EchoValue::int(current));
+            let Some(next) = current.checked_add(step) else {
+                break;
+            };
+            current = next;
+        }
+    } else {
+        while current >= end {
+            result = super::echo_value_array_append(result, EchoValue::int(current));
+            let Some(next) = current.checked_sub(step) else {
+                break;
+            };
+            current = next;
+        }
+    }
+
+    result
+}
+
+fn byte_range(start: u8, end: u8, step: i64) -> EchoValue {
+    let mut result = echo_value_array_new();
+    let step = step.min(u8::MAX as i64) as u8;
+    let mut current = start;
+
+    if start <= end {
+        while current <= end {
+            result = super::echo_value_array_append(result, echo_runtime_string(vec![current]));
+            let Some(next) = current.checked_add(step) else {
+                break;
+            };
+            current = next;
+        }
+    } else {
+        while current >= end {
+            result = super::echo_value_array_append(result, echo_runtime_string(vec![current]));
+            let Some(next) = current.checked_sub(step) else {
+                break;
+            };
+            current = next;
+        }
+    }
+
+    result
 }
 
 #[unsafe(no_mangle)]

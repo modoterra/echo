@@ -774,6 +774,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("function", Some("string"))],
             Some("bool"),
         ),
+        php_builtin_reflection(
+            "range",
+            &[
+                ("start", Some("string|int|float")),
+                ("end", Some("string|int|float")),
+                ("step", Some("int|float")),
+            ],
+            Some("array"),
+        ),
         php_builtin_reflection("gettype", &[("value", Some("mixed"))], Some("string")),
         php_builtin_reflection(
             "get_debug_type",

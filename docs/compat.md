@@ -530,7 +530,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `quoted_printable_encode` | implemented | Encodes bytes outside the printable quoted-printable range as uppercase `=XX`; RFC line wrapping and trailing-space line handling are deferred. Source: https://www.php.net/manual/en/function.quoted-printable-encode.php |
 | `quotemeta` | implemented | Prefixes regular expression metacharacters with backslashes for literal matching tasks. Source: https://www.php.net/manual/en/function.quotemeta.php |
 | `rad2deg` | implemented | Converts radians to degrees using PHP-compatible float coercion for current scalar values. Source: https://www.php.net/manual/en/function.rad2deg.php |
-| `range` | missing |  |
+| `range` | partial | Builds integer ranges and one-byte string ranges, including descending ranges and explicit positive step sizes; float ranges, non-finite/zero-step ValueError diagnostics, and PHP warning details for string coercions are deferred. Source: https://www.php.net/manual/en/function.range.php |
 | `rawurldecode` | implemented | Decodes `%XX` byte escapes without converting `+` to a space. Source: https://www.php.net/manual/en/function.rawurldecode.php |
 | `rawurlencode` | implemented | Encodes bytes according to RFC 3986, preserving alphanumerics and `-_.~`. Source: https://www.php.net/manual/en/function.rawurlencode.php |
 | `readdir` | missing |  |

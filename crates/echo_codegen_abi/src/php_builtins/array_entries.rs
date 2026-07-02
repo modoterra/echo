@@ -19,6 +19,14 @@ pub(super) const ARRAY_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "range",
+        symbol: "echo_php_range",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryOptionalIntOneExpression,
+    },
+    PhpBuiltin {
         php_name: "current",
         symbol: "echo_php_current",
         helper_symbol: None,

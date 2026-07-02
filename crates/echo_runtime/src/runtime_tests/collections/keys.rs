@@ -1,5 +1,5 @@
 use super::*;
-use crate::collections::EchoArrayKey;
+use crate::collections::{EchoArrayKey, echo_php_range};
 
 #[test]
 fn array_key_value_and_aggregate_builtins_preserve_php_array_behavior() {
@@ -107,6 +107,40 @@ fn array_fill_builtins_preserve_php_key_construction_behavior() {
             .iter()
             .all(|value| value.string_bytes() == Some(b"todo".to_vec()))
     );
+}
+
+#[test]
+fn range_builds_integer_and_byte_sequences() {
+    let ascending = echo_php_range(EchoValue::int(1), EchoValue::int(5), EchoValue::int(1));
+    let ascending_ref = unsafe { (ascending.payload as *const EchoArray).as_ref() }.expect("array");
+    assert_eq!(
+        ascending_ref.values,
+        vec![
+            EchoValue::int(1),
+            EchoValue::int(2),
+            EchoValue::int(3),
+            EchoValue::int(4),
+            EchoValue::int(5)
+        ]
+    );
+
+    let descending = echo_php_range(EchoValue::int(5), EchoValue::int(1), EchoValue::int(2));
+    let descending_ref =
+        unsafe { (descending.payload as *const EchoArray).as_ref() }.expect("array");
+    assert_eq!(
+        descending_ref.values,
+        vec![EchoValue::int(5), EchoValue::int(3), EchoValue::int(1)]
+    );
+
+    let letters = echo_php_range(
+        test_string_value(b"a"),
+        test_string_value(b"e"),
+        EchoValue::int(2),
+    );
+    let letters_ref = unsafe { (letters.payload as *const EchoArray).as_ref() }.expect("array");
+    assert_eq!(letters_ref.values[0].string_bytes(), Some(b"a".to_vec()));
+    assert_eq!(letters_ref.values[1].string_bytes(), Some(b"c".to_vec()));
+    assert_eq!(letters_ref.values[2].string_bytes(), Some(b"e".to_vec()));
 }
 
 #[test]

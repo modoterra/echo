@@ -508,6 +508,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the input values reindexed from zero.",
       },
       {
+        name: "range",
+        signature: "range(string|int|float $start, string|int|float $end, int|float $step = 1): array",
+        description:
+          "Creates an array containing an integer or one-byte string range.",
+      },
+      {
         name: "current",
         signature: "current(array $array): mixed",
         description:
@@ -3961,6 +3967,12 @@ let $cells = array_values($row)
 echo implode(",", $cells) . "\\n"`,
   ],
   [
+    "range",
+    `let $years = range(2024, 2026)
+
+echo implode(",", $years) . "\\n"`,
+  ],
+  [
     "current",
     `let $queue = ["draft", "review", "ship"]
 let $first = current($queue)
@@ -5226,6 +5238,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "array_values",
     "Use `array_values()` to reindex a filtered or keyed array when downstream code expects consecutive numeric positions.",
+  ],
+  [
+    "range",
+    "Use `range()` to generate small integer or byte-label sequences for compatibility code. Echo currently supports integer and one-byte string ranges while float ranges and PHP warning details are deferred.",
   ],
   [
     "current",
@@ -8053,7 +8069,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 318 PHP compatibility fixtures, 359 implemented Core and standard functions out of 607, 248 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 319 PHP compatibility fixtures, 360 implemented Core and standard functions out of 607, 247 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
