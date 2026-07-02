@@ -1733,6 +1733,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Resolves a hostname to an IPv4 address string, or returns the original hostname when no IPv4 address is found.",
       },
       {
+        name: "gethostbynamel",
+        signature: "gethostbynamel(string $hostname): array|false",
+        description:
+          "Resolves a hostname to a list of IPv4 address strings, or false when no IPv4 address is found.",
+      },
+      {
         name: "getprotobyname",
         signature: "getprotobyname(string $protocol): int|false",
         description: "Looks up an IP protocol number by protocol name or alias.",
@@ -2962,6 +2968,14 @@ echo "Processing import on " . $host . "\\n"`,
     `let $address = gethostbyname("localhost")
 
 echo "Local IPv4 address: " . $address . "\\n"`,
+  ],
+  [
+    "gethostbynamel",
+    `let $addresses = gethostbynamel("localhost")
+
+if ($addresses !== false) {
+    echo "Resolved addresses: " . count($addresses) . "\\n"
+}`,
   ],
   [
     "getprotobyname",
@@ -4554,6 +4568,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "gethostbyname",
     "Use `gethostbyname()` when compatibility code needs the PHP IPv4-only hostname lookup shape. A failed lookup returns the original hostname, so compare the result to the input when failure matters.",
+  ],
+  [
+    "gethostbynamel",
+    "Use `gethostbynamel()` when legacy network code expects all IPv4 addresses for a host. Echo returns `false` for unresolved names, so branch before indexing the returned array.",
   ],
   [
     "getprotobyname",
@@ -7701,7 +7719,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 301 PHP compatibility fixtures, 338 implemented Core and standard functions out of 607, 269 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 302 PHP compatibility fixtures, 339 implemented Core and standard functions out of 607, 268 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

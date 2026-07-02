@@ -336,7 +336,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getenv` | implemented | Returns a named environment value, all environment variables as an associative array when omitted/null, or `false` for a missing name; SAPI-local distinctions are not modeled. Source: https://www.php.net/manual/en/function.getenv.php |
 | `gethostbyaddr` | missing |  |
 | `gethostbyname` | implemented | Resolves hostnames to IPv4 strings and returns the original hostname when no IPv4 address can be found. Source: https://www.php.net/manual/en/function.gethostbyname.php |
-| `gethostbynamel` | missing |  |
+| `gethostbynamel` | implemented | Resolves hostnames to an array of IPv4 strings and returns `false` when no IPv4 address can be found. Source: https://www.php.net/manual/en/function.gethostbynamel.php |
 | `gethostname` | implemented | Returns the local host name as a string when the host can report one, otherwise `false`. Source: https://www.php.net/manual/en/function.gethostname.php |
 | `getimagesize` | missing |  |
 | `getimagesizefromstring` | missing |  |

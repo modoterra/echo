@@ -247,6 +247,24 @@ fn gethostbyname_returns_ipv4_or_original_hostname() {
 }
 
 #[test]
+fn gethostbynamel_returns_ipv4_array_or_false() {
+    let local = echo_php_gethostbynamel(test_string_value(b"localhost"));
+    assert!(local.is_array());
+    assert_eq!(
+        echo_php_in_array(
+            test_string_value(b"127.0.0.1"),
+            local,
+            EchoValue::bool(true)
+        ),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_php_gethostbynamel(test_string_value(b"echo.invalid")),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn inet_packed_address_builtins_round_trip_ipv4_and_ipv6() {
     assert_eq!(
         echo_php_bin2hex(echo_php_inet_pton(test_string_value(b"127.0.0.1"))).string_bytes(),

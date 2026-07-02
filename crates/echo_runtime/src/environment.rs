@@ -72,6 +72,27 @@ pub extern "C" fn echo_php_gethostbyname(hostname: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_gethostbynamel(hostname: EchoValue) -> EchoValue {
+    let Some(bytes) = hostname.string_bytes() else {
+        return EchoValue::error();
+    };
+    let lookup_bytes = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .map_or(bytes.as_slice(), |nul| &bytes[..nul]);
+
+    let Some(addresses) = resolve_ipv4_hosts(lookup_bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    let mut result = echo_value_array_new();
+    for address in addresses {
+        result = echo_value_array_append(result, echo_runtime_string(address));
+    }
+    result
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
     let Some(name) = name.string_bytes() else {
         return EchoValue::bool(false);
@@ -83,14 +104,25 @@ pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
 }
 
 fn resolve_ipv4_host(hostname: &[u8]) -> Option<Vec<u8>> {
+    resolve_ipv4_hosts(hostname).and_then(|addresses| addresses.into_iter().next())
+}
+
+fn resolve_ipv4_hosts(hostname: &[u8]) -> Option<Vec<Vec<u8>>> {
     let hostname = std::str::from_utf8(hostname).ok()?;
-    (hostname, 0)
-        .to_socket_addrs()
-        .ok()?
-        .find_map(|address| match address.ip() {
-            IpAddr::V4(address) => Some(address.to_string().into_bytes()),
-            IpAddr::V6(_) => None,
-        })
+    let mut addresses = Vec::new();
+    for address in (hostname, 0).to_socket_addrs().ok()? {
+        if let IpAddr::V4(address) = address.ip() {
+            let bytes = address.to_string().into_bytes();
+            if !addresses.contains(&bytes) {
+                addresses.push(bytes);
+            }
+        }
+    }
+    if addresses.is_empty() {
+        None
+    } else {
+        Some(addresses)
+    }
 }
 
 #[unsafe(no_mangle)]
