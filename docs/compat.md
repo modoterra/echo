@@ -457,7 +457,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `max` | missing |  |
 | `md5` | implemented | Returns a lowercase 32-character MD5 digest by default and raw 16-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.md5.php |
 | `md5_file` | implemented | Hashes local files with optional raw output and returns `false` for missing files. Source: https://www.php.net/manual/en/function.md5-file.php |
-| `memory_get_peak_usage` | missing |  |
+| `memory_get_peak_usage` | partial | Returns the peak process resident memory in bytes on Linux using `/proc/self/status`, or `0` when unavailable; PHP's Zend allocator accounting and `real_usage` mode are deferred. Source: https://www.php.net/manual/en/function.memory-get-peak-usage.php |
 | `memory_get_usage` | partial | Returns the current process resident memory in bytes on Linux using `/proc/self/status`, or `0` when unavailable; PHP's Zend allocator accounting and `real_usage` mode are deferred. Source: https://www.php.net/manual/en/function.memory-get-usage.php |
 | `memory_reset_peak_usage` | missing |  |
 | `metaphone` | missing |  |

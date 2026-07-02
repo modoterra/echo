@@ -111,6 +111,11 @@ pub extern "C" fn echo_php_memory_get_usage() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_memory_get_peak_usage() -> EchoValue {
+    EchoValue::int(peak_resident_memory_bytes().unwrap_or(0))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }
@@ -467,6 +472,16 @@ fn current_resident_memory_bytes() -> Option<i64> {
 
 #[cfg(not(target_os = "linux"))]
 fn current_resident_memory_bytes() -> Option<i64> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn peak_resident_memory_bytes() -> Option<i64> {
+    proc_self_status_kb("VmHWM").and_then(|kb| kb.checked_mul(1024))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn peak_resident_memory_bytes() -> Option<i64> {
     None
 }
 
