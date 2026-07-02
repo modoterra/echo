@@ -230,6 +230,11 @@ pub extern "C" fn echo_php_ob_get_status(full_status: EchoValue) -> EchoValue {
     })
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_output_reset_rewrite_vars() -> EchoValue {
+    EchoValue::bool(true)
+}
+
 fn output_buffer_status_array(status: buffer::OutputBufferStatus) -> EchoValue {
     let mut result = echo_value_array_new();
     result = echo_value_array_set(

@@ -70,5 +70,10 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_ob_list_handlers as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,
         ),
+        (
+            "echo_php_output_reset_rewrite_vars",
+            echo_runtime::echo_php_output_reset_rewrite_vars
+                as extern "C" fn() -> echo_runtime::EchoValue as usize,
+        ),
     ]
 }

@@ -467,6 +467,14 @@ mod tests {
     }
 
     #[test]
+    fn output_reset_rewrite_vars_is_noop_success_baseline() {
+        assert_eq!(
+            crate::echo_php_output_reset_rewrite_vars(),
+            crate::EchoValue::bool(true)
+        );
+    }
+
+    #[test]
     fn get_length_returns_active_buffer_byte_length() {
         let mut runtime = OutputRuntime::new();
         let mut stdout = Vec::new();

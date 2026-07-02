@@ -113,8 +113,8 @@ pub use output::{
     echo_php_ob_flush, echo_php_ob_get_clean, echo_php_ob_get_contents, echo_php_ob_get_flush,
     echo_php_ob_get_length, echo_php_ob_get_level, echo_php_ob_get_status,
     echo_php_ob_implicit_flush, echo_php_ob_list_handlers, echo_php_ob_start,
-    echo_php_ob_start_value, echo_shutdown, echo_write, echo_write_i64, echo_write_i64_or_false,
-    echo_write_string, echo_write_value,
+    echo_php_ob_start_value, echo_php_output_reset_rewrite_vars, echo_shutdown, echo_write,
+    echo_write_i64, echo_write_i64_or_false, echo_write_string, echo_write_value,
 };
 pub use process::{echo_process_join, echo_process_spawn};
 pub use reflection::{

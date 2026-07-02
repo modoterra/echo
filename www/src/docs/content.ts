@@ -1535,6 +1535,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         signature: "ob_implicit_flush(bool $enable): void",
         description: "Enables or disables implicit flushing after output calls.",
       },
+      {
+        name: "output_reset_rewrite_vars",
+        signature: "output_reset_rewrite_vars(): bool",
+        description:
+          "Clears URL rewriter variables; Echo currently treats this as a successful no-op.",
+      },
     ],
   },
   {
@@ -3367,6 +3373,12 @@ echo "Handlers: " . implode(",", $handlers) . "\\n"`,
 
 echo "Progress: 50%\\n"
 echo "Progress: 100%\\n"`,
+  ],
+  [
+    "output_reset_rewrite_vars",
+    `if (output_reset_rewrite_vars()) {
+    echo "URL rewrite vars cleared\\n"
+}`,
   ],
   [
     "ob_start",
@@ -5600,6 +5612,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ob_implicit_flush",
     "Use `ob_implicit_flush()` when streaming-style output should flush after each write instead of waiting for manual flush calls.",
+  ],
+  [
+    "output_reset_rewrite_vars",
+    "Use `output_reset_rewrite_vars()` to preserve legacy cleanup calls around URL rewriting. Echo currently reports success while URL-Rewriter output handling is still deferred.",
   ],
   [
     "define",
@@ -7940,7 +7956,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 312 PHP compatibility fixtures, 352 implemented Core and standard functions out of 607, 255 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 313 PHP compatibility fixtures, 353 implemented Core and standard functions out of 607, 254 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

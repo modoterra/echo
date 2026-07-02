@@ -573,6 +573,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array"),
         ),
         php_builtin_reflection("ob_list_handlers", &[], Some("array")),
+        php_builtin_reflection("output_reset_rewrite_vars", &[], Some("bool")),
         php_builtin_reflection("strlen", &[("string", Some("string"))], Some("int")),
         php_builtin_reflection("str_word_count", &[("string", Some("string"))], Some("int")),
         php_builtin_reflection(
