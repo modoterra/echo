@@ -596,7 +596,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `str_starts_with` | implemented | Performs binary-safe prefix checks, including PHP's empty-needle true behavior. Source: https://www.php.net/manual/en/function.str-starts-with.php |
 | `str_word_count` | partial | Default count mode for ASCII words is implemented; PHP array return modes and the `characters` parameter are not implemented yet. See <https://www.php.net/manual/en/function.str-word-count.php>. |
 | `strchr` | implemented | Alias of `strstr`. |
-| `strcoll` | missing |  |
+| `strcoll` | partial | Uses the C/POSIX locale byte-order baseline, matching `strcmp()` for current Echo locale behavior; locale state, `setlocale()`, and platform collation differences are deferred. Source: https://www.php.net/manual/en/function.strcoll.php |
 | `strcspn` | implemented | Counts the initial byte span containing none of the bytes from the mask string. Source: https://www.php.net/manual/en/function.strcspn.php |
 | `stream_bucket_append` | missing |  |
 | `stream_bucket_make_writeable` | missing |  |

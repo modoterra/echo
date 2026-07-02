@@ -78,6 +78,11 @@ pub extern "C" fn echo_php_strcmp(left: EchoValue, right: EchoValue) -> EchoValu
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_strcoll(left: EchoValue, right: EchoValue) -> EchoValue {
+    echo_php_strcmp(left, right)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_strcasecmp(left: EchoValue, right: EchoValue) -> EchoValue {
     let Some(left) = left.string_bytes() else {
         return EchoValue::error();

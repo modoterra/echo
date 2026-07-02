@@ -659,6 +659,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueBinaryExpression,
     },
     PhpBuiltin {
+        php_name: "strcoll",
+        symbol: "echo_php_strcoll",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueBinaryExpression,
+    },
+    PhpBuiltin {
         php_name: "strcasecmp",
         symbol: "echo_php_strcasecmp",
         helper_symbol: None,

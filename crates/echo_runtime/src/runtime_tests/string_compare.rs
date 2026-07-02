@@ -59,6 +59,10 @@ fn strcmp_preserves_php_byte_sign_behavior() {
         echo_php_strcmp(EchoValue::string(numeric_left), EchoValue::int(123)),
         EchoValue::int(0)
     );
+    assert_eq!(
+        echo_php_strcoll(EchoValue::string(less_left), EchoValue::string(less_right)),
+        EchoValue::int(-1)
+    );
 
     unsafe {
         drop(Box::from_raw(less_left));

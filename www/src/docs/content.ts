@@ -411,6 +411,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Binary-safe string comparison.",
       },
       {
+        name: "strcoll",
+        signature: "strcoll(string $string1, string $string2): int",
+        description: "Locale-aware string comparison.",
+      },
+      {
         name: "strcasecmp",
         signature: "strcasecmp(string $string1, string $string2): int",
         description: "Binary-safe case-insensitive string comparison.",
@@ -3913,6 +3918,15 @@ let $result = strcmp($expected, $actual)
 echo "Algorithm compare: " . $result . "\\n"`,
   ],
   [
+    "strcoll",
+    `let $left = "Alpha"
+let $right = "Beta"
+
+if (strcoll($left, $right) < 0) {
+    echo "Alpha sorts first\\n"
+}`,
+  ],
+  [
     "strchr",
     `let $header = "Content-Type: text/html"
 let $value = strchr($header, ":")
@@ -5615,6 +5629,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "strcmp",
     "Use `strcmp()` for exact binary-safe ordering or equality checks where PHP's string comparison result is part of compatibility behavior.",
+  ],
+  [
+    "strcoll",
+    "Use `strcoll()` when compatibility code calls PHP's locale-aware comparator. Echo currently follows the C/POSIX byte-order baseline and leaves `setlocale()`-driven collation for later.",
   ],
   [
     "strcasecmp",
@@ -8538,7 +8556,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 338 PHP compatibility fixtures, 387 implemented Core and standard functions out of 607, 220 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 339 PHP compatibility fixtures, 388 implemented Core and standard functions out of 607, 219 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

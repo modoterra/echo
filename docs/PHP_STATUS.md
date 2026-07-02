@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 338 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 339 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 387.
-- Remaining Core + standard functions in inventory: 220.
+- Implemented Core + standard functions in inventory: 388.
+- Remaining Core + standard functions in inventory: 219.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `387 / 607`, or about 64%, for the Core + standard baseline,
+coverage alone is `388 / 607`, or about 64%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 387/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 388/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -135,6 +135,9 @@ full support for an entire family of PHP functions.
   for explicit three-argument calls. Optional operator argument lowering,
   stricter case-sensitive label parity, invalid-operator null behavior, and
   unusual punctuation edge cases remain gaps for `version_compare()`.
+- Locale-aware collation is not modeled yet. `strcoll()` currently follows the
+  C/POSIX locale byte-order baseline; `setlocale()`, locale categories, and
+  platform collation differences remain gaps for locale-sensitive string APIs.
 - Some expression-returning PHP built-ins still cannot be used as standalone
   statement calls through LLVM lowering. This blocks idiomatic cleanup calls
   such as `file_put_contents(...)` or `unlink(...)` as bare statements until
