@@ -177,6 +177,30 @@ pub extern "C" fn echo_php_fflush(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fsync(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(file.flush().and_then(|()| file.sync_all()).is_ok())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fdatasync(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(file.flush().and_then(|()| file.sync_data()).is_ok())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fwrite(
     stream: EchoValue,
     data: EchoValue,

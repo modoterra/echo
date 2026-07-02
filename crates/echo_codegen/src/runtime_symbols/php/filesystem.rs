@@ -232,6 +232,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_fdatasync",
+            echo_runtime::echo_php_fdatasync
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_fwrite",
             echo_runtime::echo_php_fwrite
                 as extern "C" fn(
@@ -249,6 +255,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
         (
             "echo_php_fstat",
             echo_runtime::echo_php_fstat
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_fsync",
+            echo_runtime::echo_php_fsync
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
                 as usize,
         ),

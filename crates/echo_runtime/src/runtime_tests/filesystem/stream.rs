@@ -274,6 +274,48 @@ fn fstat_reports_stat_array_for_open_stream() {
 }
 
 #[test]
+fn fsync_and_fdatasync_sync_open_streams() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-sync-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-sync.txt");
+
+    let path_value = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path_value),
+        test_string_value(b"w+"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(
+        echo_php_fwrite(stream, test_string_value(b"abc"), EchoValue::null()),
+        EchoValue::int(3)
+    );
+    assert_eq!(echo_php_fdatasync(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_fwrite(stream, test_string_value(b"def"), EchoValue::null()),
+        EchoValue::int(3)
+    );
+    assert_eq!(echo_php_fsync(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_fdatasync(stream), EchoValue::bool(false));
+    assert_eq!(echo_php_fsync(stream), EchoValue::bool(false));
+    assert_eq!(
+        std::fs::read(&path).expect("read synced fixture"),
+        b"abcdef"
+    );
+
+    unsafe {
+        drop(Box::from_raw(path_value));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn fopen_rejects_unsupported_mode() {
     let temp_file = std::env::temp_dir().join(format!(
         "echo-runtime-stream-mode-{}.txt",

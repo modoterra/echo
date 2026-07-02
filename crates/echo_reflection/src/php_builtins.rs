@@ -1171,6 +1171,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("array|false"),
         ),
         php_builtin_reflection("fclose", &[("stream", Some("resource"))], Some("bool")),
+        php_builtin_reflection("fdatasync", &[("stream", Some("resource"))], Some("bool")),
         php_builtin_reflection("ftell", &[("stream", Some("resource"))], Some("int|false")),
         php_builtin_reflection(
             "fseek",
@@ -1178,6 +1179,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection("rewind", &[("stream", Some("resource"))], Some("bool")),
+        php_builtin_reflection("fsync", &[("stream", Some("resource"))], Some("bool")),
         php_builtin_reflection(
             "stream_get_contents",
             &[

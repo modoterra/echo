@@ -339,6 +339,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "fdatasync",
+        symbol: "echo_php_fdatasync",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "ftell",
         symbol: "echo_php_ftell",
         helper_symbol: None,
@@ -357,6 +365,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
     PhpBuiltin {
         php_name: "rewind",
         symbol: "echo_php_rewind",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
+        php_name: "fsync",
+        symbol: "echo_php_fsync",
         helper_symbol: None,
         signature: RuntimeSignature::EchoValueEchoValue,
         lowering: BuiltinLowering::DirectRuntimeCall,

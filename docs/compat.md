@@ -280,7 +280,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `expm1` | implemented | Calculates exp(num) - 1 with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.expm1.php |
 | `extract` | missing |  |
 | `fclose` | implemented | Closes Echo's local file stream resources and returns a bool success value; broader PHP stream wrappers are deferred. Source: https://www.php.net/manual/en/function.fclose.php |
-| `fdatasync` | missing |  |
+| `fdatasync` | implemented | Flushes an Echo local file stream and synchronizes file data to storage, returning false for invalid or closed streams. Source: https://www.php.net/manual/en/function.fdatasync.php |
 | `fdiv` | implemented | Divides two numeric values as IEEE 754 floats, returning `INF`, `-INF`, or `NAN` for zero-divisor cases instead of raising division errors. Source: https://www.php.net/manual/en/function.fdiv.php |
 | `feof` | implemented | Reports whether an Echo local file stream has attempted to read past EOF, and resets after `fseek()`/`rewind()` repositioning. Source: https://www.php.net/manual/en/function.feof.php |
 | `fflush` | implemented | Flushes Echo local file stream resources and returns a bool success value. Source: https://www.php.net/manual/en/function.fflush.php |
@@ -319,7 +319,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fseek` | partial | Seeks Echo local file stream resources from the beginning of the file and returns `0` on success or `-1` on failure; `whence` modes are deferred. Source: https://www.php.net/manual/en/function.fseek.php |
 | `fsockopen` | missing |  |
 | `fstat` | implemented | Returns PHP-style numeric and named stat fields for Echo local file stream resources, or false for invalid streams. Source: https://www.php.net/manual/en/function.fstat.php |
-| `fsync` | missing |  |
+| `fsync` | implemented | Flushes an Echo local file stream and synchronizes file data plus metadata to storage, returning false for invalid or closed streams. Source: https://www.php.net/manual/en/function.fsync.php |
 | `ftell` | implemented | Returns the current byte offset for Echo local file stream resources and `false` for invalid or closed streams. Source: https://www.php.net/manual/en/function.ftell.php |
 | `ftok` | missing |  |
 | `ftruncate` | missing |  |
