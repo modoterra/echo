@@ -26,6 +26,14 @@ fn utf8_encode_converts_latin1_bytes_to_utf8() {
 }
 
 #[test]
+fn utf8_decode_converts_utf8_to_latin1_with_replacement() {
+    assert_eq!(
+        echo_php_bin2hex(echo_php_utf8_decode(test_string_value("Zoë€".as_bytes()))).string_bytes(),
+        Some("5a6feb3f".as_bytes().to_vec())
+    );
+}
+
+#[test]
 fn checksum_builtins_preserve_php_byte_behavior() {
     assert_eq!(
         echo_php_crc32(test_string_value(b"Echo\nPHP")),

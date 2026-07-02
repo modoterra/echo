@@ -74,6 +74,67 @@ pub extern "C" fn echo_php_utf8_encode(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_utf8_decode(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, utf8_decode_latin1_bytes)
+}
+
+fn utf8_decode_latin1_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        let first = bytes[index];
+        if first < 0x80 {
+            decoded.push(first);
+            index += 1;
+            continue;
+        }
+
+        let Some((codepoint, len)) = decode_utf8_codepoint(&bytes[index..]) else {
+            decoded.push(b'?');
+            index += 1;
+            continue;
+        };
+
+        if codepoint <= 0xff {
+            decoded.push(codepoint as u8);
+        } else {
+            decoded.push(b'?');
+        }
+        index += len;
+    }
+
+    decoded
+}
+
+fn decode_utf8_codepoint(bytes: &[u8]) -> Option<(u32, usize)> {
+    let first = *bytes.first()?;
+    let (mut codepoint, len, min) = match first {
+        0xc2..=0xdf => ((first & 0x1f) as u32, 2, 0x80),
+        0xe0..=0xef => ((first & 0x0f) as u32, 3, 0x800),
+        0xf0..=0xf4 => ((first & 0x07) as u32, 4, 0x10000),
+        _ => return None,
+    };
+
+    if bytes.len() < len {
+        return None;
+    }
+
+    for continuation in &bytes[1..len] {
+        if continuation & 0xc0 != 0x80 {
+            return None;
+        }
+        codepoint = (codepoint << 6) | (continuation & 0x3f) as u32;
+    }
+
+    if codepoint < min || (0xd800..=0xdfff).contains(&codepoint) || codepoint > 0x10ffff {
+        return None;
+    }
+
+    Some((codepoint, len))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_crc32(value: EchoValue) -> EchoValue {
     match value.string_bytes() {
         Some(bytes) => {

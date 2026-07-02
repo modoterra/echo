@@ -155,6 +155,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Converts ISO-8859-1 bytes to UTF-8 bytes for legacy PHP compatibility.",
       },
       {
+        name: "utf8_decode",
+        signature: "utf8_decode(string $string): string",
+        description:
+          "Converts UTF-8 bytes to ISO-8859-1 bytes with PHP-style replacement.",
+      },
+      {
         name: "hex2bin",
         signature: "hex2bin(string $string): string|false",
         description: "Converts a hexadecimal string back into bytes.",
@@ -2016,6 +2022,12 @@ echo "trace-" . $traceId . "\\n"`,
 let $utf8 = utf8_encode($latin1)
 
 echo bin2hex($utf8) . "\\n"`,
+  ],
+  [
+    "utf8_decode",
+    `let $latin1 = utf8_decode("Zoë€")
+
+echo bin2hex($latin1) . "\\n"`,
   ],
   [
     "boolval",
@@ -4950,6 +4962,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "utf8_encode",
     "Use `utf8_encode()` only for legacy PHP data that is known to be ISO-8859-1. The PHP function is deprecated upstream and does not detect Windows-1252 or other encodings.",
+  ],
+  [
+    "utf8_decode",
+    "Use `utf8_decode()` only for legacy PHP data that is known to be UTF-8 and needs ISO-8859-1 bytes. Characters outside Latin-1 become `?`, matching PHP.",
   ],
   [
     "hex2bin",
@@ -7989,7 +8005,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 315 PHP compatibility fixtures, 355 implemented Core and standard functions out of 607, 252 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 316 PHP compatibility fixtures, 356 implemented Core and standard functions out of 607, 251 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

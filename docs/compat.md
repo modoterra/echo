@@ -696,7 +696,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `urlencode` | implemented | Encodes form/query strings with spaces as `+` and non-alphanumerics except `-_.` as `%XX`. Source: https://www.php.net/manual/en/function.urlencode.php |
 | `usleep` | partial | Sleeps for non-negative microseconds and returns `null`; platform timer precision and signal interruption behavior are deferred. Source: https://www.php.net/manual/en/function.usleep.php |
 | `usort` | missing |  |
-| `utf8_decode` | missing |  |
+| `utf8_decode` | implemented | Converts valid UTF-8 bytes to ISO-8859-1 bytes and replaces invalid or unrepresentable characters with `?`, preserving PHP's deprecated behavior. Source: https://www.php.net/manual/en/function.utf8-decode.php |
 | `utf8_encode` | implemented | Converts ISO-8859-1 bytes to UTF-8 bytes and preserves PHP's deprecated Latin-1-only behavior. Source: https://www.php.net/manual/en/function.utf8-encode.php |
 | `var_dump` | missing |  |
 | `var_export` | missing |  |
