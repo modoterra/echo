@@ -436,7 +436,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `log10` | implemented | Calculates base-10 logarithms with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.log10.php |
 | `log1p` | implemented | Calculates log(1 + num) with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.log1p.php |
 | `long2ip` | implemented | Converts signed or unsigned 32-bit integer values to canonical dotted IPv4 strings. Source: https://www.php.net/manual/en/function.long2ip.php |
-| `lstat` | missing |  |
+| `lstat` | partial | Returns PHP-style numeric and named local filesystem stat fields from `symlink_metadata` and returns `false` for missing paths; PHP warning emission is deferred. Source: https://www.php.net/manual/en/function.lstat.php |
 | `ltrim` | implemented | Removes PHP's default leading ASCII whitespace bytes; custom character masks are deferred. Source: https://www.php.net/manual/en/function.ltrim.php |
 | `mail` | partial | Accepts required `to`, `subject`, and `message` string arguments and returns `false` because Echo has no configured mail transport; additional headers, parameters, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mail.php |
 | `hash` | implemented | Dispatches supported hash algorithms and returns raw bytes with `raw_output=true`, otherwise lowercase hex. Source: https://www.php.net/manual/en/function.hash.php |

@@ -1171,6 +1171,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the local file type, such as file, dir, link, socket, fifo, block, char, or unknown.",
       },
       {
+        name: "lstat",
+        signature: "lstat(string $filename): array|false",
+        description:
+          "Returns local filesystem stat fields for a path without following symbolic links.",
+      },
+      {
         name: "file_get_contents",
         signature:
           "file_get_contents(string $filename, bool $use_include_path, ?resource $context, int $offset, ?int $length): string|false",
@@ -1971,6 +1977,14 @@ let $header = file_get_contents($report, false, null, 0, 64)
 
 if (is_string($header)) {
     echo "Report header preview: " . $header . "\\n"
+}`,
+  ],
+  [
+    "lstat",
+    `let $stat = lstat("storage/reports/latest.csv")
+
+if (is_array($stat)) {
+    echo "Report bytes: " . $stat["size"] . "\\n"
 }`,
   ],
   [
@@ -3895,6 +3909,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "fnmatch",
     "Use `fnmatch()` for simple filename filters such as `*.csv` or `file?.txt`. Echo currently supports `*` and `?` matching and leaves PHP's flag-controlled variants for later.",
+  ],
+  [
+    "lstat",
+    "Use `lstat()` when compatibility code needs filesystem metadata for a path while preserving symlink identity. Echo returns PHP's numeric and named stat fields and currently omits PHP warning emission for missing paths.",
   ],
   [
     "clearstatcache",
@@ -7146,7 +7164,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 272 PHP compatibility fixtures, 307 implemented Core and standard functions out of 607, 300 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 273 PHP compatibility fixtures, 308 implemented Core and standard functions out of 607, 299 remaining, and about 51% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

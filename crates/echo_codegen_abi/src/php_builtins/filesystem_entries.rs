@@ -219,6 +219,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "lstat",
+        symbol: "echo_php_lstat",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "file_get_contents",
         symbol: "echo_php_file_get_contents",
         helper_symbol: None,

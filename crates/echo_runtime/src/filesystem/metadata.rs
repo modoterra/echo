@@ -1,4 +1,5 @@
-use crate::{EchoValue, echo_runtime_string};
+use crate::collections::EchoArrayKey;
+use crate::{EchoArray, EchoValue, echo_runtime_string};
 use std::env;
 #[cfg(unix)]
 use std::ffi::OsStr;
@@ -82,6 +83,16 @@ pub extern "C" fn echo_php_fileperms(filename: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_filetype(filename: EchoValue) -> EchoValue {
     path_bytes_builtin(filename, path_filetype)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_lstat(filename: EchoValue) -> EchoValue {
+    match filename.string_bytes() {
+        Some(bytes) => path_lstat(&bytes)
+            .map(stat_array)
+            .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
 }
 
 fn path_bool_builtin(filename: EchoValue, f: impl FnOnce(&[u8]) -> bool) -> EchoValue {
@@ -427,6 +438,108 @@ fn path_filetype(bytes: &[u8]) -> Option<Vec<u8>> {
         "unknown"
     };
     Some(name.as_bytes().to_vec())
+}
+
+#[derive(Clone, Copy)]
+struct PhpStat {
+    dev: i64,
+    ino: i64,
+    mode: i64,
+    nlink: i64,
+    uid: i64,
+    gid: i64,
+    rdev: i64,
+    size: i64,
+    atime: i64,
+    mtime: i64,
+    ctime: i64,
+    blksize: i64,
+    blocks: i64,
+}
+
+fn stat_array(stat: PhpStat) -> EchoValue {
+    let fields = [
+        ("dev", stat.dev),
+        ("ino", stat.ino),
+        ("mode", stat.mode),
+        ("nlink", stat.nlink),
+        ("uid", stat.uid),
+        ("gid", stat.gid),
+        ("rdev", stat.rdev),
+        ("size", stat.size),
+        ("atime", stat.atime),
+        ("mtime", stat.mtime),
+        ("ctime", stat.ctime),
+        ("blksize", stat.blksize),
+        ("blocks", stat.blocks),
+    ];
+    let mut keys = Vec::with_capacity(fields.len() * 2);
+    let mut values = Vec::with_capacity(fields.len() * 2);
+    for (index, (_, value)) in fields.iter().enumerate() {
+        keys.push(EchoArrayKey::Int(index as i64));
+        values.push(EchoValue::int(*value));
+    }
+    for (name, value) in fields {
+        keys.push(EchoArrayKey::String(name.as_bytes().to_vec()));
+        values.push(EchoValue::int(value));
+    }
+
+    EchoValue::array(Box::into_raw(Box::new(EchoArray { keys, values })))
+}
+
+#[cfg(unix)]
+fn path_lstat(bytes: &[u8]) -> Option<PhpStat> {
+    use std::os::unix::fs::MetadataExt;
+
+    let metadata = std::fs::symlink_metadata(Path::new(OsStr::from_bytes(bytes))).ok()?;
+    Some(PhpStat {
+        dev: metadata.dev() as i64,
+        ino: i64::try_from(metadata.ino()).ok()?,
+        mode: metadata.mode() as i64,
+        nlink: metadata.nlink() as i64,
+        uid: metadata.uid() as i64,
+        gid: metadata.gid() as i64,
+        rdev: metadata.rdev() as i64,
+        size: i64::try_from(metadata.size()).ok()?,
+        atime: metadata.atime(),
+        mtime: metadata.mtime(),
+        ctime: metadata.ctime(),
+        blksize: metadata.blksize() as i64,
+        blocks: metadata.blocks() as i64,
+    })
+}
+
+#[cfg(not(unix))]
+fn path_lstat(bytes: &[u8]) -> Option<PhpStat> {
+    let path = std::str::from_utf8(bytes).ok()?;
+    let metadata = std::fs::symlink_metadata(Path::new(path)).ok()?;
+    Some(PhpStat {
+        dev: 0,
+        ino: 0,
+        mode: 0,
+        nlink: 0,
+        uid: 0,
+        gid: 0,
+        rdev: 0,
+        size: i64::try_from(metadata.len()).ok()?,
+        atime: metadata
+            .accessed()
+            .ok()
+            .and_then(crate::time::system_time_unix_timestamp)
+            .unwrap_or(0),
+        mtime: metadata
+            .modified()
+            .ok()
+            .and_then(crate::time::system_time_unix_timestamp)
+            .unwrap_or(0),
+        ctime: metadata
+            .created()
+            .ok()
+            .and_then(crate::time::system_time_unix_timestamp)
+            .unwrap_or(0),
+        blksize: 0,
+        blocks: 0,
+    })
 }
 
 #[cfg(not(unix))]
