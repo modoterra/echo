@@ -67,6 +67,83 @@ pub extern "C" fn echo_php_closelog() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_image_type_to_extension(
+    image_type: EchoValue,
+    include_dot: EchoValue,
+) -> EchoValue {
+    let Some(image_type) = image_type.php_int_value() else {
+        return EchoValue::bool(false);
+    };
+    let Some(extension) = image_type_extension(image_type) else {
+        return EchoValue::bool(false);
+    };
+
+    let mut bytes = Vec::new();
+    if include_dot.bool_value().unwrap_or(true) {
+        bytes.push(b'.');
+    }
+    bytes.extend_from_slice(extension);
+    echo_runtime_string(bytes)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_image_type_to_mime_type(image_type: EchoValue) -> EchoValue {
+    let Some(image_type) = image_type.php_int_value() else {
+        return EchoValue::bool(false);
+    };
+    image_type_mime_type(image_type)
+        .map(|mime_type| echo_runtime_string(mime_type.to_vec()))
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+fn image_type_extension(image_type: i64) -> Option<&'static [u8]> {
+    match image_type {
+        1 => Some(b"gif"),
+        2 => Some(b"jpeg"),
+        3 => Some(b"png"),
+        4 => Some(b"swf"),
+        5 => Some(b"psd"),
+        6 => Some(b"bmp"),
+        7 | 8 => Some(b"tiff"),
+        9 => Some(b"jpc"),
+        10 => Some(b"jp2"),
+        11 => Some(b"jpx"),
+        12 => Some(b"jb2"),
+        13 => Some(b"swc"),
+        14 => Some(b"iff"),
+        15 => Some(b"wbmp"),
+        16 => Some(b"xbm"),
+        17 => Some(b"ico"),
+        18 => Some(b"webp"),
+        19 => Some(b"avif"),
+        20 => Some(b"heif"),
+        _ => None,
+    }
+}
+
+fn image_type_mime_type(image_type: i64) -> Option<&'static [u8]> {
+    match image_type {
+        1 => Some(b"image/gif"),
+        2 => Some(b"image/jpeg"),
+        3 => Some(b"image/png"),
+        4 | 13 => Some(b"application/x-shockwave-flash"),
+        5 => Some(b"image/psd"),
+        6 => Some(b"image/bmp"),
+        7 | 8 => Some(b"image/tiff"),
+        9 | 11 | 12 => Some(b"application/octet-stream"),
+        10 => Some(b"image/jp2"),
+        14 => Some(b"image/iff"),
+        15 => Some(b"image/vnd.wap.wbmp"),
+        16 => Some(b"image/xbm"),
+        17 => Some(b"image/vnd.microsoft.icon"),
+        18 => Some(b"image/webp"),
+        19 => Some(b"image/avif"),
+        20 => Some(b"image/heif"),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_gethostname() -> EchoValue {
     env::var_os("HOSTNAME")
         .and_then(non_empty_os_string_bytes)

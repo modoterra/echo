@@ -1,0 +1,9 @@
+.gif
+jpeg
+.png
+image/gif
+image/jpeg
+image/png
+image/webp
+bad-ext:
+exists:11

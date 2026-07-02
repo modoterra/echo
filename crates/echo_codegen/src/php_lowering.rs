@@ -403,6 +403,7 @@ impl IrModule {
             | BuiltinCodegen::ValueUnaryOptionalContextExpression
             | BuiltinCodegen::ValueBinaryOptionalContextExpression
             | BuiltinCodegen::ValueUnaryOptionalBoolExpression
+            | BuiltinCodegen::ValueUnaryOptionalTrueBoolExpression
             | BuiltinCodegen::ValueBinaryOptionalBoolExpression
             | BuiltinCodegen::ValueTernaryOptionalBoolExpression
             | BuiltinCodegen::ValueQuinaryOptionalBoolExpression

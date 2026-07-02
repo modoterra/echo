@@ -259,6 +259,30 @@ fn syslog_builtins_return_true_for_cli_baseline() {
 }
 
 #[test]
+fn image_type_helpers_map_documented_constants() {
+    assert_eq!(
+        echo_php_image_type_to_extension(EchoValue::int(1), EchoValue::bool(true)).string_bytes(),
+        Some(b".gif".to_vec())
+    );
+    assert_eq!(
+        echo_php_image_type_to_extension(EchoValue::int(2), EchoValue::bool(false)).string_bytes(),
+        Some(b"jpeg".to_vec())
+    );
+    assert_eq!(
+        echo_php_image_type_to_mime_type(EchoValue::int(3)).string_bytes(),
+        Some(b"image/png".to_vec())
+    );
+    assert_eq!(
+        echo_php_image_type_to_mime_type(EchoValue::int(18)).string_bytes(),
+        Some(b"image/webp".to_vec())
+    );
+    assert_eq!(
+        echo_php_image_type_to_extension(EchoValue::int(999), EchoValue::bool(true)),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn gethostbyname_returns_ipv4_or_original_hostname() {
     assert_eq!(
         echo_php_gethostbyname(test_string_value(b"localhost")).string_bytes(),

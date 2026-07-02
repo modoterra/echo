@@ -376,8 +376,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `http_response_code` | implemented | Tracks the process-local response code; returns `false` before a code is set, `true` for the first set, and the previous/current code as documented for CLI-style use. Source: https://www.php.net/manual/en/function.http-response-code.php |
 | `hypot` | implemented | Returns the Euclidean distance for two numeric values using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.hypot.php |
 | `ignore_user_abort` | implemented | Tracks process-local ignore-user-abort state and returns the previous/current `0` or `1` setting; Echo does not model an abortable client connection yet. Source: https://www.php.net/manual/en/function.ignore-user-abort.php |
-| `image_type_to_extension` | missing |  |
-| `image_type_to_mime_type` | missing |  |
+| `image_type_to_extension` | implemented | Maps documented `IMAGETYPE_*` integer ids to PHP image extensions, including optional dot suppression, without requiring GD. Source: https://www.php.net/manual/en/function.image-type-to-extension.php |
+| `image_type_to_mime_type` | implemented | Maps documented `IMAGETYPE_*` integer ids to MIME type strings without requiring GD. Source: https://www.php.net/manual/en/function.image-type-to-mime-type.php |
 | `implode` | implemented | Joins PHP array values in order, supports the optional empty-string separator form, and uses PHP string coercion for scalar elements. Source: https://www.php.net/manual/en/function.implode.php |
 | `in_array` | implemented | Searches array values with loose comparison by default and strict same-type comparison when the third argument is true. Source: https://www.php.net/manual/en/function.in-array.php |
 | `inet_ntop` | implemented | Converts 4-byte IPv4 and 16-byte IPv6 packed address strings to canonical human-readable addresses, returning false for invalid lengths. Source: https://www.php.net/manual/en/function.inet-ntop.php |

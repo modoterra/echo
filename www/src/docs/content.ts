@@ -1887,6 +1887,18 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts packed IPv4 or IPv6 address bytes to canonical text.",
       },
       {
+        name: "image_type_to_extension",
+        signature: "image_type_to_extension(int $image_type, bool $include_dot = true): string|false",
+        description:
+          "Maps a documented IMAGETYPE integer id to its PHP image extension.",
+      },
+      {
+        name: "image_type_to_mime_type",
+        signature: "image_type_to_mime_type(int $image_type): string|false",
+        description:
+          "Maps a documented IMAGETYPE integer id to its MIME type string.",
+      },
+      {
         name: "getrusage",
         signature: "getrusage(): array|false",
         description: "Returns current process resource usage counters.",
@@ -3231,6 +3243,18 @@ if ($packed !== false) {
     `let $address = inet_ntop(inet_pton("127.0.0.1"))
 
 echo "Address: " . $address . "\\n"`,
+  ],
+  [
+    "image_type_to_extension",
+    `let $extension = image_type_to_extension(3)
+
+echo "Upload suffix: " . $extension . "\\n"`,
+  ],
+  [
+    "image_type_to_mime_type",
+    `let $mime = image_type_to_mime_type(18)
+
+echo "Content-Type: " . $mime . "\\n"`,
   ],
   [
     "getrusage",
@@ -4850,6 +4874,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "inet_ntop",
     "Use `inet_ntop()` to turn packed IPv4 or IPv6 bytes back into canonical human-readable addresses for logs, diagnostics, or protocol output.",
+  ],
+  [
+    "image_type_to_extension",
+    "Use `image_type_to_extension()` when compatibility code has an IMAGETYPE id and needs PHP's canonical file suffix. Echo supports the documented id table and returns false for unknown ids.",
+  ],
+  [
+    "image_type_to_mime_type",
+    "Use `image_type_to_mime_type()` when image metadata already produced an IMAGETYPE id and headers or manifests need a MIME string. Echo supports the documented id table without requiring GD.",
   ],
   [
     "getrusage",
@@ -8021,7 +8053,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 317 PHP compatibility fixtures, 357 implemented Core and standard functions out of 607, 250 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 318 PHP compatibility fixtures, 359 implemented Core and standard functions out of 607, 248 remaining, and about 59% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

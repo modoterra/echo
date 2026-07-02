@@ -100,6 +100,20 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_closelog as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_image_type_to_extension",
+            echo_runtime::echo_php_image_type_to_extension
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_image_type_to_mime_type",
+            echo_runtime::echo_php_image_type_to_mime_type
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_gethostname",
             echo_runtime::echo_php_gethostname as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,

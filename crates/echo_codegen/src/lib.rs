@@ -1827,7 +1827,8 @@ impl IrModule {
 
                 Ok(RuntimeValue::EchoValue(name))
             }
-            BuiltinCodegen::ValueUnaryOptionalBoolExpression => {
+            BuiltinCodegen::ValueUnaryOptionalBoolExpression
+            | BuiltinCodegen::ValueUnaryOptionalTrueBoolExpression => {
                 if !(1..=2).contains(&call.args.len()) {
                     return Err(Diagnostic::new(
                         format!(
@@ -1841,7 +1842,16 @@ impl IrModule {
                 let value = self.render_mir_expr_as_echo_value(body, &call.args[0])?;
                 let flag = match call.args.get(1) {
                     Some(expr) => self.render_mir_expr_as_echo_value(body, expr)?,
-                    None => "%EchoValue { i32 1, i64 0 }".to_string(),
+                    None => {
+                        let default = if builtin.codegen
+                            == BuiltinCodegen::ValueUnaryOptionalTrueBoolExpression
+                        {
+                            1
+                        } else {
+                            0
+                        };
+                        format!("%EchoValue {{ i32 1, i64 {default} }}")
+                    }
                 };
                 let call_id = self.next_call_id;
                 self.next_call_id += 1;

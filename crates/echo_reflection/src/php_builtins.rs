@@ -850,6 +850,16 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("utf8_decode", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("parse_url", &[("url", Some("string"))], Some("array|false")),
         php_builtin_reflection(
+            "image_type_to_extension",
+            &[("image_type", Some("int")), ("include_dot", Some("bool"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
+            "image_type_to_mime_type",
+            &[("image_type", Some("int"))],
+            Some("string|false"),
+        ),
+        php_builtin_reflection(
             "str_increment",
             &[("string", Some("string"))],
             Some("string"),
