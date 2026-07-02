@@ -1,0 +1,5 @@
+decimal:.
+thousands:''
+grouping:0
+frac:127
+exists:1

@@ -476,6 +476,41 @@ pub extern "C" fn echo_php_soundex(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_localeconv() -> EchoValue {
+    let mut result = echo_value_array_new();
+    for (key, value) in [
+        ("decimal_point", echo_runtime_string(b".".to_vec())),
+        ("thousands_sep", echo_runtime_string(Vec::new())),
+        ("int_curr_symbol", echo_runtime_string(Vec::new())),
+        ("currency_symbol", echo_runtime_string(Vec::new())),
+        ("mon_decimal_point", echo_runtime_string(Vec::new())),
+        ("mon_thousands_sep", echo_runtime_string(Vec::new())),
+        ("positive_sign", echo_runtime_string(Vec::new())),
+        ("negative_sign", echo_runtime_string(Vec::new())),
+        ("int_frac_digits", EchoValue::int(127)),
+        ("frac_digits", EchoValue::int(127)),
+        ("p_cs_precedes", EchoValue::int(127)),
+        ("p_sep_by_space", EchoValue::int(127)),
+        ("n_cs_precedes", EchoValue::int(127)),
+        ("n_sep_by_space", EchoValue::int(127)),
+        ("p_sign_posn", EchoValue::int(127)),
+        ("n_sign_posn", EchoValue::int(127)),
+    ] {
+        result = echo_value_array_set(result, echo_runtime_string(key.as_bytes().to_vec()), value);
+    }
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"grouping".to_vec()),
+        echo_value_array_new(),
+    );
+    echo_value_array_set(
+        result,
+        echo_runtime_string(b"mon_grouping".to_vec()),
+        echo_value_array_new(),
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_similar_text(first: EchoValue, second: EchoValue) -> EchoValue {
     let Some(first) = first.string_bytes() else {
         return EchoValue::error();

@@ -431,7 +431,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `levenshtein` | implemented | Calculates byte-string edit distance with optional insertion, replacement, and deletion costs. Source: https://www.php.net/manual/en/function.levenshtein.php |
 | `link` | implemented | Creates local hard links and returns a bool success value; PHP warning emission and platform-specific filesystem edge cases are deferred. Source: https://www.php.net/manual/en/function.link.php |
 | `linkinfo` | implemented | Returns the Unix `lstat` device field for an existing local path and `-1` when the path is not found; open_basedir handling and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.linkinfo.php |
-| `localeconv` | missing |  |
+| `localeconv` | partial | Returns a C/POSIX locale numeric-formatting array with empty grouping and `CHAR_MAX`-style monetary fields; mutable `setlocale()` state, locale categories, monetary locale data, and platform-specific locale values are deferred. Source: https://www.php.net/manual/en/function.localeconv.php |
 | `log` | implemented | Calculates natural logarithms by default and supports an optional positive base; non-positive bases are surfaced as runtime errors for now. Source: https://www.php.net/manual/en/function.log.php |
 | `log10` | implemented | Calculates base-10 logarithms with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.log10.php |
 | `log1p` | implemented | Calculates log(1 + num) with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.log1p.php |

@@ -69,6 +69,19 @@ fn str_repeat_preserves_php_byte_behavior() {
 }
 
 #[test]
+fn localeconv_returns_c_locale_numeric_shape() {
+    let serialized = echo_php_serialize(echo_php_localeconv());
+    let bytes = serialized.string_bytes().expect("localeconv serialization");
+    let text = String::from_utf8(bytes).expect("utf8 export");
+
+    assert!(text.contains("s:13:\"decimal_point\";s:1:\".\""));
+    assert!(text.contains("s:13:\"thousands_sep\";s:0:\"\""));
+    assert!(text.contains("s:11:\"frac_digits\";i:127"));
+    assert!(text.contains("s:8:\"grouping\";a:0:{}"));
+    assert!(text.contains("s:12:\"mon_grouping\";a:0:{}"));
+}
+
+#[test]
 fn str_pad_preserves_php_byte_behavior() {
     let right = Box::into_raw(Box::new(EchoString {
         bytes: "ID".as_bytes().to_vec(),

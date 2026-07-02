@@ -115,6 +115,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "localeconv",
+        symbol: "echo_php_localeconv",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueNoArgs,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueExpression,
+    },
+    PhpBuiltin {
         php_name: "soundex",
         symbol: "echo_php_soundex",
         helper_symbol: None,

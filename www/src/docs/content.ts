@@ -118,6 +118,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts Hebrew text from logical to visual order; currently a non-Hebrew identity baseline.",
       },
       {
+        name: "localeconv",
+        signature: "localeconv(): array",
+        description: "Returns numeric and monetary formatting information for the current locale.",
+      },
+      {
         name: "soundex",
         signature: "soundex(string $string): string",
         description: "Calculates a four-character phonetic Soundex key.",
@@ -4130,6 +4135,12 @@ echo "Previous code: " . $previous . "\\n"`,
 echo $label . "\\n"`,
   ],
   [
+    "localeconv",
+    `let $locale = localeconv()
+
+echo "Decimal point: " . $locale["decimal_point"] . "\\n"`,
+  ],
+  [
     "soundex",
     `let $left = soundex("Euler")
 let $right = soundex("Ellery")
@@ -5576,6 +5587,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "hebrev",
     "Use `hebrev()` for compatibility code that already calls PHP's Hebrew visual-order helper. Echo currently preserves non-Hebrew byte strings unchanged while Hebrew reordering is deferred.",
+  ],
+  [
+    "localeconv",
+    "Use `localeconv()` when compatibility code reads PHP's locale formatting shape before building numeric display text. Echo currently reports the C/POSIX baseline and leaves `setlocale()` state, locale categories, monetary data, and platform-specific locale values for later.",
   ],
   [
     "soundex",
@@ -8719,7 +8734,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 349 PHP compatibility fixtures, 398 implemented Core and standard functions out of 607, 209 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 350 PHP compatibility fixtures, 399 implemented Core and standard functions out of 607, 208 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
