@@ -1525,6 +1525,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns PHP's current include_path configuration value.",
       },
       {
+        name: "set_include_path",
+        signature: "set_include_path(string $include_path): string|false",
+        description: "Sets PHP's include_path configuration value.",
+      },
+      {
         name: "connection_aborted",
         signature: "connection_aborted(): int",
         description: "Reports whether the client connection has aborted.",
@@ -2518,6 +2523,14 @@ echo "memory bytes: " . $bytes . "\\n"`,
 
 if ($path === false) {
     echo "No include_path config value\\n"
+}`,
+  ],
+  [
+    "set_include_path",
+    `let $previous = set_include_path(".:/app/lib")
+
+if ($previous === false) {
+    echo "include_path could not be changed\\n"
 }`,
   ],
   [
@@ -5041,6 +5054,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `get_include_path()` when compatibility code checks PHP's include search path before resolving legacy includes. Echo currently returns false because it does not model PHP ini option values.",
   ],
   [
+    "set_include_path",
+    "Use `set_include_path()` when compatibility code tries to localize include resolution. Echo currently delegates to the ini-set baseline and returns false because it does not model mutable PHP ini option values.",
+  ],
+  [
     "connection_aborted",
     "Use `connection_aborted()` when compatibility code checks whether a web client disconnected before doing more response work. Echo currently returns 0 because it does not model an abortable client connection.",
   ],
@@ -7259,7 +7276,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 278 PHP compatibility fixtures, 314 implemented Core and standard functions out of 607, 293 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 279 PHP compatibility fixtures, 315 implemented Core and standard functions out of 607, 292 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -543,7 +543,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `register_tick_function` | missing |  |
 | `rename` | implemented | Renames or moves local files/directories using host filesystem semantics; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rename.php |
 | `request_parse_body` | missing |  |
-| `restore_include_path` | missing | Source: https://www.php.net/manual/en/function.restore-include-path.php |
+| `restore_include_path` | missing | Removed from the PHP 8.5 runtime; retained here only as a legacy tracking row. |
 | `reset` | partial | Returns the first array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.reset.php |
 | `rewind` | missing |  |
 | `rewinddir` | missing |  |
@@ -554,7 +554,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `scandir` | missing |  |
 | `serialize` | missing |  |
 | `set_file_buffer` | missing |  |
-| `set_include_path` | missing |  |
+| `set_include_path` | partial | Delegates to Echo's current no-op `ini_set("include_path", ...)` baseline and returns `false` until mutable PHP ini option values are modeled. Source: https://www.php.net/manual/en/function.set-include-path.php |
 | `set_time_limit` | missing |  |
 | `setcookie` | missing |  |
 | `setlocale` | missing |  |

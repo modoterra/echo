@@ -140,6 +140,10 @@ fn environment_process_builtins_follow_php_shapes() {
         EchoValue::int(0)
     );
     assert_eq!(echo_php_get_include_path(), EchoValue::bool(false));
+    assert_eq!(
+        echo_php_set_include_path(test_string_value(b".:/app/lib")),
+        EchoValue::bool(false)
+    );
     assert_eq!(echo_php_connection_aborted(), EchoValue::int(0));
     assert_eq!(echo_php_connection_status(), EchoValue::int(0));
     assert_eq!(

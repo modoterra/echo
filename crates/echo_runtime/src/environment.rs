@@ -719,6 +719,11 @@ pub extern "C" fn echo_php_get_include_path() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_set_include_path(include_path: EchoValue) -> EchoValue {
+    echo_php_ini_set(echo_runtime_string(b"include_path".to_vec()), include_path)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_connection_aborted() -> EchoValue {
     EchoValue::int(0)
 }

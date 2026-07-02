@@ -445,6 +445,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection("get_include_path", &[], Some("string|false")),
+        php_builtin_reflection(
+            "set_include_path",
+            &[("include_path", Some("string"))],
+            Some("string|false"),
+        ),
         php_builtin_reflection("get_included_files", &[], Some("array")),
         php_builtin_reflection("get_required_files", &[], Some("array")),
         php_builtin_reflection("connection_aborted", &[], Some("int")),
