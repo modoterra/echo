@@ -58,6 +58,14 @@ pub extern "C" fn echo_php_file_exists(filename: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fnmatch(pattern: EchoValue, filename: EchoValue) -> EchoValue {
+    match (pattern.string_bytes(), filename.string_bytes()) {
+        (Some(pattern), Some(filename)) => EchoValue::bool(fnmatch_bytes(&pattern, &filename)),
+        _ => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_chdir(directory: EchoValue) -> EchoValue {
     match directory.string_bytes() {
         Some(bytes) => EchoValue::bool(path_chdir(&bytes)),
@@ -118,6 +126,35 @@ pub(crate) fn path_realpath(bytes: &[u8]) -> Option<Vec<u8>> {
         .ok()
         .and_then(|path| path.into_os_string().into_string().ok())
         .map(String::into_bytes)
+}
+
+fn fnmatch_bytes(pattern: &[u8], filename: &[u8]) -> bool {
+    let mut pattern_index = 0;
+    let mut filename_index = 0;
+    let mut star_pattern_index = None;
+    let mut star_filename_index = 0;
+
+    while filename_index < filename.len() {
+        if pattern_index < pattern.len()
+            && (pattern[pattern_index] == b'?'
+                || pattern[pattern_index] == filename[filename_index])
+        {
+            pattern_index += 1;
+            filename_index += 1;
+        } else if pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+            star_pattern_index = Some(pattern_index);
+            pattern_index += 1;
+            star_filename_index = filename_index;
+        } else if let Some(star) = star_pattern_index {
+            pattern_index = star + 1;
+            star_filename_index += 1;
+            filename_index = star_filename_index;
+        } else {
+            return false;
+        }
+    }
+
+    pattern[pattern_index..].iter().all(|byte| *byte == b'*')
 }
 
 #[unsafe(no_mangle)]

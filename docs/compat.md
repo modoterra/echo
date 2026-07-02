@@ -305,7 +305,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `floor` | implemented | Rounds numeric values down while returning a float, using PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.floor.php |
 | `flush` | implemented | Flushes the system output layer without flushing active user-level output buffers. Source: https://www.php.net/manual/en/function.flush.php |
 | `fmod` | implemented | Returns a floating-point remainder with the dividend sign and `NAN` for zero divisors. Source: https://www.php.net/manual/en/function.fmod.php |
-| `fnmatch` | missing |  |
+| `fnmatch` | partial | Supports two-argument byte pattern matching with `*` and `?`; flags such as `FNM_PATHNAME`, escaping, period handling, case folding, and bracket character classes are deferred. Source: https://www.php.net/manual/en/function.fnmatch.php |
 | `fopen` | implemented | Opens local filesystem streams for common read/write modes; include path lookup, URL wrappers, stream contexts, and warning emission are deferred. Source: https://www.php.net/manual/en/function.fopen.php |
 | `forward_static_call` | missing |  |
 | `forward_static_call_array` | missing |  |

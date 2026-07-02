@@ -1047,6 +1047,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns true when a local path exists.",
       },
       {
+        name: "fnmatch",
+        signature: "fnmatch(string $pattern, string $filename): bool",
+        description: "Matches a filename against a shell-style byte pattern with `*` and `?`.",
+      },
+      {
         name: "chdir",
         signature: "chdir(string $directory): bool",
         description: "Changes the current working directory for the process.",
@@ -1818,6 +1823,14 @@ echo "First accepted type: " . $types[0] . "\\n"`,
 
 if (file_exists($configPath)) {
     echo "Load application config\\n"
+}`,
+  ],
+  [
+    "fnmatch",
+    `let $path = "reports/july.csv"
+
+if (fnmatch("*.csv", basename($path))) {
+    echo "CSV report\\n"
 }`,
   ],
   [
@@ -3841,6 +3854,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "file_exists",
     "Use this before loading optional local files so missing configuration can be handled deliberately instead of failing later.",
+  ],
+  [
+    "fnmatch",
+    "Use `fnmatch()` for simple filename filters such as `*.csv` or `file?.txt`. Echo currently supports `*` and `?` matching and leaves PHP's flag-controlled variants for later.",
   ],
   [
     "clearstatcache",
@@ -7080,7 +7097,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 269 PHP compatibility fixtures, 303 implemented Core and standard functions out of 607, 304 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 270 PHP compatibility fixtures, 304 implemented Core and standard functions out of 607, 303 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
