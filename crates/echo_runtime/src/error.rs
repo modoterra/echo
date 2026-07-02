@@ -48,6 +48,16 @@ pub extern "C" fn echo_php_error_reporting(level: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_error_get_last() -> EchoValue {
+    EchoValue::null()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_error_clear_last() -> EchoValue {
+    EchoValue::null()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_trigger_error(message: EchoValue, error_level: EchoValue) -> EchoValue {
     if message.string_bytes().is_none() || error_level.php_int_value().is_none() {
         return EchoValue::error();

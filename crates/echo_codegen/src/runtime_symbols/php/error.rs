@@ -32,5 +32,15 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_restore_exception_handler
                 as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
+        (
+            "echo_php_error_get_last",
+            echo_runtime::echo_php_error_get_last as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_error_clear_last",
+            echo_runtime::echo_php_error_clear_last as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
     ]
 }

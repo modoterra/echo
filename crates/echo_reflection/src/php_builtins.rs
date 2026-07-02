@@ -270,6 +270,8 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("error_level", Some("?int"))],
             Some("int"),
         ),
+        php_builtin_reflection("error_get_last", &[], Some("?array")),
+        php_builtin_reflection("error_clear_last", &[], Some("void")),
         php_builtin_reflection("gc_collect_cycles", &[], Some("int")),
         php_builtin_reflection("gc_disable", &[], Some("void")),
         php_builtin_reflection("gc_enable", &[], Some("void")),

@@ -822,6 +822,22 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueOptionalNullExpression,
         },
         PhpBuiltin {
+            php_name: "error_get_last",
+            symbol: "echo_php_error_get_last",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
+            php_name: "error_clear_last",
+            symbol: "echo_php_error_clear_last",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
+        PhpBuiltin {
             php_name: "trigger_error",
             symbol: "echo_php_trigger_error",
             helper_symbol: None,

@@ -1536,6 +1536,18 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Defines a named runtime constant.",
       },
       {
+        name: "error_get_last",
+        signature: "error_get_last(): ?array",
+        description:
+          "Returns the most recent PHP error details; Echo currently returns null until warning/error state is modeled.",
+      },
+      {
+        name: "error_clear_last",
+        signature: "error_clear_last(): void",
+        description:
+          "Clears the most recent PHP error; Echo currently treats this as a no-op over its no-error baseline.",
+      },
+      {
         name: "microtime",
         signature: "microtime(bool $as_float): string|float",
         description: "Returns the current Unix timestamp with microseconds.",
@@ -2734,6 +2746,22 @@ echo $routeKey . "\\n"`,
     `let $started = microtime(true)
 
 echo "Request started at " . $started . "\\n"`,
+  ],
+  [
+    "error_get_last",
+    `let $last = error_get_last()
+
+if (is_null($last)) {
+    echo "No PHP error recorded\\n"
+}`,
+  ],
+  [
+    "error_clear_last",
+    `error_clear_last()
+
+if (is_null(error_get_last())) {
+    echo "Error state cleared\\n"
+}`,
   ],
   [
     "sleep",
@@ -5491,6 +5519,14 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `define()` for PHP-compatible constants that must be named dynamically or declared outside class and namespace syntax.",
   ],
   [
+    "error_get_last",
+    "Use `error_get_last()` when preserving PHP code that inspects warning/error state after a compatibility operation. Echo currently returns `null` until it records PHP warning details.",
+  ],
+  [
+    "error_clear_last",
+    "Use `error_clear_last()` to preserve PHP cleanup calls before retrying an operation. Echo currently treats it as a no-op because there is no retained last-error state.",
+  ],
+  [
     "microtime",
     "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
   ],
@@ -7801,7 +7837,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 305 PHP compatibility fixtures, 344 implemented Core and standard functions out of 607, 263 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 306 PHP compatibility fixtures, 346 implemented Core and standard functions out of 607, 261 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -65,8 +65,8 @@ pub use encoding::{
 };
 pub use environment::*;
 pub use error::{
-    EchoError, echo_php_error_reporting, echo_php_get_error_handler,
-    echo_php_get_exception_handler, echo_php_restore_error_handler,
+    EchoError, echo_php_error_clear_last, echo_php_error_get_last, echo_php_error_reporting,
+    echo_php_get_error_handler, echo_php_get_exception_handler, echo_php_restore_error_handler,
     echo_php_restore_exception_handler, echo_php_set_error_handler, echo_php_set_exception_handler,
     echo_php_trigger_error, echo_php_user_error,
 };

@@ -15,6 +15,7 @@ mod collections;
 mod crypto;
 mod encoding;
 mod environment;
+mod error;
 mod filesystem;
 mod math;
 mod scalar;
