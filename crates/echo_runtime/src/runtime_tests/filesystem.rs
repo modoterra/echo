@@ -125,6 +125,22 @@ fn stream_is_local_recognizes_local_streams_and_paths() {
 }
 
 #[test]
+fn stream_supports_lock_reports_local_file_streams() {
+    let stream = echo_php_tmpfile();
+
+    assert_eq!(echo_php_stream_supports_lock(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_stream_supports_lock(test_string_value(b"not-a-stream")),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_stream_supports_lock(stream),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn glob_returns_sorted_matches_for_local_directory_patterns() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));

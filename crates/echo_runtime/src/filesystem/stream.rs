@@ -48,6 +48,15 @@ pub extern "C" fn echo_php_stream_is_local(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_supports_lock(stream: EchoValue) -> EchoValue {
+    EchoValue::bool(
+        stream
+            .as_stream_ref()
+            .is_some_and(|stream| stream.file.is_some()),
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fopen(
     filename: EchoValue,
     mode: EchoValue,

@@ -1340,6 +1340,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("stream", Some("resource|string"))],
             Some("bool"),
         ),
+        php_builtin_reflection(
+            "stream_supports_lock",
+            &[("stream", Some("resource"))],
+            Some("bool"),
+        ),
         php_builtin_reflection("tmpfile", &[], Some("resource|false")),
         php_builtin_reflection(
             "readfile",

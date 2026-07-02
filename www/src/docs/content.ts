@@ -1382,6 +1382,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Checks whether a stream resource or URL is local.",
       },
       {
+        name: "stream_supports_lock",
+        signature: "stream_supports_lock(resource $stream): bool",
+        description: "Checks whether a stream supports advisory locking.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2559,6 +2564,15 @@ if ($stream) {
 
 if (stream_is_local($path)) {
     echo "Safe to inspect with local filesystem APIs\\n"
+}`,
+  ],
+  [
+    "stream_supports_lock",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream && stream_supports_lock($stream)) {
+    echo "Stream can participate in file locking\\n"
+    fclose($stream)
 }`,
   ],
   [
@@ -4930,6 +4944,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_is_local",
     "Use `stream_is_local()` before taking a path or URL through local-only filesystem logic. Echo currently recognizes local file streams, plain paths, and `file://` URLs while leaving custom wrapper locality for later.",
+  ],
+  [
+    "stream_supports_lock",
+    "Use `stream_supports_lock()` before compatibility code assumes a stream can be guarded by advisory locks. Echo currently reports true for open local file streams while actual `flock()` behavior remains future work.",
   ],
   [
     "glob",
@@ -8249,7 +8267,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 325 PHP compatibility fixtures, 371 implemented Core and standard functions out of 607, 236 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 326 PHP compatibility fixtures, 372 implemented Core and standard functions out of 607, 235 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

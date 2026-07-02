@@ -640,7 +640,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_socket_sendto` | missing |  |
 | `stream_socket_server` | missing |  |
 | `stream_socket_shutdown` | missing |  |
-| `stream_supports_lock` | missing |  |
+| `stream_supports_lock` | partial | Returns true for open Echo local file stream resources and false otherwise; actual `flock()` behavior, custom wrappers, and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-supports-lock.php |
 | `stream_wrapper_register` | missing |  |
 | `stream_wrapper_restore` | missing |  |
 | `stream_wrapper_unregister` | missing |  |
