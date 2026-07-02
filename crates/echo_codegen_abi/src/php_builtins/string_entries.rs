@@ -91,6 +91,14 @@ pub(super) const STRING_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryExpression,
     },
     PhpBuiltin {
+        php_name: "hebrev",
+        symbol: "echo_php_hebrev",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "soundex",
         symbol: "echo_php_soundex",
         helper_symbol: None,

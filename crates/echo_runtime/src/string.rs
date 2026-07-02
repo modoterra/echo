@@ -452,6 +452,11 @@ pub extern "C" fn echo_php_str_rot13(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_hebrev(value: EchoValue) -> EchoValue {
+    php_string_map_builtin(value, |bytes| bytes.to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_soundex(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, soundex_bytes)
 }

@@ -128,7 +128,7 @@ pub use require::{
 pub use string::{
     echo_php_addcslashes, echo_php_addslashes, echo_php_chr, echo_php_chunk_split,
     echo_php_count_chars, echo_php_decbin, echo_php_dechex, echo_php_decoct, echo_php_explode,
-    echo_php_html_entity_decode, echo_php_htmlentities, echo_php_htmlspecialchars,
+    echo_php_hebrev, echo_php_html_entity_decode, echo_php_htmlentities, echo_php_htmlspecialchars,
     echo_php_htmlspecialchars_decode, echo_php_implode, echo_php_lcfirst, echo_php_levenshtein,
     echo_php_ltrim, echo_php_nl2br, echo_php_ord, echo_php_quoted_printable_decode,
     echo_php_quoted_printable_encode, echo_php_quotemeta, echo_php_rtrim, echo_php_similar_text,

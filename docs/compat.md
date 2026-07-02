@@ -360,7 +360,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `header_remove` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header-remove.php |
 | `headers_list` | implemented | Returns an empty array because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.headers-list.php |
 | `headers_sent` | implemented | Returns `false` because Echo currently uses CLI-style execution and does not model an HTTP header layer; optional filename/line reference outputs are deferred. Source: https://www.php.net/manual/en/function.headers-sent.php |
-| `hebrev` | missing |  |
+| `hebrev` | partial | Returns ASCII/non-Hebrew byte strings unchanged; Hebrew visual-order conversion and `max_chars_per_line` wrapping are deferred. Source: https://www.php.net/manual/en/function.hebrev.php |
 | `hex2bin` | implemented | Converts even-length hexadecimal strings to raw bytes and returns `false` for invalid hex input. Source: https://www.php.net/manual/en/function.hex2bin.php |
 | `hexdec` | implemented | Converts hexadecimal strings to unsigned decimal int or float values while ignoring non-hexadecimal characters. Source: https://www.php.net/manual/en/function.hexdec.php |
 | `highlight_file` | missing |  |

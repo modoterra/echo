@@ -103,6 +103,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Applies the ROT13 substitution cipher to the string.",
       },
       {
+        name: "hebrev",
+        signature: "hebrev(string $string): string",
+        description: "Converts Hebrew text from logical to visual order; currently a non-Hebrew identity baseline.",
+      },
+      {
         name: "soundex",
         signature: "soundex(string $string): string",
         description: "Calculates a four-character phonetic Soundex key.",
@@ -2918,6 +2923,12 @@ let $decoded = str_rot13($stored)
 echo $decoded . "\\n"`,
   ],
   [
+    "hebrev",
+    `let $label = hebrev("plain ascii")
+
+echo $label . "\\n"`,
+  ],
+  [
     "soundex",
     `let $left = soundex("Euler")
 let $right = soundex("Ellery")
@@ -4052,6 +4063,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "str_rot13",
     "Use `str_rot13()` only for PHP-compatible ROT13 text transformations such as old fixtures, examples, or reversible non-secret obfuscation.",
+  ],
+  [
+    "hebrev",
+    "Use `hebrev()` for compatibility code that already calls PHP's Hebrew visual-order helper. Echo currently preserves non-Hebrew byte strings unchanged while Hebrew reordering is deferred.",
   ],
   [
     "soundex",
@@ -7035,7 +7050,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 267 PHP compatibility fixtures, 300 implemented Core and standard functions out of 607, 307 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 268 PHP compatibility fixtures, 301 implemented Core and standard functions out of 607, 306 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

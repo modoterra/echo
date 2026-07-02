@@ -69,6 +69,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_hebrev",
+            echo_runtime::echo_php_hebrev
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_soundex",
             echo_runtime::echo_php_soundex
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
