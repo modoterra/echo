@@ -4,7 +4,7 @@ use std::io::{self as std_io, Write};
 use crate::{
     ECHO_VALUE_ARRAY, ECHO_VALUE_BOOL, ECHO_VALUE_ERROR, ECHO_VALUE_FLOAT, ECHO_VALUE_INT,
     ECHO_VALUE_LIST, ECHO_VALUE_NULL, ECHO_VALUE_STRING, EchoString, EchoValue, assertions,
-    echo_normalize_callable,
+    echo_normalize_callable, echo_runtime_string, echo_value_array_append, echo_value_array_new,
     execution::{repl_inspect_enabled, write_stdout},
     format_php_float,
 };
@@ -191,6 +191,17 @@ pub extern "C" fn echo_php_ob_get_length() -> EchoValue {
     OUTPUT.with(|runtime| match runtime.borrow().ob_get_length() {
         Some(len) => EchoValue::int(len as i64),
         None => EchoValue::bool(false),
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ob_list_handlers() -> EchoValue {
+    OUTPUT.with(|runtime| {
+        let mut result = echo_value_array_new();
+        for handler in runtime.borrow().ob_list_handlers() {
+            result = echo_value_array_append(result, echo_runtime_string(handler));
+        }
+        result
     })
 }
 

@@ -1519,6 +1519,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Gets the current output buffering nesting level.",
       },
       {
+        name: "ob_list_handlers",
+        signature: "ob_list_handlers(): array",
+        description:
+          "Lists active output handlers; Echo currently reports default handlers for active buffers.",
+      },
+      {
         name: "ob_implicit_flush",
         signature: "ob_implicit_flush(bool $enable): void",
         description: "Enables or disables implicit flushing after output calls.",
@@ -3331,6 +3337,14 @@ ob_start()
 echo "Buffer depth: " . ob_get_level() . "\\n"
 ob_end_clean()
 ob_end_clean()`,
+  ],
+  [
+    "ob_list_handlers",
+    `ob_start()
+let $handlers = ob_list_handlers()
+ob_end_clean()
+
+echo "Handlers: " . implode(",", $handlers) . "\\n"`,
   ],
   [
     "ob_implicit_flush",
@@ -5559,6 +5573,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ob_get_level",
     "Use `ob_get_level()` to debug nested buffering or restore the output stack to a known depth after rendering.",
+  ],
+  [
+    "ob_list_handlers",
+    "Use `ob_list_handlers()` when compatibility code inspects the active output-buffer stack. Echo currently reports default handlers and defers callback-specific names.",
   ],
   [
     "ob_implicit_flush",
@@ -7903,7 +7921,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 310 PHP compatibility fixtures, 350 implemented Core and standard functions out of 607, 257 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 311 PHP compatibility fixtures, 351 implemented Core and standard functions out of 607, 256 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

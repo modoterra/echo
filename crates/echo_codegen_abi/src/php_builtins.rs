@@ -832,6 +832,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             lowering: BuiltinLowering::DirectRuntimeCall,
             codegen: BuiltinCodegen::ValueExpression,
         },
+        PhpBuiltin {
+            php_name: "ob_list_handlers",
+            symbol: "echo_php_ob_list_handlers",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueNoArgs,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueExpression,
+        },
     ];
     builtins.extend_from_slice(array_entries::ARRAY_BUILTINS);
     builtins.extend_from_slice(filesystem_entries::FILESYSTEM_BUILTINS);

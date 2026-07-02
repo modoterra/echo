@@ -59,5 +59,10 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
             echo_runtime::echo_php_ob_get_length as extern "C" fn() -> echo_runtime::EchoValue
                 as usize,
         ),
+        (
+            "echo_php_ob_list_handlers",
+            echo_runtime::echo_php_ob_list_handlers as extern "C" fn() -> echo_runtime::EchoValue
+                as usize,
+        ),
     ]
 }

@@ -483,7 +483,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ob_get_level` | implemented | Returns the current output buffering nesting depth. Source: https://www.php.net/manual/en/function.ob-get-level.php |
 | `ob_get_status` | missing |  |
 | `ob_implicit_flush` | implemented | Toggles implicit system flushing after output writes without flushing active user-level buffers. Source: https://www.php.net/manual/en/function.ob-implicit-flush.php |
-| `ob_list_handlers` | missing |  |
+| `ob_list_handlers` | partial | Returns `"default output handler"` for active Echo output buffers; callback-specific handler names are deferred. Source: https://www.php.net/manual/en/function.ob-list-handlers.php |
 | `ob_start` | implemented | Starts a new output buffer and stores optional callback metadata; callback invocation is deferred. Source: https://www.php.net/manual/en/function.ob-start.php |
 | `octdec` | implemented | Converts octal strings to unsigned decimal int or float values while ignoring non-octal characters. Source: https://www.php.net/manual/en/function.octdec.php |
 | `opendir` | missing |  |

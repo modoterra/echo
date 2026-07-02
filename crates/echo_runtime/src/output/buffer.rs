@@ -119,6 +119,13 @@ impl OutputRuntime {
         self.stack.last().map(|buffer| buffer.bytes.len())
     }
 
+    pub fn ob_list_handlers(&self) -> Vec<Vec<u8>> {
+        self.stack
+            .iter()
+            .map(|_buffer| b"default output handler".to_vec())
+            .collect()
+    }
+
     pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
         // PHP shutdown flushes and turns off still-open buffers in reverse start order.
         // Source: https://www.php.net/manual/en/outcontrol.user-level-output-buffers.php
@@ -375,6 +382,24 @@ mod tests {
 
         assert_eq!(runtime.level(), 1);
         assert_eq!(runtime.active_callback(), Some(&callback));
+    }
+
+    #[test]
+    fn ob_list_handlers_reports_default_handlers_for_active_buffers() {
+        let mut runtime = OutputRuntime::new();
+
+        assert!(runtime.ob_list_handlers().is_empty());
+
+        runtime.ob_start();
+        runtime.ob_start();
+
+        assert_eq!(
+            runtime.ob_list_handlers(),
+            vec![
+                b"default output handler".to_vec(),
+                b"default output handler".to_vec()
+            ]
+        );
     }
 
     #[test]
