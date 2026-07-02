@@ -32,6 +32,12 @@ fn filesystem_link_builtins_create_and_read_links() {
     assert_eq!(echo_php_link(target, hard_link), EchoValue::bool(true));
     assert_eq!(echo_php_is_link(hard_link), EchoValue::bool(false));
     assert_eq!(echo_php_file_exists(hard_link), EchoValue::bool(true));
+    assert!(
+        echo_php_linkinfo(target)
+            .php_int_value()
+            .is_some_and(|device| device >= 0)
+    );
+    assert_eq!(echo_php_linkinfo(missing), EchoValue::int(-1));
     assert_eq!(echo_php_readlink(missing), EchoValue::bool(false));
 
     std::fs::remove_dir_all(&temp_dir).ok();

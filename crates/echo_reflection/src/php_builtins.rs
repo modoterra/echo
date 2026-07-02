@@ -1241,6 +1241,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("path", Some("string"))],
             Some("string|false"),
         ),
+        php_builtin_reflection("linkinfo", &[("path", Some("string"))], Some("int|false")),
         php_builtin_reflection(
             "link",
             &[("target", Some("string")), ("link", Some("string"))],

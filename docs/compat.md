@@ -430,7 +430,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `lchown` | missing |  |
 | `levenshtein` | implemented | Calculates byte-string edit distance with optional insertion, replacement, and deletion costs. Source: https://www.php.net/manual/en/function.levenshtein.php |
 | `link` | implemented | Creates local hard links and returns a bool success value; PHP warning emission and platform-specific filesystem edge cases are deferred. Source: https://www.php.net/manual/en/function.link.php |
-| `linkinfo` | missing |  |
+| `linkinfo` | implemented | Returns the Unix `lstat` device field for an existing local path and `-1` when the path is not found; open_basedir handling and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.linkinfo.php |
 | `localeconv` | missing |  |
 | `log` | implemented | Calculates natural logarithms by default and supports an optional positive base; non-positive bases are surfaced as runtime errors for now. Source: https://www.php.net/manual/en/function.log.php |
 | `log10` | implemented | Calculates base-10 logarithms with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.log10.php |

@@ -1344,6 +1344,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Returns the stored target of a local symbolic link, or false when it cannot be read.",
       },
       {
+        name: "linkinfo",
+        signature: "linkinfo(string $path): int|false",
+        description:
+          "Returns the Unix lstat device field for an existing local path, or -1 when the path is not found.",
+      },
+      {
         name: "link",
         signature: "link(string $target, string $link): bool",
         description: "Creates a local hard link to an existing target path.",
@@ -2333,6 +2339,15 @@ let $target = readlink($current)
 
 if (is_string($target)) {
     echo "Current release: " . $target . "\\n"
+}`,
+  ],
+  [
+    "linkinfo",
+    `let $path = "storage/uploads"
+let $device = linkinfo($path)
+
+if (is_int($device)) {
+    echo "Path device: " . $device . "\\n"
 }`,
   ],
   [
@@ -4479,6 +4494,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "readlink",
     "Use `readlink()` when a deployment, cache, or storage layout represents the active version as a symbolic link and needs to report or validate the stored target.",
+  ],
+  [
+    "linkinfo",
+    "Use `linkinfo()` when compatibility code needs PHP's low-level link existence probe or filesystem device identifier. Echo returns `-1` for missing paths and does not yet emit PHP warnings.",
   ],
   [
     "link",
@@ -7666,7 +7685,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 299 PHP compatibility fixtures, 336 implemented Core and standard functions out of 607, 271 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 300 PHP compatibility fixtures, 337 implemented Core and standard functions out of 607, 270 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

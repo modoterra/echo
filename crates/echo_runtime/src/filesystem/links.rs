@@ -4,6 +4,8 @@ use std::path::Path;
 use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 
 use crate::{EchoValue, echo_runtime_string};
 
@@ -15,6 +17,14 @@ pub extern "C" fn echo_php_readlink(path: EchoValue) -> EchoValue {
         Some(bytes) => path_readlink(&bytes)
             .map(echo_runtime_string)
             .unwrap_or_else(|| EchoValue::bool(false)),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_linkinfo(path: EchoValue) -> EchoValue {
+    match path.string_bytes() {
+        Some(bytes) => EchoValue::int(path_linkinfo(&bytes)),
         None => EchoValue::error(),
     }
 }
@@ -33,6 +43,19 @@ pub extern "C" fn echo_php_symlink(target: EchoValue, link: EchoValue) -> EchoVa
         (Some(target), Some(link)) => EchoValue::bool(path_symlink(&target, &link)),
         _ => EchoValue::error(),
     }
+}
+
+#[cfg(unix)]
+fn path_linkinfo(bytes: &[u8]) -> i64 {
+    std::fs::symlink_metadata(Path::new(OsStr::from_bytes(bytes)))
+        .ok()
+        .and_then(|metadata| i64::try_from(metadata.dev()).ok())
+        .unwrap_or(-1)
+}
+
+#[cfg(not(unix))]
+fn path_linkinfo(_bytes: &[u8]) -> i64 {
+    -1
 }
 
 #[cfg(unix)]

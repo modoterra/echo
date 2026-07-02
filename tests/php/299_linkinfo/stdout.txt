@@ -1,0 +1,3 @@
+present-int:1
+missing:-1
+exists:1
