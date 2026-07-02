@@ -629,7 +629,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_set_blocking` | partial | Accepts blocking-mode changes for open Echo local file stream resources and returns a bool success value; actual non-blocking I/O mode, sockets, and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-set-blocking.php |
 | `stream_set_chunk_size` | partial | Stores per-resource chunk size for Echo local file streams and returns the previous size; ValueError diagnostics, non-file resources, and actual chunked read/write behavior are deferred. Source: https://www.php.net/manual/en/function.stream-set-chunk-size.php |
 | `stream_set_read_buffer` | partial | Returns `0` for open Echo local file stream resources and `-1` otherwise; actual read buffering behavior, sockets, and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-set-read-buffer.php |
-| `stream_set_timeout` | missing |  |
+| `stream_set_timeout` | partial | Returns PHP's false status for regular local file streams; socket timeout configuration, timeout state propagation, optional argument lowering, and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-set-timeout.php |
 | `stream_set_write_buffer` | partial | Returns `-1` because Echo does not yet expose write buffering control for local file streams; actual write buffering behavior, sockets, and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-set-write-buffer.php |
 | `stream_socket_accept` | missing |  |
 | `stream_socket_client` | missing |  |

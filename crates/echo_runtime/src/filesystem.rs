@@ -43,7 +43,8 @@ pub use stream::{
     echo_php_stream_get_line, echo_php_stream_get_meta_data, echo_php_stream_get_transports,
     echo_php_stream_get_wrappers, echo_php_stream_is_local, echo_php_stream_isatty,
     echo_php_stream_set_blocking, echo_php_stream_set_chunk_size, echo_php_stream_set_read_buffer,
-    echo_php_stream_set_write_buffer, echo_php_stream_supports_lock, echo_php_tmpfile,
+    echo_php_stream_set_timeout, echo_php_stream_set_write_buffer, echo_php_stream_supports_lock,
+    echo_php_tmpfile,
 };
 pub use temporary::{echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_uniqid};
 

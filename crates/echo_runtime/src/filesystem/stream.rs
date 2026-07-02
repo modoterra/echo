@@ -122,6 +122,15 @@ pub extern "C" fn echo_php_stream_set_write_buffer(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_set_timeout(
+    _stream: EchoValue,
+    _seconds: EchoValue,
+    _microseconds: EchoValue,
+) -> EchoValue {
+    EchoValue::bool(false)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_stream_get_meta_data(stream: EchoValue) -> EchoValue {
     let Some(stream) = stream.as_stream_ref() else {
         return EchoValue::bool(false);

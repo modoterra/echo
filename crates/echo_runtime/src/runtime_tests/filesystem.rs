@@ -210,6 +210,17 @@ fn stream_buffer_setters_report_php_integer_statuses() {
 }
 
 #[test]
+fn stream_set_timeout_reports_regular_file_status() {
+    let stream = echo_php_tmpfile();
+
+    assert_eq!(
+        echo_php_stream_set_timeout(stream, EchoValue::int(2), EchoValue::int(500_000)),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+}
+
+#[test]
 fn stream_get_meta_data_reports_local_file_fields() {
     let stream = echo_php_tmpfile();
     let metadata = echo_php_stream_get_meta_data(stream);

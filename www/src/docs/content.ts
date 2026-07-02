@@ -1417,6 +1417,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets read buffering on a stream.",
       },
       {
+        name: "stream_set_timeout",
+        signature: "stream_set_timeout(resource $stream, int $seconds, int $microseconds = 0): bool",
+        description: "Sets the timeout period for a stream.",
+      },
+      {
         name: "stream_set_write_buffer",
         signature: "stream_set_write_buffer(resource $stream, int $size): int",
         description: "Sets write buffering on a stream.",
@@ -2663,6 +2668,16 @@ if ($stream) {
 
 if ($stream && stream_set_read_buffer($stream, 0) === 0) {
     echo "Read buffering request accepted\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_set_timeout",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    let $ok = stream_set_timeout($stream, 2, 0)
+    echo "Timeout configured: " . $ok . "\\n"
     fclose($stream)
 }`,
   ],
@@ -5072,6 +5087,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_set_read_buffer",
     "Use `stream_set_read_buffer()` when compatibility code requests unbuffered reads before coordinating with another process. Echo currently reports local file stream status while real buffering control remains future work.",
+  ],
+  [
+    "stream_set_timeout",
+    "Use `stream_set_timeout()` when compatibility code configures socket or wrapper read timeouts. Echo currently matches PHP's regular-file false status and leaves real socket timeout state for later.",
   ],
   [
     "stream_set_write_buffer",
@@ -8395,7 +8414,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 332 PHP compatibility fixtures, 379 implemented Core and standard functions out of 607, 228 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 333 PHP compatibility fixtures, 380 implemented Core and standard functions out of 607, 227 remaining, and about 63% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -1375,6 +1375,15 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("int"),
         ),
         php_builtin_reflection(
+            "stream_set_timeout",
+            &[
+                ("stream", Some("resource")),
+                ("seconds", Some("int")),
+                ("microseconds", Some("int")),
+            ],
+            Some("bool"),
+        ),
+        php_builtin_reflection(
             "stream_set_write_buffer",
             &[("stream", Some("resource")), ("size", Some("int"))],
             Some("int"),
