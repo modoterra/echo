@@ -124,6 +124,18 @@ pub extern "C" fn echo_php_fseek(stream: EchoValue, offset: EchoValue) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_rewind(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(file.seek(SeekFrom::Start(0)).is_ok())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_tmpfile() -> EchoValue {
     let temp_dir = std::env::temp_dir();
     let pid = std::process::id();

@@ -545,7 +545,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `request_parse_body` | missing |  |
 | `restore_include_path` | missing | Removed from the PHP 8.5 runtime; retained here only as a legacy tracking row. |
 | `reset` | partial | Returns the first array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.reset.php |
-| `rewind` | missing |  |
+| `rewind` | implemented | Resets Echo local file stream resources to byte offset zero and returns a bool success value. Source: https://www.php.net/manual/en/function.rewind.php |
 | `rewinddir` | missing |  |
 | `rmdir` | implemented | Removes empty local directories and returns a bool success value; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.rmdir.php |
 | `round` | implemented | Rounds numeric values to a precision using PHP's default half-away-from-zero mode; explicit rounding mode constants are deferred. Source: https://www.php.net/manual/en/function.round.php |

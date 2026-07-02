@@ -1,0 +1,5 @@
+first:abcd
+rewind:1
+pos:0
+again:abcd
+exists:1
