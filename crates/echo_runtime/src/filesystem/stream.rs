@@ -1,6 +1,6 @@
 use crate::{EchoValue, echo_runtime_string, filesystem::path_buf_from_bytes};
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -158,6 +158,18 @@ pub extern "C" fn echo_php_feof(stream: EchoValue) -> EchoValue {
     }
 
     EchoValue::bool(stream.eof)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fflush(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(file.flush().is_ok())
 }
 
 #[unsafe(no_mangle)]

@@ -73,8 +73,8 @@ pub use error::{
 pub use execution::echo_join;
 pub use filesystem::{
     echo_php_basename, echo_php_chdir, echo_php_chmod, echo_php_clearstatcache, echo_php_copy,
-    echo_php_dirname, echo_php_fclose, echo_php_feof, echo_php_fgetc, echo_php_fgets,
-    echo_php_file_exists, echo_php_file_get_contents, echo_php_file_put_contents,
+    echo_php_dirname, echo_php_fclose, echo_php_feof, echo_php_fflush, echo_php_fgetc,
+    echo_php_fgets, echo_php_file_exists, echo_php_file_get_contents, echo_php_file_put_contents,
     echo_php_fileatime, echo_php_filectime, echo_php_filegroup, echo_php_fileinode,
     echo_php_filemtime, echo_php_fileowner, echo_php_fileperms, echo_php_filesize,
     echo_php_filetype, echo_php_fnmatch, echo_php_fopen, echo_php_fread, echo_php_fseek,

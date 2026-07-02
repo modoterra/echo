@@ -283,7 +283,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fdatasync` | missing |  |
 | `fdiv` | implemented | Divides two numeric values as IEEE 754 floats, returning `INF`, `-INF`, or `NAN` for zero-divisor cases instead of raising division errors. Source: https://www.php.net/manual/en/function.fdiv.php |
 | `feof` | implemented | Reports whether an Echo local file stream has attempted to read past EOF, and resets after `fseek()`/`rewind()` repositioning. Source: https://www.php.net/manual/en/function.feof.php |
-| `fflush` | missing |  |
+| `fflush` | implemented | Flushes Echo local file stream resources and returns a bool success value. Source: https://www.php.net/manual/en/function.fflush.php |
 | `fgetc` | implemented | Reads one byte from Echo local file stream resources and returns `false` at EOF or on invalid streams. Source: https://www.php.net/manual/en/function.fgetc.php |
 | `fgetcsv` | missing |  |
 | `fgets` | partial | Reads up to `length - 1` bytes (or less at line breaks and EOF) from Echo local file stream resources and returns `false` when no bytes are available. Source: https://www.php.net/manual/en/function.fgets.php |

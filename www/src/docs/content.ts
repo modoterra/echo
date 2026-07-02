@@ -1253,6 +1253,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Checks whether a local file stream has reached EOF after a read attempt.",
       },
       {
+        name: "fflush",
+        signature: "fflush(resource $stream): bool",
+        description: "Flushes pending writes for a local file stream.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2127,6 +2132,16 @@ if ($stream) {
     while (!feof($stream)) {
         echo fgets($stream)
     }
+    fclose($stream)
+}`,
+  ],
+  [
+    "fflush",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream) {
+    fflush($stream)
+    echo fread($stream, 16) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -4203,6 +4218,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "feof",
     "Use `feof()` to keep PHP-style stream loops compatible. Echo marks EOF only after a local stream read attempts to move past the end, matching PHP's usual file-loop behavior.",
+  ],
+  [
+    "fflush",
+    "Use `fflush()` when compatibility code explicitly flushes a local stream before continuing. Echo forwards the flush to the underlying local file handle and reports whether it succeeded.",
   ],
   [
     "readfile",
@@ -7390,7 +7409,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 288 PHP compatibility fixtures, 321 implemented Core and standard functions out of 607, 286 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 289 PHP compatibility fixtures, 322 implemented Core and standard functions out of 607, 285 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

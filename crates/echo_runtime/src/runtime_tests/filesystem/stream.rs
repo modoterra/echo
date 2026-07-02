@@ -144,8 +144,10 @@ fn feof_flips_after_read_attempt_past_end_and_resets_on_rewind() {
     assert_eq!(echo_php_feof(stream), EchoValue::bool(true));
     assert_eq!(echo_php_rewind(stream), EchoValue::bool(true));
     assert_eq!(echo_php_feof(stream), EchoValue::bool(false));
+    assert_eq!(echo_php_fflush(stream), EchoValue::bool(true));
     assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
     assert_eq!(echo_php_feof(stream), EchoValue::bool(false));
+    assert_eq!(echo_php_fflush(stream), EchoValue::bool(false));
 
     unsafe {
         drop(Box::from_raw(path));
