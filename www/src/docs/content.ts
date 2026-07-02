@@ -1397,6 +1397,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets blocking or non-blocking mode on a stream.",
       },
       {
+        name: "stream_set_chunk_size",
+        signature: "stream_set_chunk_size(resource $stream, int $size): int",
+        description: "Sets the stream chunk size and returns the previous size.",
+      },
+      {
         name: "stream_set_read_buffer",
         signature: "stream_set_read_buffer(resource $stream, int $size): int",
         description: "Sets read buffering on a stream.",
@@ -2610,6 +2615,16 @@ if ($stream && !stream_isatty($stream)) {
 
 if ($stream && stream_set_blocking($stream, false)) {
     echo "Stream mode updated\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_set_chunk_size",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream) {
+    let $previous = stream_set_chunk_size($stream, 4096)
+    echo "Previous chunk size: " . $previous . "\\n"
     fclose($stream)
 }`,
   ],
@@ -5012,6 +5027,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_set_blocking",
     "Use `stream_set_blocking()` when compatibility code configures stream reads around polling or multiplexing. Echo currently accepts the call for local file streams while actual non-blocking I/O remains future work.",
+  ],
+  [
+    "stream_set_chunk_size",
+    "Use `stream_set_chunk_size()` when compatibility code tunes stream throughput and expects to receive the previous configured size. Echo stores the size on local file stream resources while chunked read/write behavior remains future work.",
   ],
   [
     "stream_set_read_buffer",
@@ -8339,7 +8358,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 329 PHP compatibility fixtures, 376 implemented Core and standard functions out of 607, 231 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 330 PHP compatibility fixtures, 377 implemented Core and standard functions out of 607, 230 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

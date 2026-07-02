@@ -172,6 +172,25 @@ fn stream_set_blocking_accepts_open_local_file_streams() {
 }
 
 #[test]
+fn stream_set_chunk_size_returns_previous_size() {
+    let stream = echo_php_tmpfile();
+
+    assert_eq!(
+        echo_php_stream_set_chunk_size(stream, EchoValue::int(4096)),
+        EchoValue::int(8192)
+    );
+    assert_eq!(
+        echo_php_stream_set_chunk_size(stream, EchoValue::int(2048)),
+        EchoValue::int(4096)
+    );
+    assert_eq!(
+        echo_php_stream_set_chunk_size(stream, EchoValue::int(0)),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+}
+
+#[test]
 fn stream_buffer_setters_report_php_integer_statuses() {
     let stream = echo_php_tmpfile();
 

@@ -375,6 +375,14 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_stream_set_chunk_size",
+            echo_runtime::echo_php_stream_set_chunk_size
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_stream_set_read_buffer",
             echo_runtime::echo_php_stream_set_read_buffer
                 as extern "C" fn(

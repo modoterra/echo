@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct EchoFileStream {
     pub file: Option<File>,
     eof: bool,
+    chunk_size: i64,
     delete_on_close: Option<PathBuf>,
 }
 
@@ -76,6 +77,26 @@ pub extern "C" fn echo_php_stream_set_blocking(stream: EchoValue, _enable: EchoV
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_set_chunk_size(stream: EchoValue, size: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    if stream.file.is_none() {
+        return EchoValue::bool(false);
+    }
+    let Some(size) = size.php_int_value() else {
+        return EchoValue::bool(false);
+    };
+    if size < 1 {
+        return EchoValue::bool(false);
+    }
+
+    let previous = stream.chunk_size;
+    stream.chunk_size = size;
+    EchoValue::int(previous)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_stream_set_read_buffer(
     stream: EchoValue,
     _size: EchoValue,
@@ -123,6 +144,7 @@ pub extern "C" fn echo_php_fopen(
             let stream = Box::into_raw(Box::new(EchoFileStream {
                 file: Some(file),
                 eof: false,
+                chunk_size: 8192,
                 delete_on_close: None,
             }));
             EchoValue::file_stream(stream)
@@ -475,6 +497,7 @@ pub extern "C" fn echo_php_tmpfile() -> EchoValue {
             let stream = Box::into_raw(Box::new(EchoFileStream {
                 file: Some(file),
                 eof: false,
+                chunk_size: 8192,
                 delete_on_close: Some(path),
             }));
             return EchoValue::file_stream(stream);

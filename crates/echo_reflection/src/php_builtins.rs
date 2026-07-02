@@ -1351,6 +1351,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection(
+            "stream_set_chunk_size",
+            &[("stream", Some("resource")), ("size", Some("int"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "stream_set_read_buffer",
             &[("stream", Some("resource")), ("size", Some("int"))],
             Some("int"),
