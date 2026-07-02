@@ -1237,6 +1237,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Moves a local file stream back to the beginning.",
       },
       {
+        name: "fgetc",
+        signature: "fgetc(resource $stream): string|false",
+        description: "Reads one byte from a local file stream.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2082,6 +2087,15 @@ if ($stream) {
     fread($stream, 64)
     rewind($stream)
     echo "Header: " . fread($stream, 16) . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "fgetc",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream) {
+    echo "First byte: " . fgetc($stream) . "\\n"
     fclose($stream)
 }`,
   ],
@@ -4146,6 +4160,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "rewind",
     "Use `rewind()` when compatibility code needs to inspect a stream and then parse it again from the beginning. Echo resets local file streams to byte offset zero and returns false for invalid or closed streams.",
+  ],
+  [
+    "fgetc",
+    "Use `fgetc()` for byte-oriented parsers that inspect a local file stream one character at a time. Echo reads one byte from local streams and returns false at EOF or for invalid streams.",
   ],
   [
     "readfile",
@@ -7333,7 +7351,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 282 PHP compatibility fixtures, 318 implemented Core and standard functions out of 607, 289 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 283 PHP compatibility fixtures, 319 implemented Core and standard functions out of 607, 288 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

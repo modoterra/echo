@@ -284,7 +284,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fdiv` | implemented | Divides two numeric values as IEEE 754 floats, returning `INF`, `-INF`, or `NAN` for zero-divisor cases instead of raising division errors. Source: https://www.php.net/manual/en/function.fdiv.php |
 | `feof` | missing |  |
 | `fflush` | missing |  |
-| `fgetc` | missing |  |
+| `fgetc` | implemented | Reads one byte from Echo local file stream resources and returns `false` at EOF or on invalid streams. Source: https://www.php.net/manual/en/function.fgetc.php |
 | `fgetcsv` | missing |  |
 | `fgets` | missing |  |
 | `file` | missing |  |

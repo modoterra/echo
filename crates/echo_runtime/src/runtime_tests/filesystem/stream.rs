@@ -30,10 +30,11 @@ fn fopen_and_stream_reading_updates_pointer_state() {
         echo_php_fread(stream, test_string_value(b"5")).string_bytes(),
         Some(b"hello".to_vec())
     );
-    assert_eq!(echo_php_ftell(stream), EchoValue::int(5));
+    assert_eq!(echo_php_fgetc(stream).string_bytes(), Some(b" ".to_vec()));
+    assert_eq!(echo_php_ftell(stream), EchoValue::int(6));
     assert_eq!(
         echo_php_stream_get_contents(stream, EchoValue::null(), EchoValue::int(-1)).string_bytes(),
-        Some(b" world".to_vec())
+        Some(b"world".to_vec())
     );
     assert_eq!(echo_php_ftell(stream), EchoValue::int(11));
     assert_eq!(echo_php_fseek(stream, EchoValue::int(6)), EchoValue::int(0));
@@ -52,6 +53,7 @@ fn fopen_and_stream_reading_updates_pointer_state() {
         echo_php_fread(stream, test_string_value(b"3")),
         EchoValue::bool(false)
     );
+    assert_eq!(echo_php_fgetc(stream), EchoValue::bool(false));
 
     unsafe {
         drop(Box::from_raw(path));

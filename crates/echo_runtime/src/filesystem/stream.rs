@@ -70,6 +70,23 @@ pub extern "C" fn echo_php_fread(stream: EchoValue, length: EchoValue) -> EchoVa
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_fgetc(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    let mut byte = [0_u8; 1];
+    match file.read(&mut byte) {
+        Ok(1) => echo_runtime_string(byte.to_vec()),
+        Ok(_) => EchoValue::bool(false),
+        Err(_) => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fclose(stream: EchoValue) -> EchoValue {
     let Some(stream) = stream.as_stream_mut() else {
         return EchoValue::bool(false);
