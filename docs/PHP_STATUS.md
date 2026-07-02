@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 340 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 341 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 389.
-- Remaining Core + standard functions in inventory: 218.
+- Implemented Core + standard functions in inventory: 390.
+- Remaining Core + standard functions in inventory: 217.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `389 / 607`, or about 64%, for the Core + standard baseline,
+coverage alone is `390 / 607`, or about 64%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 389/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~37% | Core + standard function coverage is 390/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -125,10 +125,10 @@ full support for an entire family of PHP functions.
 - Serialization currently covers scalar values and PHP arrays only. Object
   hooks, resources, references/cycles, Echo lists, exact float serialization
   parity, and `unserialize()` remain gaps for the serialization family.
-- Debug dumping currently covers scalar and PHP array `var_dump()` values.
-  Objects, resources, references/cycles, variadic dumping, and exact recursive
-  edge cases remain gaps for `var_dump()` and future `print_r()`/`var_export()`
-  work.
+- Debug dumping/export currently covers scalar and PHP array `var_dump()` and
+  `var_export()` values. Objects, resources, references/cycles, variadic
+  dumping, and exact recursive edge cases remain gaps for `var_dump()` and
+  `var_export()`/future `print_r()` work.
 - PHP warning/error emission is not modeled as observable runtime state yet.
   This keeps many failure paths partial even when their return values match PHP.
 - PHP information output is compact and CLI-oriented. Full `phpinfo()` and

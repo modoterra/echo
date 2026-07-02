@@ -109,6 +109,30 @@ fn var_dump_writes_php_scalar_and_array_shapes() {
 }
 
 #[test]
+fn var_export_returns_or_writes_php_scalar_and_array_shapes() {
+    let mut array = echo_value_array_new();
+    array = echo_value_array_set(array, test_string_value(b"id"), EchoValue::int(42));
+    array = echo_value_array_set(array, test_string_value(b"name"), test_string_value(b"Ada"));
+    array = echo_value_array_set(array, test_string_value(b"active"), EchoValue::bool(true));
+    array = echo_value_array_set(array, test_string_value(b"none"), EchoValue::null());
+
+    assert_eq!(
+        echo_php_var_export(array, EchoValue::bool(true)).string_bytes(),
+        Some(
+            b"array (\n  'id' => 42,\n  'name' => 'Ada',\n  'active' => true,\n  'none' => NULL,\n)"
+                .to_vec()
+        )
+    );
+
+    let (result, stdout) = capture_stdout(false, || {
+        echo_php_var_export(test_string_value(b"Echo's path"), EchoValue::bool(false))
+    });
+
+    assert_eq!(result, EchoValue::null());
+    assert_eq!(stdout, b"'Echo\\'s path'".to_vec());
+}
+
+#[test]
 fn assert_intrinsics_report_success() {
     let left = Box::into_raw(Box::new(EchoString {
         bytes: b"same".to_vec(),

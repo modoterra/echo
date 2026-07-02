@@ -177,11 +177,11 @@ pub use value::{
     echo_php_intval, echo_php_is_array, echo_php_is_bool, echo_php_is_countable, echo_php_is_float,
     echo_php_is_int, echo_php_is_iterable, echo_php_is_null, echo_php_is_numeric,
     echo_php_is_object, echo_php_is_resource, echo_php_is_scalar, echo_php_is_string,
-    echo_php_octdec, echo_php_serialize, echo_php_var_dump, echo_value_add, echo_value_bool,
-    echo_value_div, echo_value_exit_status, echo_value_identical, echo_value_less_than,
-    echo_value_mod, echo_value_mul, echo_value_not, echo_value_object_get, echo_value_object_new,
-    echo_value_object_set, echo_value_or, echo_value_pow, echo_value_string_equals_ptr,
-    echo_value_sub, echo_value_unary_minus, echo_value_unary_plus,
+    echo_php_octdec, echo_php_serialize, echo_php_var_dump, echo_php_var_export, echo_value_add,
+    echo_value_bool, echo_value_div, echo_value_exit_status, echo_value_identical,
+    echo_value_less_than, echo_value_mod, echo_value_mul, echo_value_not, echo_value_object_get,
+    echo_value_object_new, echo_value_object_set, echo_value_or, echo_value_pow,
+    echo_value_string_equals_ptr, echo_value_sub, echo_value_unary_minus, echo_value_unary_plus,
 };
 pub(crate) use value::{
     PhpNumber, echo_values_equal, format_php_float, php_float_cast, php_number_add, php_number_mul,

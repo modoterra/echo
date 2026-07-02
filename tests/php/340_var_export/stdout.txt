@@ -1,0 +1,9 @@
+array (
+  'id' => 42,
+  'name' => 'Ada',
+  'active' => true,
+  'none' => NULL,
+)
+'Echo\'s path'
+returned:NULL
+exists:1

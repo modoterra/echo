@@ -699,7 +699,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `utf8_decode` | implemented | Converts valid UTF-8 bytes to ISO-8859-1 bytes and replaces invalid or unrepresentable characters with `?`, preserving PHP's deprecated behavior. Source: https://www.php.net/manual/en/function.utf8-decode.php |
 | `utf8_encode` | implemented | Converts ISO-8859-1 bytes to UTF-8 bytes and preserves PHP's deprecated Latin-1-only behavior. Source: https://www.php.net/manual/en/function.utf8-encode.php |
 | `var_dump` | partial | Dumps PHP-shaped scalar values and PHP arrays to runtime output and returns `null`; objects, resources, references/cycles, variadic dumping, and recursive edge cases are deferred. Source: https://www.php.net/manual/en/function.var-dump.php |
-| `var_export` | missing |  |
+| `var_export` | partial | Outputs or returns PHP-shaped scalar values and PHP arrays as parsable PHP source; objects, resources, references/cycles, and recursive edge cases are deferred. Source: https://www.php.net/manual/en/function.var-export.php |
 | `version_compare` | partial | Compares PHP-standardized version strings with numeric and pre-release label ordering and supports explicit comparison operators; optional argument lowering, stricter case-sensitive label parity, invalid-operator null behavior, and unusual punctuation edge cases are deferred. Source: https://www.php.net/manual/en/function.version-compare.php |
 | `vfprintf` | missing |  |
 | `vprintf` | missing |  |

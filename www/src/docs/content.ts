@@ -850,6 +850,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Dumps PHP-shaped scalar and array debugging output.",
       },
       {
+        name: "var_export",
+        signature: "var_export(mixed $value, bool $return = false): ?string",
+        description: "Outputs or returns parsable PHP source for scalar values and arrays.",
+      },
+      {
         name: "boolval",
         signature: "boolval(mixed $value): bool",
         description: "Converts a value to a boolean.",
@@ -4210,6 +4215,13 @@ let $dump = ob_get_clean()
 echo "Captured bytes: " . strlen($dump) . "\\n"`,
   ],
   [
+    "var_export",
+    `let $payload = ["id" => 42, "name" => "Ada"]
+let $source = var_export($payload, true)
+
+echo $source . "\\n"`,
+  ],
+  [
     "substr",
     `let $bearer = "Bearer token-value"
 let $token = substr($bearer, 7)
@@ -5962,6 +5974,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "var_dump",
     "Use `var_dump()` when preserving PHP debugging flows that write directly to output. Echo currently matches scalar and PHP array dump shapes and leaves objects, resources, references, cycles, recursive edge cases, and variadic dumping for later.",
+  ],
+  [
+    "var_export",
+    "Use `var_export()` when compatibility code needs a parsable PHP representation for configuration, snapshots, or generated source. Echo currently supports scalars and PHP arrays while objects, resources, references, cycles, and recursive edge cases remain deferred.",
   ],
   [
     "boolval",
@@ -8573,7 +8589,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 340 PHP compatibility fixtures, 389 implemented Core and standard functions out of 607, 218 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 341 PHP compatibility fixtures, 390 implemented Core and standard functions out of 607, 217 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
