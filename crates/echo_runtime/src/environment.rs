@@ -101,6 +101,11 @@ pub extern "C" fn echo_php_getservbyport(port: EchoValue, protocol: EchoValue) -
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_getrusage() -> EchoValue {
+    resource_usage_array(process_resource_usage())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getmypid() -> EchoValue {
     EchoValue::int(std::process::id() as i64)
 }
@@ -363,6 +368,91 @@ fn common_service_name_by_port(port: i64, protocol: &[u8]) -> Option<Vec<u8>> {
         (443, b"tcp") => Some(b"https".to_vec()),
         _ => None,
     }
+}
+
+#[derive(Default)]
+struct ResourceUsage {
+    user_seconds: i64,
+    user_microseconds: i64,
+    system_seconds: i64,
+    system_microseconds: i64,
+    max_rss_kb: i64,
+}
+
+fn process_resource_usage() -> ResourceUsage {
+    let mut usage = proc_self_stat_usage().unwrap_or_default();
+    if let Some(max_rss_kb) = proc_self_status_vm_hwm_kb() {
+        usage.max_rss_kb = max_rss_kb;
+    }
+    usage
+}
+
+fn resource_usage_array(usage: ResourceUsage) -> EchoValue {
+    let mut result = echo_value_array_new();
+    for (key, value) in [
+        ("ru_oublock", 0),
+        ("ru_inblock", 0),
+        ("ru_msgsnd", 0),
+        ("ru_msgrcv", 0),
+        ("ru_maxrss", usage.max_rss_kb),
+        ("ru_ixrss", 0),
+        ("ru_idrss", 0),
+        ("ru_minflt", 0),
+        ("ru_majflt", 0),
+        ("ru_nsignals", 0),
+        ("ru_nvcsw", 0),
+        ("ru_nivcsw", 0),
+        ("ru_nswap", 0),
+        ("ru_utime.tv_usec", usage.user_microseconds),
+        ("ru_utime.tv_sec", usage.user_seconds),
+        ("ru_stime.tv_usec", usage.system_microseconds),
+        ("ru_stime.tv_sec", usage.system_seconds),
+    ] {
+        result = echo_value_array_set(
+            result,
+            echo_runtime_string(key.as_bytes().to_vec()),
+            EchoValue::int(value),
+        );
+    }
+    result
+}
+
+#[cfg(target_os = "linux")]
+fn proc_self_stat_usage() -> Option<ResourceUsage> {
+    let content = std::fs::read_to_string("/proc/self/stat").ok()?;
+    let fields_after_command = content.rsplit_once(") ")?.1;
+    let fields: Vec<&str> = fields_after_command.split_whitespace().collect();
+    let user_ticks: i64 = fields.get(11)?.parse().ok()?;
+    let system_ticks: i64 = fields.get(12)?.parse().ok()?;
+
+    Some(ResourceUsage {
+        user_seconds: user_ticks / 100,
+        user_microseconds: (user_ticks % 100) * 10_000,
+        system_seconds: system_ticks / 100,
+        system_microseconds: (system_ticks % 100) * 10_000,
+        max_rss_kb: 0,
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn proc_self_stat_usage() -> Option<ResourceUsage> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn proc_self_status_vm_hwm_kb() -> Option<i64> {
+    let content = std::fs::read_to_string("/proc/self/status").ok()?;
+    let line = content.lines().find(|line| line.starts_with("VmHWM:"))?;
+    line["VmHWM:".len()..]
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn proc_self_status_vm_hwm_kb() -> Option<i64> {
+    None
 }
 
 #[unsafe(no_mangle)]

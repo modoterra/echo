@@ -1,0 +1,4 @@
+type:[array]
+utime_sec_type:[integer]
+stime_usec_type:[integer]
+exists:[1]

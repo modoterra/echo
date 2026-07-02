@@ -1534,6 +1534,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Looks up a network service name by port and protocol.",
       },
       {
+        name: "getrusage",
+        signature: "getrusage(): array|false",
+        description: "Returns current process resource usage counters.",
+      },
+      {
         name: "get_current_user",
         signature: "get_current_user(): string",
         description: "Returns the current process user name baseline.",
@@ -2492,6 +2497,12 @@ if ($port !== false) {
 if ($service !== false) {
     echo "UDP/53 service: " . $service . "\\n"
 }`,
+  ],
+  [
+    "getrusage",
+    `let $usage = getrusage()
+
+echo "User CPU seconds: " . $usage["ru_utime.tv_sec"] . "\\n"`,
   ],
   [
     "get_current_user",
@@ -3835,6 +3846,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "getservbyport",
     "Use `getservbyport()` when imported data stores numeric ports and the program needs the canonical local service label for display or compatibility logic.",
+  ],
+  [
+    "getrusage",
+    "Use `getrusage()` for coarse process diagnostics such as logging CPU time or memory pressure around a compatibility workload. Echo currently reports current-process fields and leaves child-process mode for later.",
   ],
   [
     "get_current_user",
@@ -6870,7 +6885,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 256 PHP compatibility fixtures, 289 implemented Core and standard functions out of 607, 318 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 257 PHP compatibility fixtures, 290 implemented Core and standard functions out of 607, 317 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
