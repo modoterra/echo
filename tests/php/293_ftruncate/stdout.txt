@@ -1,0 +1,6 @@
+truncated:1
+pointer:4
+short:abc
+extended:1
+size:6
+exists:1

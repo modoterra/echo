@@ -1290,6 +1290,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Flushes and synchronizes local file stream data plus metadata to storage.",
       },
       {
+        name: "ftruncate",
+        signature: "ftruncate(resource $stream, int $size): bool",
+        description:
+          "Resizes a writable local file stream without moving the current stream position.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2232,6 +2238,17 @@ if ($stream) {
 if ($stream) {
     fwrite($stream, "id,total\\n")
     fsync($stream)
+    fclose($stream)
+}`,
+  ],
+  [
+    "ftruncate",
+    `let $stream = fopen("storage/logs/current.log", "r+")
+
+if ($stream) {
+    ftruncate($stream, 1024)
+    rewind($stream)
+    echo fread($stream, 128)
     fclose($stream)
 }`,
   ],
@@ -4336,6 +4353,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "fsync",
     "Use `fsync()` for compatibility code that needs durable local file writes, including metadata, before the stream is closed or another process reads it.",
+  ],
+  [
+    "ftruncate",
+    "Use `ftruncate()` for compatibility code that compacts or preallocates local files through an existing writable stream. Echo follows PHP's pointer rule: resizing the file does not move the current stream position.",
   ],
   [
     "readfile",
@@ -7523,7 +7544,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 293 PHP compatibility fixtures, 328 implemented Core and standard functions out of 607, 279 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 294 PHP compatibility fixtures, 329 implemented Core and standard functions out of 607, 278 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -322,7 +322,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fsync` | implemented | Flushes an Echo local file stream and synchronizes file data plus metadata to storage, returning false for invalid or closed streams. Source: https://www.php.net/manual/en/function.fsync.php |
 | `ftell` | implemented | Returns the current byte offset for Echo local file stream resources and `false` for invalid or closed streams. Source: https://www.php.net/manual/en/function.ftell.php |
 | `ftok` | missing |  |
-| `ftruncate` | missing |  |
+| `ftruncate` | implemented | Resizes writable Echo local file stream resources without moving the current file pointer, extending with null bytes when needed. Source: https://www.php.net/manual/en/function.ftruncate.php |
 | `fwrite` | implemented | Writes byte strings to Echo local file stream resources and returns the number of bytes written, with nullable length support. Source: https://www.php.net/manual/en/function.fwrite.php |
 | `get_browser` | missing |  |
 | `get_cfg_var` | implemented | Returns `false` for configuration options because Echo does not load PHP configuration values. Source: https://www.php.net/manual/en/function.get-cfg-var.php |

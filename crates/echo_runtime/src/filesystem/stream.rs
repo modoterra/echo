@@ -189,6 +189,24 @@ pub extern "C" fn echo_php_fsync(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ftruncate(stream: EchoValue, size: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(size) = size.php_int_value() else {
+        return EchoValue::bool(false);
+    };
+    let Ok(size) = u64::try_from(size) else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(file.set_len(size).is_ok())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fdatasync(stream: EchoValue) -> EchoValue {
     let Some(stream) = stream.as_stream_mut() else {
         return EchoValue::bool(false);

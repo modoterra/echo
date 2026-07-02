@@ -316,6 +316,61 @@ fn fsync_and_fdatasync_sync_open_streams() {
 }
 
 #[test]
+fn ftruncate_resizes_stream_without_moving_pointer() {
+    let fixture_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-ftruncate-tests-{}",
+        std::process::id()
+    ));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-ftruncate.txt");
+    std::fs::write(&path, b"abcdef").expect("write stream fixture");
+
+    let path_value = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path_value),
+        test_string_value(b"r+"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(echo_php_fseek(stream, EchoValue::int(4)), EchoValue::int(0));
+    assert_eq!(
+        echo_php_ftruncate(stream, EchoValue::int(3)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(echo_php_ftell(stream), EchoValue::int(4));
+    assert_eq!(
+        std::fs::read(&path).expect("read truncated fixture"),
+        b"abc"
+    );
+    assert_eq!(
+        echo_php_ftruncate(stream, EchoValue::int(6)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        std::fs::read(&path).expect("read extended fixture"),
+        b"abc\0\0\0"
+    );
+    assert_eq!(
+        echo_php_ftruncate(stream, EchoValue::int(-1)),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_ftruncate(stream, EchoValue::int(1)),
+        EchoValue::bool(false)
+    );
+
+    unsafe {
+        drop(Box::from_raw(path_value));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn fopen_rejects_unsupported_mode() {
     let temp_file = std::env::temp_dir().join(format!(
         "echo-runtime-stream-mode-{}.txt",
