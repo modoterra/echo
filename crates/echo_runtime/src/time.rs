@@ -58,6 +58,23 @@ pub extern "C" fn echo_php_usleep(microseconds: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_time_nanosleep(seconds: EchoValue, nanoseconds: EchoValue) -> EchoValue {
+    let (Some(seconds), Some(nanoseconds)) = (seconds.php_int_value(), nanoseconds.php_int_value())
+    else {
+        return EchoValue::error();
+    };
+    if seconds < 0 || !(0..1_000_000_000).contains(&nanoseconds) {
+        return EchoValue::error();
+    }
+
+    let duration = Duration::from_secs(seconds as u64) + Duration::from_nanos(nanoseconds as u64);
+    if !duration.is_zero() {
+        std::thread::sleep(duration);
+    }
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_set_time_limit(_seconds: EchoValue) -> EchoValue {
     EchoValue::bool(false)
 }

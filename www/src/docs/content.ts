@@ -1563,6 +1563,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Pauses execution for microseconds.",
       },
       {
+        name: "time_nanosleep",
+        signature: "time_nanosleep(int $seconds, int $nanoseconds): array|bool",
+        description:
+          "Pauses execution for seconds plus nanoseconds and returns true when the sleep completes.",
+      },
+      {
         name: "set_time_limit",
         signature: "set_time_limit(int $seconds): bool",
         description:
@@ -2774,6 +2780,12 @@ echo "remaining: " . $remaining . "\\n"`,
     `usleep(0)
 
 echo "continued\\n"`,
+  ],
+  [
+    "time_nanosleep",
+    `if (time_nanosleep(0, 1) === true) {
+    echo "Short pause completed\\n"
+}`,
   ],
   [
     "set_time_limit",
@@ -5539,6 +5551,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `usleep()` for PHP-compatible short delay points where legacy code measures pauses in microseconds. New Echo code should prefer typed durations through `std.time.sleep()`.",
   ],
   [
+    "time_nanosleep",
+    "Use `time_nanosleep()` for PHP-compatible subsecond delay calls that express nanoseconds separately. Echo currently returns `true` for completed sleeps and does not yet report signal interruptions.",
+  ],
+  [
     "set_time_limit",
     "Use `set_time_limit()` only when preserving PHP timeout-control calls. Echo currently returns `false` because it does not enforce or reset PHP max execution timers.",
   ],
@@ -7837,7 +7853,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 306 PHP compatibility fixtures, 346 implemented Core and standard functions out of 607, 261 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 307 PHP compatibility fixtures, 347 implemented Core and standard functions out of 607, 260 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

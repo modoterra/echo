@@ -225,6 +225,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "time_nanosleep",
+            symbol: "echo_php_time_nanosleep",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueBinaryExpression,
+        },
+        PhpBuiltin {
             php_name: "set_time_limit",
             symbol: "echo_php_set_time_limit",
             helper_symbol: None,
