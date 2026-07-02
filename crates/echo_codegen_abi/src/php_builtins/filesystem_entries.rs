@@ -283,6 +283,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::ValueUnaryOptionalNullExpression,
     },
     PhpBuiltin {
+        php_name: "feof",
+        symbol: "echo_php_feof",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueUnaryExpression,
+    },
+    PhpBuiltin {
         php_name: "fclose",
         symbol: "echo_php_fclose",
         helper_symbol: None,

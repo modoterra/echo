@@ -32,7 +32,7 @@ pub use mutation::{
 };
 pub(crate) use stream::EchoFileStream;
 pub use stream::{
-    echo_php_fclose, echo_php_fgetc, echo_php_fgets, echo_php_fopen, echo_php_fread,
+    echo_php_fclose, echo_php_feof, echo_php_fgetc, echo_php_fgets, echo_php_fopen, echo_php_fread,
     echo_php_fseek, echo_php_ftell, echo_php_rewind, echo_php_stream_get_contents,
     echo_php_tmpfile,
 };

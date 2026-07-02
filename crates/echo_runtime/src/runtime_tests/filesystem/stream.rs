@@ -110,6 +110,50 @@ fn fgets_reads_until_limit_or_eof() {
 }
 
 #[test]
+fn feof_flips_after_read_attempt_past_end_and_resets_on_rewind() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-feof-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create stream fixture");
+    let path = fixture_dir.join("stream-feof.txt");
+    {
+        let mut file = std::fs::File::create(&path).expect("create stream fixture");
+        file.write_all(b"abc").expect("write stream fixture");
+    }
+
+    let path = Box::into_raw(Box::new(EchoString {
+        bytes: path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path),
+        test_string_value(b"r"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(echo_php_feof(stream), EchoValue::bool(false));
+    assert_eq!(
+        echo_php_fread(stream, test_string_value(b"3")).string_bytes(),
+        Some(b"abc".to_vec())
+    );
+    assert_eq!(echo_php_feof(stream), EchoValue::bool(false));
+    assert_eq!(
+        echo_php_fread(stream, test_string_value(b"1")).string_bytes(),
+        Some(Vec::new())
+    );
+    assert_eq!(echo_php_feof(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_rewind(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_feof(stream), EchoValue::bool(false));
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(echo_php_feof(stream), EchoValue::bool(false));
+
+    unsafe {
+        drop(Box::from_raw(path));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
+}
+
+#[test]
 fn fopen_rejects_unsupported_mode() {
     let temp_file = std::env::temp_dir().join(format!(
         "echo-runtime-stream-mode-{}.txt",

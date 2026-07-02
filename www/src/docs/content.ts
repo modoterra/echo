@@ -1248,6 +1248,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Reads up to the requested byte count from a stream, including the trailing newline when encountered.",
       },
       {
+        name: "feof",
+        signature: "feof(resource $stream): bool",
+        description: "Checks whether a local file stream has reached EOF after a read attempt.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2111,6 +2116,17 @@ if ($stream) {
 
 if ($stream) {
     echo "Next chunk: " . fgets($stream, 16) . "\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "feof",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream) {
+    while (!feof($stream)) {
+        echo fgets($stream)
+    }
     fclose($stream)
 }`,
   ],
@@ -4183,6 +4199,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "fgets",
     "Use `fgets()` for bounded line-oriented reads when a compatibility script expects chunked or newline-aware tokenization from local file streams.",
+  ],
+  [
+    "feof",
+    "Use `feof()` to keep PHP-style stream loops compatible. Echo marks EOF only after a local stream read attempts to move past the end, matching PHP's usual file-loop behavior.",
   ],
   [
     "readfile",
@@ -7370,7 +7390,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 287 PHP compatibility fixtures, 320 implemented Core and standard functions out of 607, 287 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 288 PHP compatibility fixtures, 321 implemented Core and standard functions out of 607, 286 remaining, and about 53% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

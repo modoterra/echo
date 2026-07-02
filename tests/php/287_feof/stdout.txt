@@ -1,0 +1,7 @@
+start:0
+first:abc
+after-read:0
+past:
+after-past:1
+after-rewind:0
+exists:1

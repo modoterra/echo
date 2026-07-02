@@ -282,7 +282,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fclose` | implemented | Closes Echo's local file stream resources and returns a bool success value; broader PHP stream wrappers are deferred. Source: https://www.php.net/manual/en/function.fclose.php |
 | `fdatasync` | missing |  |
 | `fdiv` | implemented | Divides two numeric values as IEEE 754 floats, returning `INF`, `-INF`, or `NAN` for zero-divisor cases instead of raising division errors. Source: https://www.php.net/manual/en/function.fdiv.php |
-| `feof` | missing |  |
+| `feof` | implemented | Reports whether an Echo local file stream has attempted to read past EOF, and resets after `fseek()`/`rewind()` repositioning. Source: https://www.php.net/manual/en/function.feof.php |
 | `fflush` | missing |  |
 | `fgetc` | implemented | Reads one byte from Echo local file stream resources and returns `false` at EOF or on invalid streams. Source: https://www.php.net/manual/en/function.fgetc.php |
 | `fgetcsv` | missing |  |

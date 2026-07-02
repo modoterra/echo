@@ -7,6 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[derive(Debug)]
 pub struct EchoFileStream {
     pub file: Option<File>,
+    eof: bool,
     delete_on_close: Option<PathBuf>,
 }
 
@@ -34,6 +35,7 @@ pub extern "C" fn echo_php_fopen(
         Ok(file) => {
             let stream = Box::into_raw(Box::new(EchoFileStream {
                 file: Some(file),
+                eof: false,
                 delete_on_close: None,
             }));
             EchoValue::file_stream(stream)
@@ -62,7 +64,10 @@ pub extern "C" fn echo_php_fread(stream: EchoValue, length: EchoValue) -> EchoVa
     };
     let mut bytes = vec![0_u8; length];
     let read = match file.read(&mut bytes) {
-        Ok(size) => size,
+        Ok(size) => {
+            stream.eof = size == 0;
+            size
+        }
         Err(_) => return EchoValue::bool(false),
     };
     bytes.truncate(read);
@@ -80,8 +85,14 @@ pub extern "C" fn echo_php_fgetc(stream: EchoValue) -> EchoValue {
 
     let mut byte = [0_u8; 1];
     match file.read(&mut byte) {
-        Ok(1) => echo_runtime_string(byte.to_vec()),
-        Ok(_) => EchoValue::bool(false),
+        Ok(1) => {
+            stream.eof = false;
+            echo_runtime_string(byte.to_vec())
+        }
+        Ok(_) => {
+            stream.eof = true;
+            EchoValue::bool(false)
+        }
         Err(_) => EchoValue::bool(false),
     }
 }
@@ -116,12 +127,16 @@ pub extern "C" fn echo_php_fgets(stream: EchoValue, length: EchoValue) -> EchoVa
         let mut byte = [0_u8; 1];
         match file.read(&mut byte) {
             Ok(1) => {
+                stream.eof = false;
                 bytes.push(byte[0]);
                 if byte[0] == b'\n' {
                     break;
                 }
             }
-            Ok(_) => break,
+            Ok(_) => {
+                stream.eof = true;
+                break;
+            }
             Err(_) => return EchoValue::bool(false),
         }
     }
@@ -131,6 +146,18 @@ pub extern "C" fn echo_php_fgets(stream: EchoValue, length: EchoValue) -> EchoVa
     }
 
     echo_runtime_string(bytes)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_feof(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    if stream.file.is_none() {
+        return EchoValue::bool(false);
+    }
+
+    EchoValue::bool(stream.eof)
 }
 
 #[unsafe(no_mangle)]
@@ -182,7 +209,10 @@ pub extern "C" fn echo_php_fseek(stream: EchoValue, offset: EchoValue) -> EchoVa
     };
 
     match file.seek(SeekFrom::Start(offset)) {
-        Ok(_) => EchoValue::int(0),
+        Ok(_) => {
+            stream.eof = false;
+            EchoValue::int(0)
+        }
         Err(_) => EchoValue::int(-1),
     }
 }
@@ -196,7 +226,13 @@ pub extern "C" fn echo_php_rewind(stream: EchoValue) -> EchoValue {
         return EchoValue::bool(false);
     };
 
-    EchoValue::bool(file.seek(SeekFrom::Start(0)).is_ok())
+    match file.seek(SeekFrom::Start(0)) {
+        Ok(_) => {
+            stream.eof = false;
+            EchoValue::bool(true)
+        }
+        Err(_) => EchoValue::bool(false),
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -220,6 +256,7 @@ pub extern "C" fn echo_php_tmpfile() -> EchoValue {
         if let Ok(file) = result {
             let stream = Box::into_raw(Box::new(EchoFileStream {
                 file: Some(file),
+                eof: false,
                 delete_on_close: Some(path),
             }));
             return EchoValue::file_stream(stream);
@@ -255,8 +292,9 @@ pub extern "C" fn echo_php_stream_get_contents(
 
     let mut bytes = Vec::new();
     if length.is_null() {
-        if file.read_to_end(&mut bytes).is_err() {
-            return EchoValue::bool(false);
+        match file.read_to_end(&mut bytes) {
+            Ok(_) => stream.eof = true,
+            Err(_) => return EchoValue::bool(false),
         }
     } else {
         let Some(length) = length.php_int_value() else {
@@ -269,8 +307,9 @@ pub extern "C" fn echo_php_stream_get_contents(
             return EchoValue::bool(false);
         };
         let mut limited = file.take(length as u64);
-        if limited.read_to_end(&mut bytes).is_err() {
-            return EchoValue::bool(false);
+        match limited.read_to_end(&mut bytes) {
+            Ok(read) => stream.eof = read < length,
+            Err(_) => return EchoValue::bool(false),
         }
     }
     echo_runtime_string(bytes)
