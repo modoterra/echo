@@ -1739,6 +1739,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts a signed or unsigned 32-bit integer to a dotted IPv4 address.",
       },
       {
+        name: "inet_pton",
+        signature: "inet_pton(string $ip): string|false",
+        description: "Converts a human-readable IPv4 or IPv6 address to packed bytes.",
+      },
+      {
+        name: "inet_ntop",
+        signature: "inet_ntop(string $ip): string|false",
+        description: "Converts packed IPv4 or IPv6 address bytes to canonical text.",
+      },
+      {
         name: "getrusage",
         signature: "getrusage(): array|false",
         description: "Returns current process resource usage counters.",
@@ -2942,6 +2952,20 @@ if ($packed !== false) {
     `let $address = long2ip(2130706433)
 
 echo "IPv4 address: " . $address . "\\n"`,
+  ],
+  [
+    "inet_pton",
+    `let $packed = inet_pton("2001:db8::1")
+
+if ($packed !== false) {
+    echo bin2hex($packed) . "\\n"
+}`,
+  ],
+  [
+    "inet_ntop",
+    `let $address = inet_ntop(inet_pton("127.0.0.1"))
+
+echo "Address: " . $address . "\\n"`,
   ],
   [
     "getrusage",
@@ -4482,6 +4506,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "long2ip",
     "Use `long2ip()` to display signed or unsigned 32-bit IPv4 integers as canonical dotted addresses.",
+  ],
+  [
+    "inet_pton",
+    "Use `inet_pton()` when compatibility code needs packed network-byte-order IPv4 or IPv6 addresses, such as interoperating with binary protocol fields.",
+  ],
+  [
+    "inet_ntop",
+    "Use `inet_ntop()` to turn packed IPv4 or IPv6 bytes back into canonical human-readable addresses for logs, diagnostics, or protocol output.",
   ],
   [
     "getrusage",
@@ -7597,7 +7629,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 297 PHP compatibility fixtures, 332 implemented Core and standard functions out of 607, 275 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 298 PHP compatibility fixtures, 334 implemented Core and standard functions out of 607, 273 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

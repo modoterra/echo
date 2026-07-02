@@ -1,0 +1,6 @@
+ipv4:7f000001
+ipv6:00000000000000000000000000000001
+roundtrip:2001:db8::1
+bad-pton:boolean
+bad-ntop:boolean
+exists:11

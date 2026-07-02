@@ -380,8 +380,8 @@ Related baseline functions tracked below: `get_included_files`,
 | `image_type_to_mime_type` | missing |  |
 | `implode` | implemented | Joins PHP array values in order, supports the optional empty-string separator form, and uses PHP string coercion for scalar elements. Source: https://www.php.net/manual/en/function.implode.php |
 | `in_array` | implemented | Searches array values with loose comparison by default and strict same-type comparison when the third argument is true. Source: https://www.php.net/manual/en/function.in-array.php |
-| `inet_ntop` | missing |  |
-| `inet_pton` | missing |  |
+| `inet_ntop` | implemented | Converts 4-byte IPv4 and 16-byte IPv6 packed address strings to canonical human-readable addresses, returning false for invalid lengths. Source: https://www.php.net/manual/en/function.inet-ntop.php |
+| `inet_pton` | implemented | Converts human-readable IPv4 and IPv6 addresses to packed network-byte-order strings, returning false for invalid syntax. Source: https://www.php.net/manual/en/function.inet-pton.php |
 | `ini_alter` | implemented | Alias of `ini_set`; returns `false` because Echo does not model mutable PHP ini option values. Source: https://www.php.net/manual/en/function.ini-alter.php |
 | `ini_get` | implemented | Returns `false` for configuration options because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get.php |
 | `ini_get_all` | implemented | Returns an empty array for the core ini registry and `false` for named extensions because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.ini-get-all.php |

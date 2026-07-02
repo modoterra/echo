@@ -297,6 +297,18 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_inet_pton",
+            echo_runtime::echo_php_inet_pton
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
+            "echo_php_inet_ntop",
+            echo_runtime::echo_php_inet_ntop
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_ini_set",
             echo_runtime::echo_php_ini_set
                 as extern "C" fn(

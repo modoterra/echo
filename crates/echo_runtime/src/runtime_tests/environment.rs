@@ -233,3 +233,27 @@ fn environment_process_builtins_follow_php_shapes() {
     assert_eq!(echo_php_php_ini_loaded_file(), EchoValue::bool(false));
     assert_eq!(echo_php_php_ini_scanned_files(), EchoValue::bool(false));
 }
+
+#[test]
+fn inet_packed_address_builtins_round_trip_ipv4_and_ipv6() {
+    assert_eq!(
+        echo_php_bin2hex(echo_php_inet_pton(test_string_value(b"127.0.0.1"))).string_bytes(),
+        Some(b"7f000001".to_vec())
+    );
+    assert_eq!(
+        echo_php_bin2hex(echo_php_inet_pton(test_string_value(b"::1"))).string_bytes(),
+        Some(b"00000000000000000000000000000001".to_vec())
+    );
+    assert_eq!(
+        echo_php_inet_ntop(echo_php_inet_pton(test_string_value(b"2001:db8::1"))).string_bytes(),
+        Some(b"2001:db8::1".to_vec())
+    );
+    assert_eq!(
+        echo_php_inet_pton(test_string_value(b"172.27.1.04")),
+        EchoValue::bool(false)
+    );
+    assert_eq!(
+        echo_php_inet_ntop(test_string_value(b"bad")),
+        EchoValue::bool(false)
+    );
+}

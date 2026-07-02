@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsStr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
@@ -835,6 +836,43 @@ pub extern "C" fn echo_php_long2ip(ip: EchoValue) -> EchoValue {
     };
     let bytes = (value as u32).to_be_bytes();
     echo_runtime_string(format!("{}.{}.{}.{}", bytes[0], bytes[1], bytes[2], bytes[3]).into_bytes())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_inet_pton(ip: EchoValue) -> EchoValue {
+    let Some(bytes) = ip.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Ok(ip) = std::str::from_utf8(&bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    match ip.parse::<IpAddr>() {
+        Ok(IpAddr::V4(address)) => echo_runtime_string(address.octets().to_vec()),
+        Ok(IpAddr::V6(address)) => echo_runtime_string(address.octets().to_vec()),
+        Err(_) => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_inet_ntop(ip: EchoValue) -> EchoValue {
+    let Some(bytes) = ip.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    match bytes.len() {
+        4 => echo_runtime_string(
+            Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3])
+                .to_string()
+                .into_bytes(),
+        ),
+        16 => {
+            let mut octets = [0_u8; 16];
+            octets.copy_from_slice(&bytes);
+            echo_runtime_string(Ipv6Addr::from(octets).to_string().into_bytes())
+        }
+        _ => EchoValue::bool(false),
+    }
 }
 
 #[unsafe(no_mangle)]
