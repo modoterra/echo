@@ -1302,6 +1302,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Resizes a writable local file stream without moving the current stream position.",
       },
       {
+        name: "glob",
+        signature: "glob(string $pattern, int $flags = 0): array|false",
+        description:
+          "Returns sorted local path matches for simple single-directory patterns.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2257,6 +2263,12 @@ if ($stream) {
     echo fread($stream, 128)
     fclose($stream)
 }`,
+  ],
+  [
+    "glob",
+    `let $reports = glob("storage/reports/*.csv", 0)
+
+echo "Reports found: " . count($reports) . "\\n"`,
   ],
   [
     "readfile",
@@ -4372,6 +4384,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ftruncate",
     "Use `ftruncate()` for compatibility code that compacts or preallocates local files through an existing writable stream. Echo follows PHP's pointer rule: resizing the file does not move the current stream position.",
+  ],
+  [
+    "glob",
+    "Use `glob()` for simple local file discovery such as collecting generated reports. Echo currently supports sorted single-directory `*` and `?` patterns with flags set to `0`.",
   ],
   [
     "readfile",
@@ -7563,7 +7579,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 295 PHP compatibility fixtures, 330 implemented Core and standard functions out of 607, 277 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 296 PHP compatibility fixtures, 331 implemented Core and standard functions out of 607, 276 remaining, and about 55% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

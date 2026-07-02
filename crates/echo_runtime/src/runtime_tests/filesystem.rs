@@ -1,4 +1,5 @@
 use super::*;
+use crate::collections::EchoArrayKey;
 use crate::filesystem::path_getcwd;
 use std::env;
 use std::path::Path;
@@ -50,6 +51,71 @@ fn file_exists_reports_existing_files_and_directories() {
         drop(Box::from_raw(missing));
         drop(Box::from_raw(empty));
     }
+}
+
+#[test]
+fn glob_returns_sorted_matches_for_local_directory_patterns() {
+    let fixture_dir =
+        std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));
+    std::fs::remove_dir_all(&fixture_dir).ok();
+    std::fs::create_dir_all(&fixture_dir).expect("create glob fixture");
+    std::fs::write(fixture_dir.join("b.txt"), b"b").expect("write glob fixture");
+    std::fs::write(fixture_dir.join("a.txt"), b"a").expect("write glob fixture");
+    std::fs::write(fixture_dir.join("ignore.log"), b"log").expect("write glob fixture");
+
+    let pattern = Box::into_raw(Box::new(EchoString {
+        bytes: fixture_dir
+            .join("*.txt")
+            .to_string_lossy()
+            .as_bytes()
+            .to_vec(),
+    }));
+    let result = echo_php_glob(EchoValue::string(pattern), EchoValue::int(0));
+    let array = unsafe { (result.payload as *const EchoArray).as_ref() }.expect("glob array");
+
+    assert_eq!(array.keys, vec![EchoArrayKey::Int(0), EchoArrayKey::Int(1)]);
+    assert_eq!(
+        array.values[0].string_bytes(),
+        Some(
+            fixture_dir
+                .join("a.txt")
+                .to_string_lossy()
+                .as_bytes()
+                .to_vec()
+        )
+    );
+    assert_eq!(
+        array.values[1].string_bytes(),
+        Some(
+            fixture_dir
+                .join("b.txt")
+                .to_string_lossy()
+                .as_bytes()
+                .to_vec()
+        )
+    );
+
+    let missing_pattern = Box::into_raw(Box::new(EchoString {
+        bytes: fixture_dir
+            .join("*.missing")
+            .to_string_lossy()
+            .as_bytes()
+            .to_vec(),
+    }));
+    let missing = echo_php_glob(EchoValue::string(missing_pattern), EchoValue::int(0));
+    let missing_array =
+        unsafe { (missing.payload as *const EchoArray).as_ref() }.expect("empty glob array");
+    assert!(missing_array.values.is_empty());
+    assert_eq!(
+        echo_php_glob(EchoValue::string(pattern), EchoValue::int(1)),
+        EchoValue::bool(false)
+    );
+
+    unsafe {
+        drop(Box::from_raw(pattern));
+        drop(Box::from_raw(missing_pattern));
+    }
+    std::fs::remove_dir_all(fixture_dir).ok();
 }
 
 #[test]

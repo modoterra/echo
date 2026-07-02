@@ -1,0 +1,5 @@
+count:2
+first:a.txt
+second:b.txt
+missing:0
+exists:1

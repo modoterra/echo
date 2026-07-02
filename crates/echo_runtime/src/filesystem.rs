@@ -71,6 +71,23 @@ pub extern "C" fn echo_php_fnmatch(pattern: EchoValue, filename: EchoValue) -> E
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_glob(pattern: EchoValue, flags: EchoValue) -> EchoValue {
+    let Some(pattern) = pattern.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+    let Some(flags) = flags.php_int_value() else {
+        return EchoValue::bool(false);
+    };
+    if flags != 0 {
+        return EchoValue::bool(false);
+    }
+
+    php_glob(&pattern)
+        .map(|matches| EchoValue::array(Box::into_raw(Box::new(EchoArray::from_values(matches)))))
+        .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_chdir(directory: EchoValue) -> EchoValue {
     match directory.string_bytes() {
         Some(bytes) => EchoValue::bool(path_chdir(&bytes)),
@@ -160,6 +177,40 @@ fn fnmatch_bytes(pattern: &[u8], filename: &[u8]) -> bool {
     }
 
     pattern[pattern_index..].iter().all(|byte| *byte == b'*')
+}
+
+#[cfg(unix)]
+fn php_glob(pattern: &[u8]) -> Option<Vec<EchoValue>> {
+    let separator = pattern.iter().rposition(|byte| *byte == b'/');
+    let (directory, file_pattern) = match separator {
+        Some(index) => (&pattern[..index], &pattern[index + 1..]),
+        None => (b".".as_slice(), pattern),
+    };
+    let directory_path = if directory.is_empty() {
+        Path::new("/")
+    } else {
+        Path::new(OsStr::from_bytes(directory))
+    };
+    let mut matches = Vec::new();
+
+    for entry in std::fs::read_dir(directory_path).ok()? {
+        let entry = entry.ok()?;
+        let name = entry.file_name();
+        let name = name.as_bytes();
+        if !fnmatch_bytes(file_pattern, name) {
+            continue;
+        }
+
+        let mut matched = Vec::new();
+        if let Some(index) = separator {
+            matched.extend_from_slice(&pattern[..=index]);
+        }
+        matched.extend_from_slice(name);
+        matches.push(matched);
+    }
+
+    matches.sort();
+    Some(matches.into_iter().map(echo_runtime_string).collect())
 }
 
 #[unsafe(no_mangle)]

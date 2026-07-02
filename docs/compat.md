@@ -354,7 +354,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `getservbyport` | implemented | Returns the canonical service name for ports found in `/etc/services` for the requested protocol, with common built-in fallbacks for `22`, `53`, `80`, and `443`; returns `false` for unknown ports. Source: https://www.php.net/manual/en/function.getservbyport.php |
 | `gettimeofday` | implemented | Returns an associative array with `sec`, `usec`, `minuteswest`, and `dsttime` by default, or a float timestamp when `as_float` is true. Source: https://www.php.net/manual/en/function.gettimeofday.php |
 | `gettype` | implemented | Returns PHP type names for Echo's current value tags. Source: https://www.php.net/manual/en/function.gettype.php |
-| `glob` | missing |  |
+| `glob` | partial | Matches sorted local filesystem pathnames for single-directory `*` and `?` patterns with `flags = 0`; optional argument lowering, flags, braces, bracket ranges, escaping, and multi-segment traversal are deferred. Source: https://www.php.net/manual/en/function.glob.php |
 | `header` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header.php |
 | `header_register_callback` | missing |  |
 | `header_remove` | implemented | No-op because Echo currently uses CLI-style execution and does not model an HTTP header layer. Source: https://www.php.net/manual/en/function.header-remove.php |
