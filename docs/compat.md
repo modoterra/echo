@@ -145,7 +145,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `abs` | implemented | Supports current Echo integer values; float payloads are deferred. Source: https://www.php.net/manual/en/function.abs.php |
 | `acos` | implemented | Returns the arc cosine in radians using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.acos.php |
 | `acosh` | implemented | Returns inverse hyperbolic cosine as a float with PHP-compatible numeric coercion and `NAN` outside the domain. Source: https://www.php.net/manual/en/function.acosh.php |
-| `addcslashes` | missing |  |
+| `addcslashes` | partial | Escapes bytes selected by explicit character lists and ascending ranges with PHP-style C escapes; PHP warning details for malformed ranges are deferred. Source: https://www.php.net/manual/en/function.addcslashes.php |
 | `addslashes` | implemented | Escapes single quote, double quote, backslash, and NUL bytes for legacy quoted-string compatibility. Source: https://www.php.net/manual/en/function.addslashes.php |
 | `array_all` | missing |  |
 | `array_any` | missing |  |

@@ -1,0 +1,4 @@
+letters:[\A
+\Z]
+controls:[A\n\t]
+exists:[1]

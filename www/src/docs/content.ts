@@ -184,6 +184,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Escapes characters that need backslashes in quoted PHP strings.",
       },
       {
+        name: "addcslashes",
+        signature: "addcslashes(string $string, string $characters): string",
+        description: "Escapes bytes selected by a PHP character list.",
+      },
+      {
         name: "stripslashes",
         signature: "stripslashes(string $string): string",
         description: "Unquotes a string quoted with backslashes.",
@@ -1627,6 +1632,12 @@ echo "Balance delta: " . $displayBalance . "\\n"`,
 let $sqlPreview = "title='" . addslashes($title) . "'"
 
 echo $sqlPreview . "\\n"`,
+  ],
+  [
+    "addcslashes",
+    `let $escaped = addcslashes("A\\nZ", "A..Z")
+
+echo $escaped . "\\n"`,
   ],
   [
     "stripcslashes",
@@ -4071,6 +4082,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "addslashes",
     "Use `addslashes()` for PHP-compatible escaping of quotes, backslashes, and NUL bytes when legacy code expects that exact format.",
+  ],
+  [
+    "addcslashes",
+    "Use `addcslashes()` when legacy formats require a specific byte set to be backslash-escaped, such as ASCII ranges or control bytes.",
   ],
   [
     "stripslashes",
@@ -6990,7 +7005,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 264 PHP compatibility fixtures, 297 implemented Core and standard functions out of 607, 310 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 265 PHP compatibility fixtures, 298 implemented Core and standard functions out of 607, 309 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

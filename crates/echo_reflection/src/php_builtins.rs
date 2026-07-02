@@ -1193,6 +1193,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("chop", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("addslashes", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
+            "addcslashes",
+            &[("string", Some("string")), ("characters", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "stripslashes",
             &[("string", Some("string"))],
             Some("string"),

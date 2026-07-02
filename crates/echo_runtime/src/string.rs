@@ -594,6 +594,18 @@ pub extern "C" fn echo_php_addslashes(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_addcslashes(value: EchoValue, characters: EchoValue) -> EchoValue {
+    let Some(bytes) = value.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(characters) = characters.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    echo_runtime_string(add_c_slashes(&bytes, &characters))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_stripslashes(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, |bytes| {
         let mut stripped = Vec::with_capacity(bytes.len());
@@ -620,6 +632,97 @@ pub extern "C" fn echo_php_stripslashes(value: EchoValue) -> EchoValue {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_php_stripcslashes(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, strip_c_string_slashes)
+}
+
+fn add_c_slashes(bytes: &[u8], characters: &[u8]) -> Vec<u8> {
+    let mask = c_slash_charlist_mask(characters);
+    let mut escaped = Vec::with_capacity(bytes.len());
+
+    for byte in bytes {
+        if !mask[*byte as usize] {
+            escaped.push(*byte);
+            continue;
+        }
+
+        match *byte {
+            b'\n' => escaped.extend_from_slice(b"\\n"),
+            b'\r' => escaped.extend_from_slice(b"\\r"),
+            b'\t' => escaped.extend_from_slice(b"\\t"),
+            0x07 => escaped.extend_from_slice(b"\\a"),
+            0x08 => escaped.extend_from_slice(b"\\b"),
+            0x0b => escaped.extend_from_slice(b"\\v"),
+            0x0c => escaped.extend_from_slice(b"\\f"),
+            b'\\' => escaped.extend_from_slice(b"\\\\"),
+            0x20..=0x7e => {
+                escaped.push(b'\\');
+                escaped.push(*byte);
+            }
+            other => escaped.extend_from_slice(format!("\\{:03o}", other).as_bytes()),
+        }
+    }
+
+    escaped
+}
+
+fn c_slash_charlist_mask(characters: &[u8]) -> [bool; 256] {
+    let mut mask = [false; 256];
+    let mut index = 0;
+
+    while index < characters.len() {
+        let (start, consumed) = c_slash_charlist_byte(&characters[index..]);
+        index += consumed;
+
+        if index + 1 < characters.len()
+            && characters[index] == b'.'
+            && characters[index + 1] == b'.'
+        {
+            index += 2;
+            let (end, end_consumed) = c_slash_charlist_byte(&characters[index..]);
+            index += end_consumed;
+
+            if start <= end {
+                for byte in start..=end {
+                    mask[byte as usize] = true;
+                }
+            } else {
+                mask[start as usize] = true;
+                mask[end as usize] = true;
+            }
+        } else {
+            mask[start as usize] = true;
+        }
+    }
+
+    mask
+}
+
+fn c_slash_charlist_byte(bytes: &[u8]) -> (u8, usize) {
+    if bytes.first() != Some(&b'\\') || bytes.len() == 1 {
+        return (bytes[0], 1);
+    }
+
+    match bytes[1] {
+        b'n' => (b'\n', 2),
+        b'r' => (b'\r', 2),
+        b't' => (b'\t', 2),
+        b'v' => (0x0b, 2),
+        b'f' => (0x0c, 2),
+        b'a' => (0x07, 2),
+        b'b' => (0x08, 2),
+        b'0'..=b'7' => {
+            let mut value = 0_u8;
+            let mut consumed = 1;
+            while consumed < bytes.len() && consumed <= 3 && matches!(bytes[consumed], b'0'..=b'7')
+            {
+                value = value
+                    .saturating_mul(8)
+                    .saturating_add(bytes[consumed] - b'0');
+                consumed += 1;
+            }
+            (value, consumed)
+        }
+        other => (other, 2),
+    }
 }
 
 fn strip_c_string_slashes(bytes: &[u8]) -> Vec<u8> {
