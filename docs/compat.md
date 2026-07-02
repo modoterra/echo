@@ -567,7 +567,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `random_bytes` | implemented | Generates cryptographically secure random bytes using OS entropy and returns `false` on failure or invalid length. Source: https://www.php.net/manual/en/function.random-bytes.php |
 | `random_int` | implemented | Returns uniformly distributed integers in `[min,max]` and returns `false` for invalid argument ranges. Source: https://www.php.net/manual/en/function.random-int.php |
 | `shuffle` | missing |  |
-| `similar_text` | missing |  |
+| `similar_text` | partial | Returns the PHP recursive longest-common-substring similarity count for two byte strings; the optional percent output parameter is deferred until by-reference call support is broader. Source: https://www.php.net/manual/en/function.similar-text.php |
 | `sin` | implemented | Returns the sine of a radian value using PHP-compatible float coercion. Source: https://www.php.net/manual/en/function.sin.php |
 | `sinh` | implemented | Returns hyperbolic sine as a float with PHP-compatible numeric coercion. Source: https://www.php.net/manual/en/function.sinh.php |
 | `sizeof` | implemented | Alias of `count()`. Source: https://www.php.net/manual/en/function.sizeof.php |

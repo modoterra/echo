@@ -108,6 +108,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Calculates a four-character phonetic Soundex key.",
       },
       {
+        name: "similar_text",
+        signature: "similar_text(string $string1, string $string2): int",
+        description: "Returns PHP's recursive longest-common-substring similarity count.",
+      },
+      {
         name: "wordwrap",
         signature:
           "wordwrap(string $string, int $width, string $break, bool $cut_long_words): string",
@@ -2865,6 +2870,12 @@ let $right = soundex("Ellery")
 echo "Same bucket: " . ($left === $right ? "yes" : "no") . "\\n"`,
   ],
   [
+    "similar_text",
+    `let $score = similar_text("invoice", "invoked")
+
+echo "Similarity score: " . $score . "\\n"`,
+  ],
+  [
     "wordwrap",
     `let $body = "The quick brown fox jumps"
 let $wrapped = wordwrap($body, 10)
@@ -3982,6 +3993,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "soundex",
     "Use `soundex()` as a coarse PHP-compatible phonetic key for short ASCII names in legacy matching workflows. It is not a general fuzzy search algorithm.",
+  ],
+  [
+    "similar_text",
+    "Use `similar_text()` for small legacy compatibility checks that expect PHP's similarity count. Echo currently implements the integer score and defers the by-reference percent output.",
   ],
   [
     "wordwrap",
@@ -6945,7 +6960,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 261 PHP compatibility fixtures, 294 implemented Core and standard functions out of 607, 313 remaining, and about 48% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 262 PHP compatibility fixtures, 295 implemented Core and standard functions out of 607, 312 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

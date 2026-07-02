@@ -1,0 +1,4 @@
+abc_abd:[2]
+kitten_sitting:[4]
+empty:[0]
+exists:[1]

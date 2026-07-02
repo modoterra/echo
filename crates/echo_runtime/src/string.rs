@@ -456,6 +456,18 @@ pub extern "C" fn echo_php_soundex(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, soundex_bytes)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_similar_text(first: EchoValue, second: EchoValue) -> EchoValue {
+    let Some(first) = first.string_bytes() else {
+        return EchoValue::error();
+    };
+    let Some(second) = second.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    EchoValue::int(similar_text_count(&first, &second) as i64)
+}
+
 fn soundex_bytes(bytes: &[u8]) -> Vec<u8> {
     let Some((first_index, first_letter)) = bytes
         .iter()
@@ -510,6 +522,40 @@ fn soundex_digit(byte: u8) -> Option<u8> {
         b'R' => Some(b'6'),
         _ => None,
     }
+}
+
+fn similar_text_count(first: &[u8], second: &[u8]) -> usize {
+    let mut best_first = 0;
+    let mut best_second = 0;
+    let mut best_len = 0;
+
+    for first_index in 0..first.len() {
+        for second_index in 0..second.len() {
+            let mut len = 0;
+            while first_index + len < first.len()
+                && second_index + len < second.len()
+                && first[first_index + len] == second[second_index + len]
+            {
+                len += 1;
+            }
+            if len > best_len {
+                best_first = first_index;
+                best_second = second_index;
+                best_len = len;
+            }
+        }
+    }
+
+    if best_len == 0 {
+        return 0;
+    }
+
+    best_len
+        + similar_text_count(&first[..best_first], &second[..best_second])
+        + similar_text_count(
+            &first[best_first + best_len..],
+            &second[best_second + best_len..],
+        )
 }
 
 #[unsafe(no_mangle)]

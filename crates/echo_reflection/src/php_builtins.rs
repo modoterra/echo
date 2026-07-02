@@ -762,6 +762,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("str_rot13", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("soundex", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
+            "similar_text",
+            &[("string1", Some("string")), ("string2", Some("string"))],
+            Some("int"),
+        ),
+        php_builtin_reflection(
             "wordwrap",
             &[
                 ("string", Some("string")),
