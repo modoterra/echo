@@ -1804,6 +1804,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets the CLI process title tracked by the runtime.",
       },
       {
+        name: "passthru",
+        signature: "passthru(string $command, ?int &$result_code = null): null|false",
+        description: "Executes a shell command and writes raw stdout.",
+      },
+      {
         name: "shell_exec",
         signature: "shell_exec(string $command): string|false|null",
         description: "Executes a shell command and returns captured stdout.",
@@ -3295,6 +3300,14 @@ echo "worker: " . cli_get_process_title() . "\\n"`,
     `cli_set_process_title("queue:emails")
 
 echo "worker: " . cli_get_process_title() . "\\n"`,
+  ],
+  [
+    "passthru",
+    `ob_start()
+let $result = passthru("printf 'ready'")
+let $output = ob_get_clean()
+
+echo "Command bytes: " . strlen($output) . "\\n"`,
   ],
   [
     "shell_exec",
@@ -6351,6 +6364,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `cli_get_process_title()` when compatibility code reads back a CLI worker label set earlier in the process.",
   ],
   [
+    "passthru",
+    "Use `passthru()` when compatibility code expects a command to stream raw stdout directly into the current output buffer. Echo runs the command through the Linux/macOS shell and leaves by-reference result codes, stderr behavior, warnings, disabled-function policy, and process handles for later.",
+  ],
+  [
     "shell_exec",
     "Use `shell_exec()` only for compatibility code that already shells out to local tools and only with trusted commands. Echo captures stdout through the Linux/macOS shell and leaves stderr handling, exit status reporting, disabled-function policy, and process handles for later.",
   ],
@@ -8653,7 +8670,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 345 PHP compatibility fixtures, 394 implemented Core and standard functions out of 607, 213 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 346 PHP compatibility fixtures, 395 implemented Core and standard functions out of 607, 212 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

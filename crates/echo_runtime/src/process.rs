@@ -1,9 +1,24 @@
 use crate::task::ProcessId;
-use crate::{EchoValue, echo_runtime_string};
+use crate::{EchoValue, echo_runtime_string, write_runtime_output};
 use std::process::{Child, Command};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static NEXT_PROCESS_ID: AtomicUsize = AtomicUsize::new(1);
+
+fn shell_command_output(command: &[u8]) -> std::io::Result<std::process::Output> {
+    let command_string = String::from_utf8_lossy(command);
+    if cfg!(windows) {
+        Command::new("cmd")
+            .arg("/C")
+            .arg(command_string.as_ref())
+            .output()
+    } else {
+        Command::new("sh")
+            .arg("-c")
+            .arg(command_string.as_ref())
+            .output()
+    }
+}
 
 #[derive(Debug)]
 pub struct EchoProcess {
@@ -51,20 +66,8 @@ pub extern "C" fn echo_php_shell_exec(command: EchoValue) -> EchoValue {
     let Some(command) = command.string_bytes() else {
         return EchoValue::error();
     };
-    let command_string = String::from_utf8_lossy(&command);
-    let output = if cfg!(windows) {
-        Command::new("cmd")
-            .arg("/C")
-            .arg(command_string.as_ref())
-            .output()
-    } else {
-        Command::new("sh")
-            .arg("-c")
-            .arg(command_string.as_ref())
-            .output()
-    };
 
-    let Ok(output) = output else {
+    let Ok(output) = shell_command_output(&command) else {
         return EchoValue::bool(false);
     };
     if output.stdout.is_empty() {
@@ -72,6 +75,19 @@ pub extern "C" fn echo_php_shell_exec(command: EchoValue) -> EchoValue {
     } else {
         echo_runtime_string(output.stdout)
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_passthru(command: EchoValue) -> EchoValue {
+    let Some(command) = command.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Ok(output) = shell_command_output(&command) else {
+        return EchoValue::bool(false);
+    };
+    write_runtime_output(&output.stdout);
+    EchoValue::null()
 }
 
 #[unsafe(no_mangle)]
@@ -127,5 +143,15 @@ mod tests {
             echo_php_shell_exec(string_value(b"printf ''")),
             EchoValue::null()
         );
+    }
+
+    #[test]
+    fn passthru_writes_stdout_and_returns_null() {
+        let (result, stdout) = crate::capture_stdout(false, || {
+            echo_php_passthru(string_value(b"printf 'raw-pass'"))
+        });
+
+        assert_eq!(result, EchoValue::null());
+        assert_eq!(stdout, b"raw-pass".to_vec());
     }
 }
