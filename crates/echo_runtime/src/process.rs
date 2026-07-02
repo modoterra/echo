@@ -1,5 +1,5 @@
-use crate::EchoValue;
 use crate::task::ProcessId;
+use crate::{EchoValue, echo_runtime_string};
 use std::process::{Child, Command};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -47,6 +47,34 @@ impl EchoProcess {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_shell_exec(command: EchoValue) -> EchoValue {
+    let Some(command) = command.string_bytes() else {
+        return EchoValue::error();
+    };
+    let command_string = String::from_utf8_lossy(&command);
+    let output = if cfg!(windows) {
+        Command::new("cmd")
+            .arg("/C")
+            .arg(command_string.as_ref())
+            .output()
+    } else {
+        Command::new("sh")
+            .arg("-c")
+            .arg(command_string.as_ref())
+            .output()
+    };
+
+    let Ok(output) = output else {
+        return EchoValue::bool(false);
+    };
+    if output.stdout.is_empty() {
+        EchoValue::null()
+    } else {
+        echo_runtime_string(output.stdout)
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_process_spawn(command: EchoValue) -> EchoValue {
     let Some(command) = command.string_bytes() else {
         return EchoValue::error();
@@ -87,5 +115,17 @@ mod tests {
     #[test]
     fn process_join_rejects_non_process_values() {
         assert_eq!(echo_process_join(EchoValue::int(7)), EchoValue::error());
+    }
+
+    #[test]
+    fn shell_exec_returns_stdout_or_null_for_empty_output() {
+        assert_eq!(
+            echo_php_shell_exec(string_value(b"printf 'echo-shell'")).string_bytes(),
+            Some(b"echo-shell".to_vec())
+        );
+        assert_eq!(
+            echo_php_shell_exec(string_value(b"printf ''")),
+            EchoValue::null()
+        );
     }
 }

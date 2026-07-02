@@ -283,6 +283,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueUnaryExpression,
         },
         PhpBuiltin {
+            php_name: "shell_exec",
+            symbol: "echo_php_shell_exec",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueUnaryExpression,
+        },
+        PhpBuiltin {
             php_name: "phpversion",
             symbol: "echo_php_phpversion",
             helper_symbol: None,

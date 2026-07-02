@@ -124,7 +124,7 @@ pub use output::{
     echo_shutdown, echo_write, echo_write_i64, echo_write_i64_or_false, echo_write_string,
     echo_write_value,
 };
-pub use process::{echo_process_join, echo_process_spawn};
+pub use process::{echo_php_shell_exec, echo_process_join, echo_process_spawn};
 pub use reflection::{
     echo_php_class_exists, echo_php_debug_backtrace, echo_php_debug_print_backtrace,
     echo_php_enum_exists, echo_php_function_exists, echo_php_get_declared_classes,

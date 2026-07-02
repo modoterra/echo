@@ -562,7 +562,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `settype` | missing |  |
 | `sha1` | implemented | Returns a lowercase 40-character SHA-1 digest by default and raw 20-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.sha1.php |
 | `sha1_file` | implemented | Hashes local files with optional raw output and returns `false` for missing files. Source: https://www.php.net/manual/en/function.sha1-file.php |
-| `shell_exec` | missing |  |
+| `shell_exec` | partial | Executes a command through the Linux/macOS shell and returns stdout as a string, or `null` for empty stdout; stderr handling, exit status reporting, disabled-function policy, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.shell-exec.php |
 | `show_source` | missing |  |
 | `random_bytes` | implemented | Generates cryptographically secure random bytes using OS entropy and returns `false` on failure or invalid length. Source: https://www.php.net/manual/en/function.random-bytes.php |
 | `random_int` | implemented | Returns uniformly distributed integers in `[min,max]` and returns `false` for invalid argument ranges. Source: https://www.php.net/manual/en/function.random-int.php |

@@ -1804,6 +1804,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Sets the CLI process title tracked by the runtime.",
       },
       {
+        name: "shell_exec",
+        signature: "shell_exec(string $command): string|false|null",
+        description: "Executes a shell command and returns captured stdout.",
+      },
+      {
         name: "phpversion",
         signature: "phpversion(?string $extension): string|false",
         description: "Returns the PHP compatibility version or false for unknown extensions.",
@@ -3290,6 +3295,14 @@ echo "worker: " . cli_get_process_title() . "\\n"`,
     `cli_set_process_title("queue:emails")
 
 echo "worker: " . cli_get_process_title() . "\\n"`,
+  ],
+  [
+    "shell_exec",
+    `let $output = shell_exec("printf 'ready'")
+
+if ($output !== null) {
+    echo "Command output: " . $output . "\\n"
+}`,
   ],
   [
     "phpversion",
@@ -6338,6 +6351,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `cli_get_process_title()` when compatibility code reads back a CLI worker label set earlier in the process.",
   ],
   [
+    "shell_exec",
+    "Use `shell_exec()` only for compatibility code that already shells out to local tools and only with trusted commands. Echo captures stdout through the Linux/macOS shell and leaves stderr handling, exit status reporting, disabled-function policy, and process handles for later.",
+  ],
+  [
     "phpversion",
     "Use `phpversion()` in compatibility bootstraps and diagnostics that need to report the PHP surface Echo is targeting.",
   ],
@@ -8636,7 +8653,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 344 PHP compatibility fixtures, 393 implemented Core and standard functions out of 607, 214 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 345 PHP compatibility fixtures, 394 implemented Core and standard functions out of 607, 213 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
