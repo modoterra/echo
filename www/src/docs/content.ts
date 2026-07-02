@@ -1158,6 +1158,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Matches a filename against a shell-style byte pattern with `*` and `?`.",
       },
       {
+        name: "php_strip_whitespace",
+        signature: "php_strip_whitespace(string $filename): string",
+        description: "Returns PHP source with comments and extra whitespace removed.",
+      },
+      {
         name: "chdir",
         signature: "chdir(string $directory): bool",
         description: "Changes the current working directory for the process.",
@@ -2823,6 +2828,12 @@ if (!is_dir($scratchDir)) {
 }
 
 echo "Scratch directory: " . $scratchDir . "\\n"`,
+  ],
+  [
+    "php_strip_whitespace",
+    `let $source = php_strip_whitespace("app/bootstrap.php")
+
+echo "Stripped bytes: " . strlen($source) . "\\n"`,
   ],
   [
     "tempnam",
@@ -6187,6 +6198,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `umask()` sparingly around local file creation when preserving PHP permission behavior. Echo follows the Linux/macOS process-wide mask model, so restore the old mask immediately after the operation.",
   ],
   [
+    "php_strip_whitespace",
+    "Use `php_strip_whitespace()` when compatibility tooling needs a compact view of local PHP source. Echo currently removes comments and collapses whitespace outside quoted strings, while exact tokenizer parity, heredoc/nowdoc handling, inline HTML, and highlight output are deferred.",
+  ],
+  [
     "getcwd",
     "Use `getcwd()` to anchor relative file operations, build diagnostics, or restore the process directory after a temporary change.",
   ],
@@ -8621,7 +8636,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 343 PHP compatibility fixtures, 392 implemented Core and standard functions out of 607, 215 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 344 PHP compatibility fixtures, 393 implemented Core and standard functions out of 607, 214 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

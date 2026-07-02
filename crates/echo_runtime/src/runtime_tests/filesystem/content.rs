@@ -86,3 +86,29 @@ fn filesystem_content_builtins_read_write_append_and_stream_output() {
 
     std::fs::remove_dir_all(&temp_dir).ok();
 }
+
+#[test]
+fn php_strip_whitespace_removes_comments_and_collapses_space() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "echo-runtime-strip-whitespace-{}",
+        std::process::id()
+    ));
+    let source_path = temp_dir.join("source.php");
+    std::fs::remove_dir_all(&temp_dir).ok();
+    std::fs::create_dir_all(&temp_dir).expect("create temp test directory");
+    std::fs::write(
+        &source_path,
+        b"<?php\n// leading comment\n$name = \"Ada // not a comment\"; /* inline */\necho  $name  .  \"\\n\";\n# tail\n",
+    )
+    .expect("write strip fixture");
+
+    let path = EchoValue::string(Box::into_raw(Box::new(EchoString {
+        bytes: source_path.to_string_lossy().as_bytes().to_vec(),
+    })));
+    assert_eq!(
+        echo_php_php_strip_whitespace(path).string_bytes(),
+        Some(b"<?php\n $name = \"Ada // not a comment\"; echo $name . \"\\n\"; ".to_vec())
+    );
+
+    std::fs::remove_dir_all(&temp_dir).ok();
+}

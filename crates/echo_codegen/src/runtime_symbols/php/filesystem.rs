@@ -23,6 +23,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_php_strip_whitespace",
+            echo_runtime::echo_php_php_strip_whitespace
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_disk_free_space",
             echo_runtime::echo_php_disk_free_space
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

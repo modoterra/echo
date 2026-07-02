@@ -508,7 +508,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `php_ini_loaded_file` | implemented | Returns `false` because Echo does not load a PHP configuration file. Source: https://www.php.net/manual/en/function.php-ini-loaded-file.php |
 | `php_ini_scanned_files` | implemented | Returns `false` because Echo does not scan PHP configuration directories. Source: https://www.php.net/manual/en/function.php-ini-scanned-files.php |
 | `php_sapi_name` | implemented | Returns Echo's PHP compatibility Server API name, currently `cli`, matching the `PHP_SAPI` constant. Source: https://www.php.net/manual/en/function.php-sapi-name.php |
-| `php_strip_whitespace` | missing |  |
+| `php_strip_whitespace` | partial | Reads a local PHP file, removes comments, and collapses whitespace outside quoted strings; exact tokenizer parity, heredoc/nowdoc handling, inline HTML, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.php-strip-whitespace.php |
 | `php_uname` | partial | Returns host system identity fields for explicit mode strings such as `s`, `n`, `r`, `v`, and `m`; no-argument default lowering is deferred. Source: https://www.php.net/manual/en/function.php-uname.php |
 | `phpcredits` | partial | Emits compact CLI-style Echo/PHP compatibility credit text and returns `true`; full credit categories, exact upstream credit text, and HTML rendering are deferred. Source: https://www.php.net/manual/en/function.phpcredits.php |
 | `phpinfo` | partial | Emits compact CLI-style Echo/PHP compatibility information and returns `true`; full flag handling, configuration tables, extension/module output, HTML rendering, and exact PHP CLI text are deferred. Source: https://www.php.net/manual/en/function.phpinfo.php |

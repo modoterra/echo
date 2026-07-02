@@ -17,7 +17,10 @@ mod temporary;
 
 #[cfg(test)]
 pub(crate) use content::PHP_FILE_APPEND;
-pub use content::{echo_php_file_get_contents, echo_php_file_put_contents, echo_php_readfile};
+pub use content::{
+    echo_php_file_get_contents, echo_php_file_put_contents, echo_php_php_strip_whitespace,
+    echo_php_readfile,
+};
 pub use links::{echo_php_link, echo_php_linkinfo, echo_php_readlink, echo_php_symlink};
 pub use metadata::{
     echo_php_fileatime, echo_php_filectime, echo_php_filegroup, echo_php_fileinode,
