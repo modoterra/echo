@@ -1519,6 +1519,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Gets the current output buffering nesting level.",
       },
       {
+        name: "ob_get_status",
+        signature: "ob_get_status(bool $full_status): array",
+        description:
+          "Returns status metadata for the active output buffer or every buffer level.",
+      },
+      {
         name: "ob_list_handlers",
         signature: "ob_list_handlers(): array",
         description:
@@ -3337,6 +3343,15 @@ ob_start()
 echo "Buffer depth: " . ob_get_level() . "\\n"
 ob_end_clean()
 ob_end_clean()`,
+  ],
+  [
+    "ob_get_status",
+    `ob_start()
+echo "abc"
+let $status = ob_get_status(false)
+ob_end_clean()
+
+echo "Buffered bytes: " . $status["buffer_used"] . "\\n"`,
   ],
   [
     "ob_list_handlers",
@@ -5573,6 +5588,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "ob_get_level",
     "Use `ob_get_level()` to debug nested buffering or restore the output stack to a known depth after rendering.",
+  ],
+  [
+    "ob_get_status",
+    "Use `ob_get_status()` when compatibility code inspects active buffer metadata such as nesting level or buffered byte count. Echo returns default-handler metadata and defers callback-specific processing state.",
   ],
   [
     "ob_list_handlers",
@@ -7921,7 +7940,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 311 PHP compatibility fixtures, 351 implemented Core and standard functions out of 607, 256 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 312 PHP compatibility fixtures, 352 implemented Core and standard functions out of 607, 255 remaining, and about 58% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

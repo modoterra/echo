@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 311 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 312 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 351.
-- Remaining Core + standard functions in inventory: 256.
+- Implemented Core + standard functions in inventory: 352.
+- Remaining Core + standard functions in inventory: 255.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `351 / 607`, or about 58%, for the Core + standard baseline,
+coverage alone is `352 / 607`, or about 58%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~35% | Core + standard function coverage is 351/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~35% | Core + standard function coverage is 352/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -60,8 +60,8 @@ full support for an entire family of PHP functions.
   blocks using idiomatic PHP conditional expressions in end-to-end fixtures.
 - Output buffering stores callback metadata, but does not invoke output
   callbacks or render callback-specific handler names yet. This keeps
-  `ob_start()` callback behavior, `ob_list_handlers()`, and related handler
-  status APIs partial.
+  `ob_start()` callback behavior, `ob_list_handlers()`, `ob_get_status()`, and
+  related handler status APIs partial.
 - PHP warning/error emission is not modeled as observable runtime state yet.
   This keeps many failure paths partial even when their return values match PHP.
 

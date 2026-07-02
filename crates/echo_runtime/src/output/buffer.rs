@@ -15,6 +15,17 @@ struct OutputBuffer {
     callback: Option<EchoCallable>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutputBufferStatus {
+    pub name: Vec<u8>,
+    pub r#type: i64,
+    pub flags: i64,
+    pub level: i64,
+    pub chunk_size: i64,
+    pub buffer_size: i64,
+    pub buffer_used: i64,
+}
+
 impl OutputRuntime {
     pub fn new() -> Self {
         Self::default()
@@ -126,6 +137,23 @@ impl OutputRuntime {
             .collect()
     }
 
+    pub fn ob_get_status(&self, full_status: bool) -> Vec<OutputBufferStatus> {
+        if full_status {
+            return self
+                .stack
+                .iter()
+                .enumerate()
+                .map(|(level, buffer)| buffer_status(level, buffer))
+                .collect();
+        }
+
+        self.stack
+            .last()
+            .map(|buffer| buffer_status(self.stack.len() - 1, buffer))
+            .into_iter()
+            .collect()
+    }
+
     pub fn shutdown(&mut self, stdout: &mut Vec<u8>) {
         // PHP shutdown flushes and turns off still-open buffers in reverse start order.
         // Source: https://www.php.net/manual/en/outcontrol.user-level-output-buffers.php
@@ -145,6 +173,18 @@ impl OutputRuntime {
 
     fn take_active_buffer(&mut self) -> Option<Vec<u8>> {
         self.stack.pop().map(|buffer| buffer.bytes)
+    }
+}
+
+fn buffer_status(level: usize, buffer: &OutputBuffer) -> OutputBufferStatus {
+    OutputBufferStatus {
+        name: b"default output handler".to_vec(),
+        r#type: 0,
+        flags: 112,
+        level: level as i64,
+        chunk_size: 0,
+        buffer_size: 16_384,
+        buffer_used: buffer.bytes.len() as i64,
     }
 }
 
@@ -399,6 +439,30 @@ mod tests {
                 b"default output handler".to_vec(),
                 b"default output handler".to_vec()
             ]
+        );
+    }
+
+    #[test]
+    fn ob_get_status_reports_top_buffer_metadata() {
+        let mut runtime = OutputRuntime::new();
+        let mut stdout = Vec::new();
+
+        assert!(runtime.ob_get_status(false).is_empty());
+
+        runtime.ob_start();
+        runtime.write(b"abc", &mut stdout);
+
+        assert_eq!(
+            runtime.ob_get_status(false),
+            vec![OutputBufferStatus {
+                name: b"default output handler".to_vec(),
+                r#type: 0,
+                flags: 112,
+                level: 0,
+                chunk_size: 0,
+                buffer_size: 16_384,
+                buffer_used: 3,
+            }]
         );
     }
 

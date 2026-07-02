@@ -833,6 +833,14 @@ pub static PHP_BUILTINS: LazyLock<Vec<PhpBuiltin>> = LazyLock::new(|| {
             codegen: BuiltinCodegen::ValueExpression,
         },
         PhpBuiltin {
+            php_name: "ob_get_status",
+            symbol: "echo_php_ob_get_status",
+            helper_symbol: None,
+            signature: RuntimeSignature::EchoValueEchoValue,
+            lowering: BuiltinLowering::DirectRuntimeCall,
+            codegen: BuiltinCodegen::ValueOptionalBoolExpression,
+        },
+        PhpBuiltin {
             php_name: "ob_list_handlers",
             symbol: "echo_php_ob_list_handlers",
             helper_symbol: None,

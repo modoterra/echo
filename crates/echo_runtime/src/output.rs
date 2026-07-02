@@ -5,6 +5,7 @@ use crate::{
     ECHO_VALUE_ARRAY, ECHO_VALUE_BOOL, ECHO_VALUE_ERROR, ECHO_VALUE_FLOAT, ECHO_VALUE_INT,
     ECHO_VALUE_LIST, ECHO_VALUE_NULL, ECHO_VALUE_STRING, EchoString, EchoValue, assertions,
     echo_normalize_callable, echo_runtime_string, echo_value_array_append, echo_value_array_new,
+    echo_value_array_set,
     execution::{repl_inspect_enabled, write_stdout},
     format_php_float,
 };
@@ -203,6 +204,69 @@ pub extern "C" fn echo_php_ob_list_handlers() -> EchoValue {
         }
         result
     })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ob_get_status(full_status: EchoValue) -> EchoValue {
+    OUTPUT.with(|runtime| {
+        let statuses = runtime
+            .borrow()
+            .ob_get_status(full_status.bool_value().unwrap_or(false));
+        let full_status = full_status.bool_value().unwrap_or(false);
+
+        if full_status {
+            let mut result = echo_value_array_new();
+            for status in statuses {
+                result = echo_value_array_append(result, output_buffer_status_array(status));
+            }
+            return result;
+        }
+
+        statuses
+            .into_iter()
+            .next()
+            .map(output_buffer_status_array)
+            .unwrap_or_else(|| echo_value_array_new())
+    })
+}
+
+fn output_buffer_status_array(status: buffer::OutputBufferStatus) -> EchoValue {
+    let mut result = echo_value_array_new();
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"name".to_vec()),
+        echo_runtime_string(status.name),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"type".to_vec()),
+        EchoValue::int(status.r#type),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"flags".to_vec()),
+        EchoValue::int(status.flags),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"level".to_vec()),
+        EchoValue::int(status.level),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"chunk_size".to_vec()),
+        EchoValue::int(status.chunk_size),
+    );
+    result = echo_value_array_set(
+        result,
+        echo_runtime_string(b"buffer_size".to_vec()),
+        EchoValue::int(status.buffer_size),
+    );
+    echo_value_array_set(
+        result,
+        echo_runtime_string(b"buffer_used".to_vec()),
+        EchoValue::int(status.buffer_used),
+    )
 }
 
 #[unsafe(no_mangle)]

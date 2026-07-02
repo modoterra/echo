@@ -481,7 +481,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ob_get_flush` | implemented | Returns active buffer contents, flushes them, and closes the buffer, or `false` when no buffer is active. Source: https://www.php.net/manual/en/function.ob-get-flush.php |
 | `ob_get_length` | implemented | Returns the active output buffer length in bytes, or `false` when no buffer is active. Source: https://www.php.net/manual/en/function.ob-get-length.php |
 | `ob_get_level` | implemented | Returns the current output buffering nesting depth. Source: https://www.php.net/manual/en/function.ob-get-level.php |
-| `ob_get_status` | missing |  |
+| `ob_get_status` | partial | Returns PHP-shaped status arrays for default Echo output buffers, including full-stack mode; callback-specific handler names, custom flags, and callback processing states are deferred. Source: https://www.php.net/manual/en/function.ob-get-status.php |
 | `ob_implicit_flush` | implemented | Toggles implicit system flushing after output writes without flushing active user-level buffers. Source: https://www.php.net/manual/en/function.ob-implicit-flush.php |
 | `ob_list_handlers` | partial | Returns `"default output handler"` for active Echo output buffers; callback-specific handler names are deferred. Source: https://www.php.net/manual/en/function.ob-list-handlers.php |
 | `ob_start` | implemented | Starts a new output buffer and stores optional callback metadata; callback invocation is deferred. Source: https://www.php.net/manual/en/function.ob-start.php |
