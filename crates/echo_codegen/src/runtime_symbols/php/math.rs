@@ -122,6 +122,22 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 ) -> echo_runtime::EchoValue as usize,
         ),
         (
+            "echo_php_max",
+            echo_runtime::echo_php_max
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
+            "echo_php_min",
+            echo_runtime::echo_php_min
+                as extern "C" fn(
+                    echo_runtime::EchoValue,
+                    echo_runtime::EchoValue,
+                ) -> echo_runtime::EchoValue as usize,
+        ),
+        (
             "echo_php_ceil",
             echo_runtime::echo_php_ceil
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

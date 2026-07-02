@@ -1,4 +1,5 @@
 use crate::string::trim_ascii;
+use crate::value::PhpNumber;
 use crate::{EchoValue, echo_runtime_string, echo_value_pow, php_float_cast};
 
 mod elementary;
@@ -76,6 +77,24 @@ pub extern "C" fn echo_php_intdiv(num1: EchoValue, num2: EchoValue) -> EchoValue
 
     match num1.checked_div(num2) {
         Some(result) => EchoValue::int(result),
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_max(value: EchoValue, other: EchoValue) -> EchoValue {
+    match php_numeric_compare(value, other) {
+        Some(core::cmp::Ordering::Less) => other,
+        Some(_) => value,
+        None => EchoValue::error(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_min(value: EchoValue, other: EchoValue) -> EchoValue {
+    match php_numeric_compare(value, other) {
+        Some(core::cmp::Ordering::Greater) => other,
+        Some(_) => value,
         None => EchoValue::error(),
     }
 }
@@ -231,6 +250,13 @@ fn php_float_predicate_builtin(value: EchoValue, f: impl FnOnce(f64) -> bool) ->
         Some(value) => EchoValue::bool(f(value)),
         None => EchoValue::error(),
     }
+}
+
+fn php_numeric_compare(left: EchoValue, right: EchoValue) -> Option<core::cmp::Ordering> {
+    let left = PhpNumber::coerce(left)?;
+    let right = PhpNumber::coerce(right)?;
+
+    left.as_float().partial_cmp(&right.as_float())
 }
 
 fn php_unary_float_builtin(value: EchoValue, f: impl FnOnce(f64) -> f64) -> EchoValue {

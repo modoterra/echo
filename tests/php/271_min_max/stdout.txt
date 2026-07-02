@@ -1,0 +1,6 @@
+max-int:7
+min-int:3
+max-float:3.5
+min-float:3
+max-exists:1
+min-exists:1

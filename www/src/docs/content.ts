@@ -918,6 +918,16 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the integer quotient of a division.",
       },
       {
+        name: "max",
+        signature: "max(mixed $value, mixed $other): mixed",
+        description: "Returns the larger of two scalar numeric values.",
+      },
+      {
+        name: "min",
+        signature: "min(mixed $value, mixed $other): mixed",
+        description: "Returns the smaller of two scalar numeric values.",
+      },
+      {
         name: "ceil",
         signature: "ceil(int|float $num): float",
         description: "Rounds a number up.",
@@ -3604,6 +3614,18 @@ let $fullBoxes = intdiv($items, $boxSize)
 echo "Full boxes: " . $fullBoxes . "\\n"`,
   ],
   [
+    "max",
+    `let $limit = max(25, 40)
+
+echo "Upper limit: " . $limit . "\\n"`,
+  ],
+  [
+    "min",
+    `let $used = min(25, 40)
+
+echo "Lower usage: " . $used . "\\n"`,
+  ],
+  [
     "ceil",
     `let $pages = ceil(41 / 20)
 
@@ -4622,6 +4644,14 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "intdiv",
     "Use `intdiv()` when only complete integer groups should count, such as full boxes, consumed pages, or batch slots, and fractional remainders must be discarded toward zero.",
+  ],
+  [
+    "max",
+    "Use `max()` for two-value numeric clamps or bounds checks in compatibility code. Echo currently supports scalar numeric pairs; array input and variadic comparisons are deferred.",
+  ],
+  [
+    "min",
+    "Use `min()` for two-value numeric caps or lower-bound choices in compatibility code. Echo currently supports scalar numeric pairs; array input and variadic comparisons are deferred.",
   ],
   [
     "ceil",
@@ -7050,7 +7080,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 268 PHP compatibility fixtures, 301 implemented Core and standard functions out of 607, 306 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 269 PHP compatibility fixtures, 303 implemented Core and standard functions out of 607, 304 remaining, and about 50% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

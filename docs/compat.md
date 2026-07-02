@@ -454,7 +454,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `hash_update` | implemented | Updates an existing hash context with string data. Source: https://www.php.net/manual/en/function.hash-update.php |
 | `hash_update_file` | implemented | Appends file bytes to an active hash context. Source: https://www.php.net/manual/en/function.hash-update-file.php |
 | `hash_update_stream` | implemented | Updates hash contexts from Echo local file stream resources and advances the stream cursor; non-file stream wrappers are deferred. Source: https://www.php.net/manual/en/function.hash-update-stream.php |
-| `max` | missing |  |
+| `max` | partial | Supports two-argument scalar numeric comparisons; array input, string/object comparison ordering, and three-or-more variadic arguments are deferred. Source: https://www.php.net/manual/en/function.max.php |
 | `md5` | implemented | Returns a lowercase 32-character MD5 digest by default and raw 16-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.md5.php |
 | `md5_file` | implemented | Hashes local files with optional raw output and returns `false` for missing files. Source: https://www.php.net/manual/en/function.md5-file.php |
 | `memory_get_peak_usage` | partial | Returns the peak process resident memory in bytes on Linux using `/proc/self/status`, or `0` when unavailable; PHP's Zend allocator accounting and `real_usage` mode are deferred. Source: https://www.php.net/manual/en/function.memory-get-peak-usage.php |
@@ -462,7 +462,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `memory_reset_peak_usage` | partial | Returns `null` as PHP does, but is currently a no-op because Echo reports process resident high-water memory rather than tracking allocator-level resettable peaks. Source: https://www.php.net/manual/en/function.memory-reset-peak-usage.php |
 | `metaphone` | missing |  |
 | `microtime` | implemented | Supports string and float forms for current wall-clock time. Source: https://www.php.net/manual/en/function.microtime.php |
-| `min` | missing |  |
+| `min` | partial | Supports two-argument scalar numeric comparisons; array input, string/object comparison ordering, and three-or-more variadic arguments are deferred. Source: https://www.php.net/manual/en/function.min.php |
 | `mkdir` | implemented | Creates local directories, including recursive creation and Unix mode hints; stream contexts, URL wrappers, and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.mkdir.php |
 | `move_uploaded_file` | missing |  |
 | `natcasesort` | missing |  |
