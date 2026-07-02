@@ -626,7 +626,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `stream_register_wrapper` | missing |  |
 | `stream_resolve_include_path` | missing |  |
 | `stream_select` | missing |  |
-| `stream_set_blocking` | missing |  |
+| `stream_set_blocking` | partial | Accepts blocking-mode changes for open Echo local file stream resources and returns a bool success value; actual non-blocking I/O mode, sockets, and PHP warning/type diagnostics are deferred. Source: https://www.php.net/manual/en/function.stream-set-blocking.php |
 | `stream_set_chunk_size` | missing |  |
 | `stream_set_read_buffer` | missing |  |
 | `stream_set_timeout` | missing |  |

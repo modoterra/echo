@@ -67,6 +67,15 @@ pub extern "C" fn echo_php_stream_isatty(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_set_blocking(stream: EchoValue, _enable: EchoValue) -> EchoValue {
+    EchoValue::bool(
+        stream
+            .as_stream_ref()
+            .is_some_and(|stream| stream.file.is_some()),
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fopen(
     filename: EchoValue,
     mode: EchoValue,

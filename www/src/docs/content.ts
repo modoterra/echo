@@ -1392,6 +1392,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Checks whether a stream refers to a terminal device.",
       },
       {
+        name: "stream_set_blocking",
+        signature: "stream_set_blocking(resource $stream, bool $enable): bool",
+        description: "Sets blocking or non-blocking mode on a stream.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2586,6 +2591,15 @@ if ($stream && stream_supports_lock($stream)) {
 
 if ($stream && !stream_isatty($stream)) {
     echo "Stream output is file-like\\n"
+    fclose($stream)
+}`,
+  ],
+  [
+    "stream_set_blocking",
+    `let $stream = fopen("storage/exports/report.csv", "r")
+
+if ($stream && stream_set_blocking($stream, false)) {
+    echo "Stream mode updated\\n"
     fclose($stream)
 }`,
   ],
@@ -4966,6 +4980,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_isatty",
     "Use `stream_isatty()` when compatibility code changes formatting for interactive terminal streams. Echo currently checks local file stream resources and leaves standard stream constants for later.",
+  ],
+  [
+    "stream_set_blocking",
+    "Use `stream_set_blocking()` when compatibility code configures stream reads around polling or multiplexing. Echo currently accepts the call for local file streams while actual non-blocking I/O remains future work.",
   ],
   [
     "glob",
@@ -8285,7 +8303,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 327 PHP compatibility fixtures, 373 implemented Core and standard functions out of 607, 234 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 328 PHP compatibility fixtures, 374 implemented Core and standard functions out of 607, 233 remaining, and about 62% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

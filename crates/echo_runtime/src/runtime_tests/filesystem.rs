@@ -153,6 +153,25 @@ fn stream_isatty_reports_regular_file_streams_as_not_terminals() {
 }
 
 #[test]
+fn stream_set_blocking_accepts_open_local_file_streams() {
+    let stream = echo_php_tmpfile();
+
+    assert_eq!(
+        echo_php_stream_set_blocking(stream, EchoValue::bool(false)),
+        EchoValue::bool(true)
+    );
+    assert_eq!(
+        echo_php_stream_set_blocking(test_string_value(b"not-a-stream"), EchoValue::bool(true)),
+        EchoValue::bool(false)
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_stream_set_blocking(stream, EchoValue::bool(true)),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn glob_returns_sorted_matches_for_local_directory_patterns() {
     let fixture_dir =
         std::env::temp_dir().join(format!("echo-runtime-glob-tests-{}", std::process::id()));
