@@ -1377,6 +1377,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the registered stream wrapper names.",
       },
       {
+        name: "stream_is_local",
+        signature: "stream_is_local(resource|string $stream): bool",
+        description: "Checks whether a stream resource or URL is local.",
+      },
+      {
         name: "glob",
         signature: "glob(string $pattern, int $flags = 0): array|false",
         description:
@@ -2546,6 +2551,14 @@ if ($stream) {
     "stream_get_wrappers",
     `if (in_array("file", stream_get_wrappers(), true)) {
     echo "Local file wrapper is available\\n"
+}`,
+  ],
+  [
+    "stream_is_local",
+    `let $path = "storage/exports/report.csv"
+
+if (stream_is_local($path)) {
+    echo "Safe to inspect with local filesystem APIs\\n"
 }`,
   ],
   [
@@ -4913,6 +4926,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "stream_get_wrappers",
     "Use `stream_get_wrappers()` when compatibility code needs to check whether a stream scheme such as `file://` is available. Echo currently reports a static wrapper baseline and leaves wrapper registration for later.",
+  ],
+  [
+    "stream_is_local",
+    "Use `stream_is_local()` before taking a path or URL through local-only filesystem logic. Echo currently recognizes local file streams, plain paths, and `file://` URLs while leaving custom wrapper locality for later.",
   ],
   [
     "glob",
@@ -8232,7 +8249,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 324 PHP compatibility fixtures, 370 implemented Core and standard functions out of 607, 237 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 325 PHP compatibility fixtures, 371 implemented Core and standard functions out of 607, 236 remaining, and about 61% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -1,0 +1,5 @@
+path:1
+file-url:1
+http-url:
+stream:1
+exists:1

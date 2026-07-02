@@ -1335,6 +1335,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         php_builtin_reflection("stream_get_filters", &[], Some("array")),
         php_builtin_reflection("stream_get_transports", &[], Some("array")),
         php_builtin_reflection("stream_get_wrappers", &[], Some("array")),
+        php_builtin_reflection(
+            "stream_is_local",
+            &[("stream", Some("resource|string"))],
+            Some("bool"),
+        ),
         php_builtin_reflection("tmpfile", &[], Some("resource|false")),
         php_builtin_reflection(
             "readfile",

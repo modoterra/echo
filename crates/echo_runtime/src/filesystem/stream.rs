@@ -31,6 +31,23 @@ pub extern "C" fn echo_php_stream_get_filters() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_stream_is_local(stream: EchoValue) -> EchoValue {
+    if stream.as_stream_ref().is_some() {
+        return EchoValue::bool(true);
+    }
+
+    if !stream.is_string() {
+        return EchoValue::bool(false);
+    }
+
+    let Some(bytes) = stream.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    EchoValue::bool(stream_name_is_local(&bytes))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_fopen(
     filename: EchoValue,
     mode: EchoValue,
@@ -476,6 +493,16 @@ fn string_array(values: &[&[u8]]) -> EchoValue {
             .map(|value| echo_runtime_string(value.to_vec()))
             .collect(),
     ))))
+}
+
+fn stream_name_is_local(bytes: &[u8]) -> bool {
+    let lower = bytes.to_ascii_lowercase();
+
+    if lower.starts_with(b"file://") {
+        return true;
+    }
+
+    !lower.windows(3).any(|window| window == b"://")
 }
 
 fn fopen_options_from_mode(mode: &[u8]) -> Option<OpenOptions> {

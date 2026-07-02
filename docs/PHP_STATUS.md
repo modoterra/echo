@@ -24,18 +24,18 @@ Primary upstream references:
 
 - Function inventory source: local PHP `8.5.6` snapshot in
   [`docs/compat.md`](compat.md).
-- PHP compatibility fixtures: 324 `tests/php/*/program.php` files.
+- PHP compatibility fixtures: 325 `tests/php/*/program.php` files.
 - Echo fixtures: 90 `tests/echo/*/program.echo` files.
 - Core + standard PHP functions in inventory: 607.
-- Implemented Core + standard functions in inventory: 370.
-- Remaining Core + standard functions in inventory: 237.
+- Implemented Core + standard functions in inventory: 371.
+- Remaining Core + standard functions in inventory: 236.
 
 ## Estimated Completion
 
 Overall PHP 8.5 compatibility estimate: **about 20% complete**.
 
 This is a rough engineering estimate, not a mechanically exact score. Function
-coverage alone is `370 / 607`, or about 61%, for the Core + standard baseline,
+coverage alone is `371 / 607`, or about 61%, for the Core + standard baseline,
 but language compatibility is weighted lower because many syntax forms parse
 without executable semantics yet. The estimate uses this model:
 
@@ -43,7 +43,7 @@ without executable semantics yet. The estimate uses this model:
 | --- | ---: | ---: | --- |
 | Syntax and AST coverage | 25% | ~46% | Many PHP declarations and statements parse, but expression grammar and PHP 8.5-specific forms still have gaps. |
 | Semantic analysis and lowering | 25% | ~10% | Most PHP-specific declarations, objects, references, constants, and call semantics are not executable end to end. |
-| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 370/607, with deeper object/error/extension behavior still missing. |
+| Runtime behavior and built-ins | 35% | ~36% | Core + standard function coverage is 371/607, with deeper object/error/extension behavior still missing. |
 | Tooling, diagnostics, and fixtures | 15% | ~15% | Fixture coverage is growing, but compatibility diagnostics and broad real-world app coverage are still early. |
 
 Treat this as a prioritization signal: Echo has a meaningful parser/runtime
@@ -87,6 +87,9 @@ full support for an entire family of PHP functions.
   wrapper/filter registration, extension-provided stream wrappers or filters,
   and platform-specific transport inventories remain gaps for
   `stream_get_wrappers()`/`stream_get_filters()`/`stream_get_transports()`.
+- Stream locality currently distinguishes Echo local file streams, local paths,
+  `file://` URLs, and remote `://` schemes only. Custom wrapper locality and
+  PHP warning/type diagnostics remain gaps for `stream_is_local()`.
 - HTTP wrapper response metadata is not populated yet. This keeps
   `$http_response_header`, `http_get_last_response_headers()`, and
   `http_clear_last_response_headers()` limited to the no-response baseline.
@@ -95,6 +98,10 @@ full support for an entire family of PHP functions.
   parity, and `unserialize()` remain gaps for the serialization family.
 - PHP warning/error emission is not modeled as observable runtime state yet.
   This keeps many failure paths partial even when their return values match PHP.
+- Some expression-returning PHP built-ins still cannot be used as standalone
+  statement calls through LLVM lowering. This blocks idiomatic cleanup calls
+  such as `file_put_contents(...)` or `unlink(...)` as bare statements until
+  builtin call lowering consistently discards unused return values.
 
 ## Fixture Workflow
 

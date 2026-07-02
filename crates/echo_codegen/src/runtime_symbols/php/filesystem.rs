@@ -355,6 +355,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_stream_is_local",
+            echo_runtime::echo_php_stream_is_local
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_tmpfile",
             echo_runtime::echo_php_tmpfile as extern "C" fn() -> echo_runtime::EchoValue as usize,
         ),
