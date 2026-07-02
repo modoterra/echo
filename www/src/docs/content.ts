@@ -702,6 +702,12 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Returns the PHP type name for a value.",
       },
       {
+        name: "get_debug_type",
+        signature: "get_debug_type(mixed $value): string",
+        description:
+          "Returns PHP 8 declaration-style debug type names for values and resources.",
+      },
+      {
         name: "is_array",
         signature: "is_array(mixed $value): bool",
         description: "Returns true when a value is an array.",
@@ -2380,6 +2386,15 @@ if (function_exists("base64_decode")) {
     `let $payload = ["name", "email"]
 
 echo "Decoded payload type: " . gettype($payload) . "\\n"`,
+  ],
+  [
+    "get_debug_type",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream) {
+    echo "Stream type: " . get_debug_type($stream) . "\\n"
+    fclose($stream)
+}`,
   ],
   [
     "hex2bin",
@@ -4921,6 +4936,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "gettype",
     "Use `gettype()` in diagnostics and compatibility branches where PHP's textual type name is the expected output.",
+  ],
+  [
+    "get_debug_type",
+    "Use `get_debug_type()` when PHP 8 compatibility code expects modern type names such as `int`, `bool`, and `resource (stream)` instead of `gettype()`'s historical names.",
   ],
   [
     "is_array",
@@ -7544,7 +7563,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 294 PHP compatibility fixtures, 329 implemented Core and standard functions out of 607, 278 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 295 PHP compatibility fixtures, 330 implemented Core and standard functions out of 607, 277 remaining, and about 54% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

@@ -288,3 +288,62 @@ fn gettype_returns_php_type_names_for_current_values() {
         drop(Box::from_raw(list));
     }
 }
+
+#[test]
+fn get_debug_type_returns_declaration_style_type_names() {
+    let string = Box::into_raw(Box::new(EchoString {
+        bytes: b"abc".to_vec(),
+    }));
+    let list = Box::into_raw(Box::new(EchoList {
+        values: vec![EchoValue::int(1)],
+    }));
+    let fixture_path =
+        std::env::temp_dir().join(format!("echo-runtime-debug-type-{}", std::process::id()));
+    std::fs::write(&fixture_path, b"abc").expect("write debug type stream fixture");
+    let path = Box::into_raw(Box::new(EchoString {
+        bytes: fixture_path.to_string_lossy().as_bytes().to_vec(),
+    }));
+    let stream = echo_php_fopen(
+        EchoValue::string(path),
+        test_string_value(b"r"),
+        EchoValue::bool(false),
+        EchoValue::null(),
+    );
+
+    assert_eq!(
+        echo_php_get_debug_type(EchoValue::null()).string_bytes(),
+        Some(b"null".to_vec())
+    );
+    assert_eq!(
+        echo_php_get_debug_type(EchoValue::bool(false)).string_bytes(),
+        Some(b"bool".to_vec())
+    );
+    assert_eq!(
+        echo_php_get_debug_type(EchoValue::int(42)).string_bytes(),
+        Some(b"int".to_vec())
+    );
+    assert_eq!(
+        echo_php_get_debug_type(EchoValue::string(string)).string_bytes(),
+        Some(b"string".to_vec())
+    );
+    assert_eq!(
+        echo_php_get_debug_type(EchoValue::list(list)).string_bytes(),
+        Some(b"array".to_vec())
+    );
+    assert_eq!(
+        echo_php_get_debug_type(stream).string_bytes(),
+        Some(b"resource (stream)".to_vec())
+    );
+    assert_eq!(echo_php_fclose(stream), EchoValue::bool(true));
+    assert_eq!(
+        echo_php_get_debug_type(stream).string_bytes(),
+        Some(b"resource (closed)".to_vec())
+    );
+
+    unsafe {
+        drop(Box::from_raw(string));
+        drop(Box::from_raw(list));
+        drop(Box::from_raw(path));
+    }
+    std::fs::remove_file(fixture_path).ok();
+}

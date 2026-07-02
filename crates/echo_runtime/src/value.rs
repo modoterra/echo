@@ -366,6 +366,14 @@ impl EchoValue {
 
         unsafe { (self.payload as *mut filesystem::EchoFileStream).as_mut() }
     }
+
+    pub(crate) fn as_stream_ref(self) -> Option<&'static filesystem::EchoFileStream> {
+        if self.kind != ECHO_VALUE_STREAM || self.payload == 0 {
+            return None;
+        }
+
+        unsafe { (self.payload as *const filesystem::EchoFileStream).as_ref() }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -436,6 +444,30 @@ pub extern "C" fn echo_php_gettype(value: EchoValue) -> EchoValue {
             b"resource".as_slice()
         }
         _ => b"unknown type".as_slice(),
+    };
+    echo_runtime_string(type_name.to_vec())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_get_debug_type(value: EchoValue) -> EchoValue {
+    let type_name = match value.kind {
+        ECHO_VALUE_NULL => b"null".as_slice(),
+        ECHO_VALUE_BOOL => b"bool".as_slice(),
+        ECHO_VALUE_INT => b"int".as_slice(),
+        ECHO_VALUE_FLOAT => b"float".as_slice(),
+        ECHO_VALUE_STRING => b"string".as_slice(),
+        ECHO_VALUE_ARRAY | ECHO_VALUE_LIST => b"array".as_slice(),
+        ECHO_VALUE_TASK
+        | ECHO_VALUE_TASK_GROUP
+        | ECHO_VALUE_OBJECT
+        | ECHO_VALUE_PROCESS
+        | ECHO_VALUE_THREAD => b"object".as_slice(),
+        ECHO_VALUE_STREAM => match value.as_stream_ref() {
+            Some(stream) if stream.file.is_some() => b"resource (stream)".as_slice(),
+            Some(_) | None => b"resource (closed)".as_slice(),
+        },
+        ECHO_VALUE_TCP_LISTENER | ECHO_VALUE_TCP_CONNECTION => b"resource".as_slice(),
+        _ => b"unknown".as_slice(),
     };
     echo_runtime_string(type_name.to_vec())
 }

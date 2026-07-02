@@ -327,7 +327,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_browser` | missing |  |
 | `get_cfg_var` | implemented | Returns `false` for configuration options because Echo does not load PHP configuration values. Source: https://www.php.net/manual/en/function.get-cfg-var.php |
 | `get_current_user` | partial | Returns the process `USER`/`LOGNAME` value, or an empty string when unavailable; PHP's script-owner lookup is deferred. Source: https://www.php.net/manual/en/function.get-current-user.php |
-| `get_debug_type` | missing |  |
+| `get_debug_type` | implemented | Returns PHP 8 declaration-style debug type names for current Echo values, including open and closed local stream resources. Source: https://www.php.net/manual/en/function.get-debug-type.php |
 | `get_headers` | missing |  |
 | `get_html_translation_table` | missing |  |
 | `get_include_path` | implemented | Equivalent to `ini_get("include_path")`; returns `false` because Echo does not model PHP ini option values. Source: https://www.php.net/manual/en/function.get-include-path.php |

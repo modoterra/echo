@@ -164,6 +164,12 @@ pub(super) fn symbols() -> Vec<(&'static str, usize)> {
                 as usize,
         ),
         (
+            "echo_php_get_debug_type",
+            echo_runtime::echo_php_get_debug_type
+                as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue
+                as usize,
+        ),
+        (
             "echo_php_array_is_list",
             echo_runtime::echo_php_array_is_list
                 as extern "C" fn(echo_runtime::EchoValue) -> echo_runtime::EchoValue

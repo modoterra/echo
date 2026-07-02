@@ -1,0 +1,9 @@
+null:null
+bool:bool
+int:int
+float:float
+string:string
+array:array
+stream:resource (stream)
+closed:resource (closed)
+exists:1

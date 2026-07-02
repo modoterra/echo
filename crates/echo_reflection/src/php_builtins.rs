@@ -712,6 +712,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("bool"),
         ),
         php_builtin_reflection("gettype", &[("value", Some("mixed"))], Some("string")),
+        php_builtin_reflection(
+            "get_debug_type",
+            &[("value", Some("mixed"))],
+            Some("string"),
+        ),
         php_builtin_reflection("array_is_list", &[("array", Some("array"))], Some("bool")),
         php_builtin_reflection("is_array", &[("value", Some("mixed"))], Some("bool")),
         php_builtin_reflection("is_countable", &[("value", Some("mixed"))], Some("bool")),
