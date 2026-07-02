@@ -265,6 +265,22 @@ fn gethostbynamel_returns_ipv4_array_or_false() {
 }
 
 #[test]
+fn gethostbyaddr_returns_hosts_entry_original_ip_or_false() {
+    assert_eq!(
+        echo_php_gethostbyaddr(test_string_value(b"127.0.0.1")).string_bytes(),
+        Some(b"localhost".to_vec())
+    );
+    assert_eq!(
+        echo_php_gethostbyaddr(test_string_value(b"192.0.2.1")).string_bytes(),
+        Some(b"192.0.2.1".to_vec())
+    );
+    assert_eq!(
+        echo_php_gethostbyaddr(test_string_value(b"not-an-ip")),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn inet_packed_address_builtins_round_trip_ipv4_and_ipv6() {
     assert_eq!(
         echo_php_bin2hex(echo_php_inet_pton(test_string_value(b"127.0.0.1"))).string_bytes(),

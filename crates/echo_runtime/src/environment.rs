@@ -93,6 +93,22 @@ pub extern "C" fn echo_php_gethostbynamel(hostname: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_gethostbyaddr(ip: EchoValue) -> EchoValue {
+    let Some(bytes) = ip.string_bytes() else {
+        return EchoValue::error();
+    };
+    let lookup_bytes = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .map_or(bytes.as_slice(), |nul| &bytes[..nul]);
+    let Some(address) = parse_ip_address(lookup_bytes) else {
+        return EchoValue::bool(false);
+    };
+
+    echo_runtime_string(reverse_host_by_address(address).unwrap_or_else(|| lookup_bytes.to_vec()))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
     let Some(name) = name.string_bytes() else {
         return EchoValue::bool(false);
@@ -101,6 +117,30 @@ pub extern "C" fn echo_php_getprotobyname(name: EchoValue) -> EchoValue {
     protocol_number_by_name(&name)
         .map(EchoValue::int)
         .unwrap_or_else(|| EchoValue::bool(false))
+}
+
+fn parse_ip_address(bytes: &[u8]) -> Option<IpAddr> {
+    std::str::from_utf8(bytes).ok()?.parse().ok()
+}
+
+fn reverse_host_by_address(address: IpAddr) -> Option<Vec<u8>> {
+    hosts_file_name_for_address(Path::new("/etc/hosts"), address)
+}
+
+fn hosts_file_name_for_address(path: &Path, address: IpAddr) -> Option<Vec<u8>> {
+    let contents = std::fs::read_to_string(path).ok()?;
+    let address = address.to_string();
+    for line in contents.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        if parts.next()? == address {
+            return parts.next().map(|name| name.as_bytes().to_vec());
+        }
+    }
+    None
 }
 
 fn resolve_ipv4_host(hostname: &[u8]) -> Option<Vec<u8>> {

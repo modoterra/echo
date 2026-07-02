@@ -334,7 +334,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `get_meta_tags` | missing |  |
 | `getcwd` | implemented | Returns the current working directory as a string or `false` if the host cannot report it. Source: https://www.php.net/manual/en/function.getcwd.php |
 | `getenv` | implemented | Returns a named environment value, all environment variables as an associative array when omitted/null, or `false` for a missing name; SAPI-local distinctions are not modeled. Source: https://www.php.net/manual/en/function.getenv.php |
-| `gethostbyaddr` | missing |  |
+| `gethostbyaddr` | implemented | Resolves IP addresses to hostnames from local host data, returns the original IP when no name is found, and returns `false` for malformed input. Source: https://www.php.net/manual/en/function.gethostbyaddr.php |
 | `gethostbyname` | implemented | Resolves hostnames to IPv4 strings and returns the original hostname when no IPv4 address can be found. Source: https://www.php.net/manual/en/function.gethostbyname.php |
 | `gethostbynamel` | implemented | Resolves hostnames to an array of IPv4 strings and returns `false` when no IPv4 address can be found. Source: https://www.php.net/manual/en/function.gethostbynamel.php |
 | `gethostname` | implemented | Returns the local host name as a string when the host can report one, otherwise `false`. Source: https://www.php.net/manual/en/function.gethostname.php |

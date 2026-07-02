@@ -1739,6 +1739,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Resolves a hostname to a list of IPv4 address strings, or false when no IPv4 address is found.",
       },
       {
+        name: "gethostbyaddr",
+        signature: "gethostbyaddr(string $ip): string|false",
+        description:
+          "Resolves an IP address to a hostname, returns the original IP when no hostname is found, or false for malformed input.",
+      },
+      {
         name: "getprotobyname",
         signature: "getprotobyname(string $protocol): int|false",
         description: "Looks up an IP protocol number by protocol name or alias.",
@@ -2975,6 +2981,14 @@ echo "Local IPv4 address: " . $address . "\\n"`,
 
 if ($addresses !== false) {
     echo "Resolved addresses: " . count($addresses) . "\\n"
+}`,
+  ],
+  [
+    "gethostbyaddr",
+    `let $host = gethostbyaddr("127.0.0.1")
+
+if ($host !== false) {
+    echo "Loopback host: " . $host . "\\n"
 }`,
   ],
   [
@@ -4572,6 +4586,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "gethostbynamel",
     "Use `gethostbynamel()` when legacy network code expects all IPv4 addresses for a host. Echo returns `false` for unresolved names, so branch before indexing the returned array.",
+  ],
+  [
+    "gethostbyaddr",
+    "Use `gethostbyaddr()` when compatibility code needs PHP's reverse IP lookup shape. Echo currently checks local host data and returns the original IP when no hostname is found.",
   ],
   [
     "getprotobyname",
@@ -7719,7 +7737,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 302 PHP compatibility fixtures, 339 implemented Core and standard functions out of 607, 268 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 303 PHP compatibility fixtures, 340 implemented Core and standard functions out of 607, 267 remaining, and about 56% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
