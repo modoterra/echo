@@ -1,0 +1,4 @@
+set:18
+previous:18
+current:7
+exists:1

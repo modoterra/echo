@@ -686,7 +686,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `ucfirst` | implemented | Uppercases the first ASCII alphabetic byte of a string and leaves the rest unchanged. Source: https://www.php.net/manual/en/function.ucfirst.php |
 | `ucwords` | implemented | Uppercases the first ASCII alphabetic byte of each word using PHP's default separators. Source: https://www.php.net/manual/en/function.ucwords.php |
 | `uksort` | missing |  |
-| `umask` | missing |  |
+| `umask` | partial | Gets or sets the Linux/macOS process file creation mask and returns the old mask; request-scoped restoration, thread-safety diagnostics, and Windows-native behavior are deferred. Source: https://www.php.net/manual/en/function.umask.php |
 | `uniqid` | implemented | Generates a PHP-shaped time-based identifier with optional prefix and entropy suffix; it is not cryptographically secure and does not guarantee uniqueness. Source: https://www.php.net/manual/en/function.uniqid.php |
 | `unlink` | implemented | Deletes local file names or symlinks and returns a bool success value; stream contexts and PHP warning emission are deferred. Source: https://www.php.net/manual/en/function.unlink.php |
 | `unpack` | missing |  |

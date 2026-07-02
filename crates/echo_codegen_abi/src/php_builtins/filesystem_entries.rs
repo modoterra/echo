@@ -115,6 +115,14 @@ pub(super) const FILESYSTEM_BUILTINS: &[PhpBuiltin] = &[
         codegen: BuiltinCodegen::Clearstatcache,
     },
     PhpBuiltin {
+        php_name: "umask",
+        symbol: "echo_php_umask",
+        helper_symbol: None,
+        signature: RuntimeSignature::EchoValueEchoValue,
+        lowering: BuiltinLowering::DirectRuntimeCall,
+        codegen: BuiltinCodegen::ValueOptionalNullExpression,
+    },
+    PhpBuiltin {
         php_name: "realpath_cache_size",
         symbol: "echo_php_realpath_cache_size",
         helper_symbol: None,

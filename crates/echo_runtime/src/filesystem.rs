@@ -136,6 +136,21 @@ pub extern "C" fn echo_php_getcwd() -> EchoValue {
 pub extern "C" fn echo_php_clearstatcache(_clear_realpath_cache: EchoValue, _filename: EchoValue) {}
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_umask(mask: EchoValue) -> EchoValue {
+    if mask.is_null() {
+        let current = rustix::process::umask(rustix::fs::Mode::from(0));
+        rustix::process::umask(current);
+        return EchoValue::int(current.as_raw_mode() as i64);
+    }
+
+    let Some(mask) = mask.php_int_value() else {
+        return EchoValue::error();
+    };
+    let old = rustix::process::umask(rustix::fs::Mode::from((mask & 0o777) as u32));
+    EchoValue::int(old.as_raw_mode() as i64)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_realpath_cache_get() -> EchoValue {
     echo_value_array_new()
 }

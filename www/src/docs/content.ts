@@ -1168,6 +1168,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Changes local file mode bits.",
       },
       {
+        name: "umask",
+        signature: "umask(?int $mask = null): int",
+        description: "Gets or sets the process file creation mask.",
+      },
+      {
         name: "getcwd",
         signature: "getcwd(): string|false",
         description: "Returns the current working directory.",
@@ -2265,6 +2270,13 @@ echo "#" . dechex($statusColor) . "\\n"`,
     `let $mode = 493
 
 echo "chmod " . decoct($mode) . " storage\\n"`,
+  ],
+  [
+    "umask",
+    `let $old = umask(18)
+echo "Current mask: " . umask(null) . "\\n"
+
+umask($old)`,
   ],
   [
     "define",
@@ -6171,6 +6183,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `chmod()` when compatibility code needs to tighten or relax local Unix file permissions after creating generated files.",
   ],
   [
+    "umask",
+    "Use `umask()` sparingly around local file creation when preserving PHP permission behavior. Echo follows the Linux/macOS process-wide mask model, so restore the old mask immediately after the operation.",
+  ],
+  [
     "getcwd",
     "Use `getcwd()` to anchor relative file operations, build diagnostics, or restore the process directory after a temporary change.",
   ],
@@ -8605,7 +8621,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 342 PHP compatibility fixtures, 391 implemented Core and standard functions out of 607, 216 remaining, and about 64% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 343 PHP compatibility fixtures, 392 implemented Core and standard functions out of 607, 215 remaining, and about 65% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

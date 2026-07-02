@@ -21,4 +21,4 @@ sha3 = "0.10.8"
 bcrypt = "0.15.1"
 rand = "0.8.5"
 crypt3_rs = { version = "0.1.1", default-features = false, features = ["bsdi", "md5", "sha2", "unix"] }
-rustix = { version = "1.1.4", features = ["fs"] }
+rustix = { version = "1.1.4", features = ["fs", "process"] }

@@ -82,6 +82,18 @@ fn disk_space_reports_float_counts_for_existing_directories() {
 }
 
 #[test]
+fn umask_sets_and_reports_process_file_creation_mask() {
+    let old = echo_php_umask(EchoValue::null());
+
+    assert_eq!(echo_php_umask(EchoValue::int(18)), old);
+    assert_eq!(echo_php_umask(EchoValue::null()), EchoValue::int(18));
+    assert_eq!(echo_php_umask(EchoValue::int(7)), EchoValue::int(18));
+    assert_eq!(echo_php_umask(EchoValue::null()), EchoValue::int(7));
+
+    echo_php_umask(old);
+}
+
+#[test]
 fn stream_registry_lists_include_core_entries() {
     let wrappers = echo_php_stream_get_wrappers();
     let transports = echo_php_stream_get_transports();

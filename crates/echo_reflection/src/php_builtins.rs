@@ -1151,6 +1151,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             ],
             Some("void"),
         ),
+        php_builtin_reflection("umask", &[("mask", Some("?int"))], Some("int")),
         php_builtin_reflection("file_exists", &[("filename", Some("string"))], Some("bool")),
         php_builtin_reflection(
             "disk_free_space",
