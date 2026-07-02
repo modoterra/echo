@@ -445,6 +445,7 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("title", Some("string"))],
             Some("bool"),
         ),
+        php_builtin_reflection("exec", &[("command", Some("string"))], Some("string|false")),
         php_builtin_reflection(
             "system",
             &[("command", Some("string"))],

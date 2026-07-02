@@ -125,7 +125,8 @@ pub use output::{
     echo_write_value,
 };
 pub use process::{
-    echo_php_passthru, echo_php_shell_exec, echo_php_system, echo_process_join, echo_process_spawn,
+    echo_php_exec, echo_php_passthru, echo_php_shell_exec, echo_php_system, echo_process_join,
+    echo_process_spawn,
 };
 pub use reflection::{
     echo_php_class_exists, echo_php_debug_backtrace, echo_php_debug_print_backtrace,

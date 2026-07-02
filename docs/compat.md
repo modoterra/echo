@@ -274,7 +274,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `error_log` | partial | Accepts the default `message` form and returns `true`; message type, destination/header handling, logger delivery, and warning emission are deferred. Source: https://www.php.net/manual/en/function.error-log.php |
 | `escapeshellarg` | implemented | Supports Unix/POSIX single-quote wrapping and embedded single-quote escaping; Windows-specific quoting behavior is deferred. Source: https://www.php.net/manual/en/function.escapeshellarg.php |
 | `escapeshellcmd` | implemented | Supports Unix/POSIX backslash escaping for shell metacharacters and unpaired quotes; Windows caret escaping is deferred. Source: https://www.php.net/manual/en/function.escapeshellcmd.php |
-| `exec` | missing |  |
+| `exec` | partial | Executes a command through the Linux/macOS shell and returns the last stdout line, or an empty string for empty stdout; by-reference output arrays, by-reference `result_code`, stderr handling, disabled-function policy, `ValueError`/warning emission, and interactive process behavior are deferred. Source: https://www.php.net/manual/en/function.exec.php |
 | `exp` | implemented | Calculates e raised to a numeric power with PHP-compatible scalar coercion. Source: https://www.php.net/manual/en/function.exp.php |
 | `explode` | implemented | Splits byte strings into PHP arrays with default, positive, zero, and negative limit behavior; empty-separator `ValueError` is currently surfaced as a runtime error. Source: https://www.php.net/manual/en/function.explode.php |
 | `expm1` | implemented | Calculates exp(num) - 1 with a small-value path that preserves precision near zero. Source: https://www.php.net/manual/en/function.expm1.php |

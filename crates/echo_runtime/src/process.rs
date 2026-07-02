@@ -112,6 +112,18 @@ pub extern "C" fn echo_php_system(command: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_exec(command: EchoValue) -> EchoValue {
+    let Some(command) = command.string_bytes() else {
+        return EchoValue::error();
+    };
+
+    let Ok(output) = shell_command_output(&command) else {
+        return EchoValue::bool(false);
+    };
+    echo_runtime_string(last_output_line(&output.stdout).to_vec())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_process_spawn(command: EchoValue) -> EchoValue {
     let Some(command) = command.string_bytes() else {
         return EchoValue::error();
@@ -186,6 +198,20 @@ mod tests {
         assert_eq!(stdout, b"first\nlast\n".to_vec());
         assert_eq!(
             echo_php_system(string_value(b"printf ''")).string_bytes(),
+            Some(Vec::new())
+        );
+    }
+
+    #[test]
+    fn exec_returns_last_line_without_writing_stdout() {
+        let (result, stdout) = crate::capture_stdout(false, || {
+            echo_php_exec(string_value(b"printf 'first\nlast\n'"))
+        });
+
+        assert_eq!(result.string_bytes(), Some(b"last".to_vec()));
+        assert!(stdout.is_empty());
+        assert_eq!(
+            echo_php_exec(string_value(b"printf ''")).string_bytes(),
             Some(Vec::new())
         );
     }
