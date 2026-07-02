@@ -859,6 +859,11 @@ pub extern "C" fn echo_php_htmlspecialchars(value: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_htmlentities(value: EchoValue) -> EchoValue {
+    echo_php_htmlspecialchars(value)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_htmlspecialchars_decode(value: EchoValue) -> EchoValue {
     php_string_map_builtin(value, php_htmlspecialchars_decode)
 }

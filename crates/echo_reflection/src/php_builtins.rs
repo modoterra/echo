@@ -1223,6 +1223,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             Some("string"),
         ),
         php_builtin_reflection(
+            "htmlentities",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
+        php_builtin_reflection(
             "htmlspecialchars_decode",
             &[("string", Some("string"))],
             Some("string"),

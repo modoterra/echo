@@ -239,6 +239,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Escapes special HTML characters in a string.",
       },
       {
+        name: "htmlentities",
+        signature: "htmlentities(string $string): string",
+        description: "Escapes special HTML characters using the default compatibility path.",
+      },
+      {
         name: "htmlspecialchars_decode",
         signature: "htmlspecialchars_decode(string $string): string",
         description: "Decodes special HTML character entities in a string.",
@@ -2861,6 +2866,12 @@ let $html = "<strong>" . htmlspecialchars($name) . "</strong>"
 echo $html . "\\n"`,
   ],
   [
+    "htmlentities",
+    `let $label = "A & B <tag>"
+
+echo htmlentities($label) . "\\n"`,
+  ],
+  [
     "htmlspecialchars_decode",
     `let $stored = "&lt;strong&gt;Tom &amp; Jerry&lt;/strong&gt;"
 let $preview = htmlspecialchars_decode($stored)
@@ -3746,6 +3757,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "htmlspecialchars",
     "Use `htmlspecialchars()` before inserting plain text into an HTML fragment so names, labels, or messages cannot be interpreted as markup.",
+  ],
+  [
+    "htmlentities",
+    "Use `htmlentities()` for compatibility code that calls the broader PHP escaping API. Echo currently covers the default special-character escaping path.",
   ],
   [
     "htmlspecialchars_decode",
@@ -7005,7 +7020,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 265 PHP compatibility fixtures, 298 implemented Core and standard functions out of 607, 309 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 266 PHP compatibility fixtures, 299 implemented Core and standard functions out of 607, 308 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
