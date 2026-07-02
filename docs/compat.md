@@ -271,7 +271,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `end` | partial | Returns the last array value for Echo's current no-pointer baseline, or `false` for an empty array; PHP internal array pointer state and pointer movement APIs are deferred. Source: https://www.php.net/manual/en/function.end.php |
 | `error_clear_last` | implemented | Clears Echo's current no-error baseline and returns `null`; recording PHP warning/error details is deferred. Source: https://www.php.net/manual/en/function.error-clear-last.php |
 | `error_get_last` | implemented | Returns `null` because Echo does not yet retain PHP warning/error details; associative error arrays are deferred. Source: https://www.php.net/manual/en/function.error-get-last.php |
-| `error_log` | missing |  |
+| `error_log` | partial | Accepts the default `message` form and returns `true`; message type, destination/header handling, logger delivery, and warning emission are deferred. Source: https://www.php.net/manual/en/function.error-log.php |
 | `escapeshellarg` | implemented | Supports Unix/POSIX single-quote wrapping and embedded single-quote escaping; Windows-specific quoting behavior is deferred. Source: https://www.php.net/manual/en/function.escapeshellarg.php |
 | `escapeshellcmd` | implemented | Supports Unix/POSIX backslash escaping for shell metacharacters and unpaired quotes; Windows caret escaping is deferred. Source: https://www.php.net/manual/en/function.escapeshellcmd.php |
 | `exec` | missing |  |

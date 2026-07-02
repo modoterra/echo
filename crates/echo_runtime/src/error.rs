@@ -58,6 +58,15 @@ pub extern "C" fn echo_php_error_clear_last() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_error_log(message: EchoValue) -> EchoValue {
+    if message.string_bytes().is_none() {
+        return EchoValue::error();
+    }
+
+    EchoValue::bool(true)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_trigger_error(message: EchoValue, error_level: EchoValue) -> EchoValue {
     if message.string_bytes().is_none() || error_level.php_int_value().is_none() {
         return EchoValue::error();

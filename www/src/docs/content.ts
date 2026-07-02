@@ -1548,6 +1548,12 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Clears the most recent PHP error; Echo currently treats this as a no-op over its no-error baseline.",
       },
       {
+        name: "error_log",
+        signature: "error_log(string $message): bool",
+        description:
+          "Accepts a message for PHP's default logger path and returns true; destination and message-type forms are still deferred.",
+      },
+      {
         name: "microtime",
         signature: "microtime(bool $as_float): string|float",
         description: "Returns the current Unix timestamp with microseconds.",
@@ -2773,6 +2779,12 @@ if (is_null($last)) {
 
 if (is_null(error_get_last())) {
     echo "Error state cleared\\n"
+}`,
+  ],
+  [
+    "error_log",
+    `if (error_log("import completed")) {
+    echo "Log accepted\\n"
 }`,
   ],
   [
@@ -5553,6 +5565,10 @@ export const builtinExampleNotes = new Map<string, string>([
     "Use `error_clear_last()` to preserve PHP cleanup calls before retrying an operation. Echo currently treats it as a no-op because there is no retained last-error state.",
   ],
   [
+    "error_log",
+    "Use `error_log()` to preserve PHP code that records default logger messages during CLI-compatible flows. Echo currently accepts the message and reports success while destination-specific logging is still deferred.",
+  ],
+  [
     "microtime",
     "Use `microtime()` for PHP-compatible wall-clock timing labels; prefer monotonic timers for measuring elapsed durations in new Echo code.",
   ],
@@ -7871,7 +7887,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 308 PHP compatibility fixtures, 348 implemented Core and standard functions out of 607, 259 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 309 PHP compatibility fixtures, 349 implemented Core and standard functions out of 607, 258 remaining, and about 57% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],
