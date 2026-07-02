@@ -921,6 +921,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
         ),
         php_builtin_reflection("hebrev", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection("soundex", &[("string", Some("string"))], Some("string")),
+        php_builtin_reflection(
+            "setlocale",
+            &[("category", Some("int")), ("locales", Some("?string"))],
+            Some("string|false"),
+        ),
         php_builtin_reflection("localeconv", &[], Some("array")),
         php_builtin_reflection(
             "strtok",

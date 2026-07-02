@@ -123,6 +123,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Converts Hebrew text from logical to visual order; currently a non-Hebrew identity baseline.",
       },
       {
+        name: "setlocale",
+        signature: "setlocale(int $category, ?string $locales): string|false",
+        description: "Sets or reads the current locale baseline.",
+      },
+      {
         name: "localeconv",
         signature: "localeconv(): array",
         description: "Returns numeric and monetary formatting information for the current locale.",
@@ -4153,6 +4158,14 @@ echo "Previous code: " . $previous . "\\n"`,
 echo $label . "\\n"`,
   ],
   [
+    "setlocale",
+    `let $locale = setlocale(0, "C")
+
+if ($locale !== false) {
+    echo "Locale: " . $locale . "\\n"
+}`,
+  ],
+  [
     "localeconv",
     `let $locale = localeconv()
 
@@ -5619,6 +5632,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "hebrev",
     "Use `hebrev()` for compatibility code that already calls PHP's Hebrew visual-order helper. Echo currently preserves non-Hebrew byte strings unchanged while Hebrew reordering is deferred.",
+  ],
+  [
+    "setlocale",
+    "Use `setlocale()` when compatibility code explicitly resets to the portable C/POSIX locale before locale-sensitive string or numeric formatting. Echo currently accepts that baseline and leaves environment-derived locale selection, category mutation, locale constants, fallback arrays/rest arguments, and platform-specific names for later.",
   ],
   [
     "localeconv",
@@ -8766,7 +8783,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 352 PHP compatibility fixtures, 401 implemented Core and standard functions out of 607, 206 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 353 PHP compatibility fixtures, 402 implemented Core and standard functions out of 607, 205 remaining, and about 66% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

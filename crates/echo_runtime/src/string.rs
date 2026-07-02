@@ -511,6 +511,21 @@ pub extern "C" fn echo_php_localeconv() -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_setlocale(_category: EchoValue, locales: EchoValue) -> EchoValue {
+    if locales.is_null() {
+        return echo_runtime_string(b"C".to_vec());
+    }
+    let Some(locales) = locales.string_bytes() else {
+        return EchoValue::bool(false);
+    };
+
+    match locales.as_slice() {
+        b"C" | b"POSIX" | b"0" => echo_runtime_string(b"C".to_vec()),
+        _ => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_similar_text(first: EchoValue, second: EchoValue) -> EchoValue {
     let Some(first) = first.string_bytes() else {
         return EchoValue::error();

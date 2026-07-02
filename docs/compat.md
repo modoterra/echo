@@ -557,7 +557,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `set_include_path` | partial | Delegates to Echo's current no-op `ini_set("include_path", ...)` baseline and returns `false` until mutable PHP ini option values are modeled. Source: https://www.php.net/manual/en/function.set-include-path.php |
 | `set_time_limit` | partial | Returns `false` because Echo currently does not model PHP's max execution timer control; timer enforcement and reset semantics are deferred. Source: https://www.php.net/manual/en/function.set-time-limit.php |
 | `setcookie` | missing |  |
-| `setlocale` | missing |  |
+| `setlocale` | partial | Accepts `C`, `POSIX`, `0`, or `null` as the current C/POSIX locale baseline and returns `false` for unsupported locales; environment-derived locale selection, category-specific mutation, locale constants, arrays/rest fallback locales, and platform-specific locale names are deferred. Source: https://www.php.net/manual/en/function.setlocale.php |
 | `setrawcookie` | missing |  |
 | `settype` | missing |  |
 | `sha1` | implemented | Returns a lowercase 40-character SHA-1 digest by default and raw 20-byte output when the optional binary flag is true; not suitable for password storage. Source: https://www.php.net/manual/en/function.sha1.php |

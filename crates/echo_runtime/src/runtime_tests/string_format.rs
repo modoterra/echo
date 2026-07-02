@@ -82,6 +82,26 @@ fn localeconv_returns_c_locale_numeric_shape() {
 }
 
 #[test]
+fn setlocale_supports_c_locale_baseline() {
+    assert_eq!(
+        echo_php_setlocale(EchoValue::int(0), test_string_value(b"C")).string_bytes(),
+        Some(b"C".to_vec())
+    );
+    assert_eq!(
+        echo_php_setlocale(EchoValue::int(0), test_string_value(b"POSIX")).string_bytes(),
+        Some(b"C".to_vec())
+    );
+    assert_eq!(
+        echo_php_setlocale(EchoValue::int(0), EchoValue::null()).string_bytes(),
+        Some(b"C".to_vec())
+    );
+    assert_eq!(
+        echo_php_setlocale(EchoValue::int(0), test_string_value(b"missing_LOCALE")),
+        EchoValue::bool(false)
+    );
+}
+
+#[test]
 fn strtok_returns_first_token_for_initial_call() {
     assert_eq!(
         echo_php_strtok(test_string_value(b";aaa;;bbb;"), test_string_value(b";")).string_bytes(),
