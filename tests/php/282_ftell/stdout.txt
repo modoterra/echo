@@ -1,0 +1,4 @@
+start:0
+read:abcd
+after:4
+exists:1

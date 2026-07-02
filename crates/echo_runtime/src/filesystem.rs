@@ -32,7 +32,8 @@ pub use mutation::{
 };
 pub(crate) use stream::EchoFileStream;
 pub use stream::{
-    echo_php_fclose, echo_php_fopen, echo_php_fread, echo_php_stream_get_contents, echo_php_tmpfile,
+    echo_php_fclose, echo_php_fopen, echo_php_fread, echo_php_ftell, echo_php_stream_get_contents,
+    echo_php_tmpfile,
 };
 pub use temporary::{echo_php_sys_get_temp_dir, echo_php_tempnam, echo_php_uniqid};
 

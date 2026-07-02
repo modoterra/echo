@@ -86,6 +86,23 @@ pub extern "C" fn echo_php_fclose(stream: EchoValue) -> EchoValue {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn echo_php_ftell(stream: EchoValue) -> EchoValue {
+    let Some(stream) = stream.as_stream_mut() else {
+        return EchoValue::bool(false);
+    };
+    let Some(file) = stream.file.as_mut() else {
+        return EchoValue::bool(false);
+    };
+
+    match file.stream_position() {
+        Ok(position) => i64::try_from(position)
+            .map(EchoValue::int)
+            .unwrap_or_else(|_| EchoValue::bool(false)),
+        Err(_) => EchoValue::bool(false),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn echo_php_tmpfile() -> EchoValue {
     let temp_dir = std::env::temp_dir();
     let pid = std::process::id();

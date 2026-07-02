@@ -1222,6 +1222,11 @@ export const builtinFamilies: BuiltinFamily[] = [
           "Writes data to a local file and returns the number of bytes written, or false on failure.",
       },
       {
+        name: "ftell",
+        signature: "ftell(resource $stream): int|false",
+        description: "Returns the current byte offset for a local file stream.",
+      },
+      {
         name: "readfile",
         signature:
           "readfile(string $filename, bool $use_include_path, ?resource $context): int|false",
@@ -2038,6 +2043,16 @@ let $bytes = file_put_contents($summary, "rows=125\\nstatus=ready\\n")
 
 if (is_int($bytes)) {
     echo "Summary bytes written: " . $bytes . "\\n"
+}`,
+  ],
+  [
+    "ftell",
+    `let $stream = fopen("storage/reports/latest.csv", "r")
+
+if ($stream) {
+    fread($stream, 64)
+    echo "Offset: " . ftell($stream) . "\\n"
+    fclose($stream)
 }`,
   ],
   [
@@ -4089,6 +4104,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "file_put_contents",
     "Use `file_put_contents()` for simple generated files where opening a stream would add ceremony, such as writing a cache artifact, summary report, or small export manifest.",
+  ],
+  [
+    "ftell",
+    "Use `ftell()` when stream-oriented compatibility code needs to resume parsing from a known byte offset. Echo currently reports positions for local file streams and returns false for invalid or closed streams.",
   ],
   [
     "readfile",
@@ -7276,7 +7295,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 279 PHP compatibility fixtures, 315 implemented Core and standard functions out of 607, 292 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 280 PHP compatibility fixtures, 316 implemented Core and standard functions out of 607, 291 remaining, and about 52% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

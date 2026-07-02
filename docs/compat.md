@@ -320,7 +320,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `fsockopen` | missing |  |
 | `fstat` | missing |  |
 | `fsync` | missing |  |
-| `ftell` | missing |  |
+| `ftell` | implemented | Returns the current byte offset for Echo local file stream resources and `false` for invalid or closed streams. Source: https://www.php.net/manual/en/function.ftell.php |
 | `ftok` | missing |  |
 | `ftruncate` | missing |  |
 | `fwrite` | missing |  |
