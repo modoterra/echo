@@ -868,6 +868,11 @@ pub extern "C" fn echo_php_htmlspecialchars_decode(value: EchoValue) -> EchoValu
     php_string_map_builtin(value, php_htmlspecialchars_decode)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_php_html_entity_decode(value: EchoValue) -> EchoValue {
+    echo_php_htmlspecialchars_decode(value)
+}
+
 fn php_htmlspecialchars_decode(bytes: &[u8]) -> Vec<u8> {
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut index = 0;

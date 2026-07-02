@@ -249,6 +249,11 @@ export const builtinFamilies: BuiltinFamily[] = [
         description: "Decodes special HTML character entities in a string.",
       },
       {
+        name: "html_entity_decode",
+        signature: "html_entity_decode(string $string): string",
+        description: "Decodes the default special HTML entity subset.",
+      },
+      {
         name: "strip_tags",
         signature: "strip_tags(string $string): string",
         description: "Removes HTML and PHP tags from a string.",
@@ -2879,6 +2884,12 @@ let $preview = htmlspecialchars_decode($stored)
 echo $preview . "\\n"`,
   ],
   [
+    "html_entity_decode",
+    `let $stored = "A &amp; B &lt;tag&gt;"
+
+echo html_entity_decode($stored) . "\\n"`,
+  ],
+  [
     "strip_tags",
     `let $html = "<p>Hello <strong>Ada</strong></p>"
 let $plain = strip_tags($html)
@@ -3765,6 +3776,10 @@ export const builtinExampleNotes = new Map<string, string>([
   [
     "htmlspecialchars_decode",
     "Use `htmlspecialchars_decode()` when compatibility code receives text that was escaped with `htmlspecialchars()` and needs the original display text back.",
+  ],
+  [
+    "html_entity_decode",
+    "Use `html_entity_decode()` for compatibility code that calls PHP's broader entity decoder. Echo currently covers the default special-character entity subset.",
   ],
   [
     "strip_tags",
@@ -7020,7 +7035,7 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "Current PHP 8.5 status: 266 PHP compatibility fixtures, 299 implemented Core and standard functions out of 607, 308 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
+              "Current PHP 8.5 status: 267 PHP compatibility fixtures, 300 implemented Core and standard functions out of 607, 307 remaining, and about 49% function coverage. Overall compatibility remains about 20% complete because syntax, executable semantics, references, classes, exceptions, and callables still carry larger gaps.",
             ],
           },
         ],

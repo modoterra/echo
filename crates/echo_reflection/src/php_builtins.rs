@@ -1232,6 +1232,11 @@ pub(crate) fn reflections() -> Vec<FunctionReflection> {
             &[("string", Some("string"))],
             Some("string"),
         ),
+        php_builtin_reflection(
+            "html_entity_decode",
+            &[("string", Some("string"))],
+            Some("string"),
+        ),
         php_builtin_reflection("strip_tags", &[("string", Some("string"))], Some("string")),
         php_builtin_reflection(
             "nl2br",

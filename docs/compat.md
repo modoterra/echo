@@ -366,7 +366,7 @@ Related baseline functions tracked below: `get_included_files`,
 | `highlight_file` | missing |  |
 | `highlight_string` | missing |  |
 | `hrtime` | implemented | Returns a two-element `[seconds, nanoseconds]` array by default or an integer/float nanosecond count when `as_number` is true. Source: https://www.php.net/manual/en/function.hrtime.php |
-| `html_entity_decode` | missing |  |
+| `html_entity_decode` | partial | Decodes the default special HTML entity subset through the current `htmlspecialchars_decode()` path; optional flags, encoding, and the broader named entity table are deferred. Source: https://www.php.net/manual/en/function.html-entity-decode.php |
 | `htmlentities` | partial | Escapes the default special HTML characters using the current `htmlspecialchars()` path; optional flags, encoding, double-encode control, and the broader named entity table are deferred. Source: https://www.php.net/manual/en/function.htmlentities.php |
 | `htmlspecialchars` | implemented | Escapes `&`, `"`, `'`, `<`, and `>` using PHP's default `ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401` shape; optional flags, encoding, and double-encode control are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars.php |
 | `htmlspecialchars_decode` | implemented | Decodes the default `htmlspecialchars()` entity set for `&amp;`, `&quot;`, `&#039;`, `&lt;`, and `&gt;`; optional flags are deferred. Source: https://www.php.net/manual/en/function.htmlspecialchars-decode.php |
