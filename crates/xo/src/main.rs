@@ -131,8 +131,14 @@ enum Command {
         )]
         opt_level: String,
     },
-    /// Run Echo language tests for a path.
-    Test { path: PathBuf },
+    /// Run Echo language tests (Model A: `std/test` registration via `XO_TEST`).
+    ///
+    /// Paths may be `.echo` files, directories, or globs (`*`, `**`). With no
+    /// paths, searches `.` for `*_test.echo` and `tests/**/*.echo`.
+    Test {
+        /// Files, directories, or glob patterns.
+        paths: Vec<String>,
+    },
     /// Check from an entry file (closed graph: imports, %/@ merge, local semantics).
     Check {
         /// Print `sem-*` / `res-*` codes on stderr (one per line; used by `e26`).
@@ -293,7 +299,7 @@ fn main() -> ExitCode {
                 ExitCode::from(2)
             }
         },
-        Command::Test { path } => not_implemented("test", Some(&path)),
+        Command::Test { paths } => cmd_test(&paths),
         Command::Check {
             diag_codes,
             graph,
@@ -731,6 +737,19 @@ fn cmd_run(
     opt: OptLevel,
     args: &[String],
 ) -> ExitCode {
+    cmd_run_inner(path, jit, diag_codes, no_cache, cache_status, opt, args, false)
+}
+
+fn cmd_run_inner(
+    path: &Path,
+    jit: bool,
+    diag_codes: bool,
+    no_cache: bool,
+    cache_status: bool,
+    opt: OptLevel,
+    args: &[String],
+    suite: bool,
+) -> ExitCode {
     let compiled = match compile_to_ir(path, no_cache, opt) {
         Ok(c) => c,
         Err(err) => {
@@ -750,6 +769,9 @@ fn cmd_run(
     if jit {
         if !args.is_empty() {
             eprintln!("xo run --jit: program args not supported yet (ignored)");
+        }
+        if suite {
+            echo_runtime::echo_runtime_test_enable();
         }
         return match echo_codegen::run_jit_ir(&compiled.ir) {
             Ok(status) => {
@@ -793,12 +815,15 @@ fn cmd_run(
         eprintln!("aot cache: {aot_cache_label}");
     }
 
-    let status = ProcessCommand::new(&binary_path)
-        .args(args)
+    let mut cmd = ProcessCommand::new(&binary_path);
+    cmd.args(args)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status();
+        .stderr(Stdio::inherit());
+    if suite {
+        cmd.env("XO_TEST", "1");
+    }
+    let status = cmd.status();
 
     let _ = std::fs::remove_dir_all(&work);
 
@@ -1098,6 +1123,216 @@ fn cmd_tools_grammar_tree_sitter(output: &Path) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+/// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
+fn cmd_test(paths: &[String]) -> ExitCode {
+    let files = match collect_test_files(paths) {
+        Ok(f) if f.is_empty() => {
+            eprintln!("xo test: no test files matched");
+            return ExitCode::from(1);
+        }
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("xo test: {e}");
+            return ExitCode::from(2);
+        }
+    };
+
+    let mut failed_files = 0usize;
+    let total_files = files.len();
+    for (i, file) in files.iter().enumerate() {
+        eprintln!("xo test [{}/{}] {}", i + 1, total_files, file.display());
+        let code = run_suite_file(file);
+        if code != 0 {
+            failed_files += 1;
+            eprintln!("xo test: FAILED {}", file.display());
+        } else {
+            eprintln!("xo test: ok {}", file.display());
+        }
+    }
+
+    if failed_files > 0 {
+        eprintln!(
+            "xo test: {failed_files} of {total_files} file(s) failed"
+        );
+        ExitCode::from(1)
+    } else {
+        eprintln!("xo test: {total_files} file(s) passed");
+        ExitCode::SUCCESS
+    }
+}
+
+fn run_suite_file(path: &Path) -> u8 {
+    // Suite mode: AOT child gets XO_TEST=1; registration via std/test → runtime.
+    let code = cmd_run_inner(
+        path,
+        false,
+        false,
+        false,
+        false,
+        OptLevel::O0,
+        &[],
+        true,
+    );
+    if code == ExitCode::SUCCESS {
+        0
+    } else {
+        1
+    }
+}
+
+fn collect_test_files(paths: &[String]) -> Result<Vec<PathBuf>, String> {
+    let mut out = Vec::new();
+    if paths.is_empty() {
+        collect_from_dir(Path::new("."), &mut out)?;
+    } else {
+        for raw in paths {
+            collect_one_pattern(raw, &mut out)?;
+        }
+    }
+    out.sort();
+    out.dedup();
+    Ok(out)
+}
+
+fn collect_one_pattern(raw: &str, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    let p = Path::new(raw);
+    if looks_like_glob(raw) {
+        return expand_glob(raw, out);
+    }
+    if p.is_file() {
+        if is_echo_file(p) {
+            out.push(p.to_path_buf());
+        } else {
+            return Err(format!("not an .echo file: {}", p.display()));
+        }
+        return Ok(());
+    }
+    if p.is_dir() {
+        return collect_from_dir(p, out);
+    }
+    Err(format!("path not found: {raw}"))
+}
+
+fn looks_like_glob(s: &str) -> bool {
+    s.contains('*') || s.contains('?') || s.contains('[')
+}
+
+fn expand_glob(pattern: &str, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    // Minimal glob: `**` = any path segment sequence; `*` = within one segment.
+    let root = Path::new(".");
+    walk_glob(root, pattern, out)
+}
+
+fn walk_glob(dir: &Path, pattern: &str, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    // Normalize pattern to path components.
+    let parts: Vec<&str> = pattern.split('/').filter(|s| !s.is_empty()).collect();
+    walk_glob_parts(dir, &parts, out)
+}
+
+fn walk_glob_parts(dir: &Path, parts: &[&str], out: &mut Vec<PathBuf>) -> Result<(), String> {
+    if parts.is_empty() {
+        return Ok(());
+    }
+    let head = parts[0];
+    let rest = &parts[1..];
+    if head == "**" {
+        // Match zero or more directories.
+        walk_glob_parts(dir, rest, out)?;
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for ent in rd.flatten() {
+                let p = ent.path();
+                if p.is_dir() {
+                    walk_glob_parts(&p, parts, out)?;
+                }
+            }
+        }
+        return Ok(());
+    }
+    if rest.is_empty() {
+        // Final component: match files in dir.
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for ent in rd.flatten() {
+                let p = ent.path();
+                let name = ent.file_name().to_string_lossy().into_owned();
+                if p.is_file() && is_echo_file(&p) && glob_match(head, &name) {
+                    out.push(p);
+                }
+            }
+        }
+        return Ok(());
+    }
+    // Intermediate directory segment.
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for ent in rd.flatten() {
+            let p = ent.path();
+            let name = ent.file_name().to_string_lossy().into_owned();
+            if p.is_dir() && glob_match(head, &name) {
+                walk_glob_parts(&p, rest, out)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn glob_match(pat: &str, name: &str) -> bool {
+    if pat == "*" {
+        return true;
+    }
+    // Single `*` wildcards only (no `?` classes for v0 beyond literal).
+    let mut pi = 0;
+    let mut ni = 0;
+    let pb = pat.as_bytes();
+    let nb = name.as_bytes();
+    let mut star = None::<(usize, usize)>;
+    while ni < nb.len() {
+        if pi < pb.len() && (pb[pi] == nb[ni] || pb[pi] == b'?') {
+            pi += 1;
+            ni += 1;
+        } else if pi < pb.len() && pb[pi] == b'*' {
+            star = Some((pi, ni));
+            pi += 1;
+        } else if let Some((sp, sn)) = star {
+            pi = sp + 1;
+            ni = sn + 1;
+            star = Some((sp, ni));
+        } else {
+            return false;
+        }
+    }
+    while pi < pb.len() && pb[pi] == b'*' {
+        pi += 1;
+    }
+    pi == pb.len()
+}
+
+fn collect_from_dir(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    // Convention: `*_test.echo` anywhere under dir, and everything under `tests/`.
+    fn walk(dir: &Path, under_tests: bool, out: &mut Vec<PathBuf>) -> Result<(), String> {
+        let rd = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        for ent in rd.flatten() {
+            let p = ent.path();
+            let name = ent.file_name().to_string_lossy().into_owned();
+            if name == ".xo" || name == "target" || name == "node_modules" {
+                continue;
+            }
+            if p.is_dir() {
+                let next_tests = under_tests || name == "tests";
+                walk(&p, next_tests, out)?;
+            } else if p.is_file() && is_echo_file(&p) {
+                if under_tests || name.ends_with("_test.echo") {
+                    out.push(p);
+                }
+            }
+        }
+        Ok(())
+    }
+    walk(dir, dir.ends_with("tests"), out)
+}
+
+fn is_echo_file(p: &Path) -> bool {
+    p.extension().and_then(|e| e.to_str()) == Some("echo")
 }
 
 fn not_implemented(command: &str, path: Option<&Path>) -> ExitCode {

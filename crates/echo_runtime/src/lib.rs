@@ -13,6 +13,7 @@ mod net;
 mod poll;
 mod sched;
 mod task;
+mod test_suite;
 
 // TCP/UDP — re-export for JIT symbol mapping (`echo_codegen`).
 pub use net::{
@@ -28,6 +29,12 @@ pub use task::{
     echo_runtime_task_join, echo_runtime_task_join_wide, echo_runtime_task_new,
     echo_runtime_task_new_args, echo_runtime_task_shape, echo_runtime_task_spawn,
     echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
+};
+
+// Suite runner (Model A) — JIT mapping.
+pub use test_suite::{
+    echo_runtime_test_enable, echo_runtime_test_fail, echo_runtime_test_finish,
+    echo_runtime_test_register,
 };
 
 /// Stable crate identity for workspace linkage checks.

@@ -117,6 +117,12 @@ io.print(x)             $ print = (value) {           package of primitives)
                     runtime.print → echo_runtime_*
 ```
 
+### `std/test`
+
+Suite helpers for `xo test` (see [`testing.md`](testing.md)). Exports `it`, `eq`,
+`ne`, `true`, `false`, `fail`. Bridges to `runtime.test_*` (suite mode via env
+`XO_TEST`).
+
 | Audience | Sees |
 |----------|------|
 | **User** | `io.print` (strings) + `str.from_*` (int/float/bytes/duration/locator) |

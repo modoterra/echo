@@ -38,8 +38,8 @@ pub const MIR_SCHEMA_VERSION: u32 = 3; // Range
 pub const CODEGEN_VERSION: u32 = 11; // shaped fn values + indirect tagged call
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 17; // str_from_debug
-pub const STDLIB_VERSION: u32 = 9; // str.from_debug
+pub const RUNTIME_ABI_VERSION: u32 = 18; // test suite register/finish/fail
+pub const STDLIB_VERSION: u32 = 10; // std/test
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

@@ -1,0 +1,12 @@
+; Map std suite (list push + map.from_indexed).
+/ std/collections/map
+/ std/test
+
+$ case_from_indexed = () {
+    $ m = map.from_indexed([10, 20, 30])
+    test.eq(m.entries[0].key, 0)
+    test.eq(m.entries[0].value, 10)
+    test.eq(m.entries[2].value, 30)
+}
+
+test.it("from_indexed", case_from_indexed)

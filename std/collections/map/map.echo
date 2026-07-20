@@ -1,0 +1,26 @@
+; The Echo map collection
+
+% map {
+    ~ entries = []
+}
+
+% item {
+    $ key
+    ~ value
+}
+
+$ make = () {
+    ^ map {}
+}
+
+$ from_indexed = (ls) {
+    ~ m = make()
+    ~ i = 0
+    * v : ls {
+        ~ m.entries[] = item { key: i, value: v }
+        ~ i = i + 1
+    }
+    ^ m
+}
+
+\ map, item, make, from_indexed

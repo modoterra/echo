@@ -22,6 +22,7 @@ use echo_codegen_abi::{
     RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET,
     RT_LIST_LEN, RT_LIST_NEW, RT_LIST_PUSH, RT_LIST_SET, RT_LOCATOR_FROM_UTF8, RT_NE, RT_NE_ID,
     RT_PRINT_I64, RT_RANGE_NEW, RT_STR_BUILDER_FINISH, RT_STR_BUILDER_NEW, RT_STR_BUILDER_PUSH_STR,
+    RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
     RT_STR_BUILDER_PUSH_VALUE, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
     RT_STR_FROM_FLOAT,
     RT_STR_CAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_LEN, RT_STRING_FROM_UTF8,
@@ -156,6 +157,14 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     let fn_code_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_FN_CODE, fn_code_ty, None);
     module.add_function(RT_FN_SHAPE, fn_code_ty, None);
+    let test_reg_ty = context
+        .void_type()
+        .fn_type(&[i64t.into(), i64t.into()], false);
+    module.add_function(RT_TEST_REGISTER, test_reg_ty, None);
+    let test_fail_ty = context.void_type().fn_type(&[i64t.into()], false);
+    module.add_function(RT_TEST_FAIL, test_fail_ty, None);
+    let test_finish_ty = i64t.fn_type(&[], false);
+    module.add_function(RT_TEST_FINISH, test_finish_ty, None);
     let http_parse_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_HTTP_PARSE_REQUEST, http_parse_ty, None);
     module.add_function(RT_HTTP_HEADERS_COMPLETE, http_parse_ty, None);
@@ -254,9 +263,15 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
             && f.ret == MirRetShape::Plain
     });
     // After toplevel: fail if any `+` task was left unjoined (`-`).
+    // Then, if suite mode registered cases (`XO_TEST`), prefer suite status.
     let check_f = module
         .get_function(RT_TASK_CHECK_JOINED)
         .expect("task_check_joined");
+    let test_finish_f = module
+        .get_function(RT_TEST_FINISH)
+        .expect("test_finish");
+    let zero = i64t.const_int(0, false);
+    let neg_one = i64t.const_int((-1i64) as u64, true);
     if let Some(top_f) = toplevel {
         let key = top_f.mangled_name();
         let (fv, _) = fn_map[&key];
@@ -271,13 +286,26 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
             .unwrap_basic()
             .into_int_value();
         // Prefer check failure over program status.
-        let zero = i64t.const_int(0, false);
         let bad = builder
             .build_int_compare(inkwell::IntPredicate::NE, check, zero, "unjoined")
             .expect("cmp");
-        let status = builder
-            .build_select(bad, check, ret64, "exit_status")
+        let prog_status = builder
+            .build_select(bad, check, ret64, "prog_status")
             .expect("select")
+            .into_int_value();
+        let suite = builder
+            .build_call(test_finish_f, &[], "suite_status")
+            .expect("test_finish")
+            .try_as_basic_value()
+            .unwrap_basic()
+            .into_int_value();
+        // suite == -1 → suite mode off; else use suite fail count as exit.
+        let has_suite = builder
+            .build_int_compare(inkwell::IntPredicate::NE, suite, neg_one, "has_suite")
+            .expect("cmp suite");
+        let status = builder
+            .build_select(has_suite, suite, prog_status, "exit_status")
+            .expect("select suite")
             .into_int_value();
         let _ = builder.build_return(Some(&status));
     } else {
@@ -287,7 +315,20 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
             .try_as_basic_value()
             .unwrap_basic()
             .into_int_value();
-        let _ = builder.build_return(Some(&check));
+        let suite = builder
+            .build_call(test_finish_f, &[], "suite_status")
+            .expect("test_finish")
+            .try_as_basic_value()
+            .unwrap_basic()
+            .into_int_value();
+        let has_suite = builder
+            .build_int_compare(inkwell::IntPredicate::NE, suite, neg_one, "has_suite")
+            .expect("cmp suite");
+        let status = builder
+            .build_select(has_suite, suite, check, "exit_status")
+            .expect("select suite")
+            .into_int_value();
+        let _ = builder.build_return(Some(&status));
     }
 
     let c_main_ty = i32t.fn_type(&[], false);
@@ -601,6 +642,24 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_TEST_REGISTER,
+        echo_runtime_test_register as unsafe extern "C" fn(i64, i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TEST_FAIL,
+        echo_runtime_test_fail as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TEST_FINISH,
+        echo_runtime_test_finish as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_HTTP_PARSE_REQUEST,
         echo_runtime_http_parse_request as unsafe extern "C" fn(i64) -> i64 as usize,
     )?;
@@ -818,6 +877,7 @@ use echo_runtime::{
     echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
+    echo_runtime_test_fail, echo_runtime_test_finish, echo_runtime_test_register,
     echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
     echo_runtime_udp_send_to,
 };
@@ -2327,6 +2387,38 @@ fn emit_call<'ctx>(
                 let _ = cx.builder.build_call(f, &[v.into()], "").expect("rt_close");
                 return Some(cx.i64t.const_int(0, false));
             }
+            // Suite: register(name, body) void.
+            if native == RT_TEST_REGISTER {
+                if args.len() != 2 {
+                    cx.diags.push(
+                        Diagnostic::error("runtime.test_register expects two arguments")
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let name = emit_expr_i64(cx, &args[0])?;
+                let body = emit_expr_i64(cx, &args[1])?;
+                let f = cx.module.get_function(RT_TEST_REGISTER).expect("test_register");
+                let _ = cx
+                    .builder
+                    .build_call(f, &[name.into(), body.into()], "")
+                    .expect("test_register");
+                return Some(cx.i64t.const_int(0, false));
+            }
+            // Suite: fail(msg) void.
+            if native == RT_TEST_FAIL {
+                if args.len() != 1 {
+                    cx.diags.push(
+                        Diagnostic::error("runtime.test_fail expects one argument")
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let msg = emit_expr_i64(cx, &args[0])?;
+                let f = cx.module.get_function(RT_TEST_FAIL).expect("test_fail");
+                let _ = cx.builder.build_call(f, &[msg.into()], "").expect("test_fail");
+                return Some(cx.i64t.const_int(0, false));
+            }
             // Arity for i64… → i64 runtime exports.
             let arity = if native == RT_STR_FROM_INT
                 || native == RT_STR_FROM_FLOAT
@@ -3725,15 +3817,44 @@ pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
         let root = PathBuf::from(manifest_dir);
         candidates.push(root.join("../../target/debug/libecho_runtime.a"));
         candidates.push(root.join("../../target/release/libecho_runtime.a"));
+        candidates.push(root.join("../../target/debug/deps"));
+        candidates.push(root.join("../../target/release/deps"));
     }
     if let Ok(cwd) = std::env::current_dir() {
         candidates.push(cwd.join("target/debug/libecho_runtime.a"));
         candidates.push(cwd.join("target/release/libecho_runtime.a"));
+        candidates.push(cwd.join("target/debug/deps"));
+        candidates.push(cwd.join("target/release/deps"));
     }
 
     for c in &candidates {
         if c.is_file() {
             return Ok(c.canonicalize().unwrap_or_else(|_| c.clone()));
+        }
+        // Cargo names staticlibs `libecho_runtime-<hash>.a` under deps/.
+        if c.is_dir() {
+            if let Ok(rd) = std::fs::read_dir(c) {
+                let mut found: Vec<PathBuf> = rd
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|p| {
+                        p.file_name()
+                            .and_then(|n| n.to_str())
+                            .is_some_and(|n| {
+                                n.starts_with("libecho_runtime-") && n.ends_with(".a")
+                            })
+                    })
+                    .collect();
+                // Prefer newest mtime (current build).
+                found.sort_by_key(|p| {
+                    std::fs::metadata(p)
+                        .and_then(|m| m.modified())
+                        .ok()
+                });
+                if let Some(p) = found.pop() {
+                    return Ok(p.canonicalize().unwrap_or(p));
+                }
+            }
         }
     }
 

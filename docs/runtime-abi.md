@@ -67,6 +67,9 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_struct_type_is` | `int64_t (int64_t, const uint8_t *name, size_t)` | 1 if handle’s type tag equals `name` (for `|` `% Type` arms) |
 | `echo_runtime_struct_set` | `void (int64_t, const uint8_t *name, size_t, int64_t)` | Insert/replace field by name |
 | `echo_runtime_struct_get` | `int64_t (int64_t, const uint8_t *name, size_t)` | Field by name, or 0 |
+| `echo_runtime_test_register` | `void (int64_t name_str, int64_t fn)` | Suite: register case (`XO_TEST` only) |
+| `echo_runtime_test_fail` | `void (int64_t msg_str)` | Suite: mark current case failed |
+| `echo_runtime_test_finish` | `int64_t (void)` | Suite: run cases → fail count; `-1` if suite off |
 
 ## Value wire (v1)
 
