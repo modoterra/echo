@@ -68,6 +68,10 @@ pub fn eval_const_expr(
                 ))
             }),
         Expr::Group { expr, .. } => eval_const_expr(expr, env),
+        Expr::WidthCast { expr, .. } => {
+            // Const width cast: evaluate inner; bit width checks deferred to MIR.
+            eval_const_expr(expr, env)
+        }
         Expr::Unary { op, expr, .. } => {
             let v = eval_const_expr(expr, env)?;
             match (op, v) {

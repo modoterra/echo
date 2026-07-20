@@ -865,9 +865,8 @@ fn expr_parser<'a>(
                 span: sp(source_id, span),
             });
 
-        // `<i32>123` / `<i32> -32` — prefix width tag (locked). Sign is part of
-        // the literal after `>` (space optional; preferred in formatting).
-        // Prefer sign after the tag, not unary `-` before `<`.
+        // `<i32>123` / `<i32> -32` — prefix width tag on literals (locked).
+        // Sign is part of the literal after `>` (space optional).
         let number_width = just(TokenKind::Lt)
             .ignore_then(ident.clone())
             .then_ignore(just(TokenKind::Gt))
@@ -1106,8 +1105,10 @@ fn expr_parser<'a>(
 
         // Unary ops bind tighter than binary; recurse only through unary layer.
         // `~` bit-not is dual-use with mutable-bind leader (expr position only).
+        // `<ui64> expr` is an explicit width cast (no silent mix).
         let unary = {
             let postfix = postfix.clone();
+            let ident_u = ident.clone();
             recursive(move |unary| {
                 choice((
                     just(TokenKind::Minus)
@@ -1125,11 +1126,63 @@ fn expr_parser<'a>(
                             span: sp(source_id, span),
                         }),
                     just(TokenKind::Tilde)
-                        .ignore_then(unary)
+                        .ignore_then(unary.clone())
                         .map_with_span(move |e, span| Expr::Unary {
                             op: UnaryOp::BitNot,
                             expr: Box::new(e),
                             span: sp(source_id, span),
+                        }),
+                    // `<width> …` — prefer signed/unsigned tagged **literal**
+                    // (`<i32> -32`) over cast-of-unary, then general cast.
+                    just(TokenKind::Lt)
+                        .ignore_then(ident_u.clone())
+                        .then_ignore(just(TokenKind::Gt))
+                        .then(choice((
+                            just(TokenKind::Minus)
+                                .or_not()
+                                .then(
+                                    filter(|t| matches!(t, TokenKind::Number)).map_with_span(
+                                        move |_, span| text_at(src, &span),
+                                    ),
+                                )
+                                .map(|(neg, text)| {
+                                    let text = if neg.is_some() {
+                                        format!("-{text}")
+                                    } else {
+                                        text
+                                    };
+                                    (true, text, None)
+                                }),
+                            unary.map(|e| (false, String::new(), Some(e))),
+                        )))
+                        .map_with_span(move |(wident, (is_lit, text, eopt)), span| {
+                            let s = sp(source_id, span);
+                            let width = Width::parse(&wident.name).unwrap_or(Width::I64);
+                            if is_lit {
+                                Expr::Number {
+                                    text,
+                                    width: Some(width),
+                                    span: s,
+                                }
+                            } else {
+                                let e = eopt.expect("cast expr");
+                                match e {
+                                    Expr::Number {
+                                        text,
+                                        width: None,
+                                        ..
+                                    } => Expr::Number {
+                                        text,
+                                        width: Some(width),
+                                        span: s,
+                                    },
+                                    other => Expr::WidthCast {
+                                        width,
+                                        expr: Box::new(other),
+                                        span: s,
+                                    },
+                                }
+                            }
                         }),
                     postfix,
                 ))

@@ -15,10 +15,22 @@ pub struct VarId(pub u32);
 /// Runtime/check kind of a value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    /// Untagged / i64 integer.
+    /// Untagged / `<i64>` integer (default int).
     Int,
+    /// Explicit `<i8>`.
+    Int8,
+    /// Explicit `<i16>`.
+    Int16,
     /// Explicit `<i32>`.
     Int32,
+    /// Explicit `<ui8>` / `byte`.
+    UInt8,
+    /// Explicit `<ui16>`.
+    UInt16,
+    /// Explicit `<ui32>`.
+    UInt32,
+    /// Explicit `<ui64>`.
+    UInt64,
     /// Untagged / f64 float.
     Float,
     /// Explicit `<f32>`.
@@ -115,7 +127,13 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Int => write!(f, "i64"),
+            Type::Int8 => write!(f, "i8"),
+            Type::Int16 => write!(f, "i16"),
             Type::Int32 => write!(f, "i32"),
+            Type::UInt8 => write!(f, "ui8"),
+            Type::UInt16 => write!(f, "ui16"),
+            Type::UInt32 => write!(f, "ui32"),
+            Type::UInt64 => write!(f, "ui64"),
             Type::Float => write!(f, "f64"),
             Type::Float32 => write!(f, "f32"),
             Type::Bool => write!(f, "bool"),

@@ -380,6 +380,13 @@ fn write_expr(e: &Expr, parent_prec: u8, stmt_level: usize, out: &mut String) {
             }
             write_expr(expr, 10, stmt_level, out);
         }
+        Expr::WidthCast { width, expr, .. } => {
+            out.push('<');
+            out.push_str(width.as_str());
+            out.push('>');
+            out.push(' ');
+            write_expr(expr, 10, stmt_level, out);
+        }
         Expr::Binary {
             op, left, right, ..
         } => {

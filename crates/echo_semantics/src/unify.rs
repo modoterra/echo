@@ -27,7 +27,13 @@ pub fn unify(subst: &mut Subst, a: &Type, b: &Type, span: Span, diags: &mut Diag
             t.clone()
         }
         (Type::Int, Type::Int) => Type::Int,
+        (Type::Int8, Type::Int8) => Type::Int8,
+        (Type::Int16, Type::Int16) => Type::Int16,
         (Type::Int32, Type::Int32) => Type::Int32,
+        (Type::UInt8, Type::UInt8) => Type::UInt8,
+        (Type::UInt16, Type::UInt16) => Type::UInt16,
+        (Type::UInt32, Type::UInt32) => Type::UInt32,
+        (Type::UInt64, Type::UInt64) => Type::UInt64,
         (Type::Float, Type::Float) => Type::Float,
         (Type::Float32, Type::Float32) => Type::Float32,
         (Type::Bool, Type::Bool) => Type::Bool,

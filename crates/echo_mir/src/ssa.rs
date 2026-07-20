@@ -322,6 +322,14 @@ fn rewrite_expr(e: &MirExpr, stacks: &HashMap<String, Vec<String>>) -> MirExpr {
         MirExpr::Name(n) => MirExpr::Name(stack_top(stacks, n)),
         MirExpr::ConstI64(v) => MirExpr::ConstI64(*v),
         MirExpr::ConstI32(v) => MirExpr::ConstI32(*v),
+        MirExpr::ConstInt { value, width } => MirExpr::ConstInt {
+            value: *value,
+            width: *width,
+        },
+        MirExpr::Cast { to, expr } => MirExpr::Cast {
+            to: *to,
+            expr: Box::new(rewrite_expr(expr, stacks)),
+        },
         MirExpr::ConstBool(b) => MirExpr::ConstBool(*b),
         MirExpr::ConstF64(v) => MirExpr::ConstF64(*v),
         MirExpr::ConstF32(v) => MirExpr::ConstF32(*v),

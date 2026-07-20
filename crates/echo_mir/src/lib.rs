@@ -219,6 +219,16 @@ pub enum MirExpr {
     ConstI64(i64),
     /// Width-tagged `<i32>…` literal (native i32 until boxed).
     ConstI32(i32),
+    /// Other integer widths (`i8`/`i16`/`ui*`) as native scalars until boxed.
+    ConstInt {
+        value: i64,
+        width: echo_ast::Width,
+    },
+    /// Explicit integer/float width convert.
+    Cast {
+        to: echo_ast::Width,
+        expr: Box<MirExpr>,
+    },
     ConstBool(bool),
     ConstF64(f64),
     /// Width-tagged `<f32>…` literal (native f32 until boxed).
@@ -2250,6 +2260,149 @@ fn lower_value_match(
     })
 }
 
+fn lower_int_const(
+    value: i64,
+    width: Option<echo_ast::Width>,
+    span: echo_source::Span,
+    diags: &mut Diagnostics,
+) -> Option<MirExpr> {
+    use echo_ast::Width;
+    let w = width.unwrap_or(Width::I64);
+    match w {
+        Width::I64 => Some(MirExpr::ConstI64(value)),
+        Width::I32 => {
+            if value < i32::MIN as i64 || value > i32::MAX as i64 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<i32>` literal `{value}` does not fit in 32-bit signed range"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstI32(value as i32))
+        }
+        Width::I8 => {
+            if value < i8::MIN as i64 || value > i8::MAX as i64 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<i8>` literal `{value}` does not fit in 8-bit signed range"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstInt {
+                value,
+                width: Width::I8,
+            })
+        }
+        Width::I16 => {
+            if value < i16::MIN as i64 || value > i16::MAX as i64 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<i16>` literal `{value}` does not fit in 16-bit signed range"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstInt {
+                value,
+                width: Width::I16,
+            })
+        }
+        Width::Ui8 => {
+            if value < 0 || value > u8::MAX as i64 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<ui8>`/`byte` literal `{value}` does not fit in 0..255"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstInt {
+                value,
+                width: Width::Ui8,
+            })
+        }
+        Width::Ui16 => {
+            if value < 0 || value > u16::MAX as i64 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<ui16>` literal `{value}` does not fit in 0..65535"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstInt {
+                value,
+                width: Width::Ui16,
+            })
+        }
+        Width::Ui32 => {
+            if value < 0 || value > u32::MAX as i64 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<ui32>` literal `{value}` does not fit in 0..2^32-1"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstInt {
+                value,
+                width: Width::Ui32,
+            })
+        }
+        Width::Ui64 => {
+            // Parsed as i64; negative not allowed for unsigned.
+            if value < 0 {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "`<ui64>` literal `{value}` must be non-negative"
+                    ))
+                    .with_code("cg-width")
+                    .with_span(span),
+                );
+                return None;
+            }
+            Some(MirExpr::ConstInt {
+                value,
+                width: Width::Ui64,
+            })
+        }
+        // Integer spelling with float width tag: `<f32> 1`
+        Width::F32 => Some(MirExpr::ConstF32(value as f32)),
+        Width::F64 => Some(MirExpr::ConstF64(value as f64)),
+    }
+}
+
+#[allow(dead_code)]
+fn width_to_mir_repr(w: echo_ast::Width) -> MirRepr {
+    use echo_ast::Width;
+    match w {
+        Width::I8 => MirRepr::Int8,
+        Width::I16 => MirRepr::Int16,
+        Width::I32 => MirRepr::Int32,
+        Width::I64 => MirRepr::Int64,
+        Width::Ui8 => MirRepr::UInt8,
+        Width::Ui16 => MirRepr::UInt16,
+        Width::Ui32 => MirRepr::UInt32,
+        Width::Ui64 => MirRepr::UInt64,
+        Width::F32 => MirRepr::Float32,
+        Width::F64 => MirRepr::Float64,
+    }
+}
+
 fn lower_expr(
     e: &HirExpr,
     module_path: &Path,
@@ -2268,33 +2421,35 @@ fn lower_expr(
             }
             Some(MirExpr::Name(n.clone()))
         }
-        HirExprKind::Int { value, width } => match width {
-            Some(echo_ast::Width::I32) => {
-                if *value < i32::MIN as i64 || *value > i32::MAX as i64 {
-                    diags.push(
-                        Diagnostic::error(format!(
-                            "`<i32>` literal `{value}` does not fit in 32-bit signed range"
-                        ))
-                        .with_code("cg-width")
-                        .with_span(e.span),
-                    );
-                    return None;
-                }
-                Some(MirExpr::ConstI32(*value as i32))
-            }
-            Some(echo_ast::Width::I64) | None => Some(MirExpr::ConstI64(*value)),
-            // Integer spelling with float width tag: `<f32> 1`
-            Some(echo_ast::Width::F32) => Some(MirExpr::ConstF32(*value as f32)),
-            Some(echo_ast::Width::F64) => Some(MirExpr::ConstF64(*value as f64)),
-        },
+        HirExprKind::Int { value, width } => {
+            lower_int_const(*value, *width, e.span, diags)
+        }
+        HirExprKind::WidthCast { width, expr } => {
+            let inner = lower_expr(
+                expr,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?;
+            Some(MirExpr::Cast {
+                to: *width,
+                expr: Box::new(inner),
+            })
+        }
         HirExprKind::Float { value, width } => match width {
             Some(echo_ast::Width::F32) => Some(MirExpr::ConstF32(*value as f32)),
             // `<f64>` and untagged float default to f64.
             Some(echo_ast::Width::F64) | None => Some(MirExpr::ConstF64(*value)),
-            Some(echo_ast::Width::I32 | echo_ast::Width::I64) => {
+            Some(w) if w.is_int() => {
                 // Float spelling with int width is unusual; keep f64 value.
                 Some(MirExpr::ConstF64(*value))
             }
+            _ => Some(MirExpr::ConstF64(*value)),
         },
         HirExprKind::Bool(b) => Some(MirExpr::ConstBool(*b)),
         HirExprKind::StringLit { kind, raw } => match decode_string_to_mir(*kind, raw, const_env) {

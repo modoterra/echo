@@ -236,6 +236,8 @@ fn is_boxed_shaped(e: &MirExpr) -> bool {
         }
         MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
+        | MirExpr::ConstInt { .. }
+        | MirExpr::Cast { .. }
         | MirExpr::ConstBool(_)
         | MirExpr::ConstF64(_)
         | MirExpr::ConstF32(_)
@@ -649,6 +651,8 @@ fn is_pure_conversion_or_copy(e: &MirExpr) -> bool {
         MirExpr::Name(_)
         | MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
+        | MirExpr::ConstInt { .. }
+        | MirExpr::Cast { .. }
         | MirExpr::ConstBool(_)
         | MirExpr::ConstF64(_)
         | MirExpr::ConstF32(_)
@@ -667,7 +671,7 @@ fn collect_uses(e: &MirExpr, used: &mut HashSet<String>) {
         MirExpr::UnboxValue { value, .. } | MirExpr::BoxValue { value, .. } => {
             collect_uses(value, used);
         }
-        MirExpr::Unary { expr, .. } => collect_uses(expr, used),
+        MirExpr::Unary { expr, .. } | MirExpr::Cast { expr, .. } => collect_uses(expr, used),
         MirExpr::Binary { left, right, .. } => {
             collect_uses(left, used);
             collect_uses(right, used);
@@ -710,6 +714,7 @@ fn collect_uses(e: &MirExpr, used: &mut HashSet<String>) {
         }
         MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
+        | MirExpr::ConstInt { .. }
         | MirExpr::ConstBool(_)
         | MirExpr::ConstF64(_)
         | MirExpr::ConstF32(_)
@@ -762,6 +767,33 @@ fn light_infer(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
     match e {
         MirExpr::ConstI64(_) => MirRepr::Int64,
         MirExpr::ConstI32(_) => MirRepr::Int32,
+        MirExpr::ConstInt { width, .. } => match width {
+            echo_ast::Width::I8 => MirRepr::Int8,
+            echo_ast::Width::I16 => MirRepr::Int16,
+            echo_ast::Width::I32 => MirRepr::Int32,
+            echo_ast::Width::I64 => MirRepr::Int64,
+            echo_ast::Width::Ui8 => MirRepr::UInt8,
+            echo_ast::Width::Ui16 => MirRepr::UInt16,
+            echo_ast::Width::Ui32 => MirRepr::UInt32,
+            echo_ast::Width::Ui64 => MirRepr::UInt64,
+            echo_ast::Width::F32 => MirRepr::Float32,
+            echo_ast::Width::F64 => MirRepr::Float64,
+        },
+        MirExpr::Cast { to, expr } => {
+            let _ = light_infer(expr, reprs);
+            match to {
+                echo_ast::Width::I8 => MirRepr::Int8,
+                echo_ast::Width::I16 => MirRepr::Int16,
+                echo_ast::Width::I32 => MirRepr::Int32,
+                echo_ast::Width::I64 => MirRepr::Int64,
+                echo_ast::Width::Ui8 => MirRepr::UInt8,
+                echo_ast::Width::Ui16 => MirRepr::UInt16,
+                echo_ast::Width::Ui32 => MirRepr::UInt32,
+                echo_ast::Width::Ui64 => MirRepr::UInt64,
+                echo_ast::Width::F32 => MirRepr::Float32,
+                echo_ast::Width::F64 => MirRepr::Float64,
+            }
+        }
         MirExpr::ConstBool(_) => MirRepr::Bool,
         MirExpr::ConstF64(_) => MirRepr::Float64,
         MirExpr::ConstF32(_) => MirRepr::Float32,
@@ -774,31 +806,13 @@ fn light_infer(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
             let rr = light_infer(right, reprs);
             use echo_ast::BinaryOp::*;
             match op {
-                Add | Sub | Mul | Div | Rem
-                    if lr == MirRepr::Int64 && rr == MirRepr::Int64 =>
-                {
-                    MirRepr::Int64
-                }
-                Add | Sub | Mul | Div | Rem
-                    if lr == MirRepr::Int32 && rr == MirRepr::Int32 =>
-                {
-                    MirRepr::Int32
-                }
+                Add | Sub | Mul | Div | Rem if lr == rr && lr.is_native_int() => lr,
                 Add | Sub | Mul | Div | Rem
                     if lr == MirRepr::Float32 && rr == MirRepr::Float32 =>
                 {
                     MirRepr::Float32
                 }
-                BitAnd | BitOr | BitXor | Shl | Shr
-                    if lr == MirRepr::Int64 && rr == MirRepr::Int64 =>
-                {
-                    MirRepr::Int64
-                }
-                BitAnd | BitOr | BitXor | Shl | Shr
-                    if lr == MirRepr::Int32 && rr == MirRepr::Int32 =>
-                {
-                    MirRepr::Int32
-                }
+                BitAnd | BitOr | BitXor | Shl | Shr if lr == rr && lr.is_native_int() => lr,
                 Add | Sub if lr == MirRepr::Duration && rr == MirRepr::Duration => {
                     MirRepr::Duration
                 }

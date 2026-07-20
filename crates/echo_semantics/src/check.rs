@@ -389,7 +389,10 @@ impl Cx {
                     }
                 }
                 self.expr(expr, UseContext::Value);
-            },
+            }
+            Expr::WidthCast { expr, .. } => {
+                self.expr(expr, UseContext::Value);
+            }
             Expr::Binary { left, right, .. } => {
                 self.expr(left, UseContext::Value);
                 self.expr(right, UseContext::Value);

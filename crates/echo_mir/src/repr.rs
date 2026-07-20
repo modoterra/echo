@@ -20,8 +20,14 @@ pub enum MirRepr {
     /// Runtime Echo value (`i64` payload or heap handle bits).
     Boxed,
     Int64,
+    Int8,
+    Int16,
     /// Native signed 32-bit int from `<i32>` literals / i32 ops.
     Int32,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
     Float64,
     /// Native 32-bit float from `<f32>` literals / f32 ops.
     Float32,
@@ -43,7 +49,13 @@ impl MirRepr {
         matches!(
             self,
             Self::Int64
+                | Self::Int8
+                | Self::Int16
                 | Self::Int32
+                | Self::UInt8
+                | Self::UInt16
+                | Self::UInt32
+                | Self::UInt64
                 | Self::Float64
                 | Self::Float32
                 | Self::Duration
@@ -163,6 +175,33 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
     match e {
         MirExpr::ConstI64(_) => MirRepr::Int64,
         MirExpr::ConstI32(_) => MirRepr::Int32,
+        MirExpr::ConstInt { width, .. } => match width {
+            echo_ast::Width::I8 => MirRepr::Int8,
+            echo_ast::Width::I16 => MirRepr::Int16,
+            echo_ast::Width::I32 => MirRepr::Int32,
+            echo_ast::Width::I64 => MirRepr::Int64,
+            echo_ast::Width::Ui8 => MirRepr::UInt8,
+            echo_ast::Width::Ui16 => MirRepr::UInt16,
+            echo_ast::Width::Ui32 => MirRepr::UInt32,
+            echo_ast::Width::Ui64 => MirRepr::UInt64,
+            echo_ast::Width::F32 => MirRepr::Float32,
+            echo_ast::Width::F64 => MirRepr::Float64,
+        },
+        MirExpr::Cast { to, expr } => {
+            let _ = infer_expr(expr, reprs);
+            match to {
+                echo_ast::Width::I8 => MirRepr::Int8,
+                echo_ast::Width::I16 => MirRepr::Int16,
+                echo_ast::Width::I32 => MirRepr::Int32,
+                echo_ast::Width::I64 => MirRepr::Int64,
+                echo_ast::Width::Ui8 => MirRepr::UInt8,
+                echo_ast::Width::Ui16 => MirRepr::UInt16,
+                echo_ast::Width::Ui32 => MirRepr::UInt32,
+                echo_ast::Width::Ui64 => MirRepr::UInt64,
+                echo_ast::Width::F32 => MirRepr::Float32,
+                echo_ast::Width::F64 => MirRepr::Float64,
+            }
+        }
         MirExpr::ConstBool(_) => MirRepr::Bool,
         MirExpr::ConstF64(_) => MirRepr::Float64,
         MirExpr::ConstF32(_) => MirRepr::Float32,
@@ -178,8 +217,7 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
                 UnaryOp::Neg if er == MirRepr::Duration => MirRepr::Duration,
                 UnaryOp::Not if er == MirRepr::Bool => MirRepr::Bool,
                 UnaryOp::Not if er == MirRepr::Int64 || er == MirRepr::Int32 => MirRepr::Bool,
-                UnaryOp::BitNot if er == MirRepr::Int64 => MirRepr::Int64,
-                UnaryOp::BitNot if er == MirRepr::Int32 => MirRepr::Int32,
+                UnaryOp::BitNot if er.is_native_int() => er,
                 _ => MirRepr::Unknown,
             }
         }
@@ -221,15 +259,46 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
     }
 }
 
+fn is_same_int_pair(left: MirRepr, right: MirRepr) -> Option<MirRepr> {
+    if left == right && left.is_native_int() {
+        Some(left)
+    } else {
+        None
+    }
+}
+
+impl MirRepr {
+    #[must_use]
+    pub fn is_native_int(self) -> bool {
+        matches!(
+            self,
+            Self::Int8
+                | Self::Int16
+                | Self::Int32
+                | Self::Int64
+                | Self::UInt8
+                | Self::UInt16
+                | Self::UInt32
+                | Self::UInt64
+        )
+    }
+
+    #[must_use]
+    pub fn is_unsigned_int(self) -> bool {
+        matches!(
+            self,
+            Self::UInt8 | Self::UInt16 | Self::UInt32 | Self::UInt64
+        )
+    }
+}
+
 fn infer_binary(op: BinaryOp, left: MirRepr, right: MirRepr) -> MirRepr {
     use BinaryOp::*;
     match op {
         Add | Sub if left == MirRepr::Duration && right == MirRepr::Duration => MirRepr::Duration,
         Add | Sub | Mul | Div | Rem => {
-            if left == MirRepr::Int64 && right == MirRepr::Int64 {
-                MirRepr::Int64
-            } else if left == MirRepr::Int32 && right == MirRepr::Int32 {
-                MirRepr::Int32
+            if let Some(r) = is_same_int_pair(left, right) {
+                r
             } else if left == MirRepr::Float64 && right == MirRepr::Float64 {
                 MirRepr::Float64
             } else if left == MirRepr::Float32 && right == MirRepr::Float32 {
@@ -239,13 +308,7 @@ fn infer_binary(op: BinaryOp, left: MirRepr, right: MirRepr) -> MirRepr {
             }
         }
         BitAnd | BitOr | BitXor | Shl | Shr => {
-            if left == MirRepr::Int64 && right == MirRepr::Int64 {
-                MirRepr::Int64
-            } else if left == MirRepr::Int32 && right == MirRepr::Int32 {
-                MirRepr::Int32
-            } else {
-                MirRepr::Unknown
-            }
+            is_same_int_pair(left, right).unwrap_or(MirRepr::Unknown)
         }
         Eq | NotEq | EqEqEq | NotEqEq | Lt | Gt | LtEq | GtEq => {
             // Comparisons yield Bool when operands are proven compatible scalars

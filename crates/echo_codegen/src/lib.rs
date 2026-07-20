@@ -930,6 +930,8 @@ fn emit_function_cfg<'ctx>(
     let f64t = context.f64_type();
     let f32t = context.f32_type();
     let i32t = context.i32_type();
+    let i16t = context.i16_type();
+    let i8t = context.i8_type();
     let i1t = context.bool_type();
     let ptr_ty = context.ptr_type(AddressSpace::default());
 
@@ -952,7 +954,9 @@ fn emit_function_cfg<'ctx>(
         for op in &b.ops {
             if let MirOp::Phi { name, .. } = op {
                 let rep = mir_fn.reprs.get(name).copied().unwrap_or(MirRepr::Boxed);
-                let ty = llvm_type_for_repr(context, i64t, i32t, f64t, f32t, i1t, ptr_ty, rep);
+                let ty = llvm_type_for_repr(
+                    context, i64t, i32t, i16t, i8t, f64t, f32t, i1t, ptr_ty, rep,
+                );
                 let phi = builder.build_phi(ty, name).expect("phi");
                 values.insert(name.clone(), phi.as_basic_value());
                 phi_nodes.insert(name.clone(), phi);
@@ -968,6 +972,8 @@ fn emit_function_cfg<'ctx>(
         module,
         i64t,
         i32t,
+        i16t,
+        i8t,
         i128t,
         f64t,
         f32t,
@@ -1007,6 +1013,9 @@ fn emit_function_cfg<'ctx>(
                     let want = cx.reprs.get(name).copied().unwrap_or(MirRepr::Unknown);
                     if let Some(v) = emit_expr_as(&mut cx, value, want) {
                         cx.values.insert(name.clone(), v);
+                        if std::env::var_os("ECHO_DEBUG_CG").is_some() {
+                            eprintln!("cg Set OK name={name:?} want={want:?}");
+                        }
                     } else if std::env::var_os("ECHO_DEBUG_CG").is_some() {
                         eprintln!("cg Set FAIL name={name:?} want={want:?} val={value:?}");
                     }
@@ -1164,6 +1173,8 @@ fn llvm_type_for_repr<'ctx>(
     _context: &'ctx Context,
     i64t: IntType<'ctx>,
     i32t: IntType<'ctx>,
+    i16t: IntType<'ctx>,
+    i8t: IntType<'ctx>,
     f64t: FloatType<'ctx>,
     f32t: FloatType<'ctx>,
     i1t: IntType<'ctx>,
@@ -1171,8 +1182,12 @@ fn llvm_type_for_repr<'ctx>(
     rep: MirRepr,
 ) -> BasicTypeEnum<'ctx> {
     match rep {
-        MirRepr::Int64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => i64t.into(),
-        MirRepr::Int32 => i32t.into(),
+        MirRepr::Int64 | MirRepr::UInt64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => {
+            i64t.into()
+        }
+        MirRepr::Int32 | MirRepr::UInt32 => i32t.into(),
+        MirRepr::Int16 | MirRepr::UInt16 => i16t.into(),
+        MirRepr::Int8 | MirRepr::UInt8 => i8t.into(),
         MirRepr::Bool => i1t.into(),
         MirRepr::Float64 => f64t.into(),
         MirRepr::Float32 => f32t.into(),
@@ -1193,7 +1208,9 @@ fn llvm_type_for_repr<'ctx>(
 fn default_value<'ctx>(cx: &EmitCx<'_, 'ctx>, rep: MirRepr) -> BasicValueEnum<'ctx> {
     match rep {
         MirRepr::Bool => cx.i1t.const_int(0, false).as_basic_value_enum(),
-        MirRepr::Int32 => cx.i32t.const_int(0, false).as_basic_value_enum(),
+        MirRepr::Int32 | MirRepr::UInt32 => cx.i32t.const_int(0, false).as_basic_value_enum(),
+        MirRepr::Int16 | MirRepr::UInt16 => cx.i16t.const_int(0, false).as_basic_value_enum(),
+        MirRepr::Int8 | MirRepr::UInt8 => cx.i8t.const_int(0, false).as_basic_value_enum(),
         MirRepr::Float64 => cx.f64t.const_float(0.0).as_basic_value_enum(),
         MirRepr::Float32 => cx.f32t.const_float(0.0).as_basic_value_enum(),
         MirRepr::StringRef | MirRepr::ObjectRef | MirRepr::ListRef => {
@@ -1201,6 +1218,69 @@ fn default_value<'ctx>(cx: &EmitCx<'_, 'ctx>, rep: MirRepr) -> BasicValueEnum<'c
         }
         _ => cx.i64t.const_int(0, false).as_basic_value_enum(),
     }
+}
+
+fn int_ty_for_repr<'ctx>(cx: &EmitCx<'_, 'ctx>, rep: MirRepr) -> Option<IntType<'ctx>> {
+    match rep {
+        MirRepr::Int64 | MirRepr::UInt64 => Some(cx.i64t),
+        MirRepr::Int32 | MirRepr::UInt32 => Some(cx.i32t),
+        MirRepr::Int16 | MirRepr::UInt16 => Some(cx.i16t),
+        MirRepr::Int8 | MirRepr::UInt8 => Some(cx.i8t),
+        _ => None,
+    }
+}
+
+fn width_to_repr(w: echo_ast::Width) -> MirRepr {
+    match w {
+        echo_ast::Width::I8 => MirRepr::Int8,
+        echo_ast::Width::I16 => MirRepr::Int16,
+        echo_ast::Width::I32 => MirRepr::Int32,
+        echo_ast::Width::I64 => MirRepr::Int64,
+        echo_ast::Width::Ui8 => MirRepr::UInt8,
+        echo_ast::Width::Ui16 => MirRepr::UInt16,
+        echo_ast::Width::Ui32 => MirRepr::UInt32,
+        echo_ast::Width::Ui64 => MirRepr::UInt64,
+        echo_ast::Width::F32 => MirRepr::Float32,
+        echo_ast::Width::F64 => MirRepr::Float64,
+    }
+}
+
+fn emit_int_cast<'ctx>(
+    cx: &mut EmitCx<'_, 'ctx>,
+    v: BasicValueEnum<'ctx>,
+    from: MirRepr,
+    to: echo_ast::Width,
+) -> Option<(BasicValueEnum<'ctx>, MirRepr)> {
+    let to_rep = width_to_repr(to);
+    if !to.is_int() || !from.is_native_int() {
+        // Non-int cast: box and hope (v1 limited).
+        let boxed = box_value(cx, v, from)?;
+        return Some((boxed.as_basic_value_enum(), MirRepr::Int64));
+    }
+    let from_ty = int_ty_for_repr(cx, from)?;
+    let to_ty = int_ty_for_repr(cx, to_rep)?;
+    let iv = v.into_int_value();
+    let from_bits = from_ty.get_bit_width();
+    let to_bits = to_ty.get_bit_width();
+    let out = if to_bits == from_bits {
+        // Same size: bitcast-equivalent (reinterpret signedness).
+        iv
+    } else if to_bits > from_bits {
+        if from.is_unsigned_int() {
+            cx.builder
+                .build_int_z_extend(iv, to_ty, "zext")
+                .expect("zext")
+        } else {
+            cx.builder
+                .build_int_s_extend(iv, to_ty, "sext")
+                .expect("sext")
+        }
+    } else {
+        cx.builder
+            .build_int_truncate(iv, to_ty, "trunc")
+            .expect("trunc")
+    };
+    Some((out.as_basic_value_enum(), to_rep))
 }
 
 fn reverse_postorder(cfg: &echo_mir::MirCfg) -> Vec<BlockId> {
@@ -1326,6 +1406,8 @@ struct EmitCx<'a, 'ctx> {
     module: &'a Module<'ctx>,
     i64t: IntType<'ctx>,
     i32t: IntType<'ctx>,
+    i16t: IntType<'ctx>,
+    i8t: IntType<'ctx>,
     i128t: IntType<'ctx>,
     f64t: FloatType<'ctx>,
     f32t: FloatType<'ctx>,
@@ -2155,14 +2237,23 @@ fn box_value<'ctx>(
         MirRepr::Int64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => {
             Some(v.into_int_value())
         }
-        MirRepr::Int32 => {
+        MirRepr::Int32 | MirRepr::Int16 | MirRepr::Int8 => {
             let i = v.into_int_value();
             Some(
                 cx.builder
-                    .build_int_s_extend(i, cx.i64t, "box.i32")
+                    .build_int_s_extend(i, cx.i64t, "box.sint")
                     .expect("sext"),
             )
         }
+        MirRepr::UInt32 | MirRepr::UInt16 | MirRepr::UInt8 => {
+            let i = v.into_int_value();
+            Some(
+                cx.builder
+                    .build_int_z_extend(i, cx.i64t, "box.uint")
+                    .expect("zext"),
+            )
+        }
+        MirRepr::UInt64 => Some(v.into_int_value()),
         MirRepr::Bool => {
             let b = v.into_int_value();
             Some(
@@ -2228,12 +2319,25 @@ fn unbox_value<'ctx>(
         MirRepr::Int64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => {
             Some(iv.as_basic_value_enum())
         }
-        MirRepr::Int32 => Some(
+        MirRepr::Int32 | MirRepr::UInt32 => Some(
             cx.builder
                 .build_int_truncate(iv, cx.i32t, "unbox.i32")
                 .expect("trunc")
                 .as_basic_value_enum(),
         ),
+        MirRepr::Int16 | MirRepr::UInt16 => Some(
+            cx.builder
+                .build_int_truncate(iv, cx.i16t, "unbox.i16")
+                .expect("trunc")
+                .as_basic_value_enum(),
+        ),
+        MirRepr::Int8 | MirRepr::UInt8 => Some(
+            cx.builder
+                .build_int_truncate(iv, cx.i8t, "unbox.i8")
+                .expect("trunc")
+                .as_basic_value_enum(),
+        ),
+        MirRepr::UInt64 => Some(iv.as_basic_value_enum()),
         MirRepr::Bool => {
             let zero = cx.i64t.const_int(0, false);
             let b = cx
@@ -2602,6 +2706,16 @@ fn emit_scalar_typed<'ctx>(
             cx.i32t.const_int(*v as u64, true).as_basic_value_enum(),
             MirRepr::Int32,
         )),
+        MirExpr::ConstInt { value, width } => {
+            let rep = width_to_repr(*width);
+            let ty = int_ty_for_repr(cx, rep)?;
+            let bits = *value as u64;
+            Some((ty.const_int(bits, width.is_signed_int()).as_basic_value_enum(), rep))
+        }
+        MirExpr::Cast { to, expr } => {
+            let (v, from) = emit_scalar_typed(cx, expr)?;
+            emit_int_cast(cx, v, from, *to)
+        }
         MirExpr::ConstF32(v) => Some((
             cx.f32t.const_float(*v as f64).as_basic_value_enum(),
             MirRepr::Float32,
@@ -2726,26 +2840,21 @@ fn emit_scalar_typed<'ctx>(
                         .expect("not");
                     Some((is_zero.as_basic_value_enum(), MirRepr::Bool))
                 }
-                UnaryOp::BitNot if rep == MirRepr::Int64 => {
+                UnaryOp::BitNot if rep.is_native_int() => {
                     let iv = v.into_int_value();
-                    let all = cx.i64t.const_int(u64::MAX, false);
+                    let bits = iv.get_type().get_bit_width();
+                    let all = if bits == 64 {
+                        u64::MAX
+                    } else {
+                        (1u64 << bits) - 1
+                    };
+                    let all = iv.get_type().const_int(all, false);
                     Some((
                         cx.builder
                             .build_xor(iv, all, "bnot")
                             .expect("bnot")
                             .as_basic_value_enum(),
-                        MirRepr::Int64,
-                    ))
-                }
-                UnaryOp::BitNot if rep == MirRepr::Int32 => {
-                    let iv = v.into_int_value();
-                    let all = cx.i32t.const_int(u32::MAX as u64, false);
-                    Some((
-                        cx.builder
-                            .build_xor(iv, all, "bnot")
-                            .expect("bnot")
-                            .as_basic_value_enum(),
-                        MirRepr::Int32,
+                        rep,
                     ))
                 }
                 UnaryOp::BitNot => {
@@ -2945,10 +3054,11 @@ fn emit_binary_typed<'ctx>(
     let (lv, lr) = emit_scalar_typed(cx, left)?;
     let (rv, rr) = emit_scalar_typed(cx, right)?;
 
-    // Native i32 arithmetic / compares (`<i32>` width tag)
-    if lr == MirRepr::Int32 && rr == MirRepr::Int32 {
+    // Native integer same-width arith / compares / bitwise (`i*` / `ui*`)
+    if lr == rr && lr.is_native_int() {
         let l = lv.into_int_value();
         let r = rv.into_int_value();
+        let unsigned = lr.is_unsigned_int();
         return match op {
             BinaryOp::Add
             | BinaryOp::Sub
@@ -2960,8 +3070,8 @@ fn emit_binary_typed<'ctx>(
             | BinaryOp::BitXor
             | BinaryOp::Shl
             | BinaryOp::Shr => Some((
-                emit_binop(cx, op, l, r).as_basic_value_enum(),
-                MirRepr::Int32,
+                emit_binop_signedness(cx, op, l, r, unsigned).as_basic_value_enum(),
+                lr,
             )),
             BinaryOp::Eq | BinaryOp::EqEqEq => Some((
                 cx.builder
@@ -2977,36 +3087,64 @@ fn emit_binary_typed<'ctx>(
                     .as_basic_value_enum(),
                 MirRepr::Bool,
             )),
-            BinaryOp::Lt => Some((
-                cx.builder
-                    .build_int_compare(IntPredicate::SLT, l, r, "lt")
-                    .expect("lt")
-                    .as_basic_value_enum(),
-                MirRepr::Bool,
-            )),
-            BinaryOp::Gt => Some((
-                cx.builder
-                    .build_int_compare(IntPredicate::SGT, l, r, "gt")
-                    .expect("gt")
-                    .as_basic_value_enum(),
-                MirRepr::Bool,
-            )),
-            BinaryOp::LtEq => Some((
-                cx.builder
-                    .build_int_compare(IntPredicate::SLE, l, r, "le")
-                    .expect("le")
-                    .as_basic_value_enum(),
-                MirRepr::Bool,
-            )),
-            BinaryOp::GtEq => Some((
-                cx.builder
-                    .build_int_compare(IntPredicate::SGE, l, r, "ge")
-                    .expect("ge")
-                    .as_basic_value_enum(),
-                MirRepr::Bool,
-            )),
+            BinaryOp::Lt => {
+                let p = if unsigned {
+                    IntPredicate::ULT
+                } else {
+                    IntPredicate::SLT
+                };
+                Some((
+                    cx.builder
+                        .build_int_compare(p, l, r, "lt")
+                        .expect("lt")
+                        .as_basic_value_enum(),
+                    MirRepr::Bool,
+                ))
+            }
+            BinaryOp::Gt => {
+                let p = if unsigned {
+                    IntPredicate::UGT
+                } else {
+                    IntPredicate::SGT
+                };
+                Some((
+                    cx.builder
+                        .build_int_compare(p, l, r, "gt")
+                        .expect("gt")
+                        .as_basic_value_enum(),
+                    MirRepr::Bool,
+                ))
+            }
+            BinaryOp::LtEq => {
+                let p = if unsigned {
+                    IntPredicate::ULE
+                } else {
+                    IntPredicate::SLE
+                };
+                Some((
+                    cx.builder
+                        .build_int_compare(p, l, r, "le")
+                        .expect("le")
+                        .as_basic_value_enum(),
+                    MirRepr::Bool,
+                ))
+            }
+            BinaryOp::GtEq => {
+                let p = if unsigned {
+                    IntPredicate::UGE
+                } else {
+                    IntPredicate::SGE
+                };
+                Some((
+                    cx.builder
+                        .build_int_compare(p, l, r, "ge")
+                        .expect("ge")
+                        .as_basic_value_enum(),
+                    MirRepr::Bool,
+                ))
+            }
             BinaryOp::And | BinaryOp::Or => {
-                let z = cx.i32t.const_int(0, false);
+                let z = l.get_type().const_int(0, false);
                 let lb = cx
                     .builder
                     .build_int_compare(IntPredicate::NE, l, z, "and.l")
@@ -3694,12 +3832,38 @@ fn emit_binop<'ctx>(
     l: IntValue<'ctx>,
     r: IntValue<'ctx>,
 ) -> IntValue<'ctx> {
+    emit_binop_signedness(cx, op, l, r, /*unsigned*/ false)
+}
+
+fn emit_binop_signedness<'ctx>(
+    cx: &mut EmitCx<'_, 'ctx>,
+    op: BinaryOp,
+    l: IntValue<'ctx>,
+    r: IntValue<'ctx>,
+    unsigned: bool,
+) -> IntValue<'ctx> {
     match op {
         BinaryOp::Add => cx.builder.build_int_add(l, r, "add").expect("add"),
         BinaryOp::Sub => cx.builder.build_int_sub(l, r, "sub").expect("sub"),
         BinaryOp::Mul => cx.builder.build_int_mul(l, r, "mul").expect("mul"),
-        BinaryOp::Div => cx.builder.build_int_signed_div(l, r, "div").expect("div"),
-        BinaryOp::Rem => cx.builder.build_int_signed_rem(l, r, "rem").expect("rem"),
+        BinaryOp::Div => {
+            if unsigned {
+                cx.builder
+                    .build_int_unsigned_div(l, r, "udiv")
+                    .expect("udiv")
+            } else {
+                cx.builder.build_int_signed_div(l, r, "div").expect("div")
+            }
+        }
+        BinaryOp::Rem => {
+            if unsigned {
+                cx.builder
+                    .build_int_unsigned_rem(l, r, "urem")
+                    .expect("urem")
+            } else {
+                cx.builder.build_int_signed_rem(l, r, "rem").expect("rem")
+            }
+        }
         BinaryOp::BitAnd => cx.builder.build_and(l, r, "band").expect("band"),
         BinaryOp::BitOr => cx.builder.build_or(l, r, "bor").expect("bor"),
         BinaryOp::BitXor => cx.builder.build_xor(l, r, "bxor").expect("bxor"),
@@ -3716,9 +3880,9 @@ fn emit_binop<'ctx>(
             let bits = l.get_type().get_bit_width();
             let mask = l.get_type().const_int((bits as u64) - 1, false);
             let amt = cx.builder.build_and(r, mask, "shramt").expect("shramt");
-            // Arithmetic (signed) right shift.
+            // Signed: arithmetic; unsigned: logical.
             cx.builder
-                .build_right_shift(l, amt, true, "shr")
+                .build_right_shift(l, amt, !unsigned, "shr")
                 .expect("shr")
         }
         BinaryOp::Eq | BinaryOp::EqEqEq => {
@@ -3739,10 +3903,38 @@ fn emit_binop<'ctx>(
                 .build_int_z_extend(c, cx.i64t, "ne.i64")
                 .expect("zext")
         }
-        BinaryOp::Lt => cmp_zext(cx, IntPredicate::SLT, l, r, "lt"),
-        BinaryOp::Gt => cmp_zext(cx, IntPredicate::SGT, l, r, "gt"),
-        BinaryOp::LtEq => cmp_zext(cx, IntPredicate::SLE, l, r, "le"),
-        BinaryOp::GtEq => cmp_zext(cx, IntPredicate::SGE, l, r, "ge"),
+        BinaryOp::Lt => {
+            let p = if unsigned {
+                IntPredicate::ULT
+            } else {
+                IntPredicate::SLT
+            };
+            cmp_zext(cx, p, l, r, "lt")
+        }
+        BinaryOp::Gt => {
+            let p = if unsigned {
+                IntPredicate::UGT
+            } else {
+                IntPredicate::SGT
+            };
+            cmp_zext(cx, p, l, r, "gt")
+        }
+        BinaryOp::LtEq => {
+            let p = if unsigned {
+                IntPredicate::ULE
+            } else {
+                IntPredicate::SLE
+            };
+            cmp_zext(cx, p, l, r, "le")
+        }
+        BinaryOp::GtEq => {
+            let p = if unsigned {
+                IntPredicate::UGE
+            } else {
+                IntPredicate::SGE
+            };
+            cmp_zext(cx, p, l, r, "ge")
+        }
         BinaryOp::And => {
             let z = cx.i64t.const_int(0, false);
             let lb = cx

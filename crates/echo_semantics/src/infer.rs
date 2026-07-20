@@ -523,8 +523,14 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
     let ty = match expr {
         Expr::Name(n) => env.lookup(&n.name).unwrap_or_else(|| env.fresh()),
         Expr::Number { text, width, .. } => match width {
+            Some(Width::I8) => Type::Int8,
+            Some(Width::I16) => Type::Int16,
             Some(Width::I32) => Type::Int32,
             Some(Width::I64) => Type::Int,
+            Some(Width::Ui8) => Type::UInt8,
+            Some(Width::Ui16) => Type::UInt16,
+            Some(Width::Ui32) => Type::UInt32,
+            Some(Width::Ui64) => Type::UInt64,
             Some(Width::F32) => Type::Float32,
             Some(Width::F64) => Type::Float,
             None => {
@@ -541,15 +547,33 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
         Expr::Locator { .. } => Type::Named("locator".into()),
         Expr::Bool { .. } => Type::Bool,
         Expr::Receiver { .. } => env.fresh(), // refined by method context later
+        Expr::WidthCast { width, expr, span } => {
+            let _from = infer_expr(env, expr);
+            // Result kind is the target width; convert legality checked at MIR/codegen.
+            match width {
+                Width::I8 => Type::Int8,
+                Width::I16 => Type::Int16,
+                Width::I32 => Type::Int32,
+                Width::I64 => Type::Int,
+                Width::Ui8 => Type::UInt8,
+                Width::Ui16 => Type::UInt16,
+                Width::Ui32 => Type::UInt32,
+                Width::Ui64 => Type::UInt64,
+                Width::F32 => Type::Float32,
+                Width::F64 => Type::Float,
+            }
+        }
         Expr::Unary { op, expr, span } => {
             let t = infer_expr(env, expr);
             match op {
                 UnaryOp::Neg => {
-                    // int or float (preserve width)
+                    // signed int or float (preserve width); unsigned has no unary `-`
                     match env.apply(&t) {
                         Type::Float => Type::Float,
                         Type::Float32 => Type::Float32,
                         Type::Int => Type::Int,
+                        Type::Int8 => Type::Int8,
+                        Type::Int16 => Type::Int16,
                         Type::Int32 => Type::Int32,
                         Type::Unknown | Type::Var(_) => {
                             env.unify(&t, &Type::Int, *span);
@@ -566,8 +590,7 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
                     Type::Bool
                 }
                 UnaryOp::BitNot => match env.apply(&t) {
-                    Type::Int => Type::Int,
-                    Type::Int32 => Type::Int32,
+                    t if is_int_kind(&t) => t,
                     Type::Unknown | Type::Var(_) => {
                         env.unify(&t, &Type::Int, *span);
                         Type::Int
@@ -811,8 +834,7 @@ fn int_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span) -> Type {
     let lt = env.apply(lt);
     let rt = env.apply(rt);
     match (&lt, &rt) {
-        (Type::Int, Type::Int) => Type::Int,
-        (Type::Int32, Type::Int32) => Type::Int32,
+        (a, b) if is_int_kind(a) && a == b => a.clone(),
         (a, b) if is_int_kind(a) && is_int_kind(b) && a != b => {
             env.diags.push(
                 Diagnostic::error(format!(
@@ -845,7 +867,33 @@ fn int_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span) -> Type {
 }
 
 fn is_int_kind(t: &Type) -> bool {
-    matches!(t, Type::Int | Type::Int32)
+    matches!(
+        t,
+        Type::Int
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+    )
+}
+
+#[allow(dead_code)]
+fn is_signed_int_kind(t: &Type) -> bool {
+    matches!(
+        t,
+        Type::Int | Type::Int8 | Type::Int16 | Type::Int32
+    )
+}
+
+#[allow(dead_code)]
+fn is_unsigned_int_kind(t: &Type) -> bool {
+    matches!(
+        t,
+        Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64
+    )
 }
 
 fn is_float_kind(t: &Type) -> bool {
@@ -857,7 +905,13 @@ fn numeric_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span, _is_div: bool)
     let rt = env.apply(rt);
     match (&lt, &rt) {
         (Type::Int, Type::Int) => Type::Int,
+        (Type::Int8, Type::Int8) => Type::Int8,
+        (Type::Int16, Type::Int16) => Type::Int16,
         (Type::Int32, Type::Int32) => Type::Int32,
+        (Type::UInt8, Type::UInt8) => Type::UInt8,
+        (Type::UInt16, Type::UInt16) => Type::UInt16,
+        (Type::UInt32, Type::UInt32) => Type::UInt32,
+        (Type::UInt64, Type::UInt64) => Type::UInt64,
         (Type::Float, Type::Float) => Type::Float,
         (Type::Float32, Type::Float32) => Type::Float32,
         (a, b) if is_int_kind(a) && is_int_kind(b) && a != b => {

@@ -263,7 +263,7 @@ fn walk_expr(expr: &Expr, out: &mut Vec<NameHit>) {
         | Expr::Locator { .. }
         | Expr::Bool { .. }
         | Expr::Receiver { .. } => {}
-        Expr::Unary { expr, .. } => walk_expr(expr, out),
+        Expr::Unary { expr, .. } | Expr::WidthCast { expr, .. } => walk_expr(expr, out),
         Expr::Binary { left, right, .. } | Expr::Range { start: left, end: right, .. } => {
             walk_expr(left, out);
             walk_expr(right, out);

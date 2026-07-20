@@ -47,28 +47,37 @@ $ neg2 = <i32>-32
 **Sign:** the minus is part of the **literal after the tag**. A width tag
 **cannot follow a unary** (`-` / `!`): write `<i32> -32`, not `-<i32> 32`.
 
-**First-version widths:** `i32`, `i64`, `f32`, `f64`.
+**Integer / float widths (locked):** signed `i*`, unsigned `ui*`, floats `f*`.
+
+| Family | Widths |
+|--------|--------|
+| Signed | `i8` `i16` `i32` `i64` |
+| Unsigned | `ui8` `ui16` `ui32` `ui64` |
+| Float | `f32` `f64` |
+| Alias | **`byte` ≡ `ui8`** (same kind; not a third family) |
 
 | Untagged lit | Default width |
 |--------------|----------------|
-| integer (decimal / `0x` / `0b`) | `i64` |
+| integer (decimal / `0x` / `0b`) | **`i64`** |
 | float | `f64` |
 
-**Integer bases (v1):** decimal, `0x`/`0X` hex, `0b`/`0B` binary; `_` separators
-allowed in the digit body. Through run as signed `i64` (same as decimal).
+**Integer bases:** decimal, `0x`/`0X` hex, `0b`/`0B` binary; `_` separators
+allowed in the digit body. Untagged ints run as signed **`i64`**.
 
-**Width mixing (v1):**
+**Width mixing (locked):**
 
-- Untagged numbers use the defaults above (so they unify with each other).
+- Untagged numbers use the defaults above.
 - **Two different explicit width tags never mix** (e.g. `<i32> 1 + <i64> 2` → error).
 - Tagged + untagged: untagged keeps its default; unifies only if that default
   matches the tag (`<i64> 1 + 2` ok; `<i32> 1 + 2` error because `2` is `i64`).
-
-- **No** suffix form `42<i32>`.
-- **Not** bind ascription (`$ x : …` is out).
-- Width tags apply to **numeric literals only** in v1 (not strings, bytes, durations, …).
-- Width names are **machine widths**, not a general type system the user writes
-  elsewhere.
+- **No silent widen/narrow** between widths (including `ui8` → `ui64`). Use an
+  **explicit width cast** on a value: `<ui64> x` (see syntax). Hash / crypto
+  code should use **`ui64`** lanes and zext from `ui8` explicitly.
+- Unsigned `>>` is **logical**; signed `>>` is **arithmetic**.
+- **No** suffix form `42<i32>`. **Not** bind ascription (`$ x : …` is out).
+- Tags apply to **numeric literals** and **explicit casts** of integer/float
+  values — not strings, bytes blobs, durations, etc.
+- Spellings **`u8` / `u16`… are not** in the language; use **`ui*`**.
 
 ### Core value kinds (sketch)
 

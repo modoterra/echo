@@ -350,11 +350,19 @@ pub enum BinaryOp {
     Or,
 }
 
-/// Numeric storage width from prefix tag `<i32>…` (not a general type system).
+/// Numeric machine width from prefix tag `<i32>…` / cast `<ui64> expr`.
+///
+/// Signed `i*`, unsigned `ui*`, floats `f*`. Alias: `byte` parses as [`Self::Ui8`].
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Width {
+    I8,
+    I16,
     I32,
     I64,
+    Ui8,
+    Ui16,
+    Ui32,
+    Ui64,
     F32,
     F64,
 }
@@ -363,20 +371,65 @@ impl Width {
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::I8 => "i8",
+            Self::I16 => "i16",
             Self::I32 => "i32",
             Self::I64 => "i64",
+            Self::Ui8 => "ui8",
+            Self::Ui16 => "ui16",
+            Self::Ui32 => "ui32",
+            Self::Ui64 => "ui64",
             Self::F32 => "f32",
             Self::F64 => "f64",
         }
     }
 
+    /// Canonical name; `byte` is accepted as an alias of `ui8`.
     #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         match name {
+            "i8" => Some(Self::I8),
+            "i16" => Some(Self::I16),
             "i32" => Some(Self::I32),
             "i64" => Some(Self::I64),
+            "ui8" | "byte" => Some(Self::Ui8),
+            "ui16" => Some(Self::Ui16),
+            "ui32" => Some(Self::Ui32),
+            "ui64" => Some(Self::Ui64),
             "f32" => Some(Self::F32),
             "f64" => Some(Self::F64),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn is_signed_int(self) -> bool {
+        matches!(self, Self::I8 | Self::I16 | Self::I32 | Self::I64)
+    }
+
+    #[must_use]
+    pub fn is_unsigned_int(self) -> bool {
+        matches!(self, Self::Ui8 | Self::Ui16 | Self::Ui32 | Self::Ui64)
+    }
+
+    #[must_use]
+    pub fn is_int(self) -> bool {
+        self.is_signed_int() || self.is_unsigned_int()
+    }
+
+    #[must_use]
+    pub fn is_float(self) -> bool {
+        matches!(self, Self::F32 | Self::F64)
+    }
+
+    /// Bit width of integer kinds (8/16/32/64).
+    #[must_use]
+    pub fn int_bits(self) -> Option<u32> {
+        match self {
+            Self::I8 | Self::Ui8 => Some(8),
+            Self::I16 | Self::Ui16 => Some(16),
+            Self::I32 | Self::Ui32 => Some(32),
+            Self::I64 | Self::Ui64 => Some(64),
             _ => None,
         }
     }
@@ -389,6 +442,12 @@ pub enum Expr {
         text: String,
         /// Set when written as `<width>number`.
         width: Option<Width>,
+        span: Span,
+    },
+    /// Explicit convert `<ui64> expr` (no silent mix).
+    WidthCast {
+        width: Width,
+        expr: Box<Expr>,
         span: Span,
     },
     Duration {
@@ -489,6 +548,7 @@ impl Expr {
             | Self::Bool { span, .. }
             | Self::Receiver { span }
             | Self::Unary { span, .. }
+            | Self::WidthCast { span, .. }
             | Self::Range { span, .. }
             | Self::Binary { span, .. }
             | Self::Call { span, .. }
@@ -746,6 +806,10 @@ fn format_expr(expr: &Expr, level: usize, out: &mut String) {
             Some(w) => out.push_str(&format!("number_{} {text}\n", w.as_str())),
             None => out.push_str(&format!("number {text}\n")),
         },
+        Expr::WidthCast { width, expr, .. } => {
+            out.push_str(&format!("width_cast {}\n", width.as_str()));
+            format_expr(expr, level + 1, out);
+        }
         Expr::Duration { text, .. } => out.push_str(&format!("duration {text}\n")),
         Expr::String { kind, .. } => match kind {
             StringKind::Pure => out.push_str("string_pure\n"),
@@ -1036,6 +1100,10 @@ fn remap_expr(e: &mut Expr, new_id: SourceId) {
         | Expr::Bytes { span, .. }
         | Expr::Locator { span, .. } => remap_span(span, new_id),
         Expr::Unary { expr, span, .. } => {
+            remap_expr(expr, new_id);
+            remap_span(span, new_id);
+        }
+        Expr::WidthCast { expr, span, .. } => {
             remap_expr(expr, new_id);
             remap_span(span, new_id);
         }

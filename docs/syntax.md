@@ -412,7 +412,11 @@ leader (position decides).
 | List | `[a, b, c]` — **only** list literal |
 | Anon struct | `{ k: v, ... }` — structural / anonymous product, **not** a map |
 | Named struct | `user { name: "Ada" }` · `mod.user { ... }` tagged |
-| Numeric width tag | `<i32> 123` / `<i32>-32` — **prefix only** (space preferred); sign after tag; widths `i32`/`i64`/`f32`/`f64` |
+| Numeric width tag | `<i32> 123` / `<ui8> 255` / `<byte> 1` — **prefix only** (space preferred); sign after tag on signed/float lits |
+| Width cast | `<ui64> expr` — explicit convert (no silent mix); `byte` ≡ `ui8` |
+
+**Integer width names (locked):** `i8` `i16` `i32` `i64` · `ui8` `ui16` `ui32` `ui64` ·
+alias **`byte` = `ui8`**. Floats: `f32` `f64`. Untagged int default **`i64`**.
 
 **Option** is **not** a literal form. It appears only as a **function result
 shape** (see `docs/semantics.md`): bare `^` / `^ value` returns in option-shaped

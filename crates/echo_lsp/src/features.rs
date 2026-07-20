@@ -810,7 +810,9 @@ fn find_call_in_expr(expr: &Expr, offset: u32, best: &mut Option<CallSite>) {
                 find_call_in_expr(a, offset, best);
             }
         }
-        Expr::Unary { expr, .. } | Expr::Group { expr, .. } => find_call_in_expr(expr, offset, best),
+        Expr::Unary { expr, .. }
+        | Expr::WidthCast { expr, .. }
+        | Expr::Group { expr, .. } => find_call_in_expr(expr, offset, best),
         Expr::Binary { left, right, .. } | Expr::Range { start: left, end: right, .. } => {
             find_call_in_expr(left, offset, best);
             find_call_in_expr(right, offset, best);

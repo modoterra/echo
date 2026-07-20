@@ -38,7 +38,13 @@ impl ValueClass {
             MirRepr::Unknown
             | MirRepr::Boxed
             | MirRepr::Int64
+            | MirRepr::Int8
+            | MirRepr::Int16
             | MirRepr::Int32
+            | MirRepr::UInt8
+            | MirRepr::UInt16
+            | MirRepr::UInt32
+            | MirRepr::UInt64
             | MirRepr::Float64
             | MirRepr::Float32
             | MirRepr::Duration

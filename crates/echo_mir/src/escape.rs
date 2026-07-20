@@ -212,7 +212,9 @@ fn classify_expr_uses(
         MirExpr::UnboxValue { value, .. } => {
             classify_expr_uses(value, ctx, escapes, parent);
         }
-        MirExpr::Unary { expr, .. } => classify_expr_uses(expr, ctx, escapes, parent),
+        MirExpr::Unary { expr, .. } | MirExpr::Cast { expr, .. } => {
+            classify_expr_uses(expr, ctx, escapes, parent)
+        }
         MirExpr::Binary { left, right, .. } => {
             classify_expr_uses(left, ctx, escapes, parent);
             classify_expr_uses(right, ctx, escapes, parent);
@@ -286,6 +288,8 @@ fn classify_expr_uses(
         }
         MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
+        | MirExpr::ConstInt { .. }
+        | MirExpr::Cast { .. }
         | MirExpr::ConstBool(_)
         | MirExpr::ConstF64(_)
         | MirExpr::ConstF32(_)
@@ -325,7 +329,8 @@ fn mark_names_in(
         MirExpr::Name(n) => mark_name(n, class, escapes, parent),
         MirExpr::BoxValue { value, .. }
         | MirExpr::UnboxValue { value, .. }
-        | MirExpr::Unary { expr: value, .. } => {
+        | MirExpr::Unary { expr: value, .. }
+        | MirExpr::Cast { expr: value, .. } => {
             mark_names_in(value, class, escapes, parent);
         }
         MirExpr::Binary { left, right, .. } => {
@@ -587,6 +592,10 @@ fn elide_in_expr(e: MirExpr, boxes: &HashMap<String, (MirExpr, MirRepr)>) -> Mir
             op,
             expr: Box::new(elide_in_expr(*expr, boxes)),
         },
+        MirExpr::Cast { to, expr } => MirExpr::Cast {
+            to,
+            expr: Box::new(elide_in_expr(*expr, boxes)),
+        },
         MirExpr::Binary { op, left, right } => MirExpr::Binary {
             op,
             left: Box::new(elide_in_expr(*left, boxes)),
@@ -643,6 +652,18 @@ fn infer_after_elide(e: &MirExpr) -> Option<MirRepr> {
     match e {
         MirExpr::ConstI64(_) => Some(MirRepr::Int64),
         MirExpr::ConstI32(_) => Some(MirRepr::Int32),
+        MirExpr::ConstInt { width, .. } => Some(match width {
+            echo_ast::Width::I8 => MirRepr::Int8,
+            echo_ast::Width::I16 => MirRepr::Int16,
+            echo_ast::Width::I32 => MirRepr::Int32,
+            echo_ast::Width::I64 => MirRepr::Int64,
+            echo_ast::Width::Ui8 => MirRepr::UInt8,
+            echo_ast::Width::Ui16 => MirRepr::UInt16,
+            echo_ast::Width::Ui32 => MirRepr::UInt32,
+            echo_ast::Width::Ui64 => MirRepr::UInt64,
+            echo_ast::Width::F32 => MirRepr::Float32,
+            echo_ast::Width::F64 => MirRepr::Float64,
+        }),
         MirExpr::ConstBool(_) => Some(MirRepr::Bool),
         MirExpr::ConstF64(_) => Some(MirRepr::Float64),
         MirExpr::ConstF32(_) => Some(MirRepr::Float32),
@@ -659,6 +680,7 @@ fn collect_uses(e: &MirExpr, used: &mut HashSet<String>) {
             used.insert(n.clone());
         }
         MirExpr::Unary { expr, .. }
+        | MirExpr::Cast { expr, .. }
         | MirExpr::BoxValue { value: expr, .. }
         | MirExpr::UnboxValue { value: expr, .. } => collect_uses(expr, used),
         MirExpr::Binary { left, right, .. } => {

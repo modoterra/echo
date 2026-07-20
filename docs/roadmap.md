@@ -352,6 +352,7 @@ current; fill Impl as work lands.
 | Numbers / bools / lists | ✓ | ✓ | ✓ | ✓ | ✓ | + index assign |
 | Hex / bin ints | ✓ | ✓ | ✓ | ✓ | ✓ | `0x` / `0b` |
 | Width tags i32/i64/f32/f64 | ✓ | ✓ | ✓ | ✓ | ✓ | native i32/f32 |
+| Full `i*` / `ui*` + `byte`≡`ui8` | → | → | → | → | → | signed+unsigned grid; explicit cast |
 | Bytes | ✓ | ✓ | ✓ | ✓ | ✓ | `str.from_bytes` |
 | Duration | ✓ | ✓ | ✓ | ✓ | ✓ | nanos + add |
 | Locator `p` | ✓ | ✓ | ✓ | ✓ | ✓ | `str.from_locator` |
@@ -478,6 +479,7 @@ current; fill Impl as work lands.
 | 2026-07-20 | List push: `~ xs[] = e` / `~ a.b[] = e` → runtime `list_push`; e26 `run/list/003_push` |
 | 2026-07-20 | `xo test` Model A: `std/test` + runtime registry + path/glob discovery |
 | 2026-07-20 | Bitwise ops: `& \| ^ << >> ~` through run; dual-use `~`/`^`; e26 `run/bitwise` |
+| 2026-07-20 | Integer widths locked: `i8`…`i64` + `ui8`…`ui64`, `byte`≡`ui8`; untagged int=`i64`; no `u8` spelling |
 
 ---
 

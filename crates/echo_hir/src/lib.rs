@@ -240,6 +240,11 @@ pub enum HirExprKind {
         op: UnaryOp,
         expr: Box<HirExpr>,
     },
+    /// Explicit `<width> expr` convert.
+    WidthCast {
+        width: Width,
+        expr: Box<HirExpr>,
+    },
     Binary {
         op: BinaryOp,
         left: Box<HirExpr>,
@@ -973,6 +978,10 @@ fn lower_expr(e: &Expr, cx: &mut LowerCx<'_>) -> HirExpr {
         },
         Expr::Unary { op, expr, .. } => HirExprKind::Unary {
             op: *op,
+            expr: Box::new(lower_expr(expr, cx)),
+        },
+        Expr::WidthCast { width, expr, .. } => HirExprKind::WidthCast {
+            width: *width,
             expr: Box::new(lower_expr(expr, cx)),
         },
         Expr::Binary {

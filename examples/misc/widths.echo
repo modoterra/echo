@@ -1,0 +1,9 @@
+/ std/io
+/ std/str
+
+; Full integer width family: i* / ui* ; byte ≡ ui8
+io.print(str.from_int(<ui8> 200 + <ui8> 55))
+io.print(str.from_int(<i8> -5 + <i8> 10))
+$ x = <ui8> 3
+io.print(str.from_int(<ui64> x << <ui64> 8))
+io.print(str.from_int(<byte> 1 | <ui8> 2))
