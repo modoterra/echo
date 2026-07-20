@@ -57,8 +57,7 @@ async function loadHighlighter(): Promise<Highlighter> {
       const buf = await r.arrayBuffer();
       // Guard against SPA fallback HTML
       const head = new Uint8Array(buf.slice(0, 4));
-      const isWasm =
-        head[0] === 0x00 && head[1] === 0x61 && head[2] === 0x73 && head[3] === 0x6d;
+      const isWasm = head[0] === 0x00 && head[1] === 0x61 && head[2] === 0x73 && head[3] === 0x6d;
       if (!isWasm) {
         throw new Error("tree-sitter-echo.wasm response is not a wasm module");
       }

@@ -191,13 +191,7 @@ body::-webkit-scrollbar-corner {
 }
 
 .docs-logo-gradient-rail {
-  background-image: linear-gradient(
-    180deg,
-    #a855f7 0%,
-    #6366f1 38%,
-    #0ea5e9 68%,
-    #06b6d4 100%
-  );
+  background-image: linear-gradient(180deg, #a855f7 0%, #6366f1 38%, #0ea5e9 68%, #06b6d4 100%);
 }
 
 body {

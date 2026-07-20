@@ -20,9 +20,11 @@ import {
   type ReactNode,
 } from "react";
 import { HomePage } from "./app";
+import { CtaLink } from "./components/cta-link";
 import { DocsSearch } from "./components/docs-search";
 import { EchoCode } from "./components/echo-code";
 import { Logo } from "./components/logo";
+import { InstallPage } from "./install";
 import {
   docsPageByPath,
   docsPages,
@@ -51,6 +53,8 @@ const footerLinkGroups: FooterLinkGroup[] = [
   {
     title: "Learn",
     links: [
+      { label: "Install", href: "/install" },
+      { label: "First program", href: "/docs/first-program" },
       { label: "Reference", href: "/docs" },
       { label: "Book", href: "/book" },
       { label: "Echo 2026", href: "/e26" },
@@ -129,7 +133,7 @@ function scrollElementIntoContainerView(
 function Topbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-30 border-b border-slate-200/70 bg-white/85 px-6 shadow-2xs backdrop-blur">
-      <div className="mx-auto grid h-20 w-full max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-6 lg:grid-cols-[220px_minmax(0,720px)_220px] lg:gap-12">
+      <div className="mx-auto grid h-20 w-full max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 sm:gap-6 lg:grid-cols-[220px_minmax(0,720px)_minmax(220px,auto)] lg:gap-12">
         <Link
           aria-label="Echo home"
           className="block w-16 opacity-90 transition hover:opacity-100 lg:w-20"
@@ -139,7 +143,7 @@ function Topbar() {
         </Link>
         <nav
           aria-label="Primary navigation"
-          className="flex translate-x-0.5 items-center justify-start gap-6 text-sm font-semibold text-slate-500 sm:gap-8 lg:translate-x-0.5"
+          className="flex translate-x-0.5 items-center justify-start gap-4 text-sm font-semibold text-slate-500 sm:gap-8 lg:translate-x-0.5"
         >
           <Link className="transition hover:text-slate-950" to="/">
             Home
@@ -151,17 +155,20 @@ function Topbar() {
           <Link className="transition hover:text-slate-950" to={"/book" as "/"}>
             Book
           </Link>
-          <Link className="transition hover:text-slate-950" to={"/e26" as "/"}>
+          <Link className="hidden transition hover:text-slate-950 sm:inline" to={"/e26" as "/"}>
             Echo 2026
           </Link>
         </nav>
-        <div className="justify-self-end">
+        <div className="flex items-center justify-end gap-2 sm:gap-3">
           <span className="hidden xl:inline-flex">
             <DocsSearch />
           </span>
           <span className="inline-flex xl:hidden">
             <DocsSearch iconOnly />
           </span>
+          <CtaLink compact to="/install">
+            Install
+          </CtaLink>
         </div>
       </div>
     </header>
@@ -175,7 +182,8 @@ function SiteFooter() {
         <section>
           <p className="max-w-sm text-xl font-semibold leading-8 text-slate-950">Echo</p>
           <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
-            A compiled language with leaders instead of keywords.
+            A compiled language with leaders instead of keywords. Write clear programs; ship native
+            binaries with xo.
           </p>
           <p className="mt-10 text-sm text-slate-400">© 2026 Modoterra Corporation</p>
         </section>
@@ -415,10 +423,7 @@ function DocsShell({ category, title, headings, children }: DocsShellProps) {
 
 function DocsLayout() {
   const location = useLocation();
-  const navigation = useMemo(
-    () => navigationForPath(location.pathname),
-    [location.pathname],
-  );
+  const navigation = useMemo(() => navigationForPath(location.pathname), [location.pathname]);
   const [meta, setMeta] = useState<DocsPageMeta>(defaultDocsPageMeta);
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
@@ -703,13 +708,7 @@ function renderBlock(block: DocsBlock, key: number) {
     );
   }
 
-  return (
-    <EchoCode
-      key={key}
-      code={block.code}
-      language={block.language ?? "echo"}
-    />
-  );
+  return <EchoCode key={key} code={block.code} language={block.language ?? "echo"} />;
 }
 
 function DocsContentPage({ page }: { page: DocsPage }) {
@@ -819,6 +818,12 @@ const indexRoute = createRoute({
   component: HomePage,
 });
 
+const installRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/install",
+  component: InstallPage,
+});
+
 // ── /docs (all paths from docsPages under /docs) ─────────────────────
 const docsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -905,15 +910,11 @@ function e26Child(path: string) {
     component: () => <DocsContentPage page={docsPage(full)} />,
   });
 }
-const e26Children = [
-  e26Child("/"),
-  e26Child("run"),
-  e26Child("layout"),
-  e26Child("protocol"),
-];
+const e26Children = [e26Child("/"), e26Child("run"), e26Child("layout"), e26Child("protocol")];
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  installRoute,
   docsLayoutRoute.addChildren(docsChildren),
   bookLayoutRoute.addChildren(bookChildren),
   e26LayoutRoute.addChildren(e26Children),

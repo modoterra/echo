@@ -200,6 +200,10 @@ export const docsPages: DocsPage[] = [
               { code: "/book" },
               ". Echo 2026 edition (canonical Spec + suite): ",
               { code: "/e26" },
+              ". Install ",
+              { code: "xo" },
+              " from ",
+              { code: "/install" },
               ".",
             ],
           },
@@ -229,7 +233,7 @@ export const docsPages: DocsPage[] = [
     path: "/docs/first-program",
     category: "Docs",
     title: "First program",
-    summary: "Minimal runnable shape and xo commands.",
+    summary: "Minimal runnable shape and xo commands. Build the toolchain first via /install.",
     tags: ["docs", "reference", "hello", "xo"],
     aliases: ["quickstart", "hello", "first program"],
     sections: [
@@ -3731,10 +3735,7 @@ NNN_slug.runexit  # optional exit code`,
         blocks: [
           {
             kind: "paragraph",
-            text: [
-              { code: "e26" },
-              " compares stdout and stderr to the fixture sidecars:",
-            ],
+            text: [{ code: "e26" }, " compares stdout and stderr to the fixture sidecars:"],
           },
           {
             kind: "code",

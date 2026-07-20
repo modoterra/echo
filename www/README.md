@@ -3,6 +3,8 @@
 Static React site for Echo / `xo.run`, built with Vite, TypeScript, React, and
 Tailwind CSS.
 
+Public positioning, homepage outline, and nav rules: [`SITE.md`](SITE.md).
+
 ## Commands
 
 ```bash
@@ -20,11 +22,11 @@ npm run build
 
 Same layout as the previous `xo.run` site:
 
-| Setting | Value |
-|---------|--------|
-| Root directory | `www` |
-| Build command | `npm run build` |
-| Build output | `dist` |
+| Setting        | Value           |
+| -------------- | --------------- |
+| Root directory | `www`           |
+| Build command  | `npm run build` |
+| Build output   | `dist`          |
 
 SPA deep links use the same `public/404.html` → `/?/path` bounce and
 `index.html` restore script as before. Custom domain: `public/CNAME` → `xo.run`.

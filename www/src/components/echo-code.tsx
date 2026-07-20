@@ -17,18 +17,14 @@ type Props = {
 
 const VARIANT_WRAP: Record<NonNullable<Props["variant"]>, string> = {
   block: "mt-8 overflow-hidden rounded-lg border border-slate-200 bg-slate-50",
-  hero:
-    "mt-12 max-w-full overflow-hidden rounded-lg border border-transparent bg-white/0 px-0 py-0 text-left shadow-none backdrop-blur-none transition-all duration-300 ease-out hover:border-slate-200/70 hover:bg-white/60 hover:shadow-sm hover:backdrop-blur-sm focus-within:border-slate-200/70 focus-within:bg-white/60 focus-within:shadow-sm focus-within:backdrop-blur-sm",
-  "inline-block":
-    "mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50",
+  hero: "mt-12 max-w-full overflow-hidden rounded-lg border border-transparent bg-white/0 px-0 py-0 text-left shadow-none backdrop-blur-none transition-all duration-300 ease-out hover:border-slate-200/70 hover:bg-white/60 hover:shadow-sm hover:backdrop-blur-sm focus-within:border-slate-200/70 focus-within:bg-white/60 focus-within:shadow-sm focus-within:backdrop-blur-sm",
+  "inline-block": "mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50",
 };
 
 const VARIANT_PRE: Record<NonNullable<Props["variant"]>, string> = {
   block: "echo-code overflow-x-auto px-5 py-5 font-mono text-sm leading-7 text-slate-800",
-  hero:
-    "echo-code echo-code-hero overflow-x-auto px-5 py-5 font-mono text-[clamp(0.8rem,1.8vw,1.125rem)] font-semibold leading-relaxed text-slate-950 sm:px-7 sm:py-6",
-  "inline-block":
-    "echo-code overflow-x-auto px-5 py-4 font-mono text-sm leading-7 text-slate-800",
+  hero: "echo-code echo-code-hero overflow-x-auto px-5 py-5 font-mono text-[clamp(0.8rem,1.8vw,1.125rem)] font-semibold leading-relaxed text-slate-950 sm:px-7 sm:py-6",
+  "inline-block": "echo-code overflow-x-auto px-5 py-4 font-mono text-sm leading-7 text-slate-800",
 };
 
 /**
@@ -77,10 +73,7 @@ export function EchoCode({
     );
 
   return (
-    <div
-      className={className ?? VARIANT_WRAP[variant]}
-      aria-label={ariaLabel}
-    >
+    <div className={className ?? VARIANT_WRAP[variant]} aria-label={ariaLabel}>
       <pre className={VARIANT_PRE[variant]}>{body}</pre>
     </div>
   );
