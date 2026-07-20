@@ -178,6 +178,8 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
                 UnaryOp::Neg if er == MirRepr::Duration => MirRepr::Duration,
                 UnaryOp::Not if er == MirRepr::Bool => MirRepr::Bool,
                 UnaryOp::Not if er == MirRepr::Int64 || er == MirRepr::Int32 => MirRepr::Bool,
+                UnaryOp::BitNot if er == MirRepr::Int64 => MirRepr::Int64,
+                UnaryOp::BitNot if er == MirRepr::Int32 => MirRepr::Int32,
                 _ => MirRepr::Unknown,
             }
         }
@@ -232,6 +234,15 @@ fn infer_binary(op: BinaryOp, left: MirRepr, right: MirRepr) -> MirRepr {
                 MirRepr::Float64
             } else if left == MirRepr::Float32 && right == MirRepr::Float32 {
                 MirRepr::Float32
+            } else {
+                MirRepr::Unknown
+            }
+        }
+        BitAnd | BitOr | BitXor | Shl | Shr => {
+            if left == MirRepr::Int64 && right == MirRepr::Int64 {
+                MirRepr::Int64
+            } else if left == MirRepr::Int32 && right == MirRepr::Int32 {
+                MirRepr::Int32
             } else {
                 MirRepr::Unknown
             }

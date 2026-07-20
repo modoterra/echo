@@ -369,6 +369,7 @@ Details: [`modules.md`](modules.md).
 | Kind | Forms |
 |------|--------|
 | Arithmetic | `+ - * / %` · unary `-` |
+| Bitwise | `& \| ^ << >>` · unary `~` (integers only) |
 | Comparison | `== != === !== < > <= >=` |
 | Boolean | `&& \|\|` · prefix `!` |
 | Member | `value.field` · `value.method()` |
@@ -380,8 +381,20 @@ Details: [`modules.md`](modules.md).
 | Struct lit | `struct_name { k: v, ... }` |
 | Grouping | `(...)` |
 
-**Precedence:** primary → unary (`-`, `!` not) → `* / %` → `+ -` → `..` (range) →
-comparisons → `&&` → `||`.
+**Bitwise rules (locked):**
+
+| Op | Meaning |
+|----|---------|
+| `&` `\|` `^` | Bit and / or / xor on `i32`/`i64` (same width both sides) |
+| `<<` | Shift left; count masked to width (`& 63` / `& 31`) |
+| `>>` | **Arithmetic** (signed) shift right; count masked |
+| `~` | Bitwise complement |
+
+Dual-use: expr `~` / `^` vs leaders bind / return; binary `\|` vs true atom / match
+leader (position decides).
+
+**Precedence:** primary → unary (`-`, `!` not, `~` bit-not) → `* / %` → `+ -` →
+`<< >>` → `..` (range) → comparisons → `&` → `^` → `\|` → `&&` → `||`.
 
 ## Literals and collections
 

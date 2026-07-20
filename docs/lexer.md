@@ -78,6 +78,9 @@ Missing whitespace → diagnostic `lex-leader-ws` (token still emitted).
 `+` and `-` are leaders **only** at statement start (with required whitespace).
 In expression position they remain `plus` / `minus` operators.
 
+`~` and `^` are dual-use: leaders (bind / return) at statement start; expression
+tokens `tilde` (bit-not) and `caret` (bit-xor) elsewhere.
+
 **No** line-continuation token.
 
 ## Other tokens (supporting)
@@ -88,8 +91,8 @@ In expression position they remain `plus` / `minus` operators.
 | `number` | decimal, `0x`/`0b`, `_`, floats, exponent |
 | `string_pure` / `string_rich` | `'…'` / `"…"` (escapes scanned, not decoded fully) |
 | `underscore` | lone `_` (false) |
-| `pipe` | expr `\|` (true) — not match leader |
-| ops / punct | `+ - * / % == != === !== < > <= >= && \|\| ! . , : = ( ) [ ] { }` |
+| `pipe` | expr `\|` (true atom **or** bitwise OR between ints) — not match leader |
+| ops / punct | `+ - * / % == != === !== < > <= >= << >> && \|\| & ^ ~ ! . , : = ( ) [ ] { }` |
 
 ## Diagnostics
 

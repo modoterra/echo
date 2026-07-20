@@ -2808,6 +2808,7 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 (UnaryOp::Neg, ConstValue::Int(n)) => Some(ConstValue::Int(n.wrapping_neg())),
                 (UnaryOp::Not, ConstValue::Bool(b)) => Some(ConstValue::Bool(!b)),
                 (UnaryOp::Not, ConstValue::Int(n)) => Some(ConstValue::Bool(n == 0)),
+                (UnaryOp::BitNot, ConstValue::Int(n)) => Some(ConstValue::Int(!n)),
                 _ => None,
             }
         }
@@ -2829,6 +2830,21 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 }
                 (BinaryOp::Rem, ConstValue::Int(a), ConstValue::Int(b)) if b != 0 => {
                     Some(ConstValue::Int(a % b))
+                }
+                (BinaryOp::BitAnd, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a & b))
+                }
+                (BinaryOp::BitOr, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a | b))
+                }
+                (BinaryOp::BitXor, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a ^ b))
+                }
+                (BinaryOp::Shl, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a.wrapping_shl((b as u32) & 63)))
+                }
+                (BinaryOp::Shr, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a.wrapping_shr((b as u32) & 63)))
                 }
                 _ => None,
             }

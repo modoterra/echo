@@ -315,7 +315,10 @@ pub enum StringKind {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UnaryOp {
     Neg,
+    /// Boolean not (`!`).
     Not,
+    /// Bitwise complement (`~`) on integers.
+    BitNot,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -325,6 +328,16 @@ pub enum BinaryOp {
     Mul,
     Div,
     Rem,
+    /// Bitwise AND (`&`) — integers only.
+    BitAnd,
+    /// Bitwise XOR (`^`) — integers only; dual-use with return leader.
+    BitXor,
+    /// Bitwise OR (`|`) — integers only; dual-use with true atom / match.
+    BitOr,
+    /// Shift left (`<<`) — integers; count masked to width.
+    Shl,
+    /// Arithmetic shift right (`>>`) — signed integers; count masked to width.
+    Shr,
     Eq,
     NotEq,
     EqEqEq,

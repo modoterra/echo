@@ -565,6 +565,18 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
                     env.unify(&t, &Type::Bool, *span);
                     Type::Bool
                 }
+                UnaryOp::BitNot => match env.apply(&t) {
+                    Type::Int => Type::Int,
+                    Type::Int32 => Type::Int32,
+                    Type::Unknown | Type::Var(_) => {
+                        env.unify(&t, &Type::Int, *span);
+                        Type::Int
+                    }
+                    other => {
+                        env.unify(&other, &Type::Int, *span);
+                        Type::Int
+                    }
+                },
             }
         }
         Expr::Range { start, end, .. } => {
@@ -787,6 +799,47 @@ fn infer_binary(env: &mut Env, op: BinaryOp, lt: &Type, rt: &Type, span: Span) -
             env.unify(&lt, &Type::Bool, span);
             env.unify(&rt, &Type::Bool, span);
             Type::Bool
+        }
+        BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor | BinaryOp::Shl | BinaryOp::Shr => {
+            int_binop(env, &lt, &rt, span)
+        }
+    }
+}
+
+/// Integer-only binary ops (`& | ^ << >>`): both sides same int width.
+fn int_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span) -> Type {
+    let lt = env.apply(lt);
+    let rt = env.apply(rt);
+    match (&lt, &rt) {
+        (Type::Int, Type::Int) => Type::Int,
+        (Type::Int32, Type::Int32) => Type::Int32,
+        (a, b) if is_int_kind(a) && is_int_kind(b) && a != b => {
+            env.diags.push(
+                Diagnostic::error(format!(
+                    "cannot mix integer widths `{a}` and `{b}` (no implicit conversion)"
+                ))
+                .with_span(span)
+                .with_code("sem-type-mismatch"),
+            );
+            Type::Error
+        }
+        (a, b) if is_int_kind(a) && matches!(b, Type::Unknown | Type::Var(_)) => {
+            env.unify(&rt, a, span);
+            a.clone()
+        }
+        (a, b) if is_int_kind(b) && matches!(a, Type::Unknown | Type::Var(_)) => {
+            env.unify(&lt, b, span);
+            b.clone()
+        }
+        (Type::Unknown | Type::Var(_), Type::Unknown | Type::Var(_)) => {
+            env.unify(&lt, &Type::Int, span);
+            env.unify(&rt, &Type::Int, span);
+            Type::Int
+        }
+        _ => {
+            env.unify(&lt, &Type::Int, span);
+            env.unify(&rt, &Type::Int, span);
+            Type::Int
         }
     }
 }

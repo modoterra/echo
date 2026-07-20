@@ -789,6 +789,16 @@ fn light_infer(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
                 {
                     MirRepr::Float32
                 }
+                BitAnd | BitOr | BitXor | Shl | Shr
+                    if lr == MirRepr::Int64 && rr == MirRepr::Int64 =>
+                {
+                    MirRepr::Int64
+                }
+                BitAnd | BitOr | BitXor | Shl | Shr
+                    if lr == MirRepr::Int32 && rr == MirRepr::Int32 =>
+                {
+                    MirRepr::Int32
+                }
                 Add | Sub if lr == MirRepr::Duration && rr == MirRepr::Duration => {
                     MirRepr::Duration
                 }

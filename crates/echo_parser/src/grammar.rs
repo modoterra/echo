@@ -149,6 +149,11 @@ fn token_surface(kind: TokenKind) -> &'static str {
         TokenKind::GtEq => ">=",
         TokenKind::AndAnd => "&&",
         TokenKind::OrOr => "||",
+        TokenKind::Ampersand => "&",
+        TokenKind::Caret => "^",
+        TokenKind::Tilde => "~",
+        TokenKind::LtLt => "<<",
+        TokenKind::GtGt => ">>",
         TokenKind::Bang => "!",
         TokenKind::Dot => ".",
         TokenKind::DotDot => "..",
@@ -1100,6 +1105,7 @@ fn expr_parser<'a>(
             });
 
         // Unary ops bind tighter than binary; recurse only through unary layer.
+        // `~` bit-not is dual-use with mutable-bind leader (expr position only).
         let unary = {
             let postfix = postfix.clone();
             recursive(move |unary| {
@@ -1112,9 +1118,16 @@ fn expr_parser<'a>(
                             span: sp(source_id, span),
                         }),
                     just(TokenKind::Bang)
-                        .ignore_then(unary)
+                        .ignore_then(unary.clone())
                         .map_with_span(move |e, span| Expr::Unary {
                             op: UnaryOp::Not,
+                            expr: Box::new(e),
+                            span: sp(source_id, span),
+                        }),
+                    just(TokenKind::Tilde)
+                        .ignore_then(unary)
+                        .map_with_span(move |e, span| Expr::Unary {
+                            op: UnaryOp::BitNot,
                             expr: Box::new(e),
                             span: sp(source_id, span),
                         }),
@@ -1164,13 +1177,34 @@ fn expr_parser<'a>(
                 }
             });
 
-        // Inclusive range `lo..hi` — lower precedence than +/-, higher than cmp.
+        // Shifts: lower than +/-, higher than range/cmp (C-like).
+        let shift = sum
+            .clone()
+            .then(
+                choice((
+                    just(TokenKind::LtLt).to(BinaryOp::Shl),
+                    just(TokenKind::GtGt).to(BinaryOp::Shr),
+                ))
+                .then(sum)
+                .repeated(),
+            )
+            .foldl(move |left, (op, right)| {
+                let span = merge_span(source_id, left.span(), right.span());
+                Expr::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    span,
+                }
+            });
+
+        // Inclusive range `lo..hi` — lower precedence than shifts, higher than cmp.
         // `1+2..3+4` → `(1+2)..(3+4)`. Non-associative: only one `..` level.
-        let range = sum
+        let range = shift
             .clone()
             .then(
                 just(TokenKind::DotDot)
-                    .ignore_then(sum.clone())
+                    .ignore_then(shift.clone())
                     .or_not(),
             )
             .map(move |(left, rest)| match rest {
@@ -1214,12 +1248,68 @@ fn expr_parser<'a>(
                 }
             });
 
-        let and = cmp
+        // Bitwise AND / XOR / OR (C-like: between cmp and boolean &&/||).
+        // Binary `|` is BitOr; bare `|` remains the true atom in primary.
+        let bit_and = cmp
+            .clone()
+            .then(
+                just(TokenKind::Ampersand)
+                    .to(BinaryOp::BitAnd)
+                    .then(cmp)
+                    .repeated(),
+            )
+            .foldl(move |left, (op, right)| {
+                let span = merge_span(source_id, left.span(), right.span());
+                Expr::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    span,
+                }
+            });
+
+        let bit_xor = bit_and
+            .clone()
+            .then(
+                just(TokenKind::Caret)
+                    .to(BinaryOp::BitXor)
+                    .then(bit_and)
+                    .repeated(),
+            )
+            .foldl(move |left, (op, right)| {
+                let span = merge_span(source_id, left.span(), right.span());
+                Expr::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    span,
+                }
+            });
+
+        let bit_or = bit_xor
+            .clone()
+            .then(
+                just(TokenKind::Pipe)
+                    .to(BinaryOp::BitOr)
+                    .then(bit_xor)
+                    .repeated(),
+            )
+            .foldl(move |left, (op, right)| {
+                let span = merge_span(source_id, left.span(), right.span());
+                Expr::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    span,
+                }
+            });
+
+        let and = bit_or
             .clone()
             .then(
                 just(TokenKind::AndAnd)
                     .to(BinaryOp::And)
-                    .then(cmp)
+                    .then(bit_or)
                     .repeated(),
             )
             .foldl(move |left, (op, right)| {

@@ -2726,6 +2726,39 @@ fn emit_scalar_typed<'ctx>(
                         .expect("not");
                     Some((is_zero.as_basic_value_enum(), MirRepr::Bool))
                 }
+                UnaryOp::BitNot if rep == MirRepr::Int64 => {
+                    let iv = v.into_int_value();
+                    let all = cx.i64t.const_int(u64::MAX, false);
+                    Some((
+                        cx.builder
+                            .build_xor(iv, all, "bnot")
+                            .expect("bnot")
+                            .as_basic_value_enum(),
+                        MirRepr::Int64,
+                    ))
+                }
+                UnaryOp::BitNot if rep == MirRepr::Int32 => {
+                    let iv = v.into_int_value();
+                    let all = cx.i32t.const_int(u32::MAX as u64, false);
+                    Some((
+                        cx.builder
+                            .build_xor(iv, all, "bnot")
+                            .expect("bnot")
+                            .as_basic_value_enum(),
+                        MirRepr::Int32,
+                    ))
+                }
+                UnaryOp::BitNot => {
+                    let iv = box_value(cx, v, rep)?;
+                    let all = cx.i64t.const_int(u64::MAX, false);
+                    Some((
+                        cx.builder
+                            .build_xor(iv, all, "bnot")
+                            .expect("bnot")
+                            .as_basic_value_enum(),
+                        MirRepr::Int64,
+                    ))
+                }
                 UnaryOp::Neg => {
                     let iv = box_value(cx, v, rep)?;
                     Some((
@@ -2917,12 +2950,19 @@ fn emit_binary_typed<'ctx>(
         let l = lv.into_int_value();
         let r = rv.into_int_value();
         return match op {
-            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => {
-                Some((
-                    emit_binop(cx, op, l, r).as_basic_value_enum(),
-                    MirRepr::Int32,
-                ))
-            }
+            BinaryOp::Add
+            | BinaryOp::Sub
+            | BinaryOp::Mul
+            | BinaryOp::Div
+            | BinaryOp::Rem
+            | BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor
+            | BinaryOp::Shl
+            | BinaryOp::Shr => Some((
+                emit_binop(cx, op, l, r).as_basic_value_enum(),
+                MirRepr::Int32,
+            )),
             BinaryOp::Eq | BinaryOp::EqEqEq => Some((
                 cx.builder
                     .build_int_compare(IntPredicate::EQ, l, r, "eq")
@@ -3040,17 +3080,24 @@ fn emit_binary_typed<'ctx>(
         };
     }
 
-    // Native i64 arithmetic / compares
+    // Native i64 arithmetic / compares / bitwise
     if lr == MirRepr::Int64 && rr == MirRepr::Int64 {
         let l = lv.into_int_value();
         let r = rv.into_int_value();
         return match op {
-            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => {
-                Some((
-                    emit_binop(cx, op, l, r).as_basic_value_enum(),
-                    MirRepr::Int64,
-                ))
-            }
+            BinaryOp::Add
+            | BinaryOp::Sub
+            | BinaryOp::Mul
+            | BinaryOp::Div
+            | BinaryOp::Rem
+            | BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor
+            | BinaryOp::Shl
+            | BinaryOp::Shr => Some((
+                emit_binop(cx, op, l, r).as_basic_value_enum(),
+                MirRepr::Int64,
+            )),
             BinaryOp::Eq | BinaryOp::EqEqEq => Some((
                 cx.builder
                     .build_int_compare(IntPredicate::EQ, l, r, "eq")
@@ -3233,7 +3280,13 @@ fn emit_binary_typed<'ctx>(
                     .as_basic_value_enum(),
                 MirRepr::Bool,
             )),
-            BinaryOp::And | BinaryOp::Or => None,
+            BinaryOp::And
+            | BinaryOp::Or
+            | BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor
+            | BinaryOp::Shl
+            | BinaryOp::Shr => None,
         };
     }
 
@@ -3320,7 +3373,13 @@ fn emit_binary_typed<'ctx>(
                     .as_basic_value_enum(),
                 MirRepr::Bool,
             )),
-            BinaryOp::And | BinaryOp::Or => None,
+            BinaryOp::And
+            | BinaryOp::Or
+            | BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor
+            | BinaryOp::Shl
+            | BinaryOp::Shr => None,
         };
     }
 
@@ -3641,6 +3700,27 @@ fn emit_binop<'ctx>(
         BinaryOp::Mul => cx.builder.build_int_mul(l, r, "mul").expect("mul"),
         BinaryOp::Div => cx.builder.build_int_signed_div(l, r, "div").expect("div"),
         BinaryOp::Rem => cx.builder.build_int_signed_rem(l, r, "rem").expect("rem"),
+        BinaryOp::BitAnd => cx.builder.build_and(l, r, "band").expect("band"),
+        BinaryOp::BitOr => cx.builder.build_or(l, r, "bor").expect("bor"),
+        BinaryOp::BitXor => cx.builder.build_xor(l, r, "bxor").expect("bxor"),
+        BinaryOp::Shl => {
+            // Mask shift count to bit-width (defined for all counts; matches wrapping_shl).
+            let bits = l.get_type().get_bit_width();
+            let mask = l.get_type().const_int((bits as u64) - 1, false);
+            let amt = cx.builder.build_and(r, mask, "shlamt").expect("shlamt");
+            cx.builder
+                .build_left_shift(l, amt, "shl")
+                .expect("shl")
+        }
+        BinaryOp::Shr => {
+            let bits = l.get_type().get_bit_width();
+            let mask = l.get_type().const_int((bits as u64) - 1, false);
+            let amt = cx.builder.build_and(r, mask, "shramt").expect("shramt");
+            // Arithmetic (signed) right shift.
+            cx.builder
+                .build_right_shift(l, amt, true, "shr")
+                .expect("shr")
+        }
         BinaryOp::Eq | BinaryOp::EqEqEq => {
             let c = cx
                 .builder

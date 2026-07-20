@@ -56,6 +56,16 @@ pub enum TokenKind {
     GtEq,
     AndAnd,
     OrOr,
+    /// Bitwise AND (`&`).
+    Ampersand,
+    /// Bitwise XOR (`^`) — dual-use with return leader.
+    Caret,
+    /// Bitwise NOT (`~`) — dual-use with mutable-bind leader.
+    Tilde,
+    /// Shift left (`<<`).
+    LtLt,
+    /// Arithmetic shift right (`>>`).
+    GtGt,
     Bang,
     Dot,
     /// Inclusive range operator `..` (expr `lo..hi`).
@@ -69,7 +79,7 @@ pub enum TokenKind {
     RBracket,
     LBrace,
     RBrace,
-    /// Expression `|` (true bool) — distinct from `Leader(Pipe)` match.
+    /// Expression `|` (true bool) or bitwise OR between ints — distinct from `Leader(Pipe)` match.
     Pipe,
     /// Expression `_` (false bool) or start of `_name` idents handled separately.
     Underscore,
@@ -124,6 +134,11 @@ impl TokenKind {
             Self::GtEq => "gt_eq",
             Self::AndAnd => "and_and",
             Self::OrOr => "or_or",
+            Self::Ampersand => "ampersand",
+            Self::Caret => "caret",
+            Self::Tilde => "tilde",
+            Self::LtLt => "lt_lt",
+            Self::GtGt => "gt_gt",
             Self::Bang => "bang",
             Self::Dot => "dot",
             Self::DotDot => "dot_dot",
@@ -400,7 +415,10 @@ impl<'a> Lexer<'a> {
             b'{' => TokenKind::LBrace,
             b'}' => TokenKind::RBrace,
             b'|' => TokenKind::Pipe,
-            b'~' | b'$' | b'#' | b'@' | b'?' | b'^' | b'\\' => {
+            b'&' => TokenKind::Ampersand,
+            b'^' => TokenKind::Caret,
+            b'~' => TokenKind::Tilde,
+            b'$' | b'#' | b'@' | b'?' | b'\\' => {
                 // These glyphs are only leaders at statement start; elsewhere error.
                 self.pos += 1;
                 let span = self.span_from(start);
@@ -443,6 +461,10 @@ impl<'a> Lexer<'a> {
             (TokenKind::EqEq, 2)
         } else if rest.starts_with("!=") {
             (TokenKind::NotEq, 2)
+        } else if rest.starts_with("<<") {
+            (TokenKind::LtLt, 2)
+        } else if rest.starts_with(">>") {
+            (TokenKind::GtGt, 2)
         } else if rest.starts_with("<=") {
             (TokenKind::LtEq, 2)
         } else if rest.starts_with(">=") {
@@ -830,6 +852,21 @@ $ b = 2
         assert_eq!(leader_count, 2);
         assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Star))));
         assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Slash))));
+    }
+
+    #[test]
+    fn bitwise_ops_tokens() {
+        let lexed = lex_str("$ x = 1 & 2 | 3 ^ 4 << 1 >> 2\n$ y = ~ 0\n");
+        assert!(lexed.diagnostics.is_empty(), "{:?}", lexed.diagnostics);
+        let k = kinds(&lexed);
+        assert!(k.contains(&TokenKind::Ampersand));
+        assert!(k.contains(&TokenKind::Pipe));
+        assert!(k.contains(&TokenKind::Caret));
+        assert!(k.contains(&TokenKind::LtLt));
+        assert!(k.contains(&TokenKind::GtGt));
+        assert!(k.contains(&TokenKind::Tilde));
+        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Caret))));
+        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Tilde))));
     }
 
     #[test]

@@ -129,6 +129,7 @@ noted under **Impl**.
 | Topic | Design | Notes |
 |-------|--------|-------|
 | Arithmetic `+ - * / %`, unary `-` | Locked | |
+| Bitwise `& \| ^ << >>`, unary `~` | Locked | ints only; `>>` arithmetic; count masked |
 | Comparison `== != === !== < > <= >=` | Locked | |
 | Boolean `&&` `\|\|`, prefix `!` | Locked | |
 | Deep vs identity equality | Locked | `==` / `!=` deep; `===` / `!==` identity |
@@ -137,16 +138,18 @@ noted under **Impl**.
 | Call | Locked | Free and method forms |
 | Function expr | Locked | `(a, b) { … }` · `() { … }` |
 | Grouping | Locked | `(…)` |
-| Precedence | Locked | primary → unary → `*/%` → `+-` → cmp → `&&` → `\|\|` |
+| Precedence | Locked | unary → `*/%` → `+-` → `<<>>` → `..` → cmp → `&` → `^` → `\|` → `&&` → `\|\|` |
 
 ### 2.6 Dual-use glyphs
 
 | Glyph | Leader | Expression |
 |-------|--------|------------|
 | `*` | loop | multiply |
-| `<` `>` | break / continue | comparisons |
+| `<` `>` | break / continue | comparisons / shifts (`<<` `>>`) |
 | `!` | error return (result err) / match err arm | prefix not |
-| `\|` | match | true literal |
+| `\|` | match | true literal **or** bitwise OR |
+| `^` | return | bitwise XOR |
+| `~` | mutable bind | bitwise NOT |
 | `/` | import | divide |
 | `%` | struct shape **or** match type arm | remainder |
 | `.` | — | field/method or method-body receiver |
@@ -474,6 +477,7 @@ current; fill Impl as work lands.
 | 2026-07-20 | **ADR 0015:** Echo 2026 = edition + canonical public Language Spec (`www` `/e26`); `e26`/`echo26/` stay tooling IDs |
 | 2026-07-20 | List push: `~ xs[] = e` / `~ a.b[] = e` → runtime `list_push`; e26 `run/list/003_push` |
 | 2026-07-20 | `xo test` Model A: `std/test` + runtime registry + path/glob discovery |
+| 2026-07-20 | Bitwise ops: `& \| ^ << >> ~` through run; dual-use `~`/`^`; e26 `run/bitwise` |
 
 ---
 

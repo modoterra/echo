@@ -1101,6 +1101,11 @@ fn token_type_mods(kind: TokenKind) -> Option<(u32, u32)> {
         | TokenKind::GtEq
         | TokenKind::AndAnd
         | TokenKind::OrOr
+        | TokenKind::Ampersand
+        | TokenKind::Caret
+        | TokenKind::Tilde
+        | TokenKind::LtLt
+        | TokenKind::GtGt
         | TokenKind::Bang
         | TokenKind::Dot
         | TokenKind::DotDot

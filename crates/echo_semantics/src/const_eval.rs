@@ -74,6 +74,7 @@ pub fn eval_const_expr(
                 (UnaryOp::Neg, ConstValue::Int(n)) => Ok(ConstValue::Int(n.wrapping_neg())),
                 (UnaryOp::Not, ConstValue::Bool(b)) => Ok(ConstValue::Bool(!b)),
                 (UnaryOp::Not, ConstValue::Int(n)) => Ok(ConstValue::Bool(n == 0)),
+                (UnaryOp::BitNot, ConstValue::Int(n)) => Ok(ConstValue::Int(!n)),
                 _ => Err(ConstError::new("invalid unary in `#` const expression")),
             }
         }
@@ -129,6 +130,15 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
         (GtEq, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Bool(a >= b)),
         (And, ConstValue::Bool(a), ConstValue::Bool(b)) => Ok(ConstValue::Bool(a && b)),
         (Or, ConstValue::Bool(a), ConstValue::Bool(b)) => Ok(ConstValue::Bool(a || b)),
+        (BitAnd, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a & b)),
+        (BitOr, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a | b)),
+        (BitXor, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a ^ b)),
+        (Shl, ConstValue::Int(a), ConstValue::Int(b)) => {
+            Ok(ConstValue::Int(a.wrapping_shl((b as u32) & 63)))
+        }
+        (Shr, ConstValue::Int(a), ConstValue::Int(b)) => {
+            Ok(ConstValue::Int(a.wrapping_shr((b as u32) & 63)))
+        }
         (Eq | EqEqEq, ConstValue::Bool(a), ConstValue::Bool(b)) => Ok(ConstValue::Bool(a == b)),
         (NotEq | NotEqEq, ConstValue::Bool(a), ConstValue::Bool(b)) => Ok(ConstValue::Bool(a != b)),
         // No `+` string concat — use rich `"…{name}…"` interpolation instead.

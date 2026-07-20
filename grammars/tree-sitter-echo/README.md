@@ -20,7 +20,7 @@ generator after leader or lexer surface changes.
 
 | Token | Glyph | Dual-use |
 |-------|-------|----------|
-| `leader_tilde` | `~` | no |
+| `leader_tilde` | `~` | yes |
 | `leader_dollar` | `$` | no |
 | `leader_hash` | `#` | no |
 | `leader_percent` | `%` | yes |
@@ -28,7 +28,7 @@ generator after leader or lexer surface changes.
 | `leader_question` | `?` | no |
 | `leader_colon` | `:` | yes |
 | `leader_bang` | `!` | yes |
-| `leader_caret` | `^` | no |
+| `leader_caret` | `^` | yes |
 | `leader_star` | `*` | yes |
 | `leader_lt` | `<` | yes |
 | `leader_gt` | `>` | yes |
@@ -38,8 +38,8 @@ generator after leader or lexer surface changes.
 | `leader_slash` | `/` | yes |
 | `leader_backslash` | `\` | no |
 
-- **Dual-use glyphs** (leader at statement start; operator/token in expressions): `%` (leader_percent), `:` (leader_colon), `!` (leader_bang), `*` (leader_star), `<` (leader_lt), `>` (leader_gt), `|` (leader_pipe), `+` (leader_plus), `-` (leader_minus), `/` (leader_slash)
-- **Leader-only** (statement introducers; invalid as free expression glyphs in the real lexer): `~` (leader_tilde), `$` (leader_dollar), `#` (leader_hash), `@` (leader_at), `?` (leader_question), `^` (leader_caret), `\` (leader_backslash)
+- **Dual-use glyphs** (leader at statement start; operator/token in expressions): `~` (bit-not), `%`, `:`, `!`, `^` (bit-xor), `*`, `<`, `>`, `|` (true atom / bit-or), `+`, `-`, `/`
+- **Leader-only** (statement introducers; invalid as free expression glyphs in the real lexer): `$` (leader_dollar), `#` (leader_hash), `@` (leader_at), `?` (leader_question), `\` (leader_backslash)
 
 Dual-use is modeled by **grammar context**: `leader_*` tokens only appear as
 statement introducers; the same characters appear again inside expression rules.

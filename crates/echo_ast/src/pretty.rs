@@ -304,8 +304,9 @@ fn write_task_body(body: &TaskBody, level: usize, out: &mut String) {
 
 fn bin_prec(op: BinaryOp) -> u8 {
     match op {
-        BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => 5,
-        BinaryOp::Add | BinaryOp::Sub => 4,
+        BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => 9,
+        BinaryOp::Add | BinaryOp::Sub => 8,
+        BinaryOp::Shl | BinaryOp::Shr => 7,
         BinaryOp::Eq
         | BinaryOp::NotEq
         | BinaryOp::EqEqEq
@@ -313,7 +314,10 @@ fn bin_prec(op: BinaryOp) -> u8 {
         | BinaryOp::Lt
         | BinaryOp::Gt
         | BinaryOp::LtEq
-        | BinaryOp::GtEq => 3,
+        | BinaryOp::GtEq => 6,
+        BinaryOp::BitAnd => 5,
+        BinaryOp::BitXor => 4,
+        BinaryOp::BitOr => 3,
         BinaryOp::And => 2,
         BinaryOp::Or => 1,
     }
@@ -326,6 +330,11 @@ fn bin_glyph(op: BinaryOp) -> &'static str {
         BinaryOp::Mul => "*",
         BinaryOp::Div => "/",
         BinaryOp::Rem => "%",
+        BinaryOp::BitAnd => "&",
+        BinaryOp::BitXor => "^",
+        BinaryOp::BitOr => "|",
+        BinaryOp::Shl => "<<",
+        BinaryOp::Shr => ">>",
         BinaryOp::Eq => "==",
         BinaryOp::NotEq => "!=",
         BinaryOp::EqEqEq => "===",
@@ -367,8 +376,9 @@ fn write_expr(e: &Expr, parent_prec: u8, stmt_level: usize, out: &mut String) {
             match op {
                 UnaryOp::Neg => out.push('-'),
                 UnaryOp::Not => out.push('!'),
+                UnaryOp::BitNot => out.push('~'),
             }
-            write_expr(expr, 6, stmt_level, out);
+            write_expr(expr, 10, stmt_level, out);
         }
         Expr::Binary {
             op, left, right, ..

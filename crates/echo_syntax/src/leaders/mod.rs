@@ -176,20 +176,16 @@ impl LeaderKind {
 
     /// Dual-use: valid as an expression/operator token outside leader position.
     ///
-    /// Leader-only glyphs (`~ $ # @ ? ^ \`) error outside statement start
+    /// Leader-only glyphs (`$ # @ ? \`) error outside statement start
     /// (`lex-unexpected-leader-glyph`). Dual-use glyphs are scanned as
     /// operators/punctuation in expression position (see `docs/lexer.md`).
+    ///
+    /// `~` (bit-not) and `^` (bit-xor) are dual-use with bind/return leaders.
     #[must_use]
     pub fn is_dual_use(self) -> bool {
         !matches!(
             self,
-            Self::Tilde
-                | Self::Dollar
-                | Self::Hash
-                | Self::At
-                | Self::Question
-                | Self::Caret
-                | Self::Backslash
+            Self::Dollar | Self::Hash | Self::At | Self::Question | Self::Backslash
         )
     }
 }
@@ -302,12 +298,13 @@ mod tests {
     #[test]
     fn dual_use_and_token_names() {
         assert!(!LeaderKind::Dollar.is_dual_use());
-        assert!(!LeaderKind::Tilde.is_dual_use());
+        assert!(LeaderKind::Tilde.is_dual_use());
+        assert!(LeaderKind::Caret.is_dual_use());
         assert!(LeaderKind::Star.is_dual_use());
         assert!(LeaderKind::Percent.is_dual_use());
         assert_eq!(LeaderKind::Dollar.token_name(), "leader_dollar");
         assert_eq!(LeaderKind::Backslash.token_name(), "leader_backslash");
-        assert_eq!(LEADERS.iter().filter(|k| k.is_dual_use()).count(), 10);
-        assert_eq!(LEADERS.iter().filter(|k| !k.is_dual_use()).count(), 7);
+        assert_eq!(LEADERS.iter().filter(|k| k.is_dual_use()).count(), 12);
+        assert_eq!(LEADERS.iter().filter(|k| !k.is_dual_use()).count(), 5);
     }
 }

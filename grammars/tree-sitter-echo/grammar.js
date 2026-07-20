@@ -39,6 +39,8 @@ module.exports = grammar({
     [$.fn_expression, $._struct_field_list],
     [$.loop_statement, $._struct_field_list],
     [$.match_arm, $._struct_field_list],
+    // `~ .field…` — bind path vs unary bit-not of self_field (dual-use `~`).
+    [$.bind_lhs, $.self_field],
   ],
 
   rules: {
@@ -395,18 +397,25 @@ module.exports = grammar({
     false_atom: _ => '_',
 
     // Unary only nested in _expression (e.g. `$ x = -1`), never as bare _item.
-    unary_expression: $ => prec(8, seq(
-      field('operator', choice('!', '-', '+')),
+    // `~` bit-not dual-uses mutable-bind leader glyph. Prec above <<>> (8).
+    unary_expression: $ => prec(11, seq(
+      field('operator', choice('!', '-', '+', '~')),
       field('argument', $._expression),
     )),
 
     binary_expression: $ => {
+      // Mirrors echo_parser: higher prec number binds tighter.
+      // */% → +- → <<>> → (range) → cmp → & → ^ → | → && → ||
       const table = [
         ['||', 1],
         ['&&', 2],
-        [choice('==', '!=', '===', '!==', '<', '>', '<=', '>='), 3],
-        [choice('+', '-'), 4],
-        [choice('*', '/', '%'), 5],
+        ['|', 3],
+        ['^', 4],
+        ['&', 5],
+        [choice('==', '!=', '===', '!==', '<', '>', '<=', '>='), 6],
+        [choice('<<', '>>'), 8],
+        [choice('+', '-'), 9],
+        [choice('*', '/', '%'), 10],
       ];
       return choice(...table.map(([op, precedence]) =>
         prec.left(precedence, seq(
@@ -417,14 +426,15 @@ module.exports = grammar({
       ));
     },
 
-    range_expression: $ => prec.left(6, seq(
+    range_expression: $ => prec.left(7, seq(
       field('start', $._expression),
       '..',
       field('end', $._expression),
     )),
 
     // Width / type cast: `<i32> 10`, `<i32> -32` (docs/syntax.md).
-    width_cast: $ => prec(8, seq(
+    // Prec above <<>> (8) so `<i32>1 << 2` is `(width) << 2`.
+    width_cast: $ => prec(11, seq(
       '<',
       field('type', $.ident),
       '>',
