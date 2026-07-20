@@ -1,0 +1,3730 @@
+//! Backend-neutral executable IR.
+//!
+//! Return *shapes* (plain / result / option) come from HIR, which inferred them
+//! from `^` / `!` surface syntax — not from user type names.
+
+#![forbid(unsafe_code)]
+
+mod cfg;
+mod escape;
+mod repr;
+mod simplify;
+mod ssa;
+mod value_class;
+
+pub use cfg::{
+    BlockId, MirBlock, MirCfg, MirOp, Terminator, structured_to_cfg,
+    structured_to_cfg_with_fallthrough,
+};
+pub use escape::{EscapeClass, analyze_escapes};
+pub use repr::{MirRepr, analyze_reprs};
+pub use simplify::simplify_local;
+pub use ssa::construct_ssa;
+pub use value_class::ValueClass;
+
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+
+use echo_ast::{BinaryOp, StringKind, UnaryOp};
+use echo_diagnostics::{Diagnostic, Diagnostics};
+use echo_hir::{
+    HirExpr, HirExprKind, HirBody, HirLoopKind, HirMatchArm, HirModule, HirStmt, RECV_PARAM,
+};
+use echo_semantics::{ConstValue, ReturnShape, SemanticModel};
+use echo_std::{is_runtime_module_path, runtime_native_symbol};
+
+/// Stable crate identity for workspace linkage checks.
+pub fn crate_name() -> &'static str {
+    env!("CARGO_PKG_NAME")
+}
+
+/// How a function packages its return (syntax-driven shape).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirRetShape {
+    Plain,
+    Result,
+    Option,
+}
+
+impl MirRetShape {
+    #[must_use]
+    pub fn from_return_shape(s: ReturnShape) -> Self {
+        match s {
+            ReturnShape::Plain => Self::Plain,
+            ReturnShape::Result | ReturnShape::ResultOption => Self::Result,
+            ReturnShape::Option => Self::Option,
+        }
+    }
+
+    #[must_use]
+    pub fn is_tagged(self) -> bool {
+        matches!(self, Self::Result | Self::Option)
+    }
+}
+
+pub const TAG_OK: i64 = 0;
+pub const TAG_ERR: i64 = 1;
+pub const TAG_SOME: i64 = 0;
+pub const TAG_NONE: i64 = 1;
+
+/// Prefix for synthetic zero-arg getters of exported/module-level values.
+pub const VAL_GETTER_PREFIX: &str = "__val_";
+
+/// Stable LLVM / link name for a free function in a module.
+#[must_use]
+pub fn mangle_fn(module_path: &Path, name: &str) -> String {
+    if is_runtime_module_path(module_path) {
+        return format!("__echo_runtime_export_{name}");
+    }
+    // No special names: `main` is an ordinary identifier, not an entry keyword.
+    let key = path_key(module_path);
+    format!("m_{key}_{name}")
+}
+
+/// Getter name for a module-level value bind (`$ answer = 42` → `__val_answer`).
+#[must_use]
+pub fn value_getter_name(export: &str) -> String {
+    format!("{VAL_GETTER_PREFIX}{export}")
+}
+
+fn path_key(path: &Path) -> String {
+    path.to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect()
+}
+
+#[derive(Debug, Clone)]
+pub struct MirProgram {
+    pub functions: Vec<MirFn>,
+    /// Module path of the program entry file.
+    pub entry_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct MirFn {
+    pub module_path: PathBuf,
+    pub name: String,
+    pub params: Vec<String>,
+    /// Structured body (HIR lower; kept for tests / debug).
+    pub body: Vec<MirStmt>,
+    /// SSA CFG — authority for codegen (`construct_ssa` + repr analysis).
+    pub cfg: MirCfg,
+    /// SSA name → proven representation (native vs boxed).
+    pub reprs: HashMap<String, MirRepr>,
+    /// Local escape classification for SSA names (allocations / boxes).
+    pub escapes: HashMap<String, EscapeClass>,
+    pub ret: MirRetShape,
+}
+
+impl MirFn {
+    #[must_use]
+    pub fn mangled_name(&self) -> String {
+        mangle_fn(&self.module_path, &self.name)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MirStmt {
+    Set {
+        name: String,
+        value: MirExpr,
+    },
+    ReturnOk(MirExpr),
+    ReturnErr(MirExpr),
+    ReturnNone,
+    If {
+        arms: Vec<(MirExpr, Vec<MirStmt>)>,
+        else_body: Option<Vec<MirStmt>>,
+    },
+    MatchTagged {
+        scrutinee: MirExpr,
+        ok_name: Option<String>,
+        ok_body: Vec<MirStmt>,
+        err_name: Option<String>,
+        err_body: Vec<MirStmt>,
+    },
+    Loop {
+        cond: Option<MirExpr>,
+        body: Vec<MirStmt>,
+    },
+    ForIn {
+        item: String,
+        iter: MirExpr,
+        body: Vec<MirStmt>,
+    },
+    Break,
+    Continue,
+    Eval(MirExpr),
+    /// `~ base.field = value`
+    FieldSet {
+        base: MirExpr,
+        field: String,
+        value: MirExpr,
+    },
+    /// `~ base[index] = value`
+    IndexSet {
+        base: MirExpr,
+        index: MirExpr,
+        value: MirExpr,
+    },
+    /// `+` — schedule closed body on the mio event loop; optional handle bind.
+    TaskSpawn {
+        module_path: PathBuf,
+        body_symbol: String,
+        bind: Option<String>,
+    },
+    /// `+ f(args)` — schedule free function with args.
+    TaskSpawnFn {
+        module_path: PathBuf,
+        fn_symbol: String,
+        args: Vec<MirExpr>,
+        bind: Option<String>,
+    },
+    /// `-` immediate block (`body_symbol`) or join `handle`; optional result bind.
+    TaskJoin {
+        module_path: PathBuf,
+        body_symbol: Option<String>,
+        handle: Option<MirExpr>,
+        bind: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum CallTarget {
+    /// Free function in some module (`module_path`, `name` = body symbol).
+    Function { module_path: PathBuf, name: String },
+    /// Privileged `runtime.export` → native `echo_runtime_*`.
+    Runtime { export: String },
+    /// Call through a function **value** (`i64` code pointer).
+    Indirect { callee: Box<MirExpr> },
+}
+
+/// Backend / CFG primitives not present as user-level calls.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirPrim {
+    /// `echo_runtime_iter_len(handle) -> i64` — list or range.
+    ListLen,
+    /// Bounds-checked element load (`echo_runtime_iter_get`) — list or range.
+    ListGetChecked,
+}
+
+#[derive(Debug, Clone)]
+pub enum MirExpr {
+    ConstI64(i64),
+    /// Width-tagged `<i32>…` literal (native i32 until boxed).
+    ConstI32(i32),
+    ConstBool(bool),
+    ConstF64(f64),
+    /// Width-tagged `<f32>…` literal (native f32 until boxed).
+    ConstF32(f32),
+    /// Duration literal / value as **nanoseconds** (native i64 until boxed).
+    ConstDuration(i64),
+    Name(String),
+    Unary {
+        op: UnaryOp,
+        expr: Box<MirExpr>,
+    },
+    Binary {
+        op: BinaryOp,
+        left: Box<MirExpr>,
+        right: Box<MirExpr>,
+    },
+    Call {
+        target: CallTarget,
+        args: Vec<MirExpr>,
+        ret: MirRetShape,
+    },
+    /// Closed function value: body symbol in this module (runtime = code pointer).
+    FnValue {
+        module_path: PathBuf,
+        symbol: String,
+    },
+    /// Inclusive integer range `start..end` (ends inclusive when start ≤ end).
+    Range {
+        start: Box<MirExpr>,
+        end: Box<MirExpr>,
+    },
+    /// Runtime/codegen primitive (CFG expansion of for-in, etc.).
+    PrimCall {
+        prim: MirPrim,
+        args: Vec<MirExpr>,
+    },
+    ListLit(Vec<MirExpr>),
+    /// UTF-8 string value (decoded contents; pure or rich without live names).
+    StringLit {
+        /// Decoded UTF-8 payload (no surrounding quotes).
+        bytes: Vec<u8>,
+    },
+    /// Bytes value from `b'…'` / `b"…"` (decoded payload; not a string).
+    BytesLit {
+        bytes: Vec<u8>,
+    },
+    /// Locator value from `p'…'` / `p"…"` (decoded UTF-8 path/URI text).
+    LocatorLit {
+        text: String,
+    },
+    /// Rich string with `{name}` interpolation parts.
+    StringInterp {
+        parts: Vec<StrPart>,
+    },
+    Index {
+        base: Box<MirExpr>,
+        index: Box<MirExpr>,
+    },
+    /// Struct literal (fields set by name at runtime).
+    /// `type_name` is the `% Shape` tag when non-empty; empty for anonymous.
+    StructLit {
+        type_name: String,
+        fields: Vec<(String, MirExpr)>,
+    },
+    /// Runtime type-tag test: `echo_runtime_struct_type_is(value, type_name)`.
+    StructTypeIs {
+        value: Box<MirExpr>,
+        type_name: String,
+    },
+    /// Value field read `base.field`.
+    FieldGet {
+        base: Box<MirExpr>,
+        field: String,
+    },
+    /// Native / ref → universal runtime Echo value (`i64` ABI bits).
+    BoxValue {
+        value: Box<MirExpr>,
+        from: MirRepr,
+    },
+    /// Universal runtime value → proven native / ref.
+    UnboxValue {
+        value: Box<MirExpr>,
+        to: MirRepr,
+    },
+}
+
+/// One piece of a rich interpolated string.
+#[derive(Debug, Clone)]
+pub enum StrPart {
+    Lit(Vec<u8>),
+    /// Local / const name evaluated as value then stringified.
+    Name(String),
+}
+
+#[derive(Debug)]
+pub struct LoweredProgram {
+    pub program: MirProgram,
+    pub diagnostics: Diagnostics,
+}
+
+/// One module's HIR plus import map (bind name → resolved path).
+pub struct ModuleLowerInput {
+    pub path: PathBuf,
+    pub hir: HirModule,
+    /// Analysis facts: struct typing, binds — MIR must not invent these.
+    pub semantic: SemanticModel,
+    /// Import bind name → **module root** (file or directory for folder modules).
+    pub imports: HashMap<String, PathBuf>,
+    /// Names listed in `\\ export` (for cross-module value getters only).
+    pub exports: Vec<String>,
+}
+
+/// Resolve an import target root + export name to the defining `.echo` file path.
+///
+/// Folder modules (`std/net/tcp/`) map the import to a directory; free functions
+/// live in a sibling file (e.g. `socket.echo`). Codegen mangles with the **file** path.
+fn resolve_export_file(
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    module_root: &Path,
+    name: &str,
+) -> PathBuf {
+    let root = module_root.to_path_buf();
+    if fn_shapes.contains_key(&(root.clone(), name.to_string())) {
+        return root;
+    }
+    let getter = value_getter_name(name);
+    if fn_shapes.contains_key(&(root.clone(), getter.clone())) {
+        return root;
+    }
+    // Folder module: shapes are keyed by each file path under the directory.
+    for (path, n) in fn_shapes.keys() {
+        if n != name && *n != getter {
+            continue;
+        }
+        if path == module_root
+            || path.parent() == Some(module_root)
+            || path.starts_with(module_root)
+        {
+            return path.clone();
+        }
+    }
+    root
+}
+
+/// Method resolution target after `%` / `@` merge.
+#[derive(Debug, Clone)]
+struct MethodTarget {
+    module: PathBuf,
+    mangled: String,
+    /// Method body only returns the receiver (`.`) — result keeps struct type.
+    returns_receiver: bool,
+    /// Named struct types of valued returns (monomorphic when len == 1).
+    returns_structs: Vec<String>,
+}
+
+/// Graph-wide method table after `%` / `@` merge:
+/// `struct_name` → `method_name` → target.
+///
+/// Built from every module’s HIR method extraction so calls in any file resolve
+/// methods contributed by `%` or `@` in any file of the closed graph.
+type GraphMethods = HashMap<String, HashMap<String, MethodTarget>>;
+
+/// Graph-wide data fields: `struct` → field → optional default HIR expr.
+type GraphFields = HashMap<String, HashMap<String, Option<echo_hir::HirExpr>>>;
+
+fn build_graph_methods(modules: &[ModuleLowerInput]) -> GraphMethods {
+    let mut out: GraphMethods = HashMap::new();
+    // Index method return facts by mangled name from HIR bodies.
+    let mut ret_recv: HashMap<(PathBuf, String), bool> = HashMap::new();
+    let mut ret_structs: HashMap<(PathBuf, String), Vec<String>> = HashMap::new();
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        for f in &m.hir.bodies {
+            if f.receiver_struct.is_some() {
+                ret_recv.insert((m.path.clone(), f.symbol.clone()), f.returns_receiver);
+                ret_structs.insert((m.path.clone(), f.symbol.clone()), f.returns_structs.clone());
+            }
+        }
+        for (struct_name, methods) in &m.hir.methods {
+            let slot = out.entry(struct_name.clone()).or_default();
+            for (method, fname) in methods {
+                // Resolver already errors on duplicate members; first definition wins.
+                slot.entry(method.clone()).or_insert_with(|| {
+                    let returns_receiver = ret_recv
+                        .get(&(m.path.clone(), fname.clone()))
+                        .copied()
+                        .unwrap_or(false);
+                    let returns_structs = ret_structs
+                        .get(&(m.path.clone(), fname.clone()))
+                        .cloned()
+                        .unwrap_or_default();
+                    MethodTarget {
+                        module: m.path.clone(),
+                        mangled: fname.clone(),
+                        returns_receiver,
+                        returns_structs,
+                    }
+                });
+            }
+        }
+    }
+    out
+}
+
+fn build_graph_fields(modules: &[ModuleLowerInput]) -> GraphFields {
+    let mut out: GraphFields = HashMap::new();
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        for (struct_name, fields) in &m.hir.struct_fields {
+            let slot = out.entry(struct_name.clone()).or_default();
+            for f in fields {
+                // First declaration wins (same as methods).
+                slot.entry(f.name.clone()).or_insert_with(|| f.default.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Lower a whole program (all modules with free functions).
+#[must_use]
+pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> LoweredProgram {
+    let mut diagnostics = Diagnostics::new();
+    let mut fn_shapes: HashMap<(PathBuf, String), MirRetShape> = HashMap::new();
+    let graph_methods = build_graph_methods(modules);
+    let graph_fields = build_graph_fields(modules);
+    let free_fn_param_structs = collect_free_fn_param_structs(modules, &graph_methods);
+
+    for m in modules {
+        for f in &m.hir.bodies {
+            fn_shapes.insert(
+                (m.path.clone(), f.symbol.clone()),
+                MirRetShape::from_return_shape(f.return_shape),
+            );
+        }
+    }
+
+    // Register synthetic value getters only for *exported* value binds
+    // (cross-module `module.name`). Non-exported top-level binds live only in
+    // `__toplevel` and must not get freestanding getters that re-eval them.
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        for stmt in &m.hir.entry {
+            if let HirStmt::Bind { name, .. } = stmt {
+                if m.exports.iter().any(|e| e == name) {
+                    fn_shapes.insert(
+                        (m.path.clone(), value_getter_name(name)),
+                        MirRetShape::Plain,
+                    );
+                }
+            }
+        }
+    }
+
+    let mut functions = Vec::new();
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        // File-level `#` constants (and other foldable top-level values for getters).
+        let mut const_env: HashMap<String, ConstValue> = HashMap::new();
+        for stmt in &m.hir.entry {
+            if let HirStmt::Bind {
+                leader: echo_ast::BindLeader::Hash,
+                name,
+                init: Some(init),
+                ..
+            } = stmt
+            {
+                if let Some(v) = fold_hir_const(init, &const_env) {
+                    const_env.insert(name.clone(), v);
+                }
+            }
+        }
+
+        for f in &m.hir.bodies {
+            let ret = MirRetShape::from_return_shape(f.return_shape);
+            // Seed only from analysis SemanticModel; flow-sensitive copies
+            // inside lower_* never invent struct names without a StructLit or
+            // a prior analysis-known name.
+            let mut type_env = struct_env_from_semantic(&m.semantic);
+            seed_fn_return_struct_types(&mut type_env, m, modules);
+            if let Some(st) = &f.receiver_struct {
+                type_env.insert(recv_param(), st.clone());
+            } else if let Some(param_tys) = free_fn_param_structs.get(&f.symbol) {
+                // Monomorphic free-fn params from call sites (named-struct only).
+                for (p, ty) in f.params.iter().zip(param_tys.iter()) {
+                    if let Some(st) = ty {
+                        type_env.insert(p.clone(), st.clone());
+                    }
+                }
+            }
+            let body = lower_block(
+                &f.body,
+                ret,
+                &m.path,
+                &m.imports,
+                &fn_shapes,
+                &const_env,
+                &graph_methods,
+                &graph_fields,
+                &mut type_env,
+                &mut diagnostics,
+            );
+            // Plain methods: fall-off returns the receiver (locked).
+            let fallthrough = if f.receiver_struct.is_some()
+                && matches!(f.return_shape, ReturnShape::Plain)
+            {
+                MirExpr::Name(RECV_PARAM.into())
+            } else {
+                MirExpr::ConstI64(0)
+            };
+            let (cfg, reprs, escapes) =
+                finish_cfg(body.clone(), ret, &f.params, fallthrough);
+            functions.push(MirFn {
+                module_path: m.path.clone(),
+                name: f.symbol.clone(),
+                params: f.params.clone(),
+                body,
+                cfg,
+                reprs,
+                escapes,
+                ret,
+            });
+        }
+        // Exported value binds → zero-arg getters for `module.name` field access.
+        for stmt in &m.hir.entry {
+            if let HirStmt::Bind {
+                leader, name, init, ..
+            } = stmt
+            {
+                if !m.exports.iter().any(|e| e == name) {
+                    continue;
+                }
+                let getter = value_getter_name(name);
+                let mut type_env: HashMap<String, String> = HashMap::new();
+                let value = if *leader == echo_ast::BindLeader::Hash {
+                    if let Some(v) = const_env.get(name) {
+                        const_to_mir(v)
+                    } else if let Some(e) = init {
+                        match lower_expr(
+                            e,
+                            &m.path,
+                            &m.imports,
+                            &fn_shapes,
+                            &const_env,
+                            &graph_methods,
+                            &graph_fields,
+                            &mut type_env,
+                            &mut diagnostics,
+                        ) {
+                            Some(v) => v,
+                            None => continue,
+                        }
+                    } else {
+                        MirExpr::ConstI64(0)
+                    }
+                } else {
+                    match init {
+                        Some(e) => match lower_expr(
+                            e,
+                            &m.path,
+                            &m.imports,
+                            &fn_shapes,
+                            &const_env,
+                            &graph_methods,
+                            &graph_fields,
+                            &mut type_env,
+                            &mut diagnostics,
+                        ) {
+                            Some(v) => v,
+                            None => continue,
+                        },
+                        None => MirExpr::ConstI64(0),
+                    }
+                };
+                let body = vec![MirStmt::ReturnOk(value)];
+                let (cfg, reprs, escapes) =
+                    finish_cfg(body.clone(), MirRetShape::Plain, &[], MirExpr::ConstI64(0));
+                functions.push(MirFn {
+                    module_path: m.path.clone(),
+                    name: getter,
+                    params: vec![],
+                    body,
+                    cfg,
+                    reprs,
+                    escapes,
+                    ret: MirRetShape::Plain,
+                });
+            }
+        }
+        // Entry file: top-level sequence in order (binds, calls, control).
+        // Closed bodies live in `hir.bodies`; FnRef binds are language names only.
+        if m.path == entry_path {
+            let top: Vec<HirStmt> = m
+                .hir
+                .entry
+                .iter()
+                .filter(|s| match s {
+                    HirStmt::Unsupported { message, .. } if message.is_empty() => false,
+                    _ => true,
+                })
+                .cloned()
+                .collect();
+            if !top.is_empty() {
+                let mut type_env = struct_env_from_semantic(&m.semantic);
+                seed_fn_return_struct_types(&mut type_env, m, modules);
+                let body = lower_block(
+                    &top,
+                    MirRetShape::Plain,
+                    &m.path,
+                    &m.imports,
+                    &fn_shapes,
+                    &const_env,
+                    &graph_methods,
+                    &graph_fields,
+                    &mut type_env,
+                    &mut diagnostics,
+                );
+                if !body.is_empty() {
+                    let (cfg, reprs, escapes) = finish_cfg(
+                        body.clone(),
+                        MirRetShape::Plain,
+                        &[],
+                        MirExpr::ConstI64(0),
+                    );
+                    functions.push(MirFn {
+                        module_path: m.path.clone(),
+                        name: "__toplevel".into(),
+                        params: vec![],
+                        body,
+                        cfg,
+                        reprs,
+                        escapes,
+                        ret: MirRetShape::Plain,
+                    });
+                }
+            }
+        }
+    }
+
+    LoweredProgram {
+        program: MirProgram {
+            functions,
+            entry_path,
+        },
+        diagnostics,
+    }
+}
+
+fn recv_param() -> String {
+    RECV_PARAM.into()
+}
+
+/// structured MIR → CFG → SSA → repr → simplify → escape → simplify → LLVM.
+///
+/// Echo-specific residual work only (representation + NoEscape box elision).
+/// Generic mid-end (constprop, GVN, LICM, IV, BCE, …) is LLVM’s job
+/// (see `docs/mir.md`).
+fn finish_cfg(
+    body: Vec<MirStmt>,
+    ret: MirRetShape,
+    params: &[String],
+    fallthrough: MirExpr,
+) -> (
+    MirCfg,
+    HashMap<String, MirRepr>,
+    HashMap<String, EscapeClass>,
+) {
+    let cfg = structured_to_cfg_with_fallthrough(&body, ret, fallthrough);
+    let cfg = construct_ssa(cfg, params);
+    let (cfg, reprs) = analyze_reprs(cfg, params);
+    let (cfg, reprs) = simplify_local(cfg, reprs);
+    let (cfg, reprs, escapes) = analyze_escapes(cfg, reprs);
+    let (cfg, reprs) = simplify_local(cfg, reprs);
+    (cfg, reprs, escapes)
+}
+
+/// Projection of analysis `value_struct` facts for method/receiver lowering.
+/// MIR must not invent struct names outside flow of StructLit / copy from known names.
+fn struct_env_from_semantic(semantic: &SemanticModel) -> HashMap<String, String> {
+    semantic.value_struct.clone()
+}
+
+/// Free-fn body symbol → per-param monomorphic named-struct type (when unique).
+///
+/// Built from call sites across the graph so `use_box(c)` seeds param `c` as
+/// `% box` for method resolve inside the free-fn body (docs/stdlib.md).
+type FreeFnParamStructs = HashMap<String, Vec<Option<String>>>;
+
+/// Collect monomorphic free-fn param struct types from call sites (fixpoint).
+fn collect_free_fn_param_structs(
+    modules: &[ModuleLowerInput],
+    methods: &GraphMethods,
+) -> FreeFnParamStructs {
+    // Free-fn body symbols and arities (exclude methods).
+    let mut free_arity: HashMap<String, usize> = HashMap::new();
+    // Bind name → free-fn body symbol (same-module `$ f = (params) { }`).
+    let mut bind_to_fn: HashMap<(PathBuf, String), String> = HashMap::new();
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        for f in &m.hir.bodies {
+            if f.receiver_struct.is_none() {
+                free_arity.insert(f.symbol.clone(), f.params.len());
+            }
+        }
+        for stmt in &m.hir.entry {
+            if let HirStmt::Bind {
+                name,
+                init: Some(e),
+                ..
+            } = stmt
+            {
+                if let HirExprKind::FnRef { symbol } = &e.kind {
+                    bind_to_fn.insert((m.path.clone(), name.clone()), symbol.clone());
+                }
+            }
+        }
+    }
+
+    // Candidates: fn_symbol → param_i → set of struct names seen at call sites.
+    let mut candidates: HashMap<String, Vec<HashSet<String>>> = HashMap::new();
+    for (sym, &arity) in &free_arity {
+        candidates.insert(sym.clone(), vec![HashSet::new(); arity]);
+    }
+
+    // Resolve call target symbol to free-fn body id.
+    let resolve_callee =
+        |module_path: &Path, symbol: &str, type_env: &HashMap<String, String>| -> Option<String> {
+            if free_arity.contains_key(symbol) {
+                return Some(symbol.to_string());
+            }
+            if let Some(s) = bind_to_fn.get(&(module_path.to_path_buf(), symbol.to_string())) {
+                return Some(s.clone());
+            }
+            // Local bind typed as holding a function: use bind_to_fn via name only if unique.
+            let _ = type_env;
+            None
+        };
+
+    // Record arg struct types for a free-fn call.
+    let record_call = |candidates: &mut HashMap<String, Vec<HashSet<String>>>,
+                       fn_sym: &str,
+                       args: &[HirExpr],
+                       type_env: &HashMap<String, String>| {
+        let Some(slots) = candidates.get_mut(fn_sym) else {
+            return;
+        };
+        for (i, arg) in args.iter().enumerate() {
+            if i >= slots.len() {
+                break;
+            }
+            if let Some(st) = struct_type_of_expr(arg, methods, type_env) {
+                slots[i].insert(st);
+            }
+        }
+    };
+
+    // Fixpoint: seed envs from semantic + known monomorphic params; walk all bodies/entry.
+    for _ in 0..8 {
+        let mut monomorphic: FreeFnParamStructs = HashMap::new();
+        for (sym, slots) in &candidates {
+            let mapped: Vec<Option<String>> = slots
+                .iter()
+                .map(|set| {
+                    if set.len() == 1 {
+                        set.iter().next().cloned()
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            monomorphic.insert(sym.clone(), mapped);
+        }
+
+        let before = format!("{candidates:?}");
+
+        for m in modules {
+            if is_runtime_module_path(&m.path) {
+                continue;
+            }
+            // Top-level / entry: semantic env + return seeds + sequential bind flow
+            // so `$ s = lis.accept(); drain(s)` sees `s` as `% conn`.
+            let mut type_env = struct_env_from_semantic(&m.semantic);
+            seed_fn_return_struct_types(&mut type_env, m, modules);
+            seed_local_struct_flow(&m.hir.entry, methods, &mut type_env);
+            collect_calls_in_stmts(
+                &m.hir.entry,
+                &m.path,
+                &type_env,
+                methods,
+                &resolve_callee,
+                &mut candidates,
+                record_call,
+            );
+
+            // Free-fn and method bodies.
+            for f in &m.hir.bodies {
+                let mut env = struct_env_from_semantic(&m.semantic);
+                seed_fn_return_struct_types(&mut env, m, modules);
+                if let Some(st) = &f.receiver_struct {
+                    env.insert(recv_param(), st.clone());
+                } else if let Some(param_tys) = monomorphic.get(&f.symbol) {
+                    for (p, ty) in f.params.iter().zip(param_tys.iter()) {
+                        if let Some(st) = ty {
+                            env.insert(p.clone(), st.clone());
+                        }
+                    }
+                }
+                // Flow assigns inside the body for nested calls (light pass).
+                seed_local_struct_flow(&f.body, methods, &mut env);
+                collect_calls_in_stmts(
+                    &f.body,
+                    &m.path,
+                    &env,
+                    methods,
+                    &resolve_callee,
+                    &mut candidates,
+                    record_call,
+                );
+            }
+        }
+
+        let after = format!("{candidates:?}");
+        if before == after {
+            break;
+        }
+    }
+
+    let mut out = FreeFnParamStructs::new();
+    for (sym, slots) in candidates {
+        let mapped: Vec<Option<String>> = slots
+            .iter()
+            .map(|set| {
+                if set.len() == 1 {
+                    set.iter().next().cloned()
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if mapped.iter().any(|t| t.is_some()) {
+            out.insert(sym, mapped);
+        }
+    }
+    out
+}
+
+/// Light bind/assign flow so nested free-fn calls see local struct types.
+fn seed_local_struct_flow(
+    stmts: &[HirStmt],
+    methods: &GraphMethods,
+    type_env: &mut HashMap<String, String>,
+) {
+    for s in stmts {
+        match s {
+            HirStmt::Bind {
+                name,
+                init: Some(e),
+                ..
+            }
+            | HirStmt::Assign {
+                name,
+                value: e,
+                ..
+            } => {
+                propagate_struct_type(name, e, methods, type_env);
+            }
+            HirStmt::If { arms, else_body, .. } => {
+                for (_, body) in arms {
+                    seed_local_struct_flow(body, methods, type_env);
+                }
+                if let Some(b) = else_body {
+                    seed_local_struct_flow(b, methods, type_env);
+                }
+            }
+            HirStmt::Match { arms, .. } => {
+                for arm in arms {
+                    match arm {
+                        HirMatchArm::Values { body, .. }
+                        | HirMatchArm::Default { body }
+                        | HirMatchArm::Type { body, .. }
+                        | HirMatchArm::Ok { body, .. }
+                        | HirMatchArm::Err { body, .. } => {
+                            seed_local_struct_flow(body, methods, type_env);
+                        }
+                    }
+                }
+            }
+            HirStmt::Loop { body, .. } => seed_local_struct_flow(body, methods, type_env),
+            _ => {}
+        }
+    }
+}
+
+fn collect_calls_in_stmts(
+    stmts: &[HirStmt],
+    module_path: &Path,
+    type_env: &HashMap<String, String>,
+    methods: &GraphMethods,
+    resolve_callee: &dyn Fn(&Path, &str, &HashMap<String, String>) -> Option<String>,
+    candidates: &mut HashMap<String, Vec<HashSet<String>>>,
+    record_call: impl Fn(
+            &mut HashMap<String, Vec<HashSet<String>>>,
+            &str,
+            &[HirExpr],
+            &HashMap<String, String>,
+        ) + Copy,
+) {
+    for s in stmts {
+        match s {
+            HirStmt::Bind {
+                init: Some(e), ..
+            }
+            | HirStmt::Assign { value: e, .. }
+            | HirStmt::Expr(e)
+            | HirStmt::Return {
+                value: Some(e), ..
+            }
+            | HirStmt::ErrorReturn { value: e, .. } => {
+                collect_calls_in_expr(
+                    e,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+            HirStmt::FieldAssign { base, value, .. } => {
+                collect_calls_in_expr(
+                    base,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+                collect_calls_in_expr(
+                    value,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+            HirStmt::IndexAssign {
+                base,
+                index,
+                value,
+                ..
+            } => {
+                collect_calls_in_expr(
+                    base,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+                collect_calls_in_expr(
+                    index,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+                collect_calls_in_expr(
+                    value,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+            HirStmt::If { arms, else_body, .. } => {
+                for (cond, body) in arms {
+                    collect_calls_in_expr(
+                        cond,
+                        module_path,
+                        type_env,
+                        methods,
+                        resolve_callee,
+                        candidates,
+                        record_call,
+                    );
+                    collect_calls_in_stmts(
+                        body,
+                        module_path,
+                        type_env,
+                        methods,
+                        resolve_callee,
+                        candidates,
+                        record_call,
+                    );
+                }
+                if let Some(b) = else_body {
+                    collect_calls_in_stmts(
+                        b,
+                        module_path,
+                        type_env,
+                        methods,
+                        resolve_callee,
+                        candidates,
+                        record_call,
+                    );
+                }
+            }
+            HirStmt::Match { scrutinee, arms, .. } => {
+                collect_calls_in_expr(
+                    scrutinee,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+                for arm in arms {
+                    match arm {
+                        HirMatchArm::Values { body, .. }
+                        | HirMatchArm::Default { body }
+                        | HirMatchArm::Type { body, .. }
+                        | HirMatchArm::Ok { body, .. }
+                        | HirMatchArm::Err { body, .. } => {
+                            collect_calls_in_stmts(
+                                body,
+                                module_path,
+                                type_env,
+                                methods,
+                                resolve_callee,
+                                candidates,
+                                record_call,
+                            );
+                        }
+                    }
+                }
+            }
+            HirStmt::Loop { kind, body, .. } => {
+                match kind {
+                    HirLoopKind::While(c) => {
+                        collect_calls_in_expr(
+                            c,
+                            module_path,
+                            type_env,
+                            methods,
+                            resolve_callee,
+                            candidates,
+                            record_call,
+                        );
+                    }
+                    HirLoopKind::For { iter, .. } => {
+                        collect_calls_in_expr(
+                            iter,
+                            module_path,
+                            type_env,
+                            methods,
+                            resolve_callee,
+                            candidates,
+                            record_call,
+                        );
+                    }
+                    HirLoopKind::Infinite => {}
+                }
+                collect_calls_in_stmts(
+                    body,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+            HirStmt::TaskSpawnFn { fn_symbol, args, .. } => {
+                if let Some(sym) = resolve_callee(module_path, fn_symbol, type_env) {
+                    record_call(candidates, &sym, args, type_env);
+                }
+                for a in args {
+                    collect_calls_in_expr(
+                        a,
+                        module_path,
+                        type_env,
+                        methods,
+                        resolve_callee,
+                        candidates,
+                        record_call,
+                    );
+                }
+            }
+            HirStmt::TaskJoin {
+                handle: Some(h), ..
+            } => {
+                collect_calls_in_expr(
+                    h,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_calls_in_expr(
+    e: &HirExpr,
+    module_path: &Path,
+    type_env: &HashMap<String, String>,
+    methods: &GraphMethods,
+    resolve_callee: &dyn Fn(&Path, &str, &HashMap<String, String>) -> Option<String>,
+    candidates: &mut HashMap<String, Vec<HashSet<String>>>,
+    record_call: impl Fn(
+            &mut HashMap<String, Vec<HashSet<String>>>,
+            &str,
+            &[HirExpr],
+            &HashMap<String, String>,
+        ) + Copy,
+) {
+    match &e.kind {
+        HirExprKind::Call { symbol, args } => {
+            if let Some(sym) = resolve_callee(module_path, symbol, type_env) {
+                record_call(candidates, &sym, args, type_env);
+            }
+            for a in args {
+                collect_calls_in_expr(
+                    a,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+        }
+        HirExprKind::ModuleCall { name, args, .. } => {
+            // Imported free fn: name is export symbol.
+            if let Some(sym) = resolve_callee(module_path, name, type_env) {
+                record_call(candidates, &sym, args, type_env);
+            } else {
+                // Export name may equal body symbol directly.
+                record_call(candidates, name, args, type_env);
+            }
+            for a in args {
+                collect_calls_in_expr(
+                    a,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+        }
+        HirExprKind::MethodCall {
+            receiver, args, ..
+        } => {
+            collect_calls_in_expr(
+                receiver,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+            for a in args {
+                collect_calls_in_expr(
+                    a,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+        }
+        HirExprKind::CallValue { callee, args } => {
+            collect_calls_in_expr(
+                callee,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+            for a in args {
+                collect_calls_in_expr(
+                    a,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+        }
+        HirExprKind::Binary { left, right, .. }
+        | HirExprKind::Range { start: left, end: right, .. } => {
+            collect_calls_in_expr(
+                left,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+            collect_calls_in_expr(
+                right,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+        }
+        HirExprKind::Unary { expr, .. } | HirExprKind::Group(expr) => {
+            collect_calls_in_expr(
+                expr,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+        }
+        HirExprKind::Field { base, .. } => {
+            collect_calls_in_expr(
+                base,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+        }
+        HirExprKind::Index { base, index } => {
+            collect_calls_in_expr(
+                base,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+            collect_calls_in_expr(
+                index,
+                module_path,
+                type_env,
+                methods,
+                resolve_callee,
+                candidates,
+                record_call,
+            );
+        }
+        HirExprKind::List(items) => {
+            for it in items {
+                collect_calls_in_expr(
+                    it,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+        }
+        HirExprKind::StructLit { fields, .. } => {
+            for (_, v) in fields {
+                collect_calls_in_expr(
+                    v,
+                    module_path,
+                    type_env,
+                    methods,
+                    resolve_callee,
+                    candidates,
+                    record_call,
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Resolve the `%` struct type of a HIR expression when known (for method dispatch).
+fn struct_type_of_expr(
+    e: &HirExpr,
+    methods: &GraphMethods,
+    type_env: &HashMap<String, String>,
+) -> Option<String> {
+    match &e.kind {
+        HirExprKind::Name(n) => type_env.get(n).cloned(),
+        HirExprKind::MethodCall {
+            receiver, method, ..
+        } => {
+            let st = struct_type_of_expr(receiver, methods, type_env)?;
+            let target = methods.get(&st).and_then(|m| m.get(method))?;
+            if target.returns_receiver {
+                Some(st)
+            } else if target.returns_structs.len() == 1 {
+                Some(target.returns_structs[0].clone())
+            } else {
+                None
+            }
+        }
+        // Free / nested function call (symbol is linkage or bind name).
+        HirExprKind::Call { symbol, .. } => type_env.get(&format!("__fnret_{symbol}")).cloned(),
+        HirExprKind::ModuleCall { module, name, .. } => type_env
+            .get(&format!("__fnret_{module}.{name}"))
+            .cloned()
+            .or_else(|| type_env.get(&format!("__fnret_{name}")).cloned()),
+        HirExprKind::CallValue { callee, .. } => {
+            // Call through a function value — type usually unknown.
+            let _ = callee;
+            None
+        }
+        HirExprKind::Group(inner) => struct_type_of_expr(inner, methods, type_env),
+        HirExprKind::StructLit { name, .. } if !name.is_empty() => Some(name.clone()),
+        _ => None,
+    }
+}
+
+/// Seed free-function return-struct facts for method typing after calls.
+fn seed_fn_return_struct_types(
+    type_env: &mut HashMap<String, String>,
+    module: &ModuleLowerInput,
+    all: &[ModuleLowerInput],
+) {
+    for f in &module.hir.bodies {
+        // Monomorphic only: multi-type (union) returns refine via `%` match arms.
+        if f.returns_structs.len() == 1 {
+            type_env.insert(
+                format!("__fnret_{}", f.symbol),
+                f.returns_structs[0].clone(),
+            );
+        }
+    }
+    // Local bind names that hold FnRef often match the body symbol for top-level frees.
+    for stmt in &module.hir.entry {
+        if let HirStmt::Bind {
+            name,
+            init: Some(e),
+            ..
+        } = stmt
+        {
+            if let HirExprKind::FnRef { symbol } = &e.kind {
+                if let Some(st) = type_env.get(&format!("__fnret_{symbol}")).cloned() {
+                    type_env.insert(format!("__fnret_{name}"), st);
+                }
+            }
+        }
+    }
+    for (import_name, root) in &module.imports {
+        for dep in all.iter().filter(|m| {
+            &m.path == root
+                || m.path.parent() == Some(root.as_path())
+                || m.path.starts_with(root)
+        }) {
+            for f in &dep.hir.bodies {
+                if f.returns_structs.len() == 1 {
+                    let st = &f.returns_structs[0];
+                    // Prefer export names: top-level free fns use symbol == bind name.
+                    if dep.exports.iter().any(|e| e == &f.symbol) {
+                        type_env.insert(
+                            format!("__fnret_{import_name}.{}", f.symbol),
+                            st.clone(),
+                        );
+                        type_env.insert(format!("__fnret_{}", f.symbol), st.clone());
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// After `Set`/`Assign`, keep method-bearing struct types flowing through locals.
+fn propagate_struct_type(
+    dest: &str,
+    value: &HirExpr,
+    methods: &GraphMethods,
+    type_env: &mut HashMap<String, String>,
+) {
+    if let Some(st) = struct_type_of_expr(value, methods, type_env) {
+        type_env.insert(dest.to_string(), st);
+    }
+    // Homogeneous list of named structs → element type for index / for-in.
+    if let HirExprKind::List(items) = &value.kind {
+        let mut elem: Option<String> = None;
+        for it in items {
+            match struct_type_of_expr(it, methods, type_env) {
+                Some(st) if elem.as_ref().is_none_or(|e| e == &st) => elem = Some(st),
+                _ => {
+                    elem = None;
+                    break;
+                }
+            }
+        }
+        if let Some(st) = elem {
+            type_env.insert(format!("__elem_{dest}"), st);
+        }
+    }
+    // `xs[i]` → element type of `xs` when known.
+    if let HirExprKind::Index { base, .. } = &value.kind {
+        if let HirExprKind::Name(bn) = &base.kind {
+            if let Some(st) = type_env.get(&format!("__elem_{bn}")).cloned() {
+                type_env.insert(dest.to_string(), st);
+            }
+        }
+    }
+    // Copy list element fact when assigning a list name: `$ ys = xs`.
+    if let HirExprKind::Name(src) = &value.kind {
+        if let Some(st) = type_env.get(&format!("__elem_{src}")).cloned() {
+            type_env.insert(format!("__elem_{dest}"), st);
+        }
+    }
+}
+
+fn lower_block(
+    stmts: &[HirStmt],
+    fn_ret: MirRetShape,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+) -> Vec<MirStmt> {
+    stmts
+        .iter()
+        .filter_map(|s| {
+            lower_stmt(
+                s,
+                fn_ret,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )
+        })
+        .collect()
+}
+
+fn lower_stmt(
+    s: &HirStmt,
+    fn_ret: MirRetShape,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+) -> Option<MirStmt> {
+    match s {
+        HirStmt::Bind {
+            leader: _,
+            name,
+            init,
+            ..
+        } => {
+            let value = match init {
+                Some(e) => lower_expr(
+                    e,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?,
+                None => MirExpr::ConstI64(0),
+            };
+            // Propagate analysis-known named struct types through locals (handles are by-ref).
+            // Empty name is a structural `{}` product — not a method-bearing type.
+            if let Some(e) = init {
+                propagate_struct_type(name, e, methods, type_env);
+            }
+            Some(MirStmt::Set {
+                name: name.clone(),
+                value,
+            })
+        }
+        HirStmt::Assign { name, value, .. } => {
+            let hir_value = value;
+            let value = lower_expr(
+                hir_value,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?;
+            propagate_struct_type(name, hir_value, methods, type_env);
+            Some(MirStmt::Set {
+                name: name.clone(),
+                value,
+            })
+        }
+        HirStmt::FieldAssign {
+            base, field, value, ..
+        } => Some(MirStmt::FieldSet {
+            base: lower_expr(
+                base,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?,
+            field: field.clone(),
+            value: lower_expr(
+                value,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?,
+        }),
+        HirStmt::IndexAssign {
+            base,
+            index,
+            value,
+            ..
+        } => Some(MirStmt::IndexSet {
+            base: lower_expr(
+                base,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?,
+            index: lower_expr(
+                index,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?,
+            value: lower_expr(
+                value,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?,
+        }),
+        HirStmt::Return { value: v, .. } => match (fn_ret, v) {
+            (MirRetShape::Option, None) => Some(MirStmt::ReturnNone),
+            (MirRetShape::Result | MirRetShape::Option, Some(e)) => {
+                Some(MirStmt::ReturnOk(lower_expr(
+                    e,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?))
+            }
+            (MirRetShape::Plain, Some(e)) => Some(MirStmt::ReturnOk(lower_expr(
+                e,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?)),
+            (MirRetShape::Plain, None) | (MirRetShape::Result, None) => {
+                Some(MirStmt::ReturnOk(MirExpr::ConstI64(0)))
+            }
+        },
+        HirStmt::ErrorReturn { value: e, .. } => Some(MirStmt::ReturnErr(lower_expr(
+            e,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            type_env,
+            diags,
+        )?)),
+        HirStmt::If {
+            arms, else_body, ..
+        } => {
+            let mut mir_arms = Vec::new();
+            for (c, body) in arms {
+                mir_arms.push((
+                    lower_expr(
+                        c,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?,
+                    lower_block(
+                        body,
+                        fn_ret,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    ),
+                ));
+            }
+            let else_body = else_body.as_ref().map(|b| {
+                lower_block(
+                    b,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )
+            });
+            Some(MirStmt::If {
+                arms: mir_arms,
+                else_body,
+            })
+        }
+        HirStmt::Match {
+            scrutinee, arms, ..
+        } => lower_match(
+            scrutinee,
+            arms,
+            fn_ret,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            type_env,
+            diags,
+        ),
+        HirStmt::Loop { kind, body, .. } => {
+            // For-in: bind item to list element struct type when known.
+            if let HirLoopKind::For { item, iter } = kind {
+                if let HirExprKind::Name(bn) = &iter.kind {
+                    if let Some(st) = type_env.get(&format!("__elem_{bn}")).cloned() {
+                        type_env.insert(item.clone(), st);
+                    }
+                } else if let HirExprKind::List(items) = &iter.kind {
+                    // inline list: same as propagate
+                    let mut elem: Option<String> = None;
+                    for it in items {
+                        match struct_type_of_expr(it, methods, type_env) {
+                            Some(st) if elem.as_ref().is_none_or(|e| e == &st) => elem = Some(st),
+                            _ => {
+                                elem = None;
+                                break;
+                            }
+                        }
+                    }
+                    if let Some(st) = elem {
+                        type_env.insert(item.clone(), st);
+                    }
+                }
+            }
+            let body = lower_block(
+                body,
+                fn_ret,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            );
+            match kind {
+                HirLoopKind::Infinite => Some(MirStmt::Loop { cond: None, body }),
+                HirLoopKind::While(c) => Some(MirStmt::Loop {
+                    cond: Some(lower_expr(
+                        c,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?),
+                    body,
+                }),
+                HirLoopKind::For { item, iter } => Some(MirStmt::ForIn {
+                    item: item.clone(),
+                    iter: lower_expr(
+                        iter,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?,
+                    body,
+                }),
+            }
+        }
+        HirStmt::Break { .. } => Some(MirStmt::Break),
+        HirStmt::Continue { .. } => Some(MirStmt::Continue),
+        HirStmt::TaskSpawn {
+            body_symbol,
+            bind,
+            ..
+        } => Some(MirStmt::TaskSpawn {
+            module_path: module_path.to_path_buf(),
+            body_symbol: body_symbol.clone(),
+            bind: bind.clone(),
+        }),
+        HirStmt::TaskSpawnFn {
+            fn_symbol,
+            args,
+            bind,
+            ..
+        } => {
+            let mir_args: Vec<MirExpr> = args
+                .iter()
+                .filter_map(|a| {
+                    lower_expr(
+                        a,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )
+                })
+                .collect();
+            if mir_args.len() != args.len() {
+                return None;
+            }
+            Some(MirStmt::TaskSpawnFn {
+                module_path: module_path.to_path_buf(),
+                fn_symbol: fn_symbol.clone(),
+                args: mir_args,
+                bind: bind.clone(),
+            })
+        }
+        HirStmt::TaskJoin {
+            body_symbol,
+            handle,
+            bind,
+            ..
+        } => Some(MirStmt::TaskJoin {
+            module_path: module_path.to_path_buf(),
+            body_symbol: body_symbol.clone(),
+            handle: handle.as_ref().and_then(|h| {
+                lower_expr(
+                    h,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )
+            }),
+            bind: bind.clone(),
+        }),
+        HirStmt::Expr(e) => Some(MirStmt::Eval(lower_expr(
+            e,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            type_env,
+            diags,
+        )?)),
+        HirStmt::Unsupported { message, span, .. } => {
+            if message.is_empty() {
+                return None;
+            }
+            diags.push(
+                Diagnostic::error(message.clone())
+                    .with_code("cg-unsupported")
+                    .with_span(*span),
+            );
+            None
+        }
+    }
+}
+
+fn lower_match(
+    scrutinee: &HirExpr,
+    arms: &[HirMatchArm],
+    fn_ret: MirRetShape,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+) -> Option<MirStmt> {
+    let has_values = arms
+        .iter()
+        .any(|a| matches!(a, HirMatchArm::Values { .. }));
+    let has_type = arms
+        .iter()
+        .any(|a| matches!(a, HirMatchArm::Type { .. }));
+    let has_result_option = arms
+        .iter()
+        .any(|a| matches!(a, HirMatchArm::Ok { .. } | HirMatchArm::Err { .. }));
+
+    if (has_values || has_type) && has_result_option {
+        diags.push(
+            Diagnostic::error(
+                "cannot mix value/`% type` match arms with result/option `$` / `!` arms",
+            )
+            .with_code("cg-match"),
+        );
+        return None;
+    }
+
+    // Ordinary match: lower to if/else chain (`scrutinee == v1 || …` / type_is).
+    if has_values
+        || has_type
+        || (!has_result_option
+            && arms
+                .iter()
+                .any(|a| matches!(a, HirMatchArm::Default { .. })))
+    {
+        return lower_value_match(
+            scrutinee,
+            arms,
+            fn_ret,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            type_env,
+            diags,
+        );
+    }
+
+    let mut ok_name = None;
+    let mut ok_body = Vec::new();
+    let mut err_name = None;
+    let mut err_body = Vec::new();
+    let mut has_tagged = false;
+
+    for arm in arms {
+        match arm {
+            HirMatchArm::Ok { name, body } => {
+                has_tagged = true;
+                ok_name = Some(name.clone());
+                ok_body = lower_block(
+                    body,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                );
+            }
+            HirMatchArm::Err { name, body } => {
+                has_tagged = true;
+                err_name = Some(name.clone());
+                err_body = lower_block(
+                    body,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                );
+            }
+            HirMatchArm::Default { body } => {
+                has_tagged = true;
+                err_name = None;
+                err_body = lower_block(
+                    body,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                );
+            }
+            HirMatchArm::Values { .. } | HirMatchArm::Type { .. } => {
+                unreachable!("handled above")
+            }
+        }
+    }
+
+    if !has_tagged {
+        diags.push(
+            Diagnostic::error("empty match not supported in codegen v1")
+                .with_code("cg-unsupported"),
+        );
+        return None;
+    }
+
+    Some(MirStmt::MatchTagged {
+        scrutinee: lower_expr(
+            scrutinee,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            type_env,
+            diags,
+        )?,
+        ok_name,
+        ok_body,
+        err_name,
+        err_body,
+    })
+}
+
+/// `| scrut { v1, v2 { … } … : { … } }` → if/else with `==` / `||` tests.
+fn lower_value_match(
+    scrutinee: &HirExpr,
+    arms: &[HirMatchArm],
+    fn_ret: MirRetShape,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+) -> Option<MirStmt> {
+    let scrut = lower_expr(
+        scrutinee,
+        module_path,
+        imports,
+        fn_shapes,
+        const_env,
+        methods,
+        fields,
+        type_env,
+        diags,
+    )?;
+    let mut if_arms: Vec<(MirExpr, Vec<MirStmt>)> = Vec::new();
+    let mut else_body: Option<Vec<MirStmt>> = None;
+
+    for arm in arms {
+        match arm {
+            HirMatchArm::Values { pats, body } => {
+                if pats.is_empty() {
+                    diags.push(
+                        Diagnostic::error("value match arm needs at least one expression")
+                            .with_code("cg-match"),
+                    );
+                    return None;
+                }
+                let mut eqs = Vec::new();
+                for pat in pats {
+                    // Syntactic `lo..hi` in an arm: membership (inclusive).
+                    if let HirExprKind::Range { start, end } = &pat.kind {
+                        let lo = lower_expr(
+                            start,
+                            module_path,
+                            imports,
+                            fn_shapes,
+                            const_env,
+                            methods,
+                            fields,
+                            type_env,
+                            diags,
+                        )?;
+                        let hi = lower_expr(
+                            end,
+                            module_path,
+                            imports,
+                            fn_shapes,
+                            const_env,
+                            methods,
+                            fields,
+                            type_env,
+                            diags,
+                        )?;
+                        let ge = MirExpr::Binary {
+                            op: BinaryOp::GtEq,
+                            left: Box::new(scrut.clone()),
+                            right: Box::new(lo),
+                        };
+                        let le = MirExpr::Binary {
+                            op: BinaryOp::LtEq,
+                            left: Box::new(scrut.clone()),
+                            right: Box::new(hi),
+                        };
+                        eqs.push(MirExpr::Binary {
+                            op: BinaryOp::And,
+                            left: Box::new(ge),
+                            right: Box::new(le),
+                        });
+                        continue;
+                    }
+                    let pat_e = lower_expr(
+                        pat,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?;
+                    eqs.push(MirExpr::Binary {
+                        op: BinaryOp::Eq,
+                        left: Box::new(scrut.clone()),
+                        right: Box::new(pat_e),
+                    });
+                }
+                let mut cond = eqs.remove(0);
+                for eq in eqs {
+                    cond = MirExpr::Binary {
+                        op: BinaryOp::Or,
+                        left: Box::new(cond),
+                        right: Box::new(eq),
+                    };
+                }
+                let body = lower_block(
+                    body,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                );
+                if_arms.push((cond, body));
+            }
+            HirMatchArm::Type { name, body } => {
+                let cond = MirExpr::StructTypeIs {
+                    value: Box::new(scrut.clone()),
+                    type_name: name.clone(),
+                };
+                // Refine scrutinee name to this type for field/method flow in the arm.
+                let refine = match &scrutinee.kind {
+                    HirExprKind::Name(n) => Some(n.clone()),
+                    _ => None,
+                };
+                let saved = refine.as_ref().and_then(|n| {
+                    let prev = type_env.insert(n.clone(), name.clone());
+                    Some((n.clone(), prev))
+                });
+                let body = lower_block(
+                    body,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                );
+                if let Some((n, prev)) = saved {
+                    match prev {
+                        Some(p) => {
+                            type_env.insert(n, p);
+                        }
+                        None => {
+                            type_env.remove(&n);
+                        }
+                    }
+                }
+                if_arms.push((cond, body));
+            }
+            HirMatchArm::Default { body } => {
+                else_body = Some(lower_block(
+                    body,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                ));
+            }
+            HirMatchArm::Ok { .. } | HirMatchArm::Err { .. } => {
+                diags.push(
+                    Diagnostic::error("internal: tagged arm in value match")
+                        .with_code("cg-match"),
+                );
+                return None;
+            }
+        }
+    }
+
+    if if_arms.is_empty() && else_body.is_none() {
+        diags.push(
+            Diagnostic::error("empty match not supported in codegen v1")
+                .with_code("cg-unsupported"),
+        );
+        return None;
+    }
+
+    // Only default: treat as unconditional else body via a true if.
+    if if_arms.is_empty() {
+        if_arms.push((MirExpr::ConstI64(1), else_body.take().unwrap_or_default()));
+        else_body = None;
+    }
+
+    Some(MirStmt::If {
+        arms: if_arms,
+        else_body,
+    })
+}
+
+fn lower_expr(
+    e: &HirExpr,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+) -> Option<MirExpr> {
+    match &e.kind {
+        HirExprKind::Name(n) => {
+            if let Some(v) = const_env.get(n) {
+                return Some(const_to_mir(v));
+            }
+            Some(MirExpr::Name(n.clone()))
+        }
+        HirExprKind::Int { value, width } => match width {
+            Some(echo_ast::Width::I32) => {
+                if *value < i32::MIN as i64 || *value > i32::MAX as i64 {
+                    diags.push(
+                        Diagnostic::error(format!(
+                            "`<i32>` literal `{value}` does not fit in 32-bit signed range"
+                        ))
+                        .with_code("cg-width")
+                        .with_span(e.span),
+                    );
+                    return None;
+                }
+                Some(MirExpr::ConstI32(*value as i32))
+            }
+            Some(echo_ast::Width::I64) | None => Some(MirExpr::ConstI64(*value)),
+            // Integer spelling with float width tag: `<f32> 1`
+            Some(echo_ast::Width::F32) => Some(MirExpr::ConstF32(*value as f32)),
+            Some(echo_ast::Width::F64) => Some(MirExpr::ConstF64(*value as f64)),
+        },
+        HirExprKind::Float { value, width } => match width {
+            Some(echo_ast::Width::F32) => Some(MirExpr::ConstF32(*value as f32)),
+            // `<f64>` and untagged float default to f64.
+            Some(echo_ast::Width::F64) | None => Some(MirExpr::ConstF64(*value)),
+            Some(echo_ast::Width::I32 | echo_ast::Width::I64) => {
+                // Float spelling with int width is unusual; keep f64 value.
+                Some(MirExpr::ConstF64(*value))
+            }
+        },
+        HirExprKind::Bool(b) => Some(MirExpr::ConstBool(*b)),
+        HirExprKind::StringLit { kind, raw } => match decode_string_to_mir(*kind, raw, const_env) {
+            Ok(e) => Some(e),
+            Err(msg) => {
+                diags.push(
+                    Diagnostic::error(msg)
+                        .with_code("cg-string")
+                        .with_span(e.span),
+                );
+                None
+            }
+        },
+        HirExprKind::BytesLit { kind, raw } => match decode_bytes_to_mir(*kind, raw, const_env) {
+            Ok(e) => Some(e),
+            Err(msg) => {
+                diags.push(
+                    Diagnostic::error(msg)
+                        .with_code("cg-bytes")
+                        .with_span(e.span),
+                );
+                None
+            }
+        },
+        HirExprKind::Duration { nanos } => Some(MirExpr::ConstDuration(*nanos)),
+        HirExprKind::LocatorLit { kind, raw } => match decode_locator_to_mir(*kind, raw, const_env)
+        {
+            Ok(e) => Some(e),
+            Err(msg) => {
+                diags.push(
+                    Diagnostic::error(msg)
+                        .with_code("cg-locator")
+                        .with_span(e.span),
+                );
+                None
+            }
+        },
+        HirExprKind::Unary { op, expr } => Some(MirExpr::Unary {
+            op: *op,
+            expr: Box::new(lower_expr(
+                expr,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+        }),
+        HirExprKind::Binary { op, left, right } => Some(MirExpr::Binary {
+            op: *op,
+            left: Box::new(lower_expr(
+                left,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+            right: Box::new(lower_expr(
+                right,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+        }),
+        HirExprKind::Call { symbol, args } => {
+            let ret = fn_shapes
+                .get(&(module_path.to_path_buf(), symbol.clone()))
+                .copied()
+                .unwrap_or(MirRetShape::Plain);
+            let mut a = Vec::new();
+            for arg in args {
+                a.push(lower_expr(
+                    arg,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?);
+            }
+            Some(MirExpr::Call {
+                target: CallTarget::Function {
+                    module_path: module_path.to_path_buf(),
+                    name: symbol.clone(),
+                },
+                args: a,
+                ret,
+            })
+        }
+        HirExprKind::CallValue { callee, args } => {
+            let c = lower_expr(
+                callee,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?;
+            let mut a = Vec::new();
+            for arg in args {
+                a.push(lower_expr(
+                    arg,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?);
+            }
+            // First-class values use plain i64 ABI for this slice.
+            Some(MirExpr::Call {
+                target: CallTarget::Indirect {
+                    callee: Box::new(c),
+                },
+                args: a,
+                ret: MirRetShape::Plain,
+            })
+        }
+        HirExprKind::FnRef { symbol } => Some(MirExpr::FnValue {
+            module_path: module_path.to_path_buf(),
+            symbol: symbol.clone(),
+        }),
+        HirExprKind::Range { start, end } => Some(MirExpr::Range {
+            start: Box::new(lower_expr(
+                start,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+            end: Box::new(lower_expr(
+                end,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+        }),
+        HirExprKind::ModuleCall { module, name, args } => {
+            let Some(target_path) = imports.get(module) else {
+                diags.push(
+                    Diagnostic::error(format!(
+                        "unknown module `{module}` (analysis should have classified imports)"
+                    ))
+                    .with_code("cg-module")
+                    .with_span(e.span),
+                );
+                return None;
+            };
+            let mut a = Vec::new();
+            for arg in args {
+                a.push(lower_expr(
+                    arg,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?);
+            }
+            if is_runtime_module_path(target_path) {
+                if runtime_native_symbol(name).is_none() {
+                    diags.push(
+                        Diagnostic::error(format!("unknown runtime primitive `runtime.{name}`"))
+                            .with_code("cg-runtime")
+                            .with_span(e.span),
+                    );
+                    return None;
+                }
+                return Some(MirExpr::Call {
+                    target: CallTarget::Runtime {
+                        export: name.clone(),
+                    },
+                    args: a,
+                    ret: MirRetShape::Plain,
+                });
+            }
+            // Folder modules: mangle with defining file, not the directory root.
+            let define = resolve_export_file(fn_shapes, target_path, name);
+            let ret = fn_shapes
+                .get(&(define.clone(), name.clone()))
+                .copied()
+                .unwrap_or(MirRetShape::Plain);
+            Some(MirExpr::Call {
+                target: CallTarget::Function {
+                    module_path: define,
+                    name: name.clone(),
+                },
+                args: a,
+                ret,
+            })
+        }
+        HirExprKind::MethodCall {
+            receiver,
+            method,
+            args,
+        } => {
+            // Prefer true methods (recv + mangled body). Else treat as field
+            // holding a function value: load field, indirect call (no recv inject).
+            let struct_name = struct_type_of_expr(receiver, methods, type_env);
+            let method_target = struct_name.as_ref().and_then(|st| {
+                methods
+                    .get(st)
+                    .and_then(|m| m.get(method))
+                    .cloned()
+            });
+            if let Some(target) = method_target {
+                let ret = fn_shapes
+                    .get(&(target.module.clone(), target.mangled.clone()))
+                    .copied()
+                    .unwrap_or(MirRetShape::Plain);
+                let recv_v = lower_expr(
+                    receiver,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?;
+                let mut a = vec![recv_v];
+                for arg in args {
+                    a.push(lower_expr(
+                        arg,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?);
+                }
+                return Some(MirExpr::Call {
+                    target: CallTarget::Function {
+                        module_path: target.module,
+                        name: target.mangled,
+                    },
+                    args: a,
+                    ret,
+                });
+            }
+            // Field function value: `b.f(args)` → call through `b.f`.
+            let base = lower_expr(
+                receiver,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?;
+            let callee = MirExpr::FieldGet {
+                base: Box::new(base),
+                field: method.clone(),
+            };
+            let mut a = Vec::new();
+            for arg in args {
+                a.push(lower_expr(
+                    arg,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?);
+            }
+            Some(MirExpr::Call {
+                target: CallTarget::Indirect {
+                    callee: Box::new(callee),
+                },
+                args: a,
+                ret: MirRetShape::Plain,
+            })
+        }
+        HirExprKind::ModuleField { module, name } => {
+            let Some(target_path) = imports.get(module) else {
+                diags.push(
+                    Diagnostic::error(format!("unknown module `{module}` for field `{name}`"))
+                        .with_code("cg-module")
+                        .with_span(e.span),
+                );
+                return None;
+            };
+            if is_runtime_module_path(target_path) {
+                diags.push(
+                    Diagnostic::error("runtime primitives must be called, not read as values")
+                        .with_code("cg-runtime")
+                        .with_span(e.span),
+                );
+                return None;
+            }
+            let define = resolve_export_file(fn_shapes, target_path, name);
+            // Exported free function: first-class value (not a zero-arg call).
+            if fn_shapes.contains_key(&(define.clone(), name.clone())) {
+                return Some(MirExpr::FnValue {
+                    module_path: define,
+                    symbol: name.clone(),
+                });
+            }
+            // Non-function export: zero-arg getter.
+            let g = value_getter_name(name);
+            let ret = fn_shapes
+                .get(&(define.clone(), g.clone()))
+                .copied()
+                .unwrap_or(MirRetShape::Plain);
+            Some(MirExpr::Call {
+                target: CallTarget::Function {
+                    module_path: define,
+                    name: g,
+                },
+                args: vec![],
+                ret,
+            })
+        }
+        HirExprKind::Field { base, field } => Some(MirExpr::FieldGet {
+            base: Box::new(lower_expr(
+                base,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+            field: field.clone(),
+        }),
+        HirExprKind::StructLit {
+            name,
+            fields: lit_fields,
+        } => {
+            let mut out = Vec::new();
+            let mut provided = std::collections::HashSet::new();
+            for (k, v) in lit_fields {
+                provided.insert(k.clone());
+                out.push((
+                    k.clone(),
+                    lower_expr(
+                        v,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?,
+                ));
+            }
+            if !name.is_empty() {
+                if let Some(shape) = fields.get(name) {
+                    for (fname, default) in shape {
+                        if provided.contains(fname) {
+                            continue;
+                        }
+                        let Some(def) = default else {
+                            continue;
+                        };
+                        out.push((
+                            fname.clone(),
+                            lower_expr(
+                                def,
+                                module_path,
+                                imports,
+                                fn_shapes,
+                                const_env,
+                                methods,
+                                fields,
+                                type_env,
+                                diags,
+                            )?,
+                        ));
+                    }
+                }
+            }
+            Some(MirExpr::StructLit {
+                type_name: name.clone(),
+                fields: out,
+            })
+        }
+        HirExprKind::Group(inner) => lower_expr(
+            inner,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            type_env,
+            diags,
+        ),
+        HirExprKind::List(items) => {
+            let mut elems = Vec::new();
+            for it in items {
+                elems.push(lower_expr(
+                    it,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    type_env,
+                    diags,
+                )?);
+            }
+            Some(MirExpr::ListLit(elems))
+        }
+        HirExprKind::Index { base, index } => Some(MirExpr::Index {
+            base: Box::new(lower_expr(
+                base,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+            index: Box::new(lower_expr(
+                index,
+                module_path,
+                imports,
+                fn_shapes,
+                const_env,
+                methods,
+                fields,
+                type_env,
+                diags,
+            )?),
+        }),
+        HirExprKind::Unsupported { message } => {
+            diags.push(
+                Diagnostic::error(message.clone())
+                    .with_code("cg-unsupported")
+                    .with_span(e.span),
+            );
+            None
+        }
+    }
+}
+
+fn const_to_mir(v: &ConstValue) -> MirExpr {
+    match v {
+        ConstValue::Int(n) => MirExpr::ConstI64(*n),
+        ConstValue::Bool(b) => MirExpr::ConstI64(i64::from(*b)),
+        ConstValue::Str(bytes) => MirExpr::StringLit {
+            bytes: bytes.clone(),
+        },
+    }
+}
+
+fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<ConstValue> {
+    match &e.kind {
+        HirExprKind::Int { value, .. } => Some(ConstValue::Int(*value)),
+        HirExprKind::Float { value, .. } => Some(ConstValue::Int(*value as i64)),
+        HirExprKind::Bool(b) => Some(ConstValue::Bool(*b)),
+        HirExprKind::StringLit { kind, raw } => {
+            let bytes = decode_string_lit(*kind, raw).ok()?;
+            Some(ConstValue::Str(bytes))
+        }
+        HirExprKind::Name(n) => env.get(n).cloned(),
+        HirExprKind::Group(inner) => fold_hir_const(inner, env),
+        HirExprKind::Unary { op, expr } => {
+            let v = fold_hir_const(expr, env)?;
+            match (op, v) {
+                (UnaryOp::Neg, ConstValue::Int(n)) => Some(ConstValue::Int(n.wrapping_neg())),
+                (UnaryOp::Not, ConstValue::Bool(b)) => Some(ConstValue::Bool(!b)),
+                (UnaryOp::Not, ConstValue::Int(n)) => Some(ConstValue::Bool(n == 0)),
+                _ => None,
+            }
+        }
+        HirExprKind::Binary { op, left, right } => {
+            let l = fold_hir_const(left, env)?;
+            let r = fold_hir_const(right, env)?;
+            match (op, l, r) {
+                (BinaryOp::Add, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a.wrapping_add(b)))
+                }
+                (BinaryOp::Sub, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a.wrapping_sub(b)))
+                }
+                (BinaryOp::Mul, ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Int(a.wrapping_mul(b)))
+                }
+                (BinaryOp::Div, ConstValue::Int(a), ConstValue::Int(b)) if b != 0 => {
+                    Some(ConstValue::Int(a / b))
+                }
+                (BinaryOp::Rem, ConstValue::Int(a), ConstValue::Int(b)) if b != 0 => {
+                    Some(ConstValue::Int(a % b))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Decode a source string token into UTF-8 payload bytes (no interpolation).
+#[must_use]
+pub fn decode_string_lit(kind: StringKind, raw: &str) -> Result<Vec<u8>, String> {
+    match kind {
+        StringKind::Pure => decode_pure(raw),
+        StringKind::Rich => {
+            let parts = decode_rich_parts(raw)?;
+            if parts.iter().any(|p| matches!(p, StrPart::Name(_))) {
+                // Flatten only if no names (const-fold path).
+                return Err("rich string has interpolation".into());
+            }
+            let mut out = Vec::new();
+            for p in parts {
+                if let StrPart::Lit(b) = p {
+                    out.extend(b);
+                }
+            }
+            Ok(out)
+        }
+    }
+}
+
+fn decode_string_to_mir(
+    kind: StringKind,
+    raw: &str,
+    const_env: &HashMap<String, ConstValue>,
+) -> Result<MirExpr, String> {
+    match kind {
+        StringKind::Pure => Ok(MirExpr::StringLit {
+            bytes: decode_pure(raw)?,
+        }),
+        StringKind::Rich => {
+            let parts = decode_rich_parts(raw)?;
+            // Partial const-fold: bake `#` consts into lit segments; leave live names.
+            let mut folded: Vec<StrPart> = Vec::new();
+            let mut lit_buf = Vec::new();
+            let flush_lit = |buf: &mut Vec<u8>, out: &mut Vec<StrPart>| {
+                if !buf.is_empty() {
+                    out.push(StrPart::Lit(std::mem::take(buf)));
+                }
+            };
+            for p in parts {
+                match p {
+                    StrPart::Lit(b) => lit_buf.extend(b),
+                    StrPart::Name(n) => match const_env.get(&n) {
+                        Some(ConstValue::Str(b)) => lit_buf.extend(b),
+                        Some(ConstValue::Int(i)) => lit_buf.extend(i.to_string().as_bytes()),
+                        Some(ConstValue::Bool(b)) => {
+                            lit_buf.extend(if *b { b"1" } else { b"0" });
+                        }
+                        None => {
+                            flush_lit(&mut lit_buf, &mut folded);
+                            folded.push(StrPart::Name(n));
+                        }
+                    },
+                }
+            }
+            flush_lit(&mut lit_buf, &mut folded);
+            if folded.iter().any(|p| matches!(p, StrPart::Name(_))) {
+                Ok(MirExpr::StringInterp { parts: folded })
+            } else {
+                let mut out = Vec::new();
+                for p in folded {
+                    if let StrPart::Lit(b) = p {
+                        out.extend(b);
+                    }
+                }
+                Ok(MirExpr::StringLit { bytes: out })
+            }
+        }
+    }
+}
+
+/// Decode `b'…'` / `b"…"` into a [`MirExpr::BytesLit`] (no live interp in v1).
+fn decode_bytes_to_mir(
+    kind: StringKind,
+    raw: &str,
+    const_env: &HashMap<String, ConstValue>,
+) -> Result<MirExpr, String> {
+    let payload = decode_prefixed_payload(b'b', "bytes", kind, raw, const_env)?;
+    Ok(MirExpr::BytesLit { bytes: payload })
+}
+
+/// Decode `p'…'` / `p"…"` into a [`MirExpr::LocatorLit`] (UTF-8 text).
+fn decode_locator_to_mir(
+    kind: StringKind,
+    raw: &str,
+    const_env: &HashMap<String, ConstValue>,
+) -> Result<MirExpr, String> {
+    let payload = decode_prefixed_payload(b'p', "locator", kind, raw, const_env)?;
+    let text = String::from_utf8(payload).map_err(|_| "locator payload is not UTF-8".to_string())?;
+    Ok(MirExpr::LocatorLit { text })
+}
+
+fn decode_prefixed_payload(
+    prefix: u8,
+    what: &str,
+    kind: StringKind,
+    raw: &str,
+    const_env: &HashMap<String, ConstValue>,
+) -> Result<Vec<u8>, String> {
+    let b = raw.as_bytes();
+    if b.len() < 3 || b[0] != prefix {
+        return Err(format!("invalid {what} token `{raw}`"));
+    }
+    let inner_tok = std::str::from_utf8(&b[1..]).map_err(|_| format!("invalid {what} token UTF-8"))?;
+    match kind {
+        StringKind::Pure => decode_pure(inner_tok),
+        StringKind::Rich => {
+            let parts = decode_rich_parts(inner_tok)?;
+            if parts.iter().any(|p| matches!(p, StrPart::Name(_))) {
+                if !parts.iter().all(|p| match p {
+                    StrPart::Lit(_) => true,
+                    StrPart::Name(n) => const_env.contains_key(n),
+                }) {
+                    return Err(format!(
+                        "rich {what} with live `{{name}}` interpolation not supported in v1"
+                    ));
+                }
+            }
+            let mut out = Vec::new();
+            for p in &parts {
+                match p {
+                    StrPart::Lit(bs) => out.extend(bs),
+                    StrPart::Name(n) => match const_env.get(n) {
+                        Some(ConstValue::Str(bs)) => out.extend(bs),
+                        Some(ConstValue::Int(i)) => out.extend(i.to_string().as_bytes()),
+                        Some(ConstValue::Bool(bv)) => {
+                            out.extend(if *bv { b"1" } else { b"0" });
+                        }
+                        None => unreachable!(),
+                    },
+                }
+            }
+            Ok(out)
+        }
+    }
+}
+
+fn decode_pure(raw: &str) -> Result<Vec<u8>, String> {
+    let b = raw.as_bytes();
+    if b.len() < 2 || b[0] != b'\'' || b[b.len() - 1] != b'\'' {
+        return Err(format!("invalid pure string token `{raw}`"));
+    }
+    Ok(b[1..b.len() - 1].to_vec())
+}
+
+/// Parse rich string into literal / `{name}` parts (escapes applied in lit parts).
+pub fn decode_rich_parts(raw: &str) -> Result<Vec<StrPart>, String> {
+    let b = raw.as_bytes();
+    if b.len() < 2 || b[0] != b'"' || b[b.len() - 1] != b'"' {
+        return Err(format!("invalid rich string token `{raw}`"));
+    }
+    let inner = &b[1..b.len() - 1];
+    let mut parts = Vec::new();
+    let mut lit = Vec::new();
+    let mut i = 0;
+    while i < inner.len() {
+        if inner[i] == b'\\' {
+            i += 1;
+            if i >= inner.len() {
+                return Err("rich string ends with lone backslash".into());
+            }
+            match inner[i] {
+                b'n' => lit.push(b'\n'),
+                b't' => lit.push(b'\t'),
+                b'r' => lit.push(b'\r'),
+                b'\\' => lit.push(b'\\'),
+                b'"' => lit.push(b'"'),
+                b'{' => lit.push(b'{'),
+                b'}' => lit.push(b'}'),
+                other => lit.push(other),
+            }
+            i += 1;
+            continue;
+        }
+        if inner[i] == b'{' {
+            // Flush lit, parse name until `}`.
+            if !lit.is_empty() {
+                parts.push(StrPart::Lit(std::mem::take(&mut lit)));
+            }
+            i += 1;
+            let start = i;
+            while i < inner.len() && inner[i] != b'}' {
+                i += 1;
+            }
+            if i >= inner.len() {
+                return Err("unclosed `{` in rich string".into());
+            }
+            let name = std::str::from_utf8(&inner[start..i])
+                .map_err(|_| "invalid UTF-8 in interpolation name".to_string())?
+                .to_string();
+            // `{name}` local/const, or `{.field}` receiver field (method body).
+            let ok = if let Some(field) = name.strip_prefix('.') {
+                !field.is_empty()
+                    && field
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                    && field.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            } else {
+                !name.is_empty()
+                    && name
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                    && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            };
+            if !ok {
+                return Err(format!("invalid interpolation name `{{{name}}}`"));
+            }
+            parts.push(StrPart::Name(name));
+            i += 1; // skip `}`
+            continue;
+        }
+        lit.push(inner[i]);
+        i += 1;
+    }
+    if !lit.is_empty() {
+        parts.push(StrPart::Lit(lit));
+    }
+    Ok(parts)
+}
+
+#[allow(dead_code)]
+fn _hir_body(_: &HirBody) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use echo_ast::StringKind;
+
+    #[test]
+    fn pure_strips_quotes() {
+        let b = decode_string_lit(StringKind::Pure, "'hello'").unwrap();
+        assert_eq!(b, b"hello");
+    }
+
+    #[test]
+    fn bytes_pure_and_rich_decode() {
+        let pure = decode_bytes_to_mir(StringKind::Pure, "b'raw'", &HashMap::new()).unwrap();
+        assert!(matches!(pure, MirExpr::BytesLit { bytes } if bytes == b"raw"));
+        let rich =
+            decode_bytes_to_mir(StringKind::Rich, r#"b"esc\n""#, &HashMap::new()).unwrap();
+        assert!(matches!(rich, MirExpr::BytesLit { bytes } if bytes == b"esc\n"));
+    }
+
+    #[test]
+    fn rich_receiver_field_interp_name() {
+        let parts = decode_rich_parts(r#""Hello, {.name}""#).unwrap();
+        assert!(
+            parts
+                .iter()
+                .any(|p| matches!(p, StrPart::Name(n) if n == ".name")),
+            "{parts:?}"
+        );
+    }
+
+    #[test]
+    fn rich_partial_const_fold_leaves_live_name() {
+        let mut env = HashMap::new();
+        env.insert("TITLE".into(), ConstValue::Str(b"surface".to_vec()));
+        let e = decode_string_to_mir(
+            StringKind::Rich,
+            r#""title={TITLE} sum={sum}""#,
+            &env,
+        )
+        .unwrap();
+        match e {
+            MirExpr::StringInterp { parts } => {
+                let lit: Vec<u8> = parts
+                    .iter()
+                    .filter_map(|p| match p {
+                        StrPart::Lit(b) => Some(b.as_slice()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .copied()
+                    .collect();
+                assert!(
+                    lit.windows(b"title=surface".len())
+                        .any(|w| w == b"title=surface"),
+                    "expected TITLE folded into lit, got {parts:?}"
+                );
+                assert!(parts.iter().any(|p| matches!(p, StrPart::Name(n) if n == "sum")));
+            }
+            other => panic!("expected StringInterp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn locator_pure_and_rich_decode() {
+        let pure =
+            decode_locator_to_mir(StringKind::Pure, "p'/home/user'", &HashMap::new()).unwrap();
+        assert!(matches!(
+            pure,
+            MirExpr::LocatorLit { text } if text == "/home/user"
+        ));
+        let rich =
+            decode_locator_to_mir(StringKind::Rich, r#"p"http://xo.run""#, &HashMap::new())
+                .unwrap();
+        assert!(matches!(
+            rich,
+            MirExpr::LocatorLit { text } if text == "http://xo.run"
+        ));
+    }
+
+    #[test]
+    fn pure_keeps_backslash_literal() {
+        let b = decode_string_lit(StringKind::Pure, r"'\n'").unwrap();
+        assert_eq!(b, b"\\n");
+    }
+
+    #[test]
+    fn finish_cfg_runs_escape_not_generic_midend() {
+        // Production handoff must attach escape classes and never depend on
+        // removed generic MIR modules (constprop/GVN/LICM/IV/BCE).
+        let body = vec![
+            MirStmt::Set {
+                name: "x".into(),
+                value: MirExpr::ConstI64(1),
+            },
+            MirStmt::Set {
+                name: "b".into(),
+                value: MirExpr::BoxValue {
+                    value: Box::new(MirExpr::Name("x".into())),
+                    from: MirRepr::Int64,
+                },
+            },
+            MirStmt::Set {
+                name: "y".into(),
+                value: MirExpr::UnboxValue {
+                    value: Box::new(MirExpr::Name("b".into())),
+                    to: MirRepr::Int64,
+                },
+            },
+            MirStmt::ReturnOk(MirExpr::Name("y".into())),
+        ];
+        let (cfg, _reprs, escapes) =
+            finish_cfg(body, MirRetShape::Plain, &[], MirExpr::ConstI64(0));
+        assert!(!cfg.blocks.is_empty());
+        assert!(
+            !escapes.is_empty() || cfg.blocks.iter().any(|b| !b.ops.is_empty()),
+            "escape analysis must run as part of finish_cfg"
+        );
+        // Intermediate NoEscape box→unbox should not leave a live b@* BoxValue.
+        let intermediate_box = cfg.blocks.iter().any(|b| {
+            b.ops.iter().any(|op| {
+                matches!(
+                    op,
+                    MirOp::Set {
+                        name,
+                        value: MirExpr::BoxValue { .. },
+                    } if name.starts_with("b@")
+                )
+            })
+        });
+        assert!(
+            !intermediate_box,
+            "NoEscape box elision should remove intermediate boxes; cfg={cfg:?}"
+        );
+    }
+
+    #[test]
+    fn rich_expands_escapes() {
+        let b = decode_string_lit(StringKind::Rich, r#""a\nb\t""#).unwrap();
+        assert_eq!(b, b"a\nb\t");
+    }
+
+    #[test]
+    fn rich_interp_parts() {
+        let parts = decode_rich_parts(r#""n={n}!""#).unwrap();
+        assert_eq!(parts.len(), 3);
+        assert!(matches!(&parts[0], StrPart::Lit(b) if b == b"n="));
+        assert!(matches!(&parts[1], StrPart::Name(n) if n == "n"));
+        assert!(matches!(&parts[2], StrPart::Lit(b) if b == b"!"));
+    }
+
+    #[test]
+    fn value_getter_naming() {
+        assert_eq!(value_getter_name("answer"), "__val_answer");
+        assert!(mangle_fn(Path::new("/proj/lib.echo"), "add").contains("add"));
+    }
+
+    #[test]
+    fn lowers_cfg_on_every_function() {
+        use echo_hir::{HirExpr, HirExprKind, HirModule, HirStmt};
+        use echo_semantics::{BindingKind, ValueKind};
+        use echo_source::{BytePos, SourceId, Span};
+
+        let span = Span::new(SourceId::from_u32(0), BytePos(0), BytePos(1));
+        let path = PathBuf::from("/tmp/t.echo");
+        let mut semantic = SemanticModel::new();
+        semantic.introduce(
+            "c",
+            BindingKind::Immutable,
+            ValueKind::Struct {
+                name: "counter".into(),
+            },
+            span,
+        );
+        let mut methods = HashMap::new();
+        let mut counter_m = HashMap::new();
+        counter_m.insert("inc".into(), "counter_inc".into());
+        methods.insert("counter".into(), counter_m);
+
+        // Local HIR methods map (string→string); graph table is built in lower_program.
+        let hir = HirModule {
+            entry: vec![
+                HirStmt::Bind {
+                    leader: echo_ast::BindLeader::Dollar,
+                    name: "c".into(),
+                    init: Some(HirExpr {
+                        kind: HirExprKind::StructLit {
+                            name: "counter".into(),
+                            fields: vec![],
+                        },
+                        span,
+                    }),
+                    span,
+                },
+                HirStmt::Return {
+                    value: Some(HirExpr {
+                        kind: HirExprKind::Int {
+                            value: 0,
+                            width: None,
+                        },
+                        span,
+                    }),
+                    span,
+                },
+            ],
+            bodies: vec![echo_hir::HirBody {
+                symbol: "counter_inc".into(),
+                params: vec![echo_hir::RECV_PARAM.into()],
+                body: vec![HirStmt::Return {
+                    value: Some(HirExpr {
+                        kind: HirExprKind::Int {
+                            value: 1,
+                            width: None,
+                        },
+                        span,
+                    }),
+                    span,
+                }],
+                return_shape: ReturnShape::Plain,
+                receiver_struct: Some("counter".into()),
+                method_name: Some("inc".into()),
+                returns_receiver: false, // test
+                returns_structs: vec![],
+                span,
+            }],
+            methods,
+            struct_fields: Default::default(),
+            import_modules: Default::default(),
+        };
+
+        let input = ModuleLowerInput {
+            path: path.clone(),
+            hir,
+            semantic,
+            imports: HashMap::new(),
+            exports: vec![],
+        };
+        let lowered = lower_program(path, &[input]);
+        assert_eq!(lowered.diagnostics.error_count(), 0);
+        assert!(!lowered.program.functions.is_empty());
+        for f in &lowered.program.functions {
+            assert!(!f.cfg.blocks.is_empty(), "function {} missing CFG", f.name);
+        }
+        let top = lowered
+            .program
+            .functions
+            .iter()
+            .find(|f| f.name == "__toplevel")
+            .expect("toplevel");
+        assert!(matches!(
+            top.cfg.blocks[top.cfg.entry.0 as usize].ops.first(),
+            Some(MirOp::Set { name, .. }) if name.starts_with("c@")
+        ));
+    }
+
+    #[test]
+    fn method_resolve_uses_semantic_struct_env() {
+        use echo_hir::{HirExpr, HirExprKind, HirModule, HirStmt};
+        use echo_semantics::{BindingKind, ValueKind};
+        use echo_source::{BytePos, SourceId, Span};
+
+        let span = Span::new(SourceId::from_u32(0), BytePos(0), BytePos(1));
+        let path = PathBuf::from("/tmp/m.echo");
+        let mut semantic = SemanticModel::new();
+        semantic.introduce(
+            "c",
+            BindingKind::Immutable,
+            ValueKind::Struct {
+                name: "counter".into(),
+            },
+            span,
+        );
+        let mut methods = HashMap::new();
+        let mut counter_m = HashMap::new();
+        counter_m.insert("inc".into(), "counter_inc".into());
+        methods.insert("counter".into(), counter_m);
+
+        // Top-level only uses MethodCall on name `c` — must resolve via semantic
+        // value_struct without re-seeing a StructLit in the same block.
+        let hir = HirModule {
+            entry: vec![HirStmt::Expr(HirExpr {
+                kind: HirExprKind::MethodCall {
+
+                    receiver: Box::new(HirExpr {
+
+                        kind: HirExprKind::Name("c".into()),
+
+                        span,
+
+                    }),
+
+                    method: "inc".into(),
+
+                    args: vec![],
+
+                },
+                span,
+            })],
+            bodies: vec![echo_hir::HirBody {
+                symbol: "counter_inc".into(),
+                params: vec![echo_hir::RECV_PARAM.into()],
+                body: vec![HirStmt::Return {
+                    value: Some(HirExpr {
+                        kind: HirExprKind::Int {
+                            value: 0,
+                            width: None,
+                        },
+                        span,
+                    }),
+                    span,
+                }],
+                return_shape: ReturnShape::Plain,
+                receiver_struct: Some("counter".into()),
+                method_name: Some("inc".into()),
+                returns_receiver: false, // test
+                returns_structs: vec![],
+                span,
+            }],
+            methods,
+            struct_fields: Default::default(),
+            import_modules: Default::default(),
+        };
+
+        let input = ModuleLowerInput {
+            path: path.clone(),
+            hir,
+            semantic,
+            imports: HashMap::new(),
+            exports: vec![],
+        };
+        let lowered = lower_program(path, &[input]);
+        assert_eq!(
+            lowered.diagnostics.error_count(),
+            0,
+            "{:?}",
+            lowered.diagnostics.items()
+        );
+        let top = lowered
+            .program
+            .functions
+            .iter()
+            .find(|f| f.name == "__toplevel")
+            .expect("toplevel");
+        let has_call = top.body.iter().any(|s| match s {
+            MirStmt::Eval(MirExpr::Call {
+                target: CallTarget::Function { name, .. },
+                ..
+            }) => name == "counter_inc",
+            _ => false,
+        });
+        assert!(
+            has_call,
+            "expected method → counter_inc; body={:?}",
+            top.body
+        );
+    }
+
+    #[test]
+    fn graph_methods_resolve_across_modules() {
+        use echo_hir::{HirExpr, HirExprKind, HirBody, HirModule, HirStmt};
+        use echo_semantics::{BindingKind, ValueKind};
+        use echo_source::{BytePos, SourceId, Span};
+
+        let span = Span::new(SourceId::from_u32(0), BytePos(0), BytePos(1));
+        let primary = PathBuf::from("/tmp/primary.echo");
+        let ops = PathBuf::from("/tmp/ops.echo");
+        let entry = PathBuf::from("/tmp/entry.echo");
+
+        let mut primary_methods = HashMap::new();
+        let mut pm = HashMap::new();
+        pm.insert("get".into(), "__m_counter_get".into());
+        primary_methods.insert("counter".into(), pm);
+
+        let primary_hir = HirModule {
+            entry: vec![],
+            bodies: vec![HirBody {
+                symbol: "__m_counter_get".into(),
+                params: vec![echo_hir::RECV_PARAM.into()],
+                body: vec![HirStmt::Return {
+                    value: Some(HirExpr {
+                        kind: HirExprKind::Int {
+                            value: 7,
+                            width: None,
+                        },
+                        span,
+                    }),
+                    span,
+                }],
+                return_shape: ReturnShape::Plain,
+                receiver_struct: Some("counter".into()),
+                method_name: Some("inc".into()),
+                returns_receiver: false, // test
+                returns_structs: vec![],
+                span,
+            }],
+            struct_fields: Default::default(),
+            methods: primary_methods,
+            import_modules: Default::default(),
+        };
+
+        let mut ops_methods = HashMap::new();
+        let mut om = HashMap::new();
+        om.insert("inc".into(), "__m_counter_inc".into());
+        ops_methods.insert("counter".into(), om);
+
+        let ops_hir = HirModule {
+            entry: vec![],
+            bodies: vec![HirBody {
+                symbol: "__m_counter_inc".into(),
+                params: vec![echo_hir::RECV_PARAM.into()],
+                body: vec![HirStmt::Return {
+                    value: Some(HirExpr {
+                        kind: HirExprKind::Int {
+                            value: 8,
+                            width: None,
+                        },
+                        span,
+                    }),
+                    span,
+                }],
+                return_shape: ReturnShape::Plain,
+                receiver_struct: Some("counter".into()),
+                method_name: Some("inc".into()),
+                returns_receiver: false, // test
+                returns_structs: vec![],
+                span,
+            }],
+            struct_fields: Default::default(),
+            methods: ops_methods,
+            import_modules: Default::default(),
+        };
+
+        let mut semantic = SemanticModel::new();
+        semantic.introduce(
+            "c",
+            BindingKind::Immutable,
+            ValueKind::Struct {
+                name: "counter".into(),
+            },
+            span,
+        );
+        let entry_hir = HirModule {
+            entry: vec![
+                HirStmt::Expr(HirExpr {
+                    kind: HirExprKind::MethodCall {
+
+                        receiver: Box::new(HirExpr {
+
+                            kind: HirExprKind::Name("c".into()),
+
+                            span,
+
+                        }),
+
+                        method: "get".into(),
+
+                        args: vec![],
+
+                    },
+                    span,
+                }),
+                HirStmt::Expr(HirExpr {
+                    kind: HirExprKind::MethodCall {
+
+                        receiver: Box::new(HirExpr {
+
+                            kind: HirExprKind::Name("c".into()),
+
+                            span,
+
+                        }),
+
+                        method: "inc".into(),
+
+                        args: vec![],
+
+                    },
+                    span,
+                }),
+            ],
+            bodies: vec![],
+            struct_fields: Default::default(),
+            methods: HashMap::new(),
+            import_modules: Default::default(),
+        };
+
+        let lowered = lower_program(
+            entry.clone(),
+            &[
+                ModuleLowerInput {
+                    path: primary.clone(),
+                    hir: primary_hir,
+                    semantic: SemanticModel::new(),
+                    imports: HashMap::new(),
+                    exports: vec!["counter".into()],
+                },
+                ModuleLowerInput {
+                    path: ops.clone(),
+                    hir: ops_hir,
+                    semantic: SemanticModel::new(),
+                    imports: HashMap::new(),
+                    exports: vec![],
+                },
+                ModuleLowerInput {
+                    path: entry.clone(),
+                    hir: entry_hir,
+                    semantic,
+                    imports: HashMap::new(),
+                    exports: vec![],
+                },
+            ],
+        );
+        assert_eq!(
+            lowered.diagnostics.error_count(),
+            0,
+            "{:?}",
+            lowered.diagnostics.items()
+        );
+        let top = lowered
+            .program
+            .functions
+            .iter()
+            .find(|f| f.name == "__toplevel" && f.module_path == entry)
+            .expect("entry toplevel");
+        let targets: Vec<_> = top
+            .body
+            .iter()
+            .filter_map(|s| match s {
+                MirStmt::Eval(MirExpr::Call {
+                    target: CallTarget::Function { module_path, name },
+                    ..
+                }) => Some((module_path.clone(), name.clone())),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            targets.iter().any(|(p, n)| p == &primary && n == "__m_counter_get"),
+            "get must target primary module; targets={targets:?}"
+        );
+        assert!(
+            targets.iter().any(|(p, n)| p == &ops && n == "__m_counter_inc"),
+            "inc must target @ module; targets={targets:?}"
+        );
+    }
+
+    #[test]
+    fn free_fn_param_monomorphic_struct_methods() {
+        // `$ f = (b) { b.get() }` with call `f(x)` where x is `% box` → method resolves.
+        use echo_hir::{HirBody, HirExpr, HirExprKind, HirModule, HirStmt};
+        use echo_semantics::SemanticModel;
+        use echo_source::{BytePos, SourceId, Span};
+
+        let span = Span::new(SourceId::from_u32(0), BytePos(0), BytePos(1));
+        let path = PathBuf::from("/tmp/free_param.echo");
+
+        let mut methods = HashMap::new();
+        let mut box_m = HashMap::new();
+        box_m.insert("get".into(), "box_get".into());
+        methods.insert("box".into(), box_m);
+
+        let hir = HirModule {
+            entry: vec![
+                HirStmt::Bind {
+                    leader: echo_ast::BindLeader::Dollar,
+                    name: "f".into(),
+                    init: Some(HirExpr {
+                        kind: HirExprKind::FnRef {
+                            symbol: "f_body".into(),
+                        },
+                        span,
+                    }),
+                    span,
+                },
+                HirStmt::Bind {
+                    leader: echo_ast::BindLeader::Dollar,
+                    name: "x".into(),
+                    init: Some(HirExpr {
+                        kind: HirExprKind::StructLit {
+                            name: "box".into(),
+                            fields: vec![],
+                        },
+                        span,
+                    }),
+                    span,
+                },
+                HirStmt::Bind {
+                    leader: echo_ast::BindLeader::Dollar,
+                    name: "r".into(),
+                    init: Some(HirExpr {
+                        kind: HirExprKind::Call {
+                            symbol: "f_body".into(),
+                            args: vec![HirExpr {
+                                kind: HirExprKind::Name("x".into()),
+                                span,
+                            }],
+                        },
+                        span,
+                    }),
+                    span,
+                },
+            ],
+            bodies: vec![
+                HirBody {
+                    symbol: "f_body".into(),
+                    params: vec!["b".into()],
+                    body: vec![HirStmt::Return {
+                        value: Some(HirExpr {
+                            kind: HirExprKind::MethodCall {
+                                receiver: Box::new(HirExpr {
+                                    kind: HirExprKind::Name("b".into()),
+                                    span,
+                                }),
+                                method: "get".into(),
+                                args: vec![],
+                            },
+                            span,
+                        }),
+                        span,
+                    }],
+                    return_shape: ReturnShape::Plain,
+                    receiver_struct: None,
+                    method_name: None,
+                    returns_receiver: false,
+                    returns_structs: vec![],
+                    span,
+                },
+                HirBody {
+                    symbol: "box_get".into(),
+                    params: vec![echo_hir::RECV_PARAM.into()],
+                    body: vec![HirStmt::Return {
+                        value: Some(HirExpr {
+                            kind: HirExprKind::Int {
+                                value: 42,
+                                width: None,
+                            },
+                            span,
+                        }),
+                        span,
+                    }],
+                    return_shape: ReturnShape::Plain,
+                    receiver_struct: Some("box".into()),
+                    method_name: Some("get".into()),
+                    returns_receiver: false,
+                    returns_structs: vec![],
+                    span,
+                },
+            ],
+            methods,
+            struct_fields: Default::default(),
+            import_modules: Default::default(),
+        };
+
+        let input = ModuleLowerInput {
+            path: path.clone(),
+            hir,
+            semantic: SemanticModel::new(),
+            imports: HashMap::new(),
+            exports: vec![],
+        };
+        let lowered = lower_program(path, &[input]);
+        assert_eq!(
+            lowered.diagnostics.error_count(),
+            0,
+            "{:?}",
+            lowered.diagnostics.items()
+        );
+        let f_body = lowered
+            .program
+            .functions
+            .iter()
+            .find(|f| f.name == "f_body")
+            .expect("f_body");
+        let body_dbg = format!("{:?}", f_body.body);
+        assert!(
+            body_dbg.contains("box_get"),
+            "expected param method → box_get; body={body_dbg}"
+        );
+    }
+}

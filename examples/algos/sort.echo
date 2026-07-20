@@ -1,0 +1,78 @@
+; Bubble sort and insertion sort — in-place on lists.
+; Check: xo check examples/sort.echo
+
+/ std/io
+/ std/str
+
+$ count = (xs) {
+    ~ n = 0
+    * item : xs {
+        ~ n = n + 1
+    }
+    ^ n
+}
+
+$ swap = (xs, i, j) {
+    $ t = xs[i]
+    ~ xs[i] = xs[j]
+    ~ xs[j] = t
+    ^ xs
+}
+
+$ bubble_sort = (xs) {
+    $ n = count(xs)
+    ~ i = 0
+    * i < n {
+        ~ j = 0
+        * j < n - 1 - i {
+            ? xs[j] > xs[j + 1] {
+                swap(xs, j, j + 1)
+            }
+            ~ j = j + 1
+        }
+        ~ i = i + 1
+    }
+    ^ xs
+}
+
+$ insertion_sort = (xs) {
+    $ n = count(xs)
+    ~ i = 1
+    * i < n {
+        $ key = xs[i]
+        ~ j = i
+        * j > 0 && xs[j - 1] > key {
+            ~ xs[j] = xs[j - 1]
+            ~ j = j - 1
+        }
+        ~ xs[j] = key
+        ~ i = i + 1
+    }
+    ^ xs
+}
+
+$ print_list = (xs) {
+    * item : xs {
+        io.print(str.from_int(item))
+    }
+    ^
+}
+
+$ demo = () {
+    ~ a = [5, 1, 4, 2, 8]
+    $ sorted_a = bubble_sort(a)
+    print_list(sorted_a)
+
+    ~ b = [9, 3, 7, 1, 4, 6, 2]
+    $ sorted_b = insertion_sort(b)
+    print_list(sorted_b)
+
+    ~ c = [1]
+    print_list(bubble_sort(c))
+
+    ~ d = [3, 3, 1, 2, 1]
+    print_list(insertion_sort(d))
+    ^
+}
+
+\ demo, bubble_sort, insertion_sort, count, swap

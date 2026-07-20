@@ -1,0 +1,3928 @@
+export type DocsNavGroup = {
+  title: string;
+  links: DocsNavLink[];
+};
+
+export type DocsNavLink = {
+  label: string;
+  to: string;
+  disabled?: boolean;
+  children?: DocsNavLink[];
+};
+
+export type DocsTextPart = string | { code: string };
+
+export type DocsBlock =
+  | { kind: "paragraph"; text: DocsTextPart[] }
+  | { kind: "code"; code: string; language?: "shellscript" | "echo" };
+
+export type DocsSection = {
+  title: string;
+  blocks: DocsBlock[];
+  tags?: string[];
+  aliases?: string[];
+};
+
+export type DocsPage = {
+  id: string;
+  path: string;
+  category: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  aliases?: string[];
+  sections: DocsSection[];
+};
+
+export function headingId(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** Left-nav trees — Docs, Book, and e26 are separate site sections (like xo.run). */
+export const docsNavigation: DocsNavGroup[] = [
+  {
+    title: "Start",
+    links: [
+      { label: "Overview", to: "/docs" },
+      { label: "First program", to: "/docs/first-program" },
+      { label: "Project setup", to: "/docs/project" },
+    ],
+  },
+  {
+    title: "Language reference",
+    links: [
+      { label: "Leaders", to: "/docs/leaders" },
+      { label: "Binds and functions", to: "/docs/binds" },
+      { label: "Values and operators", to: "/docs/values" },
+      { label: "Collections and ranges", to: "/docs/collections" },
+      { label: "Control", to: "/docs/control" },
+      { label: "Result and option", to: "/docs/result-option" },
+      { label: "Strings", to: "/docs/strings" },
+      { label: "Modules and std", to: "/docs/modules" },
+      { label: "Structs", to: "/docs/structs" },
+      { label: "Tasks", to: "/docs/tasks" },
+      { label: "Names and layout", to: "/docs/names" },
+    ],
+  },
+  {
+    title: "Standard library",
+    links: [
+      { label: "Overview", to: "/docs/std" },
+      { label: "I/O and strings", to: "/docs/std/io-strings" },
+      { label: "TCP", to: "/docs/std/tcp" },
+      { label: "UDP", to: "/docs/std/udp" },
+      { label: "HTTP", to: "/docs/std/http" },
+    ],
+  },
+  {
+    title: "Guides",
+    links: [
+      { label: "Packages", to: "/docs/guides/packages" },
+      { label: "Diagnostics", to: "/docs/guides/diagnostics" },
+      { label: "REPL", to: "/docs/guides/repl" },
+      { label: "Cookbook", to: "/docs/guides/cookbook" },
+    ],
+  },
+  {
+    title: "Toolchain",
+    links: [
+      { label: "Toolchain", to: "/docs/toolchain" },
+      {
+        label: "Commands",
+        to: "/docs/toolchain/commands",
+      },
+      { label: "Examples", to: "/docs/toolchain/examples" },
+    ],
+  },
+];
+
+export const bookNavigation: DocsNavGroup[] = [
+  {
+    title: "The Echo Book",
+    links: [
+      { label: "Introduction", to: "/book" },
+      { label: "Leaders", to: "/book/leaders" },
+      { label: "Binds and functions", to: "/book/binds" },
+      { label: "Values and operators", to: "/book/values" },
+      { label: "Collections and ranges", to: "/book/collections" },
+      { label: "Control", to: "/book/control" },
+      { label: "Result and option", to: "/book/result-option" },
+      { label: "Strings", to: "/book/strings" },
+      { label: "Modules and std", to: "/book/modules" },
+      { label: "Structs", to: "/book/structs" },
+      { label: "Tasks", to: "/book/tasks" },
+      { label: "Names and layout", to: "/book/names" },
+    ],
+  },
+];
+
+export const e26Navigation: DocsNavGroup[] = [
+  {
+    title: "e26",
+    links: [
+      { label: "Overview", to: "/e26" },
+      { label: "Run", to: "/e26/run" },
+      { label: "Layout", to: "/e26/layout" },
+      { label: "Protocol", to: "/e26/protocol" },
+    ],
+  },
+];
+
+export function navigationForPath(pathname: string): DocsNavGroup[] {
+  if (pathname === "/book" || pathname.startsWith("/book/")) {
+    return bookNavigation;
+  }
+  if (pathname === "/e26" || pathname.startsWith("/e26/")) {
+    return e26Navigation;
+  }
+  return docsNavigation;
+}
+
+export const docsPages: DocsPage[] = [
+  // ── Start ──────────────────────────────────────────────────────────
+
+  // ── Docs (reference: how) ─────────────────────────────────────────
+  {
+    id: "docs",
+    path: "/docs",
+    category: "Docs",
+    title: "Reference",
+    summary:
+      "How Echo works, in short forms. For why and when, read the Book. For the fixture suite, see e26.",
+    tags: ["docs", "overview", "reference"],
+    aliases: ["documentation", "home docs", "echo docs", "reference"],
+    sections: [
+      {
+        title: "Scope",
+        tags: ["overview"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "This section is a ",
+              { code: "language and toolchain reference" },
+              ": forms, rules, and commands. It does not argue design choices — that is the Book.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Facts",
+        tags: ["language"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Compiled language. Statement leaders, no English keywords for control or binding. Program body = entry file top-level statements in order. Tool: ",
+              { code: "xo" },
+              ". Backend: LLVM.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Map",
+        tags: ["navigation"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Language pages cover forms and rules. Standard library pages document shipped user APIs; Guides cover projects, packages, diagnostics, the REPL, and runnable recipes. Toolchain pages begin at ",
+              { code: "/docs/toolchain" },
+              ". Prose guide: ",
+              { code: "/book" },
+              ". Suite: ",
+              { code: "/e26" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Search",
+        tags: ["search"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "/" },
+              " or ",
+              { code: "Ctrl+K" },
+              " / ",
+              { code: "Cmd+K" },
+              " — docs palette.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-first-program",
+    path: "/docs/first-program",
+    category: "Docs",
+    title: "First program",
+    summary: "Minimal runnable shape and xo commands.",
+    tags: ["docs", "reference", "hello", "xo"],
+    aliases: ["quickstart", "hello", "first program"],
+    sections: [
+      {
+        title: "Program",
+        tags: ["form", "runnable"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+$ xs = [1, 2, 3]
+~ sum = 0
+* x : xs {
+    ~ sum = sum + x
+}
+io.print("sum={sum}")`,
+          },
+        ],
+      },
+      {
+        title: "Read it",
+        tags: ["rules", "walkthrough"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Top-level statements run in order, so no reserved entry function is needed. ",
+              { code: "/ std/io" },
+              " binds module ",
+              { code: "io" },
+              ". Print: ",
+              { code: "io.print" },
+              " writes a string. The list is walked by ",
+              { code: "* x : xs" },
+              ", and the mutable accumulator is updated with ",
+              { code: "~" },
+              ". There is no free global ",
+              { code: "print" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Commands",
+        tags: ["xo"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `cargo build -p xo
+./target/debug/xo check examples/misc/sum_list.echo
+./target/debug/xo run examples/misc/sum_list.echo
+./target/debug/xo run --jit examples/misc/sum_list.echo
+./target/debug/xo build examples/misc/sum_list.echo -o /tmp/sum-list
+/tmp/sum-list`,
+          },
+        ],
+      },
+      {
+        title: "Next steps",
+        tags: ["guide", "navigation"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Use ",
+              { code: "Project setup" },
+              " to start a new directory. Learn the statement glyphs on ",
+              { code: "Leaders" },
+              ", then continue through binds, values, and collections. Use the Book when you want motivation and longer examples; use Docs when you need an exact form.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-project",
+    path: "/docs/project",
+    category: "Guide",
+    title: "Project setup",
+    summary: "Build xo, create an entry file, and establish a reliable local workflow.",
+    tags: ["guide", "project", "setup", "install", "build", "getting started"],
+    aliases: ["installation", "new project", "prerequisites", "linux", "quickstart"],
+    sections: [
+      {
+        title: "Build the toolchain",
+        tags: ["build", "source", "requirements"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo’s supported development baseline is Linux. Building this repository requires Rust, ",
+              { code: "clang" },
+              ", ",
+              { code: "mold" },
+              ", and ",
+              { code: "sccache" },
+              " because the workspace Cargo configuration selects them directly.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `git clone https://github.com/modoterra/echo.git
+cd echo
+cargo build -p xo
+./target/debug/xo --help`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The remaining examples assume the built binary is available as ",
+              { code: "xo" },
+              ". If it is not on your PATH, replace that command with the absolute path to ",
+              { code: "target/debug/xo" },
+              " from the checkout.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Project shape",
+        tags: ["files", "entry", "module"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "An Echo project needs only an entry ",
+              { code: ".echo" },
+              " file. Add sibling files or folder modules as the program grows. ",
+              { code: "xo.toml" },
+              " is optional and only needed for pinned external dependencies.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `my_app/
+├── main.echo
+├── config.echo
+├── routes/
+│   ├── health.echo
+│   └── home.echo
+└── xo.toml        # optional`,
+          },
+        ],
+      },
+      {
+        title: "Entry file",
+        tags: ["main", "program", "runnable"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+$ values = [10, 20, 12]
+~ total = 0
+* value : values {
+    ~ total = total + value
+}
+
+io.print("total={total}")`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The entry file’s top-level statements are the program body. Imports are resolved from that file into a closed module graph; no reserved main function is required.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Development loop",
+        tags: ["check", "format", "run", "build", "jit"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo fmt --check main.echo
+xo check main.echo
+xo run main.echo
+xo run --jit main.echo
+xo build -O 2 main.echo -o my_app
+./my_app`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "check" },
+              " is the fastest full-graph correctness pass. AOT ",
+              { code: "run" },
+              " and ",
+              { code: "build" },
+              " use LLVM plus clang; ",
+              { code: "run --jit" },
+              " executes the same LLVM IR in-process.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Run from the project root",
+        tags: ["cwd", "xo.toml", "cache"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Run ",
+              { code: "xo" },
+              " from the directory that owns ",
+              { code: "xo.toml" },
+              ". Project compiler artifacts live under ",
+              { code: ".xo/cache" },
+              "; downloaded packages live separately under the user root printed by ",
+              { code: "xo home" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-leaders",
+    path: "/docs/leaders",
+    category: "Docs",
+    title: "Leaders",
+    summary: "Statement leader forms.",
+    tags: ["docs", "reference", "leaders"],
+    aliases: ["leader table", "glyphs", "keywords"],
+    sections: [
+      {
+        title: "Rules",
+        tags: ["rules"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Leader at statement start after indentation. Space after leader required (except bare ",
+              { code: "<" },
+              " / ",
+              { code: ">" },
+              "). ",
+              { code: "{" },
+              " on same line as introducer.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Forms",
+        tags: ["forms", "table"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ name = expr     ; immutable bind
+~ name = expr     ; mutable / reassign
+# NAME = expr     ; compile-time const (SCREAMING_SNAKE)
+% name { }        ; struct primary
+@ name { }        ; struct extra members
+? expr { }        ; if
+: expr { }        ; else-if
+: { }             ; else / match default
+! expr            ; return err
+^ expr            ; return
+* { }             ; loop
+* cond { }        ; while
+* item : items { }; for-in
+<                 ; break
+>                 ; continue
+| expr { arms }   ; match
++ call(args)      ; spawn task
++ job = () { }    ; spawn body, bind handle
+- job             ; join task
+- value = job     ; join and bind result
+/ path            ; import
+\\ name           ; export`,
+          },
+        ],
+      },
+      {
+        title: "Dual-use",
+        tags: ["operators"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Statement start decides whether a dual-use glyph is a leader. In expressions: ",
+              { code: "+" },
+              " / ",
+              { code: "-" },
+              " add or subtract, ",
+              { code: "*" },
+              " multiply, ",
+              { code: "/" },
+              " divide, ",
+              { code: "!" },
+              " not, ",
+              { code: "<" },
+              " / ",
+              { code: ">" },
+              " compare, ",
+              { code: "%" },
+              " is remainder, and ",
+              { code: "|" },
+              " is the true literal.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-binds",
+    path: "/docs/binds",
+    category: "Docs",
+    title: "Binds and functions",
+    summary: "Bind leaders and function values.",
+    tags: ["docs", "reference", "bind", "functions"],
+    aliases: ["dollar", "tilde", "hash"],
+    sections: [
+      {
+        title: "Binds",
+        tags: ["forms"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ x = 1, y = 2 ; sequential immutable binds
+~ total = 0    ; mutable bind
+~ total = x + y ; reassign
+# A = 21       ; compile-time constant
+# B = A + A    ; constants may use other constants`,
+          },
+        ],
+      },
+      {
+        title: "Functions",
+        tags: ["functions"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ add = (a, b) {
+    ^ a + b
+}
+
+add(20, 22)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Free functions are ordinary values: pass them to another function, return them, or rebind a mutable function slot. They are introduced with ",
+              { code: "$" },
+              " / ",
+              { code: "~" },
+              " / ",
+              { code: "#" },
+              ". ",
+              { code: "^ expr" },
+              " return. Bare ",
+              { code: "^" },
+              " — option none. ",
+              { code: "! expr" },
+              " — result err (see Result page).",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Scope",
+        tags: ["scope"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A name is available only after its bind. Echo does not shadow a name in the same region; update a mutable with ",
+              { code: "~ name =" },
+              ". Function parameters and local binds belong to the function body.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Const expressions",
+        tags: ["const", "compile-time"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "#" },
+              " accepts literals and operations over other constants. Runtime calls are not constant expressions. Constant names use ",
+              { code: "SCREAMING_SNAKE" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-values",
+    path: "/docs/values",
+    category: "Docs",
+    title: "Values and operators",
+    summary: "Literal forms, operator precedence, equality, and copy behavior.",
+    tags: ["docs", "reference", "values", "literals", "operators"],
+    aliases: ["numbers", "booleans", "equality", "precedence", "value reference"],
+    sections: [
+      {
+        title: "Literal forms",
+        tags: ["literals", "numbers", "bool", "bytes", "duration", "locator"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `42  0xff  0b1010  1_000 ; integers
+3.14  1e-3             ; floats
+<i32> 42  <f32> 3.5    ; explicit width
+|  _                    ; true, false
+b'raw'  b"rich\\n"      ; bytes
+p'/tmp/file'            ; locator
+250ms  5s  2m           ; duration`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Integers default to ",
+              { code: "i64" },
+              " and floats to ",
+              { code: "f64" },
+              ". Width tags are prefix-only and support ",
+              { code: "i32" },
+              ", ",
+              { code: "i64" },
+              ", ",
+              { code: "f32" },
+              ", and ",
+              { code: "f64" },
+              ". Numeric kinds and explicit widths do not mix implicitly.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Operators and precedence",
+        tags: ["operators", "precedence", "arithmetic", "boolean"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `-x  !ready
+a * b  a / b  a % b
+a + b  a - b
+lo..hi
+a == b  a != b  a === b  a !== b
+a < b  a <= b  a > b  a >= b
+left && right
+left || right`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Precedence runs from primary expressions to unary operators, multiplication/division/remainder, addition/subtraction, ranges, comparisons, ",
+              { code: "&&" },
+              ", then ",
+              { code: "||" },
+              ". Parentheses override that order. Integer division truncates toward zero; float division remains fractional.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Deep and identity equality",
+        tags: ["equality", "identity", "deep"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "==" },
+              " and ",
+              { code: "!=" },
+              " compare content recursively. For structs and lists, ",
+              { code: "===" },
+              " and ",
+              { code: "!==" },
+              " ask whether both names refer to the same object. Identity and deep equality are the same for value kinds such as numbers and strings.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ a = [1, 2]
+$ b = [1, 2]
+$ alias = a
+
+io.print(str.from_int(a == b))
+io.print(str.from_int(a === b))
+io.print(str.from_int(a === alias))`,
+          },
+        ],
+      },
+      {
+        title: "Copy behavior",
+        tags: ["copy", "reference", "value"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Assignment, rebinding, and function calls always copy the binding. Named and anonymous structs and lists are references, so the copied binding shares one object. Numbers, booleans, strings, bytes, locators, durations, ranges, and function values copy their value.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-collections",
+    path: "/docs/collections",
+    category: "Docs",
+    title: "Collections and ranges",
+    summary: "Lists, anonymous products, indexing, assignment, and inclusive ranges.",
+    tags: ["docs", "reference", "list", "collection", "range"],
+    aliases: ["array", "index", "anonymous struct", "product", "range"],
+    sections: [
+      {
+        title: "Lists",
+        tags: ["list", "index", "assignment"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ xs = [1, 2, 3]
+$ first = xs[0]
+~ xs[0] = 9
+~ xs[2] = xs[0] + xs[1]`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Lists are ordered reference values. An alias or function parameter shares the same list, so an indexed write is visible through every alias. List literals and call arguments do not allow trailing commas.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Anonymous products",
+        tags: ["anonymous", "struct", "product"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ point = { x: 3, y: 4 }
+$ x = point.x`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "{ name: value }" },
+              " creates an anonymous struct: a structural product with named fields. It is not a general map and has no named type tag. Use a named struct literal when methods or type-match arms are needed.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Ranges",
+        tags: ["range", "inclusive", "loop", "match"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "lo..hi" },
+              " creates an inclusive integer range. Bind it, iterate over it, or use it as a match arm.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+~ total = 0
+* n : 1..4 {
+    ~ total = total + n
+}
+
+| total {
+    1..9 {
+        io.print('small')
+    }
+    10..20 {
+        io.print('medium')
+    }
+    : {
+        io.print('large')
+    }
+}`,
+          },
+        ],
+      },
+      {
+        title: "Unavailable literals",
+        tags: ["null", "map", "set", "trailing comma"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo has no null literal, map literal, or set literal. Option values come from function return shapes rather than a none literal. Trailing commas are rejected.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-control",
+    path: "/docs/control",
+    category: "Docs",
+    title: "Control",
+    summary: "If, loops, match, break, continue.",
+    tags: ["docs", "reference", "control"],
+    aliases: ["if", "loop", "match"],
+    sections: [
+      {
+        title: "If chain",
+        tags: ["if"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `? score >= 90 {
+    io.print('excellent')
+}
+: score >= 70 {
+    io.print('passing')
+}
+: {
+    io.print('try again')
+}`,
+          },
+        ],
+      },
+      {
+        title: "Loops",
+        tags: ["loop"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `* { }                  ; infinite
+* ready == _ { }       ; while condition is true
+* item : items { }     ; for-in list or range
+<                      ; break nearest loop
+>                      ; continue nearest loop`,
+          },
+        ],
+      },
+      {
+        title: "Match",
+        tags: ["match"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+$ number = 5
+| number {
+    1, 2, 3 {
+        io.print('small')
+    }
+    4..9 {
+        io.print('middle')
+    }
+    : {
+        io.print('other')
+    }
+}
+
+% user {
+    $ name
+}
+
+$ person = user { name: 'Ada' }
+| person {
+    % user {
+        io.print(person.name)
+    }
+    : {
+        io.print('not a user')
+    }
+}`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Value arms compare deeply and may list multiple expressions. Range arms test inclusive membership; ",
+              { code: "% struct_name" },
+              " arms test a named struct tag. The default arm is optional. Result and option use their own arm shapes; see ",
+              { code: "Result and option" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-result-option",
+    path: "/docs/result-option",
+    category: "Docs",
+    title: "Result and option",
+    summary: "Produce and match result / option shapes.",
+    tags: ["docs", "reference", "result", "option"],
+    aliases: ["err", "ok", "some", "none"],
+    sections: [
+      {
+        title: "Result",
+        tags: ["result"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A function with an error-return path has a result shape. ",
+              { code: "!" },
+              " returns the error payload; it does not abort the process. ",
+              { code: "^ v" },
+              " ok. ",
+              { code: "! e" },
+              " err. Not process abort.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ checked = (x) {
+    ? x < 0 {
+        ! 'negative'
+    }
+    ^ x
+}
+
+| checked(7) {
+    $ value {
+        io.print(str.from_int(value))
+    }
+    ! error {
+        io.print(error)
+    }
+}`,
+          },
+        ],
+      },
+      {
+        title: "Option",
+        tags: ["option"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "An option-shaped function returns ",
+              { code: "^ v" },
+              " for some and bare ",
+              { code: "^" },
+              " for none.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ maybe = (x) {
+    ? x == 0 {
+        ^
+    }
+    ^ x
+}
+
+| maybe(7) {
+    $ value {
+        io.print(str.from_int(value))
+    }
+    : {
+        io.print('empty')
+    }
+}`,
+          },
+        ],
+      },
+      {
+        title: "Rules",
+        tags: ["rules"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A result match uses ",
+              { code: "$ name" },
+              " for ok and ",
+              { code: "! name" },
+              " for err. An option match uses ",
+              { code: "$ name" },
+              " for some and ",
+              { code: ":" },
+              " for none. Leaving either shape unhandled is a compile error; there is no silent discard or separate try form.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-strings",
+    path: "/docs/strings",
+    category: "Docs",
+    title: "Strings",
+    summary: "Pure and rich string forms.",
+    tags: ["docs", "reference", "string"],
+    aliases: ["quotes", "interp"],
+    sections: [
+      {
+        title: "Forms",
+        tags: ["forms"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `'pure'           ; no escapes, no interp, no interior '
+"rich\\n{name}"   ; escapes + {name} interp`,
+          },
+        ],
+      },
+      {
+        title: "Rules",
+        tags: ["rules"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "No string ",
+              { code: "+" },
+              ". Build with rich strings. ",
+              { code: "==" },
+              " / ",
+              { code: "!=" },
+              " compare content.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Interpolation",
+        tags: ["interpolation", "escape"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Rich strings interpolate a bound name with ",
+              { code: "{name}" },
+              ". Inside a method, ",
+              { code: "{.field}" },
+              " reads from the receiver. Pure strings preserve their contents literally and cannot contain an interior single quote.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ name = 'Ada'
+$ visits = 3
+$ message = "Hello, {name}; visits={visits}\\n"`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-modules",
+    path: "/docs/modules",
+    category: "Docs",
+    title: "Modules and std",
+    summary: "Import, export, std, runtime.",
+    tags: ["docs", "reference", "modules", "std"],
+    aliases: ["import", "export", "packages"],
+    sections: [
+      {
+        title: "Import / export",
+        tags: ["import", "export"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io          ; binds io
+/ ./lib           ; binds lib
+io.print(lib.message)
+\\ name            ; export
+\\ a, b            ; multi export`,
+          },
+        ],
+      },
+      {
+        title: "Rules",
+        tags: ["rules"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Each import binds the last path segment as one module name. Use ",
+              { code: "module.export" },
+              ". No star-import. ",
+              { code: "io.print" },
+              " accepts strings; convert other values explicitly through modules such as ",
+              { code: "std/str" },
+              ". There is no free ",
+              { code: "print" },
+              " — use ",
+              { code: "std" },
+              ". ",
+              { code: "/ runtime" },
+              " allowed only in privileged std sources.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Files and folders",
+        tags: ["file", "folder", "module", "export"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A relative path resolves to a matching ",
+              { code: ".echo" },
+              " file or a directory module. A directory module includes its sorted ",
+              { code: "*.echo" },
+              " files and exposes the union of their exports. Private names remain file-local; imports only see exported names.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "External packages",
+        tags: ["package", "xo get", "xo home"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Host-style imports resolve from the user package cache. ",
+              { code: "xo get" },
+              " installs a package, ",
+              { code: "xo home" },
+              " prints the cache locations, and an optional ",
+              { code: "xo.toml" },
+              " pins dependencies for check, run, and build.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo get github.com/owner/package@v1.2.3
+xo get local-package --path ./local-package
+xo home`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-structs",
+    path: "/docs/structs",
+    category: "Docs",
+    title: "Structs",
+    summary: "% shape, @ members, method receiver.",
+    tags: ["docs", "reference", "struct"],
+    aliases: ["percent", "at", "methods"],
+    sections: [
+      {
+        title: "Forms",
+        tags: ["forms"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `% user {
+    $ name
+    ~ visits = 0
+    $ greet = () {
+        ^ "hi {.name}"
+    }
+}
+
+@ user {
+    $ label = () {
+        ^ "{.name}#{.visits}"
+    }
+}
+
+$ u = user { name: "Ada", visits: 0 }
+u.greet()
+u.label()`,
+          },
+        ],
+      },
+      {
+        title: "Rules",
+        tags: ["rules"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "One ",
+              { code: "%" },
+              " per ",
+              { code: "struct_name" },
+              ". ",
+              { code: "@" },
+              " adds members (other files ok). Members use ",
+              { code: "$" },
+              " / ",
+              { code: "~" },
+              " / ",
+              { code: "#" },
+              ". Method call ",
+              { code: "v.m()" },
+              " binds receiver ",
+              { code: "." },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Fields and defaults",
+        tags: ["field", "default", "assignment"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A member without an initializer must be supplied by the literal. A default initializer fills an omitted field. Use ",
+              { code: "~ value.field = expr" },
+              " or ",
+              { code: "~ .field = expr" },
+              " to update a mutable field; immutable fields reject writes.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Receiver returns",
+        tags: ["method", "receiver", "chain"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A plain method that reaches the end without an explicit return yields its receiver, like ",
+              { code: "^ ." },
+              ". This enables method chains. Free functions and result- or option-shaped methods do not receive that fall-through behavior.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-tasks",
+    path: "/docs/tasks",
+    category: "Docs",
+    title: "Tasks",
+    summary: "Spawn work, capture values, and join task handles.",
+    tags: ["docs", "reference", "task", "spawn", "join"],
+    aliases: ["concurrency", "plus leader", "minus leader", "task handle", "capture"],
+    sections: [
+      {
+        title: "Spawn and join",
+        tags: ["spawn", "join", "handle"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ inc = (x) {
+    ^ x + 1
+}
+
++ job = inc(41)
+- answer = job`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "+" },
+              " schedules a free-function call or task body. Binding the spawn result stores a task handle. ",
+              { code: "- handle" },
+              " waits and discards the result; ",
+              { code: "- name = handle" },
+              " waits and binds it.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Task bodies and captures",
+        tags: ["body", "capture", "reference"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ base = 40
++ job = () [base] {
+    ^ base + 2
+}
+- answer = job`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "A task body is closed to outer locals unless they are named in its optional capture list. Captures must already be bound and are passed by reference: reference values share their object, while value kinds carry the same value. A spawn call or capture list accepts up to eight values.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Immediate block",
+        tags: ["immediate", "block", "result"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "- { body }" },
+              " schedules and joins a body in one statement. Use ",
+              { code: "- name = { body }" },
+              " to keep its return value. Result- and option-shaped task returns are handled with the same match forms as ordinary function calls.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `- result = {
+    ^ 42
+}`,
+          },
+        ],
+      },
+      {
+        title: "Lifecycle rule",
+        tags: ["lifecycle", "unjoined"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Every spawned task must be joined before process exit. Leaving a task handle unjoined makes the program exit unsuccessfully. Task scheduling is a language feature; userland does not import a task module.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-names",
+    path: "/docs/names",
+    category: "Docs",
+    title: "Names and layout",
+    summary: "Identifiers, comments, kinds.",
+    tags: ["docs", "reference", "naming"],
+    aliases: ["snake_case", "comments"],
+    sections: [
+      {
+        title: "Identifiers",
+        tags: ["rules", "identifiers"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "ASCII ",
+              { code: "snake_case" },
+              ". Struct names lowercase. ",
+              { code: "#" },
+              " → ",
+              { code: "SCREAMING_SNAKE" },
+              ". Names are case-sensitive. ",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Layout",
+        tags: ["layout", "comments"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: ";" },
+              " starts a comment that runs to end of line. Write one construct per line except for multi-bind. Blocks put ",
+              { code: "{" },
+              " on the introducer line; Echo has no line-continuation marker and rejects trailing commas.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Kinds",
+        tags: ["types", "inference", "width"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Kinds are inferred on bindings, parameters, returns, and fields. There is no colon ascription or generics surface. Numeric width tags appear only before literals: ",
+              { code: "<i32>42" },
+              " and ",
+              { code: "<f64>3.14" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std",
+    path: "/docs/std",
+    category: "Standard library",
+    title: "Standard library",
+    summary: "Userland modules for output, conversion, TCP, UDP, and HTTP.",
+    tags: ["std", "standard library", "io", "network", "http"],
+    aliases: ["stdlib", "library modules", "api overview"],
+    sections: [
+      {
+        title: "Import policy",
+        tags: ["import", "userland", "runtime"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "User programs import only ",
+              { code: "std/…" },
+              " modules. There are no free built-ins: output is ",
+              { code: "io.print" },
+              ", conversion is ",
+              { code: "str.from_int" },
+              ", and networking is accessed through its module. ",
+              { code: "/ runtime" },
+              " is reserved for the privileged standard-library sources.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Modules",
+        tags: ["module", "exports", "surface"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io         ; print, log, eprint
+/ std/str        ; conversion, byte length, concatenation
+/ std/net/tcp    ; listener and connection structs + helpers
+/ std/net/udp    ; datagram socket struct + helpers
+/ std/net/http   ; request parsing, responses, routes, serving`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Every import binds one module name from the final path segment. Folder modules such as ",
+              { code: "std/net/tcp" },
+              " combine exports from the Echo files in that folder.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Values at the boundary",
+        tags: ["string", "bytes", "struct", "reference"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Output accepts strings, while socket reads return bytes. Convert explicitly with ",
+              { code: "std/str" },
+              ". TCP listeners, TCP connections, and UDP sockets are named structs passed by reference, so aliases share the same underlying resource.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Network failures",
+        tags: ["failure", "handle", "open", "eof"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Network constructors report failure with a resource whose ",
+              { code: "handle" },
+              " is ",
+              { code: "0" },
+              " and ",
+              { code: "open" },
+              " is false. Writes return ",
+              { code: "-1" },
+              " on failure. TCP reads return empty bytes on EOF or failure; UDP receive returns an empty data/from product on failure.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-io-strings",
+    path: "/docs/std/io-strings",
+    category: "Standard library",
+    title: "I/O and strings",
+    summary: "Print strings and explicitly convert, measure, or concatenate values.",
+    tags: ["std", "io", "string", "print", "conversion"],
+    aliases: ["std io", "std str", "log", "eprint", "string length", "concat"],
+    sections: [
+      {
+        title: "Output",
+        tags: ["io", "print", "log", "eprint"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+io.print('ordinary output')
+io.log('log output')
+io.eprint('error-oriented output')`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "print(value)" },
+              ", ",
+              { code: "log(value)" },
+              ", and ",
+              { code: "eprint(value)" },
+              " each accept a string and write it followed by a newline. Non-string values produce no output, so convert them explicitly.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Conversions",
+        tags: ["convert", "int", "float", "bytes", "duration", "locator"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `str.from_int(value)
+str.from_float(value)
+str.from_bytes(value)
+str.from_duration(value)
+str.from_locator(value)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "from_bytes" },
+              " decodes with lossy UTF-8 replacement for invalid bytes. Duration formatting chooses the largest exact unit; locator conversion returns its path or URI text.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ count = str.from_int(42)
+$ ratio = str.from_float(3.5)
+$ timeout = str.from_duration(250ms)
+$ location = str.from_locator(p'/tmp/echo')
+
+io.print("count={count} ratio={ratio}")
+io.print("timeout={timeout} location={location}")`,
+          },
+        ],
+      },
+      {
+        title: "Length",
+        tags: ["len", "length", "bytes", "utf8"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "str.len(value)" },
+              " returns the byte length of a string or bytes value. It is not a Unicode character count. Invalid or unsupported values produce ",
+              { code: "0" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Concatenation",
+        tags: ["cat", "concat", "interpolation"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo does not overload ",
+              { code: "+" },
+              " for strings. Prefer rich-string interpolation when names fit the template; use ",
+              { code: "str.cat(a, b)" },
+              " when two values must be joined dynamically.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ greeting = "Hello, {name}"
+$ path = str.cat(base, suffix)`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-tcp",
+    path: "/docs/std/tcp",
+    category: "Standard library",
+    title: "TCP",
+    summary: "Listen, connect, exchange bytes, and close shared TCP resources.",
+    tags: ["std", "tcp", "network", "socket", "connection", "listener"],
+    aliases: ["std net tcp", "listen", "connect", "accept", "read", "write"],
+    sections: [
+      {
+        title: "Surface",
+        tags: ["api", "listener", "conn", "helpers"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `tcp.listen(addr)              ; listener
+tcp.connect(addr)             ; conn
+listener.accept()             ; conn
+conn.read(limit)              ; bytes
+conn.write(string_or_bytes)   ; bytes written, -1 on failure
+conn.close()                  ; closes and marks open false
+listener.close()              ; closes and marks open false`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The module also exports free ",
+              { code: "accept" },
+              ", ",
+              { code: "read" },
+              ", ",
+              { code: "write" },
+              ", and ",
+              { code: "close" },
+              " helpers. Prefer methods when the named struct type is known; method close also updates the resource’s ",
+              { code: "open" },
+              " field.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Resource fields",
+        tags: ["fields", "handle", "open", "remote", "addr"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A listener exposes ",
+              { code: "addr" },
+              ", ",
+              { code: "handle" },
+              ", and mutable ",
+              { code: "open" },
+              ". A connection exposes ",
+              { code: "remote" },
+              ", ",
+              { code: "handle" },
+              ", and mutable ",
+              { code: "open" },
+              ". Treat the handle as an opaque failure check, not as a separate socket type.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Loopback exchange",
+        tags: ["example", "loopback", "bytes", "runnable"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+/ std/net/tcp
+
+$ lis = tcp.listen('127.0.0.1:39880')
+$ client = tcp.connect('127.0.0.1:39880')
+$ server = lis.accept()
+
+client.write('ping')
+$ received = server.read(64)
+io.print(str.from_bytes(received))
+
+client.close()
+server.close()
+lis.close()`,
+          },
+        ],
+      },
+      {
+        title: "Blocking and tasks",
+        tags: ["blocking", "event loop", "task", "server"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Accept, read, and write cooperate with Echo’s event loop when the operating-system socket would block. A server can spawn a task per accepted connection, but every task must still be joined before normal process exit. Long-running accept loops naturally end only when the process is stopped.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Failure and EOF",
+        tags: ["failure", "eof", "empty", "limit"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Failed listen, connect, or accept returns a struct with ",
+              { code: "handle == 0" },
+              " and ",
+              { code: "open == _" },
+              ". Read limits at or below zero return empty bytes; other reads return empty bytes for EOF or failure. A single read is not a message boundary—application protocols must frame their own data.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-udp",
+    path: "/docs/std/udp",
+    category: "Standard library",
+    title: "UDP",
+    summary: "Bind a datagram socket, send packets, receive sender metadata, and close it.",
+    tags: ["std", "udp", "network", "socket", "datagram"],
+    aliases: ["std net udp", "bind", "send_to", "recv_from", "packet"],
+    sections: [
+      {
+        title: "Surface",
+        tags: ["api", "socket", "helpers"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `udp.bind(addr)                    ; socket
+socket.send_to(data, destination) ; bytes sent, -1 on failure
+socket.recv_from(limit)            ; { data: bytes, from: string }
+socket.close()                     ; closes and marks open false`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The module also exports free ",
+              { code: "send_to" },
+              ", ",
+              { code: "recv_from" },
+              ", and ",
+              { code: "close" },
+              " helpers. A socket exposes ",
+              { code: "addr" },
+              ", ",
+              { code: "handle" },
+              ", and mutable ",
+              { code: "open" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Loopback datagram",
+        tags: ["example", "loopback", "packet", "runnable"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+/ std/net/udp
+
+$ sock = udp.bind('127.0.0.1:39881')
+sock.send_to('hello', '127.0.0.1:39881')
+
+$ packet = sock.recv_from(64)
+io.print(str.from_bytes(packet.data))
+io.print(packet.from)
+
+sock.close()`,
+          },
+        ],
+      },
+      {
+        title: "Datagram behavior",
+        tags: ["boundary", "limit", "failure", "from"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Each receive returns at most one datagram and preserves its sender in ",
+              { code: "packet.from" },
+              ". The byte limit caps the captured payload. Bind failure produces ",
+              { code: "handle == 0" },
+              "; receive failure produces empty ",
+              { code: "data" },
+              " and ",
+              { code: "from" },
+              " fields.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-http",
+    path: "/docs/std/http",
+    category: "Standard library",
+    title: "HTTP",
+    summary: "Parse requests, construct responses, dispatch exact routes, and serve over TCP.",
+    tags: ["std", "http", "server", "request", "response", "route"],
+    aliases: ["std net http", "parse_request", "dispatch", "serve", "routing"],
+    sections: [
+      {
+        title: "Request and response shapes",
+        tags: ["request", "response", "fields", "methods"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A request has ",
+              { code: "method" },
+              ", ",
+              { code: "path" },
+              ", ",
+              { code: "headers" },
+              ", and ",
+              { code: "body" },
+              " fields plus ",
+              { code: "is_get()" },
+              ", ",
+              { code: "is_post()" },
+              ", and ",
+              { code: "has_body()" },
+              ". A response carries mutable ",
+              { code: "status" },
+              ", ",
+              { code: "headers" },
+              ", and ",
+              { code: "body" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Parse a request",
+        tags: ["parse", "headers", "body"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/net/http
+
+$ raw = "POST /items HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello"
+$ req = http.parse_request(raw)
+
+io.print(req.method)
+io.print(req.path)
+io.print(req.body)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Header names are normalized into fields on ",
+              { code: "req.headers" },
+              ". Parsing preserves a request body through the declared Content-Length when the full request is available.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Response helpers",
+        tags: ["response", "text", "html", "json", "format"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `http.text_response(status, body)
+http.html_response(status, body)
+http.json_response(status, body)
+http.format_response(response)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The three constructors set the corresponding Content-Type. ",
+              { code: "format_response" },
+              " emits an HTTP/1.1 response with status text, Content-Type, Content-Length, and Connection: close.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Dispatch routes",
+        tags: ["route", "handler", "dispatch", "404"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Routes are a list of anonymous products with ",
+              { code: "path" },
+              " and callable ",
+              { code: "handle" },
+              " fields. Dispatch uses exact path equality and calls the first match. When no route matches, it returns a text 404 response.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+/ std/net/http
+
+$ health = (req) {
+    ^ http.json_response(200, "ok")
+}
+
+$ routes = [
+    { path: "/health", handle: health }
+]
+
+$ req = http.parse_request("GET /health HTTP/1.1\r\nHost: echo\r\n\r\n")
+$ res = http.dispatch(routes, req)
+io.print(str.from_int(res.status))
+io.print(res.body)`,
+          },
+        ],
+      },
+      {
+        title: "Serve",
+        tags: ["serve", "tcp", "connection", "long-running"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ routes = [
+    { path: "/health", handle: health }
+]
+
+http.serve('127.0.0.1:8080', routes)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "serve" },
+              " starts an infinite TCP accept loop and schedules each accepted connection as a task. Use ",
+              { code: "handle_connection(conn, routes)" },
+              " when an application owns the listener and needs a finite or custom accept loop. Listen failure is logged and returns a server value with ",
+              { code: "running == _" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-guide-packages",
+    path: "/docs/guides/packages",
+    category: "Guide",
+    title: "Packages",
+    summary: "Organize local modules, install pinned dependencies, and resolve host imports.",
+    tags: ["guide", "package", "module", "xo get", "xo.toml", "dependency"],
+    aliases: ["package manager", "dependencies", "package cache", "folder module"],
+    sections: [
+      {
+        title: "Modules before packages",
+        tags: ["module", "file", "folder", "local"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Local multi-file programs do not need package metadata. Import a sibling ",
+              { code: "math.echo" },
+              " file or a ",
+              { code: "math/" },
+              " folder with the same path. A folder module combines the exports of its sorted ",
+              { code: "*.echo" },
+              " files; private bindings remain file-local.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ ./math
+
+$ total = math.add(20, 22)`,
+          },
+        ],
+      },
+      {
+        title: "Install a dependency",
+        tags: ["get", "git", "path", "version"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo get github.com/acme/lib@v1.2.3
+xo get github.com/acme/lib@dev --path ../lib
+xo get github.com/acme/lib@v1.2.3 --deps
+xo home`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Use an explicit tag, branch, or commit when reproducibility matters. ",
+              { code: "--path" },
+              " copies a local source tree into the same user package cache; ",
+              { code: "--deps" },
+              " recursively installs dependencies declared by that package. ",
+              { code: "xo home" },
+              " prints the active user root and package directory.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Pin project dependencies",
+        tags: ["xo.toml", "pin", "auto-get", "cwd"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Place ",
+              { code: "xo.toml" },
+              " in the working directory used to run ",
+              { code: "xo" },
+              ". The tool reads its ",
+              { code: "[dependencies]" },
+              " table and automatically installs a missing pinned dependency during check, run, or build.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `[dependencies]
+"github.com/acme/lib" = "v1.2.3"`,
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ github.com/acme/lib/math
+
+$ answer = math.add(20, 22)`,
+          },
+        ],
+      },
+      {
+        title: "Resolution rules",
+        tags: ["resolve", "name", "cycle", "cache"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "An import binds its last path segment, so the example above binds ",
+              { code: "math" },
+              ". Echo has no import aliases or star imports. Two imports with the same final segment conflict, import cycles are errors, and external packages are never vendored into the project’s ",
+              { code: ".xo/cache" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Troubleshoot resolution",
+        tags: ["diagnostic", "graph", "res-import"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo check --graph main.echo
+xo check --diag-codes main.echo
+xo home`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "res-import" },
+              " means the target could not be resolved, ",
+              { code: "res-import-name-conflict" },
+              " means two imports want the same binding, and ",
+              { code: "res-import-cycle" },
+              " reports a cycle in the closed module graph.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-guide-diagnostics",
+    path: "/docs/guides/diagnostics",
+    category: "Guide",
+    title: "Diagnostics",
+    summary:
+      "Read compiler locations and codes, isolate a failing stage, and inspect the module graph.",
+    tags: ["guide", "diagnostics", "errors", "codes", "check", "debug"],
+    aliases: ["compiler errors", "sem-unbound", "res-import", "parse-error", "diag codes"],
+    sections: [
+      {
+        title: "Diagnostic shape",
+        tags: ["severity", "code", "location", "message"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A diagnostic prints its severity, stable domain code, source location, and message. Codes identify the owning compiler stage: ",
+              { code: "lex-*" },
+              ", ",
+              { code: "parse-*" },
+              ", ",
+              { code: "res-*" },
+              ", ",
+              { code: "sem-*" },
+              ", or ",
+              { code: "cg-*" },
+              ".",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: "error[sem-unbound] src/main.echo:8:12: unbound name `total`",
+          },
+        ],
+      },
+      {
+        title: "Normal workflow",
+        tags: ["check", "format", "graph", "codes"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo fmt --check src/main.echo
+xo check src/main.echo
+xo check --graph src/main.echo
+xo check --diag-codes src/main.echo`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Start with ",
+              { code: "xo check" },
+              " because it resolves the full import graph and runs semantics without linking a binary. ",
+              { code: "--graph" },
+              " prints resolved modules; ",
+              { code: "--diag-codes" },
+              " emits only codes for scripts and fixture-style assertions.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Isolate the stage",
+        tags: ["lex", "ast", "ir", "pipeline"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo lex --kinds --diag-codes src/main.echo
+xo ast --kinds --diag-codes src/main.echo
+xo ir --diag-codes src/main.echo`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "If lexing fails, later stages have no trustworthy source structure. If AST output succeeds but check fails, focus on names, kinds, effects, and module rules. IR emission additionally exercises HIR, MIR, and LLVM code generation.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Common semantic codes",
+        tags: ["semantic", "unbound", "type", "effect", "task"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `sem-unbound           name is not available at this point
+sem-shadow            name is introduced twice in one region
+sem-immutable         write targets an immutable binding or field
+sem-type-mismatch     incompatible kinds or numeric widths
+sem-not-callable      call target is not a function value
+sem-arity             argument count does not match
+sem-unhandled-result  result must be matched with $ / ! arms
+sem-unhandled-option  option must be matched with $ / : arms
+sem-task-capture      capture does not name an existing binding
+sem-task-arity        task call or capture list exceeds the ABI limit`,
+          },
+        ],
+      },
+      {
+        title: "Common resolver codes",
+        tags: ["resolver", "import", "export", "struct"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `res-entry                 entry file is missing or invalid
+res-import                import cannot be resolved
+res-import-name-conflict  two imports bind the same final segment
+res-import-cycle          module graph contains a cycle
+res-export-missing        exported name is not defined
+res-runtime-forbidden     userland attempted / runtime
+res-struct-dup-primary    multiple % declarations for one struct
+res-struct-no-primary     @ members have no matching % declaration
+res-struct-dup-member     merged struct members collide`,
+          },
+        ],
+      },
+      {
+        title: "Cache checks",
+        tags: ["cache", "no-cache", "doctor"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "When a local toolchain or std source has changed and output appears stale, bypass artifacts once with ",
+              { code: "--no-cache" },
+              " or inspect them with ",
+              { code: "xo cache status" },
+              " and ",
+              { code: "xo cache doctor" },
+              ". Cache cleaning should be a diagnosis step, not a substitute for fixing a source error.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-guide-repl",
+    path: "/docs/guides/repl",
+    category: "Guide",
+    title: "REPL",
+    summary: "Explore Echo through the shared compiler pipeline and in-process LLVM JIT.",
+    tags: ["guide", "repl", "interactive", "jit", "session"],
+    aliases: ["xo repl", "interactive shell", "eager eval", "meta commands"],
+    sections: [
+      {
+        title: "Start a session",
+        tags: ["start", "jit", "pipeline"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo repl`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The REPL uses the same parser, semantic analysis, LLVM lowering, and runtime as ",
+              { code: "xo run --jit" },
+              ". Successful statements persist in the session and are compiled again with later input.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Evaluate and retain",
+        tags: ["expression", "statement", "binding", "import"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ x = 40
+x + 2
+
+/ std/io
+io.print('hello from the repl')`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Bare integer and float expressions display automatically. Other kinds require explicit conversion and ",
+              { code: "io.print" },
+              ". Bindings, imports, structs, and other successful statements remain available until the session is cleared.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Multi-line input",
+        tags: ["block", "function", "brace"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Keep a block’s opening brace unmatched to continue on the next prompt. Evaluation begins when brace depth returns to zero.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ double = (value) {
+    ^ value + value
+}
+
+double(21)`,
+          },
+        ],
+      },
+      {
+        title: "Session commands",
+        tags: ["help", "clear", "quit", "history"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `:help       # show help
+:session    # print accumulated Echo source
+:clear      # clear accumulated source
+:quit       # leave (:exit and Ctrl-D also work)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Interactive history is stored under ",
+              { code: "$XDG_STATE_HOME/xo/history" },
+              " or ",
+              { code: "~/.local/state/xo/history" },
+              ". End-of-line hints preview integer expressions and complete meta commands or matching history entries.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Piped input",
+        tags: ["stdin", "script", "non-interactive"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `printf '%s\n' '$ x = 1' 'x + 2' ':quit' | xo repl`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "When standard input is not a terminal, the REPL reads line-oriented input without the interactive editor. This is useful for reproducible smoke checks.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-guide-cookbook",
+    path: "/docs/guides/cookbook",
+    category: "Guide",
+    title: "Cookbook",
+    summary:
+      "Runnable starting points for language features, algorithms, networking, and applications.",
+    tags: ["guide", "cookbook", "recipes", "examples", "run"],
+    aliases: ["how to", "sample programs", "recipes", "demos"],
+    sections: [
+      {
+        title: "Explore one feature",
+        tags: ["misc", "language", "example"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "examples/misc" },
+              " contains small programs with one primary idea. These are the quickest way to see a feature in a complete source file.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo run examples/misc/first_class_fn.echo
+xo run examples/misc/eq_deep_id.echo
+xo run examples/misc/match_type.echo
+xo run examples/misc/method_chain.echo
+xo run examples/misc/range.echo`,
+          },
+        ],
+      },
+      {
+        title: "Run an algorithm",
+        tags: ["algorithm", "algos", "data"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo run examples/algos/fibonacci.echo
+xo run examples/algos/gcd.echo
+xo run examples/algos/primes.echo
+xo run examples/algos/sort.echo`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Algorithm examples emphasize ordinary expressions, loops, lists, functions, and control flow without application infrastructure.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Inspect the compiler",
+        tags: ["lex", "ast", "ir", "check"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo lex --kinds examples/misc/sum_list.echo
+xo ast --kinds examples/misc/sum_list.echo
+xo check --graph examples/misc/multi/main.echo
+xo ir examples/misc/sum_list.echo`,
+          },
+        ],
+      },
+      {
+        title: "Smoke TCP and UDP",
+        tags: ["network", "tcp", "udp", "loopback"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo run echo26/run/net/001_tcp_loopback.echo
+xo run echo26/run/net/002_udp_loopback.echo
+xo run echo26/run/net/003_conn_methods.echo`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "These recipes bind fixed loopback ports. If a port is already occupied, choose a different high port in a copy of the source.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Run the HTTP application",
+        tags: ["http", "app", "server", "curl"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "examples/app/main.echo" },
+              " is a finite end-to-end smoke with modular routes and one live TCP exchange. ",
+              { code: "server.echo" },
+              " runs until interrupted.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo run --no-cache examples/app/main.echo
+
+# terminal 1: long-running server
+xo run --no-cache examples/app/server.echo
+
+# terminal 2
+curl -s http://127.0.0.1:8080/health`,
+          },
+        ],
+      },
+      {
+        title: "Build a native binary",
+        tags: ["build", "native", "optimization"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo check examples/misc/sum_list.echo
+xo build -O 2 examples/misc/sum_list.echo -o /tmp/echo-sum
+/tmp/echo-sum`,
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── Book ───────────────────────────────────────────────────────────
+  {
+    id: "book",
+    path: "/book",
+    category: "Book",
+    title: "Introduction",
+    summary:
+      "Why Echo looks this way, when to reach for each construct, and how to read programs. For bare forms, use Docs.",
+    tags: ["book", "language", "introduction"],
+    aliases: ["language book", "echo book", "docs book", "the book"],
+    sections: [
+      {
+        title: "The idea",
+        tags: ["intent", "leaders"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "English keywords force every program through the same vocabulary. Echo puts structure in a short set of leaders so the rest of the line stays an ordinary expression — easier to scan once you know the glyphs, denser once you do.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The file is the program: top-level runs in order. That choice keeps the language free of a reserved entry name. If you want forms without the reasoning, open Docs.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "A small program",
+        tags: ["example", "runnable"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: ["Same idea as the homepage hero:"],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+$ xs = [1, 2, 3]
+~ sum = 0
+* x : xs {
+    ~ sum = sum + x
+}
+io.print("sum={sum}")`,
+          },
+        ],
+      },
+      {
+        title: "How to read the Book",
+        tags: ["guide"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Read left to right: leaders and binds establish the grammar; values and collections establish the data model; control and result shapes establish flow; modules, structs, and tasks scale a program out. Each chapter explains why and when. The matching Docs page is the form sheet.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-leaders",
+    path: "/book/leaders",
+    category: "Book",
+    title: "Leaders",
+    summary: "Why leaders instead of keywords, and how to read a line at a glance.",
+    tags: ["book", "leaders", "syntax", "keywords"],
+    aliases: ["no keywords", "statement leaders", "glyph"],
+    sections: [
+      {
+        title: "Why leaders",
+        tags: ["why"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Keywords reserve English identifiers forever (",
+              { code: "if" },
+              ", ",
+              { code: "for" },
+              ", ",
+              { code: "return" },
+              "). Leaders leave every word free for your program. The cost is learning a small glyph set once; the gain is no collision with domain names and a fixed place to look for structure — column zero of the statement.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "How to read a line",
+        tags: ["how"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "First non-space character is the leader (or you are in an expression). Space after the leader (except bare ",
+              { code: "<" },
+              " / ",
+              { code: ">" },
+              "). ",
+              { code: "{" },
+              " opens on that same line. If a glyph appears mid-expression, it is an operator, not a leader — context decides.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Table",
+        tags: ["table", "reference"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `~ name = expr     ; mutable bind / reassign
+$ name = expr     ; immutable bind
+# NAME = expr     ; compile-time const (SCREAMING_SNAKE)
+% struct_name { } ; struct shape
+@ struct_name { } ; extra members (other files ok)
+? expr { }        ; if
+: expr { }        ; else-if
+: { }             ; else / match default
+! expr            ; return err (result)
+^ expr            ; return
+* { }             ; loop
+* item : items { }; for-in
+<                 ; break
+>                 ; continue
+| expr { arms }   ; match
++ call(args)      ; spawn task
+- handle          ; join task
+/ path            ; import
+\\ name           ; export`,
+          },
+        ],
+      },
+      {
+        title: "Dual-use glyphs",
+        tags: ["operators", "dual"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Some characters are leaders only at statement start and operators in expressions: ",
+              { code: "+" },
+              " and ",
+              { code: "-" },
+              " schedule or join at statement start but do arithmetic in expressions; ",
+              { code: "*" },
+              " multiplies, ",
+              { code: "/" },
+              " divides, ",
+              { code: "!" },
+              " is prefix not, ",
+              { code: "<" },
+              " / ",
+              { code: ">" },
+              " compare. The same rule covers ",
+              { code: "%" },
+              " and ",
+              { code: "|" },
+              ". Context decides.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-binds",
+    path: "/book/binds",
+    category: "Book",
+    title: "Binds and functions",
+    summary: "When to pick $, ~, or # — and why functions are just values.",
+    tags: ["book", "bind", "functions", "const"],
+    aliases: ["dollar", "tilde", "hash", "free functions"],
+    sections: [
+      {
+        title: "Why three binds",
+        tags: ["why"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Most names should not change. ",
+              { code: "$" },
+              " makes that the default. ",
+              { code: "~" },
+              " is the deliberate exception — loops, accumulators, reassigned handlers. ",
+              { code: "#" },
+              " is for values that must exist before runtime: table sizes, version strings, pure chains of other constants. If a “const” needs a function call, it is not ",
+              { code: "#" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Three binds",
+        tags: ["immutable", "mutable", "const"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "$" },
+              " immutable at runtime. ",
+              { code: "~" },
+              " mutable (",
+              { code: "~ name =" },
+              " updates). ",
+              { code: "#" },
+              " compile-time only: lits and ops on other ",
+              { code: "#" },
+              " — no runtime calls.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Functions are values",
+        tags: ["function", "return"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A free function is a bind whose value is a function expression. ",
+              { code: "^" },
+              " returns from the current function. Bare ",
+              { code: "^" },
+              " is none in option-shaped functions.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+# A = 21
+# B = A + A
+
+$ add = (a, b) {
+    ^ a + b
+}
+
+io.print(str.from_int(B))
+io.print(str.from_int(add(20, 22)))`,
+          },
+        ],
+      },
+      {
+        title: "Compose with callables",
+        tags: ["first-class", "higher-order"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Because a function is a value, higher-order code needs no separate declaration or interface. Pass the callable as an argument and call the parameter normally. Methods are different: they remain members invoked through a receiver rather than freestanding values.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ apply = (f, value) {
+    ^ f(value)
+}
+
+$ increment = (value) {
+    ^ value + 1
+}
+
+$ answer = apply(increment, 41)`,
+          },
+        ],
+      },
+      {
+        title: "Names and shadowing",
+        tags: ["scope", "program"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Names are introduced once per region — no shadowing. Rebind mutables with ",
+              { code: "~" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-values",
+    path: "/book/values",
+    category: "Book",
+    title: "Values and operators",
+    summary: "How Echo separates value copying, shared objects, deep equality, and identity.",
+    tags: ["book", "values", "operators", "equality", "reference"],
+    aliases: ["data model", "copy", "identity", "numbers", "precedence"],
+    sections: [
+      {
+        title: "A small value model",
+        tags: ["value", "reference", "copy"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Every bind and parameter copies its binding. For numbers, booleans, strings, and other value kinds, that means an independent value. For a struct or list, it means another reference to the same object. There is no user-visible pointer type between the two classes.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `~ number = 3
+~ number_copy = number
+~ number_copy = 4       ; number is still 3
+
+$ items = [10]
+$ items_alias = items
+~ items_alias[0] = 11   ; items[0] is now 11`,
+          },
+        ],
+      },
+      {
+        title: "Content or identity",
+        tags: ["deep", "identity", "equality"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Most comparisons ask about meaning, so ",
+              { code: "==" },
+              " is deep: two separately created lists can be equal. Use ",
+              { code: "===" },
+              " when object identity matters. For value kinds, identity adds nothing and agrees with deep equality.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Numbers stay explicit",
+        tags: ["number", "width", "conversion"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Integers and floats do not silently mix, and explicit numeric widths must agree. That keeps arithmetic predictable at native-code boundaries. Start with the inferred ",
+              { code: "i64" },
+              " and ",
+              { code: "f64" },
+              " defaults; add a width tag only when the representation matters.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ count = 42
+$ ratio = 3.5
+$ packed_count = <i32> 42
+$ packed_ratio = <f32> 3.5`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-collections",
+    path: "/book/collections",
+    category: "Book",
+    title: "Collections and ranges",
+    summary:
+      "Use lists for sequences, products for fields, and ranges for inclusive integer spans.",
+    tags: ["book", "list", "product", "range", "collection"],
+    aliases: ["array", "anonymous struct", "index", "iteration"],
+    sections: [
+      {
+        title: "Sequences are lists",
+        tags: ["list", "sequence", "mutation"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A list is Echo’s core ordered collection. Index it for direct access or iterate when order matters. Lists are shared objects, so mutation through a parameter or alias is deliberate and visible to the caller.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ bump_first = (items) {
+    ~ items[0] = items[0] + 1
+    ^ items[0]
+}
+
+$ values = [10, 20, 30]
+$ first = bump_first(values)`,
+          },
+        ],
+      },
+      {
+        title: "Products group fields",
+        tags: ["product", "anonymous", "named"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "An anonymous product is useful for a small bundle returned or passed as one value. Reach for a named struct when the shape is part of the domain, needs defaults or methods, or must participate in a type match. Neither form is a general dictionary.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ coordinate = { x: 4, y: 7 }
+$ horizontal = coordinate.x`,
+          },
+        ],
+      },
+      {
+        title: "Ranges compose",
+        tags: ["range", "loop", "match"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A range is a value rather than special loop syntax. The same inclusive ",
+              { code: "1..10" },
+              " span can be bound, iterated, passed, or used for membership in a match arm.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-control",
+    path: "/book/control",
+    category: "Book",
+    title: "Control",
+    summary: "If, loops, break, continue, and match.",
+    tags: ["book", "if", "loop", "match", "break", "continue"],
+    aliases: ["condition", "for-in", "while", "control flow"],
+    sections: [
+      {
+        title: "Condition chains",
+        tags: ["if", "else"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "?" },
+              " starts a chain. ",
+              { code: ": expr { }" },
+              " is else-if. ",
+              { code: ": { }" },
+              " is else.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+$ n = 3
+? n == 0 {
+    io.print('zero')
+}
+: n == 1 {
+    io.print('one')
+}
+: {
+    io.print('many')
+}`,
+          },
+        ],
+      },
+      {
+        title: "Loops",
+        tags: ["loop", "for-in", "while"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "* { }" },
+              " loops forever. ",
+              { code: "* cond { }" },
+              " is while. ",
+              { code: "* item : items { }" },
+              " walks a list or inclusive range. ",
+              { code: "<" },
+              " breaks; ",
+              { code: ">" },
+              " continues.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+~ i = 0
+* i < 3 {
+    io.print(str.from_int(i))
+    ~ i = i + 1
+}
+
+$ xs = [10, 20, 12]
+~ sum = 0
+* x : xs {
+    ~ sum = sum + x
+    ? x == 20 {
+        <
+    }
+}
+io.print(str.from_int(sum))`,
+          },
+        ],
+      },
+      {
+        title: "Match",
+        tags: ["match", "pipe"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "| expr { arms }" },
+              " matches. Value arms compare deeply and may group alternatives with commas. Inclusive ranges test membership, and ",
+              { code: "% name" },
+              " selects a named struct type. Default is ",
+              { code: ": { body }" },
+              ". Result and option arms are covered on the next page.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-result-option",
+    path: "/book/result-option",
+    category: "Book",
+    title: "Result and option",
+    summary: "Why errors are values, and when match is required.",
+    tags: ["book", "result", "option", "error", "match"],
+    aliases: ["err", "ok", "some", "none", "bang"],
+    sections: [
+      {
+        title: "Why not abort",
+        tags: ["why"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Abort is for the impossible. Recoverable failure is data the caller must see. ",
+              { code: "!" },
+              " packages that as a result err. Required match means the bad path cannot be forgotten at compile time — the same idea as option some/none arms.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Result",
+        tags: ["result", "bang"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "!" },
+              " returns an error payload from the current function. It is not a process abort. Any ",
+              { code: "!" },
+              " in a body makes that function a result: ",
+              { code: "^ v" },
+              " is ok, ",
+              { code: "! e" },
+              " is err.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ checked = (x) {
+    ? x < 0 {
+        ! 99
+    }
+    ^ x
+}
+
+| checked(7) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! e {
+        io.print(str.from_int(e))
+        ^ 1
+    }
+}`,
+          },
+        ],
+      },
+      {
+        title: "Option",
+        tags: ["option", "some", "none"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Option-shaped functions use ",
+              { code: "^ value" },
+              " for some and bare ",
+              { code: "^" },
+              " for none. Match with ",
+              { code: "$ name {…}" },
+              " and ",
+              { code: ": {…}" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Must handle",
+        tags: ["compile", "unhandled"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Leaving a result or option unhandled is a compile error. There is no silent discard and no separate “try” keyword.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-strings",
+    path: "/book/strings",
+    category: "Book",
+    title: "Strings",
+    summary: "Pure quotes, rich quotes, interpolation — no string +.",
+    tags: ["book", "string", "interpolation", "pure", "rich"],
+    aliases: ["quotes", "interp", "concat"],
+    sections: [
+      {
+        title: "Two kinds",
+        tags: ["pure", "rich"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "'…'" },
+              " is pure: no escapes, no interpolation, no interior single quote. ",
+              { code: '"…"' },
+              " is rich: escapes and ",
+              { code: "{name}" },
+              " interpolation.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "No plus",
+        tags: ["concat"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "There is no string ",
+              { code: "+" },
+              ". Build text with rich strings. ",
+              { code: "==" },
+              " compares content.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+
+$ pure = 'hello pure'
+$ n = 7
+$ rich = "n={n}!"
+io.print(pure)
+io.print(rich)
+? pure == 'hello pure' {
+    io.print('eq ok')
+}`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-modules",
+    path: "/book/modules",
+    category: "Book",
+    title: "Modules and std",
+    summary: "Module-scoped imports. Userland uses std — not free print.",
+    tags: ["book", "modules", "import", "export", "std", "io"],
+    aliases: ["packages", "runtime", "print"],
+    sections: [
+      {
+        title: "Import one name",
+        tags: ["import", "module-scoped"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "/ path" },
+              " binds a single name: the last path segment. Use exports as ",
+              { code: "module.name" },
+              ". There is no star-import and no dumping symbols into the importer’s globals.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `; app.echo — multi-file sketch (see examples/misc/multi)
+/ std/io
+/ std/str
+/ ./lib
+
+io.print(str.from_int(lib.add(20, 22)))
+io.print(str.from_int(lib.answer))
+
+; lib.echo
+$ add = (a, b) {
+    ^ a + b
+}
+$ answer = 42
+\\ add, answer`,
+          },
+        ],
+      },
+      {
+        title: "std and runtime",
+        tags: ["std", "runtime"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "No free ",
+              { code: "print" },
+              " — go through ",
+              { code: "std" },
+              " (for example ",
+              { code: "io.print" },
+              "). ",
+              { code: "/ runtime" },
+              " is allowed only inside the privileged std package; userland cannot import it.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Grow beyond one file",
+        tags: ["folder", "package", "dependency"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A module can be one Echo file or a folder of Echo files. Folder modules combine their files’ exports while keeping private names file-local. External host paths use the same import syntax after ",
+              { code: "xo get" },
+              " installs the package. A project only needs ",
+              { code: "xo.toml" },
+              " when it wants dependency pins.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Export",
+        tags: ["export"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "\\ name" },
+              " (or a list) marks what the module exposes. Importers only see those names under the module object.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-structs",
+    path: "/book/structs",
+    category: "Book",
+    title: "Structs",
+    summary: "% declares a shape. @ adds members. Methods use . for the receiver.",
+    tags: ["book", "struct", "percent", "at", "methods"],
+    aliases: ["shape", "receiver", "members"],
+    sections: [
+      {
+        title: "Primary and extra",
+        tags: ["percent", "at"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "%" },
+              " is the primary shape (one per name). ",
+              { code: "@" },
+              " adds members — often in another file. Members use the same ",
+              { code: "$" },
+              " / ",
+              { code: "~" },
+              " / ",
+              { code: "#" },
+              " leaders as top level.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Receiver",
+        tags: ["method", "dot"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Call ",
+              { code: "u.greet()" },
+              " and inside the method bare ",
+              { code: "." },
+              " is the receiver. Free functions do not get a receiver.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `% user {
+    $ name
+    ~ visits = 0
+
+    $ greet = () {
+        ^ "Hello, {.name}"
+    }
+
+    $ visit = () {
+        ~ .visits = .visits + 1
+        ^ .
+    }
+}
+
+$ u = user {
+    name: "Ada",
+    visits: 0
+}
+u.greet()
+u.visit()`,
+          },
+        ],
+      },
+      {
+        title: "Sharing and chaining",
+        tags: ["reference", "chain", "falloff"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Struct values are references, so passing a struct or binding it to another name shares one domain object. A plain method that falls off its body returns that receiver. Mutation methods can therefore read naturally as chains without a special builder type.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-tasks",
+    path: "/book/tasks",
+    category: "Book",
+    title: "Tasks",
+    summary: "Schedule ordinary functions or closed bodies, then join every task explicitly.",
+    tags: ["book", "task", "spawn", "join", "concurrency"],
+    aliases: ["event loop", "handle", "capture", "plus minus"],
+    sections: [
+      {
+        title: "Concurrency stays visible",
+        tags: ["spawn", "join", "structured"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "+" },
+              " says work may run as a task; ",
+              { code: "-" },
+              " says where the program waits for it. That keeps scheduling and synchronization visible at statement boundaries without coloring every function with async syntax.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `$ calculate = (input) {
+    ^ input + 1
+}
+
++ job = calculate(41)
+; do independent work here
+- answer = job`,
+          },
+        ],
+      },
+      {
+        title: "Prefer ordinary functions",
+        tags: ["function", "body", "capture"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Spawn an ordinary free-function call when inputs already describe the work. Use a task body for a small local operation, and list every outer value it needs in ",
+              { code: "[captures]" },
+              ". Explicit captures make shared state reviewable rather than implicit.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Join what you spawn",
+        tags: ["lifecycle", "error", "immediate"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "A task handle is an obligation: every spawn must be joined before process exit. When no overlap is needed, an immediate ",
+              { code: "- { body }" },
+              " block performs the schedule and join together. Task results use the ordinary plain, option, and result return shapes.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "book-names",
+    path: "/book/names",
+    category: "Book",
+    title: "Names and layout",
+    summary: "snake_case, lowercase structs, ; comments, one construct per line.",
+    tags: ["book", "naming", "comments", "layout"],
+    aliases: ["snake_case", "semicolon", "style"],
+    sections: [
+      {
+        title: "Naming",
+        tags: ["identifiers"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Identifiers are ASCII ",
+              { code: "snake_case" },
+              ". Struct names are lowercase (",
+              { code: "user" },
+              ", not ",
+              { code: "User" },
+              "). ",
+              { code: "#" },
+              " constants are ",
+              { code: "SCREAMING_SNAKE" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Comments and layout",
+        tags: ["comments", "blocks"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: ";" },
+              " comments run to end of line. Prefer one construct per line. Multi-line structure uses ",
+              { code: "{ }" },
+              " blocks with ",
+              { code: "{" },
+              " on the introducer line.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Kinds",
+        tags: ["types", "inference"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Kinds are inferred. There are no colon ascriptions and no generics surface. Numeric width tags on literals only: ",
+              { code: "<i32>42" },
+              ", ",
+              { code: "<f64>3.14" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── e26 ────────────────────────────────────────────────────────────
+  {
+    id: "e26",
+    path: "/e26",
+    category: "e26",
+    title: "e26",
+    summary: "File-backed language fixtures. Point the runner at xo or any compatible binary.",
+    tags: ["e26", "echo26", "fixtures", "suite"],
+    aliases: ["echo 2026", "fixture suite", "language tests"],
+    sections: [
+      {
+        title: "Why it exists",
+        tags: ["policy", "proof"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "echo26/" },
+              " holds small programs and expected artifacts. ",
+              { code: "e26" },
+              " runs them against a binary you pass. Language work is expected to keep the suite green, next to crate tests and ",
+              { code: "examples/" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "In this section",
+        tags: ["nav"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Run" },
+              " — how to invoke the suite. ",
+              { code: "Layout" },
+              " — file naming. ",
+              { code: "Protocol" },
+              " — what the binary must answer.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "e26-run",
+    path: "/e26/run",
+    category: "e26",
+    title: "Run",
+    summary: "Build e26 and point it at a candidate binary.",
+    tags: ["e26", "cli", "run"],
+    aliases: ["how to run", "update fixtures"],
+    sections: [
+      {
+        title: "Commands",
+        tags: ["commands"],
+        blocks: [
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `cargo build -p xo -p e26
+cargo run -p e26 -- --binary target/debug/xo
+
+e26 --binary /path/to/my-echo
+e26 --binary target/debug/xo --filter leaders/bind
+e26 --binary target/debug/xo --update`,
+          },
+        ],
+      },
+      {
+        title: "Update",
+        tags: ["update"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "--update" },
+              " refreshes expectations from a known-good binary. Use it after intentional language changes, not to silence failures.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "e26-layout",
+    path: "/e26/layout",
+    category: "e26",
+    title: "Layout",
+    summary: "Numbered roots and sidecar expectation files.",
+    tags: ["e26", "layout", "echo26"],
+    aliases: ["fixture layout", "directory structure"],
+    sections: [
+      {
+        title: "Paths",
+        tags: ["paths"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Under ",
+              { code: "echo26/<area>/<feature>/" },
+              ". Numbered ",
+              { code: "NNN_*.echo" },
+              " files are suite roots; other ",
+              { code: ".echo" },
+              " files are imports only.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `NNN_slug.echo     # source
+NNN_slug.lex      # token kinds (required)
+NNN_slug.ast      # AST kinds (required)
+NNN_slug.diag     # optional lex diags
+NNN_slug.check    # optional sem-* diags
+NNN_slug.run      # optional stdout
+NNN_slug.runexit  # optional exit code`,
+          },
+        ],
+      },
+      {
+        title: "Areas",
+        tags: ["areas"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "leaders" },
+              ", ",
+              { code: "parse" },
+              ", ",
+              { code: "check" },
+              ", ",
+              { code: "multi" },
+              ", ",
+              { code: "run" },
+              ", ",
+              { code: "lits" },
+              ", ",
+              { code: "infer" },
+              ", ",
+              { code: "effect" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "e26-protocol",
+    path: "/e26/protocol",
+    category: "e26",
+    title: "Protocol",
+    summary: "Commands a candidate binary must answer.",
+    tags: ["e26", "protocol", "binary"],
+    aliases: ["candidate binary", "interface"],
+    sections: [
+      {
+        title: "Stages",
+        tags: ["lex", "ast", "check", "run"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [{ code: "e26" }, " compares stdout and stderr to the fixture sidecars:"],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `$binary lex --kinds --diag-codes path.echo
+  stdout → .lex    stderr → .diag
+
+$binary ast --kinds --diag-codes path.echo
+  stdout → .ast
+
+$binary check --diag-codes path.echo
+  stderr → .check   # sem-* only; omit if none
+
+$binary run path.echo
+  stdout → .run     exit → .runexit`,
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── Toolchain ──────────────────────────────────────────────────────
+  {
+    id: "toolchain",
+    path: "/docs/toolchain",
+    category: "Toolchain",
+    title: "Toolchain",
+    summary: "xo is the CLI: run, build, check, and stage dumps.",
+    tags: ["xo", "cli", "toolchain"],
+    aliases: ["xo commands", "compiler tools"],
+    sections: [
+      {
+        title: "xo",
+        tags: ["xo"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "The ",
+              { code: "xo" },
+              " CLI drives the same compiler pipeline used by editor and analysis tooling. The everyday loop is ",
+              { code: "xo check" },
+              ", ",
+              { code: "xo run" },
+              ", and ",
+              { code: "xo build" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "In this section",
+        tags: ["nav"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Commands" },
+              " — the surface. ",
+              { code: "Examples" },
+              " — samples that run today.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "toolchain-commands",
+    path: "/docs/toolchain/commands",
+    category: "Toolchain",
+    title: "Commands",
+    summary: "Check, format, inspect, run, build, test, and manage an Echo project.",
+    tags: ["xo", "cli", "commands"],
+    aliases: ["command list", "help"],
+    sections: [
+      {
+        title: "Surface",
+        tags: ["list"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "run" },
+              " compiles and executes through clang and ",
+              { code: "libecho_runtime" },
+              ". ",
+              { code: "--jit" },
+              " executes the same LLVM IR in-process. Commands that analyze a program take its entry file and resolve the closed import graph from there.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `xo check <entry.echo>
+xo fmt <file.echo>
+xo lex <file.echo>
+xo ast <file.echo>
+xo ir <entry.echo>
+xo run [--jit] [-O <level>] <entry.echo> [args...]
+xo build [-O <level>] <entry.echo> -o <out>
+xo test <path>
+xo repl
+xo lsp
+xo get <package[@version]> [--deps]
+xo home
+xo cache status|clean|gc|doctor
+xo index scan [roots...]
+xo tools grammar tree-sitter --output <dir>`,
+          },
+        ],
+      },
+      {
+        title: "Optimization",
+        tags: ["optimization", "build", "run"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "-O" },
+              " accepts ",
+              { code: "0" },
+              ", ",
+              { code: "1" },
+              ", ",
+              { code: "2" },
+              ", ",
+              { code: "3" },
+              ", or ",
+              { code: "z" },
+              ". Both AOT run and build default to level 0.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Gates",
+        tags: ["gate", "testing"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "scripts/gate changed" },
+              " for a tight loop. ",
+              { code: "scripts/gate workspace" },
+              " before broad commits. ",
+              { code: "scripts/gate web" },
+              " for this site. Language changes should keep ",
+              { code: "e26" },
+              " green.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "toolchain-examples",
+    path: "/docs/toolchain/examples",
+    category: "Toolchain",
+    title: "Examples",
+    summary: "Small programs under examples/ that exercise the toolchain.",
+    tags: ["examples", "misc", "run"],
+    aliases: ["sample programs", "hello"],
+    sections: [
+      {
+        title: "Trees",
+        tags: ["paths"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "examples/misc/" },
+              " contains focused programs for core syntax, functions, equality, ranges, structs, and multi-file imports. ",
+              { code: "examples/app/" },
+              " demonstrates a larger modular shape, while ",
+              { code: "examples/algos/" },
+              " collects familiar algorithms.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "shellscript",
+            code: `./target/debug/xo run examples/misc/hello.echo
+./target/debug/xo run --jit examples/misc/sum_list.echo
+./target/debug/xo run examples/misc/eq_deep_id.echo
+./target/debug/xo run examples/misc/range.echo
+./target/debug/xo run examples/misc/multi/main.echo
+./target/debug/xo run examples/algos/fibonacci.echo`,
+          },
+        ],
+      },
+    ],
+  },
+];
+
+export const docsPageByPath = new Map(docsPages.map((page) => [page.path, page]));
+
+/** All navigable docs paths in left-nav order (for prev/next and route generation). */
+export function flattenNavPaths(navigation: DocsNavGroup[] = docsNavigation): string[] {
+  const paths: string[] = [];
+
+  function walk(links: DocsNavLink[]) {
+    for (const link of links) {
+      if (!link.disabled) {
+        paths.push(link.to);
+      }
+      if (link.children) {
+        walk(link.children);
+      }
+    }
+  }
+
+  for (const group of navigation) {
+    walk(group.links);
+  }
+
+  return paths;
+}
+
+export function textPartText(part: DocsTextPart) {
+  return typeof part === "string" ? part : part.code;
+}

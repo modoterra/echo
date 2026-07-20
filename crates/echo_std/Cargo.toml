@@ -1,0 +1,9 @@
+[package]
+name = "echo_std"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[dependencies]
+echo_codegen_abi = { path = "../echo_codegen_abi" }
+echo_runtime = { path = "../echo_runtime" }

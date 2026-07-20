@@ -1,0 +1,10 @@
+; # const-eval: lits + ops on other # only
+/ std/io
+/ std/str
+
+# A = 21
+# B = A + A
+
+io.print(str.from_int(B))
+io.print('const ok')
+

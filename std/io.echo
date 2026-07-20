@@ -1,0 +1,18 @@
+; std/io — printing and logging
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+
+/ runtime
+
+$ print = (value) {
+    runtime.print(value)
+}
+
+$ log = (value) {
+    runtime.print(value)
+}
+
+$ eprint = (value) {
+    runtime.print(value)
+}
+
+\ print, log, eprint

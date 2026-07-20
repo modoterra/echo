@@ -1,0 +1,154 @@
+; HTTP package — parse (httparse), dispatch, frame, serve
+;
+; Serve loop: nonblocking TCP + task spawn per connection (`+ handle_connection(…)`).
+; Connections are % conn from std/net.
+
+/ runtime
+/ std/str
+/ std/io
+/ std/net/tcp
+/ std/net/request
+/ std/net/response
+/ std/net/server
+
+$ text_response = (status, body) {
+    ^ response.response {
+        status: status,
+        headers: {
+            content_type: "text/plain; charset=utf-8"
+        },
+        body: body
+    }
+}
+
+$ html_response = (status, body) {
+    ^ response.response {
+        status: status,
+        headers: {
+            content_type: "text/html; charset=utf-8"
+        },
+        body: body
+    }
+}
+
+$ json_response = (status, body) {
+    ^ response.response {
+        status: status,
+        headers: {
+            content_type: "application/json; charset=utf-8"
+        },
+        body: body
+    }
+}
+
+$ parse_request = (raw) {
+    $ p = runtime.http_parse_request(raw)
+    ^ request.request {
+        method: p.method,
+        path: p.path,
+        headers: p.headers,
+        body: p.body
+    }
+}
+
+$ status_reason = (code) {
+    ? code == 200 {
+        ^ "OK"
+    }
+    ? code == 201 {
+        ^ "Created"
+    }
+    ? code == 204 {
+        ^ "No Content"
+    }
+    ? code == 400 {
+        ^ "Bad Request"
+    }
+    ? code == 404 {
+        ^ "Not Found"
+    }
+    ? code == 500 {
+        ^ "Internal Server Error"
+    }
+    ^ "OK"
+}
+
+$ format_response = (res) {
+    $ status = str.from_int(res.status)
+    $ reason = status_reason(res.status)
+    $ body = res.body
+    $ len = str.from_int(str.len(body))
+    $ ct = res.headers.content_type
+    ^ "HTTP/1.1 {status} {reason}\r\nContent-Type: {ct}\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n{body}"
+}
+
+$ dispatch = (routes, req) {
+    * route : routes {
+        ? route.path == req.path {
+            ^ route.handle(req)
+        }
+    }
+    $ path = req.path
+    ^ text_response(404, "not found: {path}")
+}
+
+; One TCP connection (% conn): accumulate until request is complete
+; (headers + body up to Content-Length when present), then respond.
+; Free-fn param `c` is monomorphic `% conn` from call sites → methods resolve.
+$ handle_connection = (c, routes) {
+    ~ raw = ""
+    * i : 0..256 {
+        $ chunk = c.read(65536)
+        $ s = str.from_bytes(chunk)
+        ? str.len(s) == 0 {
+            ? str.len(raw) == 0 {
+                c.close()
+                ^
+            }
+            <
+        }
+        ~ raw = str.cat(raw, s)
+        ? runtime.http_request_complete(raw) != 0 {
+            <
+        }
+    }
+    ? str.len(raw) == 0 {
+        c.close()
+        ^
+    }
+    $ req = parse_request(raw)
+    $ res = dispatch(routes, req)
+    $ out = format_response(res)
+    c.write(out)
+    c.close()
+    ^
+}
+
+; Infinite accept loop. Each connection is a fire-and-forget task (`+`).
+$ serve = (addr, routes) {
+    $ lis = tcp.listen(addr)
+    ? lis.handle == 0 {
+        io.log("http.serve: listen failed")
+        ^ server.server {
+            addr: addr,
+            routes: routes,
+            running: _
+        }
+    }
+    io.log("http.serve listening {addr}")
+    * {
+        $ c = tcp.accept(lis)
+        ? c.handle != 0 {
+            + handle_connection(c, routes)
+        }
+    }
+    ^ server.server {
+        addr: addr,
+        routes: routes,
+        running: |
+    }
+}
+
+\ request, response, server
+\ text_response, html_response, json_response, parse_request, format_response
+\ status_reason, dispatch, handle_connection, serve

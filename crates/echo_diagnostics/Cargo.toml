@@ -1,0 +1,8 @@
+[package]
+name = "echo_diagnostics"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[dependencies]
+echo_source = { path = "../echo_source" }

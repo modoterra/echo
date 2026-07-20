@@ -1,0 +1,131 @@
+# Echo
+
+Echo is a compiled language implemented in Rust. It uses a single LLVM backend
+and a Rust-owned runtime for both AOT native binaries and in-process JIT
+execution.
+
+The command-line entrypoint is `xo`.
+
+## Status
+
+Echo is early-stage software. The workspace is scaffolded for full vertical
+slices (frontend → semantics → IR → codegen → runtime → CLI). Language features
+are implemented incrementally with focused proofs.
+
+## Language design (in progress)
+
+Keyword-free, statement-led core — see [`docs/syntax.md`](docs/syntax.md).
+
+| Tree | Role |
+|------|------|
+| [`examples/misc/`](examples/misc/) | Tiny **`xo run`** demos (print, loops, lists, result) |
+| [`examples/app/`](examples/app/) | HTTP demo + kitchen-sink surface |
+| [`examples/algos/`](examples/algos/) | Classic algorithms (factorial, sort, primes, …) |
+| [`std/`](std/) | Standard library Echo sources (IO, TCP, HTTP stubs) |
+
+```bash
+cargo build -p xo
+./target/debug/xo run examples/misc/hello.echo
+./target/debug/xo run examples/misc/sum_list.echo ; echo exit:$?
+./target/debug/xo check examples/app/surface.echo
+```
+
+Track discussion in [`docs/roadmap.md`](docs/roadmap.md).
+
+## Documentation
+
+| Doc | Role |
+|-----|------|
+| [`AGENTS.md`](AGENTS.md) | Workflow and invariants for humans/agents |
+| [`docs/README.md`](docs/README.md) | Full docs map |
+| [`docs/architecture.md`](docs/architecture.md) | Pipeline and crate ownership |
+| [`docs/glossary.md`](docs/glossary.md) | Shared vocabulary |
+| [`docs/development-speed.md`](docs/development-speed.md) | Local tools and gate |
+| [`docs/adr/`](docs/adr/) | Architecture decisions |
+
+Layer specs (`docs/syntax.md`, `docs/parser.md`, …) accumulate rules as each
+layer lands.
+
+## Workspace
+
+See [`docs/architecture.md`](docs/architecture.md) for crate ownership and the
+compilation pipeline.
+
+- Frontend: `echo_source`, `echo_diagnostics`, `echo_syntax`, `echo_lexer`,
+  `echo_ast`, `echo_parser`, `echo_semantics`
+- IR and backend: `echo_hir`, `echo_mir`, `echo_codegen`, `echo_codegen_abi`,
+  `echo_runtime`, `echo_std`
+- Project tooling: `echo_index`, `echo_resolver`, `echo_fingerprint`,
+  `echo_cache`, `echo_build`, `echo_reflection`, `echo_lsp`
+- CLI: `xo`
+
+## Requirements
+
+- Rust with edition 2024 support
+- LLVM 22 when codegen is active (inkwell)
+- `clang` and `mold` for native link speed
+- `sccache` for compile caching
+- `cargo-nextest` and `just` for the local gate
+
+See [`docs/development-speed.md`](docs/development-speed.md) for setup and the
+edit/test loop.
+
+## Build and test
+
+```bash
+cargo check --workspace
+scripts/gate changed --list
+scripts/gate changed
+scripts/gate workspace
+just tools
+```
+
+`cargo build -p xo` always includes **LSP** and **REPL** (no Cargo features).
+
+### CI
+
+GitHub Actions (`.github/workflows/ci.yml`) release-builds `xo` **only when a
+GitHub Release is published** — not on push, PR, or bare tags.
+
+| Artifact | Runner |
+|----------|--------|
+| Linux x86_64 | `ubuntu-24.04` |
+| Windows x86_64 | `windows-2022` |
+| macOS arm64 | `macos-14` |
+
+On Linux, smoke (`cargo test -p xo`, `xo run` hello) and **`scripts/gate echo26`**
+are hard gates when that workflow runs.
+
+CLI surface (commands land as the language grows):
+
+```bash
+cargo run -p xo -- --help
+cargo run -p xo -- lex <file>
+cargo run -p xo -- ast <file>
+cargo run -p xo -- ir <file>
+cargo run -p xo -- run [--jit] <file>
+cargo run -p xo -- build <file> -o <out>
+cargo run -p xo -- lsp
+cargo run -p xo -- repl
+```
+
+## Website
+
+The public site lives in `www/` (Vite, React, Tailwind). Minimal content, same
+layout and style as the product site.
+
+```bash
+npm --prefix www install
+npm --prefix www run dev
+npm --prefix www run lint
+npm --prefix www run format
+npm --prefix www run build
+# or
+just web-dev
+just web-build
+scripts/gate web
+```
+
+## License
+
+MIT (to be added with the first release commit if not present).

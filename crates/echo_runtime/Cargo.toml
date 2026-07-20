@@ -1,0 +1,12 @@
+[package]
+name = "echo_runtime"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+httparse = "1"
+mio = { version = "1", features = ["os-poll", "os-ext", "net"] }

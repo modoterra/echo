@@ -1,0 +1,213 @@
+//! Internal value kinds for inference (not a user-facing type language).
+//!
+//! There are **no keywords**. Names like `result` / `option` in diagnostic
+//! dumps are internal kind labels for ok|err / some|none return *shapes*
+//! produced by `^` / `!` — not types, structs, or reserved identifiers.
+//! See `docs/semantics.md`.
+
+use std::collections::HashMap;
+use std::fmt;
+
+/// Inference variable id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct VarId(pub u32);
+
+/// Runtime/check kind of a value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Type {
+    /// Untagged / i64 integer.
+    Int,
+    /// Explicit `<i32>`.
+    Int32,
+    /// Untagged / f64 float.
+    Float,
+    /// Explicit `<f32>`.
+    Float32,
+    Bool,
+    String,
+    Bytes,
+    Duration,
+    /// Inclusive integer range `lo..hi`.
+    Range,
+    List(Box<Type>),
+    /// `{ k: v, ... }` structural product.
+    Anon(Vec<(String, Type)>),
+    /// Named struct from `% name` (key is struct name, not module path).
+    Named(String),
+    /// Union of kinds (v0: mainly named structs from multi-path returns).
+    /// Sorted by display for stability; no nested unions.
+    Union(Vec<Type>),
+    /// Function value.
+    Fn {
+        params: Vec<Type>,
+        ret: Box<Type>,
+    },
+    Option(Box<Type>),
+    Result {
+        ok: Box<Type>,
+        err: Box<Type>,
+    },
+    Module,
+    /// Empty list element or unconstrained.
+    Unknown,
+    /// After a failed unify (poison).
+    Error,
+    Var(VarId),
+}
+
+impl Type {
+    #[must_use]
+    pub fn list(elem: Type) -> Self {
+        Type::List(Box::new(elem))
+    }
+
+    #[must_use]
+    pub fn option(inner: Type) -> Self {
+        Type::Option(Box::new(inner))
+    }
+
+    #[must_use]
+    pub fn result(ok: Type, err: Type) -> Self {
+        Type::Result {
+            ok: Box::new(ok),
+            err: Box::new(err),
+        }
+    }
+
+    #[must_use]
+    pub fn func(params: Vec<Type>, ret: Type) -> Self {
+        Type::Fn {
+            params,
+            ret: Box::new(ret),
+        }
+    }
+
+    /// Merge kinds into a flat union (dedup). Single member collapses.
+    #[must_use]
+    pub fn union_of(parts: impl IntoIterator<Item = Type>) -> Self {
+        let mut out: Vec<Type> = Vec::new();
+        for p in parts {
+            match p {
+                Type::Union(xs) => {
+                    for x in xs {
+                        if !out.contains(&x) {
+                            out.push(x);
+                        }
+                    }
+                }
+                other => {
+                    if !out.contains(&other) {
+                        out.push(other);
+                    }
+                }
+            }
+        }
+        out.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+        match out.len() {
+            0 => Type::Unknown,
+            1 => out.pop().unwrap(),
+            _ => Type::Union(out),
+        }
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Int => write!(f, "i64"),
+            Type::Int32 => write!(f, "i32"),
+            Type::Float => write!(f, "f64"),
+            Type::Float32 => write!(f, "f32"),
+            Type::Bool => write!(f, "bool"),
+            Type::String => write!(f, "string"),
+            Type::Bytes => write!(f, "bytes"),
+            Type::Duration => write!(f, "duration"),
+            Type::Range => write!(f, "range"),
+            Type::List(t) => write!(f, "list[{t}]"),
+            Type::Anon(fields) => {
+                write!(f, "{{")?;
+                for (i, (n, t)) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{n}: {t}")?;
+                }
+                write!(f, "}}")
+            }
+            Type::Named(n) => write!(f, "{n}"),
+            Type::Union(xs) => {
+                for (i, t) in xs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " | ")?;
+                    }
+                    write!(f, "{t}")?;
+                }
+                Ok(())
+            }
+            Type::Fn { params, ret } => {
+                write!(f, "fn(")?;
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{p}")?;
+                }
+                write!(f, ") -> {ret}")
+            }
+            Type::Option(t) => write!(f, "option[{t}]"),
+            Type::Result { ok, err } => write!(f, "result[{ok}, {err}]"),
+            Type::Module => write!(f, "module"),
+            Type::Unknown => write!(f, "unknown"),
+            Type::Error => write!(f, "error"),
+            Type::Var(VarId(id)) => write!(f, "?{id}"),
+        }
+    }
+}
+
+/// Substitution for type variables.
+#[derive(Debug, Default, Clone)]
+pub struct Subst {
+    map: HashMap<VarId, Type>,
+}
+
+impl Subst {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert(&mut self, v: VarId, t: Type) {
+        self.map.insert(v, t);
+    }
+
+    /// Apply substitution deeply.
+    #[must_use]
+    pub fn apply(&self, t: &Type) -> Type {
+        match t {
+            Type::Var(v) => {
+                if let Some(u) = self.map.get(v) {
+                    self.apply(u)
+                } else {
+                    Type::Var(*v)
+                }
+            }
+            Type::List(e) => Type::list(self.apply(e)),
+            Type::Anon(fields) => Type::Anon(
+                fields
+                    .iter()
+                    .map(|(n, ty)| (n.clone(), self.apply(ty)))
+                    .collect(),
+            ),
+            Type::Fn { params, ret } => Type::func(
+                params.iter().map(|p| self.apply(p)).collect(),
+                self.apply(ret),
+            ),
+            Type::Option(i) => Type::option(self.apply(i)),
+            Type::Result { ok, err } => Type::result(self.apply(ok), self.apply(err)),
+            Type::Union(xs) => {
+                Type::union_of(xs.iter().map(|x| self.apply(x)))
+            }
+            other => other.clone(),
+        }
+    }
+}

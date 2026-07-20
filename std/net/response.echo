@@ -1,0 +1,13 @@
+; response — shape + methods
+
+% response {
+    ~ status = 200
+    ~ headers
+    ~ body = ""
+
+    $ set_header = (name, value) {
+        ^ .
+    }
+}
+
+\ response

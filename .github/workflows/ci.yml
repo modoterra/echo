@@ -1,0 +1,140 @@
+# Multi-platform xo release builds + Linux language gate.
+#
+# Runs only when a GitHub Release is published (not tags alone, push, or PR).
+# Matrix: linux x86_64, windows x86_64, macos arm64.
+# Linux also runs smoke tests and scripts/gate echo26 (hard fail).
+#
+# LLVM: official llvm/llvm-project release tarballs only (pinned SHA256 in
+# scripts/ci/llvm.sh). No third-party setup-llvm action.
+
+name: CI
+
+on:
+  release:
+    types: [published]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Repo .cargo/config.toml sets sccache; runners may not have it.
+  CARGO_BUILD_RUSTC_WRAPPER: ""
+  RUSTC_WRAPPER: ""
+
+jobs:
+  build:
+    name: build (${{ matrix.artifact }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact: linux-x86_64
+            llvm_target: linux-x64
+            binary: xo
+            runtime_lib: libecho_runtime.a
+          - os: windows-2022
+            artifact: windows-x86_64
+            llvm_target: windows-x64
+            binary: xo.exe
+            runtime_lib: echo_runtime.lib
+          - os: macos-14
+            artifact: macos-arm64
+            llvm_target: macos-arm64
+            binary: xo
+            runtime_lib: libecho_runtime.a
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM 22 (official release tarball)
+        id: llvm
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="${RUNNER_TEMP}/llvm-22"
+          path="$(scripts/ci/llvm.sh "${{ matrix.llvm_target }}" "$prefix")"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "LLVM_SYS_221_PREFIX=$path" >> "$GITHUB_ENV"
+          echo "LLVM_CONFIG_PATH=$path/bin/llvm-config" >> "$GITHUB_ENV"
+          echo "$path/bin" >> "$GITHUB_PATH"
+          # Dynamic libLLVM on macOS/Linux
+          if [[ -d "$path/lib" ]]; then
+            echo "LD_LIBRARY_PATH=$path/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+            echo "DYLD_LIBRARY_PATH=$path/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install mold (Linux link speed from .cargo/config.toml)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y mold
+
+      - name: Build xo (release)
+        shell: bash
+        run: cargo build -p xo --release
+
+      - name: Stage artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp "target/release/${{ matrix.binary }}" "dist/${{ matrix.binary }}"
+          # Prefer documented name; fall back to other cargo staticlib spellings.
+          for cand in \
+            "target/release/${{ matrix.runtime_lib }}" \
+            "target/release/libecho_runtime.a" \
+            "target/release/echo_runtime.lib" \
+            "target/release/deps/libecho_runtime.a" \
+            "target/release/deps/echo_runtime.lib"
+          do
+            if [[ -f "$cand" ]]; then
+              cp "$cand" "dist/$(basename "$cand")"
+              break
+            fi
+          done
+          ls -la dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xo-${{ matrix.artifact }}
+          path: dist/
+          if-no-files-found: error
+
+  test-linux:
+    name: test-linux (smoke + echo26)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM 22 (official release tarball)
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="${RUNNER_TEMP}/llvm-22"
+          path="$(scripts/ci/llvm.sh linux-x64 "$prefix")"
+          echo "LLVM_SYS_221_PREFIX=$path" >> "$GITHUB_ENV"
+          echo "LLVM_CONFIG_PATH=$path/bin/llvm-config" >> "$GITHUB_ENV"
+          echo "$path/bin" >> "$GITHUB_PATH"
+          echo "LD_LIBRARY_PATH=$path/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Install mold + clang (AOT link)
+        run: sudo apt-get update && sudo apt-get install -y mold clang
+
+      - name: Build xo + e26 (debug, parity with local just e26)
+        run: cargo build -p xo -p e26
+
+      - name: Smoke — cargo test -p xo
+        run: cargo test -p xo
+
+      - name: Smoke — xo run hello
+        run: ./target/debug/xo run --no-cache examples/misc/hello.echo
+
+      - name: Hard gate — scripts/gate echo26
+        run: scripts/gate echo26
+        env:
+          GATE_ECHO_COMMANDS: "1"

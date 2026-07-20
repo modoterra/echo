@@ -1,0 +1,11 @@
+; std/time — clocks and sleep (runtime bridges later)
+
+$ now_ms = () {
+    ^ 0
+}
+
+$ sleep_ms = (ms) {
+    ^
+}
+
+\ now_ms, sleep_ms

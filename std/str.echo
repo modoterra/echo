@@ -1,0 +1,39 @@
+; std/str — explicit conversions to printable strings
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+
+/ runtime
+
+$ from_int = (n) {
+    ^ runtime.str_from_int(n)
+}
+
+$ from_float = (n) {
+    ^ runtime.str_from_float(n)
+}
+
+$ from_bytes = (b) {
+    ^ runtime.str_from_bytes(b)
+}
+
+$ from_duration = (d) {
+    ^ runtime.str_from_duration(d)
+}
+
+$ from_locator = (loc) {
+    ^ runtime.str_from_locator(loc)
+}
+
+; Shallow debug text for any value (REPL bare-expr display, diagnostics).
+$ from_debug = (v) {
+    ^ runtime.str_from_debug(v)
+}
+
+$ len = (s) {
+    ^ runtime.str_len(s)
+}
+
+$ cat = (a, b) {
+    ^ runtime.str_cat(a, b)
+}
+
+\ from_int, from_float, from_bytes, from_duration, from_locator, from_debug, len, cat
