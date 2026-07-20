@@ -53,7 +53,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
     links: [
       { label: "Reference", href: "/docs" },
       { label: "Book", href: "/book" },
-      { label: "e26", href: "/e26" },
+      { label: "Echo 2026", href: "/e26" },
     ],
   },
   {
@@ -152,7 +152,7 @@ function Topbar() {
             Book
           </Link>
           <Link className="transition hover:text-slate-950" to={"/e26" as "/"}>
-            e26
+            Echo 2026
           </Link>
         </nav>
         <div className="justify-self-end">

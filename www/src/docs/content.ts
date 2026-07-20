@@ -41,7 +41,7 @@ export function headingId(title: string) {
     .replace(/^-|-$/g, "");
 }
 
-/** Left-nav trees — Docs, Book, and e26 are separate site sections (like xo.run). */
+/** Left-nav trees — Docs, Book, and Echo 2026 are separate site sections. */
 export const docsNavigation: DocsNavGroup[] = [
   {
     title: "Start",
@@ -121,7 +121,7 @@ export const bookNavigation: DocsNavGroup[] = [
 
 export const e26Navigation: DocsNavGroup[] = [
   {
-    title: "e26",
+    title: "Echo 2026",
     links: [
       { label: "Overview", to: "/e26" },
       { label: "Run", to: "/e26/run" },
@@ -151,9 +151,9 @@ export const docsPages: DocsPage[] = [
     category: "Docs",
     title: "Reference",
     summary:
-      "How Echo works, in short forms. For why and when, read the Book. For the fixture suite, see e26.",
-    tags: ["docs", "overview", "reference"],
-    aliases: ["documentation", "home docs", "echo docs", "reference"],
+      "How Echo works, in short forms. Form-by-form public rules for the Echo 2026 edition. For why and when, read the Book. Edition home: Echo 2026.",
+    tags: ["docs", "overview", "reference", "echo 2026"],
+    aliases: ["documentation", "home docs", "echo docs", "reference", "language spec"],
     sections: [
       {
         title: "Scope",
@@ -162,9 +162,13 @@ export const docsPages: DocsPage[] = [
           {
             kind: "paragraph",
             text: [
-              "This section is a ",
+              "This section is the form-by-form ",
               { code: "language and toolchain reference" },
-              ": forms, rules, and commands. It does not argue design choices — that is the Book.",
+              " for the ",
+              { code: "Echo 2026" },
+              " edition: forms, rules, and commands. It does not argue design choices — that is the Book. Edition home and conformance: ",
+              { code: "/e26" },
+              ".",
             ],
           },
         ],
@@ -194,7 +198,7 @@ export const docsPages: DocsPage[] = [
               { code: "/docs/toolchain" },
               ". Prose guide: ",
               { code: "/book" },
-              ". Suite: ",
+              ". Echo 2026 edition (canonical Spec + suite): ",
               { code: "/e26" },
               ".",
             ],
@@ -3533,27 +3537,53 @@ u.visit()`,
     ],
   },
 
-  // ── e26 ────────────────────────────────────────────────────────────
+  // ── Echo 2026 ──────────────────────────────────────────────────────
   {
     id: "e26",
     path: "/e26",
-    category: "e26",
-    title: "e26",
-    summary: "File-backed language fixtures. Point the runner at xo or any compatible binary.",
-    tags: ["e26", "echo26", "fixtures", "suite"],
-    aliases: ["echo 2026", "fixture suite", "language tests"],
+    category: "Echo 2026",
+    title: "Echo 2026",
+    summary:
+      "Language edition and canonical public Language Spec. Form-by-form rules live in the Reference; the suite is the executable contract.",
+    tags: ["echo 2026", "e26", "echo26", "language spec", "edition", "fixtures", "suite"],
+    aliases: ["e26", "echo26", "fixture suite", "language tests", "canonical spec", "2026"],
     sections: [
       {
-        title: "Why it exists",
-        tags: ["policy", "proof"],
+        title: "What Echo 2026 is",
+        tags: ["edition", "spec"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "Echo 2026" },
+              " is this language edition: the name of the surface you implement and ship against today. The ",
+              { code: "canonical public Language Spec" },
+              " for the edition lives here on the site. Form-by-form rules are the ",
+              { code: "Reference" },
+              " (",
+              { code: "/docs" },
+              "). Narrative: the ",
+              { code: "Book" },
+              " (",
+              { code: "/book" },
+              ").",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Executable contract",
+        tags: ["policy", "proof", "echo26"],
         blocks: [
           {
             kind: "paragraph",
             text: [
               { code: "echo26/" },
-              " holds small programs and expected artifacts. ",
+              " holds small programs and expected artifacts — the machine-checked contract of Echo 2026. The runner CLI is ",
               { code: "e26" },
-              " runs them against a binary you pass. Language work is expected to keep the suite green, next to crate tests and ",
+              " (short tooling name); point it at ",
+              { code: "xo" },
+              " or any compatible candidate binary. Language work keeps the suite green, next to crate tests and ",
               { code: "examples/" },
               ".",
             ],
@@ -3568,11 +3598,11 @@ u.visit()`,
             kind: "paragraph",
             text: [
               { code: "Run" },
-              " — how to invoke the suite. ",
+              " — invoke the suite. ",
               { code: "Layout" },
-              " — file naming. ",
+              " — fixture file naming. ",
               { code: "Protocol" },
-              " — what the binary must answer.",
+              " — what a candidate binary must answer.",
             ],
           },
         ],
@@ -3582,11 +3612,11 @@ u.visit()`,
   {
     id: "e26-run",
     path: "/e26/run",
-    category: "e26",
+    category: "Echo 2026",
     title: "Run",
-    summary: "Build e26 and point it at a candidate binary.",
-    tags: ["e26", "cli", "run"],
-    aliases: ["how to run", "update fixtures"],
+    summary: "Build the e26 runner and point it at a candidate binary (Echo 2026 suite).",
+    tags: ["echo 2026", "e26", "cli", "run"],
+    aliases: ["how to run", "update fixtures", "conformance"],
     sections: [
       {
         title: "Commands",
@@ -3622,10 +3652,10 @@ e26 --binary target/debug/xo --update`,
   {
     id: "e26-layout",
     path: "/e26/layout",
-    category: "e26",
+    category: "Echo 2026",
     title: "Layout",
-    summary: "Numbered roots and sidecar expectation files.",
-    tags: ["e26", "layout", "echo26"],
+    summary: "Numbered roots and sidecar expectation files under echo26/.",
+    tags: ["echo 2026", "e26", "layout", "echo26"],
     aliases: ["fixture layout", "directory structure"],
     sections: [
       {
@@ -3689,10 +3719,10 @@ NNN_slug.runexit  # optional exit code`,
   {
     id: "e26-protocol",
     path: "/e26/protocol",
-    category: "e26",
+    category: "Echo 2026",
     title: "Protocol",
-    summary: "Commands a candidate binary must answer.",
-    tags: ["e26", "protocol", "binary"],
+    summary: "Commands a candidate binary must answer for Echo 2026 conformance.",
+    tags: ["echo 2026", "e26", "protocol", "binary"],
     aliases: ["candidate binary", "interface"],
     sections: [
       {
@@ -3701,7 +3731,10 @@ NNN_slug.runexit  # optional exit code`,
         blocks: [
           {
             kind: "paragraph",
-            text: [{ code: "e26" }, " compares stdout and stderr to the fixture sidecars:"],
+            text: [
+              { code: "e26" },
+              " compares stdout and stderr to the fixture sidecars:",
+            ],
           },
           {
             kind: "code",
@@ -3850,9 +3883,9 @@ xo tools grammar tree-sitter --output <dir>`,
               { code: "scripts/gate workspace" },
               " before broad commits. ",
               { code: "scripts/gate web" },
-              " for this site. Language changes should keep ",
+              " for this site. Language changes should keep the Echo 2026 suite (",
               { code: "e26" },
-              " green.",
+              ") green.",
             ],
           },
         ],

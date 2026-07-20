@@ -2,10 +2,13 @@
 
 Echo language surface — **statement-led, keyword-free core**.
 
+**Edition:** implementer surface for **Echo 2026** (canonical public Language
+Spec: site `/e26` + Reference `/docs`; executable contract: `echo26/` — ADR 0015).
+
 | | |
 |--|--|
 | **Status** | Core locked for implementation |
-| **Related** | `docs/lexer.md`, `docs/roadmap.md`, `examples/app/main.echo` |
+| **Related** | `docs/lexer.md`, `docs/roadmap.md`, `docs/adr/0015-echo-2026-canonical-edition.md`, `examples/app/main.echo` |
 
 ## Intent
 

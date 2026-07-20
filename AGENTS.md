@@ -72,15 +72,20 @@ three** in the **same** change (or stacked PR). Incomplete = incomplete work.
 | Proof | Where | Role |
 |-------|--------|------|
 | **1. Crate tests** | `crates/<name>/` unit/integration tests | Pure logic of **that** crate (decode, resolve edge, unify, …) |
-| **2. echo26 / e26** | `echo26/` + `e26` | Black-box language/runtime surface via candidate binary |
+| **2. Echo 2026 (echo26 / e26)** | `echo26/` + `e26` | Executable contract of the **Echo 2026** edition via candidate binary |
 | **3. Examples** | `examples/misc/`, `examples/app/`, `examples/algos/` as applicable | Human-runnable demos stay accurate (`xo run` / `xo check`) |
+
+**Echo 2026** is the language edition and **canonical public Language Spec**
+(ADR 0015). Tooling IDs stay `e26` / `echo26/`. Public law: site `/e26` +
+Reference `/docs`. Implementer surface: `docs/syntax.md` and related layer docs.
 
 Rules:
 
 1. **Every crate** that gains or changes logic must keep its own tests **green and
    current** — add tests when adding behavior; do not leave crates testless after
    non-trivial work.
-2. **e26 is not optional** for user-visible language/runtime behavior (see below).
+2. **Echo 2026 suite (e26) is not optional** for user-visible language/runtime
+   behavior (see below).
 3. **Examples are not optional** when the change is something users would run or
    copy (`xo run` demos under `examples/misc/`, app/std samples when relevant).
 4. A crate unit test is **not** a substitute for e26; e26 is **not** a substitute
@@ -88,18 +93,21 @@ Rules:
 5. Prove: `cargo test -p <touched crates>`, `e26 --binary target/debug/xo` (or
    `scripts/gate echo26`), and smoke the touched examples.
 
-### echo26 / e26 (mandatory with every language change)
+### Echo 2026 / echo26 / e26 (mandatory with every language change)
 
 **Every** language-surface or frontend/runtime behavior change must update the
-conformance suite in the same change (or the same PR stack):
+Echo 2026 conformance suite in the same change (or the same PR stack):
 
 1. Add or adjust fixtures under `echo26/` (small numbered cases per feature).
 2. Extend the candidate protocol in `e26` / `xo` if a new stage or flag is needed
    (`lex`, `ast`, `check`, `run`, …).
 3. Refresh expectations (`e26 --binary target/debug/xo --update` when intentional).
 4. Prove green: `scripts/gate echo26` (or `just e26`).
+5. Keep public Spec / Reference (`www`) and implementer docs aligned when the
+   user-visible rule changes.
 
-See `docs/fixtures.md` and `docs/implementation.md`.
+See `docs/fixtures.md`, `docs/adr/0015-echo-2026-canonical-edition.md`, and
+`docs/implementation.md`.
 
 ### Justified edge cases only
 
@@ -108,8 +116,9 @@ greenness, or “looks like other languages.”
 
 Before adding a branch, recovery path, extra form, or relaxed rule:
 
-1. **Cite authority** — `docs/syntax.md`, `docs/lexer.md`, an ADR, or an explicit
-   user decision in the session (then write it into the matching doc).
+1. **Cite authority** — Echo 2026 public Spec / Reference (`www`),
+   `docs/syntax.md`, `docs/lexer.md`, an ADR, or an explicit user decision in
+   the session (then write it into the matching doc).
 2. **Prefer the general rule** — if the design already covers it, implement that;
    don’t bolt on a one-off.
 3. **Name the edge** in code comments only when non-obvious, pointing at the doc.
@@ -151,8 +160,8 @@ Details: `docs/development-speed.md`.
   ADR reverses that.
 - Do **not** copy language implementation or docs from other Echo repositories.
   Read reference material if needed; **synthesize and write** for this tree.
-- Do **not** land language behavior without updating **`echo26` + `e26`** (and
-  leaving `scripts/gate echo26` green) when that stage exists.
+- Do **not** land language behavior without updating **Echo 2026** proof
+  (**`echo26` + `e26`**, green `scripts/gate echo26`) when that stage exists.
 - Do **not** introduce language edge cases without **doc/user justification**
   (see “Justified edge cases only” above).
 

@@ -14,6 +14,9 @@ Related:
 **Rule:** Language meaning lives in the **earliest shared spine crate**. Hosts
 (`xo`, LSP, fmt, REPL, www, `e26`) only orchestrate and present.
 
+**Edition:** **Echo 2026** is the current language edition and canonical public
+Language Spec (ADR 0015). The **executable contract** is `echo26/` via `e26`.
+
 ---
 
 ## 1. Shared compiler spine
@@ -146,11 +149,11 @@ for phases, versioning policy, and infra milestones.
 | Host | Entry | Role |
 |------|--------|------|
 | **`xo`** | `crates/xo` | CLI: lex, ast, check, run, build, fmt, lsp, repl, … |
-| **`e26`** | `crates/e26` | Black-box suite: drives a **candidate binary** over `echo26/` |
+| **`e26`** | `crates/e26` | Echo 2026 suite runner: drives a **candidate binary** over `echo26/` |
 | **Formatter** | `xo fmt` (planned) | Pretty-print from shared AST/syntax |
 | **LSP** | `echo_lsp` / `xo lsp` | Editor protocol over pipeline + index (std surface is real Echo; see `stdlib.md` surface vs bridge) |
 | **REPL** | `xo repl` (planned) | Interactive; eval via JIT/runtime |
-| **www** | `www/` | User-facing docs and search |
+| **www** | `www/` | User-facing docs, search, **Echo 2026** public Spec section |
 | **Editor grammar** | from `echo_syntax` | `xo tools grammar tree-sitter -o …` ([`tree-sitter.md`](tree-sitter.md)) |
 
 Hosts **must not** reimplement binding, typing, or execution rules.
@@ -199,7 +202,10 @@ Hosts **must not** reimplement binding, typing, or execution rules.
 
 ---
 
-## 5. Conformance: `echo26` + `e26`
+## 5. Conformance: Echo 2026 (`echo26` + `e26`)
+
+Executable contract of the **Echo 2026** edition (ADR 0015). Public Spec lives
+on the site (`/e26`); this suite is the machine-checked proof.
 
 ```text
 e26 --binary <candidate>

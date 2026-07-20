@@ -17,7 +17,7 @@ lives under `www/`.
 | [`development-speed.md`](development-speed.md) | Local tools, gate, edit loop |
 | [`ci.md`](ci.md) | GitHub Actions multi-OS build + Linux echo26 gate |
 | [`roadmap.md`](roadmap.md) | Language coverage map + design/impl status |
-| [`fixtures.md`](fixtures.md) | echo26 / e26 conventions |
+| [`fixtures.md`](fixtures.md) | Echo 2026 suite (`echo26/` / `e26`) conventions |
 
 ## Durable decisions
 
@@ -29,7 +29,8 @@ lives under `www/`.
 
 | Doc | Domain |
 |-----|--------|
-| [`syntax.md`](syntax.md) | User-facing language surface (**core locked**) |
+| [`syntax.md`](syntax.md) | Implementer language surface for **Echo 2026** (**core locked**) |
+| [ADR 0015](adr/0015-echo-2026-canonical-edition.md) | Edition name + canonical public Spec ownership |
 | [`lexer.md`](lexer.md) | Tokens and lexing rules |
 | [`semantics.md`](semantics.md) | Scopes, Result/Option, inference direction |
 | [`modules.md`](modules.md) | Imports, packages, `%`/`@` merge |

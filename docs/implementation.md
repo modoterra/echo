@@ -9,6 +9,7 @@ Related:
 - **Full pipeline map (spine + hosts + order):** [`pipeline.md`](pipeline.md)
 - Crate ownership: [`architecture.md`](architecture.md)
 - Language surface: [`syntax.md`](syntax.md), [`lexer.md`](lexer.md), [`semantics.md`](semantics.md)
+- Edition / public Spec: [ADR 0015](adr/0015-echo-2026-canonical-edition.md) (**Echo 2026**)
 - Modules: [`modules.md`](modules.md)
 - Design tracker: [`roadmap.md`](roadmap.md)
 - Fixtures: [`fixtures.md`](fixtures.md)
@@ -19,8 +20,8 @@ LSP, formatter, REPL, website, `e26`) **present** that behavior; they do not
 reimplement it.
 
 **Proof rule (mandatory):** every change updates **crate tests** (each touched
-crate), **echo26/e26**, and **examples** as applicable — same change. See
-[`AGENTS.md`](../AGENTS.md) and [`fixtures.md`](fixtures.md).
+crate), **Echo 2026 suite (`echo26` / `e26`)**, and **examples** as applicable
+— same change. See [`AGENTS.md`](../AGENTS.md) and [`fixtures.md`](fixtures.md).
 
 ---
 

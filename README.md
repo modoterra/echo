@@ -14,7 +14,12 @@ are implemented incrementally with focused proofs.
 
 ## Language design (in progress)
 
-Keyword-free, statement-led core — see [`docs/syntax.md`](docs/syntax.md).
+**Echo 2026** is the current language edition and canonical public Language Spec
+(site `/e26`, ADR [0015](docs/adr/0015-echo-2026-canonical-edition.md)). The
+executable contract is the [`echo26/`](echo26/) suite (`e26` runner).
+
+Keyword-free, statement-led core — implementer surface:
+[`docs/syntax.md`](docs/syntax.md).
 
 | Tree | Role |
 |------|------|
@@ -94,7 +99,7 @@ GitHub Release is published** — not on push, PR, or bare tags.
 | macOS arm64 | `macos-14` |
 
 On Linux, smoke (`cargo test -p xo`, `xo run` hello) and **`scripts/gate echo26`**
-are hard gates when that workflow runs.
+(Echo 2026 conformance) are hard gates when that workflow runs.
 
 CLI surface (commands land as the language grows):
 

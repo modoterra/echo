@@ -107,7 +107,7 @@ export function HomePage() {
                 className="font-semibold text-slate-800 underline-offset-4 hover:underline"
                 to={"/e26" as "/"}
               >
-                e26
+                Echo 2026
               </Link>
               .
             </p>

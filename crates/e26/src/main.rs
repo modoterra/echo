@@ -1,4 +1,5 @@
-//! echo26 suite runner: drive a **candidate** toolchain binary over fixtures.
+//! Echo 2026 suite runner (`e26`): drive a **candidate** toolchain binary over
+//! the `echo26/` executable contract for the Echo 2026 edition (ADR 0015).
 //!
 //! ```text
 //! e26 --binary ./target/debug/xo
@@ -40,7 +41,7 @@ use walkdir::WalkDir;
 
 #[derive(Debug, Parser)]
 #[command(name = "e26")]
-#[command(about = "Run the echo26 fixture suite against a candidate Echo binary")]
+#[command(about = "Run the Echo 2026 (echo26) fixture suite against a candidate Echo binary")]
 struct Cli {
     /// Candidate toolchain binary (e.g. xo or a third-party CLI).
     #[arg(long, short = 'b')]

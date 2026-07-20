@@ -71,6 +71,8 @@ definition here over redefining the same idea in every layer doc.
 | **xo** | CLI entrypoint; orchestrates the pipeline and tools. |
 | **Gate** | Focused verification dispatcher (`scripts/gate`). |
 | **Vertical slice** | Feature landed through all relevant layers, not one layer in isolation. |
-| **Fixture** | File-backed language test with Echo-owned expected outcomes (`echo26/`). |
-| **e26** | Black-box suite runner: `e26 --binary <candidate>` over `echo26/`. |
+| **Echo 2026** | Current **language edition** and **canonical public Language Spec** (site section; ADR 0015). |
+| **Fixture** | File-backed language case with Echo-owned expected outcomes under `echo26/` (executable contract of Echo 2026). |
+| **echo26** | Fixture suite directory for Echo 2026 (`echo26/`). |
+| **e26** | Black-box suite **runner** CLI (`e26 --binary <candidate>` over `echo26/`). Short tooling ID for Echo 2026 conformance. |
 | **chumsky** | Combinator parser library used by `echo_parser` (ADR 0011). |

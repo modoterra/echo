@@ -1,4 +1,7 @@
-# echo26
+# echo26 (Echo 2026 executable contract)
+
+**Echo 2026** is the language edition and canonical public Language Spec
+(ADR 0015). This directory is the **machine-checked contract** of that edition.
 
 File-backed language fixtures. The suite runner is **`e26`** (not linked to any
 one implementation). Point it at any Echo-compatible candidate binary.

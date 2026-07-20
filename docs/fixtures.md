@@ -1,11 +1,13 @@
 # Fixtures (echo26) and runner (e26)
 
-File-backed language tests. The suite is **implementation-agnostic**: `e26`
-drives a **candidate binary** over `echo26/` (same idea as pointing a JS suite
-at different runtimes).
+**Echo 2026** is the language edition and canonical public Language Spec
+(ADR 0015). The **executable contract** of that edition is this suite:
+**implementation-agnostic** `e26` drives a **candidate binary** over `echo26/`
+(same idea as pointing a JS suite at different runtimes).
 
 | | |
 |--|--|
+| **Edition / public Spec** | **Echo 2026** (`www` `/e26`, ADR 0015) |
 | **Suite** | [`echo26/`](../echo26/) |
 | **Runner** | `e26` (`crates/e26`) |
 | **Reference candidate** | `xo` |

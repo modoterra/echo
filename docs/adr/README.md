@@ -27,6 +27,7 @@ choice must stick forever—then add an ADR.
 | [0012](0012-analysis-product-pipeline.md) | Analysis product and shared pipeline library |
 | [0013](0013-tasks-event-loop-leaders.md) | Tasks + event loop via `+` / `-` leaders (not `std/task`) |
 | [0014](0014-modules-packages-paths.md) | Modules / paths / optional `xo.toml` / user `.xo` package cache |
+| [0015](0015-echo-2026-canonical-edition.md) | Echo 2026 edition + canonical public Language Spec |
 
 ### Language surface
 
@@ -34,6 +35,7 @@ choice must stick forever—then add an ADR.
 |-----|-------|
 | [0013](0013-tasks-event-loop-leaders.md) | Task spawn/join leaders + runtime event loop |
 | [0014](0014-modules-packages-paths.md) | Modules / packages / paths / `$XO_HOME/packages` |
+| [0015](0015-echo-2026-canonical-edition.md) | Echo 2026 edition + canonical public Language Spec |
 
 ## When to write an ADR
 

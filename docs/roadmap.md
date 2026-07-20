@@ -471,15 +471,20 @@ current; fill Impl as work lands.
 | 2026-07-16 | Kind inference v1 (unify + infer) + `echo26/infer/**` |
 | 2026-07-16 | Docs: `pipeline.md` + expanded `implementation.md` (fmt/LSP/REPL/e26) |
 | 2026-07-16 | Vertical: richer lits (width, duration, bytes, p) through lex→infer→e26 |
+| 2026-07-20 | **ADR 0015:** Echo 2026 = edition + canonical public Language Spec (`www` `/e26`); `e26`/`echo26/` stay tooling IDs |
 
 ---
 
 ## 9. How to change the language
 
-1. Update **`syntax.md`** (and `lexer.md` if tokens change).  
+1. Update **Echo 2026** public Spec / Reference (`www`) and implementer
+   **`syntax.md`** (and `lexer.md` if tokens change).  
 2. Update **this roadmap** status tables if scope or freeze changes.  
 3. If hard to reverse → **ADR** under `docs/adr/`.  
 4. Walk **`implementation.md`** checklist for every affected layer.  
-5. Keep **`examples/`** / **`std/`** / **`www/`** in sync with the surface.
+5. Keep **`echo26/`**, **`examples/`**, **`std/`**, and **`www/`** in sync with
+   the surface (green `e26`).
 
 Do not implement behavior only in LSP, `xo`, or www.
+
+Edition authority: [ADR 0015](adr/0015-echo-2026-canonical-edition.md).
