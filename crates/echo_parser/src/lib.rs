@@ -111,6 +111,11 @@ pub fn parse_with_cache(
     }
 
     let parsed = parse_uncached(source);
+    // Do not persist failed parses: a forgotten version bump must not stick
+    // a transient (or pre-fix) parse-error blob to a source path forever.
+    if parsed.diagnostics.error_count() > 0 || parsed.file.is_none() {
+        return (parsed, ParseCacheOutcome::Miss);
+    }
     let blob = encode_parsed(&parsed);
     let outcome = match store.put(&key, &blob) {
         Ok(_) => ParseCacheOutcome::Miss,

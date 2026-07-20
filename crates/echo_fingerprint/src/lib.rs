@@ -22,8 +22,8 @@ pub const CACHE_FORMAT_VERSION: u32 = 1;
 // --- Per-component schema versions (bump when that layer's cacheable output changes) ---
 
 pub const LEXER_VERSION: u32 = 2; // `..` range token
-pub const PARSER_VERSION: u32 = 5; // range expr `lo..hi`
-pub const AST_SCHEMA_VERSION: u32 = 3; // Expr::Range
+pub const PARSER_VERSION: u32 = 6; // list push `~ xs[] = e`
+pub const AST_SCHEMA_VERSION: u32 = 4; // AssignTarget::Index index: Option
 pub const INDEX_VERSION: u32 = 1;
 pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const RESOLVER_VERSION: u32 = 1;
