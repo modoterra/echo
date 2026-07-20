@@ -1,10 +1,12 @@
 import { useEffect, type ReactNode } from "react";
 import { RiDiscordFill, RiGithubFill, RiTwitterXFill } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
+import { CodeStage } from "./components/code-stage";
 import { CtaLink } from "./components/cta-link";
 import { EchoCode } from "./components/echo-code";
 import { GradientBackground } from "./components/gradient-background";
 import { InstallSnippet } from "./components/install-snippet";
+import { HOME_DEMOS, HOME_SAMPLES } from "./lib/home-demos";
 import { applyRandomization } from "./lib/randomize-bg";
 
 const HERO_ECHO = `/ std/io
@@ -138,6 +140,80 @@ export function HomePage() {
           </div>
         </section>
 
+        {/* ── See it work (tabbed demos) ────────────────────────── */}
+        <CodeStage demos={HOME_DEMOS} />
+
+        {/* ── Samples strip ────────────────────────────────────── */}
+        <section className="mt-24 sm:mt-28" aria-labelledby="samples-heading">
+          <h2
+            id="samples-heading"
+            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
+          >
+            Samples in the tree
+          </h2>
+          <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+            After you build <Mono>xo</Mono>, try these under <Mono>examples/misc/</Mono>. Each card
+            points at the matching reference.
+          </p>
+          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {HOME_SAMPLES.map((sample) => (
+              <li key={sample.title}>
+                <Link
+                  to={sample.href as "/"}
+                  className="flex h-full flex-col rounded-xl border border-slate-200 bg-white/80 p-5 transition hover:border-slate-300 hover:shadow-sm"
+                >
+                  <p className="font-mono text-sm font-semibold text-slate-950">{sample.title}</p>
+                  <p className="mt-1 font-mono text-xs text-slate-400">{sample.path}</p>
+                  <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{sample.blurb}</p>
+                  <span className="mt-4 text-sm font-semibold text-slate-800">Open →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ── First-program funnel ─────────────────────────────── */}
+        <section
+          className="mt-24 rounded-2xl border border-slate-200 bg-white/80 px-6 py-10 sm:mt-28 sm:px-10"
+          aria-labelledby="funnel-heading"
+        >
+          <h2
+            id="funnel-heading"
+            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
+          >
+            From zero to a running program
+          </h2>
+          <ol className="mt-8 grid gap-4 sm:grid-cols-3">
+            <FunnelStep
+              step="1"
+              title="Install xo"
+              detail="Clone the repo and cargo build -p xo. Requirements are on the Install page."
+              href="/install"
+              linkLabel="Install"
+            />
+            <FunnelStep
+              step="2"
+              title="Run hello"
+              detail="Point xo at examples/misc/hello.echo or the sum-list sample."
+              href="/docs/first-program"
+              linkLabel="First program"
+            />
+            <FunnelStep
+              step="3"
+              title="Read the surface"
+              detail="Leaders, binds, Result, structs — form sheets in the Reference."
+              href="/docs/leaders"
+              linkLabel="Leaders"
+            />
+          </ol>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <CtaLink to="/install">Install Echo</CtaLink>
+            <CtaLink to={"/docs/first-program"} variant="secondary">
+              First program
+            </CtaLink>
+          </div>
+        </section>
+
         {/* ── Tooling loop ─────────────────────────────────────── */}
         <section className="mt-24 sm:mt-28" aria-labelledby="tooling-heading">
           <h2
@@ -164,6 +240,13 @@ export function HomePage() {
               >
                 Install
               </Link>
+              . Then walk through{" "}
+              <Link
+                className="font-semibold text-slate-800 underline-offset-4 hover:underline"
+                to={"/docs/first-program" as "/"}
+              >
+                First program
+              </Link>
               .
             </p>
           </div>
@@ -189,9 +272,9 @@ export function HomePage() {
               to={"/docs"}
             />
             <LearnCard
-              title="Echo 2026"
-              body="Edition home: public Spec framing and the executable suite contract."
-              to={"/e26"}
+              title="Language Spec"
+              body="Echo 2026 Spec table of contents — Reference mapped to the edition."
+              to={"/e26/spec"}
             />
           </div>
         </section>
@@ -218,7 +301,10 @@ export function HomePage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <CtaLink to={"/e26"} variant="secondary">
-              Open Echo 2026
+              Edition overview
+            </CtaLink>
+            <CtaLink to={"/e26/spec"} variant="secondary">
+              Language Spec
             </CtaLink>
             <CtaLink to={"/book"} variant="ghost">
               Read the Book
@@ -333,6 +419,34 @@ function ToolStep({ step, title, detail }: { step: string; title: string; detail
       <p className="font-mono text-xs font-semibold tracking-wide text-slate-400">{step}</p>
       <p className="mt-2 font-mono text-lg font-semibold text-slate-950">xo {title}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
+    </li>
+  );
+}
+
+function FunnelStep({
+  step,
+  title,
+  detail,
+  href,
+  linkLabel,
+}: {
+  step: string;
+  title: string;
+  detail: string;
+  href: string;
+  linkLabel: string;
+}) {
+  return (
+    <li className="flex flex-col rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-5">
+      <p className="font-mono text-xs font-semibold tracking-wide text-slate-400">{step}</p>
+      <p className="mt-2 text-lg font-semibold text-slate-950">{title}</p>
+      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{detail}</p>
+      <Link
+        className="mt-4 text-sm font-semibold text-slate-800 underline-offset-4 hover:underline"
+        to={href as "/"}
+      >
+        {linkLabel} →
+      </Link>
     </li>
   );
 }

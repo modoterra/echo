@@ -27,23 +27,38 @@ Zig clarity + TypeScript pedagogy + Elixir polish.
 
 ## Primary nav
 
-| Item              | Path       | Notes                  |
-| ----------------- | ---------- | ---------------------- |
-| Home              | `/`        | Product narrative      |
-| Docs              | `/docs`    | Form-by-form Reference |
-| Book              | `/book`    | Narrative why / when   |
-| Echo 2026         | `/e26`     | Edition + Spec + suite |
-| **Install** (CTA) | `/install` | Solid button; get `xo` |
+| Item              | Path       | Notes                      |
+| ----------------- | ---------- | -------------------------- |
+| Home              | `/`        | Product narrative          |
+| Docs              | `/docs`    | Form-by-form Reference     |
+| Book              | `/book`    | Narrative why / when       |
+| Echo 2026         | `/e26`     | Edition + Spec TOC + suite |
+| **Install** (CTA) | `/install` | Solid button; get `xo`     |
 
 ## Homepage sections
 
 1. Hero (definition + CTAs + code + output)
 2. Three pillar cards
-3. Tooling loop (`check` → `run` → `build`)
-4. Learn path (First program · Reference · Echo 2026)
-5. Edition / trust (honest early status)
-6. Footer
+3. **See it work** — tabbed demos (leaders, Result, structs, tasks)
+4. **Samples strip** — examples/misc → reference
+5. **First-program funnel** — Install → run → leaders
+6. Tooling loop (`check` → `run` → `build`)
+7. Learn path (First program · Reference · Language Spec)
+8. Edition / trust (honest early status)
+9. Footer
 
-## Out of scope (later phases)
+## Echo 2026 section
 
-Tabbed demo stages, playground, prebuilt download tabs, `/e26` URL rename.
+| Path            | Role                                      |
+| --------------- | ----------------------------------------- |
+| `/e26`          | Edition overview                          |
+| `/e26/spec`     | Language Spec TOC (Reference + suite map) |
+| `/e26/run`      | Suite runner                              |
+| `/e26/layout`   | Fixture layout                            |
+| `/e26/protocol` | Candidate binary protocol                 |
+
+Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
+
+## Out of scope (later)
+
+Playground, prebuilt download tabs, `/e26` URL rename to `/echo-2026`.

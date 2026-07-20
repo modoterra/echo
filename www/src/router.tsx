@@ -910,7 +910,13 @@ function e26Child(path: string) {
     component: () => <DocsContentPage page={docsPage(full)} />,
   });
 }
-const e26Children = [e26Child("/"), e26Child("run"), e26Child("layout"), e26Child("protocol")];
+const e26Children = [
+  e26Child("/"),
+  e26Child("spec"),
+  e26Child("run"),
+  e26Child("layout"),
+  e26Child("protocol"),
+];
 
 const routeTree = rootRoute.addChildren([
   indexRoute,

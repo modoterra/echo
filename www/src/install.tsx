@@ -71,14 +71,30 @@ export function InstallPage() {
         </section>
 
         <section className="mt-14">
-          <h2 className="text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">Next</h2>
-          <div className="mt-6 flex flex-wrap gap-3">
+          <h2 className="text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
+            From here
+          </h2>
+          <ol className="mt-6 space-y-4 text-base leading-7 text-slate-600">
+            <li>
+              <span className="font-semibold text-slate-950">1. First program</span> — read the
+              minimal shape and the same commands you just ran.
+            </li>
+            <li>
+              <span className="font-semibold text-slate-950">2. Reference</span> — form sheets for
+              leaders, Result, structs, and the rest of Echo 2026.
+            </li>
+            <li>
+              <span className="font-semibold text-slate-950">3. Language Spec</span> — edition TOC
+              mapping Reference pages to the suite.
+            </li>
+          </ol>
+          <div className="mt-8 flex flex-wrap gap-3">
             <CtaLink to={"/docs/first-program"}>First program</CtaLink>
             <CtaLink to={"/docs"} variant="secondary">
               Reference
             </CtaLink>
-            <CtaLink to={"/e26"} variant="secondary">
-              Echo 2026
+            <CtaLink to={"/e26/spec"} variant="secondary">
+              Language Spec
             </CtaLink>
           </div>
           <p className="mt-8 text-sm leading-6 text-slate-500">
