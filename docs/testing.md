@@ -29,17 +29,13 @@ They do not replace each other.
 ```echo
 / std/test
 
-$ case_name = () {
+test.it("name", () {
     test.eq(1, 1)
     test.true(|)
-}
-
-test.it("name", case_name)
+})
 ```
 
-> **v0 codegen:** pass a **bound** function value into `it`. Bare `() { … }` as a
-> call argument is not supported in codegen yet (same as other call sites).
-
+Bodies may also be named binds (`$ case = () { … }; test.it("n", case)`).
 | Export | Role |
 |--------|------|
 | `it(name, body)` | Register a zero-arg function value as a case |

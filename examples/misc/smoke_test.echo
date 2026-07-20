@@ -1,14 +1,10 @@
 ; Suite smoke for `xo test` (Model A).
-; Bodies are named binds: bare `() { }` args are not codegen-supported yet.
 / std/test
 
-$ case_eq_ok = () {
+test.it("eq_ok", () {
     test.eq(1, 1)
-}
+})
 
-$ case_true_ok = () {
+test.it("true_ok", () {
     test.true(|)
-}
-
-test.it("eq_ok", case_eq_ok)
-test.it("true_ok", case_true_ok)
+})

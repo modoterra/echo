@@ -29,7 +29,7 @@ pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const RESOLVER_VERSION: u32 = 1;
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
 pub const SEMANTICS_VERSION: u32 = 6; // outer function values not capture
-pub const HIR_LOWERER_VERSION: u32 = 15; // Name→FnRef for free fn values
+pub const HIR_LOWERER_VERSION: u32 = 16; // bare () { } expr → synthetic FnRef
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (method fallthrough → __recv).
 pub const MIR_LOWERER_VERSION: u32 = 15; // ModuleField fn value; list elem type flow

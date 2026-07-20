@@ -28,22 +28,18 @@ $ from_indexed = (ls) {
 
 ; --- suite (xo test std/collections/map/map.echo) ---
 
-$ case_from_indexed = () {
+test.it("from_indexed", () {
     $ m = from_indexed([10, 20, 30])
     test.eq(m.entries[0].key, 0)
     test.eq(m.entries[0].value, 10)
     test.eq(m.entries[2].value, 30)
-}
+})
 
-$ case_make = () {
+test.it("make", () {
     $ m = make()
-    ; empty map then one push (keys match from_indexed: ints for now)
     ~ m.entries[] = item { key: 0, value: 1 }
     test.eq(m.entries[0].key, 0)
     test.eq(m.entries[0].value, 1)
-}
-
-test.it("from_indexed", case_from_indexed)
-test.it("make", case_make)
+})
 
 \ map, item, make, from_indexed

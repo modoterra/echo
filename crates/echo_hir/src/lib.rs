@@ -1085,14 +1085,29 @@ fn lower_expr(e: &Expr, cx: &mut LowerCx<'_>) -> HirExpr {
             index: Box::new(lower_expr(index, cx)),
         },
         Expr::Group { expr, .. } => HirExprKind::Group(Box::new(lower_expr(expr, cx))),
-        Expr::Fn { .. } => HirExprKind::Unsupported {
-            message: "bare function expression not supported outside bind in codegen v1".into(),
+        // Bare `(params) { … }` as a value (e.g. `test.it("n", () { … })`).
+        // Same closed-body model as `$ f = (params) { … }`, with a synthetic symbol.
+        Expr::Fn { params, body, .. } => {
+            let return_shape = effects_in_stmts(body).shape();
+            let symbol = cx.alloc_nested_symbol();
+            let body_hir = lower_block(body, cx);
+            let returns_structs = body_returns_named_structs(body);
+            cx.bodies.push(HirBody {
+                symbol: symbol.clone(),
+                params: params.iter().map(|p| p.name.clone()).collect(),
+                body: body_hir,
+                return_shape,
+                receiver_struct: None,
+                method_name: None,
+                returns_receiver: false,
+                returns_structs,
+                span,
+            });
+            HirExprKind::FnRef { symbol }
         },
     };
     hexpr(span, kind)
 }
-
-// Note: FnRef is produced only by bind lowering, never from raw AST.
 
 fn extract_struct_methods(
     s: &echo_ast::StructStmt,
