@@ -147,7 +147,13 @@ fn infer_pass(cfg: &MirCfg, reprs: &mut HashMap<String, MirRepr>) {
                     let r = infer_expr(value, reprs);
                     reprs.insert(name.clone(), r);
                 }
-                MirOp::Eval(_) | MirOp::FieldSet { .. } | MirOp::IndexSet { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}
+                MirOp::Eval(_)
+                | MirOp::FieldSet { .. }
+                | MirOp::IndexSet { .. }
+                | MirOp::ListPush { .. }
+                | MirOp::TaskSpawn { .. }
+                | MirOp::TaskSpawnFn { .. }
+                | MirOp::TaskJoin { .. } => {}
             }
         }
     }
@@ -423,6 +429,21 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                         index,
                         value,
                     });
+                }
+                MirOp::ListPush { base, value } => {
+                    let (pre1, base) = ensure_repr(base, MirRepr::ListRef, reprs, &mut fresh);
+                    let (pre2, value) = ensure_repr(value, MirRepr::Boxed, reprs, &mut fresh);
+                    for p in pre1.into_iter().chain(pre2) {
+                        if let MirOp::Set {
+                            name: ref tn,
+                            value: ref tv,
+                        } = p
+                        {
+                            reprs.insert(tn.clone(), infer_expr(tv, reprs));
+                        }
+                        new_ops.push(p);
+                    }
+                    new_ops.push(MirOp::ListPush { base, value });
                 }
                 other => new_ops.push(other),
             }

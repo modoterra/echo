@@ -1038,6 +1038,19 @@ fn emit_function_cfg<'ctx>(
                         .build_call(set_f, &[handle.into(), idx.into(), v.into()], "")
                         .expect("list_set");
                 }
+                MirOp::ListPush { base, value } => {
+                    let Some(handle) = emit_expr_i64(&mut cx, base) else {
+                        continue;
+                    };
+                    let Some(v) = emit_expr_i64(&mut cx, value) else {
+                        continue;
+                    };
+                    let push_f = cx.module.get_function(RT_LIST_PUSH).expect("list_push");
+                    let _ = cx
+                        .builder
+                        .build_call(push_f, &[handle.into(), v.into()], "")
+                        .expect("list_push");
+                }
             }
         }
 
@@ -1627,6 +1640,19 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                 .builder
                 .build_call(set_f, &[handle.into(), idx.into(), v.into()], "")
                 .expect("list_set");
+        }
+        MirStmt::ListPush { base, value } => {
+            let Some(handle) = emit_expr_i64(cx, base) else {
+                return;
+            };
+            let Some(v) = emit_expr_i64(cx, value) else {
+                return;
+            };
+            let push_f = cx.module.get_function(RT_LIST_PUSH).expect("list_push");
+            let _ = cx
+                .builder
+                .build_call(push_f, &[handle.into(), v.into()], "")
+                .expect("list_push");
         }
     }
 }
@@ -4666,6 +4692,35 @@ mod llvm_opt_tests {
         assert!(
             ir.contains("echo_runtime_list_set"),
             "expected list_set; ir=\n{ir}"
+        );
+    }
+
+    #[test]
+    fn list_push_emits_runtime_list_push() {
+        let path = PathBuf::from("/t.echo");
+        let prog = MirProgram {
+            functions: vec![mir_fn(
+                &path,
+                "__toplevel",
+                &[],
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![]),
+                    },
+                    MirStmt::ListPush {
+                        base: MirExpr::Name("xs".into()),
+                        value: MirExpr::ConstI64(1),
+                    },
+                    MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+                ],
+            )],
+            entry_path: path,
+        };
+        let ir = emit_llvm(&prog).ir;
+        assert!(
+            ir.contains("echo_runtime_list_push"),
+            "expected list_push; ir=\n{ir}"
         );
     }
 

@@ -376,13 +376,15 @@ fn stmt_parser(
                 })
             });
 
-        // ~ name[index] = expr  and  ~ name.field[index] = expr
+        // ~ name[index] = expr, ~ name.field[index] = expr
+        // ~ name[] = expr, ~ name.field[] = expr  (list append / push)
         let assign_index = leader(LeaderKind::Tilde)
             .ignore_then(ident.clone())
             .then(just(TokenKind::Dot).ignore_then(ident.clone()).repeated())
             .then(
-                expr.clone()
-                    .delimited_by(just(TokenKind::LBracket), just(TokenKind::RBracket)),
+                just(TokenKind::LBracket)
+                    .ignore_then(expr.clone().or_not())
+                    .then_ignore(just(TokenKind::RBracket)),
             )
             .then_ignore(just(TokenKind::Eq))
             .then(expr.clone())

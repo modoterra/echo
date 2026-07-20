@@ -41,6 +41,11 @@ pub enum MirOp {
         index: MirExpr,
         value: MirExpr,
     },
+    /// `~ base[] = value` list append.
+    ListPush {
+        base: MirExpr,
+        value: MirExpr,
+    },
     /// Schedule closed body on the mio event loop.
     TaskSpawn {
         module_path: std::path::PathBuf,
@@ -247,6 +252,16 @@ fn lower_stmt(b: &mut Builder, cur: BlockId, stmt: &MirStmt, loop_ctx: LoopCtx) 
                 MirOp::IndexSet {
                     base: base.clone(),
                     index: index.clone(),
+                    value: value.clone(),
+                },
+            );
+            cur
+        }
+        MirStmt::ListPush { base, value } => {
+            b.push_op(
+                cur,
+                MirOp::ListPush {
+                    base: base.clone(),
                     value: value.clone(),
                 },
             );

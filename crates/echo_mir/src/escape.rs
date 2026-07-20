@@ -122,6 +122,10 @@ pub fn analyze_escapes(
                     classify_expr_uses(index, UseCtx::Local, &mut escapes, &mut parent);
                     mark_names_in(value, EscapeClass::EscapesToHeap, &mut escapes, &mut parent);
                 }
+                MirOp::ListPush { base, value, .. } => {
+                    mark_names_in(base, EscapeClass::Unknown, &mut escapes, &mut parent);
+                    mark_names_in(value, EscapeClass::EscapesToHeap, &mut escapes, &mut parent);
+                }
                 MirOp::Phi { .. } | MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}
             }
         }
@@ -466,6 +470,10 @@ fn elide_noescape_scalar_boxes(
                     *index = elide_in_expr(index.clone(), &box_defs);
                     *value = elide_in_expr(value.clone(), &box_defs);
                 }
+                MirOp::ListPush { base, value, .. } => {
+                    *base = elide_in_expr(base.clone(), &box_defs);
+                    *value = elide_in_expr(value.clone(), &box_defs);
+                }
                 _ => {}
             }
         }
@@ -496,6 +504,10 @@ fn elide_noescape_scalar_boxes(
                 } => {
                     collect_uses(base, &mut used);
                     collect_uses(index, &mut used);
+                    collect_uses(value, &mut used);
+                }
+                MirOp::ListPush { base, value, .. } => {
+                    collect_uses(base, &mut used);
                     collect_uses(value, &mut used);
                 }
                 MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}

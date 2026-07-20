@@ -126,7 +126,9 @@ fn walk_stmt(stmt: &Stmt, out: &mut Vec<NameHit>, in_struct: bool) {
                 }
                 AssignTarget::Index { base, index } => {
                     walk_expr(base, out);
-                    walk_expr(index, out);
+                    if let Some(index) = index {
+                        walk_expr(index, out);
+                    }
                 }
             }
             walk_expr(&a.value, out);

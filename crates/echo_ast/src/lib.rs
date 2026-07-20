@@ -144,10 +144,10 @@ pub enum AssignTarget {
         base: Expr,
         field: Ident,
     },
-    /// `base[index]`
+    /// `base[index]` set, or `base[]` append when `index` is `None`.
     Index {
         base: Expr,
-        index: Expr,
+        index: Option<Expr>,
     },
 }
 
@@ -542,9 +542,15 @@ fn format_stmt(stmt: &Stmt, level: usize, out: &mut String) {
                 }
                 AssignTarget::Index { base, index } => {
                     indent(level + 1, out);
-                    out.push_str("target_index\n");
+                    if index.is_some() {
+                        out.push_str("target_index\n");
+                    } else {
+                        out.push_str("target_push\n");
+                    }
                     format_expr(base, level + 2, out);
-                    format_expr(index, level + 2, out);
+                    if let Some(index) = index {
+                        format_expr(index, level + 2, out);
+                    }
                 }
             }
             format_expr(&a.value, level + 1, out);
@@ -999,7 +1005,9 @@ fn remap_assign_target(t: &mut AssignTarget, new_id: SourceId) {
         }
         AssignTarget::Index { base, index } => {
             remap_expr(base, new_id);
-            remap_expr(index, new_id);
+            if let Some(index) = index {
+                remap_expr(index, new_id);
+            }
         }
     }
 }

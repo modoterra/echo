@@ -741,7 +741,9 @@ fn find_call_in_stmt(stmt: &Stmt, offset: u32, best: &mut Option<CallSite>) {
                 echo_ast::AssignTarget::Field { base, .. } => find_call_in_expr(base, offset, best),
                 echo_ast::AssignTarget::Index { base, index } => {
                     find_call_in_expr(base, offset, best);
-                    find_call_in_expr(index, offset, best);
+                    if let Some(index) = index {
+                        find_call_in_expr(index, offset, best);
+                    }
                 }
                 echo_ast::AssignTarget::Name(_) => {}
             }

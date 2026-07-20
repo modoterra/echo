@@ -245,7 +245,7 @@ module.exports = grammar({{
         $.ident,
         repeat(choice(
           seq('.', field('field', $.ident)),
-          seq('[', field('index', $._expression), ']'),
+          seq('[', optional(field('index', $._expression)), ']'),
         )),
       ),
     )),

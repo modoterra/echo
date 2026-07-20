@@ -28,7 +28,7 @@ cargo run -p xo -- check examples/algos/factorial.echo
 
 - Prefer **`xo check`** for these until strings / std bridges / more list ops land
   on the run path.
-- Lists are **literals** (and bound list values) with index / for-in; no `append`
-  yet. Helpers that need a length use a count loop over `* item : xs`.
+- Lists are **literals** (and bound list values) with index / for-in; **append**
+  with `~ xs[] = e` (and `~ a.b[] = e`).
 - `std/io` print/log are stubs until runtime bridges land; call sites still
   exercise the API shape.

@@ -103,7 +103,9 @@ fn observe_stmt(e: &mut PathEffects, stmt: &Stmt) {
             observe_expr_nested_fn_ignored(e, &a.value);
             match &a.target {
                 echo_ast::AssignTarget::Index { index, .. } => {
-                    observe_expr_nested_fn_ignored(e, index);
+                    if let Some(index) = index {
+                        observe_expr_nested_fn_ignored(e, index);
+                    }
                 }
                 echo_ast::AssignTarget::Field { base, .. } => {
                     observe_expr_nested_fn_ignored(e, base);

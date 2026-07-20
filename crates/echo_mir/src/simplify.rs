@@ -81,6 +81,15 @@ fn fold_exprs(cfg: &mut MirCfg) -> bool {
                         changed = true;
                     }
                 }
+                MirOp::ListPush { base, value, .. } => {
+                    let nb = simplify_expr(base.clone());
+                    let nv = simplify_expr(value.clone());
+                    if !expr_eq(&nb, base) || !expr_eq(&nv, value) {
+                        *base = nb;
+                        *value = nv;
+                        changed = true;
+                    }
+                }
                 MirOp::Phi { .. } | MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}
             }
         }
@@ -383,6 +392,12 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
                         value: rewrite_names(value, &alias),
                     });
                 }
+                MirOp::ListPush { base, value } => {
+                    new_ops.push(MirOp::ListPush {
+                        base: rewrite_names(base, &alias),
+                        value: rewrite_names(value, &alias),
+                    });
+                }
                 MirOp::MatchPayload { name } => {
                     if alias.contains_key(&name) {
                         changed = true;
@@ -586,6 +601,10 @@ fn dce_pure(cfg: &mut MirCfg, _reprs: &HashMap<String, MirRepr>) -> bool {
                 } => {
                     collect_uses(base, &mut used);
                     collect_uses(index, &mut used);
+                    collect_uses(value, &mut used);
+                }
+                MirOp::ListPush { base, value, .. } => {
+                    collect_uses(base, &mut used);
                     collect_uses(value, &mut used);
                 }
                 MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } => {}
@@ -831,6 +850,10 @@ mod tests {
                     } => {
                         n += count_boxes_expr(base);
                         n += count_boxes_expr(index);
+                        n += count_boxes_expr(value);
+                    }
+                    MirOp::ListPush { base, value, .. } => {
+                        n += count_boxes_expr(base);
                         n += count_boxes_expr(value);
                     }
                     _ => {}

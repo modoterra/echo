@@ -472,6 +472,7 @@ current; fill Impl as work lands.
 | 2026-07-16 | Docs: `pipeline.md` + expanded `implementation.md` (fmt/LSP/REPL/e26) |
 | 2026-07-16 | Vertical: richer lits (width, duration, bytes, p) through lex→infer→e26 |
 | 2026-07-20 | **ADR 0015:** Echo 2026 = edition + canonical public Language Spec (`www` `/e26`); `e26`/`echo26/` stay tooling IDs |
+| 2026-07-20 | List push: `~ xs[] = e` / `~ a.b[] = e` → runtime `list_push`; e26 `run/list/003_push` |
 
 ---
 

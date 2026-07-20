@@ -245,8 +245,10 @@ fn infer_stmt(env: &mut Env, stmt: &Stmt) {
                 }
                 echo_ast::AssignTarget::Index { base, index } => {
                     let bty = infer_expr(env, base);
-                    let ity = infer_expr(env, index);
-                    env.unify(&ity, &Type::Int, index.span());
+                    if let Some(index) = index {
+                        let ity = infer_expr(env, index);
+                        env.unify(&ity, &Type::Int, index.span());
+                    }
                     let elem = env.fresh();
                     env.unify(&bty, &Type::list(elem.clone()), base.span());
                     env.unify(&elem, &vty, a.span);

@@ -150,6 +150,12 @@ fn rename_block(
                     value: rewrite_expr(&value, stacks),
                 };
             }
+            MirOp::ListPush { base, value } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ListPush {
+                    base: rewrite_expr(&base, stacks),
+                    value: rewrite_expr(&value, stacks),
+                };
+            }
             MirOp::TaskSpawn {
                 module_path,
                 body_symbol,
@@ -282,6 +288,7 @@ fn def_name(op: &MirOp) -> Option<&str> {
         MirOp::Eval(_)
         | MirOp::FieldSet { .. }
         | MirOp::IndexSet { .. }
+        | MirOp::ListPush { .. }
         | MirOp::TaskSpawn { bind: None, .. }
         | MirOp::TaskSpawnFn { bind: None, .. }
         | MirOp::TaskJoin { bind: None, .. } => None,

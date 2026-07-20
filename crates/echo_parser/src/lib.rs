@@ -364,9 +364,46 @@ mod tests {
                         echo_ast::Expr::Name(n) => assert_eq!(n.name, "xs"),
                         other => panic!("expected name base, got {other:?}"),
                     }
-                    assert!(matches!(index, echo_ast::Expr::Number { text, .. } if text == "0"));
+                    match index {
+                        Some(echo_ast::Expr::Number { text, .. }) => assert_eq!(text, "0"),
+                        other => panic!("expected index 0, got {other:?}"),
+                    }
                 }
                 other => panic!("expected index assign, got {other:?}"),
+            },
+            other => panic!("expected assign, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn list_push_assign() {
+        let p = parse_str("~ xs[] = 1\n");
+        assert_eq!(p.diagnostics.error_count(), 0, "{:?}", p.diagnostics.items());
+        let file = p.file.expect("ast");
+        match &file.stmts[0] {
+            Stmt::Assign(a) => match &a.target {
+                echo_ast::AssignTarget::Index { base, index: None } => match base {
+                    echo_ast::Expr::Name(n) => assert_eq!(n.name, "xs"),
+                    other => panic!("expected name base, got {other:?}"),
+                },
+                other => panic!("expected push assign, got {other:?}"),
+            },
+            other => panic!("expected assign, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn field_list_push_assign() {
+        let p = parse_str("~ m.entries[] = 1\n");
+        assert_eq!(p.diagnostics.error_count(), 0, "{:?}", p.diagnostics.items());
+        let file = p.file.expect("ast");
+        match &file.stmts[0] {
+            Stmt::Assign(a) => match &a.target {
+                echo_ast::AssignTarget::Index { base, index: None } => match base {
+                    echo_ast::Expr::Field { field, .. } => assert_eq!(field.name, "entries"),
+                    other => panic!("expected field base, got {other:?}"),
+                },
+                other => panic!("expected push assign, got {other:?}"),
             },
             other => panic!("expected assign, got {other:?}"),
         }

@@ -99,10 +99,10 @@ pub enum HirStmt {
         value: HirExpr,
         span: Span,
     },
-    /// `~ base[index] = value`
+    /// `~ base[index] = value`, or `~ base[] = value` when `index` is `None` (list push).
     IndexAssign {
         base: HirExpr,
-        index: HirExpr,
+        index: Option<HirExpr>,
         value: HirExpr,
         span: Span,
     },
@@ -844,7 +844,7 @@ fn lower_stmt(st: &GroupedStmt, cx: &mut LowerCx<'_>) -> HirStmt {
             },
             echo_ast::AssignTarget::Index { base, index } => HirStmt::IndexAssign {
                 base: lower_expr(base, cx),
-                index: lower_expr(index, cx),
+                index: index.as_ref().map(|i| lower_expr(i, cx)),
                 value: lower_expr(&a.value, cx),
                 span: a.span,
             },

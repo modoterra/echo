@@ -30,7 +30,8 @@ Hosts call `echo_parser::parse` (or `xo ast`); they do not reimplement grammar.
   `allow_trailing` without a syntax change
 - Field assigns accept **dotted chains**: `~ a.b.c = e`, `~ .a.b = e` (AST
   `AssignTarget::Field` with nested `Expr::Field` base)
-- Index assigns: `~ xs[i] = e`, `~ a.b[i] = e` (`AssignTarget::Index`; field
+- Index assigns: `~ xs[i] = e`, `~ a.b[i] = e` (`AssignTarget::Index` with index);
+  list push: `~ xs[] = e`, `~ a.b[] = e` (`AssignTarget::Index` with `index: None`; field
   path before `[` is allowed)
 - Edge cases must be justified (see `AGENTS.md` — Justified edge cases only)
 

@@ -242,7 +242,9 @@ fn write_assign_target(t: &AssignTarget, level: usize, out: &mut String) {
         AssignTarget::Index { base, index } => {
             write_expr(base, 0, level, out);
             out.push('[');
-            write_expr(index, 0, level, out);
+            if let Some(index) = index {
+                write_expr(index, 0, level, out);
+            }
             out.push(']');
         }
     }

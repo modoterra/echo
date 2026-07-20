@@ -615,7 +615,9 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
                 }
                 AssignTarget::Index { base, index } => {
                     cx.expr(base, UseContext::Value);
-                    cx.expr(index, UseContext::Value);
+                    if let Some(index) = index {
+                        cx.expr(index, UseContext::Value);
+                    }
                 }
             }
             cx.expr(&a.value, UseContext::Value);

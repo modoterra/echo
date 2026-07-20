@@ -29,7 +29,7 @@ Opening **`{` for a block must be on the same line** as its introducer.
 
 | Leader | Role | Form |
 |--------|------|------|
-| `~` | Mutable bind / reassign | `~ name = expr` · multi `~ a = 1, b = 2` · `~ a.b.c =` · `~ xs[i] =` |
+| `~` | Mutable bind / reassign | `~ name = expr` · multi `~ a = 1, b = 2` · `~ a.b.c =` · `~ xs[i] =` · `~ xs[] =` (list push) |
 | `$` | Immutable runtime bind | `$ name = expr` · multi `$ x = 1, y = 2` · init once |
 | `#` | Compile-time constant | `# NAME = expr` · multi ok · SCREAMING_SNAKE |
 | `%` | Struct declaration **or** match type arm | `% struct_name { members }` · inside `\|` → `% Type { body }` |
@@ -373,7 +373,7 @@ Details: [`modules.md`](modules.md).
 | Boolean | `&& \|\|` · prefix `!` |
 | Member | `value.field` · `value.method()` |
 | Receiver (method body only) | `.field` · `.method()` · bare `.` as value |
-| Index | `xs[i]` · `~ xs[i] = expr` |
+| Index | `xs[i]` · `~ xs[i] = expr` · `~ xs[] = expr` (append) · `~ a.b[] = expr` |
 | Call | `name(args)` · `value.method(args)` |
 | Range | `lo..hi` — inclusive integer range value |
 | Function expr | `(a, b) { ... }` · `() { ... }` |

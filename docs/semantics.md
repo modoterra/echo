@@ -679,6 +679,7 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | Top-level is the program body; `^` returns process status | (no `sem-return` at top-level) |
 | Name used before its bind (any value, incl. calls) | `sem-unbound` |
 | Assign target name must already exist | `sem-unbound` |
+| List push `~ xs[] = e` / `~ a.b[] = e` | append via runtime list_push (index omitted) |
 | `module.foo` not an export | `sem-module-export` |
 | Unhandled Result / Option value | `sem-unhandled-result` / `sem-unhandled-option` |
 | Incomplete/wrong `|` arms | `sem-match-incomplete` / `sem-match-arm` |

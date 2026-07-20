@@ -168,6 +168,11 @@ pub enum MirStmt {
         index: MirExpr,
         value: MirExpr,
     },
+    /// `~ base[] = value` — list append (runtime list_push).
+    ListPush {
+        base: MirExpr,
+        value: MirExpr,
+    },
     /// `+` — schedule closed body on the mio event loop; optional handle bind.
     TaskSpawn {
         module_path: PathBuf,
@@ -987,15 +992,17 @@ fn collect_calls_in_stmts(
                     candidates,
                     record_call,
                 );
-                collect_calls_in_expr(
-                    index,
-                    module_path,
-                    type_env,
-                    methods,
-                    resolve_callee,
-                    candidates,
-                    record_call,
-                );
+                if let Some(index) = index {
+                    collect_calls_in_expr(
+                        index,
+                        module_path,
+                        type_env,
+                        methods,
+                        resolve_callee,
+                        candidates,
+                        record_call,
+                    );
+                }
                 collect_calls_in_expr(
                     value,
                     module_path,
@@ -1587,8 +1594,8 @@ fn lower_stmt(
             index,
             value,
             ..
-        } => Some(MirStmt::IndexSet {
-            base: lower_expr(
+        } => {
+            let base = lower_expr(
                 base,
                 module_path,
                 imports,
@@ -1598,19 +1605,8 @@ fn lower_stmt(
                 fields,
                 type_env,
                 diags,
-            )?,
-            index: lower_expr(
-                index,
-                module_path,
-                imports,
-                fn_shapes,
-                const_env,
-                methods,
-                fields,
-                type_env,
-                diags,
-            )?,
-            value: lower_expr(
+            )?;
+            let value = lower_expr(
                 value,
                 module_path,
                 imports,
@@ -1620,8 +1616,27 @@ fn lower_stmt(
                 fields,
                 type_env,
                 diags,
-            )?,
-        }),
+            )?;
+            if let Some(index) = index {
+                Some(MirStmt::IndexSet {
+                    base,
+                    index: lower_expr(
+                        index,
+                        module_path,
+                        imports,
+                        fn_shapes,
+                        const_env,
+                        methods,
+                        fields,
+                        type_env,
+                        diags,
+                    )?,
+                    value,
+                })
+            } else {
+                Some(MirStmt::ListPush { base, value })
+            }
+        }
         HirStmt::Return { value: v, .. } => match (fn_ret, v) {
             (MirRetShape::Option, None) => Some(MirStmt::ReturnNone),
             (MirRetShape::Result | MirRetShape::Option, Some(e)) => {
