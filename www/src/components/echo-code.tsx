@@ -67,14 +67,17 @@ export function EchoCode({
 
   const body =
     isEcho && html != null ? (
-      <code className="block whitespace-pre" dangerouslySetInnerHTML={{ __html: html }} />
+      <code
+        className="echo-code-body block whitespace-pre"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     ) : (
-      <code className="block whitespace-pre">{code}</code>
+      <code className="echo-code-body block whitespace-pre">{code}</code>
     );
 
   return (
     <div className={className ?? VARIANT_WRAP[variant]} aria-label={ariaLabel}>
-      <pre className={VARIANT_PRE[variant]}>{body}</pre>
+      <pre className={`${VARIANT_PRE[variant]} whitespace-pre`}>{body}</pre>
     </div>
   );
 }

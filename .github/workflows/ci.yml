@@ -6,6 +6,9 @@
 #
 # LLVM: official llvm/llvm-project release tarballs only (pinned SHA256 in
 # scripts/ci/llvm.sh). No third-party setup-llvm action.
+#
+# macOS: do NOT put LLVM lib/ on DYLD_LIBRARY_PATH for the job — LLVM’s
+# libc++ shadows the system one and aborts rustc/Node (dyld Symbol not found).
 
 name: CI
 
@@ -43,6 +46,9 @@ jobs:
             binary: xo
             runtime_lib: libecho_runtime.a
 
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -60,27 +66,36 @@ jobs:
           echo "LLVM_SYS_221_PREFIX=$path" >> "$GITHUB_ENV"
           echo "LLVM_CONFIG_PATH=$path/bin/llvm-config" >> "$GITHUB_ENV"
           echo "$path/bin" >> "$GITHUB_PATH"
-          # Dynamic libLLVM on macOS/Linux
+          # Link-time search only — never DYLD_LIBRARY_PATH (breaks macOS rustc).
           if [[ -d "$path/lib" ]]; then
+            echo "LIBRARY_PATH=$path/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> "$GITHUB_ENV"
+          fi
+          # Linux: load libLLVM for the built `xo` at runtime without affecting
+          # the host toolchain’s C++ runtime the way DYLD does on macOS.
+          if [[ "${{ runner.os }}" == "Linux" && -d "$path/lib" ]]; then
             echo "LD_LIBRARY_PATH=$path/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
-            echo "DYLD_LIBRARY_PATH=$path/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" >> "$GITHUB_ENV"
           fi
 
       - name: Install mold (Linux link speed from .cargo/config.toml)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y mold
 
-      - name: Build xo (release)
-        shell: bash
-        run: cargo build -p xo --release
-
-      - name: Stage artifact
+      - name: Build xo + runtime staticlib (release)
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cp "target/release/${{ matrix.binary }}" "dist/${{ matrix.binary }}"
+          # Explicit -p echo_runtime so staticlib is always produced (not only rlib as a dep).
+          cargo build -p xo -p echo_runtime --release
+          scripts/ci/stage-runtime-lib.sh release
+
+      - name: Stage artifact + release tarball
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/pkg/bin dist/pkg/std
+          cp "target/release/${{ matrix.binary }}" "dist/pkg/bin/${{ matrix.binary }}"
           # Prefer documented name; fall back to other cargo staticlib spellings.
+          runtime_copied=0
           for cand in \
             "target/release/${{ matrix.runtime_lib }}" \
             "target/release/libecho_runtime.a" \
@@ -89,18 +104,71 @@ jobs:
             "target/release/deps/echo_runtime.lib"
           do
             if [[ -f "$cand" ]]; then
-              cp "$cand" "dist/$(basename "$cand")"
+              # Always ship as the canonical name next to the binary.
+              if [[ "$cand" == *.lib ]]; then
+                cp "$cand" "dist/pkg/bin/echo_runtime.lib"
+                cp "$cand" "dist/echo_runtime.lib"
+              else
+                cp "$cand" "dist/pkg/bin/libecho_runtime.a"
+                cp "$cand" "dist/libecho_runtime.a"
+              fi
+              runtime_copied=1
               break
             fi
           done
-          ls -la dist
+          if [[ "$runtime_copied" -ne 1 ]]; then
+            # Last resort: hashed deps names.
+            hit="$(ls -1t target/release/deps/libecho_runtime-*.a target/release/deps/echo_runtime-*.lib 2>/dev/null | head -1 || true)"
+            if [[ -n "$hit" && -f "$hit" ]]; then
+              if [[ "$hit" == *.lib ]]; then
+                cp "$hit" "dist/pkg/bin/echo_runtime.lib"
+              else
+                cp "$hit" "dist/pkg/bin/libecho_runtime.a"
+              fi
+              runtime_copied=1
+            fi
+          fi
+          if [[ "$runtime_copied" -ne 1 ]]; then
+            echo "error: libecho_runtime staticlib not found" >&2
+            ls -la target/release target/release/deps 2>&1 | head -80 >&2 || true
+            exit 1
+          fi
+          cp "target/release/${{ matrix.binary }}" "dist/${{ matrix.binary }}"
+          # Co-locate std so installers can use the tarball without a git checkout.
+          if [[ -d std ]]; then
+            if command -v rsync >/dev/null 2>&1; then
+              rsync -a std/ dist/pkg/std/
+            else
+              cp -a std/. dist/pkg/std/
+            fi
+          else
+            echo "error: std/ missing from checkout" >&2
+            exit 1
+          fi
+          printf '%s\n' "${{ github.event.release.tag_name }}" >dist/pkg/version
+          # Portable user install archive (bin/xo + runtime + std).
+          tar -C dist/pkg -czf "dist/xo-${{ matrix.artifact }}.tar.gz" .
+          ls -la dist dist/pkg/bin
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: xo-${{ matrix.artifact }}
-          path: dist/
+          path: |
+            dist/${{ matrix.binary }}
+            dist/xo-${{ matrix.artifact }}.tar.gz
           if-no-files-found: error
+
+      - name: Attach tarball to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.release.tag_name }}"
+          archive="dist/xo-${{ matrix.artifact }}.tar.gz"
+          [[ -f "$archive" ]] || { echo "missing $archive" >&2; exit 1; }
+          gh release upload "$tag" "$archive" --clobber --repo "${{ github.repository }}"
 
   test-linux:
     name: test-linux (smoke + echo26)
@@ -120,19 +188,28 @@ jobs:
           echo "LLVM_SYS_221_PREFIX=$path" >> "$GITHUB_ENV"
           echo "LLVM_CONFIG_PATH=$path/bin/llvm-config" >> "$GITHUB_ENV"
           echo "$path/bin" >> "$GITHUB_PATH"
-          echo "LD_LIBRARY_PATH=$path/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          if [[ -d "$path/lib" ]]; then
+            echo "LIBRARY_PATH=$path/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> "$GITHUB_ENV"
+            echo "LD_LIBRARY_PATH=$path/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          fi
 
       - name: Install mold + clang (AOT link)
         run: sudo apt-get update && sudo apt-get install -y mold clang
 
-      - name: Build xo + e26 (debug, parity with local just e26)
-        run: cargo build -p xo -p e26
+      - name: Build xo + e26 + runtime staticlib (debug)
+        run: |
+          set -euo pipefail
+          cargo build -p xo -p e26 -p echo_runtime
+          scripts/ci/stage-runtime-lib.sh debug
 
       - name: Smoke — cargo test -p xo
         run: cargo test -p xo
 
       - name: Smoke — xo run hello
-        run: ./target/debug/xo run --no-cache examples/misc/hello.echo
+        run: |
+          set -euo pipefail
+          test -f target/debug/libecho_runtime.a
+          ./target/debug/xo run --no-cache examples/misc/hello.echo
 
       - name: Hard gate — scripts/gate echo26
         run: scripts/gate echo26

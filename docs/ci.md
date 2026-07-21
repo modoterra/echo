@@ -22,15 +22,40 @@ Release-builds `xo` (always includes LSP + REPL — no Cargo features) and uploa
 
 | Artifact name | Runner | Notes |
 |---------------|--------|-------|
-| `xo-linux-x86_64` | `ubuntu-24.04` | `xo` + `libecho_runtime.a` |
-| `xo-windows-x86_64` | `windows-2022` | `xo.exe` + staticlib if produced |
+| `xo-linux-x86_64` | `ubuntu-24.04` | binary + `xo-linux-x86_64.tar.gz` |
+| `xo-windows-x86_64` | `windows-2022` | `xo.exe` + tarball when produced |
 | `xo-macos-arm64` | `macos-14` | Apple Silicon only (no Intel mac) |
+
+Each matrix job also **attaches** `xo-<artifact>.tar.gz` to the published
+GitHub release (`gh release upload`). Archive layout:
+
+```text
+bin/xo                  # or xo.exe on Windows
+bin/libecho_runtime.a   # when the staticlib is produced
+std/…                   # co-located std sources
+version                 # release tag
+```
+
+Users install with `scripts/install.sh from-release` (see
+[`docs/install.md`](install.md)).
 
 Each job installs **LLVM 22** from **official**
 [`llvm/llvm-project` release tarballs](https://github.com/llvm/llvm-project/releases)
 via in-repo [`scripts/ci/llvm.sh`](../scripts/ci/llvm.sh)
 (SHA256-pinned). Sets `LLVM_SYS_221_PREFIX`. Clears the repo `sccache` rustc
 wrapper so runners without sccache still compile.
+
+**Host-specific LLVM env**
+
+| OS | What CI sets | What CI does **not** set |
+|----|----------------|---------------------------|
+| Linux | `LIBRARY_PATH`, `LD_LIBRARY_PATH` → LLVM `lib/` | — |
+| macOS | `LIBRARY_PATH` → LLVM `lib/` (link-time only) | **`DYLD_LIBRARY_PATH`** — LLVM’s `libc++` must not shadow the system one or `rustc` aborts |
+| Windows | prefix path via `cygpath` for Git Bash `tar` | raw `D:\…` extract dirs (break `tar`) |
+
+After `cargo build`, [`scripts/ci/stage-runtime-lib.sh`](../scripts/ci/stage-runtime-lib.sh)
+copies the newest `libecho_runtime*.a` into `target/<profile>/libecho_runtime.a`
+so `xo run` AOT link always finds it.
 
 No third-party `setup-llvm` action — keeps the CI supply chain to GitHub-hosted
 actions (`checkout`, `upload-artifact`), `dtolnay/rust-toolchain`, and LLVM

@@ -201,6 +201,30 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Shell / install snippets: keep every space (e.g. before `--` flags). */
+.install-snippet-pre {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "clig" 0,
+    "dlig" 0,
+    "calt" 0;
+  letter-spacing: normal;
+  word-spacing: normal;
+}
+
+/* Code blocks: no ligatures that can eat spaces around `--` flags. */
+.echo-code,
+.echo-code-body {
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "clig" 0,
+    "dlig" 0,
+    "calt" 0;
+}
+
 /* Tree-sitter Echo captures (queries/highlights.scm → tok-*) */
 .echo-code .tok-comment {
   color: #64748b;

@@ -35,8 +35,15 @@ export function InstallSnippet({ code, label = "Shell" }: Props) {
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="overflow-x-auto px-5 py-4 font-mono text-sm leading-7 text-slate-800">
-        <code className="block whitespace-pre">{code}</code>
+      {/*
+        Force mono + disable ligatures/calt so sequences like `xo --help` and
+        `bash -s --` never collapse to `xo--help` / `bash -s--` in the UI.
+      */}
+      <pre
+        className="install-snippet-pre overflow-x-auto px-5 py-4 font-mono text-sm leading-7 text-slate-800 whitespace-pre"
+        tabIndex={0}
+      >
+        {code}
       </pre>
       <span className="sr-only" aria-live="polite">
         {copied ? "Copied to clipboard" : ""}

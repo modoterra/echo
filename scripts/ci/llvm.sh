@@ -7,6 +7,12 @@
 #
 # On success, prints the absolute install prefix on stdout (last line suitable
 # for LLVM_SYS_221_PREFIX). Side-effect: extracts under install_dir.
+#
+# Notes:
+# - On Windows (Git Bash), install_dir is normalized to a Unix path so `tar`
+#   can create it (raw `D:\…` paths fail with “Cannot open”).
+# - Callers must NOT put this prefix’s lib/ on DYLD_LIBRARY_PATH on macOS
+#   for the whole job — LLVM’s libc++ breaks rustc and Node (see CI macos job).
 
 set -euo pipefail
 
@@ -21,18 +27,15 @@ case "$TARGET" in
   linux-x64)
     ARCHIVE="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
     SHA256="df0e1ecf16caf3489a272a5eea4eec9b0d82878f6477fa309504f918a0006384"
-    INNER="LLVM-${LLVM_VERSION}-Linux-X64"
     ;;
   macos-arm64)
     ARCHIVE="LLVM-${LLVM_VERSION}-macOS-ARM64.tar.xz"
     SHA256="f260f4f7c0d430828a81ae8a3826a1d63fc0963ec2459489308cc23b1f7eab4f"
-    INNER="LLVM-${LLVM_VERSION}-macOS-ARM64"
     ;;
   windows-x64)
     # clang+llvm archive includes libs/headers needed by llvm-sys (not just the toolchain installer).
     ARCHIVE="clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc.tar.xz"
     SHA256="d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234"
-    INNER="clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc"
     ;;
   *)
     echo "usage: $0 <linux-x64|macos-arm64|windows-x64> [install_dir]" >&2
@@ -40,8 +43,35 @@ case "$TARGET" in
     ;;
 esac
 
+# Git Bash on Windows: turn D:\a\_temp\llvm-22 into /d/a/_temp/llvm-22 for tar/mkdir.
+normalize_prefix() {
+  local p="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    # -u: Unix path; -a: absolute
+    cygpath -au "$p" 2>/dev/null || cygpath -u "$p"
+    return
+  fi
+  # Manual drive-letter normalize when cygpath is missing.
+  if [[ "$p" =~ ^[A-Za-z]:[\\/] ]]; then
+    local drive rest
+    drive="$(echo "${p:0:1}" | tr '[:upper:]' '[:lower:]')"
+    rest="${p:2}"
+    rest="${rest//\\//}"
+    printf '/%s%s' "$drive" "$rest"
+    return
+  fi
+  printf '%s' "$p"
+}
+
+PREFIX_DIR="$(normalize_prefix "$PREFIX_DIR")"
 mkdir -p "$PREFIX_DIR"
-WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/echo-llvm-XXXXXX")"
+
+# Workdir for the download: prefer a path tar/curl can always open.
+if command -v cygpath >/dev/null 2>&1; then
+  WORKDIR="$(mktemp -d "$(cygpath -au "${TMPDIR:-/tmp}")/echo-llvm-XXXXXX")"
+else
+  WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/echo-llvm-XXXXXX")"
+fi
 cleanup() { rm -rf "$WORKDIR"; }
 trap cleanup EXIT
 
@@ -76,10 +106,12 @@ else
   exit 1
 fi
 
-# Absolute path for callers.
+# Absolute path for callers (Windows: keep Unix form for bash; cargo/llvm-sys accept it).
 if command -v realpath >/dev/null 2>&1; then
   realpath "$PREFIX_DIR"
+elif command -v cygpath >/dev/null 2>&1; then
+  # Mixed path is often better for MSVC/llvm-sys on Windows.
+  cygpath -am "$PREFIX_DIR"
 else
-  # macOS / minimal environments
   (cd "$PREFIX_DIR" && pwd -P)
 fi

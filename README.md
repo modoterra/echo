@@ -77,13 +77,20 @@ edit/test loop.
 
 ## Install (user toolchain)
 
-From a checkout, install a release `xo` + `std` under XDG and link
-`~/.local/bin/xo`:
+**Prebuilt** (latest GitHub release for your platform):
 
 ```bash
-./scripts/install.sh          # install
-./scripts/install.sh upgrade  # new version, keep previous
-./scripts/uninstall.sh        # remove toolchain ( --purge also clears $XO_HOME )
+curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
+  | bash -s -- from-release
+```
+
+From a checkout, build + install under XDG and link `~/.local/bin/xo`:
+
+```bash
+./scripts/install.sh              # build from this tree
+./scripts/install.sh from-release # or use a published release tarball
+./scripts/install.sh upgrade      # new version, keep previous
+./scripts/uninstall.sh            # remove toolchain ( --purge also clears $XO_HOME )
 ./scripts/install.sh doctor
 ```
 
@@ -104,7 +111,7 @@ just tools
 ### CI
 
 GitHub Actions (`.github/workflows/ci.yml`) release-builds `xo` **only when a
-GitHub Release is published** — not on push, PR, or bare tags.
+GitHub release is published** — not on push, PR, or bare tags.
 
 | Artifact | Runner |
 |----------|--------|

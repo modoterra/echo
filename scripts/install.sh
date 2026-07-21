@@ -2,12 +2,17 @@
 # Echo / xo user install (XDG layout, ADR 0014).
 #
 # Usage:
-#   ./scripts/install.sh              # install (default)
+#   ./scripts/install.sh              # build from checkout (default when in repo)
 #   ./scripts/install.sh install
-#   ./scripts/install.sh upgrade      # install new version, flip current
+#   ./scripts/install.sh from-release [tag]   # latest (or tag) GitHub release
+#   ./scripts/install.sh upgrade      # rebuild + flip current (checkout)
 #   ./scripts/install.sh uninstall [--purge]
 #   ./scripts/install.sh doctor
 #   ./scripts/install.sh paths
+#
+# One-liner (no checkout):
+#   curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
+#     | bash -s -- from-release
 #
 # Layout (defaults; override via env):
 #   Toolchain:  ${XDG_DATA_HOME:-~/.local/share}/xo/toolchains/<version>/{bin,std}
@@ -22,7 +27,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# When piped from curl, BASH_SOURCE may be stdin — do not require a checkout.
+if [[ -f "${SCRIPT_DIR}/../Cargo.toml" ]]; then
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+else
+  REPO_ROOT=""
+fi
+
+# GitHub repo for prebuilt installs (owner/name).
+ECHO_REPO="${ECHO_REPO:-modoterra/echo}"
 
 die() {
   echo "install.sh: $*" >&2
@@ -105,7 +118,7 @@ resolve_version() {
     printf '%s' "$XO_VERSION"
     return
   fi
-  if command -v git >/dev/null 2>&1 && [[ -d "${REPO_ROOT}/.git" ]]; then
+  if [[ -n "${REPO_ROOT}" ]] && command -v git >/dev/null 2>&1 && [[ -d "${REPO_ROOT}/.git" ]]; then
     local desc
     desc="$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null || true)"
     if [[ -n "$desc" ]]; then
@@ -115,7 +128,7 @@ resolve_version() {
     fi
   fi
   # Fallback: crates/xo/Cargo.toml version
-  if [[ -f "${REPO_ROOT}/crates/xo/Cargo.toml" ]]; then
+  if [[ -n "${REPO_ROOT}" && -f "${REPO_ROOT}/crates/xo/Cargo.toml" ]]; then
     local ver
     ver="$(sed -n 's/^version = "\([^"]*\)"/\1/p' "${REPO_ROOT}/crates/xo/Cargo.toml" | head -1)"
     if [[ -n "$ver" ]]; then
@@ -124,6 +137,121 @@ resolve_version() {
     fi
   fi
   printf '%s' "dev"
+}
+
+# Host triple used in CI release asset names: xo-<artifact>.tar.gz
+detect_release_artifact() {
+  local os arch
+  os="$(uname -s 2>/dev/null || echo unknown)"
+  arch="$(uname -m 2>/dev/null || echo unknown)"
+  case "${os}/${arch}" in
+  Linux/x86_64 | Linux/amd64) printf '%s' "linux-x86_64" ;;
+  Darwin/arm64 | Darwin/aarch64) printf '%s' "macos-arm64" ;;
+  Darwin/x86_64)
+    die "macOS Intel (x86_64) is not shipped yet; build from source or use macos-arm64"
+    ;;
+  Linux/aarch64 | Linux/arm64)
+    die "Linux aarch64 is not shipped yet; build from source (./scripts/install.sh install)"
+    ;;
+  *)
+    die "unsupported platform for prebuilt install: ${os}/${arch} (try building from source)"
+    ;;
+  esac
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+# JSON helpers without requiring jq (keep install self-contained).
+json_string_field() {
+  # json_string_field <field>  — reads JSON object on stdin, prints unescaped string or empty.
+  local field="$1"
+  # shellcheck disable=SC2016
+  python3 -c '
+import json, sys
+field = sys.argv[1]
+data = json.load(sys.stdin)
+val = data.get(field)
+if val is None:
+    sys.exit(0)
+if isinstance(val, str):
+    print(val)
+else:
+    print(val)
+' "$field" 2>/dev/null || true
+}
+
+github_api() {
+  local url="$1"
+  local args=(-fsSL -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+  if [[ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]]; then
+    args+=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN}}")
+  fi
+  curl "${args[@]}" "$url"
+}
+
+# Resolve release tag + browser download URL for xo-<artifact>.tar.gz
+# Prints:  TAG\tURL
+resolve_release_asset() {
+  local want_tag="${1:-}"
+  local artifact
+  artifact="$(detect_release_artifact)"
+  local asset_name="xo-${artifact}.tar.gz"
+  local api_base="https://api.github.com/repos/${ECHO_REPO}"
+  local json tag url
+
+  need_cmd curl
+  need_cmd python3
+  need_cmd tar
+
+  if [[ -z "$want_tag" || "$want_tag" == "latest" ]]; then
+    # Prefer /releases/latest (stable). If missing (404) or empty assets, use newest
+    # published release including prereleases (current alpha cadence).
+    if json="$(github_api "${api_base}/releases/latest" 2>/dev/null)" && [[ -n "$json" ]]; then
+      tag="$(printf '%s' "$json" | json_string_field tag_name)"
+    fi
+    if [[ -z "${tag:-}" ]]; then
+      json="$(github_api "${api_base}/releases?per_page=10")"
+      tag="$(
+        printf '%s' "$json" | python3 -c '
+import json, sys
+rels = json.load(sys.stdin)
+for r in rels:
+    if r.get("draft"):
+        continue
+    print(r["tag_name"])
+    break
+'
+      )"
+      json="$(github_api "${api_base}/releases/tags/${tag}")"
+    else
+      json="$(github_api "${api_base}/releases/tags/${tag}")"
+    fi
+  else
+    tag="$want_tag"
+    json="$(github_api "${api_base}/releases/tags/${tag}")"
+  fi
+
+  [[ -n "$tag" ]] || die "could not resolve a GitHub release for ${ECHO_REPO}"
+
+  url="$(
+    printf '%s' "$json" | python3 -c '
+import json, sys
+name = sys.argv[1]
+rel = json.load(sys.stdin)
+for a in rel.get("assets") or []:
+    if a.get("name") == name:
+        print(a.get("browser_download_url") or "")
+        break
+' "$asset_name"
+  )"
+
+  if [[ -z "$url" ]]; then
+    die "release ${tag} has no asset ${asset_name} (publish CI may still be running, or use a newer tag)"
+  fi
+
+  printf '%s\t%s\n' "$tag" "$url"
 }
 
 # --- layout -----------------------------------------------------------------
@@ -161,7 +289,8 @@ XDG_STATE_HOME/xo=$(xdg_state_home)/xo
 XDG_CONFIG_HOME/xo=$(xdg_config_home)/xo
 XO_INSTALL_ROOT (runtime)=$(if [[ -L "$(current_link)" || -d "$(current_link)" ]]; then readlink -f "$(current_link)" 2>/dev/null || printf '%s' "$(current_link)"; else echo "(not installed)"; fi)
 VERSION=$(resolve_version)
-REPO_ROOT=${REPO_ROOT}
+REPO_ROOT=${REPO_ROOT:-(none)}
+ECHO_REPO=${ECHO_REPO}
 EOF
 }
 
@@ -209,6 +338,7 @@ doctor() {
 
 build_xo() {
   local profile="${CARGO_PROFILE:-release}"
+  [[ -n "${REPO_ROOT}" ]] || die "not an Echo checkout; use: install.sh from-release"
   info "building xo (${profile}) in ${REPO_ROOT}"
   if [[ ! -f "${REPO_ROOT}/Cargo.toml" ]]; then
     die "not an Echo checkout (missing Cargo.toml at ${REPO_ROOT})"
@@ -231,6 +361,28 @@ build_xo() {
   fi
 }
 
+find_built_runtime_lib() {
+  local profile="${CARGO_PROFILE:-release}"
+  local root="${REPO_ROOT}/target/${profile}"
+  local cand
+  for cand in \
+    "${root}/libecho_runtime.a" \
+    "${root}/deps/libecho_runtime.a"; do
+    if [[ -f "$cand" ]]; then
+      printf '%s' "$cand"
+      return 0
+    fi
+  done
+  # Hashed cargo staticlib name under deps/.
+  local hit
+  hit="$(ls -1 "${root}/deps"/libecho_runtime-*.a 2>/dev/null | tail -1 || true)"
+  if [[ -n "$hit" && -f "$hit" ]]; then
+    printf '%s' "$hit"
+    return 0
+  fi
+  return 1
+}
+
 write_manifest() {
   local version="$1"
   local prefix="$2"
@@ -245,50 +397,31 @@ installed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 }
 
-install_version() {
-  local version
-  version="$(resolve_version)"
+# Finalize a staged toolchain directory (bin/xo, optional runtime .a, std/).
+activate_toolchain() {
+  local version="$1"
+  local staging="$2"
+  local source_label="$3"
   local tc_dir
   tc_dir="$(toolchains_dir)/${version}"
-  local staging
-  staging="$(toolchains_dir)/.${version}.staging.$$"
-  local built
-  built="$(build_xo)"
-  [[ -x "$built" ]] || die "built binary not executable: $built"
 
-  ensure_xdg_layout
-  rm -rf "$staging"
-  mkdir -p "${staging}/bin" "${staging}/std"
+  [[ -x "${staging}/bin/xo" ]] || die "staging missing bin/xo: ${staging}"
+  [[ -d "${staging}/std" ]] || die "staging missing std/: ${staging}"
 
-  info "installing toolchain ${version} → ${tc_dir}"
-  install -m 0755 "$built" "${staging}/bin/xo"
-  if [[ -d "${REPO_ROOT}/std" ]]; then
-    # Prefer rsync when available (preserves structure cleanly).
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --delete "${REPO_ROOT}/std/" "${staging}/std/"
-    else
-      rm -rf "${staging}/std"
-      cp -a "${REPO_ROOT}/std" "${staging}/std"
-    fi
-  else
-    die "missing std/ at ${REPO_ROOT}/std"
-  fi
   printf '%s\n' "$version" >"${staging}/version"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"${staging}/installed_at"
 
-  # Atomic replace of version dir.
   rm -rf "$tc_dir"
   mv "$staging" "$tc_dir"
 
-  # Flip current + PATH entry.
   ln -sfn "toolchains/${version}" "$(current_link)"
-  # Prefer relative link from bin dir when possible; absolute is fine and clearer.
   ln -sfn "$(readlink -f "$(current_link)")/bin/xo" "$(xo_bin_dir)/xo"
 
-  write_manifest "$version" "$tc_dir" "$REPO_ROOT"
+  write_manifest "$version" "$tc_dir" "$source_label"
   info "installed xo ${version}"
   info "  binary: $(xo_bin_dir)/xo"
   info "  root:   $tc_dir"
+  info "  source: $source_label"
   info "  XO_HOME packages: $(xo_home)/packages"
   case ":${PATH}:" in
   *":$(xo_bin_dir):"*) ;;
@@ -299,19 +432,113 @@ install_version() {
   esac
 }
 
-cmd_install() {
+install_version_from_checkout() {
+  local version
+  version="$(resolve_version)"
+  local staging
+  staging="$(toolchains_dir)/.${version}.staging.$$"
+  local built
+  built="$(build_xo)"
+  [[ -x "$built" ]] || die "built binary not executable: $built"
+
   ensure_xdg_layout
-  install_version
+  rm -rf "$staging"
+  mkdir -p "${staging}/bin" "${staging}/std"
+
+  info "installing toolchain ${version} → $(toolchains_dir)/${version}"
+  install -m 0755 "$built" "${staging}/bin/xo"
+  if runtime="$(find_built_runtime_lib 2>/dev/null)"; then
+    install -m 0644 "$runtime" "${staging}/bin/libecho_runtime.a"
+  else
+    info "warning: libecho_runtime.a not found next to build (AOT link may need ECHO_RUNTIME_LIB)"
+  fi
+  if [[ -d "${REPO_ROOT}/std" ]]; then
+    if command -v rsync >/dev/null 2>&1; then
+      rsync -a --delete "${REPO_ROOT}/std/" "${staging}/std/"
+    else
+      rm -rf "${staging}/std"
+      cp -a "${REPO_ROOT}/std" "${staging}/std"
+    fi
+  else
+    die "missing std/ at ${REPO_ROOT}/std"
+  fi
+
+  activate_toolchain "$version" "$staging" "${REPO_ROOT:-checkout}"
+}
+
+cmd_from_release() {
+  local want_tag="${1:-${ECHO_RELEASE:-latest}}"
+  ensure_xdg_layout
+
+  local resolved tag url artifact tmp archive staging version
+  artifact="$(detect_release_artifact)"
+  info "fetching prebuilt xo (${artifact}) from GitHub ${ECHO_REPO}"
+  resolved="$(resolve_release_asset "$want_tag")"
+  tag="${resolved%%$'\t'*}"
+  url="${resolved#*$'\t'}"
+  version="${ECHO_VERSION:-${XO_VERSION:-$tag}}"
+  # Sanitize version for directory names.
+  version="${version//\//-}"
+
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/xo-install.XXXXXX")"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" RETURN
+
+  archive="${tmp}/xo-${artifact}.tar.gz"
+  info "downloading ${tag} → ${archive}"
+  local curl_args=(-fL --retry 3 --retry-delay 1 -o "$archive")
+  if [[ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]]; then
+    curl_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN}}")
+  fi
+  curl "${curl_args[@]}" "$url" || die "download failed: $url"
+
+  staging="$(toolchains_dir)/.${version}.staging.$$"
+  rm -rf "$staging"
+  mkdir -p "$staging"
+  info "extracting archive"
+  tar -xzf "$archive" -C "$staging"
+
+  # Normalize layout: archive may be pkg root (bin/, std/) already.
+  if [[ ! -x "${staging}/bin/xo" ]]; then
+    if [[ -x "${staging}/xo" ]]; then
+      mkdir -p "${staging}/bin"
+      mv "${staging}/xo" "${staging}/bin/xo"
+    else
+      die "archive missing bin/xo (unexpected layout)"
+    fi
+  fi
+  chmod a+x "${staging}/bin/xo" 2>/dev/null || true
+  if [[ ! -d "${staging}/std" ]]; then
+    die "archive missing std/ (release package incomplete)"
+  fi
+
+  activate_toolchain "$version" "$staging" "github:${ECHO_REPO}@${tag}"
+  doctor
+}
+
+cmd_install() {
+  if [[ -z "${REPO_ROOT}" || ! -f "${REPO_ROOT}/Cargo.toml" ]]; then
+    info "no checkout detected — installing from GitHub release"
+    cmd_from_release "${1:-${ECHO_RELEASE:-latest}}"
+    return
+  fi
+  ensure_xdg_layout
+  install_version_from_checkout
   doctor
 }
 
 cmd_upgrade() {
+  if [[ -z "${REPO_ROOT}" || ! -f "${REPO_ROOT}/Cargo.toml" ]]; then
+    info "no checkout detected — upgrading from GitHub release"
+    cmd_from_release "${1:-${ECHO_RELEASE:-latest}}"
+    return
+  fi
   ensure_xdg_layout
   local prev=""
   if [[ -L "$(current_link)" || -d "$(current_link)" ]]; then
     prev="$(readlink -f "$(current_link)" 2>/dev/null || true)"
   fi
-  install_version
+  install_version_from_checkout
   if [[ -n "$prev" ]]; then
     info "previous toolchain kept at: $prev"
     info "remove old toolchains under $(toolchains_dir) when ready"
@@ -387,11 +614,19 @@ usage() {
 Echo / xo installer (XDG)
 
 Usage:
-  scripts/install.sh [install]          Build release xo + install (default)
-  scripts/install.sh upgrade            Install a new version and switch current
+  scripts/install.sh [install]              From checkout: build + install
+                                            Without checkout: same as from-release
+  scripts/install.sh from-release [tag]     Install prebuilt from GitHub release
+  scripts/install.sh upgrade                New version (build or from-release)
   scripts/install.sh uninstall [--purge]
-  scripts/install.sh doctor             Show paths and install status
-  scripts/install.sh paths              Print path assignments only
+  scripts/install.sh doctor                 Show paths and install status
+  scripts/install.sh paths                  Print path assignments only
+
+One-liner (no git clone):
+  curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
+    | bash -s -- from-release
+
+Prebuilt platforms (CI): linux-x86_64, macos-arm64, windows-x86_64 (tarball).
 
 Environment:
   XO_HOME           User .xo root (packages); default $XDG_CACHE_HOME/.xo
@@ -399,8 +634,11 @@ Environment:
   XDG_STATE_HOME    State (REPL history under …/xo)
   XDG_CONFIG_HOME   Config (…/xo)
   XO_BIN_DIR        Where to place the xo PATH link (default ~/.local/bin)
+  ECHO_REPO         GitHub owner/name (default modoterra/echo)
+  ECHO_RELEASE      Release tag or "latest" (default latest)
   ECHO_VERSION / XO_VERSION   Force toolchain version directory name
-  CARGO_PROFILE     release (default) or debug
+  CARGO_PROFILE     release (default) or debug — checkout builds only
+  GITHUB_TOKEN / GH_TOKEN     Optional; higher API rate limits
 
 Upgrade keeps prior toolchains under $XDG_DATA_HOME/xo/toolchains/.
 EOF
@@ -411,6 +649,7 @@ main() {
   shift || true
   case "$cmd" in
   install | i) cmd_install "$@" ;;
+  from-release | release | prebuilt) cmd_from_release "$@" ;;
   upgrade | u) cmd_upgrade "$@" ;;
   uninstall | remove | rm) cmd_uninstall "$@" ;;
   doctor | status) doctor "$@" ;;

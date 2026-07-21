@@ -130,10 +130,26 @@ function scrollElementIntoContainerView(
   }
 }
 
+function isDocsShellPath(pathname: string) {
+  return (
+    pathname === "/docs" ||
+    pathname.startsWith("/docs/") ||
+    pathname === "/book" ||
+    pathname.startsWith("/book/") ||
+    pathname === "/e26" ||
+    pathname.startsWith("/e26/")
+  );
+}
+
 function Topbar() {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const onDocsShell = isDocsShellPath(location.pathname);
+  const docsNavigation = useMemo(
+    () => (onDocsShell ? navigationForPath(location.pathname) : null),
+    [location.pathname, onDocsShell],
+  );
 
   useEffect(() => {
     setIsMenuOpen(false);
@@ -224,14 +240,22 @@ function Topbar() {
             <span className="hidden md:inline-flex xl:hidden">
               <DocsSearch iconOnly />
             </span>
+            {/* Mobile: search in the bar so the single menu is only for nav + docs TOC. */}
+            <span className="inline-flex md:hidden">
+              <DocsSearch iconOnly />
+            </span>
             <CtaLink compact to="/install">
               Install
             </CtaLink>
             <button
               aria-controls="primary-mobile-menu"
               aria-expanded={isMenuOpen}
-              aria-label={isMenuOpen ? "Close site menu" : "Open site menu"}
-              className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 md:hidden"
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+              className={
+                onDocsShell
+                  ? "inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 lg:hidden"
+                  : "inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 md:hidden"
+              }
               onClick={() => setIsMenuOpen((open) => !open)}
               type="button"
             >
@@ -247,7 +271,11 @@ function Topbar() {
             animate={{ opacity: 1, y: 0 }}
             aria-label="Site menu"
             aria-modal="true"
-            className="fixed inset-0 z-[60] overflow-y-auto bg-white md:hidden"
+            className={
+              onDocsShell
+                ? "fixed inset-0 z-[60] overflow-y-auto bg-white lg:hidden"
+                : "fixed inset-0 z-[60] overflow-y-auto bg-white md:hidden"
+            }
             exit={{ opacity: 0, y: -8 }}
             id="primary-mobile-menu"
             initial={{ opacity: 0, y: -8 }}
@@ -265,7 +293,7 @@ function Topbar() {
                 <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
               </Link>
               <button
-                aria-label="Close site menu"
+                aria-label="Close menu"
                 autoFocus
                 className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
                 onClick={() => setIsMenuOpen(false)}
@@ -274,7 +302,7 @@ function Topbar() {
                 <RiCloseLine size={20} />
               </button>
             </div>
-            <div className="mx-auto flex w-full max-w-lg flex-col px-5 pb-8 pt-6">
+            <div className="mx-auto flex w-full max-w-lg flex-col px-5 pb-10 pt-6">
               <DocsSearch fullWidth onNavigate={() => setIsMenuOpen(false)} />
               <nav
                 aria-label="Mobile primary navigation"
@@ -300,7 +328,24 @@ function Topbar() {
                   </Link>
                 ))}
               </nav>
-              <p className="mt-7 text-sm leading-6 text-slate-500">
+              {docsNavigation ? (
+                <nav
+                  aria-label="Documentation sections"
+                  className="mt-10 border-t border-slate-200 pt-8"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    On this section
+                  </p>
+                  <div className="mt-5">
+                    <DocsNavigationList
+                      navigation={docsNavigation}
+                      onNavigate={() => setIsMenuOpen(false)}
+                      pathname={location.pathname}
+                    />
+                  </div>
+                </nav>
+              ) : null}
+              <p className="mt-8 text-sm leading-6 text-slate-500">
                 Echo is early, open source, and actively implemented in Rust and LLVM.
               </p>
             </div>
@@ -645,28 +690,10 @@ function DocsLayout() {
   const docsLayoutContext = useMemo(() => ({ setMeta }), []);
   const { category, headings, title } = meta;
   const [activeHeading, setActiveHeading] = useState(headings[0] ?? "");
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const onThisPageViewportRef = useRef<HTMLDivElement | null>(null);
   const onThisPageRailRef = useRef<HTMLDivElement | null>(null);
   const onThisPageItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const [onThisPageTrainY, setOnThisPageTrainY] = useState(0);
-
-  useEffect(() => {
-    setIsMobileNavOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (!isMobileNavOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isMobileNavOpen]);
 
   useEffect(() => {
     let animationFrame = 0;
@@ -759,72 +786,8 @@ function DocsLayout() {
   }
 
   return (
-    <main className="min-h-screen bg-white px-6 pb-24 pt-36 text-slate-950 lg:pt-32">
-      <div className="fixed inset-x-0 top-20 z-20 border-b border-slate-200/70 bg-white/95 px-6 backdrop-blur lg:hidden">
-        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between">
-          <button
-            aria-controls="mobile-docs-menu"
-            aria-expanded={isMobileNavOpen}
-            aria-label="Open documentation menu"
-            className="inline-flex size-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
-            onClick={() => setIsMobileNavOpen(true)}
-            type="button"
-          >
-            <RiMenuLine size={18} />
-          </button>
-          <DocsSearch iconOnly onNavigate={() => setIsMobileNavOpen(false)} />
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {isMobileNavOpen ? (
-          <motion.div
-            animate={{ opacity: 1 }}
-            aria-label="Documentation menu"
-            aria-modal="true"
-            className="fixed inset-0 z-40 bg-white lg:hidden"
-            exit={{ opacity: 0 }}
-            id="mobile-docs-menu"
-            initial={{ opacity: 0 }}
-            role="dialog"
-            transition={{ duration: 0.16, ease: "easeOut" }}
-          >
-            <div className="flex h-full flex-col">
-              <div className="flex h-20 items-center justify-between border-b border-slate-200 px-6">
-                <Link
-                  aria-label="Echo home"
-                  className="block w-16 opacity-90 transition hover:opacity-100"
-                  to="/"
-                >
-                  <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
-                </Link>
-                <button
-                  aria-label="Close documentation menu"
-                  className="inline-flex size-10 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-950"
-                  onClick={() => setIsMobileNavOpen(false)}
-                  type="button"
-                >
-                  <RiCloseLine size={20} />
-                </button>
-              </div>
-              <div className="border-b border-slate-100 px-6 py-5">
-                <DocsSearch fullWidth onNavigate={() => setIsMobileNavOpen(false)} />
-              </div>
-              <nav
-                aria-label="Documentation sections"
-                className="scrollbar-nice flex-1 overflow-y-auto px-6 py-7"
-              >
-                <DocsNavigationList
-                  navigation={navigation}
-                  onNavigate={() => setIsMobileNavOpen(false)}
-                  pathname={location.pathname}
-                />
-              </nav>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
+    <main className="min-h-screen bg-white px-6 pb-24 pt-28 text-slate-950 lg:pt-32">
+      {/* Mobile: site hamburger (topbar) includes this TOC. Desktop: left rail. */}
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 lg:grid-cols-[220px_minmax(0,720px)] xl:grid-cols-[220px_minmax(0,720px)_220px]">
         <aside className="hidden lg:block">
           <nav

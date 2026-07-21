@@ -4457,24 +4457,33 @@ pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
     }
 
     let mut candidates = Vec::new();
+    let mut push_profile_dir = |dir: PathBuf| {
+        // Unhashed names next to profile output (CI stages these).
+        candidates.push(dir.join("libecho_runtime.a"));
+        candidates.push(dir.join("echo_runtime.lib"));
+        candidates.push(dir.join("deps").join("libecho_runtime.a"));
+        candidates.push(dir.join("deps").join("echo_runtime.lib"));
+        // Cargo hashed staticlibs live under deps/.
+        candidates.push(dir.join("deps"));
+    };
+
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            // `target/debug/xo` → look in that profile dir and deps/.
+            push_profile_dir(dir.to_path_buf());
+            // Installed layout: `<prefix>/bin/xo` + `<prefix>/bin/libecho_runtime.a`.
             candidates.push(dir.join("libecho_runtime.a"));
-            candidates.push(dir.join("deps").join("libecho_runtime.a"));
+            candidates.push(dir.join("echo_runtime.lib"));
         }
     }
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let root = PathBuf::from(manifest_dir);
-        candidates.push(root.join("../../target/debug/libecho_runtime.a"));
-        candidates.push(root.join("../../target/release/libecho_runtime.a"));
-        candidates.push(root.join("../../target/debug/deps"));
-        candidates.push(root.join("../../target/release/deps"));
+        push_profile_dir(root.join("../../target/debug"));
+        push_profile_dir(root.join("../../target/release"));
     }
     if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("target/debug/libecho_runtime.a"));
-        candidates.push(cwd.join("target/release/libecho_runtime.a"));
-        candidates.push(cwd.join("target/debug/deps"));
-        candidates.push(cwd.join("target/release/deps"));
+        push_profile_dir(cwd.join("target/debug"));
+        push_profile_dir(cwd.join("target/release"));
     }
 
     for c in &candidates {
@@ -4491,7 +4500,8 @@ pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
                         p.file_name()
                             .and_then(|n| n.to_str())
                             .is_some_and(|n| {
-                                n.starts_with("libecho_runtime-") && n.ends_with(".a")
+                                (n.starts_with("libecho_runtime") && n.ends_with(".a"))
+                                    || (n.starts_with("echo_runtime") && n.ends_with(".lib"))
                             })
                     })
                     .collect();

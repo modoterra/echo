@@ -67,4 +67,4 @@ Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
 
 ## Out of scope (later)
 
-Playground, prebuilt download tabs, `/e26` URL rename to `/echo-2026`.
+Playground, richer download tabs, `/e26` URL rename to `/echo-2026`.

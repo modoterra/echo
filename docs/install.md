@@ -9,10 +9,46 @@ User-facing install layout for the **xo** toolchain. Aligns with
 | [`scripts/install.sh`](../scripts/install.sh) | install / upgrade / uninstall / doctor |
 | [`scripts/uninstall.sh`](../scripts/uninstall.sh) | thin wrapper → `install.sh uninstall` |
 
+## Quick start (prebuilt — recommended)
+
+Install the **latest GitHub release** for your platform (no Rust toolchain required
+for the install itself; `clang` is still needed to **run/build** Echo programs):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
+  | bash -s -- from-release
+
+# Pin a tag
+curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
+  | bash -s -- from-release v0.0.1-alpha.1
+
+# From a checkout
+./scripts/install.sh from-release
+./scripts/install.sh doctor
+```
+
+Prebuilt platforms (CI release assets `xo-<artifact>.tar.gz`):
+
+| Artifact | Host |
+|----------|------|
+| `linux-x86_64` | Linux x86_64 |
+| `macos-arm64` | Apple Silicon |
+| `windows-x86_64` | Windows x86_64 (tarball; use WSL or unpack manually if preferred) |
+
+Each archive contains `bin/xo`, `bin/libecho_runtime.a` (when produced), and
+`std/`. Assets are attached when a GitHub release is published (see `docs/ci.md`).
+
+Ensure `~/.local/bin` (or `$XO_BIN_DIR`) is on your `PATH`.
+
+```bash
+xo --help
+xo home          # package cache root ($XO_HOME)
+```
+
 ## Quick start (from a checkout)
 
 ```bash
-# Release build + install under XDG (default)
+# Release build + install under XDG (default when Cargo.toml is present)
 ./scripts/install.sh
 
 # Or explicitly
@@ -20,13 +56,6 @@ User-facing install layout for the **xo** toolchain. Aligns with
 
 # Show where things went
 ./scripts/install.sh doctor
-```
-
-Ensure `~/.local/bin` (or `$XO_BIN_DIR`) is on your `PATH`.
-
-```bash
-xo --help
-xo home          # package cache root ($XO_HOME)
 ```
 
 Debug build (faster, for toolchain hacking):
@@ -88,12 +117,17 @@ Defaults: `~/.local/state/xo`, `~/.config/xo`.
 ## Upgrade
 
 ```bash
+# From checkout: rebuild + install new version dir
 ./scripts/install.sh upgrade
+
+# Prebuilt: re-fetch latest (or tag) release
+./scripts/install.sh from-release
+# ECHO_RELEASE=v0.0.2 ./scripts/install.sh from-release
 ```
 
 Upgrade path:
 
-1. Build a new release of `xo` from the checkout.
+1. Obtain a new `xo` (build from the checkout **or** download a release tarball).
 2. Install into a **new** version directory under `toolchains/<version>/`
    (staging dir, then rename).
 3. Atomically repoint `current` → the new version.
@@ -132,8 +166,11 @@ Uninstall removes:
 | `XO_HOME` | User package/cache `.xo` root |
 | `XO_BIN_DIR` | Directory for the `xo` PATH link |
 | `XO_INSTALL_ROOT` | Extra std package root (optional) |
+| `ECHO_REPO` | GitHub `owner/name` for prebuilts (default `modoterra/echo`) |
+| `ECHO_RELEASE` | Release tag or `latest` for `from-release` |
 | `ECHO_VERSION` / `XO_VERSION` | Toolchain version directory name |
-| `CARGO_PROFILE` | `release` (default) or `debug` |
+| `GITHUB_TOKEN` / `GH_TOKEN` | Optional auth for GitHub API / downloads |
+| `CARGO_PROFILE` | `release` (default) or `debug` (checkout builds) |
 | `XDG_DATA_HOME` / `XDG_CACHE_HOME` / `XDG_STATE_HOME` / `XDG_CONFIG_HOME` | Standard XDG bases |
 
 ## Doctor
