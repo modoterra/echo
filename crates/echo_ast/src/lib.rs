@@ -1188,6 +1188,8 @@ pub fn parse_int_literal(text: &str) -> Result<i64, String> {
     if t.is_empty() {
         return Err(format!("invalid int literal `{text}`"));
     }
+    // Hex/bin: prefer signed fit; otherwise accept full 64-bit pattern (for `ui64`
+    // and two's-complement bit constants above `i64::MAX`).
     if let Some(rest) = t
         .strip_prefix("0x")
         .or_else(|| t.strip_prefix("0X"))
@@ -1195,7 +1197,11 @@ pub fn parse_int_literal(text: &str) -> Result<i64, String> {
         if rest.is_empty() {
             return Err(format!("invalid hex literal `{text}`"));
         }
-        return i64::from_str_radix(rest, 16)
+        if let Ok(v) = i64::from_str_radix(rest, 16) {
+            return Ok(v);
+        }
+        return u64::from_str_radix(rest, 16)
+            .map(|v| v as i64)
             .map_err(|_| format!("invalid hex literal `{text}`"));
     }
     if let Some(rest) = t
@@ -1205,7 +1211,11 @@ pub fn parse_int_literal(text: &str) -> Result<i64, String> {
         if rest.is_empty() {
             return Err(format!("invalid binary literal `{text}`"));
         }
-        return i64::from_str_radix(rest, 2)
+        if let Ok(v) = i64::from_str_radix(rest, 2) {
+            return Ok(v);
+        }
+        return u64::from_str_radix(rest, 2)
+            .map(|v| v as i64)
             .map_err(|_| format!("invalid binary literal `{text}`"));
     }
     t.parse::<i64>()

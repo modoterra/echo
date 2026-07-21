@@ -401,7 +401,8 @@ leader (position decides).
 | Kind | Form |
 |------|------|
 | String pure | `'...'` — no escapes, no interp, no interior `'` |
-| String rich | `"..."` — escapes + `{name}` interp (no `+` concat) |
+| String rich | `"..."` — escapes (`\n` `\t` `\r` `\\` `\"` `\xHH`) + `{name}` interp (no `+` concat) |
+| Bytes rich | `b"..."` — same escapes as rich string (incl. `\xHH` for binary payloads) |
 | Bytes pure | `b'...'` — like pure string, byte payload |
 | Bytes rich | `b"..."` — like rich string, byte payload |
 | Locator (`p`) | `p'...'` / `p"..."` — absolute path, relative path, or full URI/URL (see semantics) |

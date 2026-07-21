@@ -2364,17 +2364,7 @@ fn lower_int_const(
             })
         }
         Width::Ui64 => {
-            // Parsed as i64; negative not allowed for unsigned.
-            if value < 0 {
-                diags.push(
-                    Diagnostic::error(format!(
-                        "`<ui64>` literal `{value}` must be non-negative"
-                    ))
-                    .with_code("cg-width")
-                    .with_span(span),
-                );
-                return None;
-            }
+            // Full 64-bit pattern allowed (hex/bin may set the high bit via u64 parse).
             Some(MirExpr::ConstInt {
                 value,
                 width: Width::Ui64,
@@ -3179,6 +3169,19 @@ pub fn decode_rich_parts(raw: &str) -> Result<Vec<StrPart>, String> {
                 b'"' => lit.push(b'"'),
                 b'{' => lit.push(b'{'),
                 b'}' => lit.push(b'}'),
+                // Hex byte: `\xHH` (rich strings / bytes).
+                b'x' | b'X' => {
+                    if i + 2 >= inner.len() {
+                        return Err("rich string `\\x` needs two hex digits".into());
+                    }
+                    let h = &inner[i + 1..i + 3];
+                    let s = std::str::from_utf8(h).map_err(|_| "invalid UTF-8 in \\x escape")?;
+                    let byte = u8::from_str_radix(s, 16)
+                        .map_err(|_| format!("invalid hex escape \\x{s}"))?;
+                    lit.push(byte);
+                    i += 3;
+                    continue;
+                }
                 other => lit.push(other),
             }
             i += 1;

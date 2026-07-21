@@ -480,6 +480,7 @@ current; fill Impl as work lands.
 | 2026-07-20 | `xo test` Model A: `std/test` + runtime registry + path/glob discovery |
 | 2026-07-20 | Bitwise ops: `& \| ^ << >> ~` through run; dual-use `~`/`^`; e26 `run/bitwise` |
 | 2026-07-20 | Integer widths locked: `i8`…`i64` + `ui8`…`ui64`, `byte`≡`ui8`; untagged int=`i64`; no `u8` spelling |
+| 2026-07-20 | `std/bytes` + `std/crypto/hash` SipHash-2-4 (`hash.sip`); rich `\xHH`; paper vectors |
 
 ---
 
