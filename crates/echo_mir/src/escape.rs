@@ -289,7 +289,6 @@ fn classify_expr_uses(
         MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
         | MirExpr::ConstInt { .. }
-        | MirExpr::Cast { .. }
         | MirExpr::ConstBool(_)
         | MirExpr::ConstF64(_)
         | MirExpr::ConstF32(_)
