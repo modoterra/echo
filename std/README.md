@@ -39,7 +39,8 @@ $ eprint = (value) {
 |------|------|
 | `io.echo` / `time.echo` / `test.echo` / `bytes.echo` | free function values (`test` for `xo test`; `bytes` for `b'…'` len/get) |
 | `crypto/hash/` | folder module: `sip` (SipHash-2-4) → `/ std/crypto/hash` as `hash.sip` |
-| `collections/map/` | folder module: `% map`, `from_indexed`, … |
+| `collections/map.echo` | file module: `% map`, `from_indexed`, … (`/ std/collections/map`) |
+| `collections/set.echo` | file module stub (`/ std/collections/set`) |
 | `net/tcp/` | folder module: `conn`, `listener`, free `socket` |
 | `net/udp/` | folder module: `% socket` + free reify `socket` |
 | `net/request.echo` | `% request` |

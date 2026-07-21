@@ -1,4 +1,4 @@
-; The Echo map collection
+; The Echo map collection (`/ std/collections/map` → file module `map`).
 ; Suite cases co-located: register under `xo test` only (XO_TEST).
 
 / std/test
@@ -26,7 +26,7 @@ $ from_indexed = (ls) {
     ^ m
 }
 
-; --- suite (xo test std/collections/map/map.echo) ---
+; --- suite (xo test std/collections/map.echo) ---
 
 test.it("from_indexed", () {
     $ m = from_indexed([10, 20, 30])
