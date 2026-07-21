@@ -49,9 +49,12 @@ wrapper so runners without sccache still compile.
 
 | OS | What CI sets | What CI does **not** set |
 |----|----------------|---------------------------|
-| Linux | `LIBRARY_PATH`, `LD_LIBRARY_PATH` → LLVM `lib/` | — |
-| macOS | `LIBRARY_PATH` → LLVM `lib/` (link-time only) | **`DYLD_LIBRARY_PATH`** — LLVM’s `libc++` must not shadow the system one or `rustc` aborts |
-| Windows | prefix path via `cygpath` for Git Bash `tar` | raw `D:\…` extract dirs (break `tar`) |
+| Linux | LLVM `bin` on `PATH`; `LIBRARY_PATH` + `LD_LIBRARY_PATH` → LLVM `lib/` | — |
+| macOS | `LLVM_SYS_221_PREFIX` + absolute `LLVM_CONFIG_PATH` only | **`DYLD_LIBRARY_PATH`**, **`LIBRARY_PATH`**, and LLVM `bin` on `PATH` — any of these can make build-scripts load LLVM’s `libunwind`/`libc++` and abort |
+| Windows | prefix path via `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH` | raw `D:\…` extract dirs (break `tar`) |
+
+**Windows matrix job** is `continue-on-error` until `echo_runtime` net/sched stop using
+`std::os::fd` / `mio::unix` (Unix-only). Linux and macOS release assets are required.
 
 After `cargo build`, [`scripts/ci/stage-runtime-lib.sh`](../scripts/ci/stage-runtime-lib.sh)
 copies the newest `libecho_runtime*.a` into `target/<profile>/libecho_runtime.a`

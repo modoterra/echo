@@ -4456,21 +4456,23 @@ pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
         return Err(format!("ECHO_RUNTIME_LIB not a file: {}", path.display()));
     }
 
-    let mut candidates = Vec::new();
-    let mut push_profile_dir = |dir: PathBuf| {
-        // Unhashed names next to profile output (CI stages these).
-        candidates.push(dir.join("libecho_runtime.a"));
-        candidates.push(dir.join("echo_runtime.lib"));
-        candidates.push(dir.join("deps").join("libecho_runtime.a"));
-        candidates.push(dir.join("deps").join("echo_runtime.lib"));
-        // Cargo hashed staticlibs live under deps/.
-        candidates.push(dir.join("deps"));
-    };
+    fn profile_candidates(dir: PathBuf) -> Vec<PathBuf> {
+        vec![
+            // Unhashed names next to profile output (CI stages these).
+            dir.join("libecho_runtime.a"),
+            dir.join("echo_runtime.lib"),
+            dir.join("deps").join("libecho_runtime.a"),
+            dir.join("deps").join("echo_runtime.lib"),
+            // Cargo hashed staticlibs live under deps/.
+            dir.join("deps"),
+        ]
+    }
 
+    let mut candidates = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             // `target/debug/xo` → look in that profile dir and deps/.
-            push_profile_dir(dir.to_path_buf());
+            candidates.extend(profile_candidates(dir.to_path_buf()));
             // Installed layout: `<prefix>/bin/xo` + `<prefix>/bin/libecho_runtime.a`.
             candidates.push(dir.join("libecho_runtime.a"));
             candidates.push(dir.join("echo_runtime.lib"));
@@ -4478,12 +4480,12 @@ pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
     }
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let root = PathBuf::from(manifest_dir);
-        push_profile_dir(root.join("../../target/debug"));
-        push_profile_dir(root.join("../../target/release"));
+        candidates.extend(profile_candidates(root.join("../../target/debug")));
+        candidates.extend(profile_candidates(root.join("../../target/release")));
     }
     if let Ok(cwd) = std::env::current_dir() {
-        push_profile_dir(cwd.join("target/debug"));
-        push_profile_dir(cwd.join("target/release"));
+        candidates.extend(profile_candidates(cwd.join("target/debug")));
+        candidates.extend(profile_candidates(cwd.join("target/release")));
     }
 
     for c in &candidates {
