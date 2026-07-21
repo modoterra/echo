@@ -1,10 +1,24 @@
 ; The Echo map collection (`/ std/collections/map` → file module `map`).
+; Buckets keys with SipHash-2-4 (`hash.sip`) over little-endian key bytes.
 ; Suite cases co-located: register under `xo test` only (XO_TEST).
 
 / std/test
+/ std/crypto/hash
+/ std/bytes
+
+; Fixed table size (power of two). Bucket index = hash & (N - 1).
+# N_BUCKETS = 16
+# BUCKET_MASK = 15
+
+; Deterministic default SipHash key (not secret; tests stay stable).
+# DEFAULT_K0 = 0x0706050403020100
+# DEFAULT_K1 = 0x0f0e0d0c0b0a0908
 
 % map {
-    ~ entries = []
+    ; buckets: list of chains; each chain is a list of `item`
+    ~ buckets = []
+    ~ k0 = <ui64> 0
+    ~ k1 = <ui64> 0
 }
 
 % item {
@@ -12,15 +26,74 @@
     ~ value
 }
 
+$ empty_buckets = () {
+    ~ bs = []
+    ~ i = 0
+    * i < N_BUCKETS {
+        ~ bs[] = []
+        ~ i = i + 1
+    }
+    ^ bs
+}
+
 $ make = () {
-    ^ map {}
+    ^ map {
+        buckets: empty_buckets(),
+        k0: <ui64> DEFAULT_K0,
+        k1: <ui64> DEFAULT_K1
+    }
+}
+
+$ make_seeded = (k0, k1) {
+    ^ map {
+        buckets: empty_buckets(),
+        k0: k0,
+        k1: k1
+    }
+}
+
+; SipHash digest of an integer key (8 LE bytes).
+$ hash_key = (m, key) {
+    $ raw = bytes.from_int(key)
+    ^ hash.sip(m.k0, m.k1, raw)
+}
+
+$ bucket_index = (m, key) {
+    $ h = hash_key(m, key)
+    ^ <i64> (h & <ui64> BUCKET_MASK)
+}
+
+; Insert or overwrite. Returns the map (same ref).
+$ put = (m, key, value) {
+    $ i = bucket_index(m, key)
+    $ chain = m.buckets[i]
+    * e : chain {
+        ? e.key == key {
+            ~ e.value = value
+            ^ m
+        }
+    }
+    ~ chain[] = item { key: key, value: value }
+    ^ m
+}
+
+; Option-shaped: ^ value if present, bare ^ if missing.
+$ get = (m, key) {
+    $ i = bucket_index(m, key)
+    $ chain = m.buckets[i]
+    * e : chain {
+        ? e.key == key {
+            ^ e.value
+        }
+    }
+    ^
 }
 
 $ from_indexed = (ls) {
     ~ m = make()
     ~ i = 0
     * v : ls {
-        ~ m.entries[] = item { key: i, value: v }
+        put(m, i, v)
         ~ i = i + 1
     }
     ^ m
@@ -30,16 +103,76 @@ $ from_indexed = (ls) {
 
 test.it("from_indexed", () {
     $ m = from_indexed([10, 20, 30])
-    test.eq(m.entries[0].key, 0)
-    test.eq(m.entries[0].value, 10)
-    test.eq(m.entries[2].value, 30)
+    | get(m, 0) {
+        $ v {
+            test.eq(v, 10)
+        }
+        : {
+            test.fail("missing 0")
+        }
+    }
+    | get(m, 2) {
+        $ v {
+            test.eq(v, 30)
+        }
+        : {
+            test.fail("missing 2")
+        }
+    }
 })
 
-test.it("make", () {
+test.it("make_put_get", () {
     $ m = make()
-    ~ m.entries[] = item { key: 0, value: 1 }
-    test.eq(m.entries[0].key, 0)
-    test.eq(m.entries[0].value, 1)
+    put(m, 7, 42)
+    put(m, 8, 99)
+    | get(m, 7) {
+        $ v {
+            test.eq(v, 42)
+        }
+        : {
+            test.fail("missing 7")
+        }
+    }
+    | get(m, 8) {
+        $ v {
+            test.eq(v, 99)
+        }
+        : {
+            test.fail("missing 8")
+        }
+    }
+    | get(m, 0) {
+        $ v {
+            test.fail("expected miss")
+        }
+        : {
+            test.eq(1, 1)
+        }
+    }
 })
 
-\ map, item, make, from_indexed
+test.it("put_overwrite", () {
+    $ m = make()
+    put(m, 1, 10)
+    put(m, 1, 20)
+    | get(m, 1) {
+        $ v {
+            test.eq(v, 20)
+        }
+        : {
+            test.fail("missing")
+        }
+    }
+})
+
+test.it("bucket_index_stable", () {
+    $ m = make()
+    $ a = bucket_index(m, 123)
+    $ b = bucket_index(m, 123)
+    test.eq(a, b)
+    ? a < 0 || a >= N_BUCKETS {
+        test.fail("bucket out of range")
+    }
+})
+
+\ map, item, make, make_seeded, put, get, from_indexed, hash_key, bucket_index

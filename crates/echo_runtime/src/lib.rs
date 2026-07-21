@@ -528,6 +528,12 @@ pub extern "C" fn echo_runtime_bytes_len(handle: i64) -> i64 {
     bytes_data(handle).map(|b| b.len() as i64).unwrap_or(0)
 }
 
+/// Pack a signed `i64` as **8 little-endian bytes** (bit pattern of the integer).
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_from_i64(n: i64) -> i64 {
+    bytes_to_handle(n.to_le_bytes().to_vec())
+}
+
 /// Byte at `index` (0-based) as `i64` in `0..255`.
 ///
 /// Returns `-1` if the handle is not bytes or `index` is out of range.

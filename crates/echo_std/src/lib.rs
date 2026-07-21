@@ -8,7 +8,8 @@
 use std::path::{Path, PathBuf};
 
 use echo_codegen_abi::{
-    RT_BYTES_GET, RT_BYTES_LEN, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_HTTP_HEADERS_COMPLETE,
+    RT_BYTES_FROM_I64, RT_BYTES_GET, RT_BYTES_LEN, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64,
+    RT_HTTP_HEADERS_COMPLETE,
     RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_PRINT_I64, RT_STR_CAT, RT_STR_FROM_BYTES,
     RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR,
     RT_STR_LEN, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ,
@@ -73,6 +74,10 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "bytes_get",
         native: RT_BYTES_GET,
+    },
+    RuntimeExport {
+        name: "bytes_from_i64",
+        native: RT_BYTES_FROM_I64,
     },
     RuntimeExport {
         name: "str_cat",

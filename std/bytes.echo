@@ -19,6 +19,11 @@ $ get = (b, i) {
     ^ <ui8> runtime.bytes_get(b, i)
 }
 
+; Pack an integer as 8 little-endian bytes (for hashing / framing).
+$ from_int = (n) {
+    ^ runtime.bytes_from_i64(n)
+}
+
 ; --- suite (xo test std/bytes.echo) ---
 
 test.it("len", () {
@@ -47,4 +52,25 @@ test.it("get_oob", () {
     }
 })
 
-\ len, get
+test.it("from_int_le", () {
+    $ b = from_int(0x0102030405060708)
+    test.eq(len(b), 8)
+    | get(b, 0) {
+        $ x {
+            test.eq(x, <ui8> 0x08)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | get(b, 7) {
+        $ x {
+            test.eq(x, <ui8> 0x01)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ len, get, from_int

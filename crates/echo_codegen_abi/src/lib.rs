@@ -60,6 +60,9 @@ pub const RT_BYTES_LEN: &str = "echo_runtime_bytes_len";
 /// `echo_runtime_bytes_get(bytes, index) -> i64` — byte 0..255, or -1 if OOB/invalid.
 pub const RT_BYTES_GET: &str = "echo_runtime_bytes_get";
 
+/// `echo_runtime_bytes_from_i64(n) -> bytes` — 8 little-endian bytes of `n`.
+pub const RT_BYTES_FROM_I64: &str = "echo_runtime_bytes_from_i64";
+
 /// `echo_runtime_str_cat(a, b) -> string handle` — concatenate two strings (or string+bytes).
 pub const RT_STR_CAT: &str = "echo_runtime_str_cat";
 

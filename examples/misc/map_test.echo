@@ -4,7 +4,33 @@
 
 test.it("from_indexed", () {
     $ m = map.from_indexed([10, 20, 30])
-    test.eq(m.entries[0].key, 0)
-    test.eq(m.entries[0].value, 10)
-    test.eq(m.entries[2].value, 30)
+    | map.get(m, 0) {
+        $ v {
+            test.eq(v, 10)
+        }
+        : {
+            test.fail("missing 0")
+        }
+    }
+    | map.get(m, 2) {
+        $ v {
+            test.eq(v, 30)
+        }
+        : {
+            test.fail("missing 2")
+        }
+    }
+})
+
+test.it("put_get", () {
+    $ m = map.make()
+    map.put(m, 5, 50)
+    | map.get(m, 5) {
+        $ v {
+            test.eq(v, 50)
+        }
+        : {
+            test.fail("missing")
+        }
+    }
 })

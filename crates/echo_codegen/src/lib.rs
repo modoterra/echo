@@ -25,8 +25,8 @@ use echo_codegen_abi::{
     RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
     RT_STR_BUILDER_PUSH_VALUE, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
     RT_STR_FROM_FLOAT,
-    RT_BYTES_GET, RT_BYTES_LEN, RT_STR_CAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_LEN,
-    RT_STRING_FROM_UTF8,
+    RT_BYTES_FROM_I64, RT_BYTES_GET, RT_BYTES_LEN, RT_STR_CAT, RT_STR_FROM_INT,
+    RT_STR_FROM_LOCATOR, RT_STR_LEN, RT_STRING_FROM_UTF8,
     RT_STRUCT_GET, RT_STRUCT_NEW, RT_STRUCT_NEW_NAMED, RT_STRUCT_TYPE_IS,
     RT_STRUCT_SET, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED, RT_TASK_JOIN,
     RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY, RT_TCP_ACCEPT,
@@ -110,6 +110,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_STR_FROM_DEBUG, str_from_int_ty, None);
     module.add_function(RT_STR_LEN, str_from_int_ty, None);
     module.add_function(RT_BYTES_LEN, str_from_int_ty, None);
+    module.add_function(RT_BYTES_FROM_I64, str_from_int_ty, None);
     let bytes_get_ty = i64t.fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_BYTES_GET, bytes_get_ty, None);
     let str_cat_ty = i64t.fn_type(&[i64t.into(), i64t.into()], false);
@@ -501,6 +502,12 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_BYTES_FROM_I64,
+        echo_runtime_bytes_from_i64 as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_BYTES_GET,
         echo_runtime_bytes_get as extern "C" fn(i64, i64) -> i64 as usize,
     )?;
@@ -874,8 +881,8 @@ fn map_runtime_symbol<'ctx>(
 
 // Re-export runtime symbols for mapping (must match `echo_codegen_abi` names).
 use echo_runtime::{
-    echo_runtime_abort, echo_runtime_bytes_from_ptr, echo_runtime_bytes_get,
-    echo_runtime_bytes_len, echo_runtime_eq, echo_runtime_eq_id,
+    echo_runtime_abort, echo_runtime_bytes_from_i64, echo_runtime_bytes_from_ptr,
+    echo_runtime_bytes_get, echo_runtime_bytes_len, echo_runtime_eq, echo_runtime_eq_id,
     echo_runtime_float_from_f64, echo_runtime_float_to_f64, echo_runtime_fn_code,
     echo_runtime_fn_new, echo_runtime_fn_shape, echo_runtime_http_headers_complete,
     echo_runtime_http_parse_request, echo_runtime_http_request_complete,
@@ -2564,6 +2571,7 @@ fn emit_call<'ctx>(
                 || native == RT_STR_FROM_DEBUG
                 || native == RT_STR_LEN
                 || native == RT_BYTES_LEN
+                || native == RT_BYTES_FROM_I64
                 || native == RT_HTTP_PARSE_REQUEST
                 || native == RT_HTTP_HEADERS_COMPLETE
                 || native == RT_HTTP_REQUEST_COMPLETE
