@@ -37,7 +37,7 @@ $ eprint = (value) {
 
 | Path | Role |
 |------|------|
-| `io.echo` / `time.echo` / `test.echo` | free function values (`test` for `xo test`) |
+| `io.echo` / `time.echo` / `test.echo` / `bytes.echo` | free function values (`test` for `xo test`; `bytes` for `b'…'` len/get) |
 | `collections/map/` | folder module: `% map`, `from_indexed`, … |
 | `net/tcp/` | folder module: `conn`, `listener`, free `socket` |
 | `net/udp/` | folder module: `% socket` + free reify `socket` |

@@ -35,6 +35,7 @@ cargo build -p xo
 | [`width_i32.echo`](width_i32.echo) | `<i32>` / `<i64>` width tags | `30` / `8` / `103` |
 | [`width_f32.echo`](width_f32.echo) | `<f32>` / `<f64>` width tags | `3.75` / `1` / `20` |
 | [`bytes.echo`](bytes.echo) | `b'…'` / `b"…"` + `str.from_bytes` | `raw` / `esc\t!` / `1` |
+| [`bytes_get.echo`](bytes_get.echo) | `std/bytes` `len` / `get` | `3` / `65` / `66` / `out of bounds` |
 | [`core_surface.echo`](core_surface.echo) | integrated core smoke | `3` / `9` / `ok=core` / … / `raw` |
 | [`duration.echo`](duration.echo) | `5s` / `10ms` + add + `str.from_duration` | `5s` / `10ms` / `5010ms` / `eq` |
 | [`hex_bin.echo`](hex_bin.echo) | `0x` / `0b` integer lits | `255` / `10` / `18` |

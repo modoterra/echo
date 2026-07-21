@@ -522,6 +522,31 @@ pub extern "C" fn echo_runtime_str_len(handle: i64) -> i64 {
     0
 }
 
+/// Length of a **bytes** handle only (0 if not a bytes value).
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_len(handle: i64) -> i64 {
+    bytes_data(handle).map(|b| b.len() as i64).unwrap_or(0)
+}
+
+/// Byte at `index` (0-based) as `i64` in `0..255`.
+///
+/// Returns `-1` if the handle is not bytes or `index` is out of range.
+/// Prefer bounds checks in `std/bytes` before calling.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_get(handle: i64, index: i64) -> i64 {
+    let Some(b) = bytes_data(handle) else {
+        return -1;
+    };
+    if index < 0 {
+        return -1;
+    }
+    let i = index as usize;
+    match b.get(i) {
+        Some(&byte) => i64::from(byte),
+        None => -1,
+    }
+}
+
 /// Concatenate two string/bytes handles → new string handle.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_cat(a: i64, b: i64) -> i64 {

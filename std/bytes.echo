@@ -1,0 +1,50 @@
+; std/bytes — length and indexing for `b'…'` / `b"…"` values.
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+;
+; `get` is **result-shaped**: ok is `ui8` (alias `byte`); err is `"out of bounds"`.
+; Suite cases co-located: register under `xo test` only (XO_TEST).
+
+/ runtime
+/ std/test
+
+$ len = (b) {
+    ^ runtime.bytes_len(b)
+}
+
+$ get = (b, i) {
+    $ n = runtime.bytes_len(b)
+    ? i < 0 || i >= n {
+        ! "out of bounds"
+    }
+    ^ <ui8> runtime.bytes_get(b, i)
+}
+
+; --- suite (xo test std/bytes.echo) ---
+
+test.it("len", () {
+    test.eq(len(b'hi'), 2)
+})
+
+test.it("get_ok", () {
+    | get(b'AB', 1) {
+        $ b {
+            test.eq(b, <ui8> 66)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("get_oob", () {
+    | get(b'A', 1) {
+        $ b {
+            test.fail("expected oob")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+})
+
+\ len, get
