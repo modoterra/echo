@@ -75,6 +75,20 @@ compilation pipeline.
 See [`docs/development-speed.md`](docs/development-speed.md) for setup and the
 edit/test loop.
 
+## Install (user toolchain)
+
+From a checkout, install a release `xo` + `std` under XDG and link
+`~/.local/bin/xo`:
+
+```bash
+./scripts/install.sh          # install
+./scripts/install.sh upgrade  # new version, keep previous
+./scripts/uninstall.sh        # remove toolchain ( --purge also clears $XO_HOME )
+./scripts/install.sh doctor
+```
+
+Layout and env vars: [`docs/install.md`](docs/install.md).
+
 ## Build and test
 
 ```bash

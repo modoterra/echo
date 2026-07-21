@@ -1,8 +1,17 @@
 ; The Echo map collection (`/ std/collections/map`).
-; Wraps hash_table. Fluent: map.make().seed(k0, k1). put/get are free (not fluent).
+; Wraps hash_table. Fluent: map.make().seed(k0, k1).
+; Methods: seed, put, get, remove, has, len, is_empty, keys, values, entries,
+;   to_list, hash_key, bucket_index.
+; Snapshots are ordinary lists → `* e : m.to_list() { … }` (entries).
+;
+; Public API (export discipline — docs/stdlib.md):
+;   \ map, make, from_indexed
+; Private: suite only.
+;
 ; Suite: xo test std/collections/map.echo (XO_TEST).
 
 / std/test
+/ std/list
 / std/collections/hash_table
 
 % map {
@@ -16,51 +25,93 @@
         }
         ! "cannot reseed non-empty map"
     }
+
+    $ put = (key, value) {
+        .table.put(key, value)
+        ^ .
+    }
+
+    $ get = (key) {
+        | .table.get(key) {
+            $ v {
+                ^ v
+            }
+            : {
+                ^
+            }
+        }
+    }
+
+    ; Option of removed value.
+    $ remove = (key) {
+        | .table.remove(key) {
+            $ v {
+                ^ v
+            }
+            : {
+                ^
+            }
+        }
+    }
+
+    $ has = (key) {
+        ^ .table.has(key)
+    }
+
+    $ len = () {
+        ^ .table.len()
+    }
+
+    $ is_empty = () {
+        ^ .table.is_empty()
+    }
+
+    $ keys = () {
+        ^ .table.keys()
+    }
+
+    $ values = () {
+        ^ .table.values()
+    }
+
+    $ entries = () {
+        ^ .table.entries()
+    }
+
+    ; Snapshot of `{ key, value }` pairs (order undefined). For for-in over the map.
+    $ to_list = () {
+        ^ .entries()
+    }
+
+    $ hash_key = (key) {
+        ^ .table.hash_key(key)
+    }
+
+    $ bucket_index = (key) {
+        ^ .table.bucket_index(key)
+    }
 }
 
 $ make = () {
     ^ map { table: hash_table.make() }
 }
 
-$ put = (m, key, value) {
-    hash_table.put(m.table, key, value)
-    ^ m
-}
-
-$ get = (m, key) {
-    | hash_table.get(m.table, key) {
-        $ v {
-            ^ v
-        }
-        : {
-            ^
-        }
-    }
-}
-
 $ from_indexed = (ls) {
     ~ m = make()
     ~ i = 0
     * v : ls {
-        put(m, i, v)
+        m.put(i, v)
         ~ i = i + 1
     }
     ^ m
-}
-
-$ hash_key = (m, key) {
-    ^ hash_table.hash_key(m.table, key)
-}
-
-$ bucket_index = (m, key) {
-    ^ hash_table.bucket_index(m.table, key)
 }
 
 ; --- suite ---
 
 test.it("from_indexed", () {
     $ m = from_indexed([10, 20, 30])
-    | get(m, 0) {
+    test.eq(m.len(), 3)
+    | m.get(0) {
         $ v {
             test.eq(v, 10)
         }
@@ -68,7 +119,7 @@ test.it("from_indexed", () {
             test.fail("missing 0")
         }
     }
-    | get(m, 2) {
+    | m.get(2) {
         $ v {
             test.eq(v, 30)
         }
@@ -80,9 +131,13 @@ test.it("from_indexed", () {
 
 test.it("make_put_get", () {
     $ m = make()
-    put(m, 7, 42)
-    put(m, 8, 99)
-    | get(m, 7) {
+    test.true(m.is_empty())
+    m.put(7, 42)
+    m.put(8, 99)
+    test.eq(m.len(), 2)
+    test.true(m.has(7))
+    test.false(m.has(0))
+    | m.get(7) {
         $ v {
             test.eq(v, 42)
         }
@@ -90,7 +145,7 @@ test.it("make_put_get", () {
             test.fail("missing 7")
         }
     }
-    | get(m, 8) {
+    | m.get(8) {
         $ v {
             test.eq(v, 99)
         }
@@ -98,7 +153,7 @@ test.it("make_put_get", () {
             test.fail("missing 8")
         }
     }
-    | get(m, 0) {
+    | m.get(0) {
         $ v {
             test.fail("expected miss")
         }
@@ -110,9 +165,10 @@ test.it("make_put_get", () {
 
 test.it("put_overwrite", () {
     $ m = make()
-    put(m, 1, 10)
-    put(m, 1, 20)
-    | get(m, 1) {
+    m.put(1, 10)
+    m.put(1, 20)
+    test.eq(m.len(), 1)
+    | m.get(1) {
         $ v {
             test.eq(v, 20)
         }
@@ -122,23 +178,67 @@ test.it("put_overwrite", () {
     }
 })
 
+test.it("remove", () {
+    $ m = make()
+    m.put(1, 10)
+    m.put(2, 20)
+    | m.remove(1) {
+        $ v {
+            test.eq(v, 10)
+        }
+        : {
+            test.fail("remove miss")
+        }
+    }
+    test.eq(m.len(), 1)
+    test.false(m.has(1))
+    | m.remove(9) {
+        $ v {
+            test.fail("expected none")
+        }
+        : {
+            test.eq(1, 1)
+        }
+    }
+})
+
+test.it("keys_values_entries", () {
+    $ m = make()
+    m.put(10, 100)
+    m.put(20, 200)
+    test.eq(list.len(m.keys()), 2)
+    test.eq(list.len(m.values()), 2)
+    test.eq(list.len(m.entries()), 2)
+    test.eq(list.len(m.to_list()), 2)
+    * e : m.to_list() {
+        | m.get(e.key) {
+            $ v {
+                test.eq(v, e.value)
+            }
+            : {
+                test.fail("entry")
+            }
+        }
+    }
+})
+
 test.it("bucket_index_stable", () {
     $ m = make()
-    $ a = bucket_index(m, 123)
-    $ b = bucket_index(m, 123)
+    $ a = m.bucket_index(123)
+    $ b = m.bucket_index(123)
     test.eq(a, b)
-    ? a < 0 || a >= hash_table.n_buckets() {
+    ? a < 0 {
         test.fail("bucket out of range")
     }
 })
 
 test.it("fluent_seed", () {
-    # K0 = 0x0101010101010101
-    # K1 = 0x0202020202020202
-    | make().seed(<ui64> K0, <ui64> K1) {
+    # K0 = <ui64> 0x0101010101010101
+    # K1 = <ui64> 0x0202020202020202
+    | make().seed(K0, K1) {
         $ m {
-            put(m, 3, 9)
-            | get(m, 3) {
+            m.put(3, 9)
+            | m.get(3) {
                 $ v {
                     test.eq(v, 9)
                 }
@@ -155,8 +255,8 @@ test.it("fluent_seed", () {
 
 test.it("reseed_nonempty_err", () {
     $ m = make()
-    put(m, 1, 1)
-    | m.seed(<ui64> 1, <ui64> 2) {
+    m.put(1, 1)
+    | m.seed(1, 2) {
         $ ok {
             test.fail("expected reseed error")
         }
@@ -166,4 +266,4 @@ test.it("reseed_nonempty_err", () {
     }
 })
 
-\ map, make, put, get, from_indexed, hash_key, bucket_index
+\ map, make, from_indexed

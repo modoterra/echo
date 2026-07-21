@@ -411,6 +411,42 @@ $ x = f()
     }
 
     #[test]
+    fn result_handled_in_effect_block() {
+        let src = "\
+$ f = () {
+    ! \"x\"
+}
+& {
+    $ y = f()
+    ^ y
+}
+";
+        let c = codes(src);
+        assert!(
+            !c.iter().any(|x| *x == "sem-unhandled-result"),
+            "{c:?}"
+        );
+    }
+
+    #[test]
+    fn effect_block_bind_ok() {
+        let src = "\
+$ f = () {
+    ^ 1
+}
+& out = {
+    $ y = f()
+    ^ y
+}
+";
+        let c = codes(src);
+        assert!(
+            !c.iter().any(|x| *x == "sem-unhandled-result"),
+            "{c:?}"
+        );
+    }
+
+    #[test]
     fn result_match_ok() {
         let src = "\
 $ f = () {
@@ -462,6 +498,80 @@ $ main = () {
     }
 
     #[test]
+    fn free_param_is_value_allows_mixed_call_sites() {
+        // Unconstrained param (passthrough) pins to `value` — int and string ok.
+        let c = codes(
+            "\
+$ id = (x) {
+    ^ x
+}
+$ main = () {
+    $ a = id(1)
+    $ b = id(\"hi\")
+    ^ a
+}
+",
+        );
+        assert!(
+            !c.iter().any(|x| *x == "sem-type-mismatch"),
+            "expected mixed id() calls to type-check, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn value_key_field_allows_mixed_puts() {
+        // Collection-shaped: free key field + eq-only method params → value.
+        let c = codes(
+            "\
+% entry {
+    $ key
+    ~ value
+}
+% tab {
+    $ put = (key, value) {
+        $ e = entry { key: key, value: value }
+        ? e.key == key {
+            ^ .
+        }
+        ^ .
+    }
+}
+$ main = () {
+    $ t = tab {}
+    t.put(1, 10)
+    t.put(\"a\", 20)
+    ^
+}
+",
+        );
+        assert!(
+            !c.iter().any(|x| *x == "sem-type-mismatch"),
+            "expected mixed put keys, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn constrained_param_still_monomorphic() {
+        // Arithmetic pins param to int — string call must fail.
+        let c = codes(
+            "\
+$ add1 = (x) {
+    ^ x + 1
+}
+$ main = () {
+    $ a = add1(1)
+    $ b = add1(\"no\")
+    ^ a
+}
+",
+        );
+        assert!(
+            c.iter().any(|x| *x == "sem-type-mismatch"),
+            "expected string into int param to fail, got {c:?}"
+        );
+    }
+
+    #[test]
     fn infer_int_float_mix_err() {
         let c = codes("$ x = 1 + 2.0\n");
         assert!(c.iter().any(|x| x == "sem-type-mismatch"), "{c:?}");
@@ -482,7 +592,8 @@ $ main = () {
 
     #[test]
     fn infer_width_mix_err() {
-        let c = codes("$ x = <i32>1 + <i64>2\n");
+        // Two different non-default widths still do not mix.
+        let c = codes("$ x = <i32>1 + <ui64>2\n");
         assert!(c.iter().any(|x| x == "sem-type-mismatch"), "{c:?}");
     }
 
@@ -492,6 +603,49 @@ $ main = () {
         assert!(
             !c.iter().any(|x| *x == "sem-type-mismatch"),
             "{c:?}"
+        );
+    }
+
+    #[test]
+    fn infer_default_i64_yields_to_i32() {
+        // Untagged / default i64 adopts a more specific width.
+        let c = codes("$ x = <i32>1 + 2\n$ y = <i32>1 + <i64>2\n");
+        assert!(
+            !c.iter().any(|x| *x == "sem-type-mismatch"),
+            "{c:?}"
+        );
+    }
+
+    #[test]
+    fn field_width_from_default_allows_ops_without_cast() {
+        // `~ v = <ui64> 0` → field is ui64; load/store ops need no re-tag.
+        let c = codes(
+            "% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = t.v + <ui64> 1\n",
+        );
+        assert!(
+            !c.iter().any(|x| *x == "sem-type-mismatch"),
+            "expected field ui64 from default, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn field_width_from_default_rejects_explicit_other_width_write() {
+        // Untagged `1` yields to ui64; explicit non-default widths still clash.
+        let c = codes("% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = <i32> 1\n");
+        assert!(
+            c.iter().any(|x| *x == "sem-type-mismatch"),
+            "expected mismatch writing i32 into ui64 field, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn default_int_literal_yields_to_ui64_lane() {
+        let c = codes(
+            "% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = t.v + 1\n~ t.v = t.v << 3\n",
+        );
+        assert!(
+            !c.iter().any(|x| *x == "sem-type-mismatch"),
+            "untagged lits should adopt ui64 field lane, got {c:?}"
         );
     }
 

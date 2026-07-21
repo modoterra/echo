@@ -118,7 +118,7 @@ pub unsafe extern "C" fn echo_runtime_tcp_listen(addr: i64) -> i64 {
         header: tcp_listener_header(),
         inner: Some(listener),
     });
-    Box::into_raw(h) as i64
+    crate::heap_to_handle(h)
 }
 
 /// `tcp_accept(listener) -> struct { conn, remote }` (empty on failure).
@@ -151,7 +151,7 @@ pub unsafe extern "C" fn echo_runtime_tcp_accept(listener: i64) -> i64 {
                     header: tcp_stream_header(),
                     inner: Some(stream),
                 });
-                let conn_h = Box::into_raw(conn) as i64;
+                let conn_h = crate::heap_to_handle(conn);
                 struct_set_str(out, "conn", conn_h);
                 struct_set_str(out, "remote", string_to_handle(addr_string(peer)));
                 return out;
@@ -169,7 +169,7 @@ pub unsafe extern "C" fn echo_runtime_tcp_accept(listener: i64) -> i64 {
                                 header: tcp_stream_header(),
                                 inner: Some(stream),
                             });
-                            let conn_h = Box::into_raw(conn) as i64;
+                            let conn_h = crate::heap_to_handle(conn);
                             struct_set_str(out, "conn", conn_h);
                             struct_set_str(out, "remote", string_to_handle(addr_string(peer)));
                             filled = true;
@@ -209,7 +209,7 @@ pub unsafe extern "C" fn echo_runtime_tcp_connect(addr: i64) -> i64 {
         header: tcp_stream_header(),
         inner: Some(stream),
     });
-    Box::into_raw(h) as i64
+    crate::heap_to_handle(h)
 }
 
 /// `tcp_read(stream, limit) -> bytes handle` (empty on failure / EOF).
@@ -385,7 +385,7 @@ pub unsafe extern "C" fn echo_runtime_udp_bind(addr: i64) -> i64 {
         header: udp_header(),
         inner: Some(sock),
     });
-    Box::into_raw(h) as i64
+    crate::heap_to_handle(h)
 }
 
 /// `udp_send_to(sock, data, addr_string) -> bytes sent` (−1 on failure).

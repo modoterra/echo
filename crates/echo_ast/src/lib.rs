@@ -86,10 +86,21 @@ pub enum Stmt {
     TaskSpawn(TaskSpawnStmt),
     /// `- { body }` / `- name = { body }` / `- handle` / `- name = handle` — join (ADR 0013).
     TaskJoin(TaskJoinStmt),
+    /// `& { body }` / `& name = { body }` — effect block (auto-unwrap result/option).
+    EffectBlock(EffectBlockStmt),
     Import(ImportStmt),
     Export(ExportStmt),
     /// Bare expression statement (e.g. call).
     Expr(Expr),
+}
+
+/// `& { … }` or `& name = { … }` — auto-unwrap result/option; short-circuit on fail.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct EffectBlockStmt {
+    /// When set, bind success payload or err payload / option outcome.
+    pub bind: Option<Ident>,
+    pub body: Vec<Stmt>,
+    pub span: Span,
 }
 
 /// Body of a task spawn or immediate-block join.
@@ -746,6 +757,18 @@ fn format_stmt(stmt: &Stmt, level: usize, out: &mut String) {
                 }
             }
         }
+        Stmt::EffectBlock(s) => {
+            out.push_str("effect_block\n");
+            if let Some(b) = &s.bind {
+                indent(level + 1, out);
+                out.push_str(&format!("bind {}\n", b.name));
+            }
+            indent(level + 1, out);
+            out.push_str("block\n");
+            for st in &s.body {
+                format_stmt(st, level + 2, out);
+            }
+        }
         Stmt::Match(s) => {
             out.push_str("match\n");
             format_expr(&s.scrutinee, level + 1, out);
@@ -1029,6 +1052,15 @@ fn remap_stmt(st: &mut Stmt, new_id: SourceId) {
                     }
                     remap_expr(handle, new_id);
                 }
+            }
+            remap_span(&mut s.span, new_id);
+        }
+        Stmt::EffectBlock(s) => {
+            if let Some(b) = &mut s.bind {
+                remap_ident(b, new_id);
+            }
+            for st in &mut s.body {
+                remap_stmt(st, new_id);
             }
             remap_span(&mut s.span, new_id);
         }

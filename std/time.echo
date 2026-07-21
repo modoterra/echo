@@ -1,11 +1,46 @@
-; std/time — clocks and sleep (runtime bridges later)
+; std/time — wall clock and sleep.
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+;
+; Public API:
+;   now_ms — milliseconds since Unix epoch (UTC), i64
+;   sleep_ms — sleep at least `ms` milliseconds (no-op if ms ≤ 0)
+;
+; Suite: xo test std/time.echo (XO_TEST).
+
+/ runtime
+/ std/test
 
 $ now_ms = () {
-    ^ 0
+    ^ runtime.now_ms()
 }
 
 $ sleep_ms = (ms) {
+    runtime.sleep_ms(ms)
     ^
 }
+
+; --- suite ---
+
+test.it("now_ms_nonneg", () {
+    $ t = now_ms()
+    test.true(t >= 0)
+    ; Epoch is far in the past; after 2020-01-01 ≈ 1.5e12 ms.
+    test.true(t > 1500000000000)
+})
+
+test.it("sleep_ms_zero", () {
+    sleep_ms(0)
+    sleep_ms(-1)
+    test.eq(1, 1)
+})
+
+test.it("sleep_ms_advances", () {
+    $ a = now_ms()
+    sleep_ms(30)
+    $ b = now_ms()
+    ; Allow small clock noise; should not go backwards by much and usually advances.
+    test.true(b >= a)
+    test.true(b - a >= 20)
+})
 
 \ now_ms, sleep_ms

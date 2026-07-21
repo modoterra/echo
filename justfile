@@ -34,6 +34,19 @@ sccache:
 tools:
     scripts/gate tools
 
+# User XDG install (release xo + std → ~/.local/bin/xo)
+install:
+    scripts/install.sh install
+
+upgrade:
+    scripts/install.sh upgrade
+
+uninstall *ARGS:
+    scripts/install.sh uninstall {{ARGS}}
+
+install-doctor:
+    scripts/install.sh doctor
+
 gate *ARGS:
     scripts/gate {{ARGS}}
 

@@ -405,6 +405,13 @@ function NotFoundPage() {
   );
 }
 
+function navLinkIsActive(link: DocsNavLink, pathname: string): boolean {
+  if (pathname === link.to) {
+    return true;
+  }
+  return Boolean(link.children?.some((child) => navLinkIsActive(child, pathname)));
+}
+
 function DocsNavLinkItem({
   link,
   onNavigate,
@@ -417,8 +424,9 @@ function DocsNavLinkItem({
   itemRef?: (element: HTMLLIElement | null) => void;
 }) {
   const isActive = pathname === link.to;
-  const hasActiveChild = link.children?.some((child) => pathname === child.to);
-  const activeChildIndex = link.children?.findIndex((child) => pathname === child.to) ?? -1;
+  const hasActiveChild = link.children?.some((child) => navLinkIsActive(child, pathname));
+  const activeChildIndex =
+    link.children?.findIndex((child) => navLinkIsActive(child, pathname)) ?? -1;
   const shouldShowChildren = Boolean(link.children && (isActive || hasActiveChild));
   const childRailRef = useRef<HTMLDivElement | null>(null);
   const childItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
@@ -484,16 +492,19 @@ function DocsNavLinkItem({
             initial={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
+            {/* Nested child rail — same pattern as echo-php-old DocsNavLinkItem. */}
             <div className="relative mt-3 pl-3" ref={childRailRef}>
               <span
                 aria-hidden="true"
                 className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
               />
               {activeChildIndex >= 0 ? (
-                <span
+                <motion.span
                   aria-hidden="true"
-                  className="docs-primary-nav-train docs-logo-gradient-rail absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full transition-transform duration-200 ease-out"
-                  style={{ transform: `translateY(${childTrainY}px)` }}
+                  animate={{ y: childTrainY }}
+                  className="docs-primary-nav-train docs-logo-gradient-rail absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full"
+                  initial={false}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
                 />
               ) : null}
               <ul className="space-y-3">
@@ -517,6 +528,10 @@ function DocsNavLinkItem({
   );
 }
 
+/**
+ * Left docs TOC: one continuous rail (same as “On this page”) with section
+ * titles and page links on the track. Gradient train marks the active page.
+ */
 function DocsNavigationList({
   navigation,
   onNavigate,
@@ -526,23 +541,89 @@ function DocsNavigationList({
   onNavigate?: () => void;
   pathname: string;
 }) {
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [trainY, setTrainY] = useState(0);
+
+  const activeKey = useMemo(() => {
+    for (const group of navigation) {
+      const hit = group.links.find((link) => navLinkIsActive(link, pathname));
+      if (hit) {
+        return hit.to;
+      }
+    }
+    return null;
+  }, [navigation, pathname]);
+
+  useLayoutEffect(() => {
+    if (!activeKey) {
+      setTrainY(0);
+      return;
+    }
+
+    let animationFrame = 0;
+
+    function updateTrainPosition() {
+      const rail = railRef.current;
+      const item = activeKey ? itemRefs.current[activeKey] : null;
+
+      if (!rail || !item) {
+        setTrainY(0);
+        return;
+      }
+
+      const railRect = rail.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      setTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
+    }
+
+    function scheduleUpdate() {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updateTrainPosition);
+    }
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [activeKey, navigation, pathname]);
+
   return (
-    <div className="space-y-10">
-      {navigation.map((group) => (
-        <section key={group.title}>
-          <h2 className="text-sm font-semibold text-slate-950">{group.title}</h2>
-          <ul className="mt-5 space-y-3">
-            {group.links.map((link) => (
-              <DocsNavLinkItem
-                key={link.label}
-                link={link}
-                onNavigate={onNavigate}
-                pathname={pathname}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="relative pl-6" ref={railRef}>
+      <span aria-hidden="true" className="absolute bottom-0 left-0 top-0 w-px bg-slate-200" />
+      {activeKey ? (
+        <motion.span
+          aria-hidden="true"
+          animate={{ y: trainY }}
+          className="docs-primary-nav-train docs-logo-gradient-rail absolute left-[-1px] top-0 h-[18px] w-[3px] rounded-full"
+          initial={false}
+          transition={{ duration: 0.16, ease: "easeOut" }}
+        />
+      ) : null}
+
+      <div className="space-y-8">
+        {navigation.map((group) => (
+          <section key={group.title}>
+            <h2 className="text-sm font-semibold leading-6 text-slate-950">{group.title}</h2>
+            <ul className="mt-3 space-y-3">
+              {group.links.map((link) => (
+                <DocsNavLinkItem
+                  key={link.label}
+                  link={link}
+                  onNavigate={onNavigate}
+                  pathname={pathname}
+                  itemRef={(element) => {
+                    itemRefs.current[link.to] = element;
+                  }}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

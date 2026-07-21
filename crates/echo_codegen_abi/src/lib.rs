@@ -63,8 +63,41 @@ pub const RT_BYTES_GET: &str = "echo_runtime_bytes_get";
 /// `echo_runtime_bytes_from_i64(n) -> bytes` — 8 little-endian bytes of `n`.
 pub const RT_BYTES_FROM_I64: &str = "echo_runtime_bytes_from_i64";
 
+/// `echo_runtime_bytes_slice(b, start, end) -> bytes` — byte range `[start, end)`.
+pub const RT_BYTES_SLICE: &str = "echo_runtime_bytes_slice";
+
+/// `echo_runtime_bytes_cat(a, b) -> bytes` — concatenate two bytes values.
+pub const RT_BYTES_CAT: &str = "echo_runtime_bytes_cat";
+
+/// `echo_runtime_bytes_from_str(string) -> bytes` — UTF-8 payload copy.
+pub const RT_BYTES_FROM_STR: &str = "echo_runtime_bytes_from_str";
+
+/// `echo_runtime_str_get(s, index) -> i64` — UTF-8 byte 0..255, or -1 if OOB.
+pub const RT_STR_GET: &str = "echo_runtime_str_get";
+
+/// `echo_runtime_reflect_kind(v) -> i64` — runtime kind code (0=int, heap kinds match header).
+pub const RT_REFLECT_KIND: &str = "echo_runtime_reflect_kind";
+
+/// `echo_runtime_reflect_kind_name(v) -> string` — stable kind name (`"int"`, `"string"`, …).
+pub const RT_REFLECT_KIND_NAME: &str = "echo_runtime_reflect_kind_name";
+
+/// `echo_runtime_reflect_key_bytes(v) -> bytes` — kind-tagged key material for hashing.
+pub const RT_REFLECT_KEY_BYTES: &str = "echo_runtime_reflect_key_bytes";
+
 /// `echo_runtime_str_cat(a, b) -> string handle` — concatenate two strings (or string+bytes).
 pub const RT_STR_CAT: &str = "echo_runtime_str_cat";
+
+/// `echo_runtime_str_slice(s, start, end) -> string` — UTF-8 byte range `[start, end)`.
+pub const RT_STR_SLICE: &str = "echo_runtime_str_slice";
+
+/// `echo_runtime_str_contains(hay, needle) -> i64` — 1/0 substring match.
+pub const RT_STR_CONTAINS: &str = "echo_runtime_str_contains";
+
+/// `echo_runtime_str_starts_with(s, prefix) -> i64` — 1/0.
+pub const RT_STR_STARTS_WITH: &str = "echo_runtime_str_starts_with";
+
+/// `echo_runtime_str_ends_with(s, suffix) -> i64` — 1/0.
+pub const RT_STR_ENDS_WITH: &str = "echo_runtime_str_ends_with";
 
 /// Box an `f64` as a heap float handle (`i64` bits).
 pub const RT_FLOAT_FROM_F64: &str = "echo_runtime_float_from_f64";
@@ -164,9 +197,32 @@ pub const RT_STRUCT_SET: &str = "echo_runtime_struct_set";
 /// `echo_runtime_struct_get(handle, name_ptr, name_len) -> i64`
 pub const RT_STRUCT_GET: &str = "echo_runtime_struct_get";
 
+// --- Scope-owned memory (ADR 0016) ---
+/// `void echo_runtime_scope_enter(int64_t scope_id)`
+pub const RT_SCOPE_ENTER: &str = "echo_runtime_scope_enter";
+/// `void echo_runtime_scope_exit(int64_t scope_id)`
+pub const RT_SCOPE_EXIT: &str = "echo_runtime_scope_exit";
+/// `void echo_runtime_scope_register(int64_t handle)`
+pub const RT_SCOPE_REGISTER: &str = "echo_runtime_scope_register";
+/// `void echo_runtime_scope_promote(int64_t handle, int64_t target_scope_id)`
+pub const RT_SCOPE_PROMOTE: &str = "echo_runtime_scope_promote";
+/// `void echo_runtime_scope_disown(int64_t handle)`
+pub const RT_SCOPE_DISOWN: &str = "echo_runtime_scope_disown";
+/// `void echo_runtime_scope_release(int64_t handle)`
+pub const RT_SCOPE_RELEASE: &str = "echo_runtime_scope_release";
+/// `void echo_runtime_scope_enqueue_release(int64_t handle)`
+pub const RT_SCOPE_ENQUEUE_RELEASE: &str = "echo_runtime_scope_enqueue_release";
+/// `void echo_runtime_scope_drain_deferred(void)`
+pub const RT_SCOPE_DRAIN_DEFERRED: &str = "echo_runtime_scope_drain_deferred";
+
 /// `void echo_runtime_test_register(int64_t name_str, int64_t fn_value)`
 pub const RT_TEST_REGISTER: &str = "echo_runtime_test_register";
 /// `void echo_runtime_test_fail(int64_t msg_str)`
 pub const RT_TEST_FAIL: &str = "echo_runtime_test_fail";
 /// `int64_t echo_runtime_test_finish(void)` — fail count, or -1 if suite mode off
 pub const RT_TEST_FINISH: &str = "echo_runtime_test_finish";
+
+/// `echo_runtime_now_ms() -> i64` — wall clock ms since Unix epoch.
+pub const RT_NOW_MS: &str = "echo_runtime_now_ms";
+/// `echo_runtime_sleep_ms(i64)` — sleep at least `ms` milliseconds (void).
+pub const RT_SLEEP_MS: &str = "echo_runtime_sleep_ms";

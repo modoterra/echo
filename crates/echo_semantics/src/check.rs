@@ -32,6 +32,8 @@ struct Cx {
     scopes: Vec<Scope>,
     diagnostics: Diagnostics,
     in_method: bool,
+    /// Nested depth of `& { … }` effect blocks (auto-unwrap result/option).
+    effect_depth: u32,
     loop_depth: u32,
     fn_depth: u32,
     /// Index of the function’s parameter scope (`None` at top-level).
@@ -48,6 +50,7 @@ impl Cx {
             scopes: vec![Scope::default()],
             diagnostics: Diagnostics::new(),
             in_method: false,
+            effect_depth: 0,
             loop_depth: 0,
             fn_depth: 0,
             fn_scope_base: None,
@@ -334,8 +337,9 @@ impl Cx {
     }
 
     fn expr(&mut self, expr: &Expr, ctx: UseContext) {
-        // Unhandled Option/Result: only allowed as match scrutinee.
-        if ctx == UseContext::Value {
+        // Unhandled Option/Result: only allowed as match scrutinee, or inside
+        // an `&` effect block (auto-unwrap / short-circuit).
+        if ctx == UseContext::Value && self.effect_depth == 0 {
             if let Some(shape) = self.expr_return_shape(expr) {
                 match shape {
                     ReturnShape::Option | ReturnShape::ResultOption => {
@@ -799,6 +803,18 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
                         cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
                     }
                 }
+            }
+        }
+        Stmt::EffectBlock(s) => {
+            // Body is checked in a nested scope; auto-unwrap suppresses
+            // unhandled-result/option. Bind is introduced after the block.
+            cx.push_scope();
+            cx.effect_depth += 1;
+            block(cx, &s.body);
+            cx.effect_depth -= 1;
+            cx.pop_scope();
+            if let Some(name) = &s.bind {
+                cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
             }
         }
         Stmt::Expr(e) => cx.expr(e, UseContext::Value),

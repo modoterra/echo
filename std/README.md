@@ -10,6 +10,15 @@ Public standard library for Echo. **Authority:** [`docs/stdlib.md`](../docs/stdl
 | These files | May `/ runtime` and call `runtime.export(…)` to reach the native runtime. |
 | Tools | LSP / check / reflection see **real Echo** (including bodies that call `runtime.*`). |
 | Codegen | `runtime.*` → `echo_runtime_*` (only for the privileged runtime package). |
+| **Exports** | `\ name` is the **only** public/private control. Default new helpers to **private**. See **Export discipline** in `docs/stdlib.md`. |
+| **Build order** | **Runtime primitives first** (`echo_runtime_*` + ABI + exports + codegen), **then** this tree. Pure Echo helpers need no new native. See `docs/stdlib.md` § Build order. |
+
+### Writing `\ ` in std
+
+1. Header comment lists the intended public API.
+2. Export **product** free names and `%` types only.
+3. Methods on an exported type are public with that type — do not re-list them on `\ `.
+4. Do not export implementation types (`entry`), bucket plumbing, or serve-loop helpers.
 
 ## Intended `io` shape
 
@@ -37,11 +46,16 @@ $ eprint = (value) {
 
 | Path | Role |
 |------|------|
-| `io.echo` / `time.echo` / `test.echo` / `bytes.echo` / `list.echo` | free function values (`test` for `xo test`; `bytes` / `list` len helpers) |
+| `io.echo` / `test.echo` | free helpers (`test` for `xo test`) |
+| `bytes.echo` | `len` / `get` / `slice` / `cat` / `from_int` / `from_str` |
+| `list.echo` | `len` / `is_empty` / result `get` / `contains` |
+| `str.echo` | `from_*`, text ops, byte `get`/`slice` |
+| `time.echo` | `now_ms` / `sleep_ms` (wall clock) |
+| `reflect.echo` | runtime kind API (`kind` / `key_bytes` / …); not tools `echo_reflection` |
 | `crypto/hash/` | folder module: `sip` (SipHash-2-4) → `/ std/crypto/hash` as `hash.sip` |
-| `collections/hash_table.echo` | SipHash bucket table (`put`/`get`); backs map + set |
-| `collections/map.echo` | map ADT over `hash_table` (`put`/`get`/`from_indexed`) |
-| `collections/set.echo` | set ADT over `hash_table` (`add`/`has`/`from_list`) |
+| `collections/hash_table.echo` | SipHash table; keys via `reflect.key_bytes` (int/string/…); backs map + set |
+| `collections/map.echo` | map over `hash_table` (`put`/`get`/`from_indexed`; mixed keys) |
+| `collections/set.echo` | set over `hash_table` (`add`/`has`/`values`/`from_list`; no `keys`) |
 | `net/tcp/` | folder module: `conn`, `listener`, free `socket` |
 | `net/udp/` | folder module: `% socket` + free reify `socket` |
 | `net/request.echo` | `% request` |

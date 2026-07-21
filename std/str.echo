@@ -1,7 +1,19 @@
-; std/str — explicit conversions to printable strings
+; std/str — conversions and UTF-8 string helpers.
 ; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+;
+; Public API:
+;   from_int, from_float, from_bytes, from_duration, from_locator, from_debug
+;   len, is_empty, cat
+;   contains, starts_with, ends_with
+;   get    — result-shaped; UTF-8 **byte** at index as ui8; ! "out of bounds"
+;   slice  — result-shaped; UTF-8 **byte** indices [start, end); ! "out of bounds"
+;
+; Indices match `len` (byte length of UTF-8). Prefer char-safe bounds for non-ASCII.
+;
+; Suite: xo test std/str.echo (XO_TEST).
 
 / runtime
+/ std/test
 
 $ from_int = (n) {
     ^ runtime.str_from_int(n)
@@ -32,8 +44,139 @@ $ len = (s) {
     ^ runtime.str_len(s)
 }
 
+$ is_empty = (s) {
+    ^ len(s) == 0
+}
+
 $ cat = (a, b) {
     ^ runtime.str_cat(a, b)
 }
 
-\ from_int, from_float, from_bytes, from_duration, from_locator, from_debug, len, cat
+$ contains = (hay, needle) {
+    ^ runtime.str_contains(hay, needle) != 0
+}
+
+$ starts_with = (s, prefix) {
+    ^ runtime.str_starts_with(s, prefix) != 0
+}
+
+$ ends_with = (s, suffix) {
+    ^ runtime.str_ends_with(s, suffix) != 0
+}
+
+; UTF-8 byte at index (same width as bytes.get).
+$ get = (s, i) {
+    $ n = runtime.str_len(s)
+    ? i < 0 || i >= n {
+        ! "out of bounds"
+    }
+    ^ <ui8> runtime.str_get(s, i)
+}
+
+; Half-open UTF-8 byte range [start, end).
+$ slice = (s, start, end) {
+    $ n = runtime.str_len(s)
+    ? start < 0 || end < start || end > n {
+        ! "out of bounds"
+    }
+    ^ runtime.str_slice(s, start, end)
+}
+
+; --- suite ---
+
+test.it("len_cat", () {
+    test.eq(len(""), 0)
+    test.true(is_empty(""))
+    test.eq(len("hi"), 2)
+    test.false(is_empty("x"))
+    test.eq(cat("a", "b"), "ab")
+    test.eq(from_int(42), "42")
+})
+
+test.it("contains", () {
+    test.true(contains("hello", "ell"))
+    test.false(contains("hello", "xyz"))
+    test.true(contains("ab", ""))
+})
+
+test.it("starts_ends", () {
+    test.true(starts_with("foobar", "foo"))
+    test.false(starts_with("foobar", "bar"))
+    test.true(ends_with("foobar", "bar"))
+    test.false(ends_with("foobar", "foo"))
+})
+
+test.it("slice_ok", () {
+    | slice("abcdef", 1, 4) {
+        $ t {
+            test.eq(t, "bcd")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | slice("hi", 0, 0) {
+        $ t {
+            test.eq(t, "")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | slice("hi", 0, 2) {
+        $ t {
+            test.eq(t, "hi")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("slice_oob", () {
+    | slice("ab", 0, 3) {
+        $ t {
+            test.fail("expected oob")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+    | slice("ab", -1, 1) {
+        $ t {
+            test.fail("expected oob neg")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+    | slice("ab", 2, 1) {
+        $ t {
+            test.fail("expected oob order")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+})
+
+test.it("get_byte", () {
+    | get("AB", 1) {
+        $ b {
+            test.eq(b, 66)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | get("A", 1) {
+        $ b {
+            test.fail("expected oob")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+})
+
+\ from_int, from_float, from_bytes, from_duration, from_locator, from_debug, len, is_empty, cat, contains, starts_with, ends_with, get, slice

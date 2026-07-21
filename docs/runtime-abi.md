@@ -32,6 +32,21 @@ for builtins, and guarantees that AOT and JIT share one contract.
   `std/**/*.echo` including the `runtime.*` call in the body.
 - Full policy: [`stdlib.md`](stdlib.md), [`modules.md`](modules.md).
 
+### Build order (locked)
+
+**Runtime primitives first, then std.**
+
+1. `echo_runtime_*` implementation (+ crate test when logic is non-trivial)
+2. `echo_codegen_abi` `RT_*` constant
+3. `echo_std::RUNTIME_EXPORTS` entry (`runtime.name` → native)
+4. `echo_codegen`: declare symbol, emit arity (and void-return if needed), JIT map
+5. `std/**.echo` wrapper with product policy
+6. Proofs + version bumps (`RUNTIME_ABI_VERSION`, `STDLIB_VERSION`)
+
+Do **not** invent OS/UTF-8/socket/clock behavior only in Echo, or export a std
+API that has no native backing when native is required. Pure Echo std (e.g.
+`collections`, `is_empty`) needs no new symbol.
+
 ### Language runtime (not the `/ runtime` package)
 
 List lits, for-in, index, result/option packing emit `echo_runtime_*` from
@@ -70,6 +85,74 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_test_register` | `void (int64_t name_str, int64_t fn)` | Suite: register case (`XO_TEST` only) |
 | `echo_runtime_test_fail` | `void (int64_t msg_str)` | Suite: mark current case failed |
 | `echo_runtime_test_finish` | `int64_t (void)` | Suite: run cases → fail count; `-1` if suite off |
+| `echo_runtime_now_ms` | `int64_t (void)` | Wall clock ms since Unix epoch |
+| `echo_runtime_sleep_ms` | `void (int64_t ms)` | Sleep ≥ `ms` (no-op if `ms ≤ 0`) |
+| `echo_runtime_str_slice` | `int64_t (s, start, end)` | UTF-8 byte range `[start,end)`; empty if invalid |
+| `echo_runtime_str_get` | `int64_t (s, index)` | UTF-8 byte 0..255, or -1 if OOB |
+| `echo_runtime_str_contains` | `int64_t (hay, needle)` | 1/0 substring |
+| `echo_runtime_str_starts_with` | `int64_t (s, prefix)` | 1/0 |
+| `echo_runtime_str_ends_with` | `int64_t (s, suffix)` | 1/0 |
+| `echo_runtime_bytes_slice` | `int64_t (b, start, end)` | byte range `[start,end)`; empty if invalid |
+| `echo_runtime_bytes_cat` | `int64_t (a, b)` | concatenate bytes |
+| `echo_runtime_bytes_from_str` | `int64_t (string)` | UTF-8 payload as bytes |
+| `echo_runtime_reflect_kind` | `int64_t (int64_t)` | Value kind code (`0`=int; heap tags match header) |
+| `echo_runtime_reflect_kind_name` | `int64_t (int64_t)` | Kind name string handle (`"int"`, `"string"`, …) |
+| `echo_runtime_reflect_key_bytes` | `int64_t (int64_t)` | Kind-tagged bytes for hashing (see below) |
+
+### Value reflection (`std/reflect`)
+
+Userland **runtime** kind inspection and hash-key material. Privileged std only:
+`runtime.reflect_*` → symbols above. **Not** the tools crate `echo_reflection`
+(export metadata for LSP).
+
+Every ABI slot is still an `i64`. The runtime **always** knows concrete kind
+(header tag or bare int) even when the checker labels a param/field `value`.
+
+| Kind code | Name | Wire |
+|-----------|------|------|
+| `0` | int | bare non-heap (bool as `0`/`1`) |
+| `1` | list | heap |
+| `2` | string | heap |
+| `4` | struct | heap |
+| `5` | float | heap |
+| `6` | bytes | heap |
+| `7` | locator | heap |
+| `8` | range | heap |
+| `9` | fn | heap |
+
+**`key_bytes`:** `[kind] || content` for hashing (map/set):
+
+| Kind | Payload after tag byte |
+|------|------------------------|
+| int | `le8(bits)` |
+| string | UTF-8 |
+| bytes | raw payload |
+| other heap | `le8(handle)` (identity-stable, not deep content) |
+
+## Memory reclamation (law — ADR 0016)
+
+**Product law:** every managed allocation has an owning **lexical or dynamic
+scope**. Semantics performs lifetime analysis; MIR lowers scope transitions to
+explicit **promotion**, **demotion**, and **release**. Every CFG edge that
+leaves a scope **deterministically disposes** of values still owned by that
+scope.
+
+| Status today | **Slice 1:** exact scope registries + promote/disown/release ops; physical free is **deferred** (logical death only) until promotion analysis is complete enough for safe immediate reclaim |
+| Target | Full promote/demote/release with deterministic immediate or batched physical destroy (not tracing GC as the user model) |
+
+| Symbol | Signature | Role |
+|--------|-----------|------|
+| `echo_runtime_scope_enter` | `void (i64 scope_id)` | Push ownership frame |
+| `echo_runtime_scope_exit` | `void (i64 scope_id)` | Pop frame; release still-owned values |
+| `echo_runtime_scope_register` | `void (i64 handle)` | Own handle in current frame |
+| `echo_runtime_scope_promote` | `void (i64 handle, i64 target_id)` | Transfer ownership |
+| `echo_runtime_scope_disown` | `void (i64 handle)` | Drop ownership without free |
+| `echo_runtime_scope_release` | `void (i64 handle)` | Logical release one value |
+| `echo_runtime_scope_enqueue_release` | `void (i64 handle)` | Logical release + enqueue |
+| `echo_runtime_scope_drain_deferred` | `void (void)` | Physical free deferred batch |
+
+Runtime implements dispose ops for heap kinds; codegen must not invent a
+competing free policy. See [ADR 0016](adr/0016-scope-owned-memory.md).
 
 ## Value wire (v1)
 

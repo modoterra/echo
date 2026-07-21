@@ -109,7 +109,7 @@ fn new_task(entry: usize, shape: TaskShape, argc: u8, args: [i64; MAX_TASK_ARGS]
             joined: Mutex::new(false),
         }),
     });
-    let h = Box::into_raw(t) as i64;
+    let h = crate::heap_to_handle(t);
     mark_spawned();
     h
 }

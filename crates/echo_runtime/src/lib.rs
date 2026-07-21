@@ -7,13 +7,63 @@
 //! can print either integers or heap objects (same `runtime.print` entry).
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::ptr;
+
+// Handles produced by `Box::into_raw` in this runtime (exact set — no pointer probe).
+thread_local! {
+    static LIVE_HEAP: RefCell<HashSet<i64>> = RefCell::new(HashSet::new());
+}
+
+/// Record a new heap handle (every `Box::into_raw` path must call this).
+#[inline]
+pub(crate) fn note_heap_alloc(handle: i64) {
+    if handle != 0 {
+        LIVE_HEAP.with(|s| {
+            s.borrow_mut().insert(handle);
+        });
+    }
+}
+
+/// Drop a heap handle from the live set (after logical free / physical free).
+#[inline]
+pub(crate) fn note_heap_free(handle: i64) {
+    if handle != 0 {
+        LIVE_HEAP.with(|s| {
+            s.borrow_mut().remove(&handle);
+        });
+    }
+}
+
+/// True if `handle` was allocated by this runtime and not yet freed.
+#[inline]
+pub(crate) fn is_live_heap(handle: i64) -> bool {
+    if handle == 0 {
+        return false;
+    }
+    LIVE_HEAP.with(|s| s.borrow().contains(&handle))
+}
+
+/// `Box::into_raw` + live-set registration.
+#[inline]
+pub(crate) fn heap_to_handle<T>(b: Box<T>) -> i64 {
+    let h = Box::into_raw(b) as i64;
+    note_heap_alloc(h);
+    h
+}
 
 mod net;
 mod poll;
 mod sched;
+mod scope;
 mod task;
 mod test_suite;
+
+pub use scope::{
+    echo_runtime_scope_disown, echo_runtime_scope_drain_deferred, echo_runtime_scope_enqueue_release,
+    echo_runtime_scope_enter, echo_runtime_scope_exit, echo_runtime_scope_promote,
+    echo_runtime_scope_register, echo_runtime_scope_release,
+};
 
 // TCP/UDP — re-export for JIT symbol mapping (`echo_codegen`).
 pub use net::{
@@ -45,14 +95,14 @@ pub fn crate_name() -> &'static str {
 /// Heap object magic (little-endian bytes spell a distinct pattern).
 pub(crate) const HEAP_MAGIC: u64 = 0x004F_4843_4545_4845; // "EHECHO\0\0" style unique
 
-const KIND_LIST: u32 = 1;
-const KIND_STRING: u32 = 2;
-const KIND_STRUCT: u32 = 4;
-const KIND_FLOAT: u32 = 5;
-const KIND_BYTES: u32 = 6;
-const KIND_LOCATOR: u32 = 7;
-const KIND_RANGE: u32 = 8;
-const KIND_FN: u32 = 9;
+pub(crate) const KIND_LIST: u32 = 1;
+pub(crate) const KIND_STRING: u32 = 2;
+pub(crate) const KIND_STRUCT: u32 = 4;
+pub(crate) const KIND_FLOAT: u32 = 5;
+pub(crate) const KIND_BYTES: u32 = 6;
+pub(crate) const KIND_LOCATOR: u32 = 7;
+pub(crate) const KIND_RANGE: u32 = 8;
+pub(crate) const KIND_FN: u32 = 9;
 
 /// Ret shape codes stored on first-class function values.
 pub const FN_SHAPE_PLAIN: i64 = 0;
@@ -68,14 +118,14 @@ pub(crate) struct HeapHeader {
 
 /// Heap list of i64 elements.
 #[repr(C)]
-struct EchoList {
+pub(crate) struct EchoList {
     header: HeapHeader,
     elems: Vec<i64>,
 }
 
 /// Heap UTF-8 string.
 #[repr(C)]
-struct EchoString {
+pub(crate) struct EchoString {
     header: HeapHeader,
     data: String,
 }
@@ -85,7 +135,7 @@ struct EchoString {
 /// `type_name` is the `% Shape` name when constructed as a tagged lit
 /// (`circle { … }`); empty for anonymous `{ … }` and runtime-built products.
 #[repr(C)]
-struct EchoStruct {
+pub(crate) struct EchoStruct {
     header: HeapHeader,
     type_name: String,
     fields: Vec<(String, i64)>,
@@ -93,28 +143,28 @@ struct EchoStruct {
 
 /// Heap-boxed IEEE f64 (universal ABI handle).
 #[repr(C)]
-struct EchoFloat {
+pub(crate) struct EchoFloat {
     header: HeapHeader,
     value: f64,
 }
 
 /// Heap bytes blob (not necessarily UTF-8).
 #[repr(C)]
-struct EchoBytes {
+pub(crate) struct EchoBytes {
     header: HeapHeader,
     data: Vec<u8>,
 }
 
 /// Heap locator (path / URI text).
 #[repr(C)]
-struct EchoLocator {
+pub(crate) struct EchoLocator {
     header: HeapHeader,
     data: String,
 }
 
 /// Inclusive integer range `lo..hi` (empty when lo > hi).
 #[repr(C)]
-struct EchoRange {
+pub(crate) struct EchoRange {
     header: HeapHeader,
     lo: i64,
     hi: i64,
@@ -122,7 +172,7 @@ struct EchoRange {
 
 /// First-class function value: code pointer + return shape.
 #[repr(C)]
-struct EchoFn {
+pub(crate) struct EchoFn {
     header: HeapHeader,
     /// Function pointer bits (same as LLVM `ptrtoint`).
     code: i64,
@@ -194,7 +244,7 @@ pub extern "C" fn echo_runtime_range_new(lo: i64, hi: i64) -> i64 {
         lo,
         hi,
     });
-    Box::into_raw(r) as i64
+    heap_to_handle(r)
 }
 
 fn fn_header() -> HeapHeader {
@@ -213,7 +263,7 @@ pub extern "C" fn echo_runtime_fn_new(code: i64, shape: i64) -> i64 {
         code,
         shape,
     });
-    Box::into_raw(f) as i64
+    heap_to_handle(f)
 }
 
 /// Code pointer bits from a function value handle (0 if invalid).
@@ -534,6 +584,80 @@ pub extern "C" fn echo_runtime_bytes_from_i64(n: i64) -> i64 {
     bytes_to_handle(n.to_le_bytes().to_vec())
 }
 
+// --- Value reflection (`std/reflect` → runtime) --------------------------------
+//
+// Public kind codes align with heap `KIND_*` for heap values; bare integers
+// (non-heap ABI slots, including bool 0/1) are kind `0` (`"int"`).
+
+/// Bare integer / non-heap ABI value (includes bool as 0/1).
+pub const REFLECT_KIND_INT: i64 = 0;
+
+fn reflect_kind_code(v: i64) -> i64 {
+    let Some(h) = (unsafe { header_at(v) }) else {
+        return REFLECT_KIND_INT;
+    };
+    i64::from(unsafe { (*h).kind })
+}
+
+fn reflect_kind_name_str(kind: i64) -> &'static str {
+    match kind {
+        REFLECT_KIND_INT => "int",
+        k if k == i64::from(KIND_LIST) => "list",
+        k if k == i64::from(KIND_STRING) => "string",
+        k if k == i64::from(KIND_STRUCT) => "struct",
+        k if k == i64::from(KIND_FLOAT) => "float",
+        k if k == i64::from(KIND_BYTES) => "bytes",
+        k if k == i64::from(KIND_LOCATOR) => "locator",
+        k if k == i64::from(KIND_RANGE) => "range",
+        k if k == i64::from(KIND_FN) => "fn",
+        _ => "unknown",
+    }
+}
+
+/// Runtime kind code of a universal `i64` ABI value.
+///
+/// `0` = bare int (non-heap). Heap kinds match internal `KIND_*` tags.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_reflect_kind(v: i64) -> i64 {
+    reflect_kind_code(v)
+}
+
+/// Stable kind name string handle (`"int"`, `"string"`, `"bytes"`, …).
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_reflect_kind_name(v: i64) -> i64 {
+    string_to_handle(reflect_kind_name_str(reflect_kind_code(v)).to_string())
+}
+
+/// Kind-tagged byte material for content hashing (map/set keys).
+///
+/// Layout:
+/// - **int** (non-heap): `[0] || le8(bits)`
+/// - **string**: `[2] || utf-8`
+/// - **bytes**: `[6] || payload`
+/// - **other heap**: `[kind] || le8(handle bits)` (identity-stable, not deep content)
+///
+/// Distinct kinds never share a key-bytes prefix, so `1` and `"1"` hash apart.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_reflect_key_bytes(v: i64) -> i64 {
+    if let Some(s) = string_data(v) {
+        let mut out = Vec::with_capacity(1 + s.len());
+        out.push(KIND_STRING as u8);
+        out.extend_from_slice(s.as_bytes());
+        return bytes_to_handle(out);
+    }
+    if let Some(b) = bytes_data(v) {
+        let mut out = Vec::with_capacity(1 + b.len());
+        out.push(KIND_BYTES as u8);
+        out.extend_from_slice(&b);
+        return bytes_to_handle(out);
+    }
+    let kind = reflect_kind_code(v);
+    let mut out = Vec::with_capacity(9);
+    out.push(kind as u8);
+    out.extend_from_slice(&v.to_le_bytes());
+    bytes_to_handle(out)
+}
+
 /// Byte at `index` (0-based) as `i64` in `0..255`.
 ///
 /// Returns `-1` if the handle is not bytes or `index` is out of range.
@@ -553,6 +677,60 @@ pub extern "C" fn echo_runtime_bytes_get(handle: i64, index: i64) -> i64 {
     }
 }
 
+/// Sub-blob by **byte** indices `[start, end)` (half-open).
+///
+/// Empty bytes handle if not bytes or range invalid. Prefer checks in `std/bytes`.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_slice(handle: i64, start: i64, end: i64) -> i64 {
+    let Some(b) = bytes_data(handle) else {
+        return bytes_to_handle(Vec::new());
+    };
+    let len = b.len() as i64;
+    if start < 0 || end < start || end > len {
+        return bytes_to_handle(Vec::new());
+    }
+    bytes_to_handle(b[start as usize..end as usize].to_vec())
+}
+
+/// Concatenate two **bytes** handles → new bytes handle.
+/// Non-bytes arguments contribute empty payloads.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_cat(a: i64, b: i64) -> i64 {
+    let left = bytes_data(a).unwrap_or_default();
+    let right = bytes_data(b).unwrap_or_default();
+    let mut out = Vec::with_capacity(left.len() + right.len());
+    out.extend_from_slice(&left);
+    out.extend_from_slice(&right);
+    bytes_to_handle(out)
+}
+
+/// UTF-8 payload of a string handle as a **bytes** handle (copy).
+/// Empty if not a string.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_from_str(handle: i64) -> i64 {
+    match string_data(handle) {
+        Some(s) => bytes_to_handle(s.into_bytes()),
+        None => bytes_to_handle(Vec::new()),
+    }
+}
+
+/// Byte at `index` of a **string** (UTF-8 bytes) as `i64` in `0..255`.
+///
+/// Returns `-1` if not a string or OOB. Prefer bounds checks in `std/str`.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_str_get(handle: i64, index: i64) -> i64 {
+    let Some(s) = string_data(handle) else {
+        return -1;
+    };
+    if index < 0 {
+        return -1;
+    }
+    match s.as_bytes().get(index as usize) {
+        Some(&byte) => i64::from(byte),
+        None => -1,
+    }
+}
+
 /// Concatenate two string/bytes handles → new string handle.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_cat(a: i64, b: i64) -> i64 {
@@ -563,6 +741,67 @@ pub extern "C" fn echo_runtime_str_cat(a: i64, b: i64) -> i64 {
         .or_else(|| bytes_data(b).map(|b| String::from_utf8_lossy(&b).into_owned()))
         .unwrap_or_default();
     string_to_handle(format!("{left}{right}"))
+}
+
+fn str_utf8(handle: i64) -> Option<String> {
+    string_data(handle)
+        .or_else(|| bytes_data(handle).map(|b| String::from_utf8_lossy(&b).into_owned()))
+}
+
+/// Substring by **UTF-8 byte** indices `[start, end)` (half-open).
+///
+/// Returns empty string handle if the range is invalid (`start < 0`, `end < start`,
+/// `end > len`, or not a string/bytes). Prefer bounds checks in `std/str`.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_str_slice(handle: i64, start: i64, end: i64) -> i64 {
+    let Some(s) = str_utf8(handle) else {
+        return string_to_handle(String::new());
+    };
+    let len = s.len() as i64;
+    if start < 0 || end < start || end > len {
+        return string_to_handle(String::new());
+    }
+    let a = start as usize;
+    let b = end as usize;
+    // Slice may land mid-codepoint; still return those bytes as a new string
+    // (lossy if invalid UTF-8 mid-run is rare for well-formed inputs).
+    string_to_handle(String::from_utf8_lossy(&s.as_bytes()[a..b]).into_owned())
+}
+
+/// 1 if `hay` contains `needle` as a substring (UTF-8 content); else 0.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_str_contains(hay: i64, needle: i64) -> i64 {
+    let Some(h) = str_utf8(hay) else {
+        return 0;
+    };
+    let Some(n) = str_utf8(needle) else {
+        return 0;
+    };
+    i64::from(h.contains(&n))
+}
+
+/// 1 if `s` starts with `prefix`; else 0.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_str_starts_with(s: i64, prefix: i64) -> i64 {
+    let Some(h) = str_utf8(s) else {
+        return 0;
+    };
+    let Some(p) = str_utf8(prefix) else {
+        return 0;
+    };
+    i64::from(h.starts_with(&p))
+}
+
+/// 1 if `s` ends with `suffix`; else 0.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_str_ends_with(s: i64, suffix: i64) -> i64 {
+    let Some(h) = str_utf8(s) else {
+        return 0;
+    };
+    let Some(p) = str_utf8(suffix) else {
+        return 0;
+    };
+    i64::from(h.ends_with(&p))
 }
 
 /// Build a locator handle from UTF-8 path/URI bytes (copied).
@@ -587,7 +826,7 @@ pub extern "C" fn echo_runtime_float_from_f64(v: f64) -> i64 {
         header: float_header(),
         value: v,
     });
-    Box::into_raw(f) as i64
+    heap_to_handle(f)
 }
 
 /// Unbox a float handle to `f64`. Non-float handles fall back to bitcast of the
@@ -623,7 +862,7 @@ pub(crate) fn string_to_handle(data: String) -> i64 {
         header: string_header(),
         data,
     });
-    Box::into_raw(s) as i64
+    heap_to_handle(s)
 }
 
 pub(crate) fn string_data(v: i64) -> Option<String> {
@@ -649,7 +888,7 @@ pub(crate) fn bytes_to_handle(data: Vec<u8>) -> i64 {
         header: bytes_header(),
         data,
     });
-    Box::into_raw(b) as i64
+    heap_to_handle(b)
 }
 
 pub(crate) fn bytes_data(v: i64) -> Option<Vec<u8>> {
@@ -666,7 +905,7 @@ fn locator_to_handle(data: String) -> i64 {
         header: locator_header(),
         data,
     });
-    Box::into_raw(loc) as i64
+    heap_to_handle(loc)
 }
 
 fn locator_data(v: i64) -> Option<String> {
@@ -819,7 +1058,7 @@ pub extern "C" fn echo_runtime_string_builder_new() -> i64 {
         },
         buf: String::new(),
     });
-    Box::into_raw(b) as i64
+    heap_to_handle(b)
 }
 
 /// # Safety
@@ -893,7 +1132,7 @@ pub extern "C" fn echo_runtime_list_new() -> i64 {
         header: list_header(),
         elems: Vec::new(),
     });
-    Box::into_raw(list) as i64
+    heap_to_handle(list)
 }
 
 /// Push one i64 element onto a list handle.
@@ -941,6 +1180,32 @@ pub unsafe extern "C" fn echo_runtime_list_len(list: i64) -> i64 {
         }
         _ => 0,
     }
+}
+
+/// Wall-clock milliseconds since Unix epoch (UTC). Non-negative; 0 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_now_ms() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(d) => {
+            let ms = d.as_millis();
+            if ms > i64::MAX as u128 {
+                i64::MAX
+            } else {
+                ms as i64
+            }
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Sleep at least `ms` milliseconds. Negative or zero is a no-op.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_sleep_ms(ms: i64) {
+    if ms <= 0 {
+        return;
+    }
+    std::thread::sleep(std::time::Duration::from_millis(ms as u64));
 }
 
 /// Element at index for list **or** inclusive range, or 0 if OOB / null.
@@ -1003,7 +1268,7 @@ pub extern "C" fn echo_runtime_struct_new() -> i64 {
         type_name: String::new(),
         fields: Vec::new(),
     });
-    Box::into_raw(st) as i64
+    heap_to_handle(st)
 }
 
 /// Allocate an empty struct tagged with a `% Shape` type name.
@@ -1026,7 +1291,7 @@ pub unsafe extern "C" fn echo_runtime_struct_new_named(
         type_name,
         fields: Vec::new(),
     });
-    Box::into_raw(st) as i64
+    heap_to_handle(st)
 }
 
 /// Return 1 if `handle` is a struct whose type tag equals `name`, else 0.
@@ -1270,6 +1535,76 @@ mod tests {
         assert!(unsafe { header_at(h) }.is_some());
         // Integers are not heap objects.
         assert!(unsafe { header_at(42) }.is_none());
+    }
+
+    #[test]
+    fn str_slice_and_contains() {
+        let s = "abcdef";
+        let h = unsafe { echo_runtime_string_from_utf8(s.as_ptr(), s.len()) };
+        assert_eq!(
+            string_data(echo_runtime_str_slice(h, 1, 4)).as_deref(),
+            Some("bcd")
+        );
+        let needle = unsafe { echo_runtime_string_from_utf8(b"cd".as_ptr(), 2) };
+        assert_eq!(echo_runtime_str_contains(h, needle), 1);
+        let pref = unsafe { echo_runtime_string_from_utf8(b"ab".as_ptr(), 2) };
+        assert_eq!(echo_runtime_str_starts_with(h, pref), 1);
+        let suf = unsafe { echo_runtime_string_from_utf8(b"ef".as_ptr(), 2) };
+        assert_eq!(echo_runtime_str_ends_with(h, suf), 1);
+        assert_eq!(
+            string_data(echo_runtime_str_slice(h, 0, 99)).as_deref(),
+            Some("")
+        );
+        assert_eq!(echo_runtime_str_get(h, 0), i64::from(b'a'));
+        assert_eq!(echo_runtime_str_get(h, 99), -1);
+    }
+
+    #[test]
+    fn bytes_slice_cat_from_str() {
+        let raw = b"abcdef";
+        let h = unsafe { echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len()) };
+        let mid = echo_runtime_bytes_slice(h, 1, 4);
+        assert_eq!(bytes_data(mid).as_deref(), Some(&b"bcd"[..]));
+        let ab = echo_runtime_bytes_cat(
+            unsafe { echo_runtime_bytes_from_ptr(b"A".as_ptr(), 1) },
+            unsafe { echo_runtime_bytes_from_ptr(b"B".as_ptr(), 1) },
+        );
+        assert_eq!(bytes_data(ab).as_deref(), Some(&b"AB"[..]));
+        let s = unsafe { echo_runtime_string_from_utf8(b"Hi".as_ptr(), 2) };
+        assert_eq!(
+            bytes_data(echo_runtime_bytes_from_str(s)).as_deref(),
+            Some(&b"Hi"[..])
+        );
+    }
+
+    #[test]
+    fn reflect_kind_and_key_bytes() {
+        assert_eq!(echo_runtime_reflect_kind(42), REFLECT_KIND_INT);
+        assert_eq!(
+            string_data(echo_runtime_reflect_kind_name(42)).as_deref(),
+            Some("int")
+        );
+        let kb = echo_runtime_reflect_key_bytes(0x0102_i64);
+        let raw = bytes_data(kb).expect("int key bytes");
+        assert_eq!(raw[0], 0);
+        assert_eq!(&raw[1..], &0x0102_i64.to_le_bytes());
+
+        let s = "hi";
+        let sh = unsafe { echo_runtime_string_from_utf8(s.as_ptr(), s.len()) };
+        assert_eq!(echo_runtime_reflect_kind(sh), i64::from(KIND_STRING));
+        assert_eq!(
+            string_data(echo_runtime_reflect_kind_name(sh)).as_deref(),
+            Some("string")
+        );
+        let sk = bytes_data(echo_runtime_reflect_key_bytes(sh)).expect("str key");
+        assert_eq!(sk[0], KIND_STRING as u8);
+        assert_eq!(&sk[1..], b"hi");
+
+        let bh = echo_runtime_bytes_from_i64(7);
+        assert_eq!(echo_runtime_reflect_kind(bh), i64::from(KIND_BYTES));
+        let bk = bytes_data(echo_runtime_reflect_key_bytes(bh)).expect("bytes key");
+        assert_eq!(bk[0], KIND_BYTES as u8);
+        assert_eq!(&bk[1..], &7_i64.to_le_bytes());
     }
 
     #[test]

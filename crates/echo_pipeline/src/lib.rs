@@ -313,6 +313,17 @@ fn collect_stmt_facts(stmts: &[HirStmt], model: &mut SemanticModel) {
                     );
                 }
             }
+            HirStmt::EffectBlock { bind, body, span } => {
+                collect_stmt_facts(body, model);
+                if let Some(name) = bind {
+                    model.introduce(
+                        name.clone(),
+                        BindingKind::Immutable,
+                        ValueKind::Unknown,
+                        *span,
+                    );
+                }
+            }
             HirStmt::FieldAssign { .. }
             | HirStmt::IndexAssign { .. }
             | HirStmt::Return { .. }
@@ -929,12 +940,12 @@ $ add1 = (a) {
             .program
             .functions
             .iter()
-            .find(|f| f.name == "get" && f.module_path.ends_with("map.echo"))
-            .expect("map get");
+            .find(|f| f.name == "__m_map_get" && f.module_path.ends_with("map.echo"))
+            .expect("map get method");
         assert_eq!(
             map_get.ret,
             echo_mir::MirRetShape::Option,
-            "map.get must be option-shaped"
+            "map.get method must be option-shaped"
         );
         // make().seed must call map.seed (Result), not hash_table.seed (Plain).
         use echo_mir::{CallTarget, MirExpr, MirStmt};

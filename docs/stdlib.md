@@ -34,7 +34,7 @@ Bare `print` is unbound unless the user writes `$ print = …` (ordinary local,
 | Rule | Meaning |
 |------|---------|
 | Form | `/ std/…` |
-| Root | (1) **System/install** Echo std, (2) **workspace `std/`** for toolchain dev |
+| Root | (1) **Install prefix** co-located `std/` (`<prefix>/bin/xo` + `<prefix>/std`, via `scripts/install.sh`), (2) **workspace `std/`** for toolchain dev |
 | Identity | Canonical path under that root |
 | User `./std` | Ordinary relative package — **not** privileged |
 
@@ -198,6 +198,56 @@ Two layers — do **not** mix responsibilities:
 | **`/ runtime`** (std sources only) | Free functions only (`runtime.tcp_listen`, …) | Thin bridge to `echo_runtime_*`. **No** methods. **No** user-facing types. |
 | **`/ std/…`** | Ordinary Echo: **`%` shapes + free helpers and/or methods** | Product API. Named structs carry methods when useful; free fns OK too. |
 
+### Build order (locked method)
+
+**Always build runtime primitives first, then construct std on top.**
+
+```text
+1. echo_runtime          echo_runtime_*  (C ABI, AOT staticlib + JIT map)
+2. echo_codegen_abi      RT_* name constants
+3. echo_std              RUNTIME_EXPORTS  (runtime.export → native)
+4. echo_codegen          declare + arity + JIT map for that symbol
+5. std/**.echo           / runtime + thin wrappers, policy, % shapes
+6. proofs                crate tests + xo test std/… + docs bump
+```
+
+| Rule | Meaning |
+|------|---------|
+| **Need OS/heap/UTF-8/clock?** | New `echo_runtime_*` first — never invent that in Echo alone |
+| **Need result policy / types / names?** | Std only (`! "out of bounds"`, `% conn`, export discipline) |
+| **Pure Echo enough?** | No new runtime (e.g. `list.is_empty` = `len == 0`, `set` over `hash_table`) |
+| **Language syntax** | Separate: list lits, for-in, `==` may emit `echo_runtime_*` **without** a `/ runtime` import — not std |
+| **Userland** | Only `/ std/…` — never `/ runtime`, never `echo_runtime_*` |
+
+Authority for names: `echo_codegen_abi` + `RUNTIME_EXPORTS` must match `#[no_mangle]` in `echo_runtime`.  
+See also [`runtime-abi.md`](runtime-abi.md).
+
+### Domain map (primitives → std)
+
+| Domain | Runtime package (`runtime.*`) | Std product | Pure Echo on top |
+|--------|------------------------------|-------------|------------------|
+| **I/O print** | `print` | `std/io` | — |
+| **String** | `str_from_*`, `str_len`, `str_cat`, `str_get`, `str_slice`, `str_contains`, `str_starts_with`, `str_ends_with` | `std/str` | `is_empty`; result policy on `get`/`slice` |
+| **Bytes** | `bytes_len`, `bytes_get`, `bytes_slice`, `bytes_cat`, `bytes_from_i64`, `bytes_from_str` | `std/bytes` | `is_empty`; result policy on `get`/`slice` |
+| **List** | `list_len`, `list_get` (+ language push/index) | `std/list` | `is_empty`, `contains` |
+| **Time** | `now_ms`, `sleep_ms` | `std/time` | — |
+| **Reflect** | `reflect_kind`, `reflect_kind_name`, `reflect_key_bytes` | `std/reflect` | `is_*`, `KIND_*` |
+| **Test** | `test_register`, `test_fail`, `test_finish` | `std/test` | `eq` / `true` / … |
+| **Net TCP/UDP** | `tcp_*`, `udp_*` | `std/net/tcp`, `udp` | `% conn` / methods |
+| **HTTP** | `http_parse_request`, `http_*_complete` | `std/net/http` + request/response/server | serve loop |
+| **Crypto / collections** | — (hash is pure Echo + `bytes`) | `std/crypto/hash`, `std/collections/*` | SipHash, map/set/table |
+
+**Language-owned** (not `/ runtime` package, still `echo_runtime_*` from syntax): list
+lits, for-in, struct field ops, deep `==`, scope ownership, tasks, string builders.
+
+### Checklist for a new std feature
+
+1. **Classify** — needs native? or pure Echo?
+2. If native: implement + unit-test in `echo_runtime`; add `RT_*` + `RUNTIME_EXPORTS` + codegen declare/arity/JIT.
+3. Bump `RUNTIME_ABI_VERSION` / `STDLIB_VERSION` as appropriate.
+4. Write `std/…` wrappers (policy, result shapes, exports); co-located `xo test`.
+5. Update this inventory + [`runtime-abi.md`](runtime-abi.md) symbol table when durable.
+
 **Net layout:** protocol **folders** (`/ std/net/tcp`, `/ std/net/udp`); role
 files inside (`conn`, `listener`, `socket`). Import one path, get union exports.
 
@@ -274,12 +324,62 @@ No `*_ops` in std for now. Multi-file `@` remains legal language (demo:
 - Free functions `$ name = (args) { … }` and/or methods on `%` types
 - Module-scoped imports only (`docs/modules.md`)
 
+## Export discipline (locked)
+
+**`\ name` is the only public/private control for std (and user modules).**
+Importers may use **only** exported free names and **exported** `%` / type
+shapes. Everything else in a file is **file-private** — including helpers,
+constants, and co-located `test.it` cases.
+
+| Kind | Public? | Rule |
+|------|---------|------|
+| Free `$ name` | Only if listed in `\ …` | Factories, pure free ops, suite entrypoints |
+| `% type` | Only if the type name is listed in `\ …` | Product ADTs; **methods travel with the type** (no separate `\ put`) |
+| `# CONST` | Only if listed (rare) | Prefer methods / free fns over raw constants in public API |
+| Nested helpers | Never | Keep unexported; same-file use only |
+| Implementation types (`entry`, internal state) | Never | Do not `\ entry` just because map needs buckets |
+| Co-located suite | Never | `test.it` is not an export |
+
+### How to write `\ `
+
+1. **Start empty** — then add only names an app or another std module must call.
+2. **One line of intent** in the file header: what importers are allowed to use.
+3. **Prefer methods on an exported type** over free `module.op(value, …)` for
+   instance APIs (`m.put` not `map.put(m, …)`).
+4. **Prefer free factories** on the module (`map.make`, `map.from_indexed`).
+5. **Do not export** internal structs, bucket constants, or serve-loop plumbing
+   unless they are a deliberate product API.
+6. **Cross-std imports obey the same line** — `map` may only use what
+   `hash_table` exports; it cannot reach `empty_buckets` without an export.
+
+### Target public surfaces (inventory)
+
+| Module | Export | Intentionally private |
+|--------|--------|------------------------|
+| `std/io` | `print`, `log`, `eprint` | — |
+| `std/str` | `from_*`, `len`, `is_empty`, `cat`, `contains`, `starts_with`, `ends_with`, `get`, `slice` | suite |
+| `std/list` | `len`, `is_empty`, `get`, `contains` | suite |
+| `std/bytes` | `len`, `is_empty`, `get`, `slice`, `cat`, `from_int`, `from_str` | suite |
+| `std/reflect` | `kind`, `kind_name`, `key_bytes`, `is_*`, `KIND_*` | suite (not tools `echo_reflection`) |
+| `std/time` | `now_ms`, `sleep_ms` | suite |
+| `std/test` | `it`, `eq`, `ne`, `true`, `false`, `fail` | — |
+| `std/crypto/hash` | `sip` | `sip_state`, `rotl`, `sip_round`, `byte_at`, `load_le`, paper keys |
+| `std/collections/hash_table` | `hash_table`, `make` | `entry`, `empty_buckets`, SipHash constants; field `capacity`; keys via `reflect.key_bytes` |
+| `std/collections/map` | `map`, `make`, `from_indexed` | suite; keys/values/entries/`to_list` (entries) snapshots |
+| `std/collections/set` | `set`, `make`, `from_list` | suite; `values`/`to_list` members (no `keys`) |
+| `std/net/tcp` | `conn`, `listener`, free `listen`/`connect`/… | — |
+| `std/net/udp` | `socket`, free bind/send/recv/close | — |
+| `std/net/http` (+ request/response/server) | types; `serve`, parse/format, response helpers, `dispatch`, `handle_connection` | `status_reason` |
+
+When you add a std helper, **default is private**. Export is an explicit product
+decision, recorded on the `\ ` line and in this inventory when durable.
+
 ## Implementation status
 
 | Piece | Status |
 |-------|--------|
 | Design / docs | **Locked** (this file) |
-| Privileged std root in resolver | Workspace package roots (install root later) |
+| Privileged std root in resolver | Entry walk + cwd + `$XO_INSTALL_ROOT` + parent of `bin/xo` when `std/` is co-installed |
 | `/ runtime` gate + virtual package | **Done** (`res-runtime-forbidden`; `<echo:runtime>`) |
 | `runtime.*` → `echo_runtime_*` in codegen | **Done** (`runtime.print` → `echo_runtime_print_i64`) |
 | Runtime free-only (no methods on runtime) | **Locked** |
@@ -289,14 +389,16 @@ No `*_ops` in std for now. Multi-file `@` remains legal language (demo:
 | `std/net/tcp/` | **Done** — folder: `conn` + `listener` shapes + `socket` free surface |
 | `std/net/udp/` | **Done** — folder: `% socket` + free reify surface (struct by ref) |
 | `std/net/http` serve / handle_connection | **Done** — accept loop + `+ handle_connection`; **Content-Length body** via `http_request_complete` |
-| `std/str.len` | **Done** — `runtime.str_len` |
-| `std/list.len` | **Done** — `runtime.list_len` (lists + inclusive ranges) |
-| `std/bytes` | **Done** — `len` / `get` (`ui8` ok, `! "out of bounds"`) via `runtime.bytes_*` |
+| `std/str` | **Done** — conversions + text ops + byte `get`/`slice` |
+| `std/bytes` | **Done** — `get`/`slice`/`cat`/`from_int`/`from_str` |
+| `std/list` | **Done** — `len` / `is_empty` / result `get` / `contains` |
+| `std/time` | **Done** — `now_ms` / `sleep_ms` via `runtime.now_ms` / `sleep_ms` |
+| `std/reflect` | **Done** — runtime kind API; checker params often `value` ([`semantics.md`](semantics.md)) |
 | `std/crypto/hash` | **Done** — folder module; `sip(k0, k1, msg)` SipHash-2-4 → `ui64` |
-| `std/collections/hash_table` | **Done** — SipHash buckets; fluent `make().seed(k0, k1)` |
-| `std/collections/map` | **Done** — wraps hash_table; same fluent seed; free put/get |
-| `std/collections/set` | **Done** — wraps hash_table; fluent seed; free add/has |
-| `std/str.cat` | **Done** — `runtime.str_cat` |
+| `std/collections/hash_table` | **Done** — `hash_key` → `reflect.key_bytes`; CRUD + grow + snapshots; mixed keys |
+| `std/collections/map` | **Done** — CRUD + snapshots + factories; mixed keys |
+| `std/collections/set` | **Done** — add/remove/has/len + `values` snapshot + factories; mixed members |
+| Std export discipline | **Locked** — this file § Export discipline; inventory table |
 | Method type after free-fn return (named struct) | **Done** — lit + call-chain + monomorphic `returns_structs` |
 | Method type after union return | **Done** — refine via `%` match |
 | Method on raw runtime product/handle | **Out** — wrap in `%` in std instead |

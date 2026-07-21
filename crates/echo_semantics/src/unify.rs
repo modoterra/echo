@@ -13,6 +13,16 @@ pub fn unify(subst: &mut Subst, a: &Type, b: &Type, span: Span, diags: &mut Diag
     match (&a, &b) {
         (Type::Error, t) | (t, Type::Error) => t.clone(),
         (Type::Unknown, t) | (t, Type::Unknown) => t.clone(),
+        // Universal ABI: accept any concrete kind; stay `value` (do not freeze).
+        (Type::Value, Type::Var(v)) | (Type::Var(v), Type::Value) => {
+            if occurs(*v, &Type::Value, subst) {
+                mismatch(diags, span, &a, &b);
+                return Type::Error;
+            }
+            subst.insert(*v, Type::Value);
+            Type::Value
+        }
+        (Type::Value, _) | (_, Type::Value) => Type::Value,
         (Type::Var(v), t) | (t, Type::Var(v)) => {
             if let Type::Var(w) = t {
                 if v == w {
@@ -34,6 +44,10 @@ pub fn unify(subst: &mut Subst, a: &Type, b: &Type, span: Span, diags: &mut Diag
         (Type::UInt16, Type::UInt16) => Type::UInt16,
         (Type::UInt32, Type::UInt32) => Type::UInt32,
         (Type::UInt64, Type::UInt64) => Type::UInt64,
+        // Default untagged/`<i64>` int yields to a more specific integer width
+        // so untagged literals adopt the lane of `ui64` fields/ops.
+        (Type::Int, t) if is_specific_int(t) => t.clone(),
+        (t, Type::Int) if is_specific_int(t) => t.clone(),
         (Type::Float, Type::Float) => Type::Float,
         (Type::Float32, Type::Float32) => Type::Float32,
         (Type::Bool, Type::Bool) => Type::Bool,
@@ -114,6 +128,20 @@ pub fn unify(subst: &mut Subst, a: &Type, b: &Type, span: Span, diags: &mut Diag
             Type::Error
         }
     }
+}
+
+/// Non-default integer widths (`i8`…`i32`, `ui*`). Default untagged/`i64` is [`Type::Int`].
+fn is_specific_int(t: &Type) -> bool {
+    matches!(
+        t,
+        Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+    )
 }
 
 fn occurs(v: VarId, t: &Type, subst: &Subst) -> bool {

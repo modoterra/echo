@@ -28,18 +28,18 @@ pub const INDEX_VERSION: u32 = 1;
 pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const RESOLVER_VERSION: u32 = 1;
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 6; // outer function values not capture
-pub const HIR_LOWERER_VERSION: u32 = 16; // bare () { } expr → synthetic FnRef
+pub const SEMANTICS_VERSION: u32 = 9; // Type::Value + free-param pin
+pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 18; // import fnret + field types for methods
-pub const MIR_SCHEMA_VERSION: u32 = 3; // Range
+pub const MIR_LOWERER_VERSION: u32 = 24; // materialize managed return once (no double Call)
+pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 12; // IR cache keys embed full lower stack
+pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 18; // test suite register/finish/fail
-pub const STDLIB_VERSION: u32 = 11; // std/list.len
+pub const RUNTIME_ABI_VERSION: u32 = 28; // bytes_slice/cat/from_str + str_get
+pub const STDLIB_VERSION: u32 = 17; // map/set to_list for for-in
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

@@ -126,7 +126,7 @@ pub fn analyze_escapes(
                     mark_names_in(base, EscapeClass::Unknown, &mut escapes, &mut parent);
                     mark_names_in(value, EscapeClass::EscapesToHeap, &mut escapes, &mut parent);
                 }
-                MirOp::Phi { .. } | MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}
+                MirOp::Phi { .. } | MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } | MirOp::ScopeEnter { .. } | MirOp::ScopeExit { .. } | MirOp::ScopeRegister { .. } | MirOp::ScopePromote { .. } | MirOp::ScopeDisown { .. } | MirOp::ScopeRelease { .. } => {}
             }
         }
         match &b.term {
@@ -514,7 +514,18 @@ fn elide_noescape_scalar_boxes(
                     collect_uses(base, &mut used);
                     collect_uses(value, &mut used);
                 }
-                MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}
+                MirOp::MatchPayload { .. }
+                | MirOp::TaskSpawn { .. }
+                | MirOp::TaskSpawnFn { .. }
+                | MirOp::TaskJoin { .. }
+                | MirOp::ScopeEnter { .. }
+                | MirOp::ScopeExit { .. } => {}
+                MirOp::ScopeRegister { value }
+                | MirOp::ScopePromote { value, .. }
+                | MirOp::ScopeDisown { value }
+                | MirOp::ScopeRelease { value } => {
+                    collect_uses(value, &mut used);
+                }
             }
         }
         match &b.term {

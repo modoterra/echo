@@ -7,6 +7,16 @@ cd echo
 cargo build -p xo
 ./target/debug/xo --help`;
 
+const USER_INSTALL = `# From the checkout: release build + XDG install + ~/.local/bin/xo
+./scripts/install.sh
+./scripts/install.sh doctor
+
+# Upgrade (keeps prior toolchain dirs)
+./scripts/install.sh upgrade
+
+# Uninstall toolchain (add --purge to also clear $XO_HOME packages)
+./scripts/uninstall.sh`;
+
 const FIRST_RUN = `./target/debug/xo run examples/misc/hello.echo
 ./target/debug/xo run examples/misc/sum_list.echo`;
 
@@ -51,6 +61,25 @@ export function InstallPage() {
           </p>
           <div className="mt-6">
             <InstallSnippet code={CLONE_BUILD} />
+          </div>
+        </section>
+
+        <section className="mt-14">
+          <h2 className="text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
+            Install to PATH (XDG)
+          </h2>
+          <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+            Optional: install a co-located{" "}
+            <span className="font-mono font-semibold text-slate-800">xo</span> +{" "}
+            <span className="font-mono font-semibold text-slate-800">std</span> under XDG data, link{" "}
+            <span className="font-mono font-semibold text-slate-800">~/.local/bin/xo</span>, and
+            create package cache / state dirs. Upgrade flips{" "}
+            <span className="font-mono text-slate-800">current</span> without wiping packages.
+            Details: implementer doc{" "}
+            <span className="font-mono text-slate-800">docs/install.md</span>.
+          </p>
+          <div className="mt-6">
+            <InstallSnippet code={USER_INSTALL} />
           </div>
         </section>
 

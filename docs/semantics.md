@@ -19,6 +19,39 @@ Local semantic and type analysis: bindings, scopes, and analysis diagnostics.
   `option`, …). Kinds enter the language **only through surface syntax**
   (literals, leaders, shapes) and checker/runtime labels used in diagnostics.
 
+### Checker holes: `unknown` vs `value` (internal)
+
+Neither is a surface keyword or generics. Both appear only in checker
+diagnostics / inference.
+
+| Label | Role | Unify |
+|-------|------|--------|
+| **`unknown`** | Soft hole — not enough information **yet** | `unknown ⊔ T → T` (**adopts**, then freezes) |
+| **`value`** | Universal ABI slot — intentionally dynamic | `value ⊔ T → value` (**stays** open) |
+
+**`unknown` examples:** empty list element (`[]` → `list[unknown]` until first
+element); other soft placeholders. First concrete use freezes the kind (lists
+stay **homogeneous** once known).
+
+**`value` examples:** unconstrained fn/method params that only deep-equal,
+store/load, or pass through to flexible callees (`runtime.*`, …). After the
+body, free param vars are **pinned to `value`**. Fields that shared those vars
+(e.g. `entry.key`) become `value` too. Bare fields like `map.table` are **not**
+auto-pinned (they often become a named struct).
+
+| Allowed on `value` | Rejected on `value` |
+|--------------------|---------------------|
+| Deep `==` / `!=` | Arithmetic / bit ops |
+| Mixed call sites (`put(1)` and `put("a")`) | Field / method access (need a concrete / named kind) |
+| `std/reflect` inputs; map/set keys | — |
+
+**Runtime always knows the concrete kind of each slot** (heap header or bare
+int) even when the checker says `value`. Use `/ std/reflect` (`kind`,
+`kind_name`, `key_bytes`) to branch in userland. See [`runtime-abi.md`](runtime-abi.md).
+
+Method receiver `.` is the enclosing `% Shape`, so `^ .` is that named shape —
+not collapsed to `value`.
+
 ### Literal width tags (not types / not generics)
 
 Echo has **no** surface type-annotation language and **no** generics. The **only**
@@ -73,6 +106,17 @@ allowed in the digit body. Untagged ints run as signed **`i64`**.
 - **No silent widen/narrow** between widths (including `ui8` → `ui64`). Use an
   **explicit width cast** on a value: `<ui64> x` (see syntax). Hash / crypto
   code should use **`ui64`** lanes and zext from `ui8` explicitly.
+- **`%` data field width from default** — when a shape member has `= expr` and
+  `expr` has a definite width (e.g. `~ v0 = <ui64> 0`), that is the field’s
+  width for loads, stores, and ops. No separate `: ui64` ascription required.
+  Writes must match (or cast into the field). Fields without a default stay
+  unconstrained until a monomorphic write.
+- **Default `i64` yields to a more specific int width** — untagged integer
+  literals (and other default-`i64` values) adopt the other operand’s lane in
+  binary ops and unifies (`s.v0 + 1`, `rotl(s.v1, 13)` when `s.v1` is `ui64`).
+  Two different **explicit** non-default widths still do not mix
+  (`<i32> 1 + <ui64> 2` → error). Free-fn parameters still cross a universal
+  ABI (re-tag at entry if you need logical `>>` inside the callee).
 - Unsigned `>>` is **logical**; signed `>>` is **arithmetic**.
 - **No** suffix form `42<i32>`. **Not** bind ascription (`$ x : …` is out).
 - Tags apply to **numeric literals** and **explicit casts** of integer/float
@@ -91,13 +135,13 @@ introduced **by syntax** (or by `%` name for named shapes):
 | string | `'…'` / `"…"` (pure vs rich is lit syntax only) |
 | bytes | `b'…'` / `b"…"` |
 | duration | `5s`, `10ms`, `2m`, `1h` |
-| list | `[a, b, c]`; `[]` element unknown until use |
+| list | `[a, b, c]`; `[]` element **unknown** until use (then homogeneous) |
 | anon product | `{ k: v }` — not a map |
 | named shape | `% name` + `name { … }` / `mod.name { … }` |
 | **result** | any `!` path in a function (`^` ok / `!` err) — **not** a struct |
 | **option** | bare `^` + valued `^`, no `!` — **not** a struct; **no** `?expr` |
 | function | `(…){ … }` values |
-| map / set / … | **stdlib later**, not core lits |
+| map / set keys | **stdlib** (`/ std/collections/…`); checker key kind often **`value`** |
 
 **`result` / `option` are not user types:** they are return *shapes* of
 functions, produced and consumed only via `^` / `!` and `|` match arms. There is
@@ -107,15 +151,25 @@ names (no keywords).
 ### Collections
 
 ```echo
-$ xs = [1, 2, 3]           ; List
+$ xs = [1, 2, 3]           ; List (homogeneous once elements known)
 $ row = { name: "Ada", n: 1 }  ; anon struct (product), NOT a map
 $ u = user { name: "Ada", visits: 0 }  ; nominal struct
+$ m = map.make()           ; std map — keys may be int / string / … (value)
+m.put(1, 10)
+m.put("a", 20)
 ```
 
-- **`[]` stays the list literal** — do not overload for set/map.
-- **Maps, sets, and other structures** are **stdlib later**, not language
-  literals. Core stays list + anon/named structs.
+- **`[]` is the list literal** — not set/map.
+- **Lists** infer a single element kind (`unknown` → first concrete); mixed
+  `xs[] = 1` then `xs[] = "a"` is a check error unless the element kind is
+  already `value`.
 - **`{ k: v }` = anonymous struct** (structural fields). **Not** a map.
+- **Maps / sets / hash_table** live in **stdlib** (`docs/stdlib.md`). Membership
+  uses deep `==` and SipHash over `reflect.key_bytes` (kind-tagged so `1` ≠ `"1"`).
+  Map: `keys` / `values` / `entries` / **`to_list`** (= entries). Set: **`values` /
+  `to_list`** (members). For-in (`* x : …`) is **list or range only** at the
+  language level — iterate a snapshot: `* x : s.to_list() { … }`,
+  `* e : m.to_list() { … }` (`e.key` / `e.value`).
 
 ### Option (core)
 
@@ -424,6 +478,19 @@ struct or list  → copy the reference (share)
 anything else   → copy the value
 ```
 
+#### Managed heap lifetime (law — ADR 0016)
+
+**Every managed allocation is assigned an owning lexical or dynamic scope.**
+Semantic lifetime analysis lowers scope transitions into MIR **promotion**,
+**demotion**, and **release**. **Every control-flow edge leaving a scope
+deterministically disposes of values still owned by that scope.**
+
+This is the reclamation model (not tracing GC). Value-vs-ref pass rules above
+are orthogonal: ref types may still share storage, but **ownership for dispose**
+is scope-based. **Impl (slice 1):** MIR injects explicit scope ops; runtime
+keeps exact ownership registries; physical free is deferred until analysis is
+precise enough for safe immediate reclaim.
+
 #### IR taxonomy (HIR/MIR direction)
 
 Every data operand is a `Value`:
@@ -690,7 +757,8 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | Assign target name must already exist | `sem-unbound` |
 | List push `~ xs[] = e` / `~ a.b[] = e` | append via runtime list_push (index omitted) |
 | `module.foo` not an export | `sem-module-export` |
-| Unhandled Result / Option value | `sem-unhandled-result` / `sem-unhandled-option` |
+| Unhandled Result / Option value | `sem-unhandled-result` / `sem-unhandled-option` (suppressed inside `&` effect blocks) |
+| Effect block (`&`) | Body auto-unwraps free/module call results that are result/option; bind is `Value` (ok payload or err/none payload) |
 | Incomplete/wrong `|` arms | `sem-match-incomplete` / `sem-match-arm` |
 | `!` outside function | `sem-error-return` |
 | Kind mismatch | `sem-type-mismatch` |

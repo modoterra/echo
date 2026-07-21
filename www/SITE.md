@@ -35,6 +35,11 @@ Zig clarity + TypeScript pedagogy + Elixir polish.
 | Echo 2026         | `/e26`     | Edition + Spec TOC + suite |
 | **Install** (CTA) | `/install` | Solid button; get `xo`     |
 
+## Docs left rail
+
+The left docs TOC uses the same slate track + gradient train as **On this page**
+(right column). Nested children use the same pattern as `echo-php-old`.
+
 ## Homepage sections
 
 1. Hero (definition + CTAs + source → `xo` → native visual)

@@ -1,19 +1,24 @@
 ; std/crypto/hash/sip — SipHash-2-4 (Aumasson & Bernstein).
-; Folder module `/ std/crypto/hash` exports `sip` → call as `hash.sip(k0, k1, msg)`.
+; Folder module `/ std/crypto/hash` → `hash.sip(k0, k1, msg)`.
 ;
 ; k0, k1: ui64 key halves (little-endian 128-bit key).
-; msg: bytes (`b'…'` / `b"…"`).
-; Returns ui64 digest.
+; msg: bytes. Returns ui64 digest.
+;
+; Public API (export discipline — docs/stdlib.md): \ sip
+; Private: sip_state, rotl, sip_round, byte_at, load_le, paper constants, suite.
+;
+; Width discipline: tag field defaults + paper constants once; untagged lits
+; adopt ui64 lanes. Re-tag only at free-fn ABI entry and ui8→ui64 zext.
 ;
 ; Suite: paper key 00..0f; co-located `xo test` cases (XO_TEST).
 
 / std/bytes
 / std/test
 
-# C0 = 0x736f6d6570736575
-# C1 = 0x646f72616e646f6d
-# C2 = 0x6c7967656e657261
-# C3 = 0x7465646279746573
+# C0 = <ui64> 0x736f6d6570736575
+# C1 = <ui64> 0x646f72616e646f6d
+# C2 = <ui64> 0x6c7967656e657261
+# C3 = <ui64> 0x7465646279746573
 
 % sip_state {
     ~ v0 = <ui64> 0
@@ -22,40 +27,38 @@
     ~ v3 = <ui64> 0
 }
 
+; Free-fn params are universal i64 — re-enter ui64 for logical `>>`.
 $ rotl = (x, b) {
-    ; Force ui64 so `>>` is logical even if the caller passed a boxed/i64 value.
     $ xu = <ui64> x
-    $ n = <ui64> b & <ui64> 63
-    ? n == <ui64> 0 {
+    $ n = <ui64> b & 63
+    ? n == 0 {
         ^ xu
     }
-    ^ (xu << n) | (xu >> (<ui64> 64 - n))
+    ^ (xu << n) | (xu >> (64 - n))
 }
 
-; Cast loads to ui64: struct fields are stored as universal values today;
-; unsigned shifts must see `ui64` so `>>` stays logical.
 $ sip_round = (s) {
-    ~ s.v0 = <ui64> s.v0 + <ui64> s.v1
-    ~ s.v1 = rotl(<ui64> s.v1, <ui64> 13)
-    ~ s.v1 = <ui64> s.v1 ^ <ui64> s.v0
-    ~ s.v0 = rotl(<ui64> s.v0, <ui64> 32)
+    ~ s.v0 = s.v0 + s.v1
+    ~ s.v1 = rotl(s.v1, 13)
+    ~ s.v1 = s.v1 ^ s.v0
+    ~ s.v0 = rotl(s.v0, 32)
 
-    ~ s.v2 = <ui64> s.v2 + <ui64> s.v3
-    ~ s.v3 = rotl(<ui64> s.v3, <ui64> 16)
-    ~ s.v3 = <ui64> s.v3 ^ <ui64> s.v2
+    ~ s.v2 = s.v2 + s.v3
+    ~ s.v3 = rotl(s.v3, 16)
+    ~ s.v3 = s.v3 ^ s.v2
 
-    ~ s.v0 = <ui64> s.v0 + <ui64> s.v3
-    ~ s.v3 = rotl(<ui64> s.v3, <ui64> 21)
-    ~ s.v3 = <ui64> s.v3 ^ <ui64> s.v0
+    ~ s.v0 = s.v0 + s.v3
+    ~ s.v3 = rotl(s.v3, 21)
+    ~ s.v3 = s.v3 ^ s.v0
 
-    ~ s.v2 = <ui64> s.v2 + <ui64> s.v1
-    ~ s.v1 = rotl(<ui64> s.v1, <ui64> 17)
-    ~ s.v1 = <ui64> s.v1 ^ <ui64> s.v2
-    ~ s.v2 = rotl(<ui64> s.v2, <ui64> 32)
+    ~ s.v2 = s.v2 + s.v1
+    ~ s.v1 = rotl(s.v1, 17)
+    ~ s.v1 = s.v1 ^ s.v2
+    ~ s.v2 = rotl(s.v2, 32)
     ^ s
 }
 
-; Read one byte at index as ui64 (caller guarantees in-bounds).
+; Zext byte → ui64 lane (runtime get is not ui8-typed end-to-end for free call).
 $ byte_at = (msg, i) {
     | bytes.get(msg, i) {
         $ b {
@@ -67,15 +70,13 @@ $ byte_at = (msg, i) {
     }
 }
 
-; Little-endian up to 8 bytes from [off, end).
 $ load_le = (msg, off, end) {
     ~ m = <ui64> 0
     ~ j = 0
     * j < 8 {
         $ idx = off + j
         ? idx < end {
-            $ sh = <ui64> j * <ui64> 8
-            ~ m = m | (byte_at(msg, idx) << sh)
+            ~ m = m | (byte_at(msg, idx) << (j * 8))
         }
         ~ j = j + 1
     }
@@ -84,71 +85,71 @@ $ load_le = (msg, off, end) {
 
 $ sip = (k0, k1, msg) {
     ~ s = sip_state {
-        v0: <ui64> C0 ^ k0,
-        v1: <ui64> C1 ^ k1,
-        v2: <ui64> C2 ^ k0,
-        v3: <ui64> C3 ^ k1
+        v0: C0 ^ k0,
+        v1: C1 ^ k1,
+        v2: C2 ^ k0,
+        v3: C3 ^ k1
     }
 
     $ n = bytes.len(msg)
     ~ i = 0
     * i + 8 <= n {
         $ m = load_le(msg, i, i + 8)
-        ~ s.v3 = <ui64> s.v3 ^ m
+        ~ s.v3 = s.v3 ^ m
         ~ s = sip_round(s)
         ~ s = sip_round(s)
-        ~ s.v0 = <ui64> s.v0 ^ m
+        ~ s.v0 = s.v0 ^ m
         ~ i = i + 8
     }
 
-    ; last block: remaining bytes + (len & 0xff) in top byte
-    ~ b = (<ui64> (n % 256)) << <ui64> 56
+    ; len is i64; enter ui64 for the final partial block header.
+    ~ b = (<ui64> (n % 256)) << 56
     ~ j = 0
     * i + j < n {
-        $ sh = <ui64> j * <ui64> 8
-        ~ b = b | (byte_at(msg, i + j) << sh)
+        ~ b = b | (byte_at(msg, i + j) << (j * 8))
         ~ j = j + 1
     }
 
-    ~ s.v3 = <ui64> s.v3 ^ b
+    ~ s.v3 = s.v3 ^ b
     ~ s = sip_round(s)
     ~ s = sip_round(s)
-    ~ s.v0 = <ui64> s.v0 ^ b
+    ~ s.v0 = s.v0 ^ b
 
-    ~ s.v2 = <ui64> s.v2 ^ <ui64> 0xff
+    ~ s.v2 = s.v2 ^ 0xff
     ~ s = sip_round(s)
     ~ s = sip_round(s)
     ~ s = sip_round(s)
     ~ s = sip_round(s)
 
-    ^ <ui64> s.v0 ^ <ui64> s.v1 ^ <ui64> s.v2 ^ <ui64> s.v3
+    ^ s.v0 ^ s.v1 ^ s.v2 ^ s.v3
 }
 
-; --- suite (xo test std/crypto/hash/sip.echo) ---
+; --- suite ---
 ; Paper key: 00 01 02 … 0f → k0/k1 little-endian.
+; Expected digests keep <ui64> when the high bit is set (untagged hex is i64).
 
-# K0 = 0x0706050403020100
-# K1 = 0x0f0e0d0c0b0a0908
+# K0 = <ui64> 0x0706050403020100
+# K1 = <ui64> 0x0f0e0d0c0b0a0908
 
 test.it("empty", () {
-    $ h = sip(<ui64> K0, <ui64> K1, b'')
+    $ h = sip(K0, K1, b'')
     test.eq(h, <ui64> 0x726fdb47dd0e0e31)
 })
 
 test.it("one_byte", () {
-    $ h = sip(<ui64> K0, <ui64> K1, b"\x00")
+    $ h = sip(K0, K1, b"\x00")
     test.eq(h, <ui64> 0x74f839c593dc67fd)
 })
 
 test.it("eight_bytes", () {
     $ msg = b"\x00\x01\x02\x03\x04\x05\x06\x07"
-    $ h = sip(<ui64> K0, <ui64> K1, msg)
+    $ h = sip(K0, K1, msg)
     test.eq(h, <ui64> 0x93f5f5799a932462)
 })
 
 test.it("fifteen_bytes", () {
     $ msg = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e"
-    $ h = sip(<ui64> K0, <ui64> K1, msg)
+    $ h = sip(K0, K1, msg)
     test.eq(h, <ui64> 0xa129ca6149be45e5)
 })
 

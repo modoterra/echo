@@ -72,11 +72,15 @@ Missing whitespace → diagnostic `lex-leader-ws` (token still emitted).
 | `\|` | `leader_pipe` | match |
 | `+` | `leader_plus` | task spawn |
 | `-` | `leader_minus` | task join / immediate block |
+| `&` | `leader_ampersand` | effect block (auto-unwrap result/option) |
 | `/` | `leader_slash` | import |
 | `\` | `leader_backslash` | export (not continuation) |
 
 `+` and `-` are leaders **only** at statement start (with required whitespace).
 In expression position they remain `plus` / `minus` operators.
+
+`&` is dual-use: **effect block** at statement start; bitwise **and** in expression
+position (with `\|` `^` `<<` `>>` and unary `~`).
 
 `~` and `^` are dual-use: leaders (bind / return) at statement start; expression
 tokens `tilde` (bit-not) and `caret` (bit-xor) elsewhere.

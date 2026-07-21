@@ -7,6 +7,7 @@
 
 mod cfg;
 mod escape;
+mod lifetime;
 mod repr;
 mod simplify;
 mod ssa;
@@ -17,6 +18,7 @@ pub use cfg::{
     structured_to_cfg_with_fallthrough,
 };
 pub use escape::{EscapeClass, analyze_escapes};
+pub use lifetime::{expr_is_fresh_alloc, expr_is_managed, inject_lifetime, ROOT_SCOPE};
 pub use repr::{MirRepr, analyze_reprs};
 pub use simplify::simplify_local;
 pub use ssa::construct_ssa;
@@ -25,7 +27,7 @@ pub use value_class::ValueClass;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use echo_ast::{BinaryOp, StringKind, UnaryOp};
+use echo_ast::{BinaryOp, StringKind, UnaryOp, Width};
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_hir::{
     HirExpr, HirExprKind, HirBody, HirLoopKind, HirMatchArm, HirModule, HirStmt, RECV_PARAM,
@@ -170,6 +172,31 @@ impl MirFn {
 pub enum MirStmt {
     Set {
         name: String,
+        value: MirExpr,
+    },
+    /// ADR 0016: push ownership scope.
+    ScopeEnter {
+        id: u32,
+    },
+    /// ADR 0016: pop scope and release remaining owned values.
+    ScopeExit {
+        id: u32,
+    },
+    /// ADR 0016: register managed handle as owned by current scope.
+    ScopeRegister {
+        value: MirExpr,
+    },
+    /// ADR 0016: transfer ownership to an open outer (or equal) scope.
+    ScopePromote {
+        value: MirExpr,
+        target: u32,
+    },
+    /// ADR 0016: drop ownership without free (return / transfer).
+    ScopeDisown {
+        value: MirExpr,
+    },
+    /// ADR 0016: logical release of one value.
+    ScopeRelease {
         value: MirExpr,
     },
     ReturnOk(MirExpr),
@@ -755,6 +782,8 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                 &mut type_env,
                 &mut diagnostics,
             );
+            // ADR 0016: scope enter/exit/register/promote (conservative slice 1).
+            let body = inject_lifetime(body);
             // Plain methods: fall-off returns the receiver (locked).
             let fallthrough = if f.receiver_struct.is_some()
                 && matches!(f.return_shape, ReturnShape::Plain)
@@ -874,6 +903,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                     &mut diagnostics,
                 );
                 if !body.is_empty() {
+                    let body = inject_lifetime(body);
                     let (cfg, reprs, escapes) = finish_cfg(
                         body.clone(),
                         MirRetShape::Plain,
@@ -1628,6 +1658,35 @@ fn struct_type_of_expr(
     }
 }
 
+/// Width of a shape field when its default is a width-tagged scalar.
+fn hir_expr_scalar_width(e: &HirExpr) -> Option<Width> {
+    match &e.kind {
+        HirExprKind::Int { width: Some(w), .. } => Some(*w),
+        HirExprKind::WidthCast { width, .. } => Some(*width),
+        HirExprKind::Group(inner) => hir_expr_scalar_width(inner),
+        // Untagged int default is i64 — still a definite field width.
+        HirExprKind::Int { width: None, .. } => Some(Width::I64),
+        HirExprKind::Float { width: Some(w), .. } => Some(*w),
+        HirExprKind::Float { width: None, .. } => Some(Width::F64),
+        HirExprKind::Bool(_) => None,
+        _ => None,
+    }
+}
+
+/// Look up field scalar width from the receiver's monomorphic struct + default.
+fn field_width_from_default(
+    base: &HirExpr,
+    field: &str,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
+    type_env: &HashMap<String, String>,
+) -> Option<Width> {
+    let st = struct_type_of_expr(base, methods, fields, field_types, type_env)?;
+    let def = fields.get(&st)?.get(field)?.as_ref()?;
+    hir_expr_scalar_width(def)
+}
+
 /// Seed free-function return-struct facts for method typing after calls.
 fn seed_fn_return_struct_types(
     type_env: &mut HashMap<String, String>,
@@ -1742,24 +1801,281 @@ fn lower_block(
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Vec<MirStmt> {
-    stmts
-        .iter()
-        .filter_map(|s| {
-            lower_stmt(
-                s,
-                fn_ret,
-                module_path,
-                imports,
-                fn_shapes,
-                const_env,
-                methods,
-                fields,
-                field_types,
-                type_env,
-                diags,
-            )
-        })
-        .collect()
+    let mut out = Vec::new();
+    for s in stmts {
+        match s {
+            HirStmt::EffectBlock { bind, body, .. } => {
+                out.extend(desugar_effect_block(
+                    body,
+                    bind.as_deref(),
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    field_types,
+                    type_env,
+                    diags,
+                ));
+            }
+            other => {
+                if let Some(m) = lower_stmt(
+                    other,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    field_types,
+                    type_env,
+                    diags,
+                ) {
+                    out.push(m);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Desugar `&` effect block: auto-unwrap result/option on `$ x = fallible()`.
+/// Continuation-style nesting: fail short-circuits; success continues rest.
+fn desugar_effect_block(
+    body: &[HirStmt],
+    outer_bind: Option<&str>,
+    fn_ret: MirRetShape,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+) -> Vec<MirStmt> {
+    desugar_effect_tail(
+        body,
+        outer_bind,
+        fn_ret,
+        module_path,
+        imports,
+        fn_shapes,
+        const_env,
+        methods,
+        fields,
+        field_types,
+        type_env,
+        diags,
+        0,
+    )
+}
+
+fn desugar_effect_tail(
+    body: &[HirStmt],
+    outer_bind: Option<&str>,
+    fn_ret: MirRetShape,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+    const_env: &HashMap<String, ConstValue>,
+    methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
+    type_env: &mut HashMap<String, String>,
+    diags: &mut Diagnostics,
+    depth: u32,
+) -> Vec<MirStmt> {
+    if body.is_empty() {
+        return Vec::new();
+    }
+    let (head, rest) = body.split_first().unwrap();
+
+    // `$ name = call` with result/option shape → MatchTagged unwrap.
+    if let HirStmt::Bind {
+        name,
+        init: Some(init),
+        ..
+    } = head
+    {
+        if let Some(shape) = hir_expr_call_shape(init, module_path, imports, fn_shapes) {
+            if matches!(
+                shape,
+                MirRetShape::Result | MirRetShape::Option
+            ) {
+                let scrut = lower_expr(
+                    init,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    field_types,
+                    type_env,
+                    diags,
+                );
+                let Some(scrut) = scrut else {
+                    return Vec::new();
+                };
+                // Force tagged call if needed — lower_expr may use plain call.
+                // MatchTagged expects i128 scrutinee for result/option.
+                let rest_mir = desugar_effect_tail(
+                    rest,
+                    outer_bind,
+                    fn_ret,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    field_types,
+                    type_env,
+                    diags,
+                    depth + 1,
+                );
+                let err_tmp = format!("__eff_err_{depth}");
+                let mut err_body = Vec::new();
+                if let Some(ob) = outer_bind {
+                    // Bind err payload (low bits) to outer name.
+                    err_body.push(MirStmt::Set {
+                        name: ob.to_string(),
+                        value: MirExpr::Name(err_tmp.clone()),
+                    });
+                }
+                // rest not run on err
+                return vec![MirStmt::MatchTagged {
+                    scrutinee: scrut,
+                    ok_name: Some(name.clone()),
+                    ok_body: rest_mir,
+                    err_name: Some(err_tmp),
+                    err_body,
+                }];
+            }
+        }
+    }
+
+    // `^ expr` inside effect block = success of block (not outer function return).
+    if let HirStmt::Return { value: Some(v), .. } = head {
+        let val = lower_expr(
+            v,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            field_types,
+            type_env,
+            diags,
+        );
+        let Some(val) = val else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        if let Some(ob) = outer_bind {
+            out.push(MirStmt::Set {
+                name: ob.to_string(),
+                value: val,
+            });
+        } else {
+            out.push(MirStmt::Eval(val));
+        }
+        // Drop rest after success return from block.
+        return out;
+    }
+    if let HirStmt::Return { value: None, .. } = head {
+        // bare `^` — success with no payload
+        return Vec::new();
+    }
+    if let HirStmt::ErrorReturn { value, .. } = head {
+        // explicit `! e` inside effect → treat as short-circuit err
+        let val = lower_expr(
+            value,
+            module_path,
+            imports,
+            fn_shapes,
+            const_env,
+            methods,
+            fields,
+            field_types,
+            type_env,
+            diags,
+        );
+        let Some(val) = val else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        if let Some(ob) = outer_bind {
+            out.push(MirStmt::Set {
+                name: ob.to_string(),
+                value: val,
+            });
+        }
+        return out;
+    }
+
+    // Ordinary statement, then continue.
+    let mut out = Vec::new();
+    if let Some(m) = lower_stmt(
+        head,
+        fn_ret,
+        module_path,
+        imports,
+        fn_shapes,
+        const_env,
+        methods,
+        fields,
+        field_types,
+        type_env,
+        diags,
+    ) {
+        out.push(m);
+    }
+    out.extend(desugar_effect_tail(
+        rest,
+        outer_bind,
+        fn_ret,
+        module_path,
+        imports,
+        fn_shapes,
+        const_env,
+        methods,
+        fields,
+        field_types,
+        type_env,
+        diags,
+        depth,
+    ));
+    out
+}
+
+/// If `e` is a call to a known function, return its ret shape.
+fn hir_expr_call_shape(
+    e: &HirExpr,
+    module_path: &Path,
+    imports: &HashMap<String, PathBuf>,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+) -> Option<MirRetShape> {
+    match &e.kind {
+        HirExprKind::Call { symbol, .. } => fn_shapes
+            .get(&(module_path.to_path_buf(), symbol.clone()))
+            .copied(),
+        HirExprKind::ModuleCall {
+            module,
+            name,
+            ..
+        } => {
+            let path = imports.get(module)?;
+            fn_shapes.get(&(path.clone(), name.clone())).copied()
+        }
+        _ => None,
+    }
 }
 
 fn lower_stmt(
@@ -2172,6 +2488,10 @@ fn lower_stmt(
             type_env,
             diags,
         )?)),
+        HirStmt::EffectBlock { .. } => {
+            // Expanded in `lower_block` via `desugar_effect_block`.
+            None
+        }
         HirStmt::Unsupported { message, span, .. } => {
             if message.is_empty() {
                 return None;
@@ -2250,11 +2570,19 @@ fn lower_match(
     let mut err_body = Vec::new();
     let mut has_tagged = false;
 
+    // Ok-arm payload keeps the scrutinee's monomorphic struct type when known
+    // (e.g. `make().seed(…)` → map, so `m.put` resolves as a method).
+    let ok_payload_struct =
+        struct_type_of_expr(scrutinee, methods, fields, field_types, type_env);
+
     for arm in arms {
         match arm {
             HirMatchArm::Ok { name, body } => {
                 has_tagged = true;
                 ok_name = Some(name.clone());
+                if let Some(st) = &ok_payload_struct {
+                    type_env.insert(name.clone(), st.clone());
+                }
                 ok_body = lower_block(
                     body,
                     fn_ret,
@@ -2268,6 +2596,7 @@ fn lower_match(
                     type_env,
                     diags,
                 );
+                type_env.remove(name);
             }
             HirMatchArm::Err { name, body } => {
                 has_tagged = true;
@@ -3097,21 +3426,40 @@ fn lower_expr(
                 ret,
             })
         }
-        HirExprKind::Field { base, field } => Some(MirExpr::FieldGet {
-            base: Box::new(lower_expr(
+        HirExprKind::Field { base, field } => {
+            let get = MirExpr::FieldGet {
+                base: Box::new(lower_expr(
+                    base,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    field_types,
+                    type_env,
+                    diags,
+                )?),
+                field: field.clone(),
+            };
+            // Scalar width from shape default (`~ v = <ui64> 0`) so loads enter
+            // native width without user re-tags (docs/semantics.md field width).
+            if let Some(w) = field_width_from_default(
                 base,
-                module_path,
-                imports,
-                fn_shapes,
-                const_env,
+                field,
                 methods,
                 fields,
                 field_types,
                 type_env,
-                diags,
-            )?),
-            field: field.clone(),
-        }),
+            ) {
+                Some(MirExpr::Cast {
+                    to: w,
+                    expr: Box::new(get),
+                })
+            } else {
+                Some(get)
+            }
+        },
         HirExprKind::StructLit {
             name,
             fields: lit_fields,
@@ -3851,10 +4199,19 @@ mod tests {
             .iter()
             .find(|f| f.name == "__toplevel")
             .expect("toplevel");
-        assert!(matches!(
-            top.cfg.blocks[top.cfg.entry.0 as usize].ops.first(),
-            Some(MirOp::Set { name, .. }) if name.starts_with("c@")
-        ));
+        let entry_ops = &top.cfg.blocks[top.cfg.entry.0 as usize].ops;
+        // Lifetime inject (ADR 0016) opens the root scope first.
+        assert!(
+            matches!(entry_ops.first(), Some(MirOp::ScopeEnter { id: 0 })),
+            "expected root ScopeEnter, got {:?}",
+            entry_ops.first()
+        );
+        assert!(
+            entry_ops
+                .iter()
+                .any(|op| matches!(op, MirOp::Set { name, .. } if name.starts_with("c@"))),
+            "expected SSA set of c@"
+        );
     }
 
     #[test]

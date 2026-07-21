@@ -157,6 +157,12 @@ pub enum HirStmt {
         bind: Option<String>,
         span: Span,
     },
+    /// `& { body }` / `& name = { body }` — effect block (auto-unwrap).
+    EffectBlock {
+        bind: Option<String>,
+        body: Vec<HirStmt>,
+        span: Span,
+    },
     Expr(HirExpr),
     Unsupported {
         message: String,
@@ -418,7 +424,8 @@ fn refine_free_fn_returns_structs(bodies: &mut [HirBody]) {
     }
 }
 
-/// Like [`body_returns_named_structs`] but on HIR and allowing calls to known free fns.
+/// Like [`body_returns_named_structs`] but on HIR: StructLit, calls to known free
+/// fns, and **locals** bound to those (so `~ m = make(); ^ m` infers `map`).
 /// Returns sorted unique type names (union when multiple).
 fn hir_body_returns_named_structs(
     body: &[HirStmt],
@@ -427,36 +434,42 @@ fn hir_body_returns_named_structs(
     use std::collections::BTreeSet;
     let mut found: BTreeSet<String> = BTreeSet::new();
     let mut any = false;
+    fn expr_named_structs(
+        e: &HirExpr,
+        known: &HashMap<String, Vec<String>>,
+        locals: &HashMap<String, Vec<String>>,
+    ) -> Option<Vec<String>> {
+        match &e.kind {
+            HirExprKind::StructLit { name, .. } if !name.is_empty() => Some(vec![name.clone()]),
+            HirExprKind::Name(n) => locals.get(n).cloned(),
+            HirExprKind::Call { symbol, .. } => known.get(symbol).cloned(),
+            HirExprKind::ModuleCall { module, name, .. } => known
+                .get(&format!("{module}.{name}"))
+                .cloned()
+                .or_else(|| known.get(name).cloned()),
+            HirExprKind::Group(inner) => expr_named_structs(inner, known, locals),
+            _ => None,
+        }
+    }
     fn walk(
         stmts: &[HirStmt],
         known: &HashMap<String, Vec<String>>,
+        locals: &mut HashMap<String, Vec<String>>,
         found: &mut BTreeSet<String>,
         any: &mut bool,
     ) -> bool {
         for s in stmts {
             match s {
+                HirStmt::Bind { name, init: Some(v), .. }
+                | HirStmt::Assign { name, value: v, .. } => {
+                    if let Some(tys) = expr_named_structs(v, known, locals) {
+                        locals.insert(name.clone(), tys);
+                    }
+                }
                 HirStmt::Return {
                     value: Some(v), ..
                 } => {
-                    let tys: Option<Vec<String>> = match &v.kind {
-                        HirExprKind::StructLit { name, .. } if !name.is_empty() => {
-                            Some(vec![name.clone()])
-                        }
-                        HirExprKind::Call { symbol, .. } => known.get(symbol).cloned(),
-                        HirExprKind::ModuleCall { module, name, .. } => known
-                            .get(&format!("{module}.{name}"))
-                            .cloned()
-                            .or_else(|| known.get(name).cloned()),
-                        HirExprKind::Group(inner) => match &inner.kind {
-                            HirExprKind::StructLit { name, .. } if !name.is_empty() => {
-                                Some(vec![name.clone()])
-                            }
-                            HirExprKind::Call { symbol, .. } => known.get(symbol).cloned(),
-                            _ => None,
-                        },
-                        _ => None,
-                    };
-                    let Some(tys) = tys else {
+                    let Some(tys) = expr_named_structs(v, known, locals) else {
                         return false;
                     };
                     *any = true;
@@ -466,12 +479,14 @@ fn hir_body_returns_named_structs(
                 }
                 HirStmt::If { arms, else_body, .. } => {
                     for (_, body) in arms {
-                        if !walk(body, known, found, any) {
+                        let mut arm_locals = locals.clone();
+                        if !walk(body, known, &mut arm_locals, found, any) {
                             return false;
                         }
                     }
                     if let Some(body) = else_body {
-                        if !walk(body, known, found, any) {
+                        let mut arm_locals = locals.clone();
+                        if !walk(body, known, &mut arm_locals, found, any) {
                             return false;
                         }
                     }
@@ -485,13 +500,15 @@ fn hir_body_returns_named_structs(
                             | HirMatchArm::Values { body, .. }
                             | HirMatchArm::Type { body, .. } => body,
                         };
-                        if !walk(body, known, found, any) {
+                        let mut arm_locals = locals.clone();
+                        if !walk(body, known, &mut arm_locals, found, any) {
                             return false;
                         }
                     }
                 }
                 HirStmt::Loop { body, .. } => {
-                    if !walk(body, known, found, any) {
+                    let mut loop_locals = locals.clone();
+                    if !walk(body, known, &mut loop_locals, found, any) {
                         return false;
                     }
                 }
@@ -500,7 +517,8 @@ fn hir_body_returns_named_structs(
         }
         true
     }
-    if walk(body, known, &mut found, &mut any) && any {
+    let mut locals = HashMap::new();
+    if walk(body, known, &mut locals, &mut found, &mut any) && any {
         Some(found.into_iter().collect())
     } else {
         None
@@ -828,6 +846,11 @@ fn lower_stmt(st: &GroupedStmt, cx: &mut LowerCx<'_>) -> HirStmt {
                 bind: bind.as_ref().map(|i| i.name.clone()),
                 span: s.span,
             },
+        },
+        GroupedStmt::Raw(Stmt::EffectBlock(s)) => HirStmt::EffectBlock {
+            bind: s.bind.as_ref().map(|i| i.name.clone()),
+            body: lower_block(&s.body, cx),
+            span: s.span,
         },
         GroupedStmt::Raw(Stmt::Bind(b)) => HirStmt::Bind {
             leader: b.leader,

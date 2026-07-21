@@ -5,10 +5,10 @@ use std::ops::Range;
 use chumsky::prelude::*;
 use chumsky::Stream;
 use echo_ast::{
-    AssignStmt, AssignTarget, BindLeader, BindStmt, BinaryOp, ElseIfStmt, ElseStmt, ErrorReturnStmt,
-    ExportStmt, Expr, File, Ident, IfStmt, ImportPathSeg, ImportStmt, LoopKind, LoopStmt, MatchArm,
-    MatchArmKind, MatchStmt, MultiBindItem, MultiBindStmt, ReturnStmt, Stmt, StringKind, StructStmt,
-    TaskBody, TaskJoinKind, TaskJoinStmt, TaskSpawnStmt, UnaryOp, Width,
+    AssignStmt, AssignTarget, BindLeader, BindStmt, BinaryOp, EffectBlockStmt, ElseIfStmt, ElseStmt,
+    ErrorReturnStmt, ExportStmt, Expr, File, Ident, IfStmt, ImportPathSeg, ImportStmt, LoopKind,
+    LoopStmt, MatchArm, MatchArmKind, MatchStmt, MultiBindItem, MultiBindStmt, ReturnStmt, Stmt,
+    StringKind, StructStmt, TaskBody, TaskJoinKind, TaskJoinStmt, TaskSpawnStmt, UnaryOp, Width,
 };
 use echo_diagnostics::Diagnostics;
 use echo_lexer::{Token, TokenKind};
@@ -125,6 +125,7 @@ fn token_surface(kind: TokenKind) -> &'static str {
             LeaderKind::Pipe => "|",
             LeaderKind::Plus => "+",
             LeaderKind::Minus => "-",
+            LeaderKind::Ampersand => "&",
             LeaderKind::Slash => "/",
             LeaderKind::Backslash => "\\",
         },
@@ -735,6 +736,29 @@ fn stmt_parser(
             .or(task_spawn_block)
             .or(task_spawn_call);
 
+        // & name = { body } | & { body } — effect block (auto-unwrap)
+        let effect_bind = leader(LeaderKind::Ampersand)
+            .ignore_then(ident.clone())
+            .then_ignore(just(TokenKind::Eq))
+            .then(block.clone())
+            .map_with_span(move |(name, body), span| {
+                Stmt::EffectBlock(EffectBlockStmt {
+                    bind: Some(name),
+                    body,
+                    span: sp(source_id, span),
+                })
+            });
+        let effect_block = leader(LeaderKind::Ampersand)
+            .ignore_then(block.clone())
+            .map_with_span(move |body, span| {
+                Stmt::EffectBlock(EffectBlockStmt {
+                    bind: None,
+                    body,
+                    span: sp(source_id, span),
+                })
+            });
+        let effect = effect_bind.or(effect_block);
+
         // - name = { body } | - { body } | - name = handle | - handle
         let task_join_bind_block = leader(LeaderKind::Minus)
             .ignore_then(ident.clone())
@@ -831,6 +855,7 @@ fn stmt_parser(
             match_stmt,
             task_spawn,
             task_join,
+            effect,
             import_stmt,
             export_stmt,
             expr_stmt,

@@ -11,14 +11,9 @@ use std::time::{Duration, Instant};
 
 use crate::{echo_runtime_fn_code, echo_runtime_fn_shape, string_data, FN_SHAPE_PLAIN};
 
-/// Human-readable duration for suite / `xo test` lines.
-fn fmt_dur(d: Duration) -> String {
-    let ms = d.as_secs_f64() * 1000.0;
-    if ms < 1000.0 {
-        format!("{ms:.1}ms")
-    } else {
-        format!("{:.2}s", d.as_secs_f64())
-    }
+/// Case-body timings: integer nanoseconds (suite cases are usually sub-ms).
+fn fmt_ns(d: Duration) -> String {
+    format!("{}ns", d.as_nanos())
 }
 
 struct Case {
@@ -125,7 +120,7 @@ pub extern "C" fn echo_runtime_test_finish() -> i64 {
         // SAFETY: code bits come from fn values created by this process's LLVM.
         let call_ok = unsafe { invoke_case(case.code, case.shape) };
         let case_failed = SUITE.lock().expect("test suite lock").case_failed;
-        let elapsed = fmt_dur(case_start.elapsed());
+        let elapsed = fmt_ns(case_start.elapsed());
         if !call_ok || case_failed {
             failed += 1;
             eprintln!("FAIL  {} ({elapsed})", case.name);
@@ -135,7 +130,7 @@ pub extern "C" fn echo_runtime_test_finish() -> i64 {
     }
 
     let passed = total as i64 - failed;
-    let suite_elapsed = fmt_dur(suite_start.elapsed());
+    let suite_elapsed = fmt_ns(suite_start.elapsed());
     eprintln!("xo test: {passed} passed, {failed} failed, {total} total ({suite_elapsed})");
     failed
 }

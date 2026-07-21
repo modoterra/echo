@@ -90,7 +90,17 @@ fn fold_exprs(cfg: &mut MirCfg) -> bool {
                         changed = true;
                     }
                 }
-                MirOp::Phi { .. } | MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } => {}
+                MirOp::Phi { .. }
+                | MirOp::MatchPayload { .. }
+                | MirOp::TaskSpawn { .. }
+                | MirOp::TaskSpawnFn { .. }
+                | MirOp::TaskJoin { .. }
+                | MirOp::ScopeEnter { .. }
+                | MirOp::ScopeExit { .. }
+                | MirOp::ScopeRegister { .. }
+                | MirOp::ScopePromote { .. }
+                | MirOp::ScopeDisown { .. }
+                | MirOp::ScopeRelease { .. } => {}
             }
         }
         let term = b.term.clone();
@@ -447,6 +457,29 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
                         bind,
                     });
                 }
+                MirOp::ScopeEnter { id } => new_ops.push(MirOp::ScopeEnter { id }),
+                MirOp::ScopeExit { id } => new_ops.push(MirOp::ScopeExit { id }),
+                MirOp::ScopeRegister { value } => {
+                    new_ops.push(MirOp::ScopeRegister {
+                        value: rewrite_names(value, &alias),
+                    });
+                }
+                MirOp::ScopePromote { value, target } => {
+                    new_ops.push(MirOp::ScopePromote {
+                        value: rewrite_names(value, &alias),
+                        target,
+                    });
+                }
+                MirOp::ScopeDisown { value } => {
+                    new_ops.push(MirOp::ScopeDisown {
+                        value: rewrite_names(value, &alias),
+                    });
+                }
+                MirOp::ScopeRelease { value } => {
+                    new_ops.push(MirOp::ScopeRelease {
+                        value: rewrite_names(value, &alias),
+                    });
+                }
             }
         }
         b.ops = new_ops;
@@ -619,6 +652,13 @@ fn dce_pure(cfg: &mut MirCfg, _reprs: &HashMap<String, MirRepr>) -> bool {
                     if let Some(h) = handle {
                         collect_uses(h, &mut used);
                     }
+                }
+                MirOp::ScopeEnter { .. } | MirOp::ScopeExit { .. } => {}
+                MirOp::ScopeRegister { value }
+                | MirOp::ScopePromote { value, .. }
+                | MirOp::ScopeDisown { value }
+                | MirOp::ScopeRelease { value } => {
+                    collect_uses(value, &mut used);
                 }
             }
         }

@@ -6,7 +6,7 @@ Mid-level, backend-neutral executable intermediate representation.
 |--|--|
 | **Status** | **Active** (codegen consumer; expands with execute verticals) |
 | **Owners** | `echo_mir` |
-| **Related** | `docs/hir.md`, `docs/llvm.md`, `docs/runtime-abi.md`, ADR 0002, `docs/incremental.md`, `docs/semantics.md` § Value vs reference |
+| **Related** | `docs/hir.md`, `docs/llvm.md`, `docs/runtime-abi.md`, ADR 0002, [ADR 0016](adr/0016-scope-owned-memory.md), `docs/incremental.md`, `docs/semantics.md` § Value vs reference |
 
 ## Value class (language pass semantics)
 
@@ -35,6 +35,7 @@ optimization is **LLVM’s** job (`default<On>`).
 | Explicit box/unbox boundaries | LICM |
 | Local simplify (redundant box/unbox, trivial copies) | Induction / loop opts |
 | **Escape analysis** + **`NoEscape` scalar box elision** (runtime ABI) | General DCE and mid-end |
+| **Scope-owned memory** (promote / demote / release on scope-exit edges) — ADR 0016; **slice 1 landed** (inject + runtime registries; demotion/precise analysis later) | N/A (language dispose is not LLVM free) |
 | Language-shaped lowering (list get → runtime, …) | `default<O1>`…`default<Oz>` |
 
 **Do not** re-add MIR passes that only reimplement LLVM (constprop, GVN, LICM,
@@ -46,6 +47,7 @@ non-retaining call knowledge LLVM does not have.
 
 ```text
 structured MIR
+  → inject_lifetime (ADR 0016 slice 1: ScopeEnter/Exit/Register/Promote/Disown)
   → CFG
   → SSA
   → analyze_reprs
@@ -59,9 +61,23 @@ structured MIR
 
 | Pass | Why it stays in MIR |
 |------|---------------------|
+| `inject_lifetime` | Explicit scope ownership ops before CFG; conservative promote/release (ADR 0016) |
 | `analyze_reprs` | Echo native vs boxed form for hyper-optimizable LLVM handoff |
 | `simplify_local` | Cancel redundant box/unbox and trivial copies at representation boundaries |
 | `analyze_escapes` | Classify escape with Echo ABI (e.g. non-retaining `runtime.print`); elide `NoEscape` scalar boxes |
+
+### Scope ownership ops (MIR)
+
+| Op | Role |
+|----|------|
+| `ScopeEnter { id }` | Push dynamic ownership frame (`id` is per-function compile-time id; re-entrant across calls) |
+| `ScopeExit { id }` | Pop frame; release every still-owned handle |
+| `ScopeRegister { value }` | Record fresh allocation as owned by current frame |
+| `ScopePromote { value, target }` | Move ownership to an open ancestor frame |
+| `ScopeDisown { value }` | Drop ownership without free (return transfer) |
+| `ScopeRelease { value }` | Logical release of one value |
+
+**Slice 1:** wrap function root + if/loop/for-in/match arms; register fresh allocs; promote on nested field/list/index/assign escape; exit scopes on return/break/continue edges. Demotion is represented in the design but not yet optimized. Runtime registries: `echo_runtime_scope_*` (ABI v22+).
 
 ## Scope
 
@@ -111,6 +127,12 @@ Targets LLVM only (ADR 0002) but does not embed LLVM types in the IR design.
   path/URI text; parallel to `BytesRef` / `StringRef`).
 
 ## Schema / cache
+
+### Lifetime inject: single-eval returns
+
+Managed `^ expr` paths bind a temp before `ScopeDisown` + scope exits so
+`expr` (especially a `Call`) is **not** evaluated twice. Double-eval used to
+show up as two `keys()` calls in LLVM for thin wrappers like `set.values`.
 
 Bump `MIR_SCHEMA_VERSION` / `MIR_LOWERER_VERSION` in `echo_fingerprint` when MIR
 shape or lowering meaning changes ([`incremental.md`](incremental.md)).

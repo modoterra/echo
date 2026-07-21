@@ -1,8 +1,12 @@
-; std/list — length (and later free helpers) for list values.
+; std/list — free helpers for list values.
 ; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
 ;
-; `len` is plain: element count of a list (runtime also accepts ranges; free-fn
-; monomorphic param typing is list-oriented from call sites).
+; Public API:
+;   len, is_empty, get, contains
+; `get` is **result-shaped**: ok is the element; err is `"out of bounds"`.
+; `contains` uses deep `==` (same as language equality).
+;
+; Suite: xo test std/list.echo (XO_TEST).
 
 / runtime
 / std/test
@@ -11,14 +15,38 @@ $ len = (xs) {
     ^ runtime.list_len(xs)
 }
 
+$ is_empty = (xs) {
+    ^ len(xs) == 0
+}
+
+; Bounds-checked index. Soft runtime OOB is 0 — we reject before that.
+$ get = (xs, i) {
+    $ n = runtime.list_len(xs)
+    ? i < 0 || i >= n {
+        ! "out of bounds"
+    }
+    ^ runtime.list_get(xs, i)
+}
+
+$ contains = (xs, x) {
+    * e : xs {
+        ? e == x {
+            ^ |
+        }
+    }
+    ^ _
+}
+
 ; --- suite (xo test std/list.echo) ---
 
 test.it("len_empty", () {
     test.eq(len([]), 0)
+    test.true(is_empty([]))
 })
 
 test.it("len_lit", () {
     test.eq(len([10, 20, 12]), 3)
+    test.false(is_empty([1]))
 })
 
 test.it("len_push", () {
@@ -28,4 +56,45 @@ test.it("len_push", () {
     test.eq(len(xs), 2)
 })
 
-\ len
+test.it("get_ok", () {
+    | get([10, 20, 30], 1) {
+        $ v {
+            test.eq(v, 20)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("get_oob", () {
+    | get([1], 1) {
+        $ v {
+            test.fail("expected oob")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+    | get([1], -1) {
+        $ v {
+            test.fail("expected oob neg")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+})
+
+test.it("contains", () {
+    test.true(contains([1, 2, 3], 2))
+    test.false(contains([1, 2, 3], 9))
+    test.false(contains([], 0))
+})
+
+test.it("contains_string", () {
+    test.true(contains(["a", "b"], "b"))
+    test.false(contains(["a"], "z"))
+})
+
+\ len, is_empty, get, contains

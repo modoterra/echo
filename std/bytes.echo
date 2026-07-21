@@ -1,14 +1,23 @@
-; std/bytes — length and indexing for `b'…'` / `b"…"` values.
+; std/bytes — length, indexing, and framing for `b'…'` / `b"…"` values.
 ; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
 ;
-; `get` is **result-shaped**: ok is `ui8` (alias `byte`); err is `"out of bounds"`.
-; Suite cases co-located: register under `xo test` only (XO_TEST).
+; Public API:
+;   len, is_empty, get, slice, cat, from_int, from_str
+; `get` / `slice` are **result-shaped**: err is `"out of bounds"`.
+; `get` ok is `ui8` (alias `byte`).
+; `slice` is half-open byte range [start, end).
+;
+; Suite: xo test std/bytes.echo (XO_TEST).
 
 / runtime
 / std/test
 
 $ len = (b) {
     ^ runtime.bytes_len(b)
+}
+
+$ is_empty = (b) {
+    ^ len(b) == 0
 }
 
 $ get = (b, i) {
@@ -19,21 +28,41 @@ $ get = (b, i) {
     ^ <ui8> runtime.bytes_get(b, i)
 }
 
+$ slice = (b, start, end) {
+    $ n = runtime.bytes_len(b)
+    ? start < 0 || end < start || end > n {
+        ! "out of bounds"
+    }
+    ^ runtime.bytes_slice(b, start, end)
+}
+
+$ cat = (a, b) {
+    ^ runtime.bytes_cat(a, b)
+}
+
 ; Pack an integer as 8 little-endian bytes (for hashing / framing).
 $ from_int = (n) {
     ^ runtime.bytes_from_i64(n)
+}
+
+; UTF-8 payload of a string as bytes.
+$ from_str = (s) {
+    ^ runtime.bytes_from_str(s)
 }
 
 ; --- suite (xo test std/bytes.echo) ---
 
 test.it("len", () {
     test.eq(len(b'hi'), 2)
+    test.true(is_empty(b''))
+    test.false(is_empty(b'x'))
 })
 
 test.it("get_ok", () {
     | get(b'AB', 1) {
         $ b {
-            test.eq(b, <ui8> 66)
+            ; `b` is ui8 from get; untagged 66 adopts that width.
+            test.eq(b, 66)
         }
         ! e {
             test.fail(e)
@@ -57,7 +86,7 @@ test.it("from_int_le", () {
     test.eq(len(b), 8)
     | get(b, 0) {
         $ x {
-            test.eq(x, <ui8> 0x08)
+            test.eq(x, 0x08)
         }
         ! e {
             test.fail(e)
@@ -65,7 +94,7 @@ test.it("from_int_le", () {
     }
     | get(b, 7) {
         $ x {
-            test.eq(x, <ui8> 0x01)
+            test.eq(x, 0x01)
         }
         ! e {
             test.fail(e)
@@ -73,4 +102,57 @@ test.it("from_int_le", () {
     }
 })
 
-\ len, get, from_int
+test.it("slice_cat", () {
+    | slice(b'abcdef', 1, 4) {
+        $ mid {
+            test.eq(len(mid), 3)
+            | get(mid, 0) {
+                $ x {
+                    test.eq(x, 98)
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+            $ ab = cat(b'A', b'B')
+            test.eq(len(ab), 2)
+            | get(ab, 1) {
+                $ y {
+                    test.eq(y, 66)
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("slice_oob", () {
+    | slice(b'ab', 0, 3) {
+        $ x {
+            test.fail("expected oob")
+        }
+        ! e {
+            test.eq(e, "out of bounds")
+        }
+    }
+})
+
+test.it("from_str", () {
+    $ b = from_str("Hi")
+    test.eq(len(b), 2)
+    | get(b, 0) {
+        $ x {
+            test.eq(x, 72)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ len, is_empty, get, slice, cat, from_int, from_str

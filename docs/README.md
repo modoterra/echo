@@ -15,6 +15,7 @@ lives under `www/`.
 | [`implementation.md`](implementation.md) | Per-feature vertical checklist (all layers) |
 | [`glossary.md`](glossary.md) | Shared vocabulary |
 | [`development-speed.md`](development-speed.md) | Local tools, gate, edit loop |
+| [`install.md`](install.md) | XDG install / upgrade / uninstall (`scripts/install.sh`) |
 | [`ci.md`](ci.md) | GitHub Actions multi-OS build + Linux echo26 gate |
 | [`roadmap.md`](roadmap.md) | Language coverage map + design/impl status |
 | [`fixtures.md`](fixtures.md) | Echo 2026 suite (`echo26/` / `e26`) conventions |
@@ -53,7 +54,7 @@ Expand as the corresponding layer gains real rules. Status may be “not started
 | [`lsp.md`](lsp.md) | Language server boundary |
 | [`repl.md`](repl.md) | Interactive REPL (`xo repl`, JIT) |
 | [`tree-sitter.md`](tree-sitter.md) | Generated tree-sitter grammar (`xo tools grammar tree-sitter`) |
-| [`reflection.md`](reflection.md) | Reflection metadata (stub) |
+| [`reflection.md`](reflection.md) | Tools `echo_reflection` vs userland `std/reflect` |
 | [`incremental.md`](incremental.md) | Cache / fingerprint / build |
 
 ## Where to put a new fact

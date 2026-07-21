@@ -4,7 +4,7 @@
 
 test.it("from_indexed", () {
     $ m = map.from_indexed([10, 20, 30])
-    | map.get(m, 0) {
+    | m.get(0) {
         $ v {
             test.eq(v, 10)
         }
@@ -12,7 +12,7 @@ test.it("from_indexed", () {
             test.fail("missing 0")
         }
     }
-    | map.get(m, 2) {
+    | m.get(2) {
         $ v {
             test.eq(v, 30)
         }
@@ -24,8 +24,8 @@ test.it("from_indexed", () {
 
 test.it("put_get", () {
     $ m = map.make()
-    map.put(m, 5, 50)
-    | map.get(m, 5) {
+    m.put(5, 50)
+    | m.get(5) {
         $ v {
             test.eq(v, 50)
         }

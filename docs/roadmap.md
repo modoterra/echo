@@ -69,6 +69,7 @@ noted under **Impl**.
 | `\|` | Match | Locked | Lex+Parse+Run ✓ (value + `% type` + result/option) |
 | `+` | **Task spawn** — schedule body/call on **mio** event loop immediately | Locked (ADR 0013) | Lex+Parse+Run ✓ |
 | `-` | **Task join / immediate block** — wait for task or block | Locked (ADR 0013) | Lex+Parse+Run ✓ |
+| `&` | **Effect block** — auto-unwrap result/option; short-circuit on fail | Locked | Lex+Parse+Run ✓ (`echo26/run/effect`, `check/effect`, `leaders/effect`) |
 | `/` | Import | Locked | Lex+Parse ✓ |
 | `\` | Export | Locked | Lex+Parse ✓ |
 
@@ -182,6 +183,7 @@ Lexer/parser **must** disambiguate by statement position vs expression context.
 | Import `/ path` · export `\ name` | Locked |
 | Paths `./…` and bare `std/…` | Locked (shape) |
 | Package / module model | **Locked** (ADR 0014) | Folder = module; paths + URL; optional `xo.toml`; user `$XO_HOME/packages/<id>/<ver>/` |
+| Memory reclamation | **Law locked** (ADR 0016); **slice 1 landed** | Scope registries + MIR inject (enter/exit/register/promote/disown); break/return cleanup; deferred physical free; next: precise analysis, early exits, demotion, immediate free |
 
 ### 2.9 Failure model (v0)
 
@@ -226,7 +228,7 @@ without a roadmap update):
 | Std root + `/ runtime` (std only) | **Locked** | `stdlib.md` / `modules.md` | implement resolver gate + codegen |
 | `std/io` | Thin | `runtime.print` (strings) | e26 + examples |
 | `std/str` | Thin | from_int/float/bytes/… + len/cat | e26 |
-| `std/time` | Stub | `std/time.echo` | — |
+| `std/time` | **Done** | `now_ms` / `sleep_ms` | suite |
 | `std/net` (tcp/, udp/ folders) | **TCP/UDP I/O done** | `std/net/tcp/{conn,listener,socket}`, `udp/socket` | e26 `run/net` |
 | `std/net/http` | parse + format + **serve** + `handle_connection` | `std/net/http.echo` | e26 `run/http` + app |
 | App HTTP demo | Finite dispatch + live TCP smoke | [`examples/app/main.echo`](../examples/app/main.echo) | run |
@@ -481,6 +483,7 @@ current; fill Impl as work lands.
 | 2026-07-20 | Bitwise ops: `& \| ^ << >> ~` through run; dual-use `~`/`^`; e26 `run/bitwise` |
 | 2026-07-20 | Integer widths locked: `i8`…`i64` + `ui8`…`ui64`, `byte`≡`ui8`; untagged int=`i64`; no `u8` spelling |
 | 2026-07-20 | `std/bytes` + `std/crypto/hash` SipHash-2-4 (`hash.sip`); rich `\xHH`; paper vectors |
+| 2026-07-21 | **`&` effect block**: auto-unwrap result/option; short-circuit on fail; `& name = { }` binds ok or err payload; dual-use bitwise `&`; e26 `run/effect`, `check/effect`, `leaders/effect` |
 
 ---
 

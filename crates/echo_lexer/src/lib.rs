@@ -107,6 +107,7 @@ impl TokenKind {
                 LeaderKind::Pipe => "leader_pipe",
                 LeaderKind::Plus => "leader_plus",
                 LeaderKind::Minus => "leader_minus",
+                LeaderKind::Ampersand => "leader_ampersand",
                 LeaderKind::Slash => "leader_slash",
                 LeaderKind::Backslash => "leader_backslash",
             },
@@ -793,6 +794,7 @@ $ b = 2
 | x {
 + {
 - {
+& {
 / std/io
 \\ name
 ";
@@ -827,6 +829,7 @@ $ b = 2
                 LeaderKind::Pipe,
                 LeaderKind::Plus,
                 LeaderKind::Minus,
+                LeaderKind::Ampersand,
                 LeaderKind::Slash,
                 LeaderKind::Backslash,
             ]

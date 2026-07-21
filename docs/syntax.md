@@ -44,8 +44,24 @@ Opening **`{` for a block must be on the same line** as its introducer.
 | `\|` | Match | `\| expr { arms }` |
 | `+` | Task spawn | see below |
 | `-` | Task join / immediate block | `- { … }` · `- name = { … }` (result) · `- handle` · `- name = handle` |
+| `&` | **Effect block** — auto-unwrap result/option | `& { … }` · `& name = { … }` |
 | `/` | Import | `/ path` |
 | `\\` | Export | `\\ name` · `\\ a, b` |
+
+**Effect block (`&`):**
+
+| Form | Meaning |
+|------|---------|
+| `& { … }` | Run body; on result err / option none, **short-circuit** the rest of the body and continue after the block |
+| `& name = { … }` | Same; on **success** (`^ value` in the block), bind the payload to `name`; on **fail**, bind the **err payload** (result) or none payload (option) to `name` |
+
+Inside the block:
+
+- Free-function (and module) calls that return **result** or **option** are
+  **automatically unwrapped** into the ok/some payload. No `|` match required.
+- Plain values are unchanged.
+- Prefer `^ expr` for the success value of an assigned block.
+- Dual-use: bitwise `&` remains an expression operator outside leader position.
 
 **Tasks (ADR 0013):**
 
@@ -430,12 +446,13 @@ Core collections: **list** `[]`, **anon struct** `{}`, **named struct** lits.
 
 ### Result / option handling
 
-| Kind | Produce | Consume (`\|` match) |
-|------|---------|----------------------|
-| Option | bare `^` / `^ v` in option-shaped fn | `$ name {…}` some · `: {…}` none |
-| Result | `^ v` / `! e` when any `!` in fn | `$ name {…}` ok · `! name {…}` err |
+| Kind | Produce | Consume (`\|` match) | Auto-unwrap |
+|------|---------|----------------------|-------------|
+| Option | bare `^` / `^ v` in option-shaped fn | `$ name {…}` some · `: {…}` none | inside `& { … }` |
+| Result | `^ v` / `! e` when any `!` in fn | `$ name {…}` ok · `! name {…}` err | inside `& { … }` |
 
-No `?expr`. No none assignment lit. No propagate glyph.
+No `?expr`. No none assignment lit. No separate propagate glyph — use **`&`**
+effect blocks for short-circuit unwrap chains.
 
 ## Layout
 

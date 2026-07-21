@@ -149,6 +149,10 @@ $ serve = (addr, routes) {
     }
 }
 
+; Public API (export discipline — docs/stdlib.md):
+;   types; serve; parse/format; response helpers; dispatch + handle_connection
+;   (apps may reimplement the accept loop without using serve)
+; Private: status_reason (format_response plumbing only)
 \ request, response, server
 \ text_response, html_response, json_response, parse_request, format_response
-\ status_reason, dispatch, handle_connection, serve
+\ dispatch, handle_connection, serve

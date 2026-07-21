@@ -36,8 +36,12 @@ struct Env {
     next_var: u32,
     diags: Diagnostics,
     fn_depth: u32,
+    /// Nested `& { … }` effect blocks — result/option use payloads.
+    effect_depth: u32,
     /// Expected return type of current function (if any).
     expected_ret: Option<Type>,
+    /// `% Shape` name while inferring a method body (for `.` receiver).
+    method_receiver: Option<String>,
 }
 
 impl Env {
@@ -52,7 +56,9 @@ impl Env {
             next_var: 0,
             diags: Diagnostics::new(),
             fn_depth: 0,
+            effect_depth: 0,
             expected_ret: None,
+            method_receiver: None,
         }
     }
 
@@ -176,18 +182,46 @@ fn register_struct(env: &mut Env, s: &StructStmt) {
                     .entry(fname)
                     .or_insert(FieldSlot::Method);
             } else {
-                let v = env.fresh();
+                // Field width/kind from default expression when present
+                // (`~ v0 = <ui64> 0` → field is ui64 for loads/stores).
+                let has_default = b.init.is_some();
+                let ty = if let Some(init) = &b.init {
+                    let t = infer_expr(env, init);
+                    env.apply(&t)
+                } else {
+                    env.fresh()
+                };
                 env.structs
                     .entry(sname.clone())
                     .or_default()
                     .entry(fname.clone())
-                    .or_insert(v);
-                let has_default = b.init.is_some();
+                    .or_insert(ty);
                 env.struct_slots
                     .entry(sname.clone())
                     .or_default()
                     .entry(fname)
                     .or_insert(FieldSlot::Data { has_default });
+            }
+        }
+    }
+    // Do **not** pin free data fields to `value` here. Bare fields like
+    // `map.table` stay open until method bodies constrain them (often to a
+    // named struct). Key/value slots become `value` when method params that
+    // unify with those fields are pinned after `infer_fn_type`.
+    // Refresh stored field kinds after methods (subst may have pinned vars).
+    if let Some(fields) = env.structs.get(&sname).cloned() {
+        for (fname, ty) in fields {
+            let is_data = env
+                .struct_slots
+                .get(&sname)
+                .and_then(|m| m.get(&fname))
+                .is_some_and(|s| matches!(s, FieldSlot::Data { .. }));
+            if is_data {
+                let applied = env.apply(&ty);
+                env.structs
+                    .entry(sname.clone())
+                    .or_default()
+                    .insert(fname, applied);
             }
         }
     }
@@ -449,6 +483,19 @@ fn infer_stmt(env: &mut Env, stmt: &Stmt) {
                 env.bind(&name.name, t);
             }
         }
+        Stmt::EffectBlock(s) => {
+            env.push();
+            env.effect_depth += 1;
+            for st in &s.body {
+                infer_stmt(env, st);
+            }
+            env.effect_depth -= 1;
+            env.pop();
+            if let Some(name) = &s.bind {
+                // Outcome is dynamic value (ok payload or err payload).
+                env.bind(&name.name, Type::Value);
+            }
+        }
         Stmt::TaskJoin(s) => match &s.kind {
             echo_ast::TaskJoinKind::Block { bind, body } => {
                 infer_block(env, body);
@@ -502,9 +549,9 @@ fn infer_fn_type(
     env.push();
     env.fn_depth += 1;
     let prev = env.expected_ret.replace(ret.clone());
+    let prev_recv = env.method_receiver.take();
     if let Some(sname) = receiver_struct {
-        env.bind(".", Type::Named(sname.to_string())); // not used; receiver is expr
-        let _ = sname;
+        env.method_receiver = Some(sname.to_string());
     }
     for (p, t) in params.iter().zip(param_tys.iter()) {
         env.bind(&p.name, t.clone());
@@ -513,10 +560,66 @@ fn infer_fn_type(
         infer_stmt(env, st);
     }
     env.expected_ret = prev;
+    env.method_receiver = prev_recv;
     env.fn_depth -= 1;
     env.pop();
 
-    Type::func(param_tys, env.apply(&ret))
+    // Free **params** only: unconstrained after body (eq / store / passthrough)
+    // become `value` so call sites stay polymorphic. Do **not** pin return vars
+    // blindly — that poisoned `^ .` methods before receiver was Named.
+    let params_applied: Vec<Type> = param_tys.iter().map(|p| env.apply(p)).collect();
+    for p in &params_applied {
+        pin_free_vars_to_value(env, p);
+    }
+    // If ret is the same free var as a param (e.g. `id = (x) { ^ x }`), pinning
+    // the param already fixed it. Re-apply params + ret for the function type.
+    Type::func(
+        params_applied.iter().map(|p| env.apply(p)).collect(),
+        env.apply(&ret),
+    )
+}
+
+/// Pin free type variables in `t` to [`Type::Value`] (in-place via subst).
+/// Inside `&` effect blocks, result/option call results are payloads.
+fn effect_unwrap_ret(env: &Env, t: Type) -> Type {
+    if env.effect_depth == 0 {
+        return t;
+    }
+    match env.apply(&t) {
+        Type::Result { ok, .. } => env.apply(&ok),
+        Type::Option(inner) => env.apply(&inner),
+        other => other,
+    }
+}
+
+fn pin_free_vars_to_value(env: &mut Env, t: &Type) {
+    match env.apply(t) {
+        Type::Var(v) => {
+            env.subst.insert(v, Type::Value);
+        }
+        Type::List(e) | Type::Option(e) => pin_free_vars_to_value(env, &e),
+        Type::Result { ok, err } => {
+            pin_free_vars_to_value(env, &ok);
+            pin_free_vars_to_value(env, &err);
+        }
+        Type::Fn { params, ret } => {
+            for p in params {
+                pin_free_vars_to_value(env, &p);
+            }
+            pin_free_vars_to_value(env, &ret);
+        }
+        Type::Anon(fields) => {
+            for (_, ty) in fields {
+                pin_free_vars_to_value(env, &ty);
+            }
+        }
+        Type::Union(xs) => {
+            for x in xs {
+                pin_free_vars_to_value(env, &x);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
@@ -546,7 +649,11 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
         Expr::Bytes { .. } => Type::Bytes,
         Expr::Locator { .. } => Type::Named("locator".into()),
         Expr::Bool { .. } => Type::Bool,
-        Expr::Receiver { .. } => env.fresh(), // refined by method context later
+        Expr::Receiver { .. } => env
+            .method_receiver
+            .as_ref()
+            .map(|n| Type::Named(n.clone()))
+            .unwrap_or_else(|| env.fresh()),
         Expr::WidthCast {
             width,
             expr,
@@ -651,14 +758,14 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
                             env.unify(&at, p, arg.span());
                         }
                     }
-                    env.apply(&ret)
+                    effect_unwrap_ret(env, env.apply(&ret))
                 }
                 Type::Var(_) | Type::Unknown => {
                     let params: Vec<Type> = args.iter().map(|a| infer_expr(env, a)).collect();
                     let ret = env.fresh();
                     let fty = Type::func(params, ret.clone());
                     env.unify(&cty, &fty, *span);
-                    ret
+                    effect_unwrap_ret(env, ret)
                 }
                 other => {
                     env.diags.push(
@@ -833,12 +940,32 @@ fn infer_binary(env: &mut Env, op: BinaryOp, lt: &Type, rt: &Type, span: Span) -
     }
 }
 
-/// Integer-only binary ops (`& | ^ << >>`): both sides same int width.
+/// Integer-only binary ops (`& | ^ << >>`): same width, or default `i64` yields
+/// to a more specific width (untagged literals adopt the other operand's lane).
 fn int_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span) -> Type {
     let lt = env.apply(lt);
     let rt = env.apply(rt);
+    if matches!(lt, Type::Value) || matches!(rt, Type::Value) {
+        env.diags.push(
+            Diagnostic::error(format!(
+                "cannot use dynamic `value` in integer arithmetic (`{lt}` vs `{rt}`)"
+            ))
+            .with_span(span)
+            .with_code("sem-type-mismatch"),
+        );
+        return Type::Error;
+    }
     match (&lt, &rt) {
         (a, b) if is_int_kind(a) && a == b => a.clone(),
+        // Default untagged/`i64` yields to a specific width.
+        (Type::Int, b) if is_specific_int(b) => {
+            env.unify(&lt, b, span);
+            b.clone()
+        }
+        (a, Type::Int) if is_specific_int(a) => {
+            env.unify(&rt, a, span);
+            a.clone()
+        }
         (a, b) if is_int_kind(a) && is_int_kind(b) && a != b => {
             env.diags.push(
                 Diagnostic::error(format!(
@@ -868,6 +995,19 @@ fn int_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span) -> Type {
             Type::Int
         }
     }
+}
+
+fn is_specific_int(t: &Type) -> bool {
+    matches!(
+        t,
+        Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+    )
 }
 
 fn is_int_kind(t: &Type) -> bool {
@@ -907,6 +1047,16 @@ fn is_float_kind(t: &Type) -> bool {
 fn numeric_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span, _is_div: bool) -> Type {
     let lt = env.apply(lt);
     let rt = env.apply(rt);
+    if matches!(lt, Type::Value) || matches!(rt, Type::Value) {
+        env.diags.push(
+            Diagnostic::error(format!(
+                "cannot use dynamic `value` in numeric arithmetic (`{lt}` vs `{rt}`)"
+            ))
+            .with_span(span)
+            .with_code("sem-type-mismatch"),
+        );
+        return Type::Error;
+    }
     match (&lt, &rt) {
         (Type::Int, Type::Int) => Type::Int,
         (Type::Int8, Type::Int8) => Type::Int8,
@@ -918,6 +1068,15 @@ fn numeric_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span, _is_div: bool)
         (Type::UInt64, Type::UInt64) => Type::UInt64,
         (Type::Float, Type::Float) => Type::Float,
         (Type::Float32, Type::Float32) => Type::Float32,
+        // Default i64 yields to a specific integer width (literals adopt the lane).
+        (Type::Int, b) if is_specific_int(b) => {
+            env.unify(&lt, b, span);
+            b.clone()
+        }
+        (a, Type::Int) if is_specific_int(a) => {
+            env.unify(&rt, a, span);
+            a.clone()
+        }
         (a, b) if is_int_kind(a) && is_int_kind(b) && a != b => {
             env.diags.push(
                 Diagnostic::error(format!(
@@ -997,6 +1156,14 @@ fn field_type(env: &mut Env, base: &Type, field: &str, span: Span) -> Type {
             let v = env.fresh();
             // cannot constrain struct yet
             v
+        }
+        Type::Value => {
+            env.diags.push(
+                Diagnostic::error(format!("no field `{field}` on `value`"))
+                    .with_span(span)
+                    .with_code("sem-no-field"),
+            );
+            Type::Error
         }
         other => {
             env.diags.push(

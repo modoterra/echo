@@ -4,6 +4,8 @@
 //! rewrites control-flow shape. For-in expands to index loops with [`MirPrim`].
 //! Tagged match keeps a dedicated terminator (i128 pack) plus [`MirOp::MatchPayload`].
 
+use std::collections::HashSet;
+
 use echo_ast::BinaryOp;
 
 use crate::{MirExpr, MirPrim, MirRetShape, MirStmt};
@@ -65,6 +67,26 @@ pub enum MirOp {
         body_symbol: Option<String>,
         handle: Option<MirExpr>,
         bind: Option<String>,
+    },
+    /// ADR 0016 ownership.
+    ScopeEnter {
+        id: u32,
+    },
+    ScopeExit {
+        id: u32,
+    },
+    ScopeRegister {
+        value: MirExpr,
+    },
+    ScopePromote {
+        value: MirExpr,
+        target: u32,
+    },
+    ScopeDisown {
+        value: MirExpr,
+    },
+    ScopeRelease {
+        value: MirExpr,
     },
 }
 
@@ -262,6 +284,51 @@ fn lower_stmt(b: &mut Builder, cur: BlockId, stmt: &MirStmt, loop_ctx: LoopCtx) 
                 cur,
                 MirOp::ListPush {
                     base: base.clone(),
+                    value: value.clone(),
+                },
+            );
+            cur
+        }
+        MirStmt::ScopeEnter { id } => {
+            b.push_op(cur, MirOp::ScopeEnter { id: *id });
+            cur
+        }
+        MirStmt::ScopeExit { id } => {
+            b.push_op(cur, MirOp::ScopeExit { id: *id });
+            cur
+        }
+        MirStmt::ScopeRegister { value } => {
+            b.push_op(
+                cur,
+                MirOp::ScopeRegister {
+                    value: value.clone(),
+                },
+            );
+            cur
+        }
+        MirStmt::ScopePromote { value, target } => {
+            b.push_op(
+                cur,
+                MirOp::ScopePromote {
+                    value: value.clone(),
+                    target: *target,
+                },
+            );
+            cur
+        }
+        MirStmt::ScopeDisown { value } => {
+            b.push_op(
+                cur,
+                MirOp::ScopeDisown {
+                    value: value.clone(),
+                },
+            );
+            cur
+        }
+        MirStmt::ScopeRelease { value } => {
+            b.push_op(
+                cur,
+                MirOp::ScopeRelease {
                     value: value.clone(),
                 },
             );
@@ -505,7 +572,9 @@ fn lower_loop(
     }
 
     let body_end = lower_seq(b, body_bb, body, Some((header, exit)));
-    if matches!(b.block_mut(body_end).term, Terminator::Unreachable) {
+    if matches!(b.block_mut(body_end).term, Terminator::Unreachable)
+        && block_reachable_from(b, body_bb, body_end)
+    {
         b.set_term(body_end, Terminator::Goto(header));
     }
     exit
@@ -576,16 +645,21 @@ fn lower_for_in(
     );
     // continue → cont (i++); break → exit
     let body_end = lower_seq(b, body_bb, body, Some((cont, exit)));
-    if matches!(b.block_mut(body_end).term, Terminator::Unreachable) {
+    // Only fall through to cont when `body_end` is reachable from the body entry.
+    // Lifetime inject may leave trailing ScopeExit after `^`/`!` on a *new* block
+    // with no predecessors; wiring that dead end to cont creates an unreachable
+    // continue that SSA never renames (bare `__i_N` → cg-name) while still
+    // attracting cont→header edges in the full block list.
+    if matches!(b.block_mut(body_end).term, Terminator::Unreachable)
+        && block_reachable_from(b, body_bb, body_end)
+    {
         b.set_term(body_end, Terminator::Goto(cont));
     }
 
-    // Only wire cont → header when something can reach cont. A dead cont with a
-    // back-edge would still be a CFG predecessor of the header and poison
-    // dominance / SSA (see `construct_ssa` reachable-pred fix). Bodies that always
-    // `^`/`!` leave cont with no preds.
+    // Only wire cont → header when a block *reachable from the body entry*
+    // targets cont. Dead trailing ScopeExit after return must not count.
     let cont_targeted = b.blocks.iter().any(|bb| {
-        matches!(
+        let targets = matches!(
             &bb.term,
             Terminator::Goto(t) if *t == cont
         ) || matches!(
@@ -595,7 +669,8 @@ fn lower_for_in(
                 else_bb,
                 ..
             } if *then_bb == cont || *else_bb == cont
-        )
+        );
+        targets && block_reachable_from(b, body_bb, bb.id)
     });
     if cont_targeted {
         b.push_op(
@@ -613,6 +688,40 @@ fn lower_for_in(
     }
 
     exit
+}
+
+/// Forward reachability within the CFG under construction.
+fn blocks_reachable_from(b: &Builder, start: BlockId) -> HashSet<BlockId> {
+    let mut seen = HashSet::new();
+    let mut stack = vec![start];
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        let term = &b.blocks[id.0 as usize].term;
+        let succs: Vec<BlockId> = match term {
+            Terminator::Goto(t) => vec![*t],
+            Terminator::Branch {
+                then_bb, else_bb, ..
+            } => vec![*then_bb, *else_bb],
+            Terminator::MatchTagged { ok_bb, err_bb, .. } => vec![*ok_bb, *err_bb],
+            Terminator::ReturnOk(_)
+            | Terminator::ReturnErr(_)
+            | Terminator::ReturnNone
+            | Terminator::Unreachable => vec![],
+        };
+        for s in succs {
+            stack.push(s);
+        }
+    }
+    seen
+}
+
+fn block_reachable_from(b: &Builder, start: BlockId, target: BlockId) -> bool {
+    if start == target {
+        return true;
+    }
+    blocks_reachable_from(b, start).contains(&target)
 }
 
 #[cfg(test)]

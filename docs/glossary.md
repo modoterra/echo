@@ -19,13 +19,16 @@ definition here over redefining the same idea in every layer doc.
 |------|---------|
 | **Semantics** | Local meaning: bindings, scopes, inferred types, analysis diagnostics (`echo_semantics`). |
 | **Kind inference** | Default: value kinds of binds/params/returns/fields are inferred. |
+| **`unknown` (internal)** | Soft checker hole: not known yet; unifies by **adopting** `T` and freezing (e.g. empty list element). Not a keyword. |
+| **`value` (internal)** | Universal ABI kind: intentionally dynamic; unifies with any concrete kind and **stays** open. Used for unconstrained eq/store/passthrough params (map keys, `std/reflect`). Not a keyword; not pass-by-value. |
 | **Width tag** | Prefix on a numeric lit, e.g. `<i32>42` — storage width, not a type/generics system. |
 | **Closed function** | Function body sees only params, its own locals, `#`, imports, and (if a method call) `.` — no outer `$`/`~`. |
 | **Function value** | Nameless closed `(params) { … }` value; `$ name = …` names the **binding**. Pass/rebind/call-through supported for plain returns (code pointer). |
 | **Range** | Inclusive integer interval `lo..hi` (empty if lo > hi). Value; for-in yields ints; match arm means membership. |
 | **Anon struct** | `{ k: v }` structural product; **not** a map; no type tag. |
 | **Named struct** | `% name { … }` shape + tagged lit `name { … }`; heap type tag for `%` match arms. |
-| **Value vs reference** | Params always copy the binding. **Ref** = struct + list (copy ref, share). **Value** = everything else (copy value). See `semantics.md`. |
+| **Value vs reference** | Pass convention (not the internal kind `value`). Params always copy the binding. **Ref** = struct + list (copy ref, share). **Value** = everything else (copy bits). See `semantics.md`. |
+| **`std/reflect`** | Userland runtime kind API (`kind` / `key_bytes` / …). Distinct from tools crate `echo_reflection`. |
 | **RefValue** | IR class: `Struct` \| `List` — pass by reference. |
 | **StaticValue** | IR class: int/float/bool/string/bytes/… — pass by value. |
 | **Opaque handle** | Runtime-only resource id (e.g. `KIND_TCP_*`); lives in a struct **field**, not a userland type. |
@@ -50,6 +53,8 @@ definition here over redefining the same idea in every layer doc.
 | **std** | Privileged standard-library package (`/ std/…`); toolchain/install root. |
 | **`/ runtime`** | Runtime-primitive package import; **legal only inside privileged std sources**. |
 | **Runtime primitive** | Export of the `runtime` package (e.g. `runtime.print`); codegen → `echo_runtime_*`. |
+| **Scope-owned memory** | Managed heap is owned by a lexical/dynamic scope; leave-scope edges **release** (ADR 0016). Not tracing GC. |
+| **Promotion / demotion / release** | MIR ops for moving ownership outward/inward and disposing at scope exit (ADR 0016). |
 
 ## Project model
 

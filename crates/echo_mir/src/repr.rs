@@ -165,7 +165,13 @@ fn infer_pass(cfg: &MirCfg, reprs: &mut HashMap<String, MirRepr>) {
                 | MirOp::ListPush { .. }
                 | MirOp::TaskSpawn { .. }
                 | MirOp::TaskSpawnFn { .. }
-                | MirOp::TaskJoin { .. } => {}
+                | MirOp::TaskJoin { .. }
+                | MirOp::ScopeEnter { .. }
+                | MirOp::ScopeExit { .. }
+                | MirOp::ScopeRegister { .. }
+                | MirOp::ScopePromote { .. }
+                | MirOp::ScopeDisown { .. }
+                | MirOp::ScopeRelease { .. } => {}
             }
         }
     }
@@ -261,9 +267,13 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
 
 fn is_same_int_pair(left: MirRepr, right: MirRepr) -> Option<MirRepr> {
     if left == right && left.is_native_int() {
-        Some(left)
-    } else {
-        None
+        return Some(left);
+    }
+    // Default i64 yields to a more specific integer width (mirrors semantics).
+    match (left, right) {
+        (MirRepr::Int64, r) if r.is_native_int() && r != MirRepr::Int64 => Some(r),
+        (l, MirRepr::Int64) if l.is_native_int() && l != MirRepr::Int64 => Some(l),
+        _ => None,
     }
 }
 

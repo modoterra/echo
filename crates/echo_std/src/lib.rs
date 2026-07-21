@@ -8,12 +8,15 @@
 use std::path::{Path, PathBuf};
 
 use echo_codegen_abi::{
-    RT_BYTES_FROM_I64, RT_BYTES_GET, RT_BYTES_LEN, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64,
-    RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_LIST_LEN,
-    RT_PRINT_I64, RT_STR_CAT, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
-    RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_LEN, RT_TCP_ACCEPT,
-    RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_FAIL,
-    RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
+    RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
+    RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
+    RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET, RT_LIST_LEN, RT_NOW_MS, RT_SLEEP_MS, RT_PRINT_I64,
+    RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_STR_CAT, RT_STR_CONTAINS,
+    RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT,
+    RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_SLICE, RT_STR_STARTS_WITH,
+    RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
+    RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM,
+    RT_UDP_SEND_TO,
 };
 
 /// Stable crate identity for workspace linkage checks.
@@ -75,6 +78,10 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
         native: RT_LIST_LEN,
     },
     RuntimeExport {
+        name: "list_get",
+        native: RT_LIST_GET,
+    },
+    RuntimeExport {
         name: "bytes_get",
         native: RT_BYTES_GET,
     },
@@ -83,8 +90,52 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
         native: RT_BYTES_FROM_I64,
     },
     RuntimeExport {
+        name: "bytes_slice",
+        native: RT_BYTES_SLICE,
+    },
+    RuntimeExport {
+        name: "bytes_cat",
+        native: RT_BYTES_CAT,
+    },
+    RuntimeExport {
+        name: "bytes_from_str",
+        native: RT_BYTES_FROM_STR,
+    },
+    RuntimeExport {
+        name: "str_get",
+        native: RT_STR_GET,
+    },
+    RuntimeExport {
+        name: "reflect_kind",
+        native: RT_REFLECT_KIND,
+    },
+    RuntimeExport {
+        name: "reflect_kind_name",
+        native: RT_REFLECT_KIND_NAME,
+    },
+    RuntimeExport {
+        name: "reflect_key_bytes",
+        native: RT_REFLECT_KEY_BYTES,
+    },
+    RuntimeExport {
         name: "str_cat",
         native: RT_STR_CAT,
+    },
+    RuntimeExport {
+        name: "str_slice",
+        native: RT_STR_SLICE,
+    },
+    RuntimeExport {
+        name: "str_contains",
+        native: RT_STR_CONTAINS,
+    },
+    RuntimeExport {
+        name: "str_starts_with",
+        native: RT_STR_STARTS_WITH,
+    },
+    RuntimeExport {
+        name: "str_ends_with",
+        native: RT_STR_ENDS_WITH,
     },
     RuntimeExport {
         name: "float_from_f64",
@@ -157,6 +208,14 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "test_finish",
         native: RT_TEST_FINISH,
+    },
+    RuntimeExport {
+        name: "now_ms",
+        native: RT_NOW_MS,
+    },
+    RuntimeExport {
+        name: "sleep_ms",
+        native: RT_SLEEP_MS,
     },
 ];
 

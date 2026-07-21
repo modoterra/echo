@@ -27,28 +27,56 @@ pub struct SearchPaths {
 
 impl SearchPaths {
     /// Discover roots near the entry file (walk parents for `std/`).
+    ///
+    /// Also considers the **toolchain install root** (parent of `bin/` when
+    /// `xo` lives at `<root>/bin/xo` with `<root>/std/`) and optional
+    /// `$XO_INSTALL_ROOT` so a user install works outside the git checkout.
     #[must_use]
     pub fn default_for(entry: &Path) -> Self {
         let mut package_roots = Vec::new();
+        let mut push_root = |p: PathBuf| {
+            if p.join("std").is_dir() && !package_roots.contains(&p) {
+                package_roots.push(p);
+            }
+        };
+
         let mut dir = entry
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .to_path_buf();
         for _ in 0..16 {
-            let std_dir = dir.join("std");
-            if std_dir.is_dir() {
-                package_roots.push(dir.clone());
-            }
+            push_root(dir.clone());
             if !dir.pop() {
                 break;
             }
         }
-        // Also CWD
+        // CWD (project / workspace checkouts).
         if let Ok(cwd) = std::env::current_dir() {
-            if cwd.join("std").is_dir() && !package_roots.contains(&cwd) {
-                package_roots.push(cwd);
+            push_root(cwd);
+        }
+        // Explicit install root (install script / wrappers).
+        if let Ok(root) = std::env::var("XO_INSTALL_ROOT") {
+            let p = PathBuf::from(root);
+            if !p.as_os_str().is_empty() {
+                push_root(p);
             }
         }
+        // `<prefix>/bin/xo` → `<prefix>` when `std/` is co-installed.
+        if let Ok(exe) = std::env::current_exe() {
+            if let Ok(exe) = exe.canonicalize() {
+                if let Some(bin_dir) = exe.parent() {
+                    if bin_dir
+                        .file_name()
+                        .is_some_and(|n| n == "bin")
+                    {
+                        if let Some(prefix) = bin_dir.parent() {
+                            push_root(prefix.to_path_buf());
+                        }
+                    }
+                }
+            }
+        }
+
         let declared_deps = load_declared_deps(entry);
         Self {
             package_roots,

@@ -62,6 +62,11 @@ pub enum Type {
     Module,
     /// Empty list element or unconstrained.
     Unknown,
+    /// Universal ABI slot (dynamic payload): unifies with any concrete kind
+    /// **without freezing** to that kind. Used for unconstrained function
+    /// params (after inference) and heterogeneous collection keys/values.
+    /// Not a surface keyword — diagnostic label only. See `docs/semantics.md`.
+    Value,
     /// After a failed unify (poison).
     Error,
     Var(VarId),
@@ -176,6 +181,7 @@ impl fmt::Display for Type {
             Type::Result { ok, err } => write!(f, "result[{ok}, {err}]"),
             Type::Module => write!(f, "module"),
             Type::Unknown => write!(f, "unknown"),
+            Type::Value => write!(f, "value"),
             Type::Error => write!(f, "error"),
             Type::Var(VarId(id)) => write!(f, "?{id}"),
         }

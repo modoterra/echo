@@ -177,6 +177,15 @@ fn write_stmt(stmt: &Stmt, level: usize, out: &mut String) {
                 write_expr(handle, 0, level, out);
             }
         },
+        Stmt::EffectBlock(s) => {
+            out.push('&');
+            if let Some(b) = &s.bind {
+                out.push(' ');
+                out.push_str(&b.name);
+                out.push_str(" =");
+            }
+            write_block(&s.body, level, out);
+        }
         Stmt::Import(s) => {
             out.push_str("/ ");
             write_import_path(&s.path, out);

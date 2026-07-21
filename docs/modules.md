@@ -72,6 +72,10 @@ $ x = math.add(1, 2)
 | Use | `module.export` only |
 | `\ name` | What this **file** contributes to the module’s export set |
 
+**Privacy:** names not listed in `\ ` are **not** importable (`sem-module-export`).
+That is the only public/private mechanism — see **Export discipline** in
+[`stdlib.md`](stdlib.md) for how std applies it (helpers, types, methods).
+
 ### Path resolution
 
 | Form | Resolve |

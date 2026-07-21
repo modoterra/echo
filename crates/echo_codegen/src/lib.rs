@@ -25,13 +25,16 @@ use echo_codegen_abi::{
     RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
     RT_STR_BUILDER_PUSH_VALUE, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
     RT_STR_FROM_FLOAT,
-    RT_BYTES_FROM_I64, RT_BYTES_GET, RT_BYTES_LEN, RT_STR_CAT, RT_STR_FROM_INT,
-    RT_STR_FROM_LOCATOR, RT_STR_LEN, RT_STRING_FROM_UTF8,
+    RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
+    RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_STR_CAT, RT_STR_CONTAINS,
+    RT_STR_ENDS_WITH, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_SLICE,
+    RT_STR_STARTS_WITH, RT_STRING_FROM_UTF8,
     RT_STRUCT_GET, RT_STRUCT_NEW, RT_STRUCT_NEW_NAMED, RT_STRUCT_TYPE_IS,
-    RT_STRUCT_SET, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED, RT_TASK_JOIN,
-    RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY, RT_TCP_ACCEPT,
-    RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_UDP_BIND,
-    RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
+    RT_STRUCT_SET, RT_SCOPE_DISOWN, RT_SCOPE_ENTER, RT_SCOPE_EXIT, RT_SCOPE_PROMOTE,
+    RT_SCOPE_REGISTER, RT_SCOPE_RELEASE, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED,
+    RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY,
+    RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
+    RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS,
 };
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_mir::{
@@ -111,10 +114,22 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_STR_LEN, str_from_int_ty, None);
     module.add_function(RT_BYTES_LEN, str_from_int_ty, None);
     module.add_function(RT_BYTES_FROM_I64, str_from_int_ty, None);
+    module.add_function(RT_BYTES_FROM_STR, str_from_int_ty, None);
     let bytes_get_ty = i64t.fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_BYTES_GET, bytes_get_ty, None);
+    module.add_function(RT_STR_GET, bytes_get_ty, None);
     let str_cat_ty = i64t.fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_STR_CAT, str_cat_ty, None);
+    module.add_function(RT_BYTES_CAT, str_cat_ty, None);
+    module.add_function(RT_STR_CONTAINS, str_cat_ty, None);
+    module.add_function(RT_STR_STARTS_WITH, str_cat_ty, None);
+    module.add_function(RT_STR_ENDS_WITH, str_cat_ty, None);
+    let str_slice_ty = i64t.fn_type(&[i64t.into(), i64t.into(), i64t.into()], false);
+    module.add_function(RT_STR_SLICE, str_slice_ty, None);
+    module.add_function(RT_BYTES_SLICE, str_slice_ty, None);
+    module.add_function(RT_REFLECT_KIND, str_from_int_ty, None);
+    module.add_function(RT_REFLECT_KIND_NAME, str_from_int_ty, None);
+    module.add_function(RT_REFLECT_KEY_BYTES, str_from_int_ty, None);
 
     let f64t = context.f64_type();
     let float_from_ty = i64t.fn_type(&[f64t.into()], false);
@@ -170,6 +185,9 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_TEST_FAIL, test_fail_ty, None);
     let test_finish_ty = i64t.fn_type(&[], false);
     module.add_function(RT_TEST_FINISH, test_finish_ty, None);
+    module.add_function(RT_NOW_MS, test_finish_ty, None);
+    let sleep_ms_ty = context.void_type().fn_type(&[i64t.into()], false);
+    module.add_function(RT_SLEEP_MS, sleep_ms_ty, None);
     let http_parse_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_HTTP_PARSE_REQUEST, http_parse_ty, None);
     module.add_function(RT_HTTP_HEADERS_COMPLETE, http_parse_ty, None);
@@ -210,6 +228,18 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     let rt_block_wide = i128t.fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_TASK_BLOCK_WIDE, rt_block_wide, None);
     module.add_function(RT_TASK_SHAPE, rt1, None);
+
+    // Scope-owned memory (ADR 0016)
+    let scope_id_ty = context.void_type().fn_type(&[i64t.into()], false);
+    module.add_function(RT_SCOPE_ENTER, scope_id_ty, None);
+    module.add_function(RT_SCOPE_EXIT, scope_id_ty, None);
+    module.add_function(RT_SCOPE_REGISTER, scope_id_ty, None);
+    module.add_function(RT_SCOPE_DISOWN, scope_id_ty, None);
+    module.add_function(RT_SCOPE_RELEASE, scope_id_ty, None);
+    let scope_promote_ty = context
+        .void_type()
+        .fn_type(&[i64t.into(), i64t.into()], false);
+    module.add_function(RT_SCOPE_PROMOTE, scope_promote_ty, None);
 
     let struct_new_ty = i64t.fn_type(&[], false);
     module.add_function(RT_STRUCT_NEW, struct_new_ty, None);
@@ -514,8 +544,74 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_BYTES_SLICE,
+        echo_runtime_bytes_slice as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_BYTES_CAT,
+        echo_runtime_bytes_cat as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_BYTES_FROM_STR,
+        echo_runtime_bytes_from_str as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_GET,
+        echo_runtime_str_get as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_REFLECT_KIND,
+        echo_runtime_reflect_kind as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_REFLECT_KIND_NAME,
+        echo_runtime_reflect_kind_name as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_REFLECT_KEY_BYTES,
+        echo_runtime_reflect_key_bytes as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_STR_CAT,
         echo_runtime_str_cat as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_SLICE,
+        echo_runtime_str_slice as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_CONTAINS,
+        echo_runtime_str_contains as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_STARTS_WITH,
+        echo_runtime_str_starts_with as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_ENDS_WITH,
+        echo_runtime_str_ends_with as extern "C" fn(i64, i64) -> i64 as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -679,6 +775,18 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         &ee,
         RT_TEST_FINISH,
         echo_runtime_test_finish as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_NOW_MS,
+        echo_runtime_now_ms as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SLEEP_MS,
+        echo_runtime_sleep_ms as extern "C" fn(i64) as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -881,16 +989,20 @@ fn map_runtime_symbol<'ctx>(
 
 // Re-export runtime symbols for mapping (must match `echo_codegen_abi` names).
 use echo_runtime::{
-    echo_runtime_abort, echo_runtime_bytes_from_i64, echo_runtime_bytes_from_ptr,
-    echo_runtime_bytes_get, echo_runtime_bytes_len, echo_runtime_eq, echo_runtime_eq_id,
+    echo_runtime_abort, echo_runtime_bytes_cat, echo_runtime_bytes_from_i64,
+    echo_runtime_bytes_from_ptr, echo_runtime_bytes_from_str, echo_runtime_bytes_get,
+    echo_runtime_bytes_len, echo_runtime_bytes_slice, echo_runtime_eq, echo_runtime_eq_id,
     echo_runtime_float_from_f64, echo_runtime_float_to_f64, echo_runtime_fn_code,
     echo_runtime_fn_new, echo_runtime_fn_shape, echo_runtime_http_headers_complete,
     echo_runtime_http_parse_request, echo_runtime_http_request_complete,
     echo_runtime_list_get, echo_runtime_list_len, echo_runtime_list_new, echo_runtime_list_push,
     echo_runtime_list_set, echo_runtime_locator_from_utf8, echo_runtime_ne, echo_runtime_ne_id,
-    echo_runtime_print_i64, echo_runtime_range_new, echo_runtime_str_from_bytes,
-    echo_runtime_str_cat, echo_runtime_str_from_debug, echo_runtime_str_from_duration,
-    echo_runtime_str_from_float, echo_runtime_str_from_int, echo_runtime_str_len,
+    echo_runtime_print_i64, echo_runtime_range_new, echo_runtime_reflect_key_bytes,
+    echo_runtime_reflect_kind, echo_runtime_reflect_kind_name, echo_runtime_str_from_bytes,
+    echo_runtime_str_cat, echo_runtime_str_contains, echo_runtime_str_ends_with,
+    echo_runtime_str_from_debug, echo_runtime_str_from_duration, echo_runtime_str_from_float,
+    echo_runtime_str_from_int, echo_runtime_str_get, echo_runtime_str_len,
+    echo_runtime_str_slice, echo_runtime_str_starts_with,
     echo_runtime_str_from_locator, echo_runtime_string_builder_finish,
     echo_runtime_string_builder_new, echo_runtime_string_builder_push_str,
     echo_runtime_string_builder_push_value, echo_runtime_string_from_utf8,
@@ -902,6 +1014,7 @@ use echo_runtime::{
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
     echo_runtime_test_fail, echo_runtime_test_finish, echo_runtime_test_register,
+    echo_runtime_now_ms, echo_runtime_sleep_ms,
     echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
     echo_runtime_udp_send_to,
 };
@@ -1143,6 +1256,57 @@ fn emit_function_cfg<'ctx>(
                         .builder
                         .build_call(push_f, &[handle.into(), v.into()], "")
                         .expect("list_push");
+                }
+                MirOp::ScopeEnter { id } => {
+                    let f = cx.module.get_function(RT_SCOPE_ENTER).expect("scope_enter");
+                    let sid = cx.i64t.const_int(*id as u64, false);
+                    let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_enter");
+                }
+                MirOp::ScopeExit { id } => {
+                    let f = cx.module.get_function(RT_SCOPE_EXIT).expect("scope_exit");
+                    let sid = cx.i64t.const_int(*id as u64, false);
+                    let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_exit");
+                }
+                MirOp::ScopeRegister { value } => {
+                    let Some(h) = emit_expr_i64(&mut cx, value) else {
+                        continue;
+                    };
+                    let f = cx
+                        .module
+                        .get_function(RT_SCOPE_REGISTER)
+                        .expect("scope_register");
+                    let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_register");
+                }
+                MirOp::ScopePromote { value, target } => {
+                    let Some(h) = emit_expr_i64(&mut cx, value) else {
+                        continue;
+                    };
+                    let f = cx
+                        .module
+                        .get_function(RT_SCOPE_PROMOTE)
+                        .expect("scope_promote");
+                    let tid = cx.i64t.const_int(*target as u64, false);
+                    let _ = cx
+                        .builder
+                        .build_call(f, &[h.into(), tid.into()], "")
+                        .expect("scope_promote");
+                }
+                MirOp::ScopeDisown { value } => {
+                    let Some(h) = emit_expr_i64(&mut cx, value) else {
+                        continue;
+                    };
+                    let f = cx.module.get_function(RT_SCOPE_DISOWN).expect("scope_disown");
+                    let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_disown");
+                }
+                MirOp::ScopeRelease { value } => {
+                    let Some(h) = emit_expr_i64(&mut cx, value) else {
+                        continue;
+                    };
+                    let f = cx
+                        .module
+                        .get_function(RT_SCOPE_RELEASE)
+                        .expect("scope_release");
+                    let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_release");
                 }
             }
         }
@@ -1834,6 +1998,57 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                 .builder
                 .build_call(push_f, &[handle.into(), v.into()], "")
                 .expect("list_push");
+        }
+        MirStmt::ScopeEnter { id } => {
+            let f = cx.module.get_function(RT_SCOPE_ENTER).expect("scope_enter");
+            let sid = cx.i64t.const_int(*id as u64, false);
+            let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_enter");
+        }
+        MirStmt::ScopeExit { id } => {
+            let f = cx.module.get_function(RT_SCOPE_EXIT).expect("scope_exit");
+            let sid = cx.i64t.const_int(*id as u64, false);
+            let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_exit");
+        }
+        MirStmt::ScopeRegister { value } => {
+            let Some(h) = emit_expr_i64(cx, value) else {
+                return;
+            };
+            let f = cx
+                .module
+                .get_function(RT_SCOPE_REGISTER)
+                .expect("scope_register");
+            let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_register");
+        }
+        MirStmt::ScopePromote { value, target } => {
+            let Some(h) = emit_expr_i64(cx, value) else {
+                return;
+            };
+            let f = cx
+                .module
+                .get_function(RT_SCOPE_PROMOTE)
+                .expect("scope_promote");
+            let tid = cx.i64t.const_int(*target as u64, false);
+            let _ = cx
+                .builder
+                .build_call(f, &[h.into(), tid.into()], "")
+                .expect("scope_promote");
+        }
+        MirStmt::ScopeDisown { value } => {
+            let Some(h) = emit_expr_i64(cx, value) else {
+                return;
+            };
+            let f = cx.module.get_function(RT_SCOPE_DISOWN).expect("scope_disown");
+            let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_disown");
+        }
+        MirStmt::ScopeRelease { value } => {
+            let Some(h) = emit_expr_i64(cx, value) else {
+                return;
+            };
+            let f = cx
+                .module
+                .get_function(RT_SCOPE_RELEASE)
+                .expect("scope_release");
+            let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_release");
         }
     }
 }
@@ -2562,8 +2777,24 @@ fn emit_call<'ctx>(
                 let _ = cx.builder.build_call(f, &[msg.into()], "").expect("test_fail");
                 return Some(cx.i64t.const_int(0, false));
             }
+            // sleep_ms: void, return 0.
+            if native == RT_SLEEP_MS {
+                if args.len() != 1 {
+                    cx.diags.push(
+                        Diagnostic::error("runtime.sleep_ms expects one argument")
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let ms = emit_expr_i64(cx, &args[0])?;
+                let f = cx.module.get_function(RT_SLEEP_MS).expect("sleep_ms");
+                let _ = cx.builder.build_call(f, &[ms.into()], "").expect("sleep_ms");
+                return Some(cx.i64t.const_int(0, false));
+            }
             // Arity for i64… → i64 runtime exports.
-            let arity = if native == RT_STR_FROM_INT
+            let arity = if native == RT_NOW_MS || native == RT_TEST_FINISH {
+                0
+            } else if native == RT_STR_FROM_INT
                 || native == RT_STR_FROM_FLOAT
                 || native == RT_STR_FROM_BYTES
                 || native == RT_STR_FROM_DURATION
@@ -2573,6 +2804,10 @@ fn emit_call<'ctx>(
                 || native == RT_BYTES_LEN
                 || native == RT_LIST_LEN
                 || native == RT_BYTES_FROM_I64
+                || native == RT_BYTES_FROM_STR
+                || native == RT_REFLECT_KIND
+                || native == RT_REFLECT_KIND_NAME
+                || native == RT_REFLECT_KEY_BYTES
                 || native == RT_HTTP_PARSE_REQUEST
                 || native == RT_HTTP_HEADERS_COMPLETE
                 || native == RT_HTTP_REQUEST_COMPLETE
@@ -2586,10 +2821,19 @@ fn emit_call<'ctx>(
                 || native == RT_TCP_WRITE
                 || native == RT_UDP_RECV_FROM
                 || native == RT_STR_CAT
+                || native == RT_STR_CONTAINS
+                || native == RT_STR_STARTS_WITH
+                || native == RT_STR_ENDS_WITH
                 || native == RT_BYTES_GET
+                || native == RT_STR_GET
+                || native == RT_BYTES_CAT
+                || native == RT_LIST_GET
             {
                 2
-            } else if native == RT_UDP_SEND_TO {
+            } else if native == RT_UDP_SEND_TO
+                || native == RT_STR_SLICE
+                || native == RT_BYTES_SLICE
+            {
                 3
             } else {
                 cx.diags.push(
@@ -2667,6 +2911,8 @@ fn emit_call<'ctx>(
         }
         CallTarget::Indirect { callee } => {
             // Function value handle: { code ptr, ret shape }.
+            // Kernel logs for past suite crashes showed `ip == 0` (null call);
+            // refuse to inttoptr/call a zero code pointer.
             let handle = emit_expr_i64(cx, callee)?;
             let code_f = cx.module.get_function(RT_FN_CODE).expect("fn_code");
             let shape_f = cx.module.get_function(RT_FN_SHAPE).expect("fn_shape");
@@ -2684,6 +2930,30 @@ fn emit_call<'ctx>(
                 .try_as_basic_value()
                 .unwrap_basic()
                 .into_int_value();
+            let zero = cx.i64t.const_zero();
+            let is_null = cx
+                .builder
+                .build_int_compare(IntPredicate::EQ, code, zero, "fn.null")
+                .expect("fn.null");
+            let parent = cx
+                .builder
+                .get_insert_block()
+                .expect("block")
+                .get_parent()
+                .expect("fn");
+            let null_bb = cx.context.append_basic_block(parent, "fn.null");
+            let call_bb = cx.context.append_basic_block(parent, "fn.call");
+            let join_bb = cx.context.append_basic_block(parent, "fn.join");
+            cx.builder
+                .build_conditional_branch(is_null, null_bb, call_bb)
+                .expect("br null");
+
+            cx.builder.position_at_end(null_bb);
+            // Soft-fail: return 0 rather than jump to address 0.
+            cx.builder.build_unconditional_branch(join_bb).expect("br");
+            let null_bb_end = cx.builder.get_insert_block().expect("null end");
+
+            cx.builder.position_at_end(call_bb);
             let ptr_ty = cx.context.ptr_type(AddressSpace::default());
             let fptr = cx
                 .builder
@@ -2696,23 +2966,38 @@ fn emit_call<'ctx>(
                 vals.push(emit_expr_i64(cx, a)?.as_basic_value_enum().into());
             }
             // shape 0 = plain (i64), 1|2 = result|option (i128)
-            if expect_tagged {
+            let call_val = if expect_tagged {
                 let fty = cx.i128t.fn_type(&params, false);
                 let call = cx
                     .builder
                     .build_indirect_call(fty, fptr, &vals, "icall_t")
                     .expect("icall_t");
-                Some(call.try_as_basic_value().unwrap_basic().into_int_value())
+                call.try_as_basic_value().unwrap_basic().into_int_value()
             } else {
-                // Plain use: call as i64. (Tagged shapes should be matched.)
-                let _ = shape; // shape available for future runtime assert
+                let _ = shape;
                 let fty = cx.i64t.fn_type(&params, false);
                 let call = cx
                     .builder
                     .build_indirect_call(fty, fptr, &vals, "icall")
                     .expect("icall");
-                Some(call.try_as_basic_value().unwrap_basic().into_int_value())
-            }
+                call.try_as_basic_value().unwrap_basic().into_int_value()
+            };
+            cx.builder.build_unconditional_branch(join_bb).expect("br");
+            let call_bb_end = cx.builder.get_insert_block().expect("call end");
+
+            cx.builder.position_at_end(join_bb);
+            let phi_ty = if expect_tagged { cx.i128t } else { cx.i64t };
+            let phi = cx.builder.build_phi(phi_ty, "icall.r").expect("phi");
+            let zero_ret = if expect_tagged {
+                cx.i128t.const_zero().as_basic_value_enum()
+            } else {
+                zero.as_basic_value_enum()
+            };
+            phi.add_incoming(&[
+                (&zero_ret, null_bb_end),
+                (&call_val.as_basic_value_enum(), call_bb_end),
+            ]);
+            Some(phi.as_basic_value().into_int_value())
         }
     }
 }
@@ -3097,11 +3382,61 @@ fn emit_binary_typed<'ctx>(
     let (lv, lr) = emit_scalar_typed(cx, left)?;
     let (rv, rr) = emit_scalar_typed(cx, right)?;
 
-    // Native integer same-width arith / compares / bitwise (`i*` / `ui*`)
-    if lr == rr && lr.is_native_int() {
+    // Native integer same-width arith / compares / bitwise (`i*` / `ui*`).
+    // Default i64 yields to a more specific width (untagged lit / i64 lane).
+    let int_lane = if lr == rr && lr.is_native_int() {
+        Some(lr)
+    } else if lr == MirRepr::Int64 && rr.is_native_int() && rr != MirRepr::Int64 {
+        Some(rr)
+    } else if rr == MirRepr::Int64 && lr.is_native_int() && lr != MirRepr::Int64 {
+        Some(lr)
+    } else {
+        None
+    };
+    if let Some(lane) = int_lane {
         let l = lv.into_int_value();
         let r = rv.into_int_value();
-        let unsigned = lr.is_unsigned_int();
+        // Coerce i64 operand to the specific lane's LLVM int type when needed.
+        let lty = int_ty_for_repr(cx, lane)?;
+        let l = if l.get_type() == lty {
+            l
+        } else if lty.get_bit_width() < l.get_type().get_bit_width() {
+            cx.builder
+                .build_int_truncate(l, lty, "i.trunc")
+                .expect("trunc")
+        } else if lty.get_bit_width() > l.get_type().get_bit_width() {
+            if lane.is_unsigned_int() {
+                cx.builder
+                    .build_int_z_extend(l, lty, "i.zext")
+                    .expect("zext")
+            } else {
+                cx.builder
+                    .build_int_s_extend(l, lty, "i.sext")
+                    .expect("sext")
+            }
+        } else {
+            l
+        };
+        let r = if r.get_type() == lty {
+            r
+        } else if lty.get_bit_width() < r.get_type().get_bit_width() {
+            cx.builder
+                .build_int_truncate(r, lty, "i.trunc")
+                .expect("trunc")
+        } else if lty.get_bit_width() > r.get_type().get_bit_width() {
+            if lane.is_unsigned_int() {
+                cx.builder
+                    .build_int_z_extend(r, lty, "i.zext")
+                    .expect("zext")
+            } else {
+                cx.builder
+                    .build_int_s_extend(r, lty, "i.sext")
+                    .expect("sext")
+            }
+        } else {
+            r
+        };
+        let unsigned = lane.is_unsigned_int();
         return match op {
             BinaryOp::Add
             | BinaryOp::Sub
@@ -3114,7 +3449,7 @@ fn emit_binary_typed<'ctx>(
             | BinaryOp::Shl
             | BinaryOp::Shr => Some((
                 emit_binop_signedness(cx, op, l, r, unsigned).as_basic_value_enum(),
-                lr,
+                lane,
             )),
             BinaryOp::Eq | BinaryOp::EqEqEq => Some((
                 cx.builder

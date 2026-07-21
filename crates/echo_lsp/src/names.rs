@@ -218,6 +218,14 @@ fn walk_stmt(stmt: &Stmt, out: &mut Vec<NameHit>, in_struct: bool) {
                 walk_expr(handle, out);
             }
         },
+        Stmt::EffectBlock(e) => {
+            if let Some(b) = &e.bind {
+                push_ident(out, b, NameRole::BindDef);
+            }
+            for s in &e.body {
+                walk_stmt(s, out, in_struct);
+            }
+        }
         Stmt::Import(i) => {
             for seg in &i.path {
                 if let ImportPathSeg::Name(n) = seg {

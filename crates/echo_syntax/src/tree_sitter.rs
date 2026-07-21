@@ -139,6 +139,7 @@ fn emit_grammar_js() -> String {
     let gt = ld(LeaderKind::Gt);
     let plus = ld(LeaderKind::Plus);
     let minus = ld(LeaderKind::Minus);
+    let ampersand = ld(LeaderKind::Ampersand);
     let slash = ld(LeaderKind::Slash);
     let backslash = ld(LeaderKind::Backslash);
 
@@ -209,6 +210,7 @@ module.exports = grammar({{
       $.match_statement,
       $.task_spawn_statement,
       $.task_join_statement,
+      $.effect_block_statement,
       $.import_statement,
       $.export_statement,
       // Not full _expression: top-level unary !/-/+ would steal dual-use leaders.
@@ -444,6 +446,15 @@ module.exports = grammar({{
         seq('{{', repeat(choice($._item, '\n')), '}}'),
         $._expression,
       ),
+    )),
+
+    // `& {{ … }}` / `& name = {{ … }}` — effect block (auto-unwrap result/option).
+    effect_block_statement: $ => prec.right(seq(
+      field('leader', {ampersand}),
+      optional(seq(field('name', $.ident), '=')),
+      '{{',
+      repeat(choice($._item, '\n')),
+      '}}',
     )),
 
     import_statement: $ => seq(
@@ -953,7 +964,7 @@ mod tests {
     fn grammar_names_echo_and_all_leaders() {
         let g = emit_grammar_js();
         assert!(g.contains("name: 'echo'"), "{g}");
-        assert_eq!(LEADERS.len(), 17);
+        assert_eq!(LEADERS.len(), 18);
         for kind in LEADERS {
             assert!(
                 g.contains(kind.token_name()),

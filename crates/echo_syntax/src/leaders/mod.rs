@@ -43,6 +43,8 @@ pub enum LeaderKind {
     Plus,
     /// `-` task join / immediate block
     Minus,
+    /// `&` effect block (auto-unwrap result/option)
+    Ampersand,
     // module
     /// `/` import
     Slash,
@@ -66,7 +68,8 @@ impl LeaderKind {
             | Self::Gt
             | Self::Pipe
             | Self::Plus
-            | Self::Minus => LeaderFamily::Control,
+            | Self::Minus
+            | Self::Ampersand => LeaderFamily::Control,
             Self::Slash | Self::Backslash => LeaderFamily::Module,
         }
     }
@@ -90,6 +93,7 @@ impl LeaderKind {
             Self::Pipe => '|',
             Self::Plus => '+',
             Self::Minus => '-',
+            Self::Ampersand => '&',
             Self::Slash => '/',
             Self::Backslash => '\\',
         }
@@ -114,6 +118,7 @@ impl LeaderKind {
             Self::Pipe => "match",
             Self::Plus => "task spawn",
             Self::Minus => "task join",
+            Self::Ampersand => "effect block",
             Self::Slash => "import",
             Self::Backslash => "export",
         }
@@ -144,6 +149,7 @@ impl LeaderKind {
             '|' => Self::Pipe,
             '+' => Self::Plus,
             '-' => Self::Minus,
+            '&' => Self::Ampersand,
             '/' => Self::Slash,
             '\\' => Self::Backslash,
             _ => return None,
@@ -169,6 +175,7 @@ impl LeaderKind {
             Self::Pipe => "leader_pipe",
             Self::Plus => "leader_plus",
             Self::Minus => "leader_minus",
+            Self::Ampersand => "leader_ampersand",
             Self::Slash => "leader_slash",
             Self::Backslash => "leader_backslash",
         }
@@ -242,6 +249,7 @@ pub const LEADERS: &[LeaderKind] = &[
     LeaderKind::Pipe,
     LeaderKind::Plus,
     LeaderKind::Minus,
+    LeaderKind::Ampersand,
     // module
     LeaderKind::Slash,
     LeaderKind::Backslash,
@@ -258,8 +266,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn seventeen_leaders() {
-        assert_eq!(LEADERS.len(), 17);
+    fn eighteen_leaders() {
+        assert_eq!(LEADERS.len(), 18);
         for kind in LEADERS {
             assert_eq!(LeaderKind::from_char(kind.glyph()), Some(*kind));
         }
@@ -304,7 +312,8 @@ mod tests {
         assert!(LeaderKind::Percent.is_dual_use());
         assert_eq!(LeaderKind::Dollar.token_name(), "leader_dollar");
         assert_eq!(LeaderKind::Backslash.token_name(), "leader_backslash");
-        assert_eq!(LEADERS.iter().filter(|k| k.is_dual_use()).count(), 12);
+        assert!(LeaderKind::Ampersand.is_dual_use());
+        assert_eq!(LEADERS.iter().filter(|k| k.is_dual_use()).count(), 13);
         assert_eq!(LEADERS.iter().filter(|k| !k.is_dual_use()).count(), 5);
     }
 }

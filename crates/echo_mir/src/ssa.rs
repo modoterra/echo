@@ -232,6 +232,33 @@ fn rename_block(
                     bind,
                 };
             }
+            MirOp::ScopeEnter { id } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ScopeEnter { id };
+            }
+            MirOp::ScopeExit { id } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ScopeExit { id };
+            }
+            MirOp::ScopeRegister { value } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ScopeRegister {
+                    value: rewrite_expr(&value, stacks),
+                };
+            }
+            MirOp::ScopePromote { value, target } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ScopePromote {
+                    value: rewrite_expr(&value, stacks),
+                    target,
+                };
+            }
+            MirOp::ScopeDisown { value } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ScopeDisown {
+                    value: rewrite_expr(&value, stacks),
+                };
+            }
+            MirOp::ScopeRelease { value } => {
+                cfg.blocks[bid.0 as usize].ops[i] = MirOp::ScopeRelease {
+                    value: rewrite_expr(&value, stacks),
+                };
+            }
         }
     }
 
@@ -298,7 +325,13 @@ fn def_name(op: &MirOp) -> Option<&str> {
         | MirOp::ListPush { .. }
         | MirOp::TaskSpawn { bind: None, .. }
         | MirOp::TaskSpawnFn { bind: None, .. }
-        | MirOp::TaskJoin { bind: None, .. } => None,
+        | MirOp::TaskJoin { bind: None, .. }
+        | MirOp::ScopeEnter { .. }
+        | MirOp::ScopeExit { .. }
+        | MirOp::ScopeRegister { .. }
+        | MirOp::ScopePromote { .. }
+        | MirOp::ScopeDisown { .. }
+        | MirOp::ScopeRelease { .. } => None,
     }
 }
 

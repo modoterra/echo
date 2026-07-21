@@ -1,4 +1,4 @@
-//! Control-flow leaders: `?` `:` `!` `^` `*` `<` `>` `|` `+` `-`.
+//! Control-flow leaders: `?` `:` `!` `^` `*` `<` `>` `|` `+` `-` `&`.
 
 use super::LeaderKind;
 
@@ -14,4 +14,5 @@ pub const LEADERS: &[LeaderKind] = &[
     LeaderKind::Pipe,     // match
     LeaderKind::Plus,     // task spawn
     LeaderKind::Minus,    // task join / immediate block
+    LeaderKind::Ampersand, // effect block (auto-unwrap result/option)
 ];
