@@ -1,34 +1,31 @@
-; The Echo set collection (`/ std/collections/set` → file module `set`).
-; Membership set over i64 keys, backed by SipHash-bucketed map (dummy value).
-; Suite cases co-located: register under `xo test` only (XO_TEST).
+; The Echo set collection (`/ std/collections/set`).
+; Membership over i64 keys, backed by hash_table (dummy value PRESENT).
+; Suite: xo test std/collections/set.echo (XO_TEST).
 
 / std/test
-/ std/collections/map
+/ std/collections/hash_table
 
-; Dummy map value — only key membership matters.
 # PRESENT = 1
 
 % set {
-    ~ inner
+    $ table
 }
 
 $ make = () {
-    ^ set { inner: map.make() }
+    ^ set { table: hash_table.make() }
 }
 
 $ make_seeded = (k0, k1) {
-    ^ set { inner: map.make_seeded(k0, k1) }
+    ^ set { table: hash_table.make_seeded(k0, k1) }
 }
 
-; Insert (idempotent). Returns the set (same ref).
 $ add = (s, x) {
-    map.put(s.inner, x, PRESENT)
+    hash_table.put(s.table, x, PRESENT)
     ^ s
 }
 
-; Membership: | true / _ false.
 $ has = (s, x) {
-    | map.get(s.inner, x) {
+    | hash_table.get(s.table, x) {
         $ present {
             ^ |
         }
@@ -46,7 +43,7 @@ $ from_list = (ls) {
     ^ s
 }
 
-; --- suite (xo test std/collections/set.echo) ---
+; --- suite ---
 
 test.it("add_has", () {
     $ s = make()

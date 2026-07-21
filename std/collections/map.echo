@@ -1,92 +1,36 @@
-; The Echo map collection (`/ std/collections/map` → file module `map`).
-; Buckets keys with SipHash-2-4 (`hash.sip`) over little-endian key bytes.
-; Suite cases co-located: register under `xo test` only (XO_TEST).
+; The Echo map collection (`/ std/collections/map`).
+; Thin wrapper over hash_table for key→value. Prefer this over hash_table in apps.
+; Suite: xo test std/collections/map.echo (XO_TEST).
 
 / std/test
-/ std/crypto/hash
-/ std/bytes
-
-; Fixed table size (power of two). Bucket index = hash & (N - 1).
-# N_BUCKETS = 16
-# BUCKET_MASK = 15
-
-; Deterministic default SipHash key (not secret; tests stay stable).
-# DEFAULT_K0 = 0x0706050403020100
-# DEFAULT_K1 = 0x0f0e0d0c0b0a0908
+/ std/collections/hash_table
 
 % map {
-    ; buckets: list of chains; each chain is a list of `item`
-    ~ buckets = []
-    ~ k0 = <ui64> 0
-    ~ k1 = <ui64> 0
-}
-
-% item {
-    $ key
-    ~ value
-}
-
-$ empty_buckets = () {
-    ~ bs = []
-    ~ i = 0
-    * i < N_BUCKETS {
-        ~ bs[] = []
-        ~ i = i + 1
-    }
-    ^ bs
+    $ table
 }
 
 $ make = () {
-    ^ map {
-        buckets: empty_buckets(),
-        k0: <ui64> DEFAULT_K0,
-        k1: <ui64> DEFAULT_K1
-    }
+    ^ map { table: hash_table.make() }
 }
 
 $ make_seeded = (k0, k1) {
-    ^ map {
-        buckets: empty_buckets(),
-        k0: k0,
-        k1: k1
-    }
+    ^ map { table: hash_table.make_seeded(k0, k1) }
 }
 
-; SipHash digest of an integer key (8 LE bytes).
-$ hash_key = (m, key) {
-    $ raw = bytes.from_int(key)
-    ^ hash.sip(m.k0, m.k1, raw)
-}
-
-$ bucket_index = (m, key) {
-    $ h = hash_key(m, key)
-    ^ <i64> (h & <ui64> BUCKET_MASK)
-}
-
-; Insert or overwrite. Returns the map (same ref).
 $ put = (m, key, value) {
-    $ i = bucket_index(m, key)
-    $ chain = m.buckets[i]
-    * e : chain {
-        ? e.key == key {
-            ~ e.value = value
-            ^ m
-        }
-    }
-    ~ chain[] = item { key: key, value: value }
+    hash_table.put(m.table, key, value)
     ^ m
 }
 
-; Option-shaped: ^ value if present, bare ^ if missing.
 $ get = (m, key) {
-    $ i = bucket_index(m, key)
-    $ chain = m.buckets[i]
-    * e : chain {
-        ? e.key == key {
-            ^ e.value
+    | hash_table.get(m.table, key) {
+        $ v {
+            ^ v
+        }
+        : {
+            ^
         }
     }
-    ^
 }
 
 $ from_indexed = (ls) {
@@ -99,7 +43,15 @@ $ from_indexed = (ls) {
     ^ m
 }
 
-; --- suite (xo test std/collections/map.echo) ---
+$ hash_key = (m, key) {
+    ^ hash_table.hash_key(m.table, key)
+}
+
+$ bucket_index = (m, key) {
+    ^ hash_table.bucket_index(m.table, key)
+}
+
+; --- suite ---
 
 test.it("from_indexed", () {
     $ m = from_indexed([10, 20, 30])
@@ -170,9 +122,9 @@ test.it("bucket_index_stable", () {
     $ a = bucket_index(m, 123)
     $ b = bucket_index(m, 123)
     test.eq(a, b)
-    ? a < 0 || a >= N_BUCKETS {
+    ? a < 0 || a >= hash_table.n_buckets() {
         test.fail("bucket out of range")
     }
 })
 
-\ map, item, make, make_seeded, put, get, from_indexed, hash_key, bucket_index
+\ map, make, make_seeded, put, get, from_indexed, hash_key, bucket_index

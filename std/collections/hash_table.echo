@@ -1,0 +1,122 @@
+; std/collections/hash_table — SipHash-2-4 bucketed key→value table (i64 keys).
+; Backing store for map and set. Not the primary app API (prefer map / set).
+;
+; Suite: xo test std/collections/hash_table.echo (XO_TEST).
+
+/ std/test
+/ std/crypto/hash
+/ std/bytes
+
+; Fixed table size (power of two). Bucket index = hash & (N - 1).
+# N_BUCKETS = 16
+# BUCKET_MASK = 15
+
+; Deterministic default SipHash key (stable tests; not a secret).
+# DEFAULT_K0 = 0x0706050403020100
+# DEFAULT_K1 = 0x0f0e0d0c0b0a0908
+
+% hash_table {
+    ; buckets: list of chains; each chain is a list of `entry`
+    ~ buckets = []
+    ~ k0 = <ui64> 0
+    ~ k1 = <ui64> 0
+}
+
+% entry {
+    $ key
+    ~ value
+}
+
+$ empty_buckets = () {
+    ~ bs = []
+    ~ i = 0
+    * i < N_BUCKETS {
+        ~ bs[] = []
+        ~ i = i + 1
+    }
+    ^ bs
+}
+
+$ make = () {
+    ^ hash_table {
+        buckets: empty_buckets(),
+        k0: <ui64> DEFAULT_K0,
+        k1: <ui64> DEFAULT_K1
+    }
+}
+
+; Advanced: custom SipHash key halves (ui64). Prefer make() for normal use.
+$ make_seeded = (k0, k1) {
+    ^ hash_table {
+        buckets: empty_buckets(),
+        k0: k0,
+        k1: k1
+    }
+}
+
+$ hash_key = (t, key) {
+    $ raw = bytes.from_int(key)
+    ^ hash.sip(t.k0, t.k1, raw)
+}
+
+$ bucket_index = (t, key) {
+    $ h = hash_key(t, key)
+    ^ <i64> (h & <ui64> BUCKET_MASK)
+}
+
+$ n_buckets = () {
+    ^ N_BUCKETS
+}
+
+; Insert or overwrite. Returns the table (same ref).
+$ put = (t, key, value) {
+    $ i = bucket_index(t, key)
+    $ chain = t.buckets[i]
+    * e : chain {
+        ? e.key == key {
+            ~ e.value = value
+            ^ t
+        }
+    }
+    ~ chain[] = entry { key: key, value: value }
+    ^ t
+}
+
+; Option-shaped: ^ value if present, bare ^ if missing.
+$ get = (t, key) {
+    $ i = bucket_index(t, key)
+    $ chain = t.buckets[i]
+    * e : chain {
+        ? e.key == key {
+            ^ e.value
+        }
+    }
+    ^
+}
+
+; --- suite ---
+
+test.it("put_get", () {
+    $ t = make()
+    put(t, 7, 42)
+    | get(t, 7) {
+        $ v {
+            test.eq(v, 42)
+        }
+        : {
+            test.fail("missing")
+        }
+    }
+})
+
+test.it("bucket_stable", () {
+    $ t = make()
+    $ a = bucket_index(t, 99)
+    $ b = bucket_index(t, 99)
+    test.eq(a, b)
+    ? a < 0 || a >= n_buckets() {
+        test.fail("oob bucket")
+    }
+})
+
+\ hash_table, entry, make, make_seeded, put, get, hash_key, bucket_index, n_buckets

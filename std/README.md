@@ -39,8 +39,9 @@ $ eprint = (value) {
 |------|------|
 | `io.echo` / `time.echo` / `test.echo` / `bytes.echo` | free function values (`test` for `xo test`; `bytes` for `b'…'` len/get) |
 | `crypto/hash/` | folder module: `sip` (SipHash-2-4) → `/ std/crypto/hash` as `hash.sip` |
-| `collections/map.echo` | file module: SipHash-bucketed map (`put`/`get`/`from_indexed`) |
-| `collections/set.echo` | file module: map-backed set (`add`/`has`/`from_list`) |
+| `collections/hash_table.echo` | SipHash bucket table (`put`/`get`); backs map + set |
+| `collections/map.echo` | map ADT over `hash_table` (`put`/`get`/`from_indexed`) |
+| `collections/set.echo` | set ADT over `hash_table` (`add`/`has`/`from_list`) |
 | `net/tcp/` | folder module: `conn`, `listener`, free `socket` |
 | `net/udp/` | folder module: `% socket` + free reify `socket` |
 | `net/request.echo` | `% request` |
