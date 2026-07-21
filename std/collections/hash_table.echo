@@ -1,8 +1,8 @@
 ; std/collections/hash_table — SipHash-2-4 bucketed key→value table (i64 keys).
 ; Backing store for map and set. Prefer map / set in app code.
 ;
-; Fluent config: hash_table.make().seed(k0, k1) mutates keys in place (same table).
-; put/get stay free functions (not fluent).
+; Fluent: hash_table.make().seed(k0, k1) (plain; no empty check — map/set enforce that).
+; put/get free (not fluent).
 ;
 ; Suite: xo test std/collections/hash_table.echo (XO_TEST).
 
@@ -21,8 +21,18 @@
     ~ k0 = <ui64> 0
     ~ k1 = <ui64> 0
 
-    ; Set SipHash key halves (ui64). Call only on an empty table.
-    ; Returns . for fluent make().seed(k0, k1).
+    ; True if every chain is empty.
+    $ is_empty = () {
+        * chain : .buckets {
+            * e : chain {
+                ^ _
+            }
+        }
+        ^ |
+    }
+
+    ; Set SipHash key halves (ui64). In-place; returns . for fluent make().seed(…).
+    ; Map/set layer refuse reseed when non-empty.
     $ seed = (k0, k1) {
         ~ .k0 = k0
         ~ .k1 = k1
@@ -37,10 +47,9 @@
 
 $ empty_buckets = () {
     ~ bs = []
-    ~ i = 0
-    * i < N_BUCKETS {
+    ; Inclusive range: 0..(N-1) → N empty chains.
+    * i : 0..(N_BUCKETS - 1) {
         ~ bs[] = []
-        ~ i = i + 1
     }
     ^ bs
 }
@@ -122,7 +131,9 @@ test.it("fluent_seed", () {
     $ t = make().seed(<ui64> K0, <ui64> K1)
     test.eq(t.k0, <ui64> K0)
     test.eq(t.k1, <ui64> K1)
+    test.true(t.is_empty())
     put(t, 1, 2)
+    test.false(t.is_empty())
     | get(t, 1) {
         $ v {
             test.eq(v, 2)

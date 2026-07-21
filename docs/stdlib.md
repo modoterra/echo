@@ -290,6 +290,7 @@ No `*_ops` in std for now. Multi-file `@` remains legal language (demo:
 | `std/net/udp/` | **Done** — folder: `% socket` + free reify surface (struct by ref) |
 | `std/net/http` serve / handle_connection | **Done** — accept loop + `+ handle_connection`; **Content-Length body** via `http_request_complete` |
 | `std/str.len` | **Done** — `runtime.str_len` |
+| `std/list.len` | **Done** — `runtime.list_len` (lists + inclusive ranges) |
 | `std/bytes` | **Done** — `len` / `get` (`ui8` ok, `! "out of bounds"`) via `runtime.bytes_*` |
 | `std/crypto/hash` | **Done** — folder module; `sip(k0, k1, msg)` SipHash-2-4 → `ui64` |
 | `std/collections/hash_table` | **Done** — SipHash buckets; fluent `make().seed(k0, k1)` |

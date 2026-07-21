@@ -580,18 +580,37 @@ fn lower_for_in(
         b.set_term(body_end, Terminator::Goto(cont));
     }
 
-    b.push_op(
-        cont,
-        MirOp::Set {
-            name: idx_n.clone(),
-            value: MirExpr::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(MirExpr::Name(idx_n)),
-                right: Box::new(MirExpr::ConstI64(1)),
+    // Only wire cont → header when something can reach cont. A dead cont with a
+    // back-edge would still be a CFG predecessor of the header and poison
+    // dominance / SSA (see `construct_ssa` reachable-pred fix). Bodies that always
+    // `^`/`!` leave cont with no preds.
+    let cont_targeted = b.blocks.iter().any(|bb| {
+        matches!(
+            &bb.term,
+            Terminator::Goto(t) if *t == cont
+        ) || matches!(
+            &bb.term,
+            Terminator::Branch {
+                then_bb,
+                else_bb,
+                ..
+            } if *then_bb == cont || *else_bb == cont
+        )
+    });
+    if cont_targeted {
+        b.push_op(
+            cont,
+            MirOp::Set {
+                name: idx_n.clone(),
+                value: MirExpr::Binary {
+                    op: BinaryOp::Add,
+                    left: Box::new(MirExpr::Name(idx_n)),
+                    right: Box::new(MirExpr::ConstI64(1)),
+                },
             },
-        },
-    );
-    b.set_term(cont, Terminator::Goto(header));
+        );
+        b.set_term(cont, Terminator::Goto(header));
+    }
 
     exit
 }

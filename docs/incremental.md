@@ -69,6 +69,13 @@ Aligned with the standalone pipeline (not the old PHP toolchain):
 Each phase fingerprint hashes `CACHE_FORMAT_VERSION`, the phase name, and the
 **versions** of its `CompilerComponent`s (lexer, parser, schemas, …).
 
+**Important:** `phase_components(phase)` lists the **full upstream stack** that
+can change that phase’s output without changing source bytes — not only the
+crate that “owns” the phase. Example: `codegen` fingerprints include
+`mir_lowerer` / `hir_lowerer` / `semantics` / `parser`, so a MIR/SSA fix
+invalidates IR cache keys when `MIR_LOWERER_VERSION` (etc.) is bumped, even if
+a caller forgets extra `lower_fp` fields.
+
 | Mode | Behavior |
 |------|----------|
 | `CacheMode::Safe` | Any component change → all phases dirty |
@@ -76,6 +83,9 @@ Each phase fingerprint hashes `CACHE_FORMAT_VERSION`, the phase name, and the
 
 Downstream cascade: e.g. dirty `parse` invalidates index → resolve → check →
 lower → codegen → diagnostics.
+
+Bump the matching `*_VERSION` in `echo_fingerprint` whenever you change
+cacheable compiler meaning (see crate header comments).
 
 ## Crate API (v0)
 
@@ -131,14 +141,19 @@ lower → codegen → diagnostics.
 - After a successful check, `compile_to_llvm_with` looks up `.xo/cache/codegen/`
   with graph content + **check_fp** + **lower_fp** + **codegen_fp** +
   **runtime_abi** + **`opt`** (`O0`…`Oz` via `OptLevel::as_str`).
-  Codegen phase component versions (codegen, codegen_schema, runtime_abi,
-  target_options) also participate through `PhaseCacheKey::for_source`.
+  `PhaseCacheKey::for_source(Codegen, …)` also hashes the **full Codegen phase
+  component stack** (frontend → HIR/MIR → codegen → runtime ABI), so version
+  bumps alone invalidate hits.
 - **Hit:** reuse LLVM IR text; skip HIR lower, MIR lower, and `emit_llvm`.
 - **Miss:** lower + emit at the selected opt level, then store via
   `encode_ir_artifact` (`ECHOIR01` header).
 - Used by **`xo run`**, **`xo ir`**, **`xo build`** (same `-O` / `--opt-level`
   semantics; flags: `--no-cache`, `--cache-status` prints check/parse/**codegen**).
 - Distinct opt levels never share an IR cache entry (including `O2` vs `Oz`).
+- Project cache root is `{project_root}/.xo` where `project_root` is found by
+  walking up from the entry for `Cargo.toml` / `.git` (else cwd). Files under
+  `/tmp` may use a **different** `.xo` than the workspace — `xo cache clean`
+  only cleans the root you pass / the entry’s project.
 
 ### AOT binary cache (v4)
 

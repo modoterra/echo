@@ -31,15 +31,15 @@ pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
 pub const SEMANTICS_VERSION: u32 = 6; // outer function values not capture
 pub const HIR_LOWERER_VERSION: u32 = 16; // bare () { } expr → synthetic FnRef
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
-/// Bumped when MIR handoff meaning changes (method fallthrough → __recv).
-pub const MIR_LOWERER_VERSION: u32 = 15; // ModuleField fn value; list elem type flow
+/// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
+pub const MIR_LOWERER_VERSION: u32 = 18; // import fnret + field types for methods
 pub const MIR_SCHEMA_VERSION: u32 = 3; // Range
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 11; // shaped fn values + indirect tagged call
+pub const CODEGEN_VERSION: u32 = 12; // IR cache keys embed full lower stack
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
 pub const RUNTIME_ABI_VERSION: u32 = 18; // test suite register/finish/fail
-pub const STDLIB_VERSION: u32 = 10; // std/test
+pub const STDLIB_VERSION: u32 = 11; // std/list.len
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;
@@ -289,6 +289,13 @@ pub fn phase_fingerprint(phase: ArtifactPhase, extra_inputs: &[(&str, &str)]) ->
 }
 
 /// Components whose versions feed this phase's fingerprint.
+///
+/// Each phase lists **every** component that can change that phase's cacheable
+/// output without changing source bytes. That includes the full upstream stack
+/// (not only the crates that “own” the phase), so a MIR/SSA fix invalidates
+/// codegen IR keys even if a caller forgets to thread `lower_fp` extras.
+///
+/// Keep lists in pipeline order; duplicates across phases are intentional.
 #[must_use]
 pub fn phase_components(phase: ArtifactPhase) -> &'static [CompilerComponent] {
     match phase {
@@ -299,22 +306,49 @@ pub fn phase_components(phase: ArtifactPhase) -> &'static [CompilerComponent] {
             CompilerComponent::AstSchema,
         ],
         ArtifactPhase::Index => &[
+            CompilerComponent::Lexer,
+            CompilerComponent::Parser,
+            CompilerComponent::AstSchema,
             CompilerComponent::Index,
             CompilerComponent::IndexSchema,
             CompilerComponent::ProjectMetadata,
         ],
         ArtifactPhase::Resolve => &[
+            CompilerComponent::Lexer,
+            CompilerComponent::Parser,
+            CompilerComponent::AstSchema,
+            CompilerComponent::Index,
+            CompilerComponent::IndexSchema,
             CompilerComponent::Resolver,
             CompilerComponent::ResolveSchema,
             CompilerComponent::Stdlib,
             CompilerComponent::ProjectMetadata,
         ],
         ArtifactPhase::Check => &[
+            CompilerComponent::Lexer,
+            CompilerComponent::Parser,
+            CompilerComponent::AstSchema,
+            CompilerComponent::Index,
+            CompilerComponent::IndexSchema,
+            CompilerComponent::Resolver,
+            CompilerComponent::ResolveSchema,
             CompilerComponent::Semantics,
             CompilerComponent::Diagnostics,
             CompilerComponent::Stdlib,
+            CompilerComponent::ProjectMetadata,
         ],
         ArtifactPhase::Lower => &[
+            CompilerComponent::Lexer,
+            CompilerComponent::Parser,
+            CompilerComponent::AstSchema,
+            CompilerComponent::Index,
+            CompilerComponent::IndexSchema,
+            CompilerComponent::Resolver,
+            CompilerComponent::ResolveSchema,
+            CompilerComponent::Semantics,
+            CompilerComponent::Diagnostics,
+            CompilerComponent::Stdlib,
+            CompilerComponent::ProjectMetadata,
             CompilerComponent::HirLowerer,
             CompilerComponent::HirSchema,
             CompilerComponent::MirLowerer,
@@ -322,6 +356,21 @@ pub fn phase_components(phase: ArtifactPhase) -> &'static [CompilerComponent] {
             CompilerComponent::TargetOptions,
         ],
         ArtifactPhase::Codegen => &[
+            CompilerComponent::Lexer,
+            CompilerComponent::Parser,
+            CompilerComponent::AstSchema,
+            CompilerComponent::Index,
+            CompilerComponent::IndexSchema,
+            CompilerComponent::Resolver,
+            CompilerComponent::ResolveSchema,
+            CompilerComponent::Semantics,
+            CompilerComponent::Diagnostics,
+            CompilerComponent::Stdlib,
+            CompilerComponent::ProjectMetadata,
+            CompilerComponent::HirLowerer,
+            CompilerComponent::HirSchema,
+            CompilerComponent::MirLowerer,
+            CompilerComponent::MirSchema,
             CompilerComponent::Codegen,
             CompilerComponent::CodegenSchema,
             CompilerComponent::RuntimeAbi,
@@ -444,5 +493,61 @@ mod tests {
     fn fingerprint_from_bytes() {
         let f = Fingerprint::from_bytes(b"hello");
         assert_eq!(f.as_str().len(), 64);
+    }
+
+    #[test]
+    fn codegen_fingerprint_includes_mir_and_hir() {
+        // IR cache keys use ArtifactPhase::Codegen; MIR/SSA/HIR changes must
+        // participate without relying on pipeline extras alone.
+        let comps = phase_components(ArtifactPhase::Codegen);
+        assert!(
+            comps.contains(&CompilerComponent::MirLowerer),
+            "codegen phase must fingerprint mir_lowerer"
+        );
+        assert!(
+            comps.contains(&CompilerComponent::HirLowerer),
+            "codegen phase must fingerprint hir_lowerer"
+        );
+        assert!(
+            comps.contains(&CompilerComponent::Semantics),
+            "codegen phase must fingerprint semantics"
+        );
+        assert!(
+            comps.contains(&CompilerComponent::Parser),
+            "codegen phase must fingerprint parser (same source, new parse meaning)"
+        );
+    }
+
+    #[test]
+    fn check_fingerprint_includes_frontend_stack() {
+        let comps = phase_components(ArtifactPhase::Check);
+        assert!(comps.contains(&CompilerComponent::Semantics));
+        assert!(comps.contains(&CompilerComponent::Parser));
+        assert!(comps.contains(&CompilerComponent::Resolver));
+    }
+
+    #[test]
+    fn mir_lowerer_change_invalidates_codegen() {
+        let set = invalidated_phases(CacheMode::Phase, CompilerComponent::MirLowerer);
+        assert!(
+            set.contains(&ArtifactPhase::Codegen),
+            "MIR lowerer bump must invalidate codegen IR cache phase"
+        );
+        assert!(set.contains(&ArtifactPhase::Lower));
+    }
+
+    #[test]
+    fn codegen_fp_stable_and_tracks_extra_inputs() {
+        let a = phase_fingerprint(ArtifactPhase::Codegen, &[("opt", "O0")]);
+        let b = phase_fingerprint(ArtifactPhase::Codegen, &[("opt", "O0")]);
+        assert_eq!(a.fingerprint, b.fingerprint);
+        let c = phase_fingerprint(ArtifactPhase::Codegen, &[("opt", "O2")]);
+        assert_ne!(a.fingerprint, c.fingerprint);
+        // Component mix is non-empty and includes mir version in the digest input set.
+        assert!(
+            phase_components(ArtifactPhase::Codegen)
+                .iter()
+                .any(|c| c.version() > 0)
+        );
     }
 }

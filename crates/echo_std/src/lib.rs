@@ -9,12 +9,11 @@ use std::path::{Path, PathBuf};
 
 use echo_codegen_abi::{
     RT_BYTES_FROM_I64, RT_BYTES_GET, RT_BYTES_LEN, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64,
-    RT_HTTP_HEADERS_COMPLETE,
-    RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_PRINT_I64, RT_STR_CAT, RT_STR_FROM_BYTES,
-    RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR,
-    RT_STR_LEN, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ,
-    RT_TCP_WRITE, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE,
-    RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
+    RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_LIST_LEN,
+    RT_PRINT_I64, RT_STR_CAT, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
+    RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_LEN, RT_TCP_ACCEPT,
+    RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_FAIL,
+    RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
 };
 
 /// Stable crate identity for workspace linkage checks.
@@ -70,6 +69,10 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "bytes_len",
         native: RT_BYTES_LEN,
+    },
+    RuntimeExport {
+        name: "list_len",
+        native: RT_LIST_LEN,
     },
     RuntimeExport {
         name: "bytes_get",
@@ -205,8 +208,8 @@ pub fn is_runtime_import_segments(segments: &[impl AsRef<str>]) -> bool {
 mod tests {
     use super::*;
     use echo_codegen_abi::{
-        RT_PRINT_I64, RT_STR_FROM_BYTES, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT,
-        RT_STR_FROM_LOCATOR,
+        RT_LIST_LEN, RT_PRINT_I64, RT_STR_FROM_BYTES, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT,
+        RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_LEN,
     };
 
     #[test]
@@ -229,6 +232,8 @@ mod tests {
             runtime_native_symbol("str_from_locator"),
             Some(RT_STR_FROM_LOCATOR)
         );
+        assert_eq!(runtime_native_symbol("str_len"), Some(RT_STR_LEN));
+        assert_eq!(runtime_native_symbol("list_len"), Some(RT_LIST_LEN));
         assert_eq!(runtime_native_symbol("nope"), None);
     }
 

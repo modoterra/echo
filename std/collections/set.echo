@@ -10,9 +10,13 @@
 % set {
     $ table
 
+    ; Empty set only. Result-shaped: ^ . or ! msg. (Policy lives here, not on hash_table.)
     $ seed = (k0, k1) {
-        .table.seed(k0, k1)
-        ^ .
+        ? .table.is_empty() {
+            .table.seed(k0, k1)
+            ^ .
+        }
+        ! "cannot reseed non-empty set"
     }
 }
 
@@ -73,10 +77,29 @@ test.it("from_list", () {
 test.it("fluent_seed", () {
     # K0 = 0x0303030303030303
     # K1 = 0x0404040404040404
-    $ s = make().seed(<ui64> K0, <ui64> K1)
-    add(s, 5)
-    test.true(has(s, 5))
-    test.false(has(s, 6))
+    | make().seed(<ui64> K0, <ui64> K1) {
+        $ s {
+            add(s, 5)
+            test.true(has(s, 5))
+            test.false(has(s, 6))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("reseed_nonempty_err", () {
+    $ s = make()
+    add(s, 1)
+    | s.seed(<ui64> 1, <ui64> 2) {
+        $ ok {
+            test.fail("expected reseed error")
+        }
+        ! e {
+            test.eq(e, "cannot reseed non-empty set")
+        }
+    }
 })
 
 \ set, make, add, has, from_list

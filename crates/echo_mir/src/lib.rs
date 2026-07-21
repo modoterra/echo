@@ -71,6 +71,11 @@ pub const TAG_NONE: i64 = 1;
 pub const VAL_GETTER_PREFIX: &str = "__val_";
 
 /// Stable LLVM / link name for a free function in a module.
+///
+/// Module identity is **project-relative** (path under nearest `Cargo.toml` /
+/// `.git` ancestor), not the absolute host path — so IR and binaries do not
+/// embed `/home/…` layout. Outside a project root, falls back to
+/// `parent/file` only (still no full absolute path).
 #[must_use]
 pub fn mangle_fn(module_path: &Path, name: &str) -> String {
     if is_runtime_module_path(module_path) {
@@ -87,11 +92,48 @@ pub fn value_getter_name(export: &str) -> String {
     format!("{VAL_GETTER_PREFIX}{export}")
 }
 
-fn path_key(path: &Path) -> String {
-    path.to_string_lossy()
-        .chars()
+/// Sanitize a relative module path into a single LLVM-safe identifier segment.
+fn sanitize_path_key(rel: &str) -> String {
+    rel.chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
         .collect()
+}
+
+/// Module path → mangle key: prefer relative to project root; never bake the
+/// full absolute user path into symbols.
+fn path_key(path: &Path) -> String {
+    let abs = path
+        .canonicalize()
+        .unwrap_or_else(|_| path.to_path_buf());
+    let rel = strip_to_project_relative(&abs)
+        .or_else(|| short_path_fallback(&abs))
+        .unwrap_or_else(|| {
+            abs.file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "mod".into())
+        });
+    sanitize_path_key(&rel)
+}
+
+/// Path relative to nearest ancestor containing `Cargo.toml` or `.git`.
+fn strip_to_project_relative(path: &Path) -> Option<String> {
+    let mut dir = path.parent()?.to_path_buf();
+    loop {
+        if dir.join("Cargo.toml").is_file() || dir.join(".git").exists() {
+            let rel = path.strip_prefix(&dir).ok()?;
+            return Some(rel.to_string_lossy().replace('\\', "/"));
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// When no project root is found: `parent_name/file_name` only.
+fn short_path_fallback(path: &Path) -> Option<String> {
+    let file = path.file_name()?.to_string_lossy();
+    let parent = path.parent()?.file_name()?.to_string_lossy();
+    Some(format!("{parent}/{file}"))
 }
 
 #[derive(Debug, Clone)]
@@ -394,6 +436,9 @@ type GraphMethods = HashMap<String, HashMap<String, MethodTarget>>;
 /// Graph-wide data fields: `struct` → field → optional default HIR expr.
 type GraphFields = HashMap<String, HashMap<String, Option<echo_hir::HirExpr>>>;
 
+/// `struct` → field → monomorphic named-struct type (from lit inits / defaults).
+type GraphFieldTypes = HashMap<String, HashMap<String, String>>;
+
 fn build_graph_methods(modules: &[ModuleLowerInput]) -> GraphMethods {
     let mut out: GraphMethods = HashMap::new();
     // Index method return facts by mangled name from HIR bodies.
@@ -452,6 +497,174 @@ fn build_graph_fields(modules: &[ModuleLowerInput]) -> GraphFields {
     out
 }
 
+/// Infer field struct types from `StructLit` initializers (and field defaults).
+///
+/// Enables `.table.is_empty()` when `map { table: hash_table.make() }` appears
+/// in the graph — field access alone has no default type on `% map { $ table }`.
+fn build_graph_field_types(
+    modules: &[ModuleLowerInput],
+    methods: &GraphMethods,
+    fields: &GraphFields,
+) -> GraphFieldTypes {
+    let mut out: GraphFieldTypes = HashMap::new();
+    let mut base_env: HashMap<String, String> = HashMap::new();
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        for f in &m.hir.bodies {
+            if f.receiver_struct.is_none() && f.returns_structs.len() == 1 {
+                base_env.insert(
+                    format!("__fnret_{}", f.symbol),
+                    f.returns_structs[0].clone(),
+                );
+            }
+        }
+    }
+    fn note(
+        out: &mut GraphFieldTypes,
+        st: &str,
+        field: &str,
+        ty: String,
+    ) {
+        out.entry(st.to_string())
+            .or_default()
+            .entry(field.to_string())
+            .or_insert(ty);
+    }
+    fn walk_expr(
+        e: &HirExpr,
+        methods: &GraphMethods,
+        fields: &GraphFields,
+        env: &HashMap<String, String>,
+        out: &mut GraphFieldTypes,
+    ) {
+        match &e.kind {
+            HirExprKind::StructLit { name, fields: flit } if !name.is_empty() => {
+                for (fname, val) in flit {
+                    if let Some(ty) = struct_type_of_expr(val, methods, fields, out, env) {
+                        note(out, name, fname, ty);
+                    }
+                    walk_expr(val, methods, fields, env, out);
+                }
+            }
+            HirExprKind::List(xs) => {
+                for x in xs {
+                    walk_expr(x, methods, fields, env, out);
+                }
+            }
+            HirExprKind::Call { args, .. } | HirExprKind::ModuleCall { args, .. } => {
+                for a in args {
+                    walk_expr(a, methods, fields, env, out);
+                }
+            }
+            HirExprKind::MethodCall {
+                receiver, args, ..
+            } => {
+                walk_expr(receiver, methods, fields, env, out);
+                for a in args {
+                    walk_expr(a, methods, fields, env, out);
+                }
+            }
+            HirExprKind::Field { base, .. } | HirExprKind::Unary { expr: base, .. } => {
+                walk_expr(base, methods, fields, env, out);
+            }
+            HirExprKind::Binary { left, right, .. } => {
+                walk_expr(left, methods, fields, env, out);
+                walk_expr(right, methods, fields, env, out);
+            }
+            HirExprKind::Group(inner) => walk_expr(inner, methods, fields, env, out),
+            _ => {}
+        }
+    }
+    fn walk_stmts(
+        stmts: &[HirStmt],
+        methods: &GraphMethods,
+        fields: &GraphFields,
+        env: &HashMap<String, String>,
+        out: &mut GraphFieldTypes,
+    ) {
+        for s in stmts {
+            match s {
+                HirStmt::Bind {
+                    init: Some(e), ..
+                }
+                | HirStmt::Assign { value: e, .. }
+                | HirStmt::Expr(e)
+                | HirStmt::Return {
+                    value: Some(e), ..
+                }
+                | HirStmt::ErrorReturn { value: e, .. } => {
+                    walk_expr(e, methods, fields, env, out);
+                }
+                HirStmt::If { arms, else_body, .. } => {
+                    for (_, b) in arms {
+                        walk_stmts(b, methods, fields, env, out);
+                    }
+                    if let Some(b) = else_body {
+                        walk_stmts(b, methods, fields, env, out);
+                    }
+                }
+                HirStmt::Match { arms, .. } => {
+                    for arm in arms {
+                        match arm {
+                            HirMatchArm::Values { body, .. }
+                            | HirMatchArm::Default { body }
+                            | HirMatchArm::Type { body, .. }
+                            | HirMatchArm::Ok { body, .. }
+                            | HirMatchArm::Err { body, .. } => {
+                                walk_stmts(body, methods, fields, env, out);
+                            }
+                        }
+                    }
+                }
+                HirStmt::Loop { body, .. } => walk_stmts(body, methods, fields, env, out),
+                _ => {}
+            }
+        }
+    }
+    // Defaults on field decls (when present).
+    for (st, fmap) in fields {
+        for (fname, def) in fmap {
+            if let Some(d) = def {
+                if let Some(ty) = struct_type_of_expr(d, methods, fields, &out, &base_env) {
+                    note(&mut out, st, fname, ty);
+                }
+            }
+        }
+    }
+    for m in modules {
+        if is_runtime_module_path(&m.path) {
+            continue;
+        }
+        let mut env = base_env.clone();
+        for (import_name, root) in &m.imports {
+            for dep in modules.iter().filter(|d| {
+                &d.path == root
+                    || d.path.parent() == Some(root.as_path())
+                    || d.path.starts_with(root)
+            }) {
+                for f in &dep.hir.bodies {
+                    if f.receiver_struct.is_none()
+                        && f.returns_structs.len() == 1
+                        && dep.exports.iter().any(|e| e == &f.symbol)
+                    {
+                        env.insert(
+                            format!("__fnret_{import_name}.{}", f.symbol),
+                            f.returns_structs[0].clone(),
+                        );
+                    }
+                }
+            }
+        }
+        walk_stmts(&m.hir.entry, methods, fields, &env, &mut out);
+        for f in &m.hir.bodies {
+            walk_stmts(&f.body, methods, fields, &env, &mut out);
+        }
+    }
+    out
+}
+
 /// Lower a whole program (all modules with free functions).
 #[must_use]
 pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> LoweredProgram {
@@ -459,7 +672,9 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
     let mut fn_shapes: HashMap<(PathBuf, String), MirRetShape> = HashMap::new();
     let graph_methods = build_graph_methods(modules);
     let graph_fields = build_graph_fields(modules);
-    let free_fn_param_structs = collect_free_fn_param_structs(modules, &graph_methods);
+    let graph_field_types = build_graph_field_types(modules, &graph_methods, &graph_fields);
+    let free_fn_param_structs =
+        collect_free_fn_param_structs(modules, &graph_methods, &graph_fields, &graph_field_types);
 
     for m in modules {
         for f in &m.hir.bodies {
@@ -536,6 +751,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                 &const_env,
                 &graph_methods,
                 &graph_fields,
+                &graph_field_types,
                 &mut type_env,
                 &mut diagnostics,
             );
@@ -583,6 +799,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                             &const_env,
                             &graph_methods,
                             &graph_fields,
+                            &graph_field_types,
                             &mut type_env,
                             &mut diagnostics,
                         ) {
@@ -602,6 +819,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                             &const_env,
                             &graph_methods,
                             &graph_fields,
+                            &graph_field_types,
                             &mut type_env,
                             &mut diagnostics,
                         ) {
@@ -651,6 +869,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                     &const_env,
                     &graph_methods,
                     &graph_fields,
+                    &graph_field_types,
                     &mut type_env,
                     &mut diagnostics,
                 );
@@ -729,6 +948,8 @@ type FreeFnParamStructs = HashMap<String, Vec<Option<String>>>;
 fn collect_free_fn_param_structs(
     modules: &[ModuleLowerInput],
     methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
 ) -> FreeFnParamStructs {
     // Free-fn body symbols and arities (exclude methods).
     let mut free_arity: HashMap<String, usize> = HashMap::new();
@@ -789,7 +1010,7 @@ fn collect_free_fn_param_structs(
             if i >= slots.len() {
                 break;
             }
-            if let Some(st) = struct_type_of_expr(arg, methods, type_env) {
+            if let Some(st) = struct_type_of_expr(arg, methods, fields, field_types, type_env) {
                 slots[i].insert(st);
             }
         }
@@ -822,7 +1043,7 @@ fn collect_free_fn_param_structs(
             // so `$ s = lis.accept(); drain(s)` sees `s` as `% conn`.
             let mut type_env = struct_env_from_semantic(&m.semantic);
             seed_fn_return_struct_types(&mut type_env, m, modules);
-            seed_local_struct_flow(&m.hir.entry, methods, &mut type_env);
+            seed_local_struct_flow(&m.hir.entry, methods, fields, field_types, &mut type_env);
             collect_calls_in_stmts(
                 &m.hir.entry,
                 &m.path,
@@ -847,7 +1068,7 @@ fn collect_free_fn_param_structs(
                     }
                 }
                 // Flow assigns inside the body for nested calls (light pass).
-                seed_local_struct_flow(&f.body, methods, &mut env);
+                seed_local_struct_flow(&f.body, methods, fields, field_types, &mut env);
                 collect_calls_in_stmts(
                     &f.body,
                     &m.path,
@@ -889,6 +1110,8 @@ fn collect_free_fn_param_structs(
 fn seed_local_struct_flow(
     stmts: &[HirStmt],
     methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
 ) {
     for s in stmts {
@@ -903,14 +1126,14 @@ fn seed_local_struct_flow(
                 value: e,
                 ..
             } => {
-                propagate_struct_type(name, e, methods, type_env);
+                propagate_struct_type(name, e, methods, fields, field_types, type_env);
             }
             HirStmt::If { arms, else_body, .. } => {
                 for (_, body) in arms {
-                    seed_local_struct_flow(body, methods, type_env);
+                    seed_local_struct_flow(body, methods, fields, field_types, type_env);
                 }
                 if let Some(b) = else_body {
-                    seed_local_struct_flow(b, methods, type_env);
+                    seed_local_struct_flow(b, methods, fields, field_types, type_env);
                 }
             }
             HirStmt::Match { arms, .. } => {
@@ -921,12 +1144,14 @@ fn seed_local_struct_flow(
                         | HirMatchArm::Type { body, .. }
                         | HirMatchArm::Ok { body, .. }
                         | HirMatchArm::Err { body, .. } => {
-                            seed_local_struct_flow(body, methods, type_env);
+                            seed_local_struct_flow(body, methods, fields, field_types, type_env);
                         }
                     }
                 }
             }
-            HirStmt::Loop { body, .. } => seed_local_struct_flow(body, methods, type_env),
+            HirStmt::Loop { body, .. } => {
+                seed_local_struct_flow(body, methods, fields, field_types, type_env)
+            }
             _ => {}
         }
     }
@@ -1350,14 +1575,31 @@ fn collect_calls_in_expr(
 fn struct_type_of_expr(
     e: &HirExpr,
     methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &HashMap<String, String>,
 ) -> Option<String> {
     match &e.kind {
         HirExprKind::Name(n) => type_env.get(n).cloned(),
+        // Receiver `.` in methods is bound as `__recv` in type_env.
+        HirExprKind::Field { base, field } => {
+            let st = struct_type_of_expr(base, methods, fields, field_types, type_env)?;
+            if let Some(ty) = field_types.get(&st).and_then(|m| m.get(field)) {
+                return Some(ty.clone());
+            }
+            // Field default initializer (when present and monomorphic struct).
+            let def = fields.get(&st).and_then(|m| m.get(field)).and_then(|d| d.as_ref());
+            if let Some(d) = def {
+                if let Some(ty) = struct_type_of_expr(d, methods, fields, field_types, type_env) {
+                    return Some(ty);
+                }
+            }
+            None
+        }
         HirExprKind::MethodCall {
             receiver, method, ..
         } => {
-            let st = struct_type_of_expr(receiver, methods, type_env)?;
+            let st = struct_type_of_expr(receiver, methods, fields, field_types, type_env)?;
             let target = methods.get(&st).and_then(|m| m.get(method))?;
             if target.returns_receiver {
                 Some(st)
@@ -1378,7 +1620,9 @@ fn struct_type_of_expr(
             let _ = callee;
             None
         }
-        HirExprKind::Group(inner) => struct_type_of_expr(inner, methods, type_env),
+        HirExprKind::Group(inner) => {
+            struct_type_of_expr(inner, methods, fields, field_types, type_env)
+        }
         HirExprKind::StructLit { name, .. } if !name.is_empty() => Some(name.clone()),
         _ => None,
     }
@@ -1425,11 +1669,15 @@ fn seed_fn_return_struct_types(
                     let st = &f.returns_structs[0];
                     // Prefer export names: top-level free fns use symbol == bind name.
                     if dep.exports.iter().any(|e| e == &f.symbol) {
+                        // Qualified only. Bare `__fnret_{symbol}` is reserved for
+                        // *this* module's free fns — importing `hash_table.make`
+                        // must not clobber local `make` → `map` (else
+                        // `make().seed` resolves to `hash_table.seed` and
+                        // result/option matches fail with cg-match).
                         type_env.insert(
                             format!("__fnret_{import_name}.{}", f.symbol),
                             st.clone(),
                         );
-                        type_env.insert(format!("__fnret_{}", f.symbol), st.clone());
                     }
                 }
             }
@@ -1442,16 +1690,18 @@ fn propagate_struct_type(
     dest: &str,
     value: &HirExpr,
     methods: &GraphMethods,
+    fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
 ) {
-    if let Some(st) = struct_type_of_expr(value, methods, type_env) {
+    if let Some(st) = struct_type_of_expr(value, methods, fields, field_types, type_env) {
         type_env.insert(dest.to_string(), st);
     }
     // Homogeneous list of named structs → element type for index / for-in.
     if let HirExprKind::List(items) = &value.kind {
         let mut elem: Option<String> = None;
         for it in items {
-            match struct_type_of_expr(it, methods, type_env) {
+            match struct_type_of_expr(it, methods, fields, field_types, type_env) {
                 Some(st) if elem.as_ref().is_none_or(|e| e == &st) => elem = Some(st),
                 _ => {
                     elem = None;
@@ -1488,6 +1738,7 @@ fn lower_block(
     const_env: &HashMap<String, ConstValue>,
     methods: &GraphMethods,
     fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Vec<MirStmt> {
@@ -1503,6 +1754,7 @@ fn lower_block(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )
@@ -1519,6 +1771,7 @@ fn lower_stmt(
     const_env: &HashMap<String, ConstValue>,
     methods: &GraphMethods,
     fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Option<MirStmt> {
@@ -1538,6 +1791,7 @@ fn lower_stmt(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?,
@@ -1546,7 +1800,7 @@ fn lower_stmt(
             // Propagate analysis-known named struct types through locals (handles are by-ref).
             // Empty name is a structural `{}` product — not a method-bearing type.
             if let Some(e) = init {
-                propagate_struct_type(name, e, methods, type_env);
+                propagate_struct_type(name, e, methods, fields, field_types, type_env);
             }
             Some(MirStmt::Set {
                 name: name.clone(),
@@ -1563,10 +1817,11 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?;
-            propagate_struct_type(name, hir_value, methods, type_env);
+            propagate_struct_type(name, hir_value, methods, fields, field_types, type_env);
             Some(MirStmt::Set {
                 name: name.clone(),
                 value,
@@ -1583,6 +1838,7 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?,
@@ -1595,6 +1851,7 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?,
@@ -1613,6 +1870,7 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?;
@@ -1624,6 +1882,7 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?;
@@ -1638,6 +1897,7 @@ fn lower_stmt(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?,
@@ -1658,6 +1918,7 @@ fn lower_stmt(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?))
@@ -1670,6 +1931,7 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?)),
@@ -1685,6 +1947,7 @@ fn lower_stmt(
             const_env,
             methods,
             fields,
+            field_types,
             type_env,
             diags,
         )?)),
@@ -1702,6 +1965,7 @@ fn lower_stmt(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?,
@@ -1714,6 +1978,7 @@ fn lower_stmt(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     ),
@@ -1729,6 +1994,7 @@ fn lower_stmt(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )
@@ -1750,6 +2016,7 @@ fn lower_stmt(
             const_env,
             methods,
             fields,
+            field_types,
             type_env,
             diags,
         ),
@@ -1764,7 +2031,7 @@ fn lower_stmt(
                     // inline list: same as propagate
                     let mut elem: Option<String> = None;
                     for it in items {
-                        match struct_type_of_expr(it, methods, type_env) {
+                        match struct_type_of_expr(it, methods, fields, field_types, type_env) {
                             Some(st) if elem.as_ref().is_none_or(|e| e == &st) => elem = Some(st),
                             _ => {
                                 elem = None;
@@ -1786,6 +2053,7 @@ fn lower_stmt(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             );
@@ -1800,6 +2068,7 @@ fn lower_stmt(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?),
@@ -1815,6 +2084,7 @@ fn lower_stmt(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?,
@@ -1850,6 +2120,7 @@ fn lower_stmt(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )
@@ -1882,6 +2153,7 @@ fn lower_stmt(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )
@@ -1896,6 +2168,7 @@ fn lower_stmt(
             const_env,
             methods,
             fields,
+            field_types,
             type_env,
             diags,
         )?)),
@@ -1923,6 +2196,7 @@ fn lower_match(
     const_env: &HashMap<String, ConstValue>,
     methods: &GraphMethods,
     fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Option<MirStmt> {
@@ -1964,6 +2238,7 @@ fn lower_match(
             const_env,
             methods,
             fields,
+            field_types,
             type_env,
             diags,
         );
@@ -1989,6 +2264,7 @@ fn lower_match(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 );
@@ -2005,6 +2281,7 @@ fn lower_match(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 );
@@ -2021,6 +2298,7 @@ fn lower_match(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 );
@@ -2048,6 +2326,7 @@ fn lower_match(
             const_env,
             methods,
             fields,
+            field_types,
             type_env,
             diags,
         )?,
@@ -2069,6 +2348,7 @@ fn lower_value_match(
     const_env: &HashMap<String, ConstValue>,
     methods: &GraphMethods,
     fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Option<MirStmt> {
@@ -2080,6 +2360,7 @@ fn lower_value_match(
         const_env,
         methods,
         fields,
+        field_types,
         type_env,
         diags,
     )?;
@@ -2108,6 +2389,7 @@ fn lower_value_match(
                             const_env,
                             methods,
                             fields,
+                            field_types,
                             type_env,
                             diags,
                         )?;
@@ -2119,6 +2401,7 @@ fn lower_value_match(
                             const_env,
                             methods,
                             fields,
+                            field_types,
                             type_env,
                             diags,
                         )?;
@@ -2147,6 +2430,7 @@ fn lower_value_match(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?;
@@ -2173,6 +2457,7 @@ fn lower_value_match(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 );
@@ -2201,6 +2486,7 @@ fn lower_value_match(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 );
@@ -2226,6 +2512,7 @@ fn lower_value_match(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 ));
@@ -2401,6 +2688,7 @@ fn lower_expr(
     const_env: &HashMap<String, ConstValue>,
     methods: &GraphMethods,
     fields: &GraphFields,
+    field_types: &GraphFieldTypes,
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Option<MirExpr> {
@@ -2423,6 +2711,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?;
@@ -2487,6 +2776,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2501,6 +2791,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2512,6 +2803,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2531,6 +2823,7 @@ fn lower_expr(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?);
@@ -2553,6 +2846,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?;
@@ -2566,6 +2860,7 @@ fn lower_expr(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?);
@@ -2592,6 +2887,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2603,6 +2899,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2628,6 +2925,7 @@ fn lower_expr(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?);
@@ -2671,7 +2969,7 @@ fn lower_expr(
         } => {
             // Prefer true methods (recv + mangled body). Else treat as field
             // holding a function value: load field, indirect call (no recv inject).
-            let struct_name = struct_type_of_expr(receiver, methods, type_env);
+            let struct_name = struct_type_of_expr(receiver, methods, fields, field_types, type_env);
             let method_target = struct_name.as_ref().and_then(|st| {
                 methods
                     .get(st)
@@ -2691,6 +2989,7 @@ fn lower_expr(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?;
@@ -2704,6 +3003,7 @@ fn lower_expr(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?);
@@ -2726,6 +3026,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?;
@@ -2743,6 +3044,7 @@ fn lower_expr(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?);
@@ -2804,6 +3106,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2827,6 +3130,7 @@ fn lower_expr(
                         const_env,
                         methods,
                         fields,
+                        field_types,
                         type_env,
                         diags,
                     )?,
@@ -2851,6 +3155,7 @@ fn lower_expr(
                                 const_env,
                                 methods,
                                 fields,
+                                field_types,
                                 type_env,
                                 diags,
                             )?,
@@ -2871,6 +3176,7 @@ fn lower_expr(
             const_env,
             methods,
             fields,
+            field_types,
             type_env,
             diags,
         ),
@@ -2885,6 +3191,7 @@ fn lower_expr(
                     const_env,
                     methods,
                     fields,
+                    field_types,
                     type_env,
                     diags,
                 )?);
@@ -2900,6 +3207,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -2911,6 +3219,7 @@ fn lower_expr(
                 const_env,
                 methods,
                 fields,
+                field_types,
                 type_env,
                 diags,
             )?),
@@ -3375,6 +3684,54 @@ mod tests {
     }
 
     #[test]
+    fn finish_cfg_nested_for_in_return_has_index_phi() {
+        let stmts = vec![
+            MirStmt::Set {
+                name: "buckets".into(),
+                value: MirExpr::ListLit(vec![
+                    MirExpr::ListLit(vec![]),
+                    MirExpr::ListLit(vec![]),
+                    MirExpr::ListLit(vec![]),
+                ]),
+            },
+            MirStmt::ForIn {
+                item: "chain".into(),
+                iter: MirExpr::Name("buckets".into()),
+                body: vec![MirStmt::ForIn {
+                    item: "e".into(),
+                    iter: MirExpr::Name("chain".into()),
+                    body: vec![MirStmt::ReturnNone],
+                }],
+            },
+            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+        ];
+        let (cfg, _reprs, _esc) = finish_cfg(stmts, MirRetShape::Option, &[], MirExpr::ConstI64(0));
+        // Unreachable for-in cont (always-return body) must not poison loop-header SSA.
+        let ok = cfg.blocks.iter().any(|b| {
+            matches!(
+                &b.term,
+                Terminator::Branch {
+                    cond: MirExpr::Binary { left, .. },
+                    ..
+                } if matches!(left.as_ref(), MirExpr::Name(n) if n.contains("__i_") && n.contains('@'))
+            )
+        });
+        assert!(ok, "finish_cfg must keep versioned index; cfg={cfg:?}");
+        let outer_i_phi = cfg.blocks.iter().any(|b| {
+            b.ops.iter().any(|op| match op {
+                MirOp::Phi { name, incomings } => {
+                    name.starts_with("__i_") && name.contains('@') && incomings.len() >= 2
+                }
+                _ => false,
+            })
+        });
+        assert!(
+            outer_i_phi,
+            "outer for-in needs multi-incoming index φ; cfg={cfg:?}"
+        );
+    }
+
+    #[test]
     fn rich_expands_escapes() {
         let b = decode_string_lit(StringKind::Rich, r#""a\nb\t""#).unwrap();
         assert_eq!(b, b"a\nb\t");
@@ -3392,7 +3749,14 @@ mod tests {
     #[test]
     fn value_getter_naming() {
         assert_eq!(value_getter_name("answer"), "__val_answer");
-        assert!(mangle_fn(Path::new("/proj/lib.echo"), "add").contains("add"));
+        // Outside a project root: parent/file only (no absolute host path).
+        let mangled = mangle_fn(Path::new("/proj/lib.echo"), "add");
+        assert!(mangled.ends_with("_add"), "{mangled}");
+        assert!(
+            !mangled.contains("home") && mangled.starts_with("m_"),
+            "must not embed host absolute path: {mangled}"
+        );
+        assert_eq!(mangled, "m_proj_lib_echo_add");
     }
 
     #[test]
@@ -3914,6 +4278,21 @@ mod tests {
         assert!(
             body_dbg.contains("box_get"),
             "expected param method → box_get; body={body_dbg}"
+        );
+    }
+
+    #[test]
+    fn mangle_fn_project_relative_not_absolute_host() {
+        // This workspace has Cargo.toml at the repo root.
+        let std_bytes = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../std/bytes.echo")
+            .canonicalize()
+            .expect("std/bytes.echo");
+        let m = mangle_fn(&std_bytes, "__val_len");
+        assert_eq!(m, "m_std_bytes_echo___val_len", "got {m}");
+        assert!(
+            !m.contains("hallas") && !m.contains("home") && !m.contains("Work"),
+            "host path leaked: {m}"
         );
     }
 }

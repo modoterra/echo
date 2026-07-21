@@ -1132,11 +1132,11 @@ fn extract_struct_methods(
                     let mut p = vec![RECV_PARAM.into()];
                     p.extend(params.iter().map(|x| x.name.clone()));
                     let return_shape = effects_in_stmts(body).shape();
-                    // Plain methods: fall-off returns `.`; self-typed if all `^` are `.` too.
-                    let returns_receiver = matches!(return_shape, ReturnShape::Plain)
-                        && body_returns_only_receiver(body);
+                    // Receiver-typed ok payload when every valued `^` is `.` (incl. result
+                    // methods: `! err` / `^ .` so `make().seed(…)` still types as `map`).
+                    let returns_receiver = body_returns_only_receiver(body);
                     let returns_structs = if returns_receiver {
-                        vec![]
+                        vec![struct_name.clone()]
                     } else {
                         body_returns_named_structs(body)
                     };

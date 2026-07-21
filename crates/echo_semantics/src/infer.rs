@@ -547,7 +547,11 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
         Expr::Locator { .. } => Type::Named("locator".into()),
         Expr::Bool { .. } => Type::Bool,
         Expr::Receiver { .. } => env.fresh(), // refined by method context later
-        Expr::WidthCast { width, expr, span } => {
+        Expr::WidthCast {
+            width,
+            expr,
+            span: _,
+        } => {
             let _from = infer_expr(env, expr);
             // Result kind is the target width; convert legality checked at MIR/codegen.
             match width {

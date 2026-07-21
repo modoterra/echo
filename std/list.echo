@@ -1,0 +1,31 @@
+; std/list — length (and later free helpers) for list values.
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+;
+; `len` is plain: element count of a list (runtime also accepts ranges; free-fn
+; monomorphic param typing is list-oriented from call sites).
+
+/ runtime
+/ std/test
+
+$ len = (xs) {
+    ^ runtime.list_len(xs)
+}
+
+; --- suite (xo test std/list.echo) ---
+
+test.it("len_empty", () {
+    test.eq(len([]), 0)
+})
+
+test.it("len_lit", () {
+    test.eq(len([10, 20, 12]), 3)
+})
+
+test.it("len_push", () {
+    ~ xs = []
+    ~ xs[] = 1
+    ~ xs[] = 2
+    test.eq(len(xs), 2)
+})
+
+\ len

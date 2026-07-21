@@ -8,10 +8,13 @@
 % map {
     $ table
 
-    ; Forward seed onto the backing table (in-place keys; same table ref).
+    ; Empty map only. Result-shaped: ^ . or ! msg. (Policy lives here, not on hash_table.)
     $ seed = (k0, k1) {
-        .table.seed(k0, k1)
-        ^ .
+        ? .table.is_empty() {
+            .table.seed(k0, k1)
+            ^ .
+        }
+        ! "cannot reseed non-empty map"
     }
 }
 
@@ -132,14 +135,33 @@ test.it("bucket_index_stable", () {
 test.it("fluent_seed", () {
     # K0 = 0x0101010101010101
     # K1 = 0x0202020202020202
-    $ m = make().seed(<ui64> K0, <ui64> K1)
-    put(m, 3, 9)
-    | get(m, 3) {
-        $ v {
-            test.eq(v, 9)
+    | make().seed(<ui64> K0, <ui64> K1) {
+        $ m {
+            put(m, 3, 9)
+            | get(m, 3) {
+                $ v {
+                    test.eq(v, 9)
+                }
+                : {
+                    test.fail("missing")
+                }
+            }
         }
-        : {
-            test.fail("missing")
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("reseed_nonempty_err", () {
+    $ m = make()
+    put(m, 1, 1)
+    | m.seed(<ui64> 1, <ui64> 2) {
+        $ ok {
+            test.fail("expected reseed error")
+        }
+        ! e {
+            test.eq(e, "cannot reseed non-empty map")
         }
     }
 })

@@ -37,7 +37,7 @@ $ eprint = (value) {
 
 | Path | Role |
 |------|------|
-| `io.echo` / `time.echo` / `test.echo` / `bytes.echo` | free function values (`test` for `xo test`; `bytes` for `b'…'` len/get) |
+| `io.echo` / `time.echo` / `test.echo` / `bytes.echo` / `list.echo` | free function values (`test` for `xo test`; `bytes` / `list` len helpers) |
 | `crypto/hash/` | folder module: `sip` (SipHash-2-4) → `/ std/crypto/hash` as `hash.sip` |
 | `collections/hash_table.echo` | SipHash bucket table (`put`/`get`); backs map + set |
 | `collections/map.echo` | map ADT over `hash_table` (`put`/`get`/`from_indexed`) |

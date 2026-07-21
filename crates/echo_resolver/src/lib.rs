@@ -250,8 +250,10 @@ fn check_phase_key(graph: &ResolvedGraph) -> PhaseCacheKey {
     )
 }
 
-/// Cache key for LLVM IR (includes check + lower fingerprints so semantics/IR
-/// shape changes invalidate).
+/// Cache key for LLVM IR.
+///
+/// [`ArtifactPhase::Codegen`] already fingerprints the full frontend→MIR→codegen
+/// stack; extras restate check/lower digests and graph content for explicitness.
 #[must_use]
 pub fn codegen_phase_key(graph: &ResolvedGraph) -> PhaseCacheKey {
     use echo_fingerprint::phase_fingerprint;

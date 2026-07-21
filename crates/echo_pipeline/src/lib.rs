@@ -447,9 +447,10 @@ pub fn compile_to_llvm_with(entry: &Path, opts: &AnalyzeOptions, opt: OptLevel) 
 
 /// Fingerprint on-disk module graph + opt + stage fingerprints for IR cache.
 ///
-/// Extras (and Codegen phase component versions via [`PhaseCacheKey::for_source`])
-/// must include everything that can change emitted IR without changing source:
-/// check/lower meaning, codegen/runtime ABI, and selected [`OptLevel`].
+/// [`PhaseCacheKey::for_source`] for [`ArtifactPhase::Codegen`] already hashes
+/// the full frontend→MIR→codegen component stack (see `phase_components`).
+/// Extras still record graph content, nested stage digests, ABI, and [`OptLevel`]
+/// so opt levels never collide and keys stay explicit for cache doctor/debug.
 fn codegen_ir_cache_key(product: &AnalysisProduct, opt: OptLevel) -> echo_cache::PhaseCacheKey {
     use echo_cache::PhaseCacheKey;
     use echo_fingerprint::{
@@ -844,6 +845,43 @@ $ add1 = (a) {
             codegen_ir_cache_key(&product, OptLevel::O0).blob_name(),
             k.blob_name()
         );
+        // Codegen phase stack must include MIR (for-in/SSA fixes invalidate IR).
+        use echo_fingerprint::{ArtifactPhase, CompilerComponent, phase_components};
+        assert!(
+            phase_components(ArtifactPhase::Codegen).contains(&CompilerComponent::MirLowerer),
+            "IR cache phase must fingerprint mir_lowerer"
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn ir_cache_hit_then_versioned_key_differs_from_empty_extras() {
+        // `PhaseCacheKey::for_source(Codegen, graph, &[])` still embeds the full
+        // component stack; opt/graph extras only further specialize.
+        use echo_cache::PhaseCacheKey;
+        use echo_fingerprint::ArtifactPhase;
+        let (root, path) = temp_echo("^ 7\n");
+        let product = analyze(
+            &path,
+            &AnalyzeOptions {
+                use_cache: false,
+                ..Default::default()
+            },
+        );
+        assert!(product.is_ok());
+        let full = codegen_ir_cache_key(&product, OptLevel::O0);
+        let bare = PhaseCacheKey::for_source(
+            ArtifactPhase::Codegen,
+            b"same-source-bytes-not-used-as-graph",
+            &[],
+        );
+        // Different source material → different blob names (sanity).
+        assert_ne!(full.blob_name(), bare.blob_name());
+        // Full key is stable.
+        assert_eq!(
+            codegen_ir_cache_key(&product, OptLevel::O0).blob_name(),
+            full.blob_name()
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -873,4 +911,73 @@ $ add1 = (a) {
         assert!(!oz.ir_cache_hit, "Oz must not reuse O2 IR cache entry");
         let _ = fs::remove_dir_all(root);
     }
+
+    #[test]
+    fn map_get_return_shape_is_option() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../std/collections/map.echo");
+        let path = path.canonicalize().unwrap();
+        let product = analyze(
+            &path,
+            &AnalyzeOptions {
+                use_cache: false,
+                ..Default::default()
+            },
+        );
+        assert!(product.is_ok(), "{:?}", product.diagnostics.items());
+        let lowered = lower_to_mir(&product).expect("mir");
+        let map_get = lowered
+            .program
+            .functions
+            .iter()
+            .find(|f| f.name == "get" && f.module_path.ends_with("map.echo"))
+            .expect("map get");
+        assert_eq!(
+            map_get.ret,
+            echo_mir::MirRetShape::Option,
+            "map.get must be option-shaped"
+        );
+        // make().seed must call map.seed (Result), not hash_table.seed (Plain).
+        use echo_mir::{CallTarget, MirExpr, MirStmt};
+        let mut saw_map_seed = false;
+        let mut saw_ht_seed_as_match = false;
+        fn walk(stmts: &[MirStmt], saw_map: &mut bool, saw_ht: &mut bool) {
+            for s in stmts {
+                if let MirStmt::MatchTagged { scrutinee, .. } = s {
+                    if let MirExpr::Call {
+                        target: CallTarget::Function { name, module_path },
+                        ret,
+                        ..
+                    } = scrutinee
+                    {
+                        if name.contains("seed") {
+                            if module_path.ends_with("map.echo") {
+                                *saw_map = true;
+                                assert!(
+                                    ret.is_tagged(),
+                                    "map.seed match must be tagged, got {ret:?}"
+                                );
+                            }
+                            if module_path.ends_with("hash_table.echo") {
+                                *saw_ht = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for f in &lowered.program.functions {
+            if f.module_path.ends_with("map.echo") {
+                walk(&f.body, &mut saw_map_seed, &mut saw_ht_seed_as_match);
+            }
+        }
+        assert!(
+            saw_map_seed,
+            "expected match on map.seed in map.echo suite"
+        );
+        assert!(
+            !saw_ht_seed_as_match,
+            "make().seed must not resolve to hash_table.seed"
+        );
+    }
 }
+

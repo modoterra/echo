@@ -1127,6 +1127,17 @@ fn cmd_tools_grammar_tree_sitter(output: &Path) -> ExitCode {
 
 /// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
 fn cmd_test(paths: &[String]) -> ExitCode {
+    use std::time::{Duration, Instant};
+
+    fn fmt_dur(d: Duration) -> String {
+        let ms = d.as_secs_f64() * 1000.0;
+        if ms < 1000.0 {
+            format!("{ms:.1}ms")
+        } else {
+            format!("{:.2}s", d.as_secs_f64())
+        }
+    }
+
     let files = match collect_test_files(paths) {
         Ok(f) if f.is_empty() => {
             eprintln!("xo test: no test files matched");
@@ -1141,24 +1152,28 @@ fn cmd_test(paths: &[String]) -> ExitCode {
 
     let mut failed_files = 0usize;
     let total_files = files.len();
+    let all_start = Instant::now();
     for (i, file) in files.iter().enumerate() {
         eprintln!("xo test [{}/{}] {}", i + 1, total_files, file.display());
+        let file_start = Instant::now();
         let code = run_suite_file(file);
+        let file_elapsed = fmt_dur(file_start.elapsed());
         if code != 0 {
             failed_files += 1;
-            eprintln!("xo test: FAILED {}", file.display());
+            eprintln!("xo test: FAILED {} ({file_elapsed})", file.display());
         } else {
-            eprintln!("xo test: ok {}", file.display());
+            eprintln!("xo test: ok {} ({file_elapsed})", file.display());
         }
     }
 
+    let total_elapsed = fmt_dur(all_start.elapsed());
     if failed_files > 0 {
         eprintln!(
-            "xo test: {failed_files} of {total_files} file(s) failed"
+            "xo test: {failed_files} of {total_files} file(s) failed ({total_elapsed})"
         );
         ExitCode::from(1)
     } else {
-        eprintln!("xo test: {total_files} file(s) passed");
+        eprintln!("xo test: {total_files} file(s) passed ({total_elapsed})");
         ExitCode::SUCCESS
     }
 }

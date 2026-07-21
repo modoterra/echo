@@ -73,6 +73,11 @@ Targets LLVM only (ADR 0002) but does not embed LLVM types in the IR design.
 - Entry: `lower_program(entry_path, modules) -> LoweredProgram`.
 - Code objects: closed bodies from HIR `bodies` (symbol = linkage id) + method
   symbols + optional exported value getters (`__val_*`) + entry `__toplevel`.
+- **LLVM link names** (`mangle_fn`): `m_<project_relative_path>_<name>` — path is
+  relative to the nearest `Cargo.toml` / `.git` ancestor (e.g.
+  `m_std_bytes_echo_len`), not the absolute host path. Outside a project root,
+  only `parent/file` is used. Virtual `runtime` keeps
+  `__echo_runtime_export_*`.
 - Function values: `FnValue` (code pointer); `CallTarget::Indirect` for call
   through a value. Direct `CallTarget::Function` when the bind resolves to a
   known body symbol.
@@ -86,6 +91,11 @@ Targets LLVM only (ADR 0002) but does not embed LLVM types in the IR design.
 - **Control:** if, while/infinite/for-in, break/continue, tagged match
   (result/option), **value match** (if/`==`/`||` chain for multi-expr arms;
   bool arms `|` / `_` at arm start).
+- **For-in → index loop:** expands to `list_len` / `list_get` with a continue
+  block that increments the index. When the body always returns (or otherwise
+  never continues), that cont block is left unwired. SSA dominance / φ
+  placement uses only blocks **reachable from entry** so a dead cont cannot
+  poison the loop header (would freeze the index at 0 → infinite loop).
 - Const `#` folding into `const_env` for getters and foldable exprs (lower-time,
   not a mid-end pass).
 - **List index:** CFG emits `ListGetChecked` → `echo_runtime_list_get` (soft OOB

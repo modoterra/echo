@@ -2571,6 +2571,7 @@ fn emit_call<'ctx>(
                 || native == RT_STR_FROM_DEBUG
                 || native == RT_STR_LEN
                 || native == RT_BYTES_LEN
+                || native == RT_LIST_LEN
                 || native == RT_BYTES_FROM_I64
                 || native == RT_HTTP_PARSE_REQUEST
                 || native == RT_HTTP_HEADERS_COMPLETE

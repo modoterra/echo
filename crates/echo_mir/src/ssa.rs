@@ -16,9 +16,16 @@ pub fn construct_ssa(mut cfg: MirCfg, params: &[String]) -> MirCfg {
         return cfg;
     }
 
-    let preds = cfg.predecessors();
-    let idom = compute_idom(&cfg, &preds);
-    let df = dominance_frontiers(&preds, &idom);
+    // Dominance must ignore blocks unreachable from entry. For-in always allocates a
+    // continue block with a back-edge to the header; when the body always returns
+    // (or otherwise never continues), that cont is dead but still appears as a
+    // predecessor of the header. An unreachable pred's dom-set collapses to itself
+    // and poisons the header via intersection — φ placement and rename then skip
+    // the loop, leaving unversioned uses that codegen treats as 0 (infinite loop).
+    let reachable = reachable_from_entry(&cfg);
+    let preds = reachable_predecessors(&cfg, &reachable);
+    let idom = compute_idom(&cfg, &preds, &reachable);
+    let df = dominance_frontiers(&preds, &idom, &reachable);
     let dom_children = dom_tree_children(n, &idom, cfg.entry);
 
     // base name → blocks that assign it
@@ -452,21 +459,67 @@ fn rewrite_term(term: Terminator, stacks: &HashMap<String, Vec<String>>) -> Term
     }
 }
 
-fn compute_idom(cfg: &MirCfg, preds: &[Vec<BlockId>]) -> Vec<Option<BlockId>> {
+/// Blocks reachable from CFG entry (forward CFG walk).
+fn reachable_from_entry(cfg: &MirCfg) -> HashSet<BlockId> {
+    let mut seen = HashSet::new();
+    let mut stack = vec![cfg.entry];
+    while let Some(b) = stack.pop() {
+        if !seen.insert(b) {
+            continue;
+        }
+        for s in cfg.successors(b) {
+            stack.push(s);
+        }
+    }
+    seen
+}
+
+/// Predecessor lists restricted to the reachable subgraph.
+fn reachable_predecessors(cfg: &MirCfg, reachable: &HashSet<BlockId>) -> Vec<Vec<BlockId>> {
+    let n = cfg.blocks.len();
+    let mut preds = vec![Vec::new(); n];
+    for b in &cfg.blocks {
+        if !reachable.contains(&b.id) {
+            continue;
+        }
+        for s in cfg.successors(b.id) {
+            if reachable.contains(&s) {
+                preds[s.0 as usize].push(b.id);
+            }
+        }
+    }
+    preds
+}
+
+fn compute_idom(
+    cfg: &MirCfg,
+    preds: &[Vec<BlockId>],
+    reachable: &HashSet<BlockId>,
+) -> Vec<Option<BlockId>> {
     let n = cfg.blocks.len();
     let entry = cfg.entry.0 as usize;
-    let mut dom: Vec<HashSet<usize>> = vec![(0..n).collect(); n];
-    dom[entry] = HashSet::from([entry]);
+    let mut dom: Vec<HashSet<usize>> = vec![HashSet::new(); n];
+    // Unreachable blocks keep empty dom; reachable non-entry start as "all reachable".
+    let all_reach: HashSet<usize> = reachable.iter().map(|b| b.0 as usize).collect();
+    for b in reachable {
+        let bi = b.0 as usize;
+        if bi == entry {
+            dom[bi] = HashSet::from([entry]);
+        } else {
+            dom[bi] = all_reach.clone();
+        }
+    }
 
     let mut changed = true;
     while changed {
         changed = false;
-        for b in 0..n {
-            if b == entry {
+        for b in reachable {
+            let bi = b.0 as usize;
+            if bi == entry {
                 continue;
             }
             let mut new_dom: Option<HashSet<usize>> = None;
-            for p in &preds[b] {
+            for p in &preds[bi] {
                 let pd = &dom[p.0 as usize];
                 new_dom = Some(match new_dom {
                     None => pd.clone(),
@@ -474,21 +527,22 @@ fn compute_idom(cfg: &MirCfg, preds: &[Vec<BlockId>]) -> Vec<Option<BlockId>> {
                 });
             }
             let mut new_dom = new_dom.unwrap_or_default();
-            new_dom.insert(b);
-            if new_dom != dom[b] {
-                dom[b] = new_dom;
+            new_dom.insert(bi);
+            if new_dom != dom[bi] {
+                dom[bi] = new_dom;
                 changed = true;
             }
         }
     }
 
     let mut idom = vec![None; n];
-    for b in 0..n {
-        if b == entry {
+    for b in reachable {
+        let bi = b.0 as usize;
+        if bi == entry {
             continue;
         }
-        let mut strict: HashSet<usize> = dom[b].clone();
-        strict.remove(&b);
+        let mut strict: HashSet<usize> = dom[bi].clone();
+        strict.remove(&bi);
         // Immediate dominator = deepest strict dominator
         let mut best: Option<(usize, usize)> = None;
         for &d in &strict {
@@ -499,25 +553,30 @@ fn compute_idom(cfg: &MirCfg, preds: &[Vec<BlockId>]) -> Vec<Option<BlockId>> {
                 _ => {}
             }
         }
-        idom[b] = best.map(|(d, _)| BlockId(d as u32));
+        idom[bi] = best.map(|(d, _)| BlockId(d as u32));
     }
     idom
 }
 
-fn dominance_frontiers(preds: &[Vec<BlockId>], idom: &[Option<BlockId>]) -> Vec<Vec<BlockId>> {
+fn dominance_frontiers(
+    preds: &[Vec<BlockId>],
+    idom: &[Option<BlockId>],
+    reachable: &HashSet<BlockId>,
+) -> Vec<Vec<BlockId>> {
     let n = preds.len();
     let mut df = vec![Vec::new(); n];
-    for b in 0..n {
-        if preds[b].len() < 2 {
+    for b in reachable {
+        let bi = b.0 as usize;
+        if preds[bi].len() < 2 {
             continue;
         }
-        for p in &preds[b] {
+        for p in &preds[bi] {
             let mut runner = *p;
-            let idom_b = idom[b];
+            let idom_b = idom[bi];
             while Some(runner) != idom_b {
                 let r = runner.0 as usize;
-                if !df[r].contains(&BlockId(b as u32)) {
-                    df[r].push(BlockId(b as u32));
+                if !df[r].contains(&BlockId(bi as u32)) {
+                    df[r].push(BlockId(bi as u32));
                 }
                 match idom[r] {
                     Some(i) => runner = i,
@@ -545,7 +604,7 @@ fn dom_tree_children(n: usize, idom: &[Option<BlockId>], entry: BlockId) -> Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{structured_to_cfg, MirRetShape, MirStmt};
+    use crate::{structured_to_cfg, MirExpr, MirRetShape, MirStmt};
 
     #[test]
     fn ssa_renames_straight_line() {
@@ -627,5 +686,112 @@ mod tests {
         let (name, incs) = phi.expect("expected phi at merge");
         assert!(name.starts_with("x@"), "{name}");
         assert!(incs.len() >= 2, "incomings={incs:?}");
+    }
+
+    #[test]
+    fn ssa_nested_for_in_with_return_keeps_index_phi() {
+        // * chain : buckets { * e : chain { return none } }
+        // Inner body always returns → inner cont is dead; must not poison outer SSA.
+        let stmts = vec![
+            MirStmt::ForIn {
+                item: "chain".into(),
+                iter: MirExpr::Name("buckets".into()),
+                body: vec![MirStmt::ForIn {
+                    item: "e".into(),
+                    iter: MirExpr::Name("chain".into()),
+                    body: vec![MirStmt::ReturnNone],
+                }],
+            },
+            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+        ];
+        let cfg = structured_to_cfg(&stmts, MirRetShape::Option);
+        let ssa = construct_ssa(cfg, &["buckets".into()]);
+        // Outer loop index must be a versioned name in the header branch (not bare `__i_N`).
+        let versioned_index_use = ssa.blocks.iter().any(|b| {
+            matches!(
+                &b.term,
+                Terminator::Branch {
+                    cond: MirExpr::Binary { left, .. },
+                    ..
+                } if matches!(left.as_ref(), MirExpr::Name(n) if n.starts_with("__i_") && n.contains('@'))
+            )
+        });
+        assert!(
+            versioned_index_use,
+            "for-in header must compare SSA-versioned __i_*; cfg={ssa:?}"
+        );
+        // Outer loop header needs a φ when the outer cont is reachable (empty chains).
+        let outer_i_phi = ssa.blocks.iter().any(|b| {
+            b.ops.iter().any(|op| match op {
+                MirOp::Phi { name, incomings } => {
+                    name.starts_with("__i_") && name.contains('@') && incomings.len() >= 2
+                }
+                _ => false,
+            })
+        });
+        assert!(
+            outer_i_phi,
+            "expected multi-incoming versioned __i_* phi for outer loop; cfg={ssa:?}"
+        );
+    }
+
+    #[test]
+    fn ssa_for_in_always_return_still_versions_index() {
+        // * e : xs { return none }; single level, empty-list safe path.
+        let stmts = vec![
+            MirStmt::ForIn {
+                item: "e".into(),
+                iter: MirExpr::Name("xs".into()),
+                body: vec![MirStmt::ReturnNone],
+            },
+            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+        ];
+        let cfg = structured_to_cfg(&stmts, MirRetShape::Option);
+        let ssa = construct_ssa(cfg, &["xs".into()]);
+        let versioned = ssa.blocks.iter().any(|b| {
+            matches!(
+                &b.term,
+                Terminator::Branch {
+                    cond: MirExpr::Binary { left, .. },
+                    ..
+                } if matches!(left.as_ref(), MirExpr::Name(n) if n.starts_with("__i_") && n.contains('@'))
+            )
+        });
+        assert!(
+            versioned,
+            "single for-in with always-return must still rename index; cfg={ssa:?}"
+        );
+    }
+
+    #[test]
+    fn ssa_nested_for_in_after_simplify() {
+        use crate::{analyze_reprs, simplify_local};
+        let stmts = vec![
+            MirStmt::ForIn {
+                item: "chain".into(),
+                iter: MirExpr::Name("buckets".into()),
+                body: vec![MirStmt::ForIn {
+                    item: "e".into(),
+                    iter: MirExpr::Name("chain".into()),
+                    body: vec![MirStmt::ReturnNone],
+                }],
+            },
+            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+        ];
+        let cfg = structured_to_cfg(&stmts, MirRetShape::Option);
+        let cfg = construct_ssa(cfg, &["buckets".into()]);
+        let (cfg, reprs) = analyze_reprs(cfg, &["buckets".into()]);
+        let (cfg, reprs) = simplify_local(cfg, reprs);
+        let (cfg, _) = simplify_local(cfg, reprs);
+        let versioned = cfg.blocks.iter().any(|b| {
+            matches!(
+                &b.term,
+                Terminator::Branch {
+                    cond: MirExpr::Binary { left, .. },
+                    ..
+                } if matches!(left.as_ref(), MirExpr::Name(n) if n.starts_with("__i_") && n.contains('@'))
+            )
+        });
+        assert!(versioned, "after simplify: cfg={cfg:?}");
     }
 }
