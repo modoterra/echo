@@ -88,8 +88,8 @@
   position: absolute;
   top: 1.5rem;
   right: 1.5rem;
+  left: 16%;
   z-index: 2;
-  width: min(78%, 30rem);
   transform: rotateY(-1.25deg) rotateZ(0.35deg);
   animation: echo-stage-float 8s ease-in-out infinite alternate;
 }
@@ -97,9 +97,9 @@
 .echo-stage-command {
   position: absolute;
   bottom: 2.75rem;
-  left: 5%;
+  left: 16%;
   z-index: 4;
-  width: min(58%, 22rem);
+  width: 45%;
 }
 
 .echo-stage-artifact {
@@ -107,7 +107,7 @@
   right: 1.5rem;
   bottom: 2.75rem;
   z-index: 5;
-  min-width: 13rem;
+  min-width: 12rem;
 }
 
 .echo-artifact-mark {
@@ -117,15 +117,11 @@
 
 .echo-stage-rail {
   position: absolute;
-  top: 48%;
   right: 18%;
   bottom: 19%;
-  left: 20%;
+  left: 61%;
   z-index: 0;
   border-bottom: 2px solid rgb(124 58 237 / 0.28);
-  border-left: 2px solid rgb(124 58 237 / 0.28);
-  border-radius: 0 0 0 3rem;
-  transform: skewY(-8deg);
 }
 
 .echo-stage-rail::after {
