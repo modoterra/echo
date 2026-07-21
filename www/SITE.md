@@ -37,15 +37,16 @@ Zig clarity + TypeScript pedagogy + Elixir polish.
 
 ## Homepage sections
 
-1. Hero (definition + CTAs + code + output)
-2. Three pillar cards
+1. Hero (definition + CTAs + source → `xo` → native visual)
+2. Factual proof rail (Echo 2026 · AOT + JIT · Rust · open source)
 3. **See it work** — tabbed demos (leaders, Result, structs, tasks)
-4. **Samples strip** — examples/misc → reference
-5. **First-program funnel** — Install → run → leaders
-6. Tooling loop (`check` → `run` → `build`)
-7. Learn path (First program · Reference · Language Spec)
-8. Edition / trust (honest early status)
-9. Footer
+4. Toolchain story (`check` → `run` → `build`) + source install
+5. Echo 2026 / learn path (First program · Reference · Language Spec)
+6. Final install CTA
+7. Footer
+
+Homepage trust stays factual. Rust, LLVM, the public edition, and the
+machine-checked suite are implementation facts, not partner or customer logos.
 
 ## Echo 2026 section
 

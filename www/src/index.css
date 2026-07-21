@@ -3,6 +3,8 @@
 
 @theme {
   --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display:
+    "Space Grotesk", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
@@ -195,28 +197,8 @@ body::-webkit-scrollbar-corner {
 }
 
 body {
-  background: transparent;
+  background: white;
   text-rendering: optimizeLegibility;
-}
-
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  z-index: 50;
-  width: 1px;
-  background: rgb(209 213 219 / 1);
-  pointer-events: none;
-}
-
-body::before {
-  left: 0;
-}
-
-body::after {
-  right: 0;
 }
 
 /* Tree-sitter Echo captures (queries/highlights.scm → tok-*) */

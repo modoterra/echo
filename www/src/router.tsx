@@ -131,47 +131,183 @@ function scrollElementIntoContainerView(
 }
 
 function Topbar() {
+  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const previousFocusedElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+
+    function handleMenuKeyboard(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = menuRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+
+      if (!focusableElements || focusableElements.length === 0) {
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+
+    window.addEventListener("keydown", handleMenuKeyboard);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleMenuKeyboard);
+      previousFocusedElement?.focus();
+    };
+  }, [isMenuOpen]);
+
   return (
-    <header className="fixed inset-x-0 top-0 z-30 border-b border-slate-200/70 bg-white/85 px-6 shadow-2xs backdrop-blur">
-      <div className="mx-auto grid h-20 w-full max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 sm:gap-6 lg:grid-cols-[220px_minmax(0,720px)_minmax(220px,auto)] lg:gap-12">
-        <Link
-          aria-label="Echo home"
-          className="block w-16 opacity-90 transition hover:opacity-100 lg:w-20"
-          to="/"
-        >
-          <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
-        </Link>
-        <nav
-          aria-label="Primary navigation"
-          className="flex translate-x-0.5 items-center justify-start gap-4 text-sm font-semibold text-slate-500 sm:gap-8 lg:translate-x-0.5"
-        >
-          <Link className="transition hover:text-slate-950" to="/">
-            Home
+    <>
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/88 px-5 shadow-2xs backdrop-blur-xl sm:px-6">
+        <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 md:grid md:grid-cols-[auto_1fr_auto] md:gap-6 lg:grid-cols-[220px_minmax(0,720px)_minmax(220px,auto)] lg:gap-12">
+          <Link
+            aria-label="Echo home"
+            className="block w-16 shrink-0 opacity-90 transition hover:opacity-100 lg:w-20"
+            to="/"
+          >
+            <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
           </Link>
-          {/* Path union is incomplete when child routes are built as arrays. */}
-          <Link className="transition hover:text-slate-950" to={"/docs" as "/"}>
-            Docs
-          </Link>
-          <Link className="transition hover:text-slate-950" to={"/book" as "/"}>
-            Book
-          </Link>
-          <Link className="hidden transition hover:text-slate-950 sm:inline" to={"/e26" as "/"}>
-            Echo 2026
-          </Link>
-        </nav>
-        <div className="flex items-center justify-end gap-2 sm:gap-3">
-          <span className="hidden xl:inline-flex">
-            <DocsSearch />
-          </span>
-          <span className="inline-flex xl:hidden">
-            <DocsSearch iconOnly />
-          </span>
-          <CtaLink compact to="/install">
-            Install
-          </CtaLink>
+          <nav
+            aria-label="Primary navigation"
+            className="hidden items-center justify-start gap-7 text-sm font-semibold text-slate-500 md:flex lg:gap-8"
+          >
+            <Link className="transition hover:text-violet-700" to="/">
+              Home
+            </Link>
+            {/* Path union is incomplete when child routes are built as arrays. */}
+            <Link className="transition hover:text-violet-700" to={"/docs" as "/"}>
+              Docs
+            </Link>
+            <Link className="transition hover:text-violet-700" to={"/book" as "/"}>
+              Book
+            </Link>
+            <Link className="transition hover:text-violet-700" to={"/e26" as "/"}>
+              Echo 2026
+            </Link>
+          </nav>
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <span className="hidden xl:inline-flex">
+              <DocsSearch />
+            </span>
+            <span className="hidden md:inline-flex xl:hidden">
+              <DocsSearch iconOnly />
+            </span>
+            <CtaLink compact to="/install">
+              Install
+            </CtaLink>
+            <button
+              aria-controls="primary-mobile-menu"
+              aria-expanded={isMenuOpen}
+              aria-label={isMenuOpen ? "Close site menu" : "Open site menu"}
+              className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 md:hidden"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              type="button"
+            >
+              {isMenuOpen ? <RiCloseLine size={20} /> : <RiMenuLine size={20} />}
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      <AnimatePresence>
+        {isMenuOpen ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            aria-label="Site menu"
+            aria-modal="true"
+            className="fixed inset-0 z-[60] overflow-y-auto bg-white md:hidden"
+            exit={{ opacity: 0, y: -8 }}
+            id="primary-mobile-menu"
+            initial={{ opacity: 0, y: -8 }}
+            ref={menuRef}
+            role="dialog"
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            <div className="flex h-20 items-center justify-between border-b border-slate-200 px-5">
+              <Link
+                aria-label="Echo home"
+                className="block w-16 opacity-90 transition hover:opacity-100"
+                onClick={() => setIsMenuOpen(false)}
+                to="/"
+              >
+                <img alt="Echo" className="h-8 w-full" src="/logo.svg" />
+              </Link>
+              <button
+                aria-label="Close site menu"
+                autoFocus
+                className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                onClick={() => setIsMenuOpen(false)}
+                type="button"
+              >
+                <RiCloseLine size={20} />
+              </button>
+            </div>
+            <div className="mx-auto flex w-full max-w-lg flex-col px-5 pb-8 pt-6">
+              <DocsSearch fullWidth onNavigate={() => setIsMenuOpen(false)} />
+              <nav
+                aria-label="Mobile primary navigation"
+                className="mt-6 border-t border-slate-200"
+              >
+                {[
+                  ["Home", "/"],
+                  ["Docs", "/docs"],
+                  ["Book", "/book"],
+                  ["Echo 2026", "/e26"],
+                  ["Install", "/install"],
+                ].map(([label, to]) => (
+                  <Link
+                    key={to}
+                    className="flex items-center justify-between border-b border-slate-200 py-5 font-display text-2xl font-bold tracking-tight text-slate-950 transition hover:text-violet-700"
+                    onClick={() => setIsMenuOpen(false)}
+                    to={to as "/"}
+                  >
+                    {label}
+                    <span className="text-lg font-normal text-slate-400" aria-hidden="true">
+                      →
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+              <p className="mt-7 text-sm leading-6 text-slate-500">
+                Echo is early, open source, and actively implemented in Rust and LLVM.
+              </p>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }
 

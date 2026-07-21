@@ -1,13 +1,11 @@
-import { useEffect, type ReactNode } from "react";
-import { RiDiscordFill, RiGithubFill, RiTwitterXFill } from "@remixicon/react";
+import { RiGithubFill } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 import { CodeStage } from "./components/code-stage";
 import { CtaLink } from "./components/cta-link";
 import { EchoCode } from "./components/echo-code";
 import { GradientBackground } from "./components/gradient-background";
 import { InstallSnippet } from "./components/install-snippet";
-import { HOME_DEMOS, HOME_SAMPLES } from "./lib/home-demos";
-import { applyRandomization } from "./lib/randomize-bg";
+import { HOME_DEMOS } from "./lib/home-demos";
 
 const HERO_ECHO = `/ std/io
 
@@ -19,448 +17,342 @@ $ xs = [1, 2, 3]
 io.print("sum={sum}")
 `;
 
-const LEADERS_SNIP = `$ name = expr
-~ total = total + x
-? ready {
-    ^ "ok"
-}
-* item : items {
-    io.print(item)
-}`;
-
-const ERRORS_SNIP = `! "not found"
-
-| result {
-    $ value {
-        ^ value
-    }
-    ! err {
-        ^ fallback
-    }
-}`;
-
-const TOOLING_SNIP = `xo check app.echo
-xo run app.echo
-xo build app.echo -o app`;
-
 const QUICK_INSTALL = `git clone https://github.com/modoterra/echo.git
 cd echo
 cargo build -p xo`;
 
+const PROOF_POINTS = [
+  { value: "Echo 2026", label: "public language edition" },
+  { value: "AOT + JIT", label: "one LLVM backend" },
+  { value: "Rust", label: "compiler and runtime" },
+  { value: "Open source", label: "implementation and spec" },
+];
+
+const TOOLCHAIN_STEPS = [
+  {
+    command: "xo check",
+    detail: "Resolve and type-check the complete module graph before execution.",
+  },
+  {
+    command: "xo run",
+    detail: "Compile and execute in-process through the shared LLVM pipeline.",
+  },
+  {
+    command: "xo build",
+    detail: "Emit a native executable from the same compiler and runtime.",
+  },
+];
+
+const EDITION_LINKS = [
+  {
+    eyebrow: "Learn",
+    title: "First program",
+    detail: "Write, check, and run the smallest complete Echo program.",
+    to: "/docs/first-program",
+  },
+  {
+    eyebrow: "Reference",
+    title: "Language forms",
+    detail: "Read the form-by-form rules for leaders, values, structs, and tasks.",
+    to: "/docs",
+  },
+  {
+    eyebrow: "Specification",
+    title: "Echo 2026",
+    detail: "Trace public language law to the machine-checked conformance suite.",
+    to: "/e26/spec",
+  },
+];
+
 export function HomePage() {
-  useEffect(() => {
-    applyRandomization();
-  }, []);
-
   return (
-    <main className="hero flex min-h-screen bg-white px-6 pb-24 pt-28 text-slate-950 sm:pt-32">
-      <GradientBackground />
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col">
-        {/* ── Hero ─────────────────────────────────────────────── */}
-        <section className="flex flex-col items-center pt-6 text-center sm:pt-10">
-          <p className="font-mono text-xs font-semibold tracking-wide text-slate-500">
-            Echo 2026 · early · open source
-          </p>
-          <h1 className="mt-5 max-w-3xl text-balance text-[clamp(1.5rem,4.2vw,2.5rem)] font-semibold leading-tight tracking-normal text-slate-950">
-            Echo is a compiled language with leaders instead of keywords.
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl">
-            Write clear programs. Check them. Ship native binaries with{" "}
-            <span className="font-mono font-semibold text-slate-800">xo</span>.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <CtaLink to="/install">Install Echo</CtaLink>
-            <CtaLink to={"/docs/first-program"} variant="secondary">
-              First program
-            </CtaLink>
-          </div>
+    <main className="overflow-hidden bg-white text-slate-950">
+      <section className="home-hero px-6 pb-16 pt-28 sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-28">
+        <GradientBackground />
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(560px,1.1fr)] lg:gap-12">
+          <div className="max-w-2xl text-center lg:text-left">
+            <p className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-violet-200/80 bg-white/80 px-3 py-1.5 font-mono text-[0.68rem] font-semibold tracking-wide text-slate-600 shadow-sm backdrop-blur sm:text-xs">
+              <span className="size-1.5 rounded-full bg-violet-500" aria-hidden="true" />
+              Echo 2026 · early · open source
+            </p>
+            <h1 className="mt-7 text-balance font-display text-[clamp(2.25rem,11vw,4.25rem)] font-bold leading-[0.98] tracking-[-0.055em] text-slate-950">
+              Echo is a compiled language with leaders instead of keywords.
+            </h1>
+            <p className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl lg:mx-0">
+              Write clear programs. Check them. Ship native binaries with{" "}
+              <span className="font-mono font-semibold text-slate-900">xo</span>.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+              <CtaLink className="min-w-32" to="/install">
+                Install Echo
+              </CtaLink>
+              <CtaLink className="min-w-32" to="/docs/first-program" variant="secondary">
+                First program
+              </CtaLink>
+            </div>
+            <p className="mt-5 text-sm text-slate-500">
+              Built from source today. The language and toolchain are actively evolving.
+            </p>
 
-          <div className="mt-12 w-full max-w-3xl text-left">
-            <EchoCode
-              aria-label="Echo language example"
-              code={HERO_ECHO}
-              language="echo"
-              variant="hero"
-            />
-            <div className="mt-3 overflow-hidden rounded-lg border border-slate-200/80 bg-slate-950 px-5 py-4 font-mono text-sm leading-7 text-slate-100 sm:px-7">
-              <p className="text-xs font-semibold tracking-wide text-slate-400">Output</p>
-              <p className="mt-2 text-slate-100">
-                <span className="text-slate-500">$ </span>
-                xo run sum.echo
-              </p>
-              <p className="text-emerald-300">sum=6</p>
+            <div className="mx-auto mt-10 max-w-lg overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-left font-mono shadow-2xl shadow-slate-950/15 md:hidden">
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2.5 text-[0.7rem] font-semibold tracking-wide text-slate-500">
+                <span>terminal</span>
+                <span className="text-emerald-400">native run</span>
+              </div>
+              <div className="px-4 py-4 text-sm leading-7 text-slate-100">
+                <p>
+                  <span className="text-violet-400">$</span> xo run sum.echo
+                </p>
+                <p className="text-emerald-300">sum=6</p>
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* ── Pillars ──────────────────────────────────────────── */}
-        <section className="mt-24 sm:mt-28" aria-labelledby="pillars-heading">
-          <h2 id="pillars-heading" className="sr-only">
-            Why Echo
-          </h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <PillarCard
-              title="Leaders, not keywords"
-              body={
-                <>
-                  A statement starts with a glyph: <Mono>$</Mono> binds, <Mono>~</Mono> mutates,{" "}
-                  <Mono>?</Mono> branches, <Mono>*</Mono> loops, <Mono>^</Mono> returns. The rest is
-                  ordinary expressions.
-                </>
-              }
-              code={LEADERS_SNIP}
-              href={"/docs/leaders"}
-              linkLabel="Leaders reference"
-            />
-            <PillarCard
-              title="Errors are values"
-              body={
-                <>
-                  <Mono>!</Mono> returns an error from a function; it does not abort the process.
-                  You match the result, or the program does not compile. Same idea for optionals.
-                </>
-              }
-              code={ERRORS_SNIP}
-              href={"/docs/result-option"}
-              linkLabel="Result and option"
-            />
-            <PillarCard
-              title="Small loop, native output"
-              body={
-                <>
-                  Imports stay module-scoped. I/O comes from <Mono>std</Mono>, not free globals.{" "}
-                  <Mono>xo run</Mono> and <Mono>xo build</Mono> are the everyday loop.
-                </>
-              }
-              code={TOOLING_SNIP}
-              language="shellscript"
-              href={"/docs/toolchain/commands"}
-              linkLabel="Toolchain commands"
-            />
-          </div>
-        </section>
+          <HeroCompilerStage />
+        </div>
+      </section>
 
-        {/* ── See it work (tabbed demos) ────────────────────────── */}
-        <CodeStage demos={HOME_DEMOS} />
+      <ProofRail />
 
-        {/* ── Samples strip ────────────────────────────────────── */}
-        <section className="mt-24 sm:mt-28" aria-labelledby="samples-heading">
-          <h2
-            id="samples-heading"
-            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
-          >
-            Samples in the tree
-          </h2>
-          <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            After you build <Mono>xo</Mono>, try these under <Mono>examples/misc/</Mono>. Each card
-            points at the matching reference.
-          </p>
-          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {HOME_SAMPLES.map((sample) => (
-              <li key={sample.title}>
-                <Link
-                  to={sample.href as "/"}
-                  className="flex h-full flex-col rounded-xl border border-slate-200 bg-white/80 p-5 transition hover:border-slate-300 hover:shadow-sm"
-                >
-                  <p className="font-mono text-sm font-semibold text-slate-950">{sample.title}</p>
-                  <p className="mt-1 font-mono text-xs text-slate-400">{sample.path}</p>
-                  <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{sample.blurb}</p>
-                  <span className="mt-4 text-sm font-semibold text-slate-800">Open →</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <div className="mx-auto w-full max-w-7xl px-6 pb-28 sm:pb-36">
+        <CodeStage
+          demos={HOME_DEMOS}
+          title="The language surface stays in sight."
+          subtitle="Leaders make the role of a statement visible before you read the rest. Explore four small programs and their output."
+        />
 
-        {/* ── First-program funnel ─────────────────────────────── */}
-        <section
-          className="mt-24 rounded-2xl border border-slate-200 bg-white/80 px-6 py-10 sm:mt-28 sm:px-10"
-          aria-labelledby="funnel-heading"
-        >
-          <h2
-            id="funnel-heading"
-            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
-          >
-            From zero to a running program
-          </h2>
-          <ol className="mt-8 grid gap-4 sm:grid-cols-3">
-            <FunnelStep
-              step="1"
-              title="Install xo"
-              detail="Clone the repo and cargo build -p xo. Requirements are on the Install page."
-              href="/install"
-              linkLabel="Install"
-            />
-            <FunnelStep
-              step="2"
-              title="Run hello"
-              detail="Point xo at examples/misc/hello.echo or the sum-list sample."
-              href="/docs/first-program"
-              linkLabel="First program"
-            />
-            <FunnelStep
-              step="3"
-              title="Read the surface"
-              detail="Leaders, binds, Result, structs — form sheets in the Reference."
-              href="/docs/leaders"
-              linkLabel="Leaders"
-            />
-          </ol>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <CtaLink to="/install">Install Echo</CtaLink>
-            <CtaLink to={"/docs/first-program"} variant="secondary">
-              First program
-            </CtaLink>
-          </div>
-        </section>
-
-        {/* ── Tooling loop ─────────────────────────────────────── */}
-        <section className="mt-24 sm:mt-28" aria-labelledby="tooling-heading">
-          <h2
-            id="tooling-heading"
-            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
-          >
-            One CLI for the loop
-          </h2>
-          <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            Check for diagnostics, run for the fast cycle, build when you want a native binary.
-          </p>
-          <ol className="mt-8 grid gap-4 sm:grid-cols-3">
-            <ToolStep step="1" title="check" detail="Resolve and type-check the graph." />
-            <ToolStep step="2" title="run" detail="Compile and execute via LLVM." />
-            <ToolStep step="3" title="build" detail="Emit a native binary you can ship." />
-          </ol>
-          <div className="mt-8 max-w-2xl">
-            <InstallSnippet code={QUICK_INSTALL} label="Get started from source" />
-            <p className="mt-4 text-sm leading-6 text-slate-500">
-              Full requirements and next steps on{" "}
-              <Link
-                className="font-semibold text-slate-800 underline-offset-4 hover:underline"
-                to={"/install" as "/"}
-              >
-                Install
-              </Link>
-              . Then walk through{" "}
-              <Link
-                className="font-semibold text-slate-800 underline-offset-4 hover:underline"
-                to={"/docs/first-program" as "/"}
-              >
-                First program
-              </Link>
-              .
-            </p>
-          </div>
-        </section>
-
-        {/* ── Learn path ───────────────────────────────────────── */}
-        <section className="mt-24 sm:mt-28" aria-labelledby="learn-heading">
-          <h2
-            id="learn-heading"
-            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
-          >
-            Where to go next
-          </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <LearnCard
-              title="First program"
-              body="Minimal runnable shape and the xo commands that drive it."
-              to={"/docs/first-program"}
-            />
-            <LearnCard
-              title="Reference"
-              body="Form-by-form rules for the Echo 2026 language surface."
-              to={"/docs"}
-            />
-            <LearnCard
-              title="Language Spec"
-              body="Echo 2026 Spec table of contents — Reference mapped to the edition."
-              to={"/e26/spec"}
-            />
-          </div>
-        </section>
-
-        {/* ── Edition / trust ──────────────────────────────────── */}
-        <section
-          className="mt-24 rounded-2xl border border-slate-200 bg-white/70 px-6 py-10 backdrop-blur-sm sm:mt-28 sm:px-10"
-          aria-labelledby="edition-heading"
-        >
-          <h2
-            id="edition-heading"
-            className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl"
-          >
-            Echo 2026
-          </h2>
-          <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            Echo 2026 is the current language edition and the canonical public Language Spec on this
-            site. The form-by-form rules live in the Reference; the machine-checked contract is the{" "}
-            <span className="font-mono font-semibold text-slate-800">echo26/</span> suite, driven by{" "}
-            <span className="font-mono font-semibold text-slate-800">e26</span>.
-          </p>
-          <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            The project is early and actively implemented. Built with Rust and LLVM. Open source.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <CtaLink to={"/e26"} variant="secondary">
-              Edition overview
-            </CtaLink>
-            <CtaLink to={"/e26/spec"} variant="secondary">
-              Language Spec
-            </CtaLink>
-            <CtaLink to={"/book"} variant="ghost">
-              Read the Book
-            </CtaLink>
-          </div>
-        </section>
-
-        {/* ── Social / project links ───────────────────────────── */}
-        <nav
-          aria-label="Project links"
-          className="mt-20 flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-slate-400"
-        >
-          <a
-            href="https://github.com/modoterra/echo"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Echo on GitHub"
-            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
-          >
-            <RiGithubFill aria-hidden="true" className="size-9" />
-          </a>
-          <a
-            href="https://www.rust-lang.org/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Rust"
-            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
-          >
-            <span aria-hidden="true" className="font-mono text-xl font-semibold tracking-normal">
-              Rust
-            </span>
-          </a>
-          <a
-            href="https://llvm.org/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="LLVM"
-            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
-          >
-            <span aria-hidden="true" className="font-mono text-xl font-semibold tracking-normal">
-              LLVM
-            </span>
-          </a>
-          <span
-            aria-label="Discord coming later"
-            className="inline-flex size-12 cursor-not-allowed items-center justify-center text-slate-300"
-            role="img"
-          >
-            <RiDiscordFill aria-hidden="true" className="size-9" />
-          </span>
-          <a
-            href="https://x.com/hicsfh"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Hicsfh on X"
-            className="inline-flex size-12 items-center justify-center transition hover:text-slate-950"
-          >
-            <RiTwitterXFill aria-hidden="true" className="size-8" />
-          </a>
-        </nav>
+        <ToolchainStory />
+        <EditionStory />
+        <ClosingCallToAction />
       </div>
     </main>
   );
 }
 
-function Mono({ children }: { children: string }) {
-  return <span className="font-mono font-semibold text-slate-800">{children}</span>;
-}
-
-function PillarCard({
-  title,
-  body,
-  code,
-  language = "echo",
-  href,
-  linkLabel,
-}: {
-  title: string;
-  body: ReactNode;
-  code: string;
-  language?: "echo" | "shellscript";
-  href: string;
-  linkLabel: string;
-}) {
+function HeroCompilerStage() {
   return (
-    <article className="flex flex-col rounded-xl border border-slate-200/90 bg-white/80 p-5 shadow-sm backdrop-blur-sm sm:p-6">
-      <h3 className="text-lg font-semibold tracking-normal text-slate-950 sm:text-xl">{title}</h3>
-      <p className="mt-3 flex-1 text-pretty text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
-        {body}
-      </p>
-      <div className="mt-5">
+    <figure
+      className="echo-hero-stage relative hidden min-h-[520px] md:block"
+      aria-label="An Echo source file moving through xo into a native executable"
+    >
+      <div className="echo-stage-glyphs" aria-hidden="true">
+        <span>$</span>
+        <span>~</span>
+        <span>?</span>
+        <span>*</span>
+        <span>^</span>
+      </div>
+      <div className="echo-stage-rail" aria-hidden="true" />
+
+      <div className="echo-stage-source overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-indigo-950/15 backdrop-blur">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div className="flex items-center gap-1.5" aria-hidden="true">
+            <span className="size-2.5 rounded-full bg-rose-300" />
+            <span className="size-2.5 rounded-full bg-amber-300" />
+            <span className="size-2.5 rounded-full bg-emerald-300" />
+          </div>
+          <span className="font-mono text-xs font-semibold text-slate-500">sum.echo</span>
+          <span className="rounded-full bg-violet-100 px-2 py-1 font-mono text-[0.65rem] font-semibold text-violet-700">
+            source
+          </span>
+        </div>
         <EchoCode
-          code={code}
-          language={language}
+          aria-label="Echo source example"
+          className="overflow-x-auto bg-white/70"
+          code={HERO_ECHO}
+          language="echo"
           variant="inline-block"
-          className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50"
         />
       </div>
-      <Link
-        className="mt-5 text-sm font-semibold text-slate-800 underline-offset-4 hover:underline"
-        to={href as "/"}
-      >
-        {linkLabel} →
-      </Link>
-    </article>
+
+      <div className="echo-stage-command overflow-hidden rounded-xl border border-slate-800 bg-slate-950 font-mono shadow-xl shadow-slate-950/20">
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2 text-[0.65rem] font-semibold tracking-wide text-slate-500">
+          <span>xo</span>
+          <span className="text-cyan-300">check → run → build</span>
+        </div>
+        <div className="px-4 py-3 text-sm leading-6 text-slate-100">
+          <p>
+            <span className="text-violet-400">$</span> xo build sum.echo -o sum
+          </p>
+          <p className="text-emerald-300">built ./sum</p>
+        </div>
+      </div>
+
+      <div className="echo-stage-artifact rounded-2xl border border-violet-200 bg-white p-4 shadow-xl shadow-indigo-950/10">
+        <div className="flex items-center gap-3">
+          <span className="echo-artifact-mark inline-flex size-12 items-center justify-center rounded-xl font-display text-xl font-bold text-white">
+            xo
+          </span>
+          <span>
+            <span className="block font-mono text-sm font-semibold text-slate-950">./sum</span>
+            <span className="mt-0.5 block text-xs text-slate-500">native executable</span>
+          </span>
+        </div>
+      </div>
+
+      <figcaption className="sr-only">
+        Echo source is checked, run, and built by xo into a native executable.
+      </figcaption>
+    </figure>
   );
 }
 
-function ToolStep({ step, title, detail }: { step: string; title: string; detail: string }) {
+function ProofRail() {
   return (
-    <li className="rounded-xl border border-slate-200 bg-white/80 px-5 py-5">
-      <p className="font-mono text-xs font-semibold tracking-wide text-slate-400">{step}</p>
-      <p className="mt-2 font-mono text-lg font-semibold text-slate-950">xo {title}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
-    </li>
+    <section className="relative border-y border-slate-200/80 bg-white/90" aria-label="Echo facts">
+      <dl className="mx-auto grid w-full max-w-7xl grid-cols-2 px-6 lg:grid-cols-4">
+        {PROOF_POINTS.map((point, index) => (
+          <div
+            key={point.value}
+            className={`py-6 sm:py-7 ${index % 2 === 0 ? "pr-4" : "border-l border-slate-200 pl-4"} ${index > 1 ? "border-t border-slate-200 lg:border-t-0" : ""} lg:border-l lg:px-8 lg:first:border-l-0 lg:first:pl-0 lg:last:pr-0`}
+          >
+            <dt className="font-display text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
+              {point.value}
+            </dt>
+            <dd className="mt-1 text-sm leading-5 text-slate-500">{point.label}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
-function FunnelStep({
-  step,
-  title,
-  detail,
-  href,
-  linkLabel,
-}: {
-  step: string;
-  title: string;
-  detail: string;
-  href: string;
-  linkLabel: string;
-}) {
+function ToolchainStory() {
   return (
-    <li className="flex flex-col rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-5">
-      <p className="font-mono text-xs font-semibold tracking-wide text-slate-400">{step}</p>
-      <p className="mt-2 text-lg font-semibold text-slate-950">{title}</p>
-      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{detail}</p>
-      <Link
-        className="mt-4 text-sm font-semibold text-slate-800 underline-offset-4 hover:underline"
-        to={href as "/"}
-      >
-        {linkLabel} →
-      </Link>
-    </li>
+    <section className="relative mt-28 overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-10 text-white shadow-2xl shadow-slate-950/15 sm:mt-36 sm:px-10 sm:py-14 lg:px-14 lg:py-16">
+      <div className="toolchain-glow" aria-hidden="true" />
+      <div className="relative grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(520px,1.15fr)] lg:gap-16">
+        <div>
+          <p className="font-mono text-xs font-semibold tracking-[0.16em] text-cyan-300">
+            SOURCE → NATIVE
+          </p>
+          <h2 className="mt-5 max-w-lg text-balance font-display text-4xl font-bold leading-[1.02] tracking-[-0.045em] sm:text-5xl">
+            One tool for the whole loop.
+          </h2>
+          <p className="mt-6 max-w-lg text-pretty text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
+            The check path is the product path. The CLI, language server, AOT compiler, and JIT use
+            the same pipeline instead of drifting into separate language implementations.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <CtaLink to="/docs/toolchain/commands">Toolchain commands</CtaLink>
+            <CtaLink
+              className="border-slate-700 bg-slate-900 text-slate-100 hover:border-slate-500 hover:text-white"
+              to="/docs/first-program"
+              variant="secondary"
+            >
+              Run a program
+            </CtaLink>
+          </div>
+        </div>
+
+        <ol className="relative divide-y divide-slate-800 border-y border-slate-800">
+          {TOOLCHAIN_STEPS.map((step, index) => (
+            <li
+              key={step.command}
+              className="grid gap-3 py-6 sm:grid-cols-[3rem_10rem_1fr] sm:items-start"
+            >
+              <span className="font-mono text-xs font-semibold text-slate-600">0{index + 1}</span>
+              <span className="font-mono text-base font-semibold text-white">{step.command}</span>
+              <span className="text-sm leading-6 text-slate-400">{step.detail}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="relative mt-12 max-w-3xl">
+        <InstallSnippet code={QUICK_INSTALL} label="Build xo from source" />
+      </div>
+    </section>
   );
 }
 
-function LearnCard({ title, body, to }: { title: string; body: string; to: string }) {
+function EditionStory() {
   return (
-    <Link
-      to={to as "/"}
-      className="group flex flex-col rounded-xl border border-slate-200 bg-white/80 p-6 transition hover:border-slate-300 hover:shadow-sm"
-    >
-      <h3 className="text-lg font-semibold text-slate-950 group-hover:text-slate-800">{title}</h3>
-      <p className="mt-3 text-sm leading-6 text-slate-600">{body}</p>
-      <span className="mt-5 text-sm font-semibold text-slate-800">Open →</span>
-    </Link>
+    <section className="mt-28 grid gap-14 sm:mt-36 lg:grid-cols-[minmax(0,0.9fr)_minmax(520px,1.1fr)] lg:items-start lg:gap-20">
+      <div className="lg:sticky lg:top-32">
+        <p className="font-mono text-xs font-semibold tracking-[0.16em] text-violet-600">
+          LANGUAGE LAW
+        </p>
+        <h2 className="mt-5 max-w-xl text-balance font-display text-4xl font-bold leading-[1.02] tracking-[-0.045em] sm:text-5xl">
+          Echo 2026 is written down—and executable.
+        </h2>
+        <p className="mt-6 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+          The public Reference states the language rules. The Echo 2026 suite connects those rules
+          to runnable fixtures, so the edition is more than a marketing name.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <CtaLink to="/e26/spec">Open the Language Spec</CtaLink>
+          <CtaLink to="/e26" variant="secondary">
+            Edition overview
+          </CtaLink>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200">
+        {EDITION_LINKS.map((item, index) => (
+          <Link
+            key={item.title}
+            className="group grid gap-4 border-b border-slate-200 py-7 transition sm:grid-cols-[5rem_1fr_auto] sm:items-center sm:py-8"
+            to={item.to as "/"}
+          >
+            <span className="font-mono text-xs font-semibold text-slate-400">0{index + 1}</span>
+            <span>
+              <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-violet-600">
+                {item.eyebrow}
+              </span>
+              <span className="mt-2 block font-display text-2xl font-bold tracking-tight text-slate-950">
+                {item.title}
+              </span>
+              <span className="mt-2 block max-w-lg text-sm leading-6 text-slate-500">
+                {item.detail}
+              </span>
+            </span>
+            <span
+              className="hidden size-11 items-center justify-center rounded-full border border-slate-200 text-lg text-slate-500 transition group-hover:border-violet-300 group-hover:bg-violet-50 group-hover:text-violet-700 sm:inline-flex"
+              aria-hidden="true"
+            >
+              →
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ClosingCallToAction() {
+  return (
+    <section className="home-closing relative mt-28 overflow-hidden rounded-[2rem] border border-violet-200 px-6 py-14 text-center sm:mt-36 sm:px-12 sm:py-20">
+      <div className="home-closing-glyphs" aria-hidden="true">
+        $ ~ ? * ^ !
+      </div>
+      <div className="relative mx-auto max-w-3xl">
+        <p className="font-mono text-xs font-semibold tracking-[0.16em] text-violet-700">
+          START WITH XO
+        </p>
+        <h2 className="mt-5 text-balance font-display text-4xl font-bold leading-[1.02] tracking-[-0.045em] sm:text-6xl">
+          See what leaders change.
+        </h2>
+        <p className="mx-auto mt-6 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+          Build the toolchain, run the first program, and read the rules beside the code.
+        </p>
+        <div className="mt-9 flex flex-wrap justify-center gap-3">
+          <CtaLink to="/install">Install Echo</CtaLink>
+          <CtaLink to="/docs/first-program" variant="secondary">
+            First program
+          </CtaLink>
+          <a
+            className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+            href="https://github.com/modoterra/echo"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <RiGithubFill className="size-5" aria-hidden="true" />
+            GitHub
+          </a>
+        </div>
+      </div>
+    </section>
   );
 }
 
