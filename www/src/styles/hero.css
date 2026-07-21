@@ -90,26 +90,24 @@
   right: 1.5rem;
   z-index: 2;
   width: min(78%, 30rem);
-  transform: rotateY(-3deg) rotateZ(1deg);
+  transform: rotateY(-1.25deg) rotateZ(0.35deg);
   animation: echo-stage-float 8s ease-in-out infinite alternate;
 }
 
 .echo-stage-command {
   position: absolute;
   bottom: 2.75rem;
-  left: 0;
+  left: 5%;
   z-index: 4;
-  width: min(61%, 22rem);
-  transform: rotateZ(-1deg);
+  width: min(58%, 22rem);
 }
 
 .echo-stage-artifact {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: 1.5rem;
+  bottom: 2.75rem;
   z-index: 5;
   min-width: 13rem;
-  animation: echo-artifact-float 6s ease-in-out infinite alternate;
 }
 
 .echo-artifact-mark {
@@ -120,9 +118,9 @@
 .echo-stage-rail {
   position: absolute;
   top: 48%;
-  right: 7%;
-  bottom: 11%;
-  left: 14%;
+  right: 18%;
+  bottom: 19%;
+  left: 20%;
   z-index: 0;
   border-bottom: 2px solid rgb(124 58 237 / 0.28);
   border-left: 2px solid rgb(124 58 237 / 0.28);
@@ -223,21 +221,11 @@
 
 @keyframes echo-stage-float {
   from {
-    transform: translate3d(0, -3px, 0) rotateY(-3deg) rotateZ(1deg);
+    transform: translate3d(0, -3px, 0) rotateY(-1.25deg) rotateZ(0.35deg);
   }
 
   to {
-    transform: translate3d(0, 6px, 0) rotateY(-2deg) rotateZ(0deg);
-  }
-}
-
-@keyframes echo-artifact-float {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    transform: translate3d(0, -7px, 0);
+    transform: translate3d(0, 5px, 0) rotateY(-0.75deg) rotateZ(0deg);
   }
 }
 
@@ -253,8 +241,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .echo-stage-source,
-  .echo-stage-artifact {
+  .echo-stage-source {
     animation: none;
   }
 }

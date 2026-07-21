@@ -19,7 +19,8 @@ io.print("sum={sum}")
 
 const QUICK_INSTALL = `git clone https://github.com/modoterra/echo.git
 cd echo
-cargo build -p xo`;
+./scripts/install.sh
+./scripts/install.sh doctor`;
 
 const PROOF_POINTS = [
   { value: "Echo 2026", label: "public language edition" },
@@ -71,11 +72,7 @@ export function HomePage() {
         <GradientBackground />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(560px,1.1fr)] lg:gap-12">
           <div className="max-w-2xl text-center lg:text-left">
-            <p className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-violet-200/80 bg-white/80 px-3 py-1.5 font-mono text-[0.68rem] font-semibold tracking-wide text-slate-600 shadow-sm backdrop-blur sm:text-xs">
-              <span className="size-1.5 rounded-full bg-violet-500" aria-hidden="true" />
-              Echo 2026 · early · open source
-            </p>
-            <h1 className="mt-7 text-balance font-display text-[clamp(2.25rem,11vw,4.25rem)] font-bold leading-[0.98] tracking-[-0.055em] text-slate-950">
+            <h1 className="text-balance font-display text-[clamp(2.25rem,11vw,4.25rem)] font-bold leading-[0.98] tracking-[-0.055em] text-slate-950">
               Echo is a compiled language with leaders instead of keywords.
             </h1>
             <p className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl lg:mx-0">
@@ -222,7 +219,7 @@ function ToolchainStory() {
     <section className="relative mt-28 overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-10 text-white shadow-2xl shadow-slate-950/15 sm:mt-36 sm:px-10 sm:py-14 lg:px-14 lg:py-16">
       <div className="toolchain-glow" aria-hidden="true" />
       <div className="relative grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(520px,1.15fr)] lg:gap-16">
-        <div>
+        <div className="min-w-0">
           <p className="font-mono text-xs font-semibold tracking-[0.16em] text-cyan-300">
             SOURCE → NATIVE
           </p>
@@ -259,8 +256,50 @@ function ToolchainStory() {
         </ol>
       </div>
 
-      <div className="relative mt-12 max-w-3xl">
-        <InstallSnippet code={QUICK_INSTALL} label="Build xo from source" />
+      <div className="relative mt-12 grid gap-8 border-t border-slate-800 pt-10 lg:grid-cols-[minmax(0,0.7fr)_minmax(520px,1.3fr)] lg:gap-14">
+        <div className="min-w-0">
+          <p className="font-mono text-xs font-semibold tracking-[0.16em] text-violet-300">
+            INSTALL XO
+          </p>
+          <h3 className="mt-4 max-w-md font-display text-3xl font-bold leading-tight tracking-[-0.035em] text-white">
+            Put the toolchain on your PATH.
+          </h3>
+          <p className="mt-4 max-w-lg text-sm leading-6 text-slate-400 sm:text-base sm:leading-7">
+            From a checkout, the installer builds a release, co-locates{" "}
+            <span className="font-mono text-slate-200">xo</span> and{" "}
+            <span className="font-mono text-slate-200">std</span>, then links{" "}
+            <span className="font-mono text-slate-200">xo</span> into{" "}
+            <span className="font-mono text-slate-200">~/.local/bin</span> by default.
+          </p>
+          <Link
+            className="mt-5 inline-flex text-sm font-semibold text-violet-300 transition hover:text-violet-200"
+            to="/install"
+          >
+            Requirements and full instructions →
+          </Link>
+        </div>
+
+        <div className="min-w-0">
+          <InstallSnippet code={QUICK_INSTALL} label="Install xo from a checkout" />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500">Upgrade</p>
+              <code className="mt-2 block overflow-x-auto font-mono text-xs text-slate-200">
+                ./scripts/install.sh upgrade
+              </code>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500">Uninstall</p>
+              <code className="mt-2 block overflow-x-auto font-mono text-xs text-slate-200">
+                ./scripts/uninstall.sh
+              </code>
+            </div>
+          </div>
+          <p className="mt-4 text-xs leading-5 text-slate-500">
+            If needed, add <span className="font-mono text-slate-400">~/.local/bin</span> to your{" "}
+            <span className="font-mono text-slate-400">PATH</span>.
+          </p>
+        </div>
       </div>
     </section>
   );

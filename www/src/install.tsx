@@ -18,10 +18,7 @@ export function InstallPage() {
   return (
     <main className="min-h-screen bg-white px-6 pb-24 pt-32 text-slate-950 sm:pt-36">
       <div className="mx-auto w-full max-w-3xl">
-        <p className="font-mono text-xs font-semibold tracking-wide text-slate-500">
-          Echo 2026 · early
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
           Install Echo
         </h1>
         <p className="mt-4 text-pretty text-lg leading-8 text-slate-600">
