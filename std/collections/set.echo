@@ -1,5 +1,5 @@
 ; The Echo set collection (`/ std/collections/set`).
-; Membership over i64 keys, backed by hash_table (dummy value PRESENT).
+; Backed by hash_table. Fluent: set.make().seed(k0, k1). add/has free (not fluent).
 ; Suite: xo test std/collections/set.echo (XO_TEST).
 
 / std/test
@@ -9,14 +9,15 @@
 
 % set {
     $ table
+
+    $ seed = (k0, k1) {
+        .table.seed(k0, k1)
+        ^ .
+    }
 }
 
 $ make = () {
     ^ set { table: hash_table.make() }
-}
-
-$ make_seeded = (k0, k1) {
-    ^ set { table: hash_table.make_seeded(k0, k1) }
 }
 
 $ add = (s, x) {
@@ -69,4 +70,13 @@ test.it("from_list", () {
     test.false(has(s, 40))
 })
 
-\ set, make, make_seeded, add, has, from_list
+test.it("fluent_seed", () {
+    # K0 = 0x0303030303030303
+    # K1 = 0x0404040404040404
+    $ s = make().seed(<ui64> K0, <ui64> K1)
+    add(s, 5)
+    test.true(has(s, 5))
+    test.false(has(s, 6))
+})
+
+\ set, make, add, has, from_list

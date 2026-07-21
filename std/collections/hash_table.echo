@@ -1,5 +1,8 @@
 ; std/collections/hash_table — SipHash-2-4 bucketed key→value table (i64 keys).
-; Backing store for map and set. Not the primary app API (prefer map / set).
+; Backing store for map and set. Prefer map / set in app code.
+;
+; Fluent config: hash_table.make().seed(k0, k1) mutates keys in place (same table).
+; put/get stay free functions (not fluent).
 ;
 ; Suite: xo test std/collections/hash_table.echo (XO_TEST).
 
@@ -7,19 +10,24 @@
 / std/crypto/hash
 / std/bytes
 
-; Fixed table size (power of two). Bucket index = hash & (N - 1).
 # N_BUCKETS = 16
 # BUCKET_MASK = 15
 
-; Deterministic default SipHash key (stable tests; not a secret).
 # DEFAULT_K0 = 0x0706050403020100
 # DEFAULT_K1 = 0x0f0e0d0c0b0a0908
 
 % hash_table {
-    ; buckets: list of chains; each chain is a list of `entry`
     ~ buckets = []
     ~ k0 = <ui64> 0
     ~ k1 = <ui64> 0
+
+    ; Set SipHash key halves (ui64). Call only on an empty table.
+    ; Returns . for fluent make().seed(k0, k1).
+    $ seed = (k0, k1) {
+        ~ .k0 = k0
+        ~ .k1 = k1
+        ^ .
+    }
 }
 
 % entry {
@@ -45,15 +53,6 @@ $ make = () {
     }
 }
 
-; Advanced: custom SipHash key halves (ui64). Prefer make() for normal use.
-$ make_seeded = (k0, k1) {
-    ^ hash_table {
-        buckets: empty_buckets(),
-        k0: k0,
-        k1: k1
-    }
-}
-
 $ hash_key = (t, key) {
     $ raw = bytes.from_int(key)
     ^ hash.sip(t.k0, t.k1, raw)
@@ -68,7 +67,6 @@ $ n_buckets = () {
     ^ N_BUCKETS
 }
 
-; Insert or overwrite. Returns the table (same ref).
 $ put = (t, key, value) {
     $ i = bucket_index(t, key)
     $ chain = t.buckets[i]
@@ -82,7 +80,6 @@ $ put = (t, key, value) {
     ^ t
 }
 
-; Option-shaped: ^ value if present, bare ^ if missing.
 $ get = (t, key) {
     $ i = bucket_index(t, key)
     $ chain = t.buckets[i]
@@ -119,4 +116,21 @@ test.it("bucket_stable", () {
     }
 })
 
-\ hash_table, entry, make, make_seeded, put, get, hash_key, bucket_index, n_buckets
+test.it("fluent_seed", () {
+    # K0 = 0x1111111111111111
+    # K1 = 0x2222222222222222
+    $ t = make().seed(<ui64> K0, <ui64> K1)
+    test.eq(t.k0, <ui64> K0)
+    test.eq(t.k1, <ui64> K1)
+    put(t, 1, 2)
+    | get(t, 1) {
+        $ v {
+            test.eq(v, 2)
+        }
+        : {
+            test.fail("missing after seed")
+        }
+    }
+})
+
+\ hash_table, entry, make, put, get, hash_key, bucket_index, n_buckets

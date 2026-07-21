@@ -1,5 +1,5 @@
 ; The Echo map collection (`/ std/collections/map`).
-; Thin wrapper over hash_table for key→value. Prefer this over hash_table in apps.
+; Wraps hash_table. Fluent: map.make().seed(k0, k1). put/get are free (not fluent).
 ; Suite: xo test std/collections/map.echo (XO_TEST).
 
 / std/test
@@ -7,14 +7,16 @@
 
 % map {
     $ table
+
+    ; Forward seed onto the backing table (in-place keys; same table ref).
+    $ seed = (k0, k1) {
+        .table.seed(k0, k1)
+        ^ .
+    }
 }
 
 $ make = () {
     ^ map { table: hash_table.make() }
-}
-
-$ make_seeded = (k0, k1) {
-    ^ map { table: hash_table.make_seeded(k0, k1) }
 }
 
 $ put = (m, key, value) {
@@ -127,4 +129,19 @@ test.it("bucket_index_stable", () {
     }
 })
 
-\ map, make, make_seeded, put, get, from_indexed, hash_key, bucket_index
+test.it("fluent_seed", () {
+    # K0 = 0x0101010101010101
+    # K1 = 0x0202020202020202
+    $ m = make().seed(<ui64> K0, <ui64> K1)
+    put(m, 3, 9)
+    | get(m, 3) {
+        $ v {
+            test.eq(v, 9)
+        }
+        : {
+            test.fail("missing")
+        }
+    }
+})
+
+\ map, make, put, get, from_indexed, hash_key, bucket_index
