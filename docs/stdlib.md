@@ -292,6 +292,8 @@ No `*_ops` in std for now. Multi-file `@` remains legal language (demo:
 | `std/str.len` | **Done** — `runtime.str_len` |
 | `std/bytes` | **Done** — `len` / `get` (`ui8` ok, `! "out of bounds"`) via `runtime.bytes_*` |
 | `std/crypto/hash` | **Done** — folder module; `sip(k0, k1, msg)` SipHash-2-4 → `ui64` |
+| `std/collections/map` | **Done** — SipHash buckets, `put`/`get`/`from_indexed` (i64 keys) |
+| `std/collections/set` | **Done** — map-backed set, `add`/`has`/`from_list` |
 | `std/str.cat` | **Done** — `runtime.str_cat` |
 | Method type after free-fn return (named struct) | **Done** — lit + call-chain + monomorphic `returns_structs` |
 | Method type after union return | **Done** — refine via `%` match |

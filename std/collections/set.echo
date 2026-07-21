@@ -1,1 +1,75 @@
-; The Echo set collection.
+; The Echo set collection (`/ std/collections/set` → file module `set`).
+; Membership set over i64 keys, backed by SipHash-bucketed map (dummy value).
+; Suite cases co-located: register under `xo test` only (XO_TEST).
+
+/ std/test
+/ std/collections/map
+
+; Dummy map value — only key membership matters.
+# PRESENT = 1
+
+% set {
+    ~ inner
+}
+
+$ make = () {
+    ^ set { inner: map.make() }
+}
+
+$ make_seeded = (k0, k1) {
+    ^ set { inner: map.make_seeded(k0, k1) }
+}
+
+; Insert (idempotent). Returns the set (same ref).
+$ add = (s, x) {
+    map.put(s.inner, x, PRESENT)
+    ^ s
+}
+
+; Membership: | true / _ false.
+$ has = (s, x) {
+    | map.get(s.inner, x) {
+        $ present {
+            ^ |
+        }
+        : {
+            ^ _
+        }
+    }
+}
+
+$ from_list = (ls) {
+    ~ s = make()
+    * v : ls {
+        add(s, v)
+    }
+    ^ s
+}
+
+; --- suite (xo test std/collections/set.echo) ---
+
+test.it("add_has", () {
+    $ s = make()
+    add(s, 7)
+    add(s, 8)
+    test.true(has(s, 7))
+    test.true(has(s, 8))
+    test.false(has(s, 0))
+})
+
+test.it("add_idempotent", () {
+    $ s = make()
+    add(s, 1)
+    add(s, 1)
+    test.true(has(s, 1))
+})
+
+test.it("from_list", () {
+    $ s = from_list([10, 20, 10, 30])
+    test.true(has(s, 10))
+    test.true(has(s, 20))
+    test.true(has(s, 30))
+    test.false(has(s, 40))
+})
+
+\ set, make, make_seeded, add, has, from_list
