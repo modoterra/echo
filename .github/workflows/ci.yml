@@ -101,25 +101,23 @@ jobs:
           # Explicit -p echo_runtime so staticlib is always produced (not only rlib as a dep).
           if [[ "$(uname -s)" == "Darwin" ]]; then
             # Apple ld's libLTO (≈LLVM 15) cannot read bitcode in LLVM 22 static
-            # archives. Use the tarball's clang as the *Rust* linker driver + its
-            # lld — but do NOT set CC/CXX/PATH to LLVM clang (llvm-sys build
-            # scripts then miss the macOS SDK headers: inttypes.h).
-            llvm_clang="${LLVM_SYS_221_PREFIX}/bin/clang"
+            # archives. Keep the *system* clang as the linker driver (SDK + C++
+            # defaults), and swap in the tarball's ld64.lld for the real link.
+            # Do not set CC/CXX to LLVM clang (breaks llvm-sys: missing inttypes.h).
             llvm_lld="${LLVM_SYS_221_PREFIX}/bin/ld64.lld"
             if [[ ! -x "$llvm_lld" ]]; then
               llvm_lld="${LLVM_SYS_221_PREFIX}/bin/lld"
-            fi
-            if [[ ! -x "$llvm_clang" ]]; then
-              echo "error: missing $llvm_clang" >&2
-              exit 1
             fi
             if [[ ! -x "$llvm_lld" ]]; then
               echo "error: missing lld under ${LLVM_SYS_221_PREFIX}/bin" >&2
               ls -la "${LLVM_SYS_221_PREFIX}/bin" | head -40 >&2 || true
               exit 1
             fi
+            sdk="$(xcrun --show-sdk-path)"
             export LIBRARY_PATH="${LLVM_SYS_221_PREFIX}/lib"
-            export RUSTFLAGS="${RUSTFLAGS:-} -C linker=${llvm_clang} -C link-arg=-fuse-ld=${llvm_lld} -C link-arg=-L${LLVM_SYS_221_PREFIX}/lib -C link-arg=-Wl,-rpath,${LLVM_SYS_221_PREFIX}/lib -C link-arg=-isysroot$(xcrun --show-sdk-path)"
+            # libc++ symbols (operator new, __cxa_*) must be explicit with some
+            # lld paths; raise min OS so dylib version warnings don't become traps.
+            export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=${llvm_lld} -C link-arg=-L${LLVM_SYS_221_PREFIX}/lib -C link-arg=-Wl,-rpath,${LLVM_SYS_221_PREFIX}/lib -C link-arg=-lc++ -C link-arg=-lc++abi -C link-arg=-mmacosx-version-min=14.0 -C link-arg=-isysroot${sdk}"
           fi
           cargo build -p xo -p echo_runtime --release
           scripts/ci/stage-runtime-lib.sh release

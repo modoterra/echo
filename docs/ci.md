@@ -50,7 +50,7 @@ wrapper so runners without sccache still compile.
 | OS | What CI sets | What CI does **not** set |
 |----|----------------|---------------------------|
 | Linux | LLVM `bin` on `PATH`; `LIBRARY_PATH` + `LD_LIBRARY_PATH` → LLVM `lib/` | — |
-| macOS | For **cargo build only**: `RUSTFLAGS` uses LLVM tarball `clang` as the Rust **linker** + `ld64.lld` (Apple ld’s libLTO ≈15 cannot read LLVM 22 bitcode). Do **not** set `CC`/`CXX`/`PATH` to LLVM clang (breaks llvm-sys C probes: missing SDK `inttypes.h`). | Job-global `DYLD_LIBRARY_PATH`; `CC`/`CXX`=LLVM clang |
+| macOS | For **cargo build only**: system `clang` as linker driver + tarball **`ld64.lld`** (`-fuse-ld=…`) so LLVM 22 bitcode links; explicit `-lc++`/`-lc++abi`; min macOS 14. Do **not** set `CC`/`CXX` to LLVM clang. | Job-global `DYLD_LIBRARY_PATH`; `CC`/`CXX`=LLVM clang (missing SDK headers) |
 | Windows | `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH`; `scripts/ci/windows-llvm-deps.sh` supplies **`xml2s.lib`** (from ShiftMedia libxml2) into LLVM `lib/` + `LIB=` | raw `D:\…` extract dirs (break `tar`) |
 
 **Windows runtime:** net park uses a short yield instead of `mio::unix::SourceFd` (Unix-only).
