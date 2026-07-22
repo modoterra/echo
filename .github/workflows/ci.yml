@@ -101,12 +101,25 @@ jobs:
           # Explicit -p echo_runtime so staticlib is always produced (not only rlib as a dep).
           if [[ "$(uname -s)" == "Darwin" ]]; then
             # Apple ld's libLTO (≈LLVM 15) cannot read bitcode in LLVM 22 static
-            # archives. Drive the link with the tarball's clang + lld instead.
-            export PATH="${LLVM_SYS_221_PREFIX}/bin:${PATH}"
-            export CC="${LLVM_SYS_221_PREFIX}/bin/clang"
-            export CXX="${LLVM_SYS_221_PREFIX}/bin/clang++"
+            # archives. Use the tarball's clang as the *Rust* linker driver + its
+            # lld — but do NOT set CC/CXX/PATH to LLVM clang (llvm-sys build
+            # scripts then miss the macOS SDK headers: inttypes.h).
+            llvm_clang="${LLVM_SYS_221_PREFIX}/bin/clang"
+            llvm_lld="${LLVM_SYS_221_PREFIX}/bin/ld64.lld"
+            if [[ ! -x "$llvm_lld" ]]; then
+              llvm_lld="${LLVM_SYS_221_PREFIX}/bin/lld"
+            fi
+            if [[ ! -x "$llvm_clang" ]]; then
+              echo "error: missing $llvm_clang" >&2
+              exit 1
+            fi
+            if [[ ! -x "$llvm_lld" ]]; then
+              echo "error: missing lld under ${LLVM_SYS_221_PREFIX}/bin" >&2
+              ls -la "${LLVM_SYS_221_PREFIX}/bin" | head -40 >&2 || true
+              exit 1
+            fi
             export LIBRARY_PATH="${LLVM_SYS_221_PREFIX}/lib"
-            export RUSTFLAGS="${RUSTFLAGS:-} -C linker=${LLVM_SYS_221_PREFIX}/bin/clang -C link-arg=-fuse-ld=lld -C link-arg=-L${LLVM_SYS_221_PREFIX}/lib -C link-arg=-Wl,-rpath,${LLVM_SYS_221_PREFIX}/lib"
+            export RUSTFLAGS="${RUSTFLAGS:-} -C linker=${llvm_clang} -C link-arg=-fuse-ld=${llvm_lld} -C link-arg=-L${LLVM_SYS_221_PREFIX}/lib -C link-arg=-Wl,-rpath,${LLVM_SYS_221_PREFIX}/lib -C link-arg=-isysroot$(xcrun --show-sdk-path)"
           fi
           cargo build -p xo -p echo_runtime --release
           scripts/ci/stage-runtime-lib.sh release
