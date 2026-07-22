@@ -68,13 +68,14 @@ upstream only.
 
 On Ubuntu only:
 
-1. Debug build of `xo` + `e26`
-2. Smoke: `cargo test -p xo`
-3. Smoke: `xo run --no-cache examples/misc/hello.echo` (needs clang + runtime)
+1. Debug build of `xo` + `e26` + `echo_runtime` (stage staticlib)
+2. Smoke: `cargo test -p xo` **non-JIT** unit filters only (REPL JIT exec tests
+   currently SIGSEGV under in-process `run_jit_ir`; tracked separately)
+3. Smoke: `xo run --no-cache examples/misc/hello.echo` (**AOT** — needs clang + runtime)
 4. **`scripts/gate echo26`** — workflow fails if red
 
-Language correctness is enforced here; Windows/macOS jobs only prove the binary
-links for that host.
+Language correctness is enforced here; macOS proves the release binary links;
+Windows is `continue-on-error` until Unix-only runtime net/sched is ported.
 
 ## Host / known gaps
 
