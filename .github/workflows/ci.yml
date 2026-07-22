@@ -80,6 +80,16 @@ jobs:
             echo "$path/bin" >> "$GITHUB_PATH"
           fi
 
+      - name: Windows — libxml2 (xml2s.lib) for LLVM static link
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/ci/windows-llvm-deps.sh "${LLVM_SYS_221_PREFIX}"
+          # Ensure link.exe searches the LLVM lib dir (xml2s.lib, zlib).
+          lib_win="$(cygpath -aw "${LLVM_SYS_221_PREFIX}/lib")"
+          echo "LIB=${lib_win};${LIB:-}" >> "$GITHUB_ENV"
+
       - name: Install mold (Linux link speed from .cargo/config.toml)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y mold
@@ -90,13 +100,13 @@ jobs:
           set -euo pipefail
           # Explicit -p echo_runtime so staticlib is always produced (not only rlib as a dep).
           if [[ "$(uname -s)" == "Darwin" ]]; then
-            # prefer-dynamic LLVM: link against the official tarball only (not
-            # Homebrew). Job-global LIBRARY_PATH/DYLD break rustc; set only here.
+            # Apple ld's libLTO (≈LLVM 15) cannot read bitcode in LLVM 22 static
+            # archives. Drive the link with the tarball's clang + lld instead.
+            export PATH="${LLVM_SYS_221_PREFIX}/bin:${PATH}"
+            export CC="${LLVM_SYS_221_PREFIX}/bin/clang"
+            export CXX="${LLVM_SYS_221_PREFIX}/bin/clang++"
             export LIBRARY_PATH="${LLVM_SYS_221_PREFIX}/lib"
-            export PKG_CONFIG_PATH="${LLVM_SYS_221_PREFIX}/lib/pkgconfig"
-            export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-L${LLVM_SYS_221_PREFIX}/lib -C link-arg=-Wl,-rpath,${LLVM_SYS_221_PREFIX}/lib"
-            # Surface the real linker line if link fails.
-            export CARGO_TERM_VERBOSE=true
+            export RUSTFLAGS="${RUSTFLAGS:-} -C linker=${LLVM_SYS_221_PREFIX}/bin/clang -C link-arg=-fuse-ld=lld -C link-arg=-L${LLVM_SYS_221_PREFIX}/lib -C link-arg=-Wl,-rpath,${LLVM_SYS_221_PREFIX}/lib"
           fi
           cargo build -p xo -p echo_runtime --release
           scripts/ci/stage-runtime-lib.sh release

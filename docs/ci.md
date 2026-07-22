@@ -50,10 +50,10 @@ wrapper so runners without sccache still compile.
 | OS | What CI sets | What CI does **not** set |
 |----|----------------|---------------------------|
 | Linux | LLVM `bin` on `PATH`; `LIBRARY_PATH` + `LD_LIBRARY_PATH` → LLVM `lib/` | — |
-| macOS | `LLVM_SYS_221_PREFIX` + absolute `LLVM_CONFIG_PATH` only | **`DYLD_LIBRARY_PATH`**, **`LIBRARY_PATH`**, and LLVM `bin` on `PATH` — any of these can make build-scripts load LLVM’s `libunwind`/`libc++` and abort |
-| Windows | prefix path via `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH` | raw `D:\…` extract dirs (break `tar`) |
+| macOS | For **cargo build only**: LLVM `clang` as linker + `lld` (Apple ld’s libLTO ≈15 cannot read LLVM 22 bitcode in static archives). No job-global `DYLD_LIBRARY_PATH`. | Job-global `DYLD_LIBRARY_PATH` / `LIBRARY_PATH` (breaks rustc / build-scripts) |
+| Windows | `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH`; `scripts/ci/windows-llvm-deps.sh` supplies **`xml2s.lib`** (from ShiftMedia libxml2) into LLVM `lib/` + `LIB=` | raw `D:\…` extract dirs (break `tar`) |
 
-**Windows:** net park uses a short yield instead of `mio::unix::SourceFd` (Unix-only).
+**Windows runtime:** net park uses a short yield instead of `mio::unix::SourceFd` (Unix-only).
 Task scheduling still uses portable `mio::Poll` + `Waker`.
 
 After `cargo build`, [`scripts/ci/stage-runtime-lib.sh`](../scripts/ci/stage-runtime-lib.sh)
