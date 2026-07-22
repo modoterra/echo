@@ -4,18 +4,30 @@
 //! - **Worker pool** runs task bodies.
 //! - Park protocol: try I/O → on WouldBlock arm interest → retry → then wait
 //!   (closes edge-trigger races).
+//!
+//! **Unix:** interest is registered via `mio::unix::SourceFd` on OS file descriptors.
+//! **Windows:** `SourceFd` is unavailable; park uses a short yield so nonblocking
+//! net ops can retry. Full WSA/mio socket registration can replace this later.
 
 use std::collections::{HashMap, VecDeque};
-use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
-use mio::unix::SourceFd;
-use mio::{Events, Interest, Poll, Registry, Token, Waker};
+use mio::{Events, Poll, Registry, Token, Waker};
+#[cfg(unix)]
+use mio::Interest;
 
 use crate::task::{run_task_inner, SharedTask};
+
+/// OS handle used for I/O parking (fd on Unix, socket on Windows).
+#[cfg(unix)]
+pub type IoRaw = std::os::fd::RawFd;
+#[cfg(windows)]
+pub type IoRaw = std::os::windows::io::RawSocket;
+#[cfg(not(any(unix, windows)))]
+pub type IoRaw = i64;
 
 const TOKEN_WAKER: Token = Token(0);
 const TOKEN_IO_BASE: usize = 1;
@@ -176,6 +188,7 @@ pub fn schedule(task: SharedTask) {
     state.work.notify_one();
 }
 
+#[cfg(unix)]
 fn interest_bits(readable: bool, writable: bool) -> Interest {
     match (readable, writable) {
         (true, true) => Interest::READABLE | Interest::WRITABLE,
@@ -195,13 +208,13 @@ fn interest_bits(readable: bool, writable: bool) -> Interest {
 /// Internally: register → wait → deregister. Net ops should **retry once
 /// after arm without wait** — use [`arm_fd`] + [`wait_fd`] for that.
 #[allow(dead_code)] // available for simple park; net uses arm/wait/disarm
-pub fn park_fd(fd: RawFd, readable: bool, writable: bool) {
+pub fn park_fd(fd: IoRaw, readable: bool, writable: bool) {
     let token_id = arm_fd(fd, readable, writable);
     wait_fd(token_id, fd);
 }
 
 /// Register interest; returns token id for [`wait_fd`].
-pub fn arm_fd(fd: RawFd, readable: bool, writable: bool) -> usize {
+pub fn arm_fd(fd: IoRaw, readable: bool, writable: bool) -> usize {
     let state = ensure_loop();
     let token_id = state.next_token.fetch_add(1, Ordering::Relaxed);
     let waiter = Arc::new(IoWaiter::new());
@@ -209,6 +222,13 @@ pub fn arm_fd(fd: RawFd, readable: bool, writable: bool) -> usize {
         let mut map = state.waiters.lock().expect("waiters");
         map.insert(token_id, waiter);
     }
+    arm_register(state, token_id, fd, readable, writable);
+    token_id
+}
+
+#[cfg(unix)]
+fn arm_register(state: &LoopState, token_id: usize, fd: IoRaw, readable: bool, writable: bool) {
+    use mio::unix::SourceFd;
     let interest = interest_bits(readable, writable);
     let mut source = SourceFd(&fd);
     if let Err(e) = state
@@ -220,27 +240,59 @@ pub fn arm_fd(fd: RawFd, readable: bool, writable: bool) -> usize {
             .reregister(&mut source, Token(token_id), interest);
         let _ = e;
     }
-    token_id
 }
 
+#[cfg(windows)]
+fn arm_register(_state: &LoopState, _token_id: usize, _fd: IoRaw, _readable: bool, _writable: bool) {
+    // mio::unix::SourceFd is not available; waiter is still installed so wait_fd
+    // can park briefly (see wait_fd_windows) while net retries.
+}
+
+#[cfg(not(any(unix, windows)))]
+fn arm_register(_state: &LoopState, _token_id: usize, _fd: IoRaw, _readable: bool, _writable: bool) {}
+
 /// Wait until token is signaled, then deregister `fd`.
-pub fn wait_fd(token_id: usize, fd: RawFd) {
-    let state = ensure_loop();
-    let waiter = {
-        let map = state.waiters.lock().expect("waiters");
-        map.get(&token_id).cloned()
-    };
-    if let Some(w) = waiter {
-        w.wait();
+pub fn wait_fd(token_id: usize, fd: IoRaw) {
+    #[cfg(unix)]
+    {
+        let state = ensure_loop();
+        let waiter = {
+            let map = state.waiters.lock().expect("waiters");
+            map.get(&token_id).cloned()
+        };
+        if let Some(w) = waiter {
+            w.wait();
+        }
+        disarm_fd(token_id, fd);
     }
-    disarm_fd(token_id, fd);
+    #[cfg(windows)]
+    {
+        // No SourceFd registration: yield so the nonblocking retry loop can spin
+        // without busy-burning a core. Edge-driven parking needs WSA/mio socket
+        // registration (follow-up).
+        let _ = fd;
+        thread::sleep(Duration::from_millis(1));
+        disarm_fd(token_id, fd);
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (token_id, fd);
+    }
 }
 
 /// Drop waiter + deregister without waiting (I/O succeeded after arm).
-pub fn disarm_fd(token_id: usize, fd: RawFd) {
+pub fn disarm_fd(token_id: usize, fd: IoRaw) {
     let state = ensure_loop();
-    let mut source = SourceFd(&fd);
-    let _ = state.registry.deregister(&mut source);
+    #[cfg(unix)]
+    {
+        use mio::unix::SourceFd;
+        let mut source = SourceFd(&fd);
+        let _ = state.registry.deregister(&mut source);
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = fd;
+    }
     let mut map = state.waiters.lock().expect("waiters");
     map.remove(&token_id);
 }

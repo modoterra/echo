@@ -2,12 +2,31 @@
 
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
-use std::os::fd::AsRawFd;
 
+use crate::sched::IoRaw;
 use crate::{
     bytes_data, bytes_to_handle, echo_runtime_struct_new, header_at, string_data, string_to_handle,
     struct_set_str, HEAP_MAGIC,
 };
+
+/// Portable raw handle for parking (Unix fd / Windows socket).
+trait AsIoRaw {
+    fn as_io_raw(&self) -> IoRaw;
+}
+
+#[cfg(unix)]
+impl<T: std::os::fd::AsRawFd> AsIoRaw for T {
+    fn as_io_raw(&self) -> IoRaw {
+        self.as_raw_fd()
+    }
+}
+
+#[cfg(windows)]
+impl<T: std::os::windows::io::AsRawSocket> AsIoRaw for T {
+    fn as_io_raw(&self) -> IoRaw {
+        self.as_raw_socket()
+    }
+}
 
 const KIND_TCP_LISTENER: u32 = 10;
 const KIND_TCP_STREAM: u32 = 11;
@@ -76,8 +95,8 @@ enum AfterWb {
     Waited,
 }
 
-fn after_would_block_readable(fd: &impl AsRawFd, mut retry_ok: impl FnMut() -> bool) -> AfterWb {
-    let raw = fd.as_raw_fd();
+fn after_would_block_readable(fd: &impl AsIoRaw, mut retry_ok: impl FnMut() -> bool) -> AfterWb {
+    let raw = fd.as_io_raw();
     let tok = crate::sched::arm_fd(raw, true, false);
     if retry_ok() {
         crate::sched::disarm_fd(tok, raw);
@@ -87,8 +106,8 @@ fn after_would_block_readable(fd: &impl AsRawFd, mut retry_ok: impl FnMut() -> b
     AfterWb::Waited
 }
 
-fn after_would_block_writable(fd: &impl AsRawFd, mut retry_ok: impl FnMut() -> bool) -> AfterWb {
-    let raw = fd.as_raw_fd();
+fn after_would_block_writable(fd: &impl AsIoRaw, mut retry_ok: impl FnMut() -> bool) -> AfterWb {
+    let raw = fd.as_io_raw();
     let tok = crate::sched::arm_fd(raw, false, true);
     if retry_ok() {
         crate::sched::disarm_fd(tok, raw);
@@ -241,7 +260,7 @@ pub unsafe extern "C" fn echo_runtime_tcp_read(stream: i64, limit: i64) -> i64 {
                 return bytes_to_handle(buf);
             }
             Err(e) if would_block(&e) => {
-                let raw = s.as_raw_fd();
+                let raw = s.as_io_raw();
                 let tok = crate::sched::arm_fd(raw, true, false);
                 // Retry after arm (edge race).
                 let Some(ref mut s2) = st.inner else {
@@ -306,7 +325,7 @@ pub unsafe extern "C" fn echo_runtime_tcp_write(stream: i64, data: i64) -> i64 {
                 }
             }
             Err(e) if would_block(&e) => {
-                let raw = s.as_raw_fd();
+                let raw = s.as_io_raw();
                 let tok = crate::sched::arm_fd(raw, false, true);
                 let Some(ref mut s2) = st.inner else {
                     crate::sched::disarm_fd(tok, raw);

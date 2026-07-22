@@ -53,8 +53,8 @@ wrapper so runners without sccache still compile.
 | macOS | `LLVM_SYS_221_PREFIX` + absolute `LLVM_CONFIG_PATH` only | **`DYLD_LIBRARY_PATH`**, **`LIBRARY_PATH`**, and LLVM `bin` on `PATH` — any of these can make build-scripts load LLVM’s `libunwind`/`libc++` and abort |
 | Windows | prefix path via `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH` | raw `D:\…` extract dirs (break `tar`) |
 
-**Windows matrix job** is `continue-on-error` until `echo_runtime` net/sched stop using
-`std::os::fd` / `mio::unix` (Unix-only). Linux and macOS release assets are required.
+**Windows:** net park uses a short yield instead of `mio::unix::SourceFd` (Unix-only).
+Task scheduling still uses portable `mio::Poll` + `Waker`.
 
 After `cargo build`, [`scripts/ci/stage-runtime-lib.sh`](../scripts/ci/stage-runtime-lib.sh)
 copies the newest `libecho_runtime*.a` into `target/<profile>/libecho_runtime.a`
@@ -74,8 +74,7 @@ On Ubuntu only:
 3. Smoke: `xo run --no-cache examples/misc/hello.echo` (**AOT** — needs clang + runtime)
 4. **`scripts/gate echo26`** — workflow fails if red
 
-Language correctness is enforced here; macOS proves the release binary links;
-Windows is `continue-on-error` until Unix-only runtime net/sched is ported.
+Language correctness is enforced here; macOS/Windows prove the release binary links.
 
 ## Host / known gaps
 
