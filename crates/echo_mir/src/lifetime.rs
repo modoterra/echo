@@ -80,6 +80,95 @@ impl Ctx {
     fn note_not_unique(&mut self, name: &str) {
         self.unique_fresh.remove(name);
     }
+
+    /// Link `name` into `peer`'s alias class without clearing peer's unique_fresh.
+    /// Used when nesting a name into a fresh container the peer uniquely owns.
+    fn soft_alias(&mut self, name: &str, peer: &str) {
+        if name == peer {
+            return;
+        }
+        self.unique_fresh.remove(name);
+        let ra = self.alias_find(name);
+        let rb = self.alias_find(peer);
+        if ra != rb {
+            self.alias_parent.insert(ra, rb);
+        }
+    }
+}
+
+/// Exhaustive collection of `Name` leaves that may denote managed heap handles
+/// embedded in `e`. New `MirExpr` variants that embed sub-expressions must be
+/// added here (non-exhaustive match will fail to compile).
+#[must_use]
+pub fn managed_names_in_expr(e: &MirExpr) -> Vec<&str> {
+    let mut out = Vec::new();
+    collect_managed_names(e, &mut out);
+    out
+}
+
+fn collect_managed_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
+    match e {
+        MirExpr::Name(n) => out.push(n.as_str()),
+        MirExpr::Unary { expr, .. }
+        | MirExpr::Cast { expr, .. }
+        | MirExpr::BoxValue { value: expr, .. }
+        | MirExpr::UnboxValue { value: expr, .. }
+        | MirExpr::StructTypeIs { value: expr, .. }
+        | MirExpr::FieldGet { base: expr, .. } => collect_managed_names(expr, out),
+        MirExpr::Binary { left, right, .. } | MirExpr::Range { start: left, end: right } => {
+            collect_managed_names(left, out);
+            collect_managed_names(right, out);
+        }
+        MirExpr::Index { base, index } => {
+            collect_managed_names(base, out);
+            collect_managed_names(index, out);
+        }
+        MirExpr::Call { args, .. } | MirExpr::PrimCall { args, .. } => {
+            for a in args {
+                collect_managed_names(a, out);
+            }
+        }
+        MirExpr::ListLit(xs) => {
+            for x in xs {
+                collect_managed_names(x, out);
+            }
+        }
+        MirExpr::StructLit { fields, .. } => {
+            for (_, v) in fields {
+                collect_managed_names(v, out);
+            }
+        }
+        MirExpr::StringInterp { parts } => {
+            for p in parts {
+                if let StrPart::Name(n) = p {
+                    out.push(n.as_str());
+                }
+            }
+        }
+        // Non-embedding leaves — no managed names.
+        MirExpr::ConstI64(_)
+        | MirExpr::ConstI32(_)
+        | MirExpr::ConstInt { .. }
+        | MirExpr::ConstBool(_)
+        | MirExpr::ConstF64(_)
+        | MirExpr::ConstF32(_)
+        | MirExpr::ConstDuration(_)
+        | MirExpr::StringLit { .. }
+        | MirExpr::BytesLit { .. }
+        | MirExpr::LocatorLit { .. }
+        | MirExpr::FnValue { .. } => {}
+    }
+}
+
+/// Clear unique ownership for `names`; optionally soft-alias each with `peer`
+/// (container / destination bind). Does **not** clear `peer`'s unique_fresh.
+fn note_may_share_handles(ctx: &mut Ctx, names: &[&str], peer: Option<&str>) {
+    for n in names {
+        ctx.note_not_unique(n);
+        if let Some(p) = peer {
+            ctx.soft_alias(n, p);
+        }
+    }
 }
 
 /// Rewrite a function body with scope ownership ops.
@@ -114,8 +203,6 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
         MirStmt::Set { name, value } => rewrite_set(name, value, ctx),
         MirStmt::FieldSet { base, field, value } => {
             let mut v = Vec::new();
-            // Container store: value may share the heap handle with the base —
-            // clear unique ownership before any demote can free it early.
             note_store_escape(base, value, ctx);
             maybe_promote_store(&mut v, base, value, ctx);
             v.push(MirStmt::FieldSet {
@@ -262,18 +349,22 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
 
     let fresh = expr_is_fresh_alloc(value);
     let managed = expr_is_managed(value);
+    let embedded = managed_names_in_expr(value);
 
-    // Alias / unique-owner tracking for demotion soundness.
-    if fresh {
-        ctx.note_unique_fresh(name);
-    } else if let MirExpr::Name(other) = value {
-        ctx.alias_union(name, other);
-    } else if managed {
-        // Field/index/call/etc. — may share or yield unknown handles.
+    // Ownership / alias tracking — single transfer API for all RHS shapes.
+    if let MirExpr::Name(other) = value {
+        // Pure alias: both names share one handle.
         ctx.note_not_unique(name);
-        if let Some(src) = managed_name_source(value) {
-            ctx.alias_union(name, src);
-        }
+        ctx.alias_union(name, other);
+    } else if fresh {
+        // Dest uniquely owns the new container/value object…
+        ctx.note_unique_fresh(name);
+        // …but every Name nested in the RHS may share a handle with dest
+        // (ListLit/StructLit nest, call args, etc.).
+        note_may_share_handles(ctx, &embedded, Some(name));
+    } else if managed {
+        ctx.note_not_unique(name);
+        note_may_share_handles(ctx, &embedded, Some(name));
     }
 
     v.push(MirStmt::Set {
@@ -302,17 +393,6 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
     v
 }
 
-/// If `e` is a simple name projection we can track as may-alias with the base name.
-fn managed_name_source(e: &MirExpr) -> Option<&str> {
-    match e {
-        MirExpr::Name(n) => Some(n.as_str()),
-        // Index/field get of a list/struct yields a *new* or nested value — do not
-        // union with the container (that would over-block demotion of the container).
-        // Contaminating the destination alone is enough (note_not_unique).
-        _ => None,
-    }
-}
-
 fn maybe_promote_store(v: &mut Vec<MirStmt>, base: &MirExpr, value: &MirExpr, ctx: &Ctx) {
     if !expr_is_managed(value) {
         return;
@@ -329,30 +409,13 @@ fn maybe_promote_store(v: &mut Vec<MirStmt>, base: &MirExpr, value: &MirExpr, ct
     }
 }
 
-/// Storing a managed value into a container shares (or nests) the handle.
-/// The stored name is no longer a unique fresh owner — demoting it would free
-/// the handle while the container still retains it (UAF under immediate free).
+/// Container store escape: every managed Name in `value` may share with `base`.
 fn note_store_escape(base: &MirExpr, value: &MirExpr, ctx: &mut Ctx) {
-    if !expr_is_managed(value) {
+    let names = managed_names_in_expr(value);
+    if names.is_empty() {
         return;
     }
-    match value {
-        MirExpr::Name(n) => {
-            ctx.note_not_unique(n);
-            // May-alias the container bind when base is a name (list/struct field).
-            if let MirExpr::Name(b) = base {
-                ctx.alias_union(n, b);
-            } else if let Some(b) = base_name(base) {
-                ctx.alias_union(n, b);
-            } else {
-                // Unknown base shape — still not unique.
-                ctx.note_not_unique(n);
-            }
-        }
-        _ => {
-            // Fresh lit stored into container: no named unique owner to demote.
-        }
-    }
+    note_may_share_handles(ctx, &names, base_name(base));
 }
 
 fn base_name(e: &MirExpr) -> Option<&str> {
@@ -825,6 +888,189 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    fn has_inward_demote(out: &[MirStmt], name: &str) -> bool {
+        let mut promotes = Vec::new();
+        walk_promotes(out, &mut promotes);
+        promotes
+            .iter()
+            .any(|(n, t)| n == name && *t != ROOT_SCOPE)
+    }
+
+    /// Structural escape-surface table: each shape must refuse demotion of the
+    /// nested/escaped name when the container or alias peer is used after.
+    /// New MirExpr embeds must extend `managed_names_in_expr` or this table fails.
+    #[test]
+    fn escape_surface_refuses_demote_when_container_used_after() {
+        // Common tail: if { use xs }; return holder (or peer).
+        let if_use_xs = MirStmt::If {
+            arms: vec![(
+                MirExpr::ConstI64(1),
+                vec![MirStmt::Eval(MirExpr::Name("xs".into()))],
+            )],
+            else_body: None,
+        };
+        let ret_holder = MirStmt::ReturnOk(MirExpr::Name("holder".into()));
+
+        let cases: Vec<(&str, Vec<MirStmt>, &str)> = vec![
+            (
+                "alias_assign",
+                vec![
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                    },
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::Name("holder".into()),
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+            (
+                "list_push",
+                vec![
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![]),
+                    },
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                    },
+                    MirStmt::ListPush {
+                        base: MirExpr::Name("holder".into()),
+                        value: MirExpr::Name("xs".into()),
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+            (
+                "field_set",
+                vec![
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::StructLit {
+                            type_name: String::new(),
+                            fields: vec![],
+                        },
+                    },
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![]),
+                    },
+                    MirStmt::FieldSet {
+                        base: MirExpr::Name("holder".into()),
+                        field: "f".into(),
+                        value: MirExpr::Name("xs".into()),
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+            (
+                "index_set",
+                vec![
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(0)]),
+                    },
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                    },
+                    MirStmt::IndexSet {
+                        base: MirExpr::Name("holder".into()),
+                        index: MirExpr::ConstI64(0),
+                        value: MirExpr::Name("xs".into()),
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+            (
+                "listlit_nest",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::Name("xs".into())]),
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+            (
+                "structlit_nest",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::StructLit {
+                            type_name: String::new(),
+                            fields: vec![("f".into(), MirExpr::Name("xs".into()))],
+                        },
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+            (
+                "listlit_nested_list",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ListLit(vec![
+                            MirExpr::Name("xs".into()),
+                        ])]),
+                    },
+                    if_use_xs.clone(),
+                    ret_holder.clone(),
+                ],
+                "xs",
+            ),
+        ];
+
+        for (label, body, escaped) in cases {
+            let out = inject_lifetime(body);
+            assert!(
+                !has_inward_demote(&out, escaped),
+                "escape shape {label}: must not demote {escaped} when holder used after\n{out:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn managed_names_in_expr_walks_listlit_and_structlit() {
+        let e = MirExpr::ListLit(vec![
+            MirExpr::Name("a".into()),
+            MirExpr::StructLit {
+                type_name: String::new(),
+                fields: vec![("f".into(), MirExpr::Name("b".into()))],
+            },
+        ]);
+        let names = managed_names_in_expr(&e);
+        assert!(names.contains(&"a"));
+        assert!(names.contains(&"b"));
     }
 
     #[test]
