@@ -1,0 +1,106 @@
+; std/process — args, environment, exit, spawn+wait.
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+;
+; Public API:
+;   args() — list of strings (argv; [0] is the program name when present)
+;   env(name) — option string (some value / none if unset)
+;   env_set(name, value) — set process environment
+;   env_unset(name) — remove environment variable
+;   exit(code) — terminate process with status code
+;   run(program, args) — spawn+wait; result exit status, or ! on spawn failure
+;
+; Suite: xo test std/process.echo (XO_TEST).
+
+/ runtime
+/ std/test
+/ std/list
+/ std/str
+
+$ args = () {
+    ^ runtime.process_args()
+}
+
+; Option-shaped: bare ^ = unset, ^ s = value.
+$ env = (name) {
+    ? runtime.process_env_has(name) == 0 {
+        ^
+    }
+    ^ runtime.process_env_get(name)
+}
+
+$ env_set = (name, value) {
+    runtime.process_env_set(name, value)
+    ^
+}
+
+$ env_unset = (name) {
+    runtime.process_env_unset(name)
+    ^
+}
+
+$ exit = (code) {
+    runtime.process_exit(code)
+    ^
+}
+
+; Result-shaped: ^ code on success, ! on spawn failure.
+$ run = (program, args) {
+    $ code = runtime.process_run(program, args)
+    ? code < 0 {
+        ! "failed to spawn process"
+    }
+    ^ code
+}
+
+; --- suite ---
+
+test.it("args_nonempty", () {
+    $ a = args()
+    test.true(list.len(a) >= 1)
+})
+
+test.it("env_roundtrip", () {
+    $ key = "ECHO_STD_PROCESS_TEST"
+    env_unset(key)
+    | env(key) {
+        $ v {
+            test.true(0 == 1)
+        }
+        : {
+            test.eq(1, 1)
+        }
+    }
+    env_set(key, "hello")
+    | env(key) {
+        $ v {
+            test.eq(v, "hello")
+        }
+        : {
+            test.true(0 == 1)
+        }
+    }
+    env_unset(key)
+    | env(key) {
+        $ v {
+            test.true(0 == 1)
+        }
+        : {
+            test.eq(1, 1)
+        }
+    }
+})
+
+; Spawn success (`true`/`false`) is covered by runtime unit tests (platform-specific).
+test.it("run_missing", () {
+    $ empty = []
+    | run("__echo_missing_binary_xyz__", empty) {
+        $ code {
+            test.true(0 == 1)
+        }
+        ! err {
+            test.eq(err, "failed to spawn process")
+        }
+    }
+})
+
+\ args, env, env_set, env_unset, exit, run

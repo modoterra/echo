@@ -35,6 +35,8 @@ use echo_codegen_abi::{
     RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY,
     RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
     RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS,
+    RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
+    RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN,
 };
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_mir::{
@@ -188,6 +190,17 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_NOW_MS, test_finish_ty, None);
     let sleep_ms_ty = context.void_type().fn_type(&[i64t.into()], false);
     module.add_function(RT_SLEEP_MS, sleep_ms_ty, None);
+    // process / env / spawn
+    module.add_function(RT_PROCESS_ARGS, test_finish_ty, None);
+    module.add_function(RT_PROCESS_ENV_HAS, list_len_ty, None);
+    module.add_function(RT_PROCESS_ENV_GET, list_len_ty, None);
+    let process_env_set_ty = context
+        .void_type()
+        .fn_type(&[i64t.into(), i64t.into()], false);
+    module.add_function(RT_PROCESS_ENV_SET, process_env_set_ty, None);
+    module.add_function(RT_PROCESS_ENV_UNSET, sleep_ms_ty, None);
+    module.add_function(RT_PROCESS_EXIT, sleep_ms_ty, None);
+    module.add_function(RT_PROCESS_RUN, list_get_ty, None);
     let http_parse_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_HTTP_PARSE_REQUEST, http_parse_ty, None);
     module.add_function(RT_HTTP_HEADERS_COMPLETE, http_parse_ty, None);
@@ -791,6 +804,48 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_PROCESS_ARGS,
+        echo_runtime_process_args as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_ENV_HAS,
+        echo_runtime_process_env_has as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_ENV_GET,
+        echo_runtime_process_env_get as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_ENV_SET,
+        echo_runtime_process_env_set as extern "C" fn(i64, i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_ENV_UNSET,
+        echo_runtime_process_env_unset as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_EXIT,
+        echo_runtime_process_exit as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_RUN,
+        echo_runtime_process_run as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_HTTP_PARSE_REQUEST,
         echo_runtime_http_parse_request as unsafe extern "C" fn(i64) -> i64 as usize,
     )?;
@@ -1015,6 +1070,9 @@ use echo_runtime::{
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
     echo_runtime_test_fail, echo_runtime_test_finish, echo_runtime_test_register,
     echo_runtime_now_ms, echo_runtime_sleep_ms,
+    echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
+    echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
+    echo_runtime_process_run,
     echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
     echo_runtime_udp_send_to,
 };
@@ -2791,8 +2849,45 @@ fn emit_call<'ctx>(
                 let _ = cx.builder.build_call(f, &[ms.into()], "").expect("sleep_ms");
                 return Some(cx.i64t.const_int(0, false));
             }
+            // process env_set / env_unset / exit: void.
+            if native == RT_PROCESS_ENV_SET {
+                if args.len() != 2 {
+                    cx.diags.push(
+                        Diagnostic::error("runtime.process_env_set expects two arguments")
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let a0 = emit_expr_i64(cx, &args[0])?;
+                let a1 = emit_expr_i64(cx, &args[1])?;
+                let f = cx
+                    .module
+                    .get_function(RT_PROCESS_ENV_SET)
+                    .expect("process_env_set");
+                let _ = cx
+                    .builder
+                    .build_call(f, &[a0.into(), a1.into()], "")
+                    .expect("process_env_set");
+                return Some(cx.i64t.const_int(0, false));
+            }
+            if native == RT_PROCESS_ENV_UNSET || native == RT_PROCESS_EXIT {
+                if args.len() != 1 {
+                    cx.diags.push(
+                        Diagnostic::error(format!("runtime.{export} expects one argument"))
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let a0 = emit_expr_i64(cx, &args[0])?;
+                let f = cx.module.get_function(native).expect("process void1");
+                let _ = cx.builder.build_call(f, &[a0.into()], "").expect("process void1");
+                return Some(cx.i64t.const_int(0, false));
+            }
             // Arity for i64… → i64 runtime exports.
-            let arity = if native == RT_NOW_MS || native == RT_TEST_FINISH {
+            let arity = if native == RT_NOW_MS
+                || native == RT_TEST_FINISH
+                || native == RT_PROCESS_ARGS
+            {
                 0
             } else if native == RT_STR_FROM_INT
                 || native == RT_STR_FROM_FLOAT
@@ -2815,6 +2910,8 @@ fn emit_call<'ctx>(
                 || native == RT_TCP_ACCEPT
                 || native == RT_TCP_CONNECT
                 || native == RT_UDP_BIND
+                || native == RT_PROCESS_ENV_HAS
+                || native == RT_PROCESS_ENV_GET
             {
                 1
             } else if native == RT_TCP_READ
@@ -2828,6 +2925,7 @@ fn emit_call<'ctx>(
                 || native == RT_STR_GET
                 || native == RT_BYTES_CAT
                 || native == RT_LIST_GET
+                || native == RT_PROCESS_RUN
             {
                 2
             } else if native == RT_UDP_SEND_TO

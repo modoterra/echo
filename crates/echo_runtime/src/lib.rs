@@ -54,6 +54,7 @@ pub(crate) fn heap_to_handle<T>(b: Box<T>) -> i64 {
 
 mod net;
 mod poll;
+mod process;
 mod sched;
 mod scope;
 mod task;
@@ -85,6 +86,13 @@ pub use task::{
 pub use test_suite::{
     echo_runtime_test_enable, echo_runtime_test_fail, echo_runtime_test_finish,
     echo_runtime_test_register,
+};
+
+// Process / env / spawn — JIT mapping.
+pub use process::{
+    echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
+    echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
+    echo_runtime_process_run,
 };
 
 /// Stable crate identity for workspace linkage checks.

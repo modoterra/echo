@@ -38,8 +38,8 @@ pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disow
 pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 28; // bytes_slice/cat/from_str + str_get
-pub const STDLIB_VERSION: u32 = 17; // map/set to_list for for-in
+pub const RUNTIME_ABI_VERSION: u32 = 29; // process args/env/exit/run
+pub const STDLIB_VERSION: u32 = 18; // std/process
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

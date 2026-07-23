@@ -51,6 +51,7 @@ $ eprint = (value) {
 | `list.echo` | `len` / `is_empty` / result `get` / `contains` |
 | `str.echo` | `from_*`, text ops, byte `get`/`slice` |
 | `time.echo` | `now_ms` / `sleep_ms` (wall clock) |
+| `process.echo` | `args` / `env` / `env_set` / `env_unset` / `exit` / `run` (spawn+wait) |
 | `reflect.echo` | runtime kind API (`kind` / `key_bytes` / …); not tools `echo_reflection` |
 | `crypto/hash/` | folder module: `sip` (SipHash-2-4) → `/ std/crypto/hash` as `hash.sip` |
 | `collections/hash_table.echo` | SipHash table; keys via `reflect.key_bytes` (int/string/…); backs map + set |

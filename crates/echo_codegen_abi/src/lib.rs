@@ -226,3 +226,19 @@ pub const RT_TEST_FINISH: &str = "echo_runtime_test_finish";
 pub const RT_NOW_MS: &str = "echo_runtime_now_ms";
 /// `echo_runtime_sleep_ms(i64)` — sleep at least `ms` milliseconds (void).
 pub const RT_SLEEP_MS: &str = "echo_runtime_sleep_ms";
+
+// --- Process / env / spawn (`std/process`) ---
+/// `echo_runtime_process_args() -> list` — argv as list of strings.
+pub const RT_PROCESS_ARGS: &str = "echo_runtime_process_args";
+/// `echo_runtime_process_env_has(name_str) -> i64` — 1/0.
+pub const RT_PROCESS_ENV_HAS: &str = "echo_runtime_process_env_has";
+/// `echo_runtime_process_env_get(name_str) -> string` — empty if unset.
+pub const RT_PROCESS_ENV_GET: &str = "echo_runtime_process_env_get";
+/// `echo_runtime_process_env_set(name_str, value_str)` void.
+pub const RT_PROCESS_ENV_SET: &str = "echo_runtime_process_env_set";
+/// `echo_runtime_process_env_unset(name_str)` void.
+pub const RT_PROCESS_ENV_UNSET: &str = "echo_runtime_process_env_unset";
+/// `echo_runtime_process_exit(code)` void — terminates process.
+pub const RT_PROCESS_EXIT: &str = "echo_runtime_process_exit";
+/// `echo_runtime_process_run(program_str, args_list) -> i64` — exit code, or -1 spawn fail.
+pub const RT_PROCESS_RUN: &str = "echo_runtime_process_run";

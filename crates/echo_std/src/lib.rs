@@ -10,13 +10,14 @@ use std::path::{Path, PathBuf};
 use echo_codegen_abi::{
     RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
     RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
-    RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET, RT_LIST_LEN, RT_NOW_MS, RT_SLEEP_MS, RT_PRINT_I64,
-    RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_STR_CAT, RT_STR_CONTAINS,
-    RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT,
-    RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_SLICE, RT_STR_STARTS_WITH,
-    RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
-    RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM,
-    RT_UDP_SEND_TO,
+    RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET, RT_LIST_LEN, RT_NOW_MS, RT_PRINT_I64,
+    RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
+    RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND,
+    RT_REFLECT_KIND_NAME, RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH,
+    RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT,
+    RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_SLICE, RT_STR_STARTS_WITH, RT_TCP_ACCEPT,
+    RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_FAIL,
+    RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
 };
 
 /// Stable crate identity for workspace linkage checks.
@@ -216,6 +217,34 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "sleep_ms",
         native: RT_SLEEP_MS,
+    },
+    RuntimeExport {
+        name: "process_args",
+        native: RT_PROCESS_ARGS,
+    },
+    RuntimeExport {
+        name: "process_env_has",
+        native: RT_PROCESS_ENV_HAS,
+    },
+    RuntimeExport {
+        name: "process_env_get",
+        native: RT_PROCESS_ENV_GET,
+    },
+    RuntimeExport {
+        name: "process_env_set",
+        native: RT_PROCESS_ENV_SET,
+    },
+    RuntimeExport {
+        name: "process_env_unset",
+        native: RT_PROCESS_ENV_UNSET,
+    },
+    RuntimeExport {
+        name: "process_exit",
+        native: RT_PROCESS_EXIT,
+    },
+    RuntimeExport {
+        name: "process_run",
+        native: RT_PROCESS_RUN,
     },
 ];
 

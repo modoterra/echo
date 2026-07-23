@@ -87,6 +87,13 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_test_finish` | `int64_t (void)` | Suite: run cases → fail count; `-1` if suite off |
 | `echo_runtime_now_ms` | `int64_t (void)` | Wall clock ms since Unix epoch |
 | `echo_runtime_sleep_ms` | `void (int64_t ms)` | Sleep ≥ `ms` (no-op if `ms ≤ 0`) |
+| `echo_runtime_process_args` | `int64_t (void)` | argv as list of string handles |
+| `echo_runtime_process_env_has` | `int64_t (name)` | 1 if env var set, else 0 |
+| `echo_runtime_process_env_get` | `int64_t (name)` | string handle; empty if unset |
+| `echo_runtime_process_env_set` | `void (name, value)` | set env var (strings) |
+| `echo_runtime_process_env_unset` | `void (name)` | remove env var |
+| `echo_runtime_process_exit` | `void (code)` | terminate process |
+| `echo_runtime_process_run` | `int64_t (program, args_list)` | spawn+wait; exit code or `-1` spawn fail |
 | `echo_runtime_str_slice` | `int64_t (s, start, end)` | UTF-8 byte range `[start,end)`; empty if invalid |
 | `echo_runtime_str_get` | `int64_t (s, index)` | UTF-8 byte 0..255, or -1 if OOB |
 | `echo_runtime_str_contains` | `int64_t (hay, needle)` | 1/0 substring |

@@ -231,6 +231,7 @@ See also [`runtime-abi.md`](runtime-abi.md).
 | **Bytes** | `bytes_len`, `bytes_get`, `bytes_slice`, `bytes_cat`, `bytes_from_i64`, `bytes_from_str` | `std/bytes` | `is_empty`; result policy on `get`/`slice` |
 | **List** | `list_len`, `list_get` (+ language push/index) | `std/list` | `is_empty`, `contains` |
 | **Time** | `now_ms`, `sleep_ms` | `std/time` | — |
+| **Process** | `process_args`, `process_env_*`, `process_exit`, `process_run` | `std/process` | option `env`, result `run` |
 | **Reflect** | `reflect_kind`, `reflect_kind_name`, `reflect_key_bytes` | `std/reflect` | `is_*`, `KIND_*` |
 | **Test** | `test_register`, `test_fail`, `test_finish` | `std/test` | `eq` / `true` / … |
 | **Net TCP/UDP** | `tcp_*`, `udp_*` | `std/net/tcp`, `udp` | `% conn` / methods |
