@@ -5,7 +5,7 @@ in [ADR 0016](adr/0016-scope-owned-memory.md).
 
 | | |
 |--|--|
-| **Status** | **Law locked**; slice 1 landed (registries + MIR inject; deferred physical free) |
+| **Status** | **Law locked**; slice 1 landed; **slice 2 planned** (see § Slice 2 plan) |
 | **Owners** | Semantics (lifetime facts) · MIR (`inject_lifetime`) · `echo_runtime` (`scope_*`) · codegen (emit ops only) |
 | **Related** | [ADR 0016](adr/0016-scope-owned-memory.md), [`semantics.md`](semantics.md) § Managed heap lifetime, [`mir.md`](mir.md) § Scope ownership ops, [`runtime-abi.md`](runtime-abi.md) § Memory reclamation |
 
@@ -125,6 +125,61 @@ Full signatures: [`runtime-abi.md`](runtime-abi.md) § Memory reclamation.
 
 Target: full promote/demote/release with deterministic immediate or batched
 physical destroy—still **not** tracing GC as the user model.
+
+## Slice 2 plan (ready to implement)
+
+**Goal:** make scope-owned dispose **precise enough** that logical release can
+become **immediate or short-batch physical free** without use-after-free, while
+keeping the product model (no tracing GC).
+
+### Starting facts (slice 1)
+
+| Layer | Today |
+|-------|--------|
+| **MIR** | `echo_mir::lifetime::inject_lifetime` — conservative promote-to-root on escape; no demote; no semantic facts |
+| **Runtime** | Exact per-scope ownership sets; promote/disown/release; **deferred** physical free (`enqueue` + `drain_deferred`) |
+| **Semantics** | Law documented; **no** lifetime `SemanticModel` facts yet |
+| **e26** | `echo26/run/lifetime/*` — behavioral smoke (block local, promote assign, if exit, break cleanup), not reclaim proofs |
+
+### Work packages (order)
+
+| # | Package | Done when | Primary crates |
+|---|---------|-----------|----------------|
+| **2a** | **Precise promote targets** | Escape edges promote to the **true** owning ancestor (not always root); unit tests + e26 | `echo_mir` (lifetime), optional seed facts from semantics |
+| **2b** | **Early-exit coverage audit** | Every leave-scope edge emits exits: return/break/continue/effect short-circuit/`!`/`^` paths; miss = MIR/crate test | `echo_mir`, codegen emit |
+| **2c** | **Semantic ownership facts (v0)** | `SemanticModel` (or adjacent) records bind → owning scope for managed kinds; illegal escape diagnostics when ready | `echo_semantics`, `echo_pipeline` product |
+| **2d** | **Demotion** | Nested scope can take ownership when analysis proves shorter life; MIR `ScopeDemote` (or reuse promote) + runtime | `echo_mir`, `echo_runtime` |
+| **2e** | **Immediate / batched physical free** | After 2a–2c are sound: free on exit (or drain at safe points) instead of process-lived deferral; ABI version bump | `echo_runtime`, `echo_codegen_abi`, fingerprint |
+| **2f** | **Proof belt** | Crate tests + e26 lifetime fixtures that would **fail** if early free broke aliases; examples unchanged unless demos need it | `echo_mir`, `echo_runtime`, `echo26/run/lifetime` |
+
+### Implementation rules
+
+1. **Still not tracing GC** — ADR 0016 stands.
+2. **Conservative until proven** — prefer over-promote over early free; flip free policy only after promote targets are precise.
+3. **Shared pipeline only** — no host-local free policy in `xo` / LSP.
+4. **Three proofs** — crate tests + e26 + examples as applicable (`AGENTS.md`).
+5. **Version bumps** — `RUNTIME_ABI_VERSION` (and docs) when free policy or ABI changes.
+
+### Non-goals for slice 2
+
+- Full industrial region/type system (SOTA G9 remainder)
+- Cycle collection or concurrent collector
+- User-visible "manual free" API
+- Changing value-vs-ref pass rules
+
+### Suggested first commit of the slice
+
+**2a alone:** replace "promote managed escapes to root" with promote to the
+**nearest scope that outlives the use** (function root when binding escapes the
+function; parent block when binding is outer-block only). Keep deferred free.
+Prove with MIR unit tests + extend `echo26/run/lifetime` if observable.
+
+### Checklist before coding 2a
+
+- [ ] Read `crates/echo_mir/src/lifetime.rs` + `crates/echo_runtime/src/scope.rs`
+- [ ] Read e26 `run/lifetime/*` and existing MIR lifetime unit tests
+- [ ] Sketch promote-target table for: local bind, field store, list push, return, task capture (if any)
+- [ ] Land tests first (red) for one wrong promote-to-root case, then green
 
 ## Features that allocate
 

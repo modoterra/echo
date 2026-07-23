@@ -302,6 +302,8 @@ call site are typed for method resolve (MIR call-site flow). Free shims
 std/
   io.echo              ; may / runtime ; export print, log, …
   time.echo
+  process.echo         ; args / env / exit / run (spawn+wait)
+  fs.echo              ; paths, whole-file, copy/rename, % meta, streaming % file
   net/
     tcp/                 ; folder module `/ std/net/tcp`
       conn.echo          ; % conn (pass by ref)
@@ -364,6 +366,8 @@ constants, and co-located `test.it` cases.
 | `std/bytes` | `len`, `is_empty`, `get`, `slice`, `cat`, `from_int`, `from_str` | suite |
 | `std/reflect` | `kind`, `kind_name`, `key_bytes`, `is_*`, `KIND_*` | suite (not tools `echo_reflection`) |
 | `std/time` | `now_ms`, `sleep_ms` | suite |
+| `std/process` | `args`, `env`, `env_set`, `env_unset`, `exit`, `run` | suite; option `env`, result `run` |
+| `std/fs` | `exists`, `is_file`, `is_dir`, `join`, `read`, `write`, `remove`, `copy`, `rename`, `create_dir`, `create_dir_all`, `read_dir`, `remove_dir`, `metadata`, `open`, `create`, `append`, `meta`, `file` | suite; path string or locator; whole-file **bytes**; streaming methods on `% file` |
 | `std/test` | `it`, `eq`, `ne`, `true`, `false`, `fail` | — |
 | `std/crypto/hash` | `sip` | `sip_state`, `rotl`, `sip_round`, `byte_at`, `load_le`, paper keys |
 | `std/collections/hash_table` | `hash_table`, `make` | `entry`, `empty_buckets`, SipHash constants; field `capacity`; keys via `reflect.key_bytes` |
