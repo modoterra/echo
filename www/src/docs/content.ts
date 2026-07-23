@@ -64,6 +64,7 @@ export const docsNavigation: DocsNavGroup[] = [
       { label: "Modules and std", to: "/docs/modules" },
       { label: "Structs", to: "/docs/structs" },
       { label: "Tasks", to: "/docs/tasks" },
+      { label: "Memory", to: "/docs/memory" },
       { label: "Names and layout", to: "/docs/names" },
     ],
   },
@@ -788,7 +789,9 @@ io.print(str.from_int(a === alias))`,
           {
             kind: "paragraph",
             text: [
-              "Assignment, rebinding, and function calls always copy the binding. Named and anonymous structs and lists are references, so the copied binding shares one object. Numbers, booleans, strings, bytes, locators, durations, ranges, and function values copy their value.",
+              "Assignment, rebinding, and function calls always copy the binding. Named and anonymous structs and lists are references, so the copied binding shares one object. Numbers, booleans, strings, bytes, locators, durations, ranges, and function values copy their value. How managed values are reclaimed is separate from copy rules — see ",
+              { code: "/docs/memory" },
+              ".",
             ],
           },
         ],
@@ -1432,6 +1435,128 @@ u.label()`,
             kind: "paragraph",
             text: [
               "Every spawned task must be joined before process exit. Leaving a task handle unjoined makes the program exit unsuccessfully. Task scheduling is a language feature; userland does not import a task module.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-memory",
+    path: "/docs/memory",
+    category: "Docs",
+    title: "Memory",
+    summary:
+      "Echo does not use a tracing garbage collector. Managed values are owned by scopes and disposed when control leaves those scopes.",
+    tags: ["docs", "reference", "memory", "garbage collection", "gc", "lifetime", "scope"],
+    aliases: [
+      "garbage collection",
+      "gc",
+      "reclamation",
+      "scope-owned",
+      "lifetime",
+      "dispose",
+      "free",
+    ],
+    sections: [
+      {
+        title: "Garbage collection",
+        tags: ["gc", "tracing", "collector"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Echo does ",
+              { code: "not" },
+              " use a tracing garbage collector. There is no mark-and-sweep pause model and no concurrent heap walker as the language story. Pure reference counting is not the user-facing model either.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Reclamation is ",
+              { code: "scope-owned" },
+              ": every managed allocation has an owning lexical or dynamic scope. When control leaves that scope, values still owned by it are disposed on that edge — deterministically, not when a collector later runs.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Scope-owned dispose",
+        tags: ["scope", "release", "promotion"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Think in scopes, not in collector cycles. A block, function body, or other structured region owns the managed values created inside it. Leaving the scope — including ",
+              { code: "return" },
+              ", ",
+              { code: "break" },
+              ", and ",
+              { code: "continue" },
+              " — releases what that scope still owns.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ show = () {
+  $ xs = [1, 2, 3]
+  io.print(str.from_int(xs[0]))
+  ; when show returns, values still owned by the body are released
+}
+
+show()`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "If a value must outlive its creating scope — returned, stored into a longer-lived struct or list, and similar — ownership is ",
+              { code: "promoted" },
+              " outward first. Unpromoted owners are released when their scope ends.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Values, references, and ownership",
+        tags: ["value", "reference", "copy", "ownership"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Copy rules and dispose rules are different questions. Assignment always copies the binding: structs and lists share the object; numbers, strings, and other value kinds copy the value. See ",
+              { code: "/docs/values" },
+              " for copy behavior.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Sharing storage does not invent a second free policy. ",
+              { code: "Ownership for dispose" },
+              " stays scope-based: one owning scope is responsible for release, and promotion moves that responsibility when a value escapes.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "What this means in practice",
+        tags: ["model", "predictable", "servers"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "You reason about lifetimes with ordinary program structure. Nested blocks end; functions return; loop bodies finish an iteration. Managed heap does not wait for process exit or for a background collector under the product model.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "The reclaim vertical is still landing in the toolchain: scope registries and dispose edges are in place; precise analysis and immediate physical free continue to tighten. The language law is fixed — scope-owned dispose, not tracing GC.",
             ],
           },
         ],
@@ -3739,6 +3864,8 @@ u.visit()`,
               " — structs. ",
               { code: "/docs/tasks" },
               " — tasks. ",
+              { code: "/docs/memory" },
+              " — memory (not tracing GC). ",
               { code: "/docs/names" },
               " — names and layout.",
             ],

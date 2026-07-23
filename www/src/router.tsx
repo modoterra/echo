@@ -1032,6 +1032,7 @@ const docsChildren = [
   docsChild("modules"),
   docsChild("structs"),
   docsChild("tasks"),
+  docsChild("memory"),
   docsChild("names"),
   docsChild("std"),
   docsChild("std/io-strings"),
