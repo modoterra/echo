@@ -30,6 +30,8 @@ This is the product **memory-reclamation law**. It is **not** tracing GC and
 **not** pure RC as the user-facing model—though the runtime may use RC-like
 internals only where the MIR contract requires shared ownership.
 
+Implementer map (status, pipeline, ABI): [`../memory.md`](../memory.md).
+
 ### Layer ownership
 
 | Layer | Responsibility |

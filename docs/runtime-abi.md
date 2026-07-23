@@ -131,6 +131,8 @@ Every ABI slot is still an `i64`. The runtime **always** knows concrete kind
 
 ## Memory reclamation (law — ADR 0016)
 
+Implementer map (GC stance, layers, status): [`memory.md`](memory.md).
+
 **Product law:** every managed allocation has an owning **lexical or dynamic
 scope**. Semantics performs lifetime analysis; MIR lowers scope transitions to
 explicit **promotion**, **demotion**, and **release**. Every CFG edge that

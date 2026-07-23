@@ -49,6 +49,7 @@ Expand as the corresponding layer gains real rules. Status may be “not started
 | [`mir.md`](mir.md) | Mid-level executable IR (active) |
 | [`diagnostics.md`](diagnostics.md) | Diagnostic codes and contracts |
 | [`runtime-abi.md`](runtime-abi.md) | Runtime symbols and ABI |
+| [`memory.md`](memory.md) | Scope-owned reclamation (not tracing GC; ADR 0016) |
 | [`stdlib.md`](stdlib.md) | Standard library surface |
 | [`llvm.md`](llvm.md) | Codegen, optimization, link |
 | [`lsp.md`](lsp.md) | Language server boundary |

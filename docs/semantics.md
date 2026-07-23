@@ -485,11 +485,11 @@ Semantic lifetime analysis lowers scope transitions into MIR **promotion**,
 **demotion**, and **release**. **Every control-flow edge leaving a scope
 deterministically disposes of values still owned by that scope.**
 
-This is the reclamation model (not tracing GC). Value-vs-ref pass rules above
-are orthogonal: ref types may still share storage, but **ownership for dispose**
-is scope-based. **Impl (slice 1):** MIR injects explicit scope ops; runtime
-keeps exact ownership registries; physical free is deferred until analysis is
-precise enough for safe immediate reclaim.
+This is the reclamation model (not tracing GC). Full map: [`memory.md`](memory.md).
+Value-vs-ref pass rules above are orthogonal: ref types may still share storage,
+but **ownership for dispose** is scope-based. **Impl (slice 1):** MIR injects
+explicit scope ops; runtime keeps exact ownership registries; physical free is
+deferred until analysis is precise enough for safe immediate reclaim.
 
 #### IR taxonomy (HIR/MIR direction)
 

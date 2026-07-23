@@ -6,7 +6,7 @@ Mid-level, backend-neutral executable intermediate representation.
 |--|--|
 | **Status** | **Active** (codegen consumer; expands with execute verticals) |
 | **Owners** | `echo_mir` |
-| **Related** | `docs/hir.md`, `docs/llvm.md`, `docs/runtime-abi.md`, ADR 0002, [ADR 0016](adr/0016-scope-owned-memory.md), `docs/incremental.md`, `docs/semantics.md` § Value vs reference |
+| **Related** | `docs/hir.md`, `docs/llvm.md`, `docs/runtime-abi.md`, [`memory.md`](memory.md), ADR 0002, [ADR 0016](adr/0016-scope-owned-memory.md), `docs/incremental.md`, `docs/semantics.md` § Value vs reference |
 
 ## Value class (language pass semantics)
 

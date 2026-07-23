@@ -183,7 +183,7 @@ Lexer/parser **must** disambiguate by statement position vs expression context.
 | Import `/ path` · export `\ name` | Locked |
 | Paths `./…` and bare `std/…` | Locked (shape) |
 | Package / module model | **Locked** (ADR 0014) | Folder = module; paths + URL; optional `xo.toml`; user `$XO_HOME/packages/<id>/<ver>/` |
-| Memory reclamation | **Law locked** (ADR 0016); **slice 1 landed** | Scope registries + MIR inject (enter/exit/register/promote/disown); break/return cleanup; deferred physical free; next: precise analysis, early exits, demotion, immediate free |
+| Memory reclamation | **Law locked** (ADR 0016); **slice 1 landed** | Scope-owned dispose — not tracing GC ([`memory.md`](memory.md)). Registries + MIR inject (enter/exit/register/promote/disown); break/return cleanup; deferred physical free; next: precise analysis, early exits, demotion, immediate free |
 
 ### 2.9 Failure model (v0)
 

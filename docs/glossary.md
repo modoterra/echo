@@ -53,8 +53,9 @@ definition here over redefining the same idea in every layer doc.
 | **std** | Privileged standard-library package (`/ std/…`); toolchain/install root. |
 | **`/ runtime`** | Runtime-primitive package import; **legal only inside privileged std sources**. |
 | **Runtime primitive** | Export of the `runtime` package (e.g. `runtime.print`); codegen → `echo_runtime_*`. |
-| **Scope-owned memory** | Managed heap is owned by a lexical/dynamic scope; leave-scope edges **release** (ADR 0016). Not tracing GC. |
+| **Scope-owned memory** | Managed heap is owned by a lexical/dynamic scope; leave-scope edges **release** (ADR 0016). Not tracing GC. Map: [`memory.md`](memory.md). |
 | **Promotion / demotion / release** | MIR ops for moving ownership outward/inward and disposing at scope exit (ADR 0016). |
+| **Garbage collection** | **Not** Echo’s product reclamation model. See scope-owned memory / [`memory.md`](memory.md). |
 
 ## Project model
 
