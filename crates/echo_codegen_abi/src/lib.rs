@@ -242,3 +242,23 @@ pub const RT_PROCESS_ENV_UNSET: &str = "echo_runtime_process_env_unset";
 pub const RT_PROCESS_EXIT: &str = "echo_runtime_process_exit";
 /// `echo_runtime_process_run(program_str, args_list) -> i64` — exit code, or -1 spawn fail.
 pub const RT_PROCESS_RUN: &str = "echo_runtime_process_run";
+
+// --- Filesystem (`std/fs`) ---
+/// `fs_exists(path) -> i64` 1/0 — path is string or locator.
+pub const RT_FS_EXISTS: &str = "echo_runtime_fs_exists";
+pub const RT_FS_IS_FILE: &str = "echo_runtime_fs_is_file";
+pub const RT_FS_IS_DIR: &str = "echo_runtime_fs_is_dir";
+/// `fs_join(base, rel) -> string`
+pub const RT_FS_JOIN: &str = "echo_runtime_fs_join";
+/// `fs_read(path) -> bytes` — 0 on failure.
+pub const RT_FS_READ: &str = "echo_runtime_fs_read";
+/// `fs_write(path, data) -> i64` — 0 ok, -1 fail; data is bytes or string.
+pub const RT_FS_WRITE: &str = "echo_runtime_fs_write";
+/// `fs_remove(path) -> i64` — remove file; 0 ok, -1 fail.
+pub const RT_FS_REMOVE: &str = "echo_runtime_fs_remove";
+pub const RT_FS_CREATE_DIR: &str = "echo_runtime_fs_create_dir";
+pub const RT_FS_CREATE_DIR_ALL: &str = "echo_runtime_fs_create_dir_all";
+/// `fs_read_dir(path) -> list` of name strings; 0 on failure.
+pub const RT_FS_READ_DIR: &str = "echo_runtime_fs_read_dir";
+/// `fs_remove_dir(path) -> i64` — empty dir only; 0 ok, -1 fail.
+pub const RT_FS_REMOVE_DIR: &str = "echo_runtime_fs_remove_dir";

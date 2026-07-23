@@ -11,13 +11,15 @@ use echo_codegen_abi::{
     RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
     RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
     RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET, RT_LIST_LEN, RT_NOW_MS, RT_PRINT_I64,
-    RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
-    RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND,
-    RT_REFLECT_KIND_NAME, RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH,
-    RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT,
-    RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_SLICE, RT_STR_STARTS_WITH, RT_TCP_ACCEPT,
-    RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_FAIL,
-    RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
+    RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
+    RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_WRITE, RT_PROCESS_ARGS,
+    RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET, RT_PROCESS_ENV_UNSET,
+    RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME,
+    RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG,
+    RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET,
+    RT_STR_LEN, RT_STR_SLICE, RT_STR_STARTS_WITH, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT,
+    RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
+    RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
 };
 
 /// Stable crate identity for workspace linkage checks.
@@ -245,6 +247,50 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "process_run",
         native: RT_PROCESS_RUN,
+    },
+    RuntimeExport {
+        name: "fs_exists",
+        native: RT_FS_EXISTS,
+    },
+    RuntimeExport {
+        name: "fs_is_file",
+        native: RT_FS_IS_FILE,
+    },
+    RuntimeExport {
+        name: "fs_is_dir",
+        native: RT_FS_IS_DIR,
+    },
+    RuntimeExport {
+        name: "fs_join",
+        native: RT_FS_JOIN,
+    },
+    RuntimeExport {
+        name: "fs_read",
+        native: RT_FS_READ,
+    },
+    RuntimeExport {
+        name: "fs_write",
+        native: RT_FS_WRITE,
+    },
+    RuntimeExport {
+        name: "fs_remove",
+        native: RT_FS_REMOVE,
+    },
+    RuntimeExport {
+        name: "fs_create_dir",
+        native: RT_FS_CREATE_DIR,
+    },
+    RuntimeExport {
+        name: "fs_create_dir_all",
+        native: RT_FS_CREATE_DIR_ALL,
+    },
+    RuntimeExport {
+        name: "fs_read_dir",
+        native: RT_FS_READ_DIR,
+    },
+    RuntimeExport {
+        name: "fs_remove_dir",
+        native: RT_FS_REMOVE_DIR,
     },
 ];
 

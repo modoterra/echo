@@ -14,6 +14,7 @@ cargo build -p xo
 |------|--------|------|
 | [`hello.echo`](hello.echo) | `42` | 0 |
 | [`process.echo`](process.echo) | argv0, env, spawn-fail | 0 |
+| [`fs.echo`](fs.echo) | write/read file + dirs under `/tmp` | 0 |
 | [`add.echo`](add.echo) | `42` | 0 |
 | [`countdown.echo`](countdown.echo) | `1` … `5` | 0 |
 | [`break_loop.echo`](break_loop.echo) | `0` `1` `2` then `3` | 0 |

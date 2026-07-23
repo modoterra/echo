@@ -94,6 +94,17 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_process_env_unset` | `void (name)` | remove env var |
 | `echo_runtime_process_exit` | `void (code)` | terminate process |
 | `echo_runtime_process_run` | `int64_t (program, args_list)` | spawn+wait; exit code or `-1` spawn fail |
+| `echo_runtime_fs_exists` | `int64_t (path)` | 1/0; path string or locator |
+| `echo_runtime_fs_is_file` | `int64_t (path)` | 1/0 |
+| `echo_runtime_fs_is_dir` | `int64_t (path)` | 1/0 |
+| `echo_runtime_fs_join` | `int64_t (base, rel)` | joined path string |
+| `echo_runtime_fs_read` | `int64_t (path)` | bytes handle, or `0` fail |
+| `echo_runtime_fs_write` | `int64_t (path, data)` | 0 ok, `-1` fail; data bytes or string |
+| `echo_runtime_fs_remove` | `int64_t (path)` | remove file; 0 ok, `-1` fail |
+| `echo_runtime_fs_create_dir` | `int64_t (path)` | 0 ok, `-1` fail |
+| `echo_runtime_fs_create_dir_all` | `int64_t (path)` | 0 ok, `-1` fail |
+| `echo_runtime_fs_read_dir` | `int64_t (path)` | list of name strings, or `0` fail |
+| `echo_runtime_fs_remove_dir` | `int64_t (path)` | empty dir; 0 ok, `-1` fail |
 | `echo_runtime_str_slice` | `int64_t (s, start, end)` | UTF-8 byte range `[start,end)`; empty if invalid |
 | `echo_runtime_str_get` | `int64_t (s, index)` | UTF-8 byte 0..255, or -1 if OOB |
 | `echo_runtime_str_contains` | `int64_t (hay, needle)` | 1/0 substring |

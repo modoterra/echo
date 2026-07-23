@@ -1,0 +1,56 @@
+; Filesystem: paths, write/read, dirs.
+; Run: xo run examples/misc/fs.echo
+
+/ std/io
+/ std/str
+/ std/bytes
+/ std/fs
+
+$ root = fs.join("/tmp", "echo_fs_example")
+| fs.create_dir_all(root) {
+    $ ok {
+        io.print("dir ok")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+
+$ path = fs.join(root, "note.txt")
+| fs.write(path, "hello fs") {
+    $ ok {
+        io.print("write ok")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+
+| fs.read(path) {
+    $ b {
+        io.print(str.from_bytes(b))
+    }
+    ! e {
+        io.print(e)
+    }
+}
+
+io.print(str.from_int(fs.is_file(path)))
+io.print(str.from_int(fs.is_dir(root)))
+
+| fs.remove(path) {
+    $ ok {
+        io.print("rm file")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.remove_dir(root) {
+    $ ok {
+        io.print("rm dir")
+    }
+    ! e {
+        io.print(e)
+    }
+}

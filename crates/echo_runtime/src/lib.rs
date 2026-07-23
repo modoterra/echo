@@ -52,6 +52,7 @@ pub(crate) fn heap_to_handle<T>(b: Box<T>) -> i64 {
     h
 }
 
+mod fs;
 mod net;
 mod poll;
 mod process;
@@ -93,6 +94,14 @@ pub use process::{
     echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
     echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
     echo_runtime_process_run,
+};
+
+// Filesystem — JIT mapping.
+pub use fs::{
+    echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all, echo_runtime_fs_exists,
+    echo_runtime_fs_is_dir, echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_read,
+    echo_runtime_fs_read_dir, echo_runtime_fs_remove, echo_runtime_fs_remove_dir,
+    echo_runtime_fs_write,
 };
 
 /// Stable crate identity for workspace linkage checks.
@@ -916,7 +925,7 @@ fn locator_to_handle(data: String) -> i64 {
     heap_to_handle(loc)
 }
 
-fn locator_data(v: i64) -> Option<String> {
+pub(crate) fn locator_data(v: i64) -> Option<String> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_LOCATOR {
         return None;

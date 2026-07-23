@@ -37,6 +37,8 @@ use echo_codegen_abi::{
     RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS,
     RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
     RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN,
+    RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
+    RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_WRITE,
 };
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_mir::{
@@ -201,6 +203,18 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_PROCESS_ENV_UNSET, sleep_ms_ty, None);
     module.add_function(RT_PROCESS_EXIT, sleep_ms_ty, None);
     module.add_function(RT_PROCESS_RUN, list_get_ty, None);
+    // filesystem
+    module.add_function(RT_FS_EXISTS, list_len_ty, None);
+    module.add_function(RT_FS_IS_FILE, list_len_ty, None);
+    module.add_function(RT_FS_IS_DIR, list_len_ty, None);
+    module.add_function(RT_FS_JOIN, list_get_ty, None);
+    module.add_function(RT_FS_READ, list_len_ty, None);
+    module.add_function(RT_FS_WRITE, list_get_ty, None);
+    module.add_function(RT_FS_REMOVE, list_len_ty, None);
+    module.add_function(RT_FS_CREATE_DIR, list_len_ty, None);
+    module.add_function(RT_FS_CREATE_DIR_ALL, list_len_ty, None);
+    module.add_function(RT_FS_READ_DIR, list_len_ty, None);
+    module.add_function(RT_FS_REMOVE_DIR, list_len_ty, None);
     let http_parse_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_HTTP_PARSE_REQUEST, http_parse_ty, None);
     module.add_function(RT_HTTP_HEADERS_COMPLETE, http_parse_ty, None);
@@ -846,6 +860,72 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_FS_EXISTS,
+        echo_runtime_fs_exists as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_IS_FILE,
+        echo_runtime_fs_is_file as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_IS_DIR,
+        echo_runtime_fs_is_dir as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_JOIN,
+        echo_runtime_fs_join as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_READ,
+        echo_runtime_fs_read as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_WRITE,
+        echo_runtime_fs_write as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_REMOVE,
+        echo_runtime_fs_remove as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_CREATE_DIR,
+        echo_runtime_fs_create_dir as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_CREATE_DIR_ALL,
+        echo_runtime_fs_create_dir_all as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_READ_DIR,
+        echo_runtime_fs_read_dir as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_REMOVE_DIR,
+        echo_runtime_fs_remove_dir as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_HTTP_PARSE_REQUEST,
         echo_runtime_http_parse_request as unsafe extern "C" fn(i64) -> i64 as usize,
     )?;
@@ -1073,6 +1153,10 @@ use echo_runtime::{
     echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
     echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
     echo_runtime_process_run,
+    echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all, echo_runtime_fs_exists,
+    echo_runtime_fs_is_dir, echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_read,
+    echo_runtime_fs_read_dir, echo_runtime_fs_remove, echo_runtime_fs_remove_dir,
+    echo_runtime_fs_write,
     echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
     echo_runtime_udp_send_to,
 };
@@ -2912,6 +2996,15 @@ fn emit_call<'ctx>(
                 || native == RT_UDP_BIND
                 || native == RT_PROCESS_ENV_HAS
                 || native == RT_PROCESS_ENV_GET
+                || native == RT_FS_EXISTS
+                || native == RT_FS_IS_FILE
+                || native == RT_FS_IS_DIR
+                || native == RT_FS_READ
+                || native == RT_FS_REMOVE
+                || native == RT_FS_CREATE_DIR
+                || native == RT_FS_CREATE_DIR_ALL
+                || native == RT_FS_READ_DIR
+                || native == RT_FS_REMOVE_DIR
             {
                 1
             } else if native == RT_TCP_READ
@@ -2926,6 +3019,8 @@ fn emit_call<'ctx>(
                 || native == RT_BYTES_CAT
                 || native == RT_LIST_GET
                 || native == RT_PROCESS_RUN
+                || native == RT_FS_JOIN
+                || native == RT_FS_WRITE
             {
                 2
             } else if native == RT_UDP_SEND_TO

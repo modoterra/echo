@@ -1,0 +1,209 @@
+; std/fs — paths, files, directories.
+; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
+;
+; Path args accept **string** or **locator** (`p'…'`).
+; File bodies are **bytes** (`read`); `write` also accepts a string (UTF-8).
+;
+; Public API:
+;   exists, is_file, is_dir, join
+;   read (result bytes), write, remove
+;   create_dir, create_dir_all, read_dir (result list of names), remove_dir
+;
+; Suite: xo test std/fs.echo (XO_TEST).
+
+/ runtime
+/ std/test
+/ std/list
+/ std/bytes
+/ std/str
+
+$ exists = (path) {
+    ^ runtime.fs_exists(path) == 1
+}
+
+$ is_file = (path) {
+    ^ runtime.fs_is_file(path) == 1
+}
+
+$ is_dir = (path) {
+    ^ runtime.fs_is_dir(path) == 1
+}
+
+$ join = (base, rel) {
+    ^ runtime.fs_join(base, rel)
+}
+
+; Result-shaped: ^ bytes, or ! "read failed"
+$ read = (path) {
+    $ b = runtime.fs_read(path)
+    ? b == 0 {
+        ! "read failed"
+    }
+    ^ b
+}
+
+; Result-shaped: ^ on ok, ! "write failed"
+$ write = (path, data) {
+    $ st = runtime.fs_write(path, data)
+    ? st < 0 {
+        ! "write failed"
+    }
+    ^
+}
+
+; Result-shaped: ^ on ok, ! "remove failed"
+$ remove = (path) {
+    $ st = runtime.fs_remove(path)
+    ? st < 0 {
+        ! "remove failed"
+    }
+    ^
+}
+
+$ create_dir = (path) {
+    $ st = runtime.fs_create_dir(path)
+    ? st < 0 {
+        ! "create_dir failed"
+    }
+    ^
+}
+
+$ create_dir_all = (path) {
+    $ st = runtime.fs_create_dir_all(path)
+    ? st < 0 {
+        ! "create_dir_all failed"
+    }
+    ^
+}
+
+; Result-shaped: ^ list of entry name strings, or ! "read_dir failed"
+$ read_dir = (path) {
+    $ names = runtime.fs_read_dir(path)
+    ? names == 0 {
+        ! "read_dir failed"
+    }
+    ^ names
+}
+
+; Empty directory only.
+$ remove_dir = (path) {
+    $ st = runtime.fs_remove_dir(path)
+    ? st < 0 {
+        ! "remove_dir failed"
+    }
+    ^
+}
+
+; --- suite ---
+
+test.it("join", () {
+    $ p = join("/tmp", "echo_fs_suite")
+    test.true(str.contains(p, "echo_fs_suite"))
+})
+
+test.it("file_roundtrip", () {
+    $ root = join("/tmp", "echo_fs_suite_file")
+    | create_dir_all(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    $ path = join(root, "a.txt")
+    | write(path, "hello") {
+        $ ok {
+            test.true(exists(path))
+            test.true(is_file(path))
+            test.false(is_dir(path))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | read(path) {
+        $ b {
+            test.eq(bytes.len(b), 5)
+            test.eq(str.from_bytes(b), "hello")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove(path) {
+        $ ok {
+            test.false(exists(path))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove_dir(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            ; may fail if not empty / race — soft
+            test.eq(1, 1)
+        }
+    }
+})
+
+test.it("dir_list", () {
+    $ root = join("/tmp", "echo_fs_suite_dir")
+    | create_dir_all(root) {
+        $ ok {
+            test.true(is_dir(root))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    $ child = join(root, "kid")
+    | create_dir(child) {
+        $ ok {
+            test.true(is_dir(child))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | read_dir(root) {
+        $ names {
+            test.true(list.len(names) >= 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove_dir(child) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove_dir(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.eq(1, 1)
+        }
+    }
+})
+
+test.it("read_missing", () {
+    | read("/__echo_fs_missing_xyz__") {
+        $ b {
+            test.fail("expected missing")
+        }
+        ! e {
+            test.eq(e, "read failed")
+        }
+    }
+})
+
+\ exists, is_file, is_dir, join, read, write, remove, create_dir, create_dir_all, read_dir, remove_dir

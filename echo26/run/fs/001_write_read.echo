@@ -1,0 +1,48 @@
+; Write and read a temp file via std/fs.
+/ std/io
+/ std/str
+/ std/bytes
+/ std/fs
+
+$ root = fs.join("/tmp", "echo26_fs_001")
+| fs.create_dir_all(root) {
+    $ ok {
+        io.print("dir")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+$ path = fs.join(root, "t.txt")
+| fs.write(path, "ok") {
+    $ ok {
+        io.print("write")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.read(path) {
+    $ b {
+        io.print(str.from_bytes(b))
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.remove(path) {
+    $ ok {
+        io.print("rm")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.remove_dir(root) {
+    $ ok {
+        io.print("rmdir")
+    }
+    ! e {
+        io.print("rmdir-soft")
+    }
+}
