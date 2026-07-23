@@ -519,6 +519,65 @@ $ main = () {
     }
 
     #[test]
+    fn list_len_helper_does_not_poison_caller_element_kind() {
+        // Structural list use (for-in only) must not rewrite the caller's note
+        // on `xs` to list(value) — later numeric ordering must still type-check.
+        let c = codes(
+            "\
+$ count = (xs) {
+    ~ n = 0
+    * item : xs {
+        ~ n = n + 1
+    }
+    ^ n
+}
+$ bubble = (xs) {
+    $ n = count(xs)
+    ~ j = 0
+    * j < n - 1 {
+        ? xs[j] > xs[j + 1] {
+            ^ 1
+        }
+        ~ j = j + 1
+    }
+    ^ 0
+}
+$ main = () {
+    ^ bubble([3, 1, 2])
+}
+",
+        );
+        assert!(
+            !c.iter().any(|x| *x == "sem-type-mismatch"),
+            "count(xs) must not poison xs element kind for later >, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn dynamic_value_still_rejects_ordering() {
+        // Real `value` payloads still cannot use >.
+        let c = codes(
+            "\
+$ id = (x) {
+    ^ x
+}
+$ main = () {
+    $ a = id(1)
+    $ b = id(2)
+    ? a > b {
+        ^ 1
+    }
+    ^ 0
+}
+",
+        );
+        assert!(
+            c.iter().any(|x| *x == "sem-type-mismatch"),
+            "expected value > value to fail, got {c:?}"
+        );
+    }
+
+    #[test]
     fn value_key_field_allows_mixed_puts() {
         // Collection-shaped: free key field + eq-only method params → value.
         let c = codes(

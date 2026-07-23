@@ -567,9 +567,15 @@ fn infer_fn_type(
     // Free **params** only: unconstrained after body (eq / store / passthrough)
     // become `value` so call sites stay polymorphic. Do **not** pin return vars
     // blindly — that poisoned `^ .` methods before receiver was Named.
+    //
+    // **Containers:** unconstrained list/option element free vars pin to
+    // `unknown`, not `value`. Pinning them to `value` rewrote the caller's note
+    // on the same variable after structural uses like `count(xs)` (for-in only),
+    // so later `xs[i] > xs[j]` failed. A call must not change how we treat the
+    // argument's values outside the callee.
     let params_applied: Vec<Type> = param_tys.iter().map(|p| env.apply(p)).collect();
     for p in &params_applied {
-        pin_free_vars_to_value(env, p);
+        pin_free_param_vars(env, p);
     }
     // If ret is the same free var as a param (e.g. `id = (x) { ^ x }`), pinning
     // the param already fixed it. Re-apply params + ret for the function type.
@@ -579,7 +585,6 @@ fn infer_fn_type(
     )
 }
 
-/// Pin free type variables in `t` to [`Type::Value`] (in-place via subst).
 /// Inside `&` effect blocks, result/option call results are payloads.
 fn effect_unwrap_ret(env: &Env, t: Type) -> Type {
     if env.effect_depth == 0 {
@@ -592,30 +597,40 @@ fn effect_unwrap_ret(env: &Env, t: Type) -> Type {
     }
 }
 
-fn pin_free_vars_to_value(env: &mut Env, t: &Type) {
+/// Pin free type variables in a **parameter** type after body inference.
+///
+/// - Bare free params → [`Type::Value`] (opaque polymorphic payload).
+/// - Free vars under list/option → [`Type::Unknown`] (structural “any element”;
+///   must not freeze the caller's element kind to `value`).
+fn pin_free_param_vars(env: &mut Env, t: &Type) {
     match env.apply(t) {
         Type::Var(v) => {
             env.subst.insert(v, Type::Value);
         }
-        Type::List(e) | Type::Option(e) => pin_free_vars_to_value(env, &e),
+        Type::List(e) | Type::Option(e) => match env.apply(&e) {
+            Type::Var(v) => {
+                env.subst.insert(v, Type::Unknown);
+            }
+            other => pin_free_param_vars(env, &other),
+        },
         Type::Result { ok, err } => {
-            pin_free_vars_to_value(env, &ok);
-            pin_free_vars_to_value(env, &err);
+            pin_free_param_vars(env, &ok);
+            pin_free_param_vars(env, &err);
         }
         Type::Fn { params, ret } => {
             for p in params {
-                pin_free_vars_to_value(env, &p);
+                pin_free_param_vars(env, &p);
             }
-            pin_free_vars_to_value(env, &ret);
+            pin_free_param_vars(env, &ret);
         }
         Type::Anon(fields) => {
             for (_, ty) in fields {
-                pin_free_vars_to_value(env, &ty);
+                pin_free_param_vars(env, &ty);
             }
         }
         Type::Union(xs) => {
             for x in xs {
-                pin_free_vars_to_value(env, &x);
+                pin_free_param_vars(env, &x);
             }
         }
         _ => {}

@@ -39,9 +39,15 @@ body, free param vars are **pinned to `value`**. Fields that shared those vars
 (e.g. `entry.key`) become `value` too. Bare fields like `map.table` are **not**
 auto-pinned (they often become a named struct).
 
+**List / option element free vars** (structural “I only walk the container”) pin
+to **`unknown`**, not `value`. Pinning them to `value` rewrote the **caller’s**
+note on the same variable after `count(xs)` / similar helpers, so later
+`xs[i] > xs[j]` failed. **A call must not change how we treat the argument’s
+values outside the callee** — only check the argument and type the result.
+
 | Allowed on `value` | Rejected on `value` |
 |--------------------|---------------------|
-| Deep `==` / `!=` | Arithmetic / bit ops |
+| Deep `==` / `!=` | Arithmetic / bit ops / ordering (`>`, `<`, …) |
 | Mixed call sites (`put(1)` and `put("a")`) | Field / method access (need a concrete / named kind) |
 | `std/reflect` inputs; map/set keys | — |
 
