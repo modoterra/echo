@@ -114,6 +114,9 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
         MirStmt::Set { name, value } => rewrite_set(name, value, ctx),
         MirStmt::FieldSet { base, field, value } => {
             let mut v = Vec::new();
+            // Container store: value may share the heap handle with the base —
+            // clear unique ownership before any demote can free it early.
+            note_store_escape(base, value, ctx);
             maybe_promote_store(&mut v, base, value, ctx);
             v.push(MirStmt::FieldSet {
                 base: base.clone(),
@@ -124,6 +127,7 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
         }
         MirStmt::ListPush { base, value } => {
             let mut v = Vec::new();
+            note_store_escape(base, value, ctx);
             maybe_promote_store(&mut v, base, value, ctx);
             v.push(MirStmt::ListPush {
                 base: base.clone(),
@@ -137,6 +141,7 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
             value,
         } => {
             let mut v = Vec::new();
+            note_store_escape(base, value, ctx);
             maybe_promote_store(&mut v, base, value, ctx);
             v.push(MirStmt::IndexSet {
                 base: base.clone(),
@@ -321,6 +326,40 @@ fn maybe_promote_store(v: &mut Vec<MirStmt>, base: &MirExpr, value: &MirExpr, ct
             value: value.clone(),
             target,
         });
+    }
+}
+
+/// Storing a managed value into a container shares (or nests) the handle.
+/// The stored name is no longer a unique fresh owner — demoting it would free
+/// the handle while the container still retains it (UAF under immediate free).
+fn note_store_escape(base: &MirExpr, value: &MirExpr, ctx: &mut Ctx) {
+    if !expr_is_managed(value) {
+        return;
+    }
+    match value {
+        MirExpr::Name(n) => {
+            ctx.note_not_unique(n);
+            // May-alias the container bind when base is a name (list/struct field).
+            if let MirExpr::Name(b) = base {
+                ctx.alias_union(n, b);
+            } else if let Some(b) = base_name(base) {
+                ctx.alias_union(n, b);
+            } else {
+                // Unknown base shape — still not unique.
+                ctx.note_not_unique(n);
+            }
+        }
+        _ => {
+            // Fresh lit stored into container: no named unique owner to demote.
+        }
+    }
+}
+
+fn base_name(e: &MirExpr) -> Option<&str> {
+    match e {
+        MirExpr::Name(n) => Some(n.as_str()),
+        MirExpr::FieldGet { base, .. } | MirExpr::Index { base, .. } => base_name(base),
+        _ => None,
     }
 }
 
@@ -921,6 +960,83 @@ mod tests {
                 .iter()
                 .any(|(n, t)| (n == "a" || n == "b") && *t != ROOT_SCOPE),
             "must not demote aliased a/b when a used after: {promotes:?}\n{out:?}"
+        );
+    }
+
+    #[test]
+    fn no_demote_after_list_push_into_holder() {
+        // holder=[]; xs=[7]; ListPush(holder, xs); if { use xs }; return holder
+        // Demoting xs would free the element while holder still holds it.
+        let body = vec![
+            MirStmt::Set {
+                name: "holder".into(),
+                value: MirExpr::ListLit(vec![]),
+            },
+            MirStmt::Set {
+                name: "xs".into(),
+                value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+            },
+            MirStmt::ListPush {
+                base: MirExpr::Name("holder".into()),
+                value: MirExpr::Name("xs".into()),
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::ConstI64(1),
+                    vec![MirStmt::Eval(MirExpr::Name("xs".into()))],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+        ];
+        let out = inject_lifetime(body);
+        let mut promotes = Vec::new();
+        walk_promotes(&out, &mut promotes);
+        assert!(
+            !promotes
+                .iter()
+                .any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
+            "must not demote xs after ListPush into holder: {promotes:?}\n{out:?}"
+        );
+    }
+
+    #[test]
+    fn no_demote_after_field_set_escape() {
+        // s = struct; xs = []; FieldSet(s, f, xs); if { use xs }; return s
+        let body = vec![
+            MirStmt::Set {
+                name: "s".into(),
+                value: MirExpr::StructLit {
+                    type_name: String::new(),
+                    fields: vec![],
+                },
+            },
+            MirStmt::Set {
+                name: "xs".into(),
+                value: MirExpr::ListLit(vec![]),
+            },
+            MirStmt::FieldSet {
+                base: MirExpr::Name("s".into()),
+                field: "f".into(),
+                value: MirExpr::Name("xs".into()),
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::ConstI64(1),
+                    vec![MirStmt::Eval(MirExpr::Name("xs".into()))],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::Name("s".into())),
+        ];
+        let out = inject_lifetime(body);
+        let mut promotes = Vec::new();
+        walk_promotes(&out, &mut promotes);
+        assert!(
+            !promotes
+                .iter()
+                .any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
+            "must not demote xs after FieldSet into s: {promotes:?}\n{out:?}"
         );
     }
 

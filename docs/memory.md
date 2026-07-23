@@ -133,7 +133,7 @@ Product model remains **scope-owned dispose** — still **not** tracing GC.
 | **2a Precise promote** | `inject_lifetime` tracks bind introduction scopes; reassign / field / list / index stores promote to the **destination bind's owner**, not always root |
 | **2b Leave-scope exits** | return ok/err/none, break/continue, if/match/loop arm enter+exit; effect short-circuit via MatchTagged arms |
 | **2c Ownership facts v0** | `BindFact.owning_scope` + `introduce_in_scope` / `owning_scope_of` / `is_managed_kind`; pipeline `collect_stmt_facts` walks nested scopes |
-| **2d Demotion** | Inward `ScopePromote` only for **unique fresh** owners unused after (alias-safe); once-entered scopes + whole-loop wraps — never demote aliases (`~ b = a`) |
+| **2d Demotion** | Inward `ScopePromote` only for **unique fresh** owners unused after (alias-safe); once-entered scopes + whole-loop wraps — never demote aliases (`~ b = a`) or values stored into containers (`ListPush` / field / index set) |
 | **2e Immediate free** | `logical_release` physically frees unless `defer_heavy`; `RUNTIME_ABI_VERSION` bumped |
 | **2f Proof** | MIR lifetime unit tests; runtime scope free/promote tests; e26 `run/lifetime/001`–`007`; pipeline ownership fact test |
 
