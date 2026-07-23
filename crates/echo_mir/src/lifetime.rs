@@ -383,12 +383,31 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
                 target,
             });
         }
+        // Nested Names stored into this value must be owned at dest's bind scope
+        // (same as ListPush): otherwise a prior demote into this region + exit
+        // frees them while dest (promoted outward) still holds the handles.
+        for n in &embedded {
+            if *n != name {
+                v.push(MirStmt::ScopePromote {
+                    value: MirExpr::Name((*n).to_string()),
+                    target,
+                });
+            }
+        }
     } else if managed && target != current {
         // Reassign outer bind from nested scope: ownership moves to bind owner.
         v.push(MirStmt::ScopePromote {
             value: MirExpr::Name(name.to_string()),
             target,
         });
+        for n in &embedded {
+            if *n != name {
+                v.push(MirStmt::ScopePromote {
+                    value: MirExpr::Name((*n).to_string()),
+                    target,
+                });
+            }
+        }
     }
     v
 }
@@ -439,6 +458,8 @@ fn rewrite_once_block(
     let mut b = Vec::new();
     b.push(MirStmt::ScopeEnter { id: sid });
     if demote {
+        // Escapes *inside* the body must clear unique_fresh before demote chooses.
+        prescan_body_escapes(body, ctx);
         b.extend(demote_into_scope(sid, body, after, ctx));
     }
     b.extend(rewrite_seq(body, ctx));
@@ -462,6 +483,8 @@ fn rewrite_loop_with_demote_wrap(
 
     let mut out = Vec::new();
     out.push(MirStmt::ScopeEnter { id: wrap });
+    // Body may store parent-owned names into outer containers — scan first.
+    prescan_body_escapes(body, ctx);
     out.extend(demote_into_scope(wrap, body, after, ctx));
 
     // Per-iteration body scope (re-entered); tracks break/continue exits.
@@ -486,6 +509,52 @@ fn rewrite_loop_with_demote_wrap(
     out.push(MirStmt::ScopeExit { id: wrap });
     ctx.open.pop();
     out
+}
+
+/// Dry-run escape transfer for a statement list (and nested control) so demotion
+/// sees in-body stores/nests before choosing candidates. Idempotent with the
+/// real rewrite that follows.
+fn prescan_body_escapes(stmts: &[MirStmt], ctx: &mut Ctx) {
+    for s in stmts {
+        match s {
+            MirStmt::Set { name, value } => {
+                let embedded = managed_names_in_expr(value);
+                if let MirExpr::Name(other) = value {
+                    ctx.note_not_unique(name);
+                    ctx.alias_union(name, other);
+                } else if expr_is_fresh_alloc(value) {
+                    // Dest may be outer bind; nested Names escape into it.
+                    note_may_share_handles(ctx, &embedded, Some(name.as_str()));
+                } else if expr_is_managed(value) {
+                    ctx.note_not_unique(name);
+                    note_may_share_handles(ctx, &embedded, Some(name.as_str()));
+                }
+            }
+            MirStmt::FieldSet { base, value, .. }
+            | MirStmt::ListPush { base, value }
+            | MirStmt::IndexSet { base, value, .. } => {
+                note_store_escape(base, value, ctx);
+            }
+            MirStmt::If { arms, else_body } => {
+                for (_, b) in arms {
+                    prescan_body_escapes(b, ctx);
+                }
+                if let Some(b) = else_body {
+                    prescan_body_escapes(b, ctx);
+                }
+            }
+            MirStmt::Loop { body, .. } | MirStmt::ForIn { body, .. } => {
+                prescan_body_escapes(body, ctx);
+            }
+            MirStmt::MatchTagged {
+                ok_body, err_body, ..
+            } => {
+                prescan_body_escapes(ok_body, ctx);
+                prescan_body_escapes(err_body, ctx);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Promote target when storing into a container: the container bind's owning scope.
@@ -1071,6 +1140,199 @@ mod tests {
         let names = managed_names_in_expr(&e);
         assert!(names.contains(&"a"));
         assert!(names.contains(&"b"));
+    }
+
+    #[test]
+    fn no_demote_when_body_nests_into_outer_holder() {
+        // xs unique at root; if body does holder = [xs]; holder used after.
+        // Pre-scan must see the in-body nest and refuse demote of xs (else
+        // demote→if + exit frees xs while holder at root still holds it).
+        let body = vec![
+            MirStmt::Set {
+                name: "xs".into(),
+                value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+            },
+            MirStmt::Set {
+                name: "holder".into(),
+                value: MirExpr::ListLit(vec![]),
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::ConstI64(1),
+                    vec![MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::Name("xs".into())]),
+                    }],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+        ];
+        let out = inject_lifetime(body);
+        assert!(
+            !has_inward_demote(&out, "xs"),
+            "in-body ListLit nest into outer holder must refuse demote of xs\n{out:?}"
+        );
+        // Belt: inject must promote xs toward holder/root on the nest assign path.
+        let mut promotes = Vec::new();
+        walk_promotes(&out, &mut promotes);
+        assert!(
+            promotes
+                .iter()
+                .any(|(n, t)| n == "xs" && *t == ROOT_SCOPE),
+            "nest assign must ScopePromote xs to holder owner (root): {promotes:?}"
+        );
+    }
+
+    #[test]
+    fn no_demote_when_body_list_push_into_outer_holder() {
+        let body = vec![
+            MirStmt::Set {
+                name: "xs".into(),
+                value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+            },
+            MirStmt::Set {
+                name: "holder".into(),
+                value: MirExpr::ListLit(vec![]),
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::ConstI64(1),
+                    vec![MirStmt::ListPush {
+                        base: MirExpr::Name("holder".into()),
+                        value: MirExpr::Name("xs".into()),
+                    }],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+        ];
+        let out = inject_lifetime(body);
+        assert!(
+            !has_inward_demote(&out, "xs"),
+            "in-body ListPush into outer holder must refuse demote of xs\n{out:?}"
+        );
+    }
+
+    #[test]
+    fn escape_surface_includes_in_body_nest_shapes() {
+        // Table extension: nest/store happens *inside* demote region.
+        let cases: Vec<(&str, Vec<MirStmt>)> = vec![
+            (
+                "in_body_listlit_nest",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![]),
+                    },
+                    MirStmt::If {
+                        arms: vec![(
+                            MirExpr::ConstI64(1),
+                            vec![MirStmt::Set {
+                                name: "holder".into(),
+                                value: MirExpr::ListLit(vec![MirExpr::Name("xs".into())]),
+                            }],
+                        )],
+                        else_body: None,
+                    },
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                ],
+            ),
+            (
+                "in_body_structlit_nest",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::StructLit {
+                            type_name: String::new(),
+                            fields: vec![],
+                        },
+                    },
+                    MirStmt::If {
+                        arms: vec![(
+                            MirExpr::ConstI64(1),
+                            vec![MirStmt::Set {
+                                name: "holder".into(),
+                                value: MirExpr::StructLit {
+                                    type_name: String::new(),
+                                    fields: vec![("f".into(), MirExpr::Name("xs".into()))],
+                                },
+                            }],
+                        )],
+                        else_body: None,
+                    },
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                ],
+            ),
+            (
+                "in_body_field_set",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::StructLit {
+                            type_name: String::new(),
+                            fields: vec![],
+                        },
+                    },
+                    MirStmt::If {
+                        arms: vec![(
+                            MirExpr::ConstI64(1),
+                            vec![MirStmt::FieldSet {
+                                base: MirExpr::Name("holder".into()),
+                                field: "f".into(),
+                                value: MirExpr::Name("xs".into()),
+                            }],
+                        )],
+                        else_body: None,
+                    },
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                ],
+            ),
+            (
+                "in_body_index_set",
+                vec![
+                    MirStmt::Set {
+                        name: "xs".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(9)]),
+                    },
+                    MirStmt::Set {
+                        name: "holder".into(),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(0)]),
+                    },
+                    MirStmt::If {
+                        arms: vec![(
+                            MirExpr::ConstI64(1),
+                            vec![MirStmt::IndexSet {
+                                base: MirExpr::Name("holder".into()),
+                                index: MirExpr::ConstI64(0),
+                                value: MirExpr::Name("xs".into()),
+                            }],
+                        )],
+                        else_body: None,
+                    },
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                ],
+            ),
+        ];
+        for (label, body) in cases {
+            let out = inject_lifetime(body);
+            assert!(
+                !has_inward_demote(&out, "xs"),
+                "in-body escape {label}: must not demote xs\n{out:?}"
+            );
+        }
     }
 
     #[test]
