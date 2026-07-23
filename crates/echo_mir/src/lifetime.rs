@@ -4,9 +4,13 @@
 //! / `ScopeDisown` into structured MIR.
 //!
 //! **Slice 2:** promote to the **true owning ancestor** of the destination bind
-//! (not always function root); demote into loop bodies when a parent-owned name
-//! is only used there (inward `ScopePromote`); leave-scope exits on
+//! (not always function root); demote only when analysis proves unique ownership
+//! and a nested/shorter life (inward `ScopePromote`); leave-scope exits on
 //! return/break/continue and match/if/loop arms.
+//!
+//! **Alias safety:** demotion is refused when a name may share a heap handle with
+//! another live name (e.g. `~ b = a`). Name-use-only demotion under immediate free
+//! is use-after-free.
 
 use std::collections::{HashMap, HashSet};
 
@@ -21,11 +25,60 @@ struct Ctx {
     next_id: u32,
     /// Bind name → scope that **owns** the binding (introduction scope).
     bind_scope: HashMap<String, u32>,
+    /// Names that still hold a **unique** fresh allocation (never aliased).
+    /// Demotion is only legal for these — AC1 "proves shorter life".
+    unique_fresh: HashSet<String>,
+    /// Union-find parent for may-alias names (same handle).
+    alias_parent: HashMap<String, String>,
 }
 
 impl Ctx {
     fn current(&self) -> u32 {
         *self.open.last().unwrap_or(&ROOT_SCOPE)
+    }
+
+    fn alias_find(&mut self, name: &str) -> String {
+        let p = self
+            .alias_parent
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| name.to_string());
+        if p == name {
+            return p;
+        }
+        let root = self.alias_find(&p);
+        self.alias_parent.insert(name.to_string(), root.clone());
+        root
+    }
+
+    fn alias_union(&mut self, a: &str, b: &str) {
+        let ra = self.alias_find(a);
+        let rb = self.alias_find(b);
+        if ra != rb {
+            self.alias_parent.insert(ra, rb.clone());
+        }
+        // Shared handle ⇒ neither is a unique fresh owner.
+        self.unique_fresh.remove(a);
+        self.unique_fresh.remove(b);
+        let root = self.alias_find(a);
+        // Clear unique on entire class (scan known names).
+        let keys: Vec<String> = self.alias_parent.keys().cloned().collect();
+        for k in keys {
+            if self.alias_find(&k) == root {
+                self.unique_fresh.remove(&k);
+            }
+        }
+        self.unique_fresh.remove(&root);
+    }
+
+    fn note_unique_fresh(&mut self, name: &str) {
+        // Rebind to a fresh alloc: sole owner of a new object.
+        self.unique_fresh.insert(name.to_string());
+        self.alias_parent.insert(name.to_string(), name.to_string());
+    }
+
+    fn note_not_unique(&mut self, name: &str) {
+        self.unique_fresh.remove(name);
     }
 }
 
@@ -37,6 +90,8 @@ pub fn inject_lifetime(body: Vec<MirStmt>) -> Vec<MirStmt> {
         loop_scopes: Vec::new(),
         next_id: 1,
         bind_scope: HashMap::new(),
+        unique_fresh: HashSet::new(),
+        alias_parent: HashMap::new(),
     };
     let mut out = Vec::with_capacity(body.len() + 4);
     out.push(MirStmt::ScopeEnter { id: ROOT_SCOPE });
@@ -203,6 +258,19 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
     let fresh = expr_is_fresh_alloc(value);
     let managed = expr_is_managed(value);
 
+    // Alias / unique-owner tracking for demotion soundness.
+    if fresh {
+        ctx.note_unique_fresh(name);
+    } else if let MirExpr::Name(other) = value {
+        ctx.alias_union(name, other);
+    } else if managed {
+        // Field/index/call/etc. — may share or yield unknown handles.
+        ctx.note_not_unique(name);
+        if let Some(src) = managed_name_source(value) {
+            ctx.alias_union(name, src);
+        }
+    }
+
     v.push(MirStmt::Set {
         name: name.to_string(),
         value: value.clone(),
@@ -227,6 +295,17 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
         });
     }
     v
+}
+
+/// If `e` is a simple name projection we can track as may-alias with the base name.
+fn managed_name_source(e: &MirExpr) -> Option<&str> {
+    match e {
+        MirExpr::Name(n) => Some(n.as_str()),
+        // Index/field get of a list/struct yields a *new* or nested value — do not
+        // union with the container (that would over-block demotion of the container).
+        // Contaminating the destination alone is enough (note_not_unique).
+        _ => None,
+    }
 }
 
 fn maybe_promote_store(v: &mut Vec<MirStmt>, base: &MirExpr, value: &MirExpr, ctx: &Ctx) {
@@ -327,6 +406,10 @@ fn store_promote_target(base: &MirExpr, ctx: &Ctx) -> Option<u32> {
 }
 
 /// Demote parent-owned names used in `body` but not after: inward `ScopePromote`.
+///
+/// **Alias-safe (required under immediate free):** only demote when the name is a
+/// unique fresh owner and no may-alias peer is used after the nested region.
+/// Demoting `b` while `a` aliases the same handle and is used later is UAF.
 fn demote_into_scope(
     nested_id: u32,
     body: &[MirStmt],
@@ -342,7 +425,26 @@ fn demote_into_scope(
     let used_after = names_used_in_stmts(after);
     let mut out = Vec::new();
     let mut seen = HashSet::new();
-    for (name, &owner) in &ctx.bind_scope {
+
+    // Need mutable alias_find — clone alias state into a temp Ctx view.
+    let mut alias_parent = ctx.alias_parent.clone();
+    let unique_fresh = ctx.unique_fresh.clone();
+    let bind_scope = ctx.bind_scope.clone();
+
+    fn find(parent: &mut HashMap<String, String>, name: &str) -> String {
+        let p = parent
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| name.to_string());
+        if p == name {
+            return p;
+        }
+        let root = find(parent, &p);
+        parent.insert(name.to_string(), root.clone());
+        root
+    }
+
+    for (name, &owner) in &bind_scope {
         if owner != parent {
             continue;
         }
@@ -350,6 +452,23 @@ fn demote_into_scope(
             continue;
         }
         if used_after.contains(name.as_str()) {
+            continue;
+        }
+        // Unique ownership only — never demote aliases (e.g. `~ b = a`).
+        if !unique_fresh.contains(name) {
+            continue;
+        }
+        // Whole may-alias class must be unused after (belt; unique_fresh should
+        // already imply singleton class for name-assign tracking).
+        let root = find(&mut alias_parent, name);
+        let mut peer_used_after = false;
+        for (other, _) in &bind_scope {
+            if find(&mut alias_parent, other) == root && used_after.contains(other.as_str()) {
+                peer_used_after = true;
+                break;
+            }
+        }
+        if peer_used_after {
             continue;
         }
         if !seen.insert(name.clone()) {
@@ -746,7 +865,7 @@ mod tests {
         walk_promotes(&out, &mut promotes);
         assert!(
             promotes.iter().any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
-            "expected demote of xs into loop: {promotes:?}\n{out:?}"
+            "expected demote of unique xs into loop: {promotes:?}\n{out:?}"
         );
     }
 
@@ -769,6 +888,73 @@ mod tests {
         assert!(
             !promotes.iter().any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
             "must not demote xs when used after: {promotes:?}"
+        );
+    }
+
+    #[test]
+    fn no_demote_when_aliased_peer_used_after() {
+        // $ a = [10, 20]; ~ b = a; if { use b }; use a after
+        // Demoting b would free a's handle under immediate free → UAF.
+        let body = vec![
+            MirStmt::Set {
+                name: "a".into(),
+                value: MirExpr::ListLit(vec![MirExpr::ConstI64(10), MirExpr::ConstI64(20)]),
+            },
+            MirStmt::Set {
+                name: "b".into(),
+                value: MirExpr::Name("a".into()),
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::ConstI64(1),
+                    vec![MirStmt::Eval(MirExpr::Name("b".into()))],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::Name("a".into())),
+        ];
+        let out = inject_lifetime(body);
+        let mut promotes = Vec::new();
+        walk_promotes(&out, &mut promotes);
+        assert!(
+            !promotes
+                .iter()
+                .any(|(n, t)| (n == "a" || n == "b") && *t != ROOT_SCOPE),
+            "must not demote aliased a/b when a used after: {promotes:?}\n{out:?}"
+        );
+    }
+
+    #[test]
+    fn no_demote_alias_even_if_peer_unused_after_name_only() {
+        // b used in if, a never used after — still unsafe to demote only by name-use
+        // of b without unique ownership (a remains a live name holding the handle).
+        // We refuse demotion of any non-unique name.
+        let body = vec![
+            MirStmt::Set {
+                name: "a".into(),
+                value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+            },
+            MirStmt::Set {
+                name: "b".into(),
+                value: MirExpr::Name("a".into()),
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::ConstI64(1),
+                    vec![MirStmt::Eval(MirExpr::Name("b".into()))],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+        ];
+        let out = inject_lifetime(body);
+        let mut promotes = Vec::new();
+        walk_promotes(&out, &mut promotes);
+        assert!(
+            !promotes
+                .iter()
+                .any(|(n, t)| (n == "a" || n == "b") && *t != ROOT_SCOPE),
+            "aliased names must not demote without unique ownership: {promotes:?}"
         );
     }
 

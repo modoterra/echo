@@ -48,3 +48,13 @@ file
           index
             name a
             number 1
+  expr_stmt
+    call
+      field print
+        name io
+      call
+        field from_int
+          name str
+        index
+          name b
+          number 0
