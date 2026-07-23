@@ -44,10 +44,71 @@ file
       string_rich
   match
     call
-      field write
+      field create
         name fs
       name path
+    arm_ok f
+      match
+        call
+          field write
+            name f
+          string_rich
+        arm_ok ok
+          expr_stmt
+            call
+              field print
+                name io
+              string_rich
+        arm_err e
+          expr_stmt
+            call
+              field print
+                name io
+              name e
+      expr_stmt
+        call
+          field close
+            name f
+    arm_err e
+      expr_stmt
+        call
+          field print
+            name io
+          name e
+  match
+    call
+      field metadata
+        name fs
+      name path
+    arm_ok m
+      expr_stmt
+        call
+          field print
+            name io
+          call
+            field from_int
+              name str
+            field len
+              name m
+    arm_err e
+      expr_stmt
+        call
+          field print
+            name io
+          name e
+  bind_dollar
+    name copy
+    call
+      field join
+        name fs
+      name root
       string_rich
+  match
+    call
+      field copy
+        name fs
+      name path
+      name copy
     arm_ok ok
       expr_stmt
         call
@@ -62,18 +123,34 @@ file
           name e
   match
     call
-      field read
+      field open
         name fs
       name path
-    arm_ok b
+    arm_ok f
+      match
+        call
+          field read
+            name f
+          number 10
+        arm_ok b
+          expr_stmt
+            call
+              field print
+                name io
+              call
+                field from_bytes
+                  name str
+                name b
+        arm_err e
+          expr_stmt
+            call
+              field print
+                name io
+              name e
       expr_stmt
         call
-          field print
-            name io
-          call
-            field from_bytes
-              name str
-            name b
+          field close
+            name f
     arm_err e
       expr_stmt
         call
@@ -85,6 +162,23 @@ file
       field remove
         name fs
       name path
+    arm_ok ok
+      expr_stmt
+        call
+          field print
+            name io
+          string_rich
+    arm_err e
+      expr_stmt
+        call
+          field print
+            name io
+          name e
+  match
+    call
+      field remove
+        name fs
+      name copy
     arm_ok ok
       expr_stmt
         call

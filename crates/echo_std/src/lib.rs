@@ -11,8 +11,10 @@ use echo_codegen_abi::{
     RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
     RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
     RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET, RT_LIST_LEN, RT_NOW_MS, RT_PRINT_I64,
-    RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
-    RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_WRITE, RT_PROCESS_ARGS,
+    RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_FILE_CLOSE,
+    RT_FS_FILE_READ, RT_FS_FILE_SEEK, RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
+    RT_FS_METADATA, RT_FS_OPEN_APPEND, RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ,
+    RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_RENAME, RT_FS_WRITE, RT_PROCESS_ARGS,
     RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET, RT_PROCESS_ENV_UNSET,
     RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME,
     RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG,
@@ -291,6 +293,46 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "fs_remove_dir",
         native: RT_FS_REMOVE_DIR,
+    },
+    RuntimeExport {
+        name: "fs_copy",
+        native: RT_FS_COPY,
+    },
+    RuntimeExport {
+        name: "fs_rename",
+        native: RT_FS_RENAME,
+    },
+    RuntimeExport {
+        name: "fs_metadata",
+        native: RT_FS_METADATA,
+    },
+    RuntimeExport {
+        name: "fs_open_read",
+        native: RT_FS_OPEN_READ,
+    },
+    RuntimeExport {
+        name: "fs_open_write",
+        native: RT_FS_OPEN_WRITE,
+    },
+    RuntimeExport {
+        name: "fs_open_append",
+        native: RT_FS_OPEN_APPEND,
+    },
+    RuntimeExport {
+        name: "fs_file_read",
+        native: RT_FS_FILE_READ,
+    },
+    RuntimeExport {
+        name: "fs_file_write",
+        native: RT_FS_FILE_WRITE,
+    },
+    RuntimeExport {
+        name: "fs_file_seek",
+        native: RT_FS_FILE_SEEK,
+    },
+    RuntimeExport {
+        name: "fs_file_close",
+        native: RT_FS_FILE_CLOSE,
     },
 ];
 

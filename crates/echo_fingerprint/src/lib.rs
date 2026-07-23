@@ -38,8 +38,8 @@ pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disow
 pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 30; // fs paths/files/dirs
-pub const STDLIB_VERSION: u32 = 19; // std/fs
+pub const RUNTIME_ABI_VERSION: u32 = 31; // fs copy/rename/meta/file handles
+pub const STDLIB_VERSION: u32 = 20; // std/fs streaming + metadata
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

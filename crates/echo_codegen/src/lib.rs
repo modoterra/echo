@@ -37,8 +37,10 @@ use echo_codegen_abi::{
     RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS,
     RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
     RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN,
-    RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
-    RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_WRITE,
+    RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_FILE_CLOSE,
+    RT_FS_FILE_READ, RT_FS_FILE_SEEK, RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
+    RT_FS_METADATA, RT_FS_OPEN_APPEND, RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ,
+    RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_RENAME, RT_FS_WRITE,
 };
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_mir::{
@@ -215,6 +217,16 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_FS_CREATE_DIR_ALL, list_len_ty, None);
     module.add_function(RT_FS_READ_DIR, list_len_ty, None);
     module.add_function(RT_FS_REMOVE_DIR, list_len_ty, None);
+    module.add_function(RT_FS_COPY, list_get_ty, None);
+    module.add_function(RT_FS_RENAME, list_get_ty, None);
+    module.add_function(RT_FS_METADATA, list_len_ty, None);
+    module.add_function(RT_FS_OPEN_READ, list_len_ty, None);
+    module.add_function(RT_FS_OPEN_WRITE, list_len_ty, None);
+    module.add_function(RT_FS_OPEN_APPEND, list_len_ty, None);
+    module.add_function(RT_FS_FILE_READ, list_get_ty, None);
+    module.add_function(RT_FS_FILE_WRITE, list_get_ty, None);
+    module.add_function(RT_FS_FILE_SEEK, list_get_ty, None);
+    module.add_function(RT_FS_FILE_CLOSE, sleep_ms_ty, None);
     let http_parse_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_HTTP_PARSE_REQUEST, http_parse_ty, None);
     module.add_function(RT_HTTP_HEADERS_COMPLETE, http_parse_ty, None);
@@ -926,6 +938,66 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_FS_COPY,
+        echo_runtime_fs_copy as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_RENAME,
+        echo_runtime_fs_rename as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_METADATA,
+        echo_runtime_fs_metadata as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_OPEN_READ,
+        echo_runtime_fs_open_read as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_OPEN_WRITE,
+        echo_runtime_fs_open_write as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_OPEN_APPEND,
+        echo_runtime_fs_open_append as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_FILE_READ,
+        echo_runtime_fs_file_read as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_FILE_WRITE,
+        echo_runtime_fs_file_write as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_FILE_SEEK,
+        echo_runtime_fs_file_seek as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_FILE_CLOSE,
+        echo_runtime_fs_file_close as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_HTTP_PARSE_REQUEST,
         echo_runtime_http_parse_request as unsafe extern "C" fn(i64) -> i64 as usize,
     )?;
@@ -1153,10 +1225,13 @@ use echo_runtime::{
     echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
     echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
     echo_runtime_process_run,
-    echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all, echo_runtime_fs_exists,
-    echo_runtime_fs_is_dir, echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_read,
-    echo_runtime_fs_read_dir, echo_runtime_fs_remove, echo_runtime_fs_remove_dir,
-    echo_runtime_fs_write,
+    echo_runtime_fs_copy, echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all,
+    echo_runtime_fs_exists, echo_runtime_fs_file_close, echo_runtime_fs_file_read,
+    echo_runtime_fs_file_seek, echo_runtime_fs_file_write, echo_runtime_fs_is_dir,
+    echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_metadata,
+    echo_runtime_fs_open_append, echo_runtime_fs_open_read, echo_runtime_fs_open_write,
+    echo_runtime_fs_read, echo_runtime_fs_read_dir, echo_runtime_fs_remove,
+    echo_runtime_fs_remove_dir, echo_runtime_fs_rename, echo_runtime_fs_write,
     echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
     echo_runtime_udp_send_to,
 };
@@ -2954,7 +3029,10 @@ fn emit_call<'ctx>(
                     .expect("process_env_set");
                 return Some(cx.i64t.const_int(0, false));
             }
-            if native == RT_PROCESS_ENV_UNSET || native == RT_PROCESS_EXIT {
+            if native == RT_PROCESS_ENV_UNSET
+                || native == RT_PROCESS_EXIT
+                || native == RT_FS_FILE_CLOSE
+            {
                 if args.len() != 1 {
                     cx.diags.push(
                         Diagnostic::error(format!("runtime.{export} expects one argument"))
@@ -2963,8 +3041,8 @@ fn emit_call<'ctx>(
                     return None;
                 }
                 let a0 = emit_expr_i64(cx, &args[0])?;
-                let f = cx.module.get_function(native).expect("process void1");
-                let _ = cx.builder.build_call(f, &[a0.into()], "").expect("process void1");
+                let f = cx.module.get_function(native).expect("void1");
+                let _ = cx.builder.build_call(f, &[a0.into()], "").expect("void1");
                 return Some(cx.i64t.const_int(0, false));
             }
             // Arity for i64… → i64 runtime exports.
@@ -3005,6 +3083,10 @@ fn emit_call<'ctx>(
                 || native == RT_FS_CREATE_DIR_ALL
                 || native == RT_FS_READ_DIR
                 || native == RT_FS_REMOVE_DIR
+                || native == RT_FS_METADATA
+                || native == RT_FS_OPEN_READ
+                || native == RT_FS_OPEN_WRITE
+                || native == RT_FS_OPEN_APPEND
             {
                 1
             } else if native == RT_TCP_READ
@@ -3021,6 +3103,11 @@ fn emit_call<'ctx>(
                 || native == RT_PROCESS_RUN
                 || native == RT_FS_JOIN
                 || native == RT_FS_WRITE
+                || native == RT_FS_COPY
+                || native == RT_FS_RENAME
+                || native == RT_FS_FILE_READ
+                || native == RT_FS_FILE_WRITE
+                || native == RT_FS_FILE_SEEK
             {
                 2
             } else if native == RT_UDP_SEND_TO

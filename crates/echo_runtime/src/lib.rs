@@ -98,10 +98,13 @@ pub use process::{
 
 // Filesystem — JIT mapping.
 pub use fs::{
-    echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all, echo_runtime_fs_exists,
-    echo_runtime_fs_is_dir, echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_read,
-    echo_runtime_fs_read_dir, echo_runtime_fs_remove, echo_runtime_fs_remove_dir,
-    echo_runtime_fs_write,
+    echo_runtime_fs_copy, echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all,
+    echo_runtime_fs_exists, echo_runtime_fs_file_close, echo_runtime_fs_file_read,
+    echo_runtime_fs_file_seek, echo_runtime_fs_file_write, echo_runtime_fs_is_dir,
+    echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_metadata,
+    echo_runtime_fs_open_append, echo_runtime_fs_open_read, echo_runtime_fs_open_write,
+    echo_runtime_fs_read, echo_runtime_fs_read_dir, echo_runtime_fs_remove,
+    echo_runtime_fs_remove_dir, echo_runtime_fs_rename, echo_runtime_fs_write,
 };
 
 /// Stable crate identity for workspace linkage checks.

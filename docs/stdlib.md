@@ -232,7 +232,7 @@ See also [`runtime-abi.md`](runtime-abi.md).
 | **List** | `list_len`, `list_get` (+ language push/index) | `std/list` | `is_empty`, `contains` |
 | **Time** | `now_ms`, `sleep_ms` | `std/time` | — |
 | **Process** | `process_args`, `process_env_*`, `process_exit`, `process_run` | `std/process` | option `env`, result `run` |
-| **Filesystem** | `fs_exists` / `fs_read` / `fs_write` / `fs_*_dir` / `fs_join` | `std/fs` | result-shaped read/write/dir ops |
+| **Filesystem** | `fs_*` path/file/dir + open/read/write/seek/close | `std/fs` | `% meta`, `% file` streaming |
 | **Reflect** | `reflect_kind`, `reflect_kind_name`, `reflect_key_bytes` | `std/reflect` | `is_*`, `KIND_*` |
 | **Test** | `test_register`, `test_fail`, `test_finish` | `std/test` | `eq` / `true` / … |
 | **Net TCP/UDP** | `tcp_*`, `udp_*` | `std/net/tcp`, `udp` | `% conn` / methods |

@@ -1,4 +1,4 @@
-; Filesystem: paths, write/read, dirs.
+; Filesystem: paths, whole-file, metadata, streaming, dirs.
 ; Run: xo run examples/misc/fs.echo
 
 / std/io
@@ -17,30 +17,70 @@ $ root = fs.join("/tmp", "echo_fs_example")
 }
 
 $ path = fs.join(root, "note.txt")
-| fs.write(path, "hello fs") {
+| fs.create(path) {
+    $ f {
+        | f.write("hello") {
+            $ ok {
+                io.print("stream write")
+            }
+            ! e {
+                io.print(e)
+            }
+        }
+        f.close()
+    }
+    ! e {
+        io.print(e)
+    }
+}
+
+$ copy = fs.join(root, "copy.txt")
+| fs.copy(path, copy) {
     $ ok {
-        io.print("write ok")
+        io.print("copied")
     }
     ! e {
         io.print(e)
     }
 }
 
-| fs.read(path) {
-    $ b {
-        io.print(str.from_bytes(b))
+| fs.metadata(path) {
+    $ m {
+        io.print(str.from_int(m.len))
     }
     ! e {
         io.print(e)
     }
 }
 
-io.print(str.from_int(fs.is_file(path)))
-io.print(str.from_int(fs.is_dir(root)))
+| fs.open(path) {
+    $ f {
+        | f.read(100) {
+            $ b {
+                io.print(str.from_bytes(b))
+            }
+            ! e {
+                io.print(e)
+            }
+        }
+        f.close()
+    }
+    ! e {
+        io.print(e)
+    }
+}
 
 | fs.remove(path) {
     $ ok {
         io.print("rm file")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.remove(copy) {
+    $ ok {
+        io.print("rm copy")
     }
     ! e {
         io.print(e)

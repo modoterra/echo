@@ -1,4 +1,4 @@
-; Write and read a temp file via std/fs.
+; Write/read, metadata, stream, copy via std/fs.
 / std/io
 / std/str
 / std/bytes
@@ -14,17 +14,50 @@ $ root = fs.join("/tmp", "echo26_fs_001")
     }
 }
 $ path = fs.join(root, "t.txt")
-| fs.write(path, "ok") {
-    $ ok {
-        io.print("write")
+| fs.create(path) {
+    $ f {
+        | f.write("ok") {
+            $ ok {
+                io.print("write")
+            }
+            ! e {
+                io.print(e)
+            }
+        }
+        f.close()
     }
     ! e {
         io.print(e)
     }
 }
-| fs.read(path) {
-    $ b {
-        io.print(str.from_bytes(b))
+| fs.metadata(path) {
+    $ m {
+        io.print(str.from_int(m.len))
+    }
+    ! e {
+        io.print(e)
+    }
+}
+$ copy = fs.join(root, "c.txt")
+| fs.copy(path, copy) {
+    $ ok {
+        io.print("copy")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.open(path) {
+    $ f {
+        | f.read(10) {
+            $ b {
+                io.print(str.from_bytes(b))
+            }
+            ! e {
+                io.print(e)
+            }
+        }
+        f.close()
     }
     ! e {
         io.print(e)
@@ -33,6 +66,14 @@ $ path = fs.join(root, "t.txt")
 | fs.remove(path) {
     $ ok {
         io.print("rm")
+    }
+    ! e {
+        io.print(e)
+    }
+}
+| fs.remove(copy) {
+    $ ok {
+        io.print("rm2")
     }
     ! e {
         io.print(e)

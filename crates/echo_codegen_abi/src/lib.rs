@@ -262,3 +262,21 @@ pub const RT_FS_CREATE_DIR_ALL: &str = "echo_runtime_fs_create_dir_all";
 pub const RT_FS_READ_DIR: &str = "echo_runtime_fs_read_dir";
 /// `fs_remove_dir(path) -> i64` — empty dir only; 0 ok, -1 fail.
 pub const RT_FS_REMOVE_DIR: &str = "echo_runtime_fs_remove_dir";
+/// `fs_copy(from, to) -> i64` — 0 ok, -1 fail.
+pub const RT_FS_COPY: &str = "echo_runtime_fs_copy";
+/// `fs_rename(from, to) -> i64` — 0 ok, -1 fail.
+pub const RT_FS_RENAME: &str = "echo_runtime_fs_rename";
+/// `fs_metadata(path) -> struct meta` — 0 on fail (`len`, `is_file`, …).
+pub const RT_FS_METADATA: &str = "echo_runtime_fs_metadata";
+/// Open file handles (streaming).
+pub const RT_FS_OPEN_READ: &str = "echo_runtime_fs_open_read";
+pub const RT_FS_OPEN_WRITE: &str = "echo_runtime_fs_open_write";
+pub const RT_FS_OPEN_APPEND: &str = "echo_runtime_fs_open_append";
+/// `fs_file_read(handle, limit) -> bytes` — 0 error; empty bytes = EOF.
+pub const RT_FS_FILE_READ: &str = "echo_runtime_fs_file_read";
+/// `fs_file_write(handle, data) -> i64` — 0 ok, -1 fail.
+pub const RT_FS_FILE_WRITE: &str = "echo_runtime_fs_file_write";
+/// `fs_file_seek(handle, pos) -> i64` — new pos, or -1 fail.
+pub const RT_FS_FILE_SEEK: &str = "echo_runtime_fs_file_seek";
+/// `fs_file_close(handle)` void.
+pub const RT_FS_FILE_CLOSE: &str = "echo_runtime_fs_file_close";

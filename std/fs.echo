@@ -1,13 +1,16 @@
-; std/fs — paths, files, directories.
+; std/fs — paths, files, directories, metadata, streaming handles.
 ; Privileged std may `/ runtime` and call `runtime.*` (docs/stdlib.md).
 ;
 ; Path args accept **string** or **locator** (`p'…'`).
-; File bodies are **bytes** (`read`); `write` also accepts a string (UTF-8).
+; Whole-file `read` is **bytes**; `write` accepts bytes or string (UTF-8).
+; Streaming uses `% file` with opaque `.handle` (same idea as net conn).
 ;
 ; Public API:
 ;   exists, is_file, is_dir, join
-;   read (result bytes), write, remove
-;   create_dir, create_dir_all, read_dir (result list of names), remove_dir
+;   read, write, remove, copy, rename
+;   create_dir, create_dir_all, read_dir, remove_dir
+;   metadata → % meta
+;   open / create / append → % file ; methods read / write / seek / close
 ;
 ; Suite: xo test std/fs.echo (XO_TEST).
 
@@ -16,6 +19,55 @@
 / std/list
 / std/bytes
 / std/str
+
+; --- metadata product ---
+% meta {
+    $ len
+    $ is_file
+    $ is_dir
+    $ is_symlink
+    $ modified_ms
+}
+
+; --- open file handle (streaming) ---
+% file {
+    $ handle
+    ~ open = |
+
+    ; Up to `limit` bytes. Empty bytes = EOF. ! on I/O error.
+    $ read = (limit) {
+        $ b = runtime.fs_file_read(.handle, limit)
+        ? b == 0 {
+            ! "read failed"
+        }
+        ^ b
+    }
+
+    $ write = (data) {
+        $ st = runtime.fs_file_write(.handle, data)
+        ? st < 0 {
+            ! "write failed"
+        }
+        ^
+    }
+
+    ; Absolute seek. ^ new position, or ! on failure.
+    $ seek = (pos) {
+        $ p = runtime.fs_file_seek(.handle, pos)
+        ? p < 0 {
+            ! "seek failed"
+        }
+        ^ p
+    }
+
+    $ close = () {
+        runtime.fs_file_close(.handle)
+        ~ .open = _
+        ^ .
+    }
+}
+
+; --- path queries ---
 
 $ exists = (path) {
     ^ runtime.fs_exists(path) == 1
@@ -33,7 +85,8 @@ $ join = (base, rel) {
     ^ runtime.fs_join(base, rel)
 }
 
-; Result-shaped: ^ bytes, or ! "read failed"
+; --- whole-file ---
+
 $ read = (path) {
     $ b = runtime.fs_read(path)
     ? b == 0 {
@@ -42,7 +95,6 @@ $ read = (path) {
     ^ b
 }
 
-; Result-shaped: ^ on ok, ! "write failed"
 $ write = (path, data) {
     $ st = runtime.fs_write(path, data)
     ? st < 0 {
@@ -51,7 +103,6 @@ $ write = (path, data) {
     ^
 }
 
-; Result-shaped: ^ on ok, ! "remove failed"
 $ remove = (path) {
     $ st = runtime.fs_remove(path)
     ? st < 0 {
@@ -59,6 +110,24 @@ $ remove = (path) {
     }
     ^
 }
+
+$ copy = (from, to) {
+    $ st = runtime.fs_copy(from, to)
+    ? st < 0 {
+        ! "copy failed"
+    }
+    ^
+}
+
+$ rename = (from, to) {
+    $ st = runtime.fs_rename(from, to)
+    ? st < 0 {
+        ! "rename failed"
+    }
+    ^
+}
+
+; --- directories ---
 
 $ create_dir = (path) {
     $ st = runtime.fs_create_dir(path)
@@ -76,7 +145,6 @@ $ create_dir_all = (path) {
     ^
 }
 
-; Result-shaped: ^ list of entry name strings, or ! "read_dir failed"
 $ read_dir = (path) {
     $ names = runtime.fs_read_dir(path)
     ? names == 0 {
@@ -85,13 +153,66 @@ $ read_dir = (path) {
     ^ names
 }
 
-; Empty directory only.
 $ remove_dir = (path) {
     $ st = runtime.fs_remove_dir(path)
     ? st < 0 {
         ! "remove_dir failed"
     }
     ^
+}
+
+; --- metadata ---
+
+; Runtime wire: list [len, is_file, is_dir, is_symlink, modified_ms], or 0 fail.
+$ metadata = (path) {
+    $ parts = runtime.fs_metadata(path)
+    $ n = list.len(parts)
+    ? n == 0 {
+        ! "metadata failed"
+    }
+    ^ meta {
+        len: parts[0],
+        is_file: parts[1],
+        is_dir: parts[2],
+        is_symlink: parts[3],
+        modified_ms: parts[4]
+    }
+}
+
+; --- streaming open ---
+
+$ open = (path) {
+    $ h = runtime.fs_open_read(path)
+    ? h == 0 {
+        ! "open failed"
+    }
+    ^ file {
+        handle: h,
+        open: |
+    }
+}
+
+; Create/truncate for writing.
+$ create = (path) {
+    $ h = runtime.fs_open_write(path)
+    ? h == 0 {
+        ! "create failed"
+    }
+    ^ file {
+        handle: h,
+        open: |
+    }
+}
+
+$ append = (path) {
+    $ h = runtime.fs_open_append(path)
+    ? h == 0 {
+        ! "append failed"
+    }
+    ^ file {
+        handle: h,
+        open: |
+    }
 }
 
 ; --- suite ---
@@ -144,7 +265,165 @@ test.it("file_roundtrip", () {
             test.eq(1, 1)
         }
         ! e {
-            ; may fail if not empty / race — soft
+            test.eq(1, 1)
+        }
+    }
+})
+
+test.it("copy_rename_meta", () {
+    $ root = join("/tmp", "echo_fs_suite_copy")
+    | create_dir_all(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    $ a = join(root, "a.txt")
+    $ b = join(root, "b.txt")
+    $ c = join(root, "c.txt")
+    | write(a, "xy") {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | copy(a, b) {
+        $ ok {
+            test.true(exists(b))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | rename(b, c) {
+        $ ok {
+            test.false(exists(b))
+            test.true(exists(c))
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | metadata(a) {
+        $ m {
+            test.eq(m.len, 2)
+            test.eq(m.is_file, 1)
+            test.eq(m.is_dir, 0)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove(a) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove(c) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove_dir(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.eq(1, 1)
+        }
+    }
+})
+
+test.it("streaming", () {
+    $ root = join("/tmp", "echo_fs_suite_stream")
+    | create_dir_all(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    $ path = join(root, "s.bin")
+    | create(path) {
+        $ f {
+            | f.write("ab") {
+                $ ok {
+                    test.eq(1, 1)
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+            | f.write("cd") {
+                $ ok {
+                    test.eq(1, 1)
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+            f.close()
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | open(path) {
+        $ f {
+            | f.read(2) {
+                $ b {
+                    test.eq(str.from_bytes(b), "ab")
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+            | f.read(10) {
+                $ b {
+                    test.eq(str.from_bytes(b), "cd")
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+            | f.read(10) {
+                $ b {
+                    test.eq(bytes.len(b), 0)
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+            f.close()
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove(path) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | remove_dir(root) {
+        $ ok {
+            test.eq(1, 1)
+        }
+        ! e {
             test.eq(1, 1)
         }
     }
@@ -206,4 +485,4 @@ test.it("read_missing", () {
     }
 })
 
-\ exists, is_file, is_dir, join, read, write, remove, create_dir, create_dir_all, read_dir, remove_dir
+\ exists, is_file, is_dir, join, read, write, remove, copy, rename, create_dir, create_dir_all, read_dir, remove_dir, metadata, open, create, append, meta, file

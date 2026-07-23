@@ -105,6 +105,16 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_fs_create_dir_all` | `int64_t (path)` | 0 ok, `-1` fail |
 | `echo_runtime_fs_read_dir` | `int64_t (path)` | list of name strings, or `0` fail |
 | `echo_runtime_fs_remove_dir` | `int64_t (path)` | empty dir; 0 ok, `-1` fail |
+| `echo_runtime_fs_copy` | `int64_t (from, to)` | 0 ok, `-1` fail |
+| `echo_runtime_fs_rename` | `int64_t (from, to)` | 0 ok, `-1` fail |
+| `echo_runtime_fs_metadata` | `int64_t (path)` | list `[len,is_file,is_dir,is_symlink,modified_ms]`, or `0` fail |
+| `echo_runtime_fs_open_read` | `int64_t (path)` | file handle, or `0` fail |
+| `echo_runtime_fs_open_write` | `int64_t (path)` | create/truncate handle, or `0` |
+| `echo_runtime_fs_open_append` | `int64_t (path)` | append handle, or `0` |
+| `echo_runtime_fs_file_read` | `int64_t (handle, limit)` | bytes; `0` error; empty = EOF |
+| `echo_runtime_fs_file_write` | `int64_t (handle, data)` | 0 ok, `-1` fail |
+| `echo_runtime_fs_file_seek` | `int64_t (handle, pos)` | new offset, or `-1` |
+| `echo_runtime_fs_file_close` | `void (handle)` | close open file |
 | `echo_runtime_str_slice` | `int64_t (s, start, end)` | UTF-8 byte range `[start,end)`; empty if invalid |
 | `echo_runtime_str_get` | `int64_t (s, index)` | UTF-8 byte 0..255, or -1 if OOB |
 | `echo_runtime_str_contains` | `int64_t (hay, needle)` | 1/0 substring |
