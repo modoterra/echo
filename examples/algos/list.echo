@@ -1,16 +1,9 @@
-; Classic list helpers — count, sum, max, reverse, contains.
-; Check: xo check examples/algos/list.echo
+; Classic list helpers — sum, max, reverse, contains.
+; Length uses std: list.len. Run: xo run examples/algos/list.echo
 
 / std/io
 / std/str
-
-$ count = (xs) {
-    ~ n = 0
-    * item : xs {
-        ~ n = n + 1
-    }
-    ^ n
-}
+/ std/list
 
 $ sum = (xs) {
     ~ acc = 0
@@ -77,7 +70,7 @@ $ contains = (xs, target) {
 
 ; Reverse xs in place.
 $ reverse = (xs) {
-    $ n = count(xs)
+    $ n = list.len(xs)
     ~ i = 0
     * i < n / 2 {
         $ j = n - 1 - i
@@ -89,36 +82,33 @@ $ reverse = (xs) {
     ^ xs
 }
 
-$ demo = () {
-    $ xs = [3, 1, 4, 1, 5, 9]
-    io.print(str.from_int(count(xs)))
-    io.print(str.from_int(sum(xs)))
-    io.print(str.from_int(product([1, 2, 3, 4])))
-    | max(xs) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        : {
-            io.print("empty")
-        }
+$ xs = [3, 1, 4, 1, 5, 9]
+io.print(str.from_int(list.len(xs)))
+io.print(str.from_int(sum(xs)))
+io.print(str.from_int(product([1, 2, 3, 4])))
+| max(xs) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    | min(xs) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        : {
-            io.print("empty")
-        }
+    : {
+        io.print("empty")
     }
-    io.print(str.from_int(contains(xs, 5)))
-    io.print(str.from_int(contains(xs, 7)))
+}
+| min(xs) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    : {
+        io.print("empty")
+    }
+}
+io.print(str.from_int(contains(xs, 5)))
+io.print(str.from_int(contains(xs, 7)))
 
-    ~ buf = [1, 2, 3, 4, 5]
-    $ rev = reverse(buf)
-    * item : rev {
-        io.print(str.from_int(item))
-    }
-    ^ sum(xs)
+~ buf = [1, 2, 3, 4, 5]
+$ rev = reverse(buf)
+* item : rev {
+    io.print(str.from_int(item))
 }
 
-\ demo, count, sum, product, max, min, contains, reverse
+\ sum, product, max, min, contains, reverse

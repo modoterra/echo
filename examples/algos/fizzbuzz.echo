@@ -1,5 +1,5 @@
 ; FizzBuzz — classic interview warm-up.
-; Check: xo check examples/fizzbuzz.echo
+; Run: xo run examples/algos/fizzbuzz.echo
 
 / std/io
 / std/str
@@ -44,9 +44,6 @@ $ fizzbuzz = (limit) {
     ^
 }
 
-$ demo = () {
-    fizzbuzz(20)
-    ^
-}
+fizzbuzz(20)
 
-\ demo, fizzbuzz, fizzbuzz_kind
+\ fizzbuzz, fizzbuzz_kind

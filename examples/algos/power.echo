@@ -1,5 +1,5 @@
 ; Integer power — exponentiation by squaring.
-; Check: xo check examples/power.echo
+; Run: xo run examples/algos/power.echo
 
 / std/io
 / std/str
@@ -46,48 +46,45 @@ $ pow_mod = (base, exp, m) {
     ^ acc
 }
 
-$ demo = () {
-    | pow(2, 0) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+| pow(2, 0) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    | pow(2, 10) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    | pow(3, 5) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+}
+| pow(2, 10) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    | pow_mod(2, 10, 1000) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    | pow_mod(7, 3, 5) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+}
+| pow(3, 5) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    ^
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+| pow_mod(2, 10, 1000) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+| pow_mod(7, 3, 5) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
 }
 
-\ demo, pow, pow_mod
+\ pow, pow_mod

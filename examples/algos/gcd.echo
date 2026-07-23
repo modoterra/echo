@@ -1,5 +1,5 @@
 ; Euclid GCD, LCM, and Stein binary GCD.
-; Check: xo check examples/gcd.echo
+; Run: xo run examples/algos/gcd.echo
 
 / std/io
 / std/str

@@ -1,5 +1,5 @@
 ; Fibonacci — iterative nth term and prefix list fill.
-; Check: xo check examples/fibonacci.echo
+; Run: xo run examples/algos/fibonacci.echo
 
 / std/io
 / std/str
@@ -45,47 +45,44 @@ $ fib_fill = (xs, n) {
     ^ xs
 }
 
-$ demo = () {
-    | fib(0) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+| fib(0) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    | fib(1) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    | fib(10) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+}
+| fib(1) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    | fib(20) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    ~ buf = [0, 0, 0, 0, 0, 0, 0, 0]
-    $ filled = fib_fill(buf, 8)
-    ~ i = 0
-    * i < 8 {
-        io.print(str.from_int(filled[i]))
-        ~ i = i + 1
+}
+| fib(10) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    ^ filled[7]
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+| fib(20) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+~ buf = [0, 0, 0, 0, 0, 0, 0, 0]
+$ filled = fib_fill(buf, 8)
+~ i = 0
+* i < 8 {
+    io.print(str.from_int(filled[i]))
+    ~ i = i + 1
 }
 
-\ demo, fib, fib_fill
+\ fib, fib_fill

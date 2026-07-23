@@ -1,16 +1,9 @@
 ; Bubble sort and insertion sort — in-place on lists.
-; Check: xo check examples/sort.echo
+; Run: xo run examples/algos/sort.echo
 
 / std/io
 / std/str
-
-$ count = (xs) {
-    ~ n = 0
-    * item : xs {
-        ~ n = n + 1
-    }
-    ^ n
-}
+/ std/list
 
 $ swap = (xs, i, j) {
     $ t = xs[i]
@@ -20,7 +13,7 @@ $ swap = (xs, i, j) {
 }
 
 $ bubble_sort = (xs) {
-    $ n = count(xs)
+    $ n = list.len(xs)
     ~ i = 0
     * i < n {
         ~ j = 0
@@ -36,7 +29,7 @@ $ bubble_sort = (xs) {
 }
 
 $ insertion_sort = (xs) {
-    $ n = count(xs)
+    $ n = list.len(xs)
     ~ i = 1
     * i < n {
         $ key = xs[i]
@@ -58,21 +51,18 @@ $ print_list = (xs) {
     ^
 }
 
-$ demo = () {
-    ~ a = [5, 1, 4, 2, 8]
-    $ sorted_a = bubble_sort(a)
-    print_list(sorted_a)
+~ a = [5, 1, 4, 2, 8]
+$ sorted_a = bubble_sort(a)
+print_list(sorted_a)
 
-    ~ b = [9, 3, 7, 1, 4, 6, 2]
-    $ sorted_b = insertion_sort(b)
-    print_list(sorted_b)
+~ b = [9, 3, 7, 1, 4, 6, 2]
+$ sorted_b = insertion_sort(b)
+print_list(sorted_b)
 
-    ~ c = [1]
-    print_list(bubble_sort(c))
+~ c = [1]
+print_list(bubble_sort(c))
 
-    ~ d = [3, 3, 1, 2, 1]
-    print_list(insertion_sort(d))
-    ^
-}
+~ d = [3, 3, 1, 2, 1]
+print_list(insertion_sort(d))
 
-\ demo, bubble_sort, insertion_sort, count, swap
+\ bubble_sort, insertion_sort, swap

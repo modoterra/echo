@@ -1,5 +1,5 @@
 ; Tower of Hanoi — recursive move count (2^n - 1).
-; Check: xo check examples/hanoi.echo
+; Run: xo run examples/algos/hanoi.echo
 
 / std/io
 / std/str
@@ -35,42 +35,39 @@ $ hanoi_solve = (n, src, dst, aux, move_count) {
     ^ hanoi_solve(n - 1, aux, dst, src, next)
 }
 
-$ demo = () {
-    | hanoi_moves(0) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+| hanoi_moves(0) {
+    $ v {
+        io.print(str.from_int(v))
     }
-    | hanoi_moves(1) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    | hanoi_moves(3) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
-    }
-    | hanoi_moves(8) {
-        $ v {
-            io.print(str.from_int(v))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
-    }
-    $ moves = hanoi_solve(3, 0, 2, 1, 0)
-    io.print(str.from_int(moves))
-    ^ moves
 }
+| hanoi_moves(1) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+| hanoi_moves(3) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+| hanoi_moves(8) {
+    $ v {
+        io.print(str.from_int(v))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+$ moves = hanoi_solve(3, 0, 2, 1, 0)
+io.print(str.from_int(moves))
 
-\ demo, hanoi_moves, hanoi_solve
+\ hanoi_moves, hanoi_solve

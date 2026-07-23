@@ -1,5 +1,5 @@
 ; Collatz (3n+1) — steps to reach 1, and hailstone iterate.
-; Check: xo check examples/collatz.echo
+; Run: xo run examples/algos/collatz.echo
 
 / std/io
 / std/str
@@ -44,46 +44,43 @@ $ collatz_seq = (n, buf, cap) {
     ^ len
 }
 
-$ demo = () {
-    | collatz_steps(1) {
-        $ s {
-            io.print(str.from_int(s))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+| collatz_steps(1) {
+    $ s {
+        io.print(str.from_int(s))
     }
-    | collatz_steps(6) {
-        $ s {
-            io.print(str.from_int(s))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    | collatz_steps(27) {
-        $ s {
-            io.print(str.from_int(s))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+}
+| collatz_steps(6) {
+    $ s {
+        io.print(str.from_int(s))
     }
-    ~ buf = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    | collatz_seq(6, buf, 16) {
-        $ len {
-            ~ i = 0
-            * i < len {
-                io.print(str.from_int(buf[i]))
-                ~ i = i + 1
-            }
-            io.print(str.from_int(len))
-        }
-        ! err {
-            io.print(str.from_int(err))
-        }
+    ! err {
+        io.print(str.from_int(err))
     }
-    ^
+}
+| collatz_steps(15) {
+    $ s {
+        io.print(str.from_int(s))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
+}
+~ buf = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+| collatz_seq(6, buf, 16) {
+    $ len {
+        ~ i = 0
+        * i < len {
+            io.print(str.from_int(buf[i]))
+            ~ i = i + 1
+        }
+        io.print(str.from_int(len))
+    }
+    ! err {
+        io.print(str.from_int(err))
+    }
 }
 
-\ demo, collatz_step, collatz_steps, collatz_seq
+\ collatz_step, collatz_steps, collatz_seq

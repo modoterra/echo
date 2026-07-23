@@ -4,10 +4,12 @@ Famous, simple algorithms written in Echo. These programs exercise the locked
 language surface (`docs/syntax.md`).
 
 ```bash
-cargo run -p xo -- check examples/algos/factorial.echo
-# when the program is within codegen v1:
-# cargo run -p xo -- run examples/algos/factorial.echo
+cargo build -p xo
+./target/debug/xo run examples/algos/factorial.echo
+./target/debug/xo run examples/algos/sort.echo
 ```
+
+Top-level statements run directly — no `$ demo` wrapper.
 
 | File | Algorithms |
 |------|------------|
@@ -19,16 +21,13 @@ cargo run -p xo -- check examples/algos/factorial.echo
 | [`primes.echo`](primes.echo) | Trial division + sieve of Eratosthenes |
 | [`search.echo`](search.echo) | Linear search + binary search |
 | [`sort.echo`](sort.echo) | Bubble sort + insertion sort (in place) |
-| [`list.echo`](list.echo) | Count, sum, max, reverse, membership |
+| [`list.echo`](list.echo) | Sum, max/min, reverse, membership (`list.len` from std) |
 | [`fizzbuzz.echo`](fizzbuzz.echo) | Classic FizzBuzz (kind codes + print) |
 | [`hanoi.echo`](hanoi.echo) | Tower of Hanoi (recursive move count) |
 | [`digits.echo`](digits.echo) | Digit sum, reverse digits, numeric palindrome |
 
-## Constraints (current toolchain)
+## Notes
 
-- Prefer **`xo check`** for these until strings / std bridges / more list ops land
-  on the run path.
+- Prefer **`list.len`** (`/ std/list`) over hand-rolled length loops.
 - Lists are **literals** (and bound list values) with index / for-in; **append**
   with `~ xs[] = e` (and `~ a.b[] = e`).
-- `std/io` print/log are stubs until runtime bridges land; call sites still
-  exercise the API shape.

@@ -11,14 +11,12 @@ Sample Echo programs that exercise the language and toolchain.
 ```bash
 cargo build -p xo
 
-# runnable today
 ./target/debug/xo run examples/misc/hello.echo
 ./target/debug/xo run examples/misc/multi/main.echo
-./target/debug/xo run examples/misc/sum_list.echo ; echo exit:$?
-
-# check (full surface / multi-file)
-./target/debug/xo check examples/app/surface.echo
-./target/debug/xo check examples/algos/factorial.echo
+./target/debug/xo run examples/misc/sum_list.echo
+./target/debug/xo run examples/app/surface.echo
+./target/debug/xo run examples/algos/factorial.echo
+./target/debug/xo run examples/algos/sort.echo
 ```
 
 Imports use **module scope**: `/ std/io` → `io.print`, not bare `print`.
