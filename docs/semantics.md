@@ -493,9 +493,10 @@ deterministically disposes of values still owned by that scope.**
 
 This is the reclamation model (not tracing GC). Full map: [`memory.md`](memory.md).
 Value-vs-ref pass rules above are orthogonal: ref types may still share storage,
-but **ownership for dispose** is scope-based. **Impl (slice 1):** MIR injects
-explicit scope ops; runtime keeps exact ownership registries; physical free is
-deferred until analysis is precise enough for safe immediate reclaim.
+but **ownership for dispose** is scope-based. **Impl (slice 2):** MIR injects
+precise promote/demote and leave-scope exits; `SemanticModel` records
+`owning_scope` per bind; runtime frees **immediately** on scope exit (optional
+enqueue/drain for batching).
 
 #### IR taxonomy (HIR/MIR direction)
 

@@ -32,13 +32,13 @@ pub const SEMANTICS_VERSION: u32 = 9; // Type::Value + free-param pin
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 24; // materialize managed return once (no double Call)
+pub const MIR_LOWERER_VERSION: u32 = 25; // precise promote + demote wrap + leave-scope exits
 pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
 pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 31; // fs copy/rename/meta/file handles
+pub const RUNTIME_ABI_VERSION: u32 = 32; // scope exit immediate physical free (slice 2)
 pub const STDLIB_VERSION: u32 = 20; // std/fs streaming + metadata
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;

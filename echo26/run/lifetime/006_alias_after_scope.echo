@@ -1,0 +1,11 @@
+; Outer alias must survive nested scope exit (would UAF if freed too early).
+/ std/io
+/ std/str
+
+$ a = [10, 20]
+~ b = a
+? 1 == 1 {
+    $ t = b[0] + b[1]
+    io.print(str.from_int(t))
+}
+io.print(str.from_int(a[0] + a[1]))

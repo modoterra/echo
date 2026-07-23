@@ -210,13 +210,15 @@ fn logical_release(st: &mut ScopeState, handle: i64, defer_heavy: bool) {
     for f in st.stack.iter_mut() {
         f.owned.remove(&handle);
     }
-    // Slice-1: always enqueue for deferred free. Immediate free is still correct
-    // for unique ownership, but incomplete promotion (conservative analysis gaps)
-    // can free a handle that a later path reuses. Deferred free keeps logical
-    // death while avoiding use-after-free until analysis is complete; drain is
-    // available for event-loop points. Process exit reclaims the rest.
-    st.deferred.push(handle);
-    let _ = defer_heavy;
+    // Slice-2: immediate physical free on scope exit / release. Enqueue only when
+    // callers request batching (`enqueue_release` / defer_heavy). Promote/exit
+    // coverage is precise enough that process-lived deferral is no longer the
+    // steady state for values whose ownership ended.
+    if defer_heavy {
+        st.deferred.push(handle);
+    } else {
+        physical_free(handle);
+    }
 }
 
 fn is_managed_handle(handle: i64) -> bool {
@@ -370,6 +372,61 @@ mod tests {
         echo_runtime_scope_release(h);
         echo_runtime_scope_release(h); // no crash
         echo_runtime_scope_exit(1);
+        test_reset();
+    }
+
+    #[test]
+    fn exit_physically_frees_handle() {
+        test_reset();
+        echo_runtime_scope_enter(1);
+        let h = echo_runtime_list_new();
+        echo_runtime_scope_register(h);
+        assert!(crate::is_live_heap(h));
+        echo_runtime_scope_exit(1);
+        assert!(!test_is_owned(h));
+        assert!(
+            !crate::is_live_heap(h),
+            "scope exit must physically free (slice 2)"
+        );
+        assert_eq!(
+            STATE.with(|c| c.borrow().deferred.len()),
+            0,
+            "exit path must not leave forever-deferred frees"
+        );
+        test_reset();
+    }
+
+    #[test]
+    fn enqueue_then_drain_physically_frees() {
+        test_reset();
+        echo_runtime_scope_enter(1);
+        let h = echo_runtime_list_new();
+        echo_runtime_scope_register(h);
+        echo_runtime_scope_enqueue_release(h);
+        assert!(!test_is_owned(h));
+        assert!(
+            crate::is_live_heap(h),
+            "enqueue defers physical free until drain"
+        );
+        echo_runtime_scope_drain_deferred();
+        assert!(!crate::is_live_heap(h));
+        echo_runtime_scope_exit(1);
+        test_reset();
+    }
+
+    #[test]
+    fn promote_survives_inner_exit_then_outer_frees() {
+        test_reset();
+        echo_runtime_scope_enter(1);
+        echo_runtime_scope_enter(2);
+        let h = echo_runtime_list_new();
+        echo_runtime_scope_register(h);
+        echo_runtime_scope_promote(h, 1);
+        echo_runtime_scope_exit(2);
+        assert!(test_is_owned(h));
+        assert!(crate::is_live_heap(h), "promoted value must survive inner exit");
+        echo_runtime_scope_exit(1);
+        assert!(!crate::is_live_heap(h));
         test_reset();
     }
 }

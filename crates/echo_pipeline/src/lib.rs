@@ -150,34 +150,43 @@ fn build_semantic_model(hir: &HirModule, import_names: &HashSet<String>) -> Sema
         echo_source::BytePos(0),
     );
     for name in import_names {
-        model.introduce(name.clone(), BindingKind::Module, ValueKind::Module, dummy);
+        model.introduce_in_scope(
+            name.clone(),
+            BindingKind::Module,
+            ValueKind::Module,
+            dummy,
+            0,
+        );
     }
     for f in &hir.bodies {
         if let (Some(st), Some(mname)) = (&f.receiver_struct, &f.method_name) {
             model.set_method_returns_receiver(st.clone(), mname.clone(), f.returns_receiver);
         }
+        // Each function body walks scopes from root 0 for ownership facts.
         for p in &f.params {
             if p == echo_hir::RECV_PARAM {
                 if let Some(st) = &f.receiver_struct {
-                    model.introduce(
+                    model.introduce_in_scope(
                         p.clone(),
                         BindingKind::Immutable,
                         ValueKind::Struct { name: st.clone() },
                         f.span,
+                        0,
                     );
                 }
             } else {
-                model.introduce(
+                model.introduce_in_scope(
                     p.clone(),
                     BindingKind::Immutable,
                     ValueKind::Unknown,
                     f.span,
+                    0,
                 );
             }
         }
-        collect_stmt_facts(&f.body, &mut model);
+        collect_stmt_facts(&f.body, &mut model, 0);
     }
-    collect_stmt_facts(&hir.entry, &mut model);
+    collect_stmt_facts(&hir.entry, &mut model, 0);
     model
 }
 
@@ -246,7 +255,7 @@ fn value_kind_of_expr(e: &echo_hir::HirExpr, model: &SemanticModel) -> ValueKind
     }
 }
 
-fn collect_stmt_facts(stmts: &[HirStmt], model: &mut SemanticModel) {
+fn collect_stmt_facts(stmts: &[HirStmt], model: &mut SemanticModel, scope: u32) {
     for s in stmts {
         match s {
             HirStmt::Bind {
@@ -259,68 +268,98 @@ fn collect_stmt_facts(stmts: &[HirStmt], model: &mut SemanticModel) {
                     .as_ref()
                     .map(|e| value_kind_of_expr(e, model))
                     .unwrap_or(ValueKind::Unknown);
-                model.introduce(name.clone(), binding_from_leader(*leader), vk, *span);
+                model.introduce_in_scope(
+                    name.clone(),
+                    binding_from_leader(*leader),
+                    vk,
+                    *span,
+                    scope,
+                );
             }
             HirStmt::Assign { name, value, span } => {
                 let vk = value_kind_of_expr(value, model);
                 if let HirExprKind::Name(from) = &value.kind {
                     model.copy_struct_type(from, name);
                 }
-                model.introduce(name.clone(), BindingKind::Mutable, vk, *span);
+                // Reassign keeps introduction owning_scope (introduce_in_scope).
+                model.introduce_in_scope(name.clone(), BindingKind::Mutable, vk, *span, scope);
             }
             HirStmt::If {
                 arms, else_body, ..
             } => {
                 for (_, body) in arms {
-                    collect_stmt_facts(body, model);
+                    let sid = model.alloc_scope();
+                    collect_stmt_facts(body, model, sid);
                 }
                 if let Some(b) = else_body {
-                    collect_stmt_facts(b, model);
+                    let sid = model.alloc_scope();
+                    collect_stmt_facts(b, model, sid);
                 }
             }
             HirStmt::Match { arms, .. } => {
                 for arm in arms {
+                    let sid = model.alloc_scope();
                     match arm {
-                        echo_hir::HirMatchArm::Ok { body, .. }
-                        | echo_hir::HirMatchArm::Err { body, .. }
-                        | echo_hir::HirMatchArm::Default { body }
+                        echo_hir::HirMatchArm::Ok { name, body }
+                        | echo_hir::HirMatchArm::Err { name, body } => {
+                            model.introduce_in_scope(
+                                name.clone(),
+                                BindingKind::Immutable,
+                                ValueKind::Unknown,
+                                Span::new(
+                                    echo_source::SourceId::from_u32(0),
+                                    echo_source::BytePos(0),
+                                    echo_source::BytePos(0),
+                                ),
+                                sid,
+                            );
+                            collect_stmt_facts(body, model, sid);
+                        }
+                        echo_hir::HirMatchArm::Default { body }
                         | echo_hir::HirMatchArm::Values { body, .. }
                         | echo_hir::HirMatchArm::Type { body, .. } => {
-                            collect_stmt_facts(body, model);
+                            collect_stmt_facts(body, model, sid);
                         }
                     }
                 }
             }
-            HirStmt::Loop { body, .. } => collect_stmt_facts(body, model),
+            HirStmt::Loop { body, .. } => {
+                let sid = model.alloc_scope();
+                collect_stmt_facts(body, model, sid);
+            }
             HirStmt::TaskSpawn { bind, span, .. }
             | HirStmt::TaskSpawnFn { bind, span, .. } => {
                 if let Some(name) = bind {
-                    model.introduce(
+                    model.introduce_in_scope(
                         name.clone(),
                         BindingKind::Immutable,
                         ValueKind::Unknown,
                         *span,
+                        scope,
                     );
                 }
             }
             HirStmt::TaskJoin { bind, span, .. } => {
                 if let Some(name) = bind {
-                    model.introduce(
+                    model.introduce_in_scope(
                         name.clone(),
                         BindingKind::Immutable,
                         ValueKind::Unknown,
                         *span,
+                        scope,
                     );
                 }
             }
             HirStmt::EffectBlock { bind, body, span } => {
-                collect_stmt_facts(body, model);
+                let sid = model.alloc_scope();
+                collect_stmt_facts(body, model, sid);
                 if let Some(name) = bind {
-                    model.introduce(
+                    model.introduce_in_scope(
                         name.clone(),
                         BindingKind::Immutable,
                         ValueKind::Unknown,
                         *span,
+                        scope,
                     );
                 }
             }
@@ -674,6 +713,40 @@ $ c = counter { n: 0 }
             .find(|f| f.name == "__toplevel")
             .expect("toplevel");
         assert!(!top.cfg.blocks.is_empty(), "CFG must be attached on lower");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn ownership_facts_nested_bind_scope() {
+        let (root, path) = temp_echo(
+            "\
+$ outer = [1]
+? 1 == 1 {
+    $ inner = [2]
+    ^ outer[0] + inner[0]
+}
+^ 0
+",
+        );
+        let product = analyze(
+            &path,
+            &AnalyzeOptions {
+                use_cache: false,
+                ..Default::default()
+            },
+        );
+        assert!(product.is_ok(), "{:?}", product.diagnostics.items());
+        let m = &product.modules[0];
+        assert_eq!(m.semantic.owning_scope_of("outer"), Some(0));
+        let inner_scope = m.semantic.owning_scope_of("inner");
+        assert!(
+            matches!(inner_scope, Some(s) if s > 0),
+            "inner bind must have nested owning_scope, got {inner_scope:?}"
+        );
+        // Managed kinds flagged for lifetime.
+        assert!(echo_semantics::SemanticModel::is_managed_kind(
+            &m.semantic.binds["outer"].value_kind
+        ));
         let _ = fs::remove_dir_all(root);
     }
 

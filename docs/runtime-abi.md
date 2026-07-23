@@ -162,12 +162,13 @@ Every ABI slot is still an `i64`. The runtime **always** knows concrete kind
 Implementer map (GC stance, layers, status): [`memory.md`](memory.md).
 
 **Product law:** every managed allocation has an owning **lexical or dynamic
-scope**. Semantics performs lifetime analysis; MIR lowers scope transitions to
+scope**. Semantics records ownership facts (`owning_scope`); MIR lowers scope
+transitions to
 explicit **promotion**, **demotion**, and **release**. Every CFG edge that
 leaves a scope **deterministically disposes** of values still owned by that
 scope.
 
-| Status today | **Slice 1:** exact scope registries + promote/disown/release ops; physical free is **deferred** (logical death only) until promotion analysis is complete enough for safe immediate reclaim |
+| Status today | **Slice 2:** exact scope registries + promote/disown/release; **immediate physical free** on scope exit / release; `enqueue_release` + `drain_deferred` for explicit short-batch free |
 | Target | Full promote/demote/release with deterministic immediate or batched physical destroy (not tracing GC as the user model) |
 
 | Symbol | Signature | Role |

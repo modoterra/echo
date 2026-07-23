@@ -5,7 +5,7 @@ in [ADR 0016](adr/0016-scope-owned-memory.md).
 
 | | |
 |--|--|
-| **Status** | **Law locked**; slice 1 landed; **slice 2 planned** (see § Slice 2 plan) |
+| **Status** | **Law locked**; **slice 2 landed** (precise promote, demotion, ownership facts, immediate free) |
 | **Owners** | Semantics (lifetime facts) · MIR (`inject_lifetime`) · `echo_runtime` (`scope_*`) · codegen (emit ops only) |
 | **Related** | [ADR 0016](adr/0016-scope-owned-memory.md), [`semantics.md`](semantics.md) § Managed heap lifetime, [`mir.md`](mir.md) § Scope ownership ops, [`runtime-abi.md`](runtime-abi.md) § Memory reclamation |
 
@@ -74,14 +74,14 @@ Value-vs-ref pass rules ([`semantics.md`](semantics.md) § Value vs reference) a
 also orthogonal: ref types may share storage, but **ownership for dispose** is
 scope-based.
 
-## Pipeline (slice 1)
+## Pipeline (slice 2)
 
 ```text
 structured MIR
-  → inject_lifetime   # ScopeEnter / Exit / Register / Promote / Disown
+  → inject_lifetime   # precise promote/demote + leave-scope exits
   → CFG → SSA → …
 codegen
-  → echo_runtime_scope_*   # registries + logical release; deferred physical free
+  → echo_runtime_scope_*   # registries; immediate free on exit
 ```
 
 ### MIR ops
@@ -91,7 +91,7 @@ codegen
 | `ScopeEnter { id }` | Push dynamic ownership frame |
 | `ScopeExit { id }` | Pop frame; release every still-owned handle |
 | `ScopeRegister { value }` | Record a fresh allocation as owned by the current frame |
-| `ScopePromote { value, target }` | Move ownership to an open ancestor frame |
+| `ScopePromote { value, target }` | Move ownership to an open ancestor **or** nested (demotion) frame |
 | `ScopeDisown { value }` | Drop ownership without free (e.g. return transfer) |
 | `ScopeRelease { value }` | Logical release of one value |
 
@@ -118,68 +118,34 @@ Full signatures: [`runtime-abi.md`](runtime-abi.md) § Memory reclamation.
 | | |
 |--|--|
 | **Law** | Locked — scope-owned dispose is the product reclamation model |
-| **Slice 1 (landed)** | Exact scope registries; MIR inject for function root + if/loop/for-in/match arms; register fresh allocs; promote on nested field/list/index/assign escape; exit on return/break/continue edges |
-| **Physical free today** | **Deferred** (logical death first) until promotion analysis is precise enough for safe immediate reclaim |
-| **Not yet** | Precise lifetime analysis end-to-end, demotion optimization, full early-exit coverage, immediate/batched physical destroy as the steady state |
-| **Gap framing** | Incomplete reclaim is a **gap**, not a competing design. Do not document process-arena / process-exit free as intentional product behavior once the vertical is complete |
+| **Slice 1** | Registries + MIR inject + leave-scope exits (foundation) |
+| **Slice 2 (landed)** | Precise promote to bind owner; demotion into once-scopes / loop wraps; `SemanticModel` owning_scope facts; **immediate physical free** on scope exit; enqueue/drain remains for explicit batching |
+| **Physical free today** | **Immediate** on `scope_exit` / `scope_release`; `enqueue_release` + `drain_deferred` for short-batch points |
+| **Still open (post-slice-2)** | Richer semantic illegal-escape diagnostics; industrial region types (SOTA G9); more precise per-path demotion |
+| **Gap framing** | Incomplete reclaim was a **gap**; slice 2 closes the process-lived deferral product gap for values whose ownership ended |
 
-Target: full promote/demote/release with deterministic immediate or batched
-physical destroy—still **not** tracing GC as the user model.
+Product model remains **scope-owned dispose** — still **not** tracing GC.
 
-## Slice 2 plan (ready to implement)
+## Slice 2 (landed) — what shipped
 
-**Goal:** make scope-owned dispose **precise enough** that logical release can
-become **immediate or short-batch physical free** without use-after-free, while
-keeping the product model (no tracing GC).
+| Package | Implementation |
+|---------|----------------|
+| **2a Precise promote** | `inject_lifetime` tracks bind introduction scopes; reassign / field / list / index stores promote to the **destination bind's owner**, not always root |
+| **2b Leave-scope exits** | return ok/err/none, break/continue, if/match/loop arm enter+exit; effect short-circuit via MatchTagged arms |
+| **2c Ownership facts v0** | `BindFact.owning_scope` + `introduce_in_scope` / `owning_scope_of` / `is_managed_kind`; pipeline `collect_stmt_facts` walks nested scopes |
+| **2d Demotion** | Inward `ScopePromote` into once-entered scopes (if arms) and **loop wrapper** scopes (whole loop once — never per-iteration body) |
+| **2e Immediate free** | `logical_release` physically frees unless `defer_heavy`; `RUNTIME_ABI_VERSION` bumped |
+| **2f Proof** | MIR lifetime unit tests; runtime scope free/promote tests; e26 `run/lifetime/001`–`007`; pipeline ownership fact test |
 
-### Starting facts (slice 1)
+### Pipeline (slice 2)
 
-| Layer | Today |
-|-------|--------|
-| **MIR** | `echo_mir::lifetime::inject_lifetime` — conservative promote-to-root on escape; no demote; no semantic facts |
-| **Runtime** | Exact per-scope ownership sets; promote/disown/release; **deferred** physical free (`enqueue` + `drain_deferred`) |
-| **Semantics** | Law documented; **no** lifetime `SemanticModel` facts yet |
-| **e26** | `echo26/run/lifetime/*` — behavioral smoke (block local, promote assign, if exit, break cleanup), not reclaim proofs |
-
-### Work packages (order)
-
-| # | Package | Done when | Primary crates |
-|---|---------|-----------|----------------|
-| **2a** | **Precise promote targets** | Escape edges promote to the **true** owning ancestor (not always root); unit tests + e26 | `echo_mir` (lifetime), optional seed facts from semantics |
-| **2b** | **Early-exit coverage audit** | Every leave-scope edge emits exits: return/break/continue/effect short-circuit/`!`/`^` paths; miss = MIR/crate test | `echo_mir`, codegen emit |
-| **2c** | **Semantic ownership facts (v0)** | `SemanticModel` (or adjacent) records bind → owning scope for managed kinds; illegal escape diagnostics when ready | `echo_semantics`, `echo_pipeline` product |
-| **2d** | **Demotion** | Nested scope can take ownership when analysis proves shorter life; MIR `ScopeDemote` (or reuse promote) + runtime | `echo_mir`, `echo_runtime` |
-| **2e** | **Immediate / batched physical free** | After 2a–2c are sound: free on exit (or drain at safe points) instead of process-lived deferral; ABI version bump | `echo_runtime`, `echo_codegen_abi`, fingerprint |
-| **2f** | **Proof belt** | Crate tests + e26 lifetime fixtures that would **fail** if early free broke aliases; examples unchanged unless demos need it | `echo_mir`, `echo_runtime`, `echo26/run/lifetime` |
-
-### Implementation rules
-
-1. **Still not tracing GC** — ADR 0016 stands.
-2. **Conservative until proven** — prefer over-promote over early free; flip free policy only after promote targets are precise.
-3. **Shared pipeline only** — no host-local free policy in `xo` / LSP.
-4. **Three proofs** — crate tests + e26 + examples as applicable (`AGENTS.md`).
-5. **Version bumps** — `RUNTIME_ABI_VERSION` (and docs) when free policy or ABI changes.
-
-### Non-goals for slice 2
-
-- Full industrial region/type system (SOTA G9 remainder)
-- Cycle collection or concurrent collector
-- User-visible "manual free" API
-- Changing value-vs-ref pass rules
-
-### Suggested first commit of the slice
-
-**2a alone:** replace "promote managed escapes to root" with promote to the
-**nearest scope that outlives the use** (function root when binding escapes the
-function; parent block when binding is outer-block only). Keep deferred free.
-Prove with MIR unit tests + extend `echo26/run/lifetime` if observable.
-
-### Checklist before coding 2a
-
-- [ ] Read `crates/echo_mir/src/lifetime.rs` + `crates/echo_runtime/src/scope.rs`
-- [ ] Read e26 `run/lifetime/*` and existing MIR lifetime unit tests
-- [ ] Sketch promote-target table for: local bind, field store, list push, return, task capture (if any)
-- [ ] Land tests first (red) for one wrong promote-to-root case, then green
+```text
+structured MIR
+  → inject_lifetime   # precise promote/demote + leave-scope exits
+  → CFG → SSA → …
+codegen
+  → echo_runtime_scope_*   # registries; immediate free on exit
+```
 
 ## Features that allocate
 

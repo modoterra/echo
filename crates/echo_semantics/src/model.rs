@@ -47,6 +47,9 @@ pub struct BindFact {
     pub binding: BindingKind,
     pub value_kind: ValueKind,
     pub span: Span,
+    /// Owning lexical scope id for lifetime (0 = function/module root of the walk).
+    /// Slice-2 ownership facts — consumable by analysis product / MIR inject.
+    pub owning_scope: u32,
 }
 
 /// Analysis facts for one module — consumed by MIR, never re-derived ad hoc.
@@ -59,6 +62,8 @@ pub struct SemanticModel {
     pub value_struct: HashMap<String, String>,
     /// `(struct_name, method_name)` → method returns the receiver (`.`).
     pub returns_receiver: HashMap<(String, String), bool>,
+    /// Next free scope id for ownership walks (root is 0).
+    pub next_scope_id: u32,
 }
 
 impl SemanticModel {
@@ -73,13 +78,25 @@ impl SemanticModel {
         id
     }
 
-    /// Record or refresh a bind fact.
+    /// Record or refresh a bind fact at the **current** ownership scope (`owning_scope` 0 = root).
     pub fn introduce(
         &mut self,
         name: impl Into<String>,
         binding: BindingKind,
         value_kind: ValueKind,
         span: Span,
+    ) {
+        self.introduce_in_scope(name, binding, value_kind, span, 0);
+    }
+
+    /// Record or refresh a bind fact with an explicit owning scope id.
+    pub fn introduce_in_scope(
+        &mut self,
+        name: impl Into<String>,
+        binding: BindingKind,
+        value_kind: ValueKind,
+        span: Span,
+        owning_scope: u32,
     ) {
         let name = name.into();
         if let ValueKind::Struct { name: ref st } = value_kind {
@@ -93,6 +110,12 @@ impl SemanticModel {
             .get(&name)
             .map(|b| b.id)
             .unwrap_or_else(|| self.alloc_id());
+        // Keep introduction scope on reassignment (same name, no shadowing).
+        let owning_scope = self
+            .binds
+            .get(&name)
+            .map(|b| b.owning_scope)
+            .unwrap_or(owning_scope);
         self.binds.insert(
             name.clone(),
             BindFact {
@@ -101,8 +124,30 @@ impl SemanticModel {
                 binding,
                 value_kind,
                 span,
+                owning_scope,
             },
         );
+    }
+
+    /// Allocate a nested scope id for ownership walks.
+    pub fn alloc_scope(&mut self) -> u32 {
+        self.next_scope_id += 1;
+        self.next_scope_id
+    }
+
+    /// Owning scope of a bind, if recorded.
+    #[must_use]
+    pub fn owning_scope_of(&self, name: &str) -> Option<u32> {
+        self.binds.get(name).map(|b| b.owning_scope)
+    }
+
+    /// True when `value_kind` is a managed heap-bearing kind (v0).
+    #[must_use]
+    pub fn is_managed_kind(kind: &ValueKind) -> bool {
+        matches!(
+            kind,
+            ValueKind::List | ValueKind::String | ValueKind::Struct { .. }
+        )
     }
 
     /// Copy struct typing from one name to another (assignment of handles).
@@ -173,5 +218,29 @@ mod tests {
         assert_eq!(m.struct_of("c"), Some("counter"));
         m.copy_struct_type("c", "d");
         assert_eq!(m.struct_of("d"), Some("counter"));
+    }
+
+    #[test]
+    fn owning_scope_preserved_on_reassign() {
+        let mut m = SemanticModel::new();
+        m.introduce_in_scope(
+            "xs",
+            BindingKind::Mutable,
+            ValueKind::List,
+            sp(),
+            0,
+        );
+        let nested = m.alloc_scope();
+        assert_eq!(nested, 1);
+        m.introduce_in_scope(
+            "xs",
+            BindingKind::Mutable,
+            ValueKind::List,
+            sp(),
+            nested,
+        );
+        assert_eq!(m.owning_scope_of("xs"), Some(0));
+        assert!(SemanticModel::is_managed_kind(&ValueKind::List));
+        assert!(!SemanticModel::is_managed_kind(&ValueKind::Int));
     }
 }

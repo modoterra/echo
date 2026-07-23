@@ -183,7 +183,7 @@ Lexer/parser **must** disambiguate by statement position vs expression context.
 | Import `/ path` · export `\ name` | Locked |
 | Paths `./…` and bare `std/…` | Locked (shape) |
 | Package / module model | **Locked** (ADR 0014) | Folder = module; paths + URL; optional `xo.toml`; user `$XO_HOME/packages/<id>/<ver>/` |
-| Memory reclamation | **Law locked** (ADR 0016); **slice 1 landed**; **slice 2 planned** | Scope-owned dispose — not tracing GC ([`memory.md`](memory.md)). Slice 1: registries + MIR inject + deferred free. **Next (slice 2):** precise promote targets → early-exit audit → semantic facts → demotion → immediate/batched free ([`memory.md`](memory.md) § Slice 2 plan) |
+| Memory reclamation | **Law locked** (ADR 0016); **slice 2 landed** | Scope-owned dispose — not tracing GC ([`memory.md`](memory.md)). Precise promote, demotion, owning_scope facts, **immediate free** on exit; e26 `run/lifetime` |
 
 ### 2.9 Failure model (v0)
 
@@ -278,9 +278,8 @@ Language features ship as **verticals** ([`implementation.md`](implementation.md
 
 **Next concrete steps** (priority order as of 2026-07-23):
 
-1. **Memory reclamation slice 2** — precise lifetime analysis, demotion, early-exit
-   coverage, immediate/batched physical free ([`memory.md`](memory.md) § Slice 2 plan).  
-2. **Host tooling** — fuller LSP polish, www mirror of locked surface, AOT/link polish.  
+1. **Host tooling** — fuller LSP polish, www mirror of locked surface, AOT/link polish.  
+2. ~~**Memory reclamation slice 2**~~ — **done** (precise promote/demote, owning_scope facts, immediate free; e26 `run/lifetime`).  
 3. ~~**std/process + std/fs**~~ — **done** (runtime + std + e26 + examples + `xo test`).  
 4. ~~**HTTP body read-to-Content-Length**~~ — **done** (`runtime.http_request_complete` + handle_connection).  
 5. ~~**Free-fn param monomorphic typing**~~ — **done** (call-site → free-fn param struct flow in MIR; methods on params).  
@@ -494,6 +493,7 @@ current; fill Impl as work lands.
 | 2026-07-23 | **`std/process`**: args, env, exit, spawn+wait; e26 `run/process`; `examples/misc/process.echo` |
 | 2026-07-23 | **`std/fs`**: paths, whole-file, copy/rename, `% meta`, streaming `% file`; e26 `run/fs`; `examples/misc/fs.echo` |
 | 2026-07-23 | Vertical closed: process+fs proofs (runtime unit + e26 + `xo test` + demos); next = memory slice 2 |
+| 2026-07-23 | **Memory slice 2:** precise promote, demotion, owning_scope facts, immediate free; e26 lifetime 001–007 |
 
 ---
 
