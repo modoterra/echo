@@ -5,9 +5,9 @@ in [ADR 0016](adr/0016-scope-owned-memory.md).
 
 | | |
 |--|--|
-| **Status** | **Law locked**; **slice 2 landed** (precise promote, demotion, ownership facts, immediate free) |
-| **Owners** | Semantics (lifetime facts) · MIR (`inject_lifetime`) · `echo_runtime` (`scope_*`) · codegen (emit ops only) |
-| **Related** | [ADR 0016](adr/0016-scope-owned-memory.md), [`semantics.md`](semantics.md) § Managed heap lifetime, [`mir.md`](mir.md) § Scope ownership ops, [`runtime-abi.md`](runtime-abi.md) § Memory reclamation |
+| **Status** | **Law locked**; **graph promote landed** (region evacuation + epoch); slice 2 free/exit; public `/docs/memory` |
+| **Owners** | Semantics (lifetime facts) · MIR (`inject_lifetime`) · `echo_runtime` (`scope_*` graph promote) · codegen (emit ops only) |
+| **Related** | [ADR 0016](adr/0016-scope-owned-memory.md), [`semantics.md`](semantics.md) § Managed heap lifetime, [`mir.md`](mir.md) § Scope ownership ops, [`runtime-abi.md`](runtime-abi.md) § Memory reclamation · www `/docs/memory` |
 
 ## Garbage collection
 
@@ -40,9 +40,43 @@ still owned by that scope.**
 | Term | Meaning |
 |------|---------|
 | **Owning scope** | Lexical block, function frame, or other locked dynamic scope that **owns** a managed allocation |
-| **Promotion** | Ownership (or lifetime) moves outward (return, store into a longer-lived object, …) |
-| **Demotion** | Ownership moves into a nested/shorter scope when analysis requires it |
+| **Promotion** | **Graph evacuation**: root + every reachable alloc still owned by the source frame moves to dest |
+| **Demotion** | Ownership moves into a nested/shorter scope when analysis proves a shorter life (optional optimize) |
 | **Release** | Deterministic dispose of still-owned values on **every** CFG edge that leaves the scope |
+
+## Graph promotion (region evacuation)
+
+**Law:** when a managed value escapes its owning scope **S** into destination **T**,
+every reachable managed allocation whose **current owner is S** is transferred to
+**T**. Allocations owned by any other frame (including longer-lived shared roots)
+stay put.
+
+```text
+promote_graph(root, T):
+  S = owner(root)          # source dynamic frame
+  if no S: rehome root → T only; return
+  epoch++
+  queue ← [root]  # unique via header.promotion_epoch == epoch
+  while queue:
+    h ← pop
+    if owner(h) != S: continue
+    rehome h → T
+    for each managed child of h (list elems / struct fields):
+      if not yet marked this epoch: enqueue
+```
+
+| Kind | Children walked |
+|------|-----------------|
+| list | live heap elems |
+| struct | live heap field values |
+| string / bytes / float / range / fn / locator | none (leaves) |
+
+**Not GC:** no whole-heap mark, no cycle collector — only rehome owner==S.
+**Cycles:** epoch mark ⇒ each object processed at most once per promote.
+**Cost:** size of the escaping subgraph.
+
+**ABI:** `echo_runtime_scope_promote` / `echo_runtime_scope_promote_graph` (same
+semantics). See [`runtime-abi.md`](runtime-abi.md).
 
 ### Intuition
 
@@ -91,7 +125,7 @@ codegen
 | `ScopeEnter { id }` | Push dynamic ownership frame |
 | `ScopeExit { id }` | Pop frame; release every still-owned handle |
 | `ScopeRegister { value }` | Record a fresh allocation as owned by the current frame |
-| `ScopePromote { value, target }` | Move ownership to an open ancestor **or** nested (demotion) frame |
+| `ScopePromote { value, target }` | **Graph** promote root → target (children with owner==source follow) |
 | `ScopeDisown { value }` | Drop ownership without free (e.g. return transfer) |
 | `ScopeRelease { value }` | Logical release of one value |
 
@@ -119,10 +153,11 @@ Full signatures: [`runtime-abi.md`](runtime-abi.md) § Memory reclamation.
 |--|--|
 | **Law** | Locked — scope-owned dispose is the product reclamation model |
 | **Slice 1** | Registries + MIR inject + leave-scope exits (foundation) |
-| **Slice 2 (landed)** | Precise promote to bind owner; demotion into once-scopes / loop wraps; `SemanticModel` owning_scope facts; **immediate physical free** on scope exit; enqueue/drain remains for explicit batching |
+| **Slice 2 (landed)** | Precise promote targets; demotion helpers; owning_scope facts; **immediate physical free** |
+| **Graph promote (landed)** | Runtime region evacuation + header epoch; nest/cycle/shared unit tests; e26 `run/lifetime/010`–`012` |
 | **Physical free today** | **Immediate** on `scope_exit` / `scope_release`; `enqueue_release` + `drain_deferred` for short-batch points |
-| **Still open (post-slice-2)** | Richer semantic illegal-escape diagnostics; industrial region types (SOTA G9); more precise per-path demotion |
-| **Gap framing** | Incomplete reclaim was a **gap**; slice 2 closes the process-lived deferral product gap for values whose ownership ended |
+| **Still open** | Richer illegal-escape diagnostics; shrink name-keyed demote as pure opt; industrial region types (SOTA G9) |
+| **Gap framing** | Incomplete reclaim is a **gap** for unfinished edges only — not a competing GC design |
 
 Product model remains **scope-owned dispose** — still **not** tracing GC.
 
@@ -130,12 +165,8 @@ Product model remains **scope-owned dispose** — still **not** tracing GC.
 
 | Package | Implementation |
 |---------|----------------|
-| **2a Precise promote** | `inject_lifetime` tracks bind introduction scopes; reassign / field / list / index stores promote to the **destination bind's owner**, not always root |
-| **2b Leave-scope exits** | return ok/err/none, break/continue, if/match/loop arm enter+exit; effect short-circuit via MatchTagged arms |
-| **2c Ownership facts v0** | `BindFact.owning_scope` + `introduce_in_scope` / `owning_scope_of` / `is_managed_kind`; pipeline `collect_stmt_facts` walks nested scopes |
-| **2d Demotion** | Inward `ScopePromote` only for **unique fresh** owners unused after; `managed_names_in_expr` + `note_may_share_handles` on every set/store (ListLit/StructLit nest, ListPush/FieldSet/IndexSet, alias assign); once-entered scopes + whole-loop wraps; **prescan body escapes** before demote |
-| **2e Immediate free** | `logical_release` physically frees unless `defer_heavy`; `RUNTIME_ABI_VERSION` bumped |
-| **2f Proof** | MIR lifetime unit tests (escape table + in-body nest); runtime scope free; e26 `run/lifetime/001`–`009`; pipeline ownership fact test |
+| **2a–2f** | Slice 2: inject promote targets, leave-scope exits, owning_scope facts, demote helpers, immediate free, e26 001–009 |
+| **Graph promote** | Runtime queue+epoch; `scope_promote` = graph; crate tests nest/cycle/shared/**deterministic twice**; e26 010–012; docs + www Memory |
 
 ### Pipeline (slice 2)
 

@@ -64,7 +64,7 @@ mod test_suite;
 pub use scope::{
     echo_runtime_scope_disown, echo_runtime_scope_drain_deferred, echo_runtime_scope_enqueue_release,
     echo_runtime_scope_enter, echo_runtime_scope_exit, echo_runtime_scope_promote,
-    echo_runtime_scope_register, echo_runtime_scope_release,
+    echo_runtime_scope_promote_graph, echo_runtime_scope_register, echo_runtime_scope_release,
 };
 
 // TCP/UDP — re-export for JIT symbol mapping (`echo_codegen`).
@@ -133,7 +133,8 @@ pub const FN_SHAPE_OPTION: i64 = 2;
 pub(crate) struct HeapHeader {
     pub magic: u64,
     pub kind: u32,
-    pub _pad: u32,
+    /// Graph-promote visit epoch (ADR 0016 region evacuation). 0 = never visited.
+    pub promotion_epoch: u32,
 }
 
 /// Heap list of i64 elements.
@@ -204,7 +205,7 @@ fn list_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_LIST,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -212,7 +213,7 @@ fn string_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_STRING,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -220,7 +221,7 @@ fn struct_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_STRUCT,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -228,7 +229,7 @@ fn float_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_FLOAT,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -236,7 +237,7 @@ fn bytes_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_BYTES,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -244,7 +245,7 @@ fn locator_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_LOCATOR,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -252,7 +253,7 @@ fn range_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_RANGE,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -271,7 +272,7 @@ fn fn_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_FN,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -937,7 +938,7 @@ pub(crate) fn locator_data(v: i64) -> Option<String> {
     Some(loc.data.clone())
 }
 
-fn list_elems(v: i64) -> Option<Vec<i64>> {
+pub(crate) fn list_elems(v: i64) -> Option<Vec<i64>> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_LIST {
         return None;
@@ -946,7 +947,7 @@ fn list_elems(v: i64) -> Option<Vec<i64>> {
     Some(list.elems.clone())
 }
 
-fn struct_fields(v: i64) -> Option<Vec<(String, i64)>> {
+pub(crate) fn struct_fields(v: i64) -> Option<Vec<(String, i64)>> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_STRUCT {
         return None;
@@ -1074,7 +1075,7 @@ pub extern "C" fn echo_runtime_string_builder_new() -> i64 {
         header: HeapHeader {
             magic: HEAP_MAGIC,
             kind: KIND_BUILDER,
-            _pad: 0,
+            promotion_epoch: 0,
         },
         buf: String::new(),
     });

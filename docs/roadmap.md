@@ -183,7 +183,7 @@ Lexer/parser **must** disambiguate by statement position vs expression context.
 | Import `/ path` · export `\ name` | Locked |
 | Paths `./…` and bare `std/…` | Locked (shape) |
 | Package / module model | **Locked** (ADR 0014) | Folder = module; paths + URL; optional `xo.toml`; user `$XO_HOME/packages/<id>/<ver>/` |
-| Memory reclamation | **Law locked** (ADR 0016); **slice 2 landed** | Scope-owned dispose — not tracing GC ([`memory.md`](memory.md)). Precise promote, demotion, owning_scope facts, **immediate free** on exit; e26 `run/lifetime` |
+| Memory reclamation | **Law locked** (ADR 0016); **graph promote landed** | Scope-owned dispose — not tracing GC ([`memory.md`](memory.md), www `/docs/memory`). **Graph promotion** (region evacuation); immediate free; e26 `run/lifetime` 001–012 |
 
 ### 2.9 Failure model (v0)
 
@@ -494,6 +494,7 @@ current; fill Impl as work lands.
 | 2026-07-23 | **`std/fs`**: paths, whole-file, copy/rename, `% meta`, streaming `% file`; e26 `run/fs`; `examples/misc/fs.echo` |
 | 2026-07-23 | Vertical closed: process+fs proofs (runtime unit + e26 + `xo test` + demos); next = memory slice 2 |
 | 2026-07-23 | **Memory slice 2:** precise promote, demotion, owning_scope facts, immediate free; e26 lifetime 001–007 |
+| 2026-07-23 | **Graph promote:** region evacuation + header epoch; crate nest/cycle/shared/deterministic; e26 010–012; www Memory |
 
 ---
 

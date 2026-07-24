@@ -38,7 +38,7 @@ pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disow
 pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 32; // scope exit immediate physical free (slice 2)
+pub const RUNTIME_ABI_VERSION: u32 = 33; // graph promote (region evacuation) + header epoch
 pub const STDLIB_VERSION: u32 = 20; // std/fs streaming + metadata
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;

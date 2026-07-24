@@ -168,19 +168,22 @@ explicit **promotion**, **demotion**, and **release**. Every CFG edge that
 leaves a scope **deterministically disposes** of values still owned by that
 scope.
 
-| Status today | **Slice 2:** exact scope registries + promote/disown/release; **immediate physical free** on scope exit / release; `enqueue_release` + `drain_deferred` for explicit short-batch free |
-| Target | Full promote/demote/release with deterministic immediate or batched physical destroy (not tracing GC as the user model) |
+| Status today | Registries + **graph promote** (region evacuation, header `promotion_epoch`) + **immediate free** on exit; enqueue/drain for batch |
+| Target | Same law; demote remains optional optimize (not tracing GC) |
 
 | Symbol | Signature | Role |
 |--------|-----------|------|
 | `echo_runtime_scope_enter` | `void (i64 scope_id)` | Push ownership frame |
 | `echo_runtime_scope_exit` | `void (i64 scope_id)` | Pop frame; release still-owned values |
 | `echo_runtime_scope_register` | `void (i64 handle)` | Own handle in current frame |
-| `echo_runtime_scope_promote` | `void (i64 handle, i64 target_id)` | Transfer ownership |
+| `echo_runtime_scope_promote` | `void (i64 handle, i64 target_id)` | **Graph** promote: root + reachable owner==source → target |
+| `echo_runtime_scope_promote_graph` | `void (i64 handle, i64 target_id)` | Same as promote (explicit name) |
 | `echo_runtime_scope_disown` | `void (i64 handle)` | Drop ownership without free |
 | `echo_runtime_scope_release` | `void (i64 handle)` | Logical release one value |
 | `echo_runtime_scope_enqueue_release` | `void (i64 handle)` | Logical release + enqueue |
 | `echo_runtime_scope_drain_deferred` | `void (void)` | Physical free deferred batch |
+
+Heap headers carry `promotion_epoch` for visit uniqueness during graph promote.
 
 Runtime implements dispose ops for heap kinds; codegen must not invent a
 competing free policy. See [ADR 0016](adr/0016-scope-owned-memory.md).

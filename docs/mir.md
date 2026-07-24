@@ -35,7 +35,7 @@ optimization is **LLVM’s** job (`default<On>`).
 | Explicit box/unbox boundaries | LICM |
 | Local simplify (redundant box/unbox, trivial copies) | Induction / loop opts |
 | **Escape analysis** + **`NoEscape` scalar box elision** (runtime ABI) | General DCE and mid-end |
-| **Scope-owned memory** (promote / demote / release on scope-exit edges) — ADR 0016; **slice 2 landed** (precise promote, demotion wraps, immediate free) | N/A (language dispose is not LLVM free) |
+| **Scope-owned memory** (promote / demote / release on scope-exit edges) — ADR 0016; **graph promote** + immediate free | N/A (language dispose is not LLVM free) |
 | Language-shaped lowering (list get → runtime, …) | `default<O1>`…`default<Oz>` |
 
 **Do not** re-add MIR passes that only reimplement LLVM (constprop, GVN, LICM,
@@ -47,7 +47,7 @@ non-retaining call knowledge LLVM does not have.
 
 ```text
 structured MIR
-  → inject_lifetime (ADR 0016 slice 2: precise promote/demote + leave-scope exits)
+  → inject_lifetime (ADR 0016: scope ops; ScopePromote = graph promote at runtime)
   → CFG
   → SSA
   → analyze_reprs
@@ -61,7 +61,7 @@ structured MIR
 
 | Pass | Why it stays in MIR |
 |------|---------------------|
-| `inject_lifetime` | Explicit scope ownership ops before CFG; precise promote to bind owner + demotion wraps (ADR 0016 slice 2) |
+| `inject_lifetime` | Explicit scope ownership ops before CFG; `ScopePromote` lowers to **graph** promote (ADR 0016) |
 | `analyze_reprs` | Echo native vs boxed form for hyper-optimizable LLVM handoff |
 | `simplify_local` | Cancel redundant box/unbox and trivial copies at representation boundaries |
 | `analyze_escapes` | Classify escape with Echo ABI (e.g. non-retaining `runtime.print`); elide `NoEscape` scalar boxes |

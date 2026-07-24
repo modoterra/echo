@@ -205,7 +205,10 @@ pub const RT_SCOPE_EXIT: &str = "echo_runtime_scope_exit";
 /// `void echo_runtime_scope_register(int64_t handle)`
 pub const RT_SCOPE_REGISTER: &str = "echo_runtime_scope_register";
 /// `void echo_runtime_scope_promote(int64_t handle, int64_t target_scope_id)`
+/// Graph promotion: rehomes root and every reachable alloc still owned by root's source frame.
 pub const RT_SCOPE_PROMOTE: &str = "echo_runtime_scope_promote";
+/// Same as [`RT_SCOPE_PROMOTE`] (explicit graph name for docs / optional dual bind).
+pub const RT_SCOPE_PROMOTE_GRAPH: &str = "echo_runtime_scope_promote_graph";
 /// `void echo_runtime_scope_disown(int64_t handle)`
 pub const RT_SCOPE_DISOWN: &str = "echo_runtime_scope_disown";
 /// `void echo_runtime_scope_release(int64_t handle)`

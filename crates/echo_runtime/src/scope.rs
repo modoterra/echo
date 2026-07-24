@@ -1,15 +1,15 @@
 //! Scope-owned memory registries (ADR 0016).
 //!
 //! Every managed heap handle is registered to exactly one owning scope.
-//! Promotion moves the ownership record; scope exit releases remaining owned
-//! values. No tracing GC and no reference counts for aliases.
+//! **Graph promotion** (region evacuation): escape of a root rehomes every
+//! reachable allocation still owned by the root's source frame. No tracing GC.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{
-    header_at, HEAP_MAGIC, KIND_BYTES, KIND_FLOAT, KIND_FN, KIND_LIST, KIND_LOCATOR, KIND_RANGE,
-    KIND_STRING, KIND_STRUCT,
+    header_at, list_elems, struct_fields, HEAP_MAGIC, KIND_BYTES, KIND_FLOAT, KIND_FN, KIND_LIST,
+    KIND_LOCATOR, KIND_RANGE, KIND_STRING, KIND_STRUCT,
 };
 
 /// Logical tombstone: handle may still be in memory until deferred free runs.
@@ -24,6 +24,8 @@ struct ScopeState {
     dead: HashSet<i64>,
     /// Deferred physical frees (event-loop batching).
     deferred: Vec<i64>,
+    /// Monotonic epoch for graph-promote visit marks (header.promotion_epoch).
+    promote_epoch: u32,
 }
 
 struct ScopeFrame {
@@ -74,14 +76,25 @@ pub extern "C" fn echo_runtime_scope_register(handle: i64) {
     });
 }
 
-/// Move ownership of `handle` to an open scope `target_id` (must be on the stack).
-/// Source scope no longer releases it.
+/// Move ownership of `handle` **and its managed graph** to open scope `target_id`.
+///
+/// **Graph promotion (region evacuation):** source = current owner of `handle`.
+/// Every reachable managed allocation still owned by that source frame is
+/// rehomed to `target_id`. Allocations owned by other frames (e.g. longer-lived
+/// shared roots) are left unchanged. Cycles are safe via header promotion epoch.
 ///
 /// When the same compile-time id is nested (re-entrant calls), promotion targets
-/// the **innermost** open frame with that id (nearest enclosing match from the
-/// top of the stack).
+/// the **innermost** open frame with that id.
+///
+/// Unowned root: rehome root only to target (no walk).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_scope_promote(handle: i64, target_id: i64) {
+    echo_runtime_scope_promote_graph(handle, target_id);
+}
+
+/// Explicit graph promote (same semantics as [`echo_runtime_scope_promote`]).
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_scope_promote_graph(handle: i64, target_id: i64) {
     if handle == 0 || !is_managed_handle(handle) {
         return;
     }
@@ -89,31 +102,116 @@ pub extern "C" fn echo_runtime_scope_promote(handle: i64, target_id: i64) {
     STATE.with(|c| {
         let mut st = c.borrow_mut();
         if st.dead.contains(&handle) {
-            // Allow promote of a logically released handle only if address was
-            // reused; clear tombstone and re-home (slice-1 recovery).
             st.dead.remove(&handle);
         }
-        // Innermost frame with this compile-time id.
         let Some(target_idx) = st.stack.iter().rposition(|f| f.id == target_id) else {
             eprintln!("echo: promote to non-open scope {target_id}");
             std::process::exit(1);
         };
-        // Remove from whatever frame currently owns the handle.
-        if let Some(&src_idx) = st.owner.get(&handle) {
-            if src_idx == target_idx {
-                return;
+
+        let Some(&source_idx) = st.owner.get(&handle) else {
+            // Unowned root: rehome root only; do not invent a source for children.
+            rehome(&mut st, handle, target_idx);
+            return;
+        };
+        if source_idx == target_idx {
+            return;
+        }
+        if source_idx >= st.stack.len() {
+            rehome(&mut st, handle, target_idx);
+            return;
+        }
+
+        // New promotion epoch (never 0 after first promote).
+        let epoch = st.promote_epoch.wrapping_add(1).max(1);
+        st.promote_epoch = epoch;
+
+        let mut queue = VecDeque::new();
+        if mark_epoch(handle, epoch) {
+            queue.push_back(handle);
+        }
+
+        while let Some(h) = queue.pop_front() {
+            // Only evacuate allocations still owned by the source frame.
+            match st.owner.get(&h).copied() {
+                Some(idx) if idx == source_idx => {}
+                _ => continue,
             }
-            if src_idx < st.stack.len() {
-                st.stack[src_idx].owned.remove(&handle);
-            }
-        } else {
-            for f in st.stack.iter_mut() {
-                f.owned.remove(&handle);
+            rehome(&mut st, h, target_idx);
+            for child in managed_children(h) {
+                if !is_managed_handle(child) {
+                    continue;
+                }
+                if mark_epoch(child, epoch) {
+                    queue.push_back(child);
+                }
             }
         }
+    });
+}
+
+/// Rehome a single handle to `target_idx` (must be valid stack index).
+fn rehome(st: &mut ScopeState, handle: i64, target_idx: usize) {
+    if let Some(&src_idx) = st.owner.get(&handle) {
+        if src_idx == target_idx {
+            return;
+        }
+        if src_idx < st.stack.len() {
+            st.stack[src_idx].owned.remove(&handle);
+        }
+    } else {
+        for f in st.stack.iter_mut() {
+            f.owned.remove(&handle);
+        }
+    }
+    if target_idx < st.stack.len() {
         st.stack[target_idx].owned.insert(handle);
         st.owner.insert(handle, target_idx);
-    });
+    }
+}
+
+/// Mark header promotion_epoch; returns true if newly marked for this epoch.
+fn mark_epoch(handle: i64, epoch: u32) -> bool {
+    let Some(h) = (unsafe { header_at(handle) }) else {
+        return false;
+    };
+    // Safety: live heap header from our allocator.
+    let hdr = h as *mut crate::HeapHeader;
+    unsafe {
+        if (*hdr).promotion_epoch == epoch {
+            return false;
+        }
+        (*hdr).promotion_epoch = epoch;
+    }
+    true
+}
+
+/// Managed children of a heap value (list elems / struct fields that are live heap).
+fn managed_children(handle: i64) -> Vec<i64> {
+    let Some(h) = (unsafe { header_at(handle) }) else {
+        return Vec::new();
+    };
+    let kind = unsafe { (*h).kind };
+    match kind {
+        KIND_LIST => list_elems(handle)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|&e| is_managed_handle(e))
+            .collect(),
+        KIND_STRUCT => struct_fields(handle)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, v)| v)
+            .filter(|&e| is_managed_handle(e))
+            .collect(),
+        KIND_STRING
+        | KIND_BYTES
+        | KIND_FLOAT
+        | KIND_LOCATOR
+        | KIND_RANGE
+        | KIND_FN
+        | _ => Vec::new(),
+    }
 }
 
 /// Remove ownership without free (e.g. return / transfer out of analysis).
@@ -291,6 +389,17 @@ pub fn test_is_owned(handle: i64) -> bool {
     STATE.with(|c| c.borrow().owner.contains_key(&handle))
 }
 
+/// Test helper: compile-time scope id of the frame that owns `handle`, if any.
+#[cfg(test)]
+pub fn test_owner_scope_id(handle: i64) -> Option<u32> {
+    STATE.with(|c| {
+        let st = c.borrow();
+        st.owner
+            .get(&handle)
+            .and_then(|&idx| st.stack.get(idx).map(|f| f.id))
+    })
+}
+
 /// Test helper: clear all scope state (tests only).
 #[cfg(test)]
 pub fn test_reset() {
@@ -306,6 +415,7 @@ pub fn test_reset() {
         st.stack.clear();
         st.owner.clear();
         st.dead.clear();
+        st.promote_epoch = 0;
         let def = std::mem::take(&mut st.deferred);
         for h in def {
             physical_free(h);
@@ -428,5 +538,163 @@ mod tests {
         echo_runtime_scope_exit(1);
         assert!(!crate::is_live_heap(h));
         test_reset();
+    }
+
+    /// Deterministic graph promote: nest — both a and b leave inner; outer free kills both.
+    #[test]
+    fn graph_promote_nested_struct_child() {
+        use crate::{echo_runtime_struct_new, struct_set_str};
+        test_reset();
+        echo_runtime_scope_enter(0); // outer T
+        echo_runtime_scope_enter(1); // source S
+        let b = echo_runtime_list_new();
+        echo_runtime_scope_register(b);
+        let a = echo_runtime_struct_new();
+        echo_runtime_scope_register(a);
+        unsafe {
+            struct_set_str(a, "child", b);
+        }
+        assert_eq!(test_owner_scope_id(a), Some(1));
+        assert_eq!(test_owner_scope_id(b), Some(1));
+
+        echo_runtime_scope_promote_graph(a, 0);
+
+        assert_eq!(test_owner_scope_id(a), Some(0), "root rehomed to outer");
+        assert_eq!(
+            test_owner_scope_id(b),
+            Some(0),
+            "child owned by S must follow graph promote"
+        );
+        assert!(crate::is_live_heap(a) && crate::is_live_heap(b));
+
+        echo_runtime_scope_exit(1); // must not free a or b
+        assert!(crate::is_live_heap(a));
+        assert!(crate::is_live_heap(b));
+        assert_eq!(test_owner_scope_id(a), Some(0));
+        assert_eq!(test_owner_scope_id(b), Some(0));
+
+        echo_runtime_scope_exit(0);
+        assert!(!crate::is_live_heap(a));
+        assert!(!crate::is_live_heap(b));
+        test_reset();
+    }
+
+    /// Cycle a↔b both owned by S; promote terminates; both at T; exit S safe.
+    #[test]
+    fn graph_promote_cycle_terminates() {
+        use crate::{echo_runtime_struct_new, struct_set_str};
+        test_reset();
+        echo_runtime_scope_enter(0);
+        echo_runtime_scope_enter(1);
+        let a = echo_runtime_struct_new();
+        let b = echo_runtime_struct_new();
+        echo_runtime_scope_register(a);
+        echo_runtime_scope_register(b);
+        unsafe {
+            struct_set_str(a, "to", b);
+            struct_set_str(b, "to", a);
+        }
+        echo_runtime_scope_promote_graph(a, 0);
+        assert_eq!(test_owner_scope_id(a), Some(0));
+        assert_eq!(test_owner_scope_id(b), Some(0));
+        echo_runtime_scope_exit(1);
+        assert!(crate::is_live_heap(a) && crate::is_live_heap(b));
+        echo_runtime_scope_exit(0);
+        assert!(!crate::is_live_heap(a) && !crate::is_live_heap(b));
+        test_reset();
+    }
+
+    /// Shared outer must not be stolen when promoting a child of S.
+    #[test]
+    fn graph_promote_leaves_longer_lived_shared() {
+        use crate::{echo_runtime_struct_new, struct_set_str};
+        test_reset();
+        echo_runtime_scope_enter(0); // outer
+        let shared = echo_runtime_list_new();
+        echo_runtime_scope_register(shared);
+        assert_eq!(test_owner_scope_id(shared), Some(0));
+
+        echo_runtime_scope_enter(1); // S
+        let a = echo_runtime_struct_new();
+        echo_runtime_scope_register(a);
+        unsafe {
+            struct_set_str(a, "parent", shared);
+        }
+        echo_runtime_scope_promote_graph(a, 0);
+
+        assert_eq!(test_owner_scope_id(a), Some(0));
+        assert_eq!(
+            test_owner_scope_id(shared),
+            Some(0),
+            "shared already outer — still outer (not double-owned)"
+        );
+        // shared was already at 0; promote must not free or re-register wrongly
+        assert!(crate::is_live_heap(shared));
+
+        echo_runtime_scope_exit(1);
+        assert!(crate::is_live_heap(a));
+        assert!(crate::is_live_heap(shared));
+        echo_runtime_scope_exit(0);
+        assert!(!crate::is_live_heap(a));
+        assert!(!crate::is_live_heap(shared));
+        test_reset();
+    }
+
+    /// List nest: holder=[xs] graph promote from inner moves both.
+    #[test]
+    fn graph_promote_list_element() {
+        use crate::echo_runtime_list_push;
+        test_reset();
+        echo_runtime_scope_enter(0);
+        echo_runtime_scope_enter(1);
+        let xs = echo_runtime_list_new();
+        echo_runtime_scope_register(xs);
+        unsafe {
+            echo_runtime_list_push(xs, 7);
+        }
+        let holder = echo_runtime_list_new();
+        echo_runtime_scope_register(holder);
+        unsafe {
+            echo_runtime_list_push(holder, xs);
+        }
+        echo_runtime_scope_promote_graph(holder, 0);
+        assert_eq!(test_owner_scope_id(holder), Some(0));
+        assert_eq!(test_owner_scope_id(xs), Some(0));
+        echo_runtime_scope_exit(1);
+        assert!(crate::is_live_heap(holder) && crate::is_live_heap(xs));
+        echo_runtime_scope_exit(0);
+        assert!(!crate::is_live_heap(holder) && !crate::is_live_heap(xs));
+        test_reset();
+    }
+
+    /// Running the same promote sequence twice yields the same ownership outcomes.
+    #[test]
+    fn graph_promote_deterministic_twice() {
+        use crate::{echo_runtime_struct_new, struct_set_str};
+        fn once() -> (bool, bool, u32, u32) {
+            test_reset();
+            echo_runtime_scope_enter(0);
+            echo_runtime_scope_enter(1);
+            let b = echo_runtime_list_new();
+            echo_runtime_scope_register(b);
+            let a = echo_runtime_struct_new();
+            echo_runtime_scope_register(a);
+            unsafe {
+                struct_set_str(a, "child", b);
+            }
+            echo_runtime_scope_promote_graph(a, 0);
+            echo_runtime_scope_exit(1);
+            let live_a = crate::is_live_heap(a);
+            let live_b = crate::is_live_heap(b);
+            let oa = test_owner_scope_id(a).unwrap_or(u32::MAX);
+            let ob = test_owner_scope_id(b).unwrap_or(u32::MAX);
+            echo_runtime_scope_exit(0);
+            test_reset();
+            (live_a, live_b, oa, ob)
+        }
+        let r1 = once();
+        let r2 = once();
+        assert_eq!(r1, r2, "graph promote outcomes must be deterministic");
+        assert_eq!(r1, (true, true, 0, 0));
     }
 }

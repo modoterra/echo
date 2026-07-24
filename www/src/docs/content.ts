@@ -1489,12 +1489,12 @@ u.label()`,
             kind: "paragraph",
             text: [
               "Think in scopes, not in collector cycles. A block, function body, or other structured region owns the managed values created inside it. Leaving the scope — including ",
-              { code: "return" },
-              ", ",
-              { code: "break" },
-              ", and ",
-              { code: "continue" },
-              " — releases what that scope still owns.",
+              { code: "^" },
+              " return, ",
+              { code: "<" },
+              " break, and ",
+              { code: ">" },
+              " continue — releases what that scope still owns.",
             ],
           },
           {
@@ -1522,6 +1522,46 @@ show()`,
         ],
       },
       {
+        title: "Escape and graph promotion",
+        tags: ["promotion", "escape", "graph", "nested"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Promotion is ",
+              { code: "graph-based" },
+              ": when a managed value escapes a scope, every reachable managed allocation ",
+              { code: "still owned by that scope" },
+              " is promoted with it (list elements, struct fields, nested products). Allocations already owned by a longer-lived scope stay where they are.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/io
+/ std/str
+
+$ make = () {
+  $ xs = [7]
+  $ holder = [xs]
+  ^ holder
+}
+
+$ r = make()
+io.print(str.from_int(r[0][0]))
+; nested list survives make's frame via graph promotion`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "This is region ownership with graph evacuation — not tracing garbage collection. Shared longer-lived values that a nested structure only ",
+              { code: "points at" },
+              " are not stolen or double-freed; only allocations owned by the escaping scope move.",
+            ],
+          },
+        ],
+      },
+      {
         title: "Values, references, and ownership",
         tags: ["value", "reference", "copy", "ownership"],
         blocks: [
@@ -1538,7 +1578,7 @@ show()`,
             text: [
               "Sharing storage does not invent a second free policy. ",
               { code: "Ownership for dispose" },
-              " stays scope-based: one owning scope is responsible for release, and promotion moves that responsibility when a value escapes.",
+              " stays scope-based: one owning scope is responsible for release, and graph promotion moves that responsibility for the whole escaping subgraph when a value escapes.",
             ],
           },
         ],
@@ -1556,7 +1596,7 @@ show()`,
           {
             kind: "paragraph",
             text: [
-              "The reclaim vertical is still landing in the toolchain: scope registries and dispose edges are in place; precise analysis and immediate physical free continue to tighten. The language law is fixed — scope-owned dispose, not tracing GC.",
+              "The language law is fixed: scope-owned dispose with graph promotion on escape — not tracing GC. The toolchain implements registries, graph promote, and dispose on leave-scope edges.",
             ],
           },
         ],
