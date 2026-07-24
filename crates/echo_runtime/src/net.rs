@@ -54,7 +54,7 @@ fn tcp_listener_header() -> crate::HeapHeader {
     crate::HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_TCP_LISTENER,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -62,7 +62,7 @@ fn tcp_stream_header() -> crate::HeapHeader {
     crate::HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_TCP_STREAM,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
@@ -70,7 +70,7 @@ fn udp_header() -> crate::HeapHeader {
     crate::HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_UDP_SOCKET,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 

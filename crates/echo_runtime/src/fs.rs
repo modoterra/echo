@@ -26,7 +26,7 @@ fn file_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_FS_FILE,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 

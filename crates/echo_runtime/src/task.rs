@@ -50,7 +50,7 @@ fn task_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
         kind: KIND_TASK,
-        _pad: 0,
+        promotion_epoch: 0,
     }
 }
 
