@@ -26,9 +26,17 @@
 # Previous toolchains remain until uninstall --purge or manual prune.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# When piped from curl, BASH_SOURCE may be stdin — do not require a checkout.
-if [[ -f "${SCRIPT_DIR}/../Cargo.toml" ]]; then
+# When run as `./scripts/install.sh`, resolve the checkout. When piped via
+# `curl … | bash -s -- from-release`, BASH_SOURCE is empty/unbound under `set -u`
+# and there is no repo root — only from-release/upgrade-from-release paths work.
+_script_src="${BASH_SOURCE[0]:-}"
+if [[ -n "${_script_src}" && "${_script_src}" != "bash" && "${_script_src}" != "-" && -f "${_script_src}" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${_script_src}")" && pwd)"
+else
+  SCRIPT_DIR=""
+fi
+unset _script_src
+if [[ -n "${SCRIPT_DIR}" && -f "${SCRIPT_DIR}/../Cargo.toml" ]]; then
   REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 else
   REPO_ROOT=""
