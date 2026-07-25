@@ -99,10 +99,28 @@ impl Ctx {
 /// Exhaustive collection of `Name` leaves that may denote managed heap handles
 /// embedded in `e`. New `MirExpr` variants that embed sub-expressions must be
 /// added here (non-exhaustive match will fail to compile).
+///
+/// Includes call arguments (for alias / escape analysis). **Do not** use this
+/// alone for `ScopePromote` of nested storage — call args are not owned by the
+/// call result (see [`nested_owned_names_in_expr`]).
 #[must_use]
 pub fn managed_names_in_expr(e: &MirExpr) -> Vec<&str> {
     let mut out = Vec::new();
     collect_managed_names(e, &mut out);
+    out
+}
+
+/// Names whose handles are **stored inside** a freshly constructed value
+/// (list/struct/interp/range nests). Empty for `Call` / `PrimCall`: arguments
+/// are borrowed by the callee, not nested into the return value.
+///
+/// Promoting call-arg names into the caller's/callee's bind scope caused
+/// use-after-free: `$ st = runtime.fs_create_dir_all(path)` re-homed `path`
+/// into the callee frame, then `ScopeExit` freed the caller's string.
+#[must_use]
+pub fn nested_owned_names_in_expr(e: &MirExpr) -> Vec<&str> {
+    let mut out = Vec::new();
+    collect_nested_owned_names(e, &mut out);
     out
 }
 
@@ -147,6 +165,55 @@ fn collect_managed_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
         }
         // Non-embedding leaves — no managed names.
         MirExpr::ConstI64(_)
+        | MirExpr::ConstI32(_)
+        | MirExpr::ConstInt { .. }
+        | MirExpr::ConstBool(_)
+        | MirExpr::ConstF64(_)
+        | MirExpr::ConstF32(_)
+        | MirExpr::ConstDuration(_)
+        | MirExpr::StringLit { .. }
+        | MirExpr::BytesLit { .. }
+        | MirExpr::LocatorLit { .. }
+        | MirExpr::FnValue { .. } => {}
+    }
+}
+
+fn collect_nested_owned_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
+    match e {
+        // Call / prim results do not store arg handles; do not walk args.
+        MirExpr::Call { .. } | MirExpr::PrimCall { .. } => {}
+        MirExpr::ListLit(xs) => {
+            for x in xs {
+                collect_managed_names(x, out);
+            }
+        }
+        MirExpr::StructLit { fields, .. } => {
+            for (_, v) in fields {
+                collect_managed_names(v, out);
+            }
+        }
+        MirExpr::StringInterp { parts } => {
+            for p in parts {
+                if let StrPart::Name(n) = p {
+                    out.push(n.as_str());
+                }
+            }
+        }
+        MirExpr::Range { start, end } => {
+            collect_managed_names(start, out);
+            collect_managed_names(end, out);
+        }
+        MirExpr::BoxValue { value, .. } => collect_nested_owned_names(value, out),
+        // Other forms: no nested storage into a new owner object.
+        MirExpr::Name(_)
+        | MirExpr::Unary { .. }
+        | MirExpr::Cast { .. }
+        | MirExpr::UnboxValue { .. }
+        | MirExpr::StructTypeIs { .. }
+        | MirExpr::FieldGet { .. }
+        | MirExpr::Binary { .. }
+        | MirExpr::Index { .. }
+        | MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
         | MirExpr::ConstInt { .. }
         | MirExpr::ConstBool(_)
@@ -241,11 +308,13 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
             let mut new_arms = Vec::new();
             for (cond, body) in arms {
                 // If arms enter once: demote parent-owned names used only in this arm.
-                new_arms.push((cond.clone(), rewrite_once_block(body, ctx, after, true)));
+                // Demote disabled: under immediate free, name-keyed demote is
+                // unsound with shared strings/aliases; graph promote handles escape.
+                new_arms.push((cond.clone(), rewrite_once_block(body, ctx, after, false)));
             }
             let else_body = else_body
                 .as_ref()
-                .map(|body| rewrite_once_block(body, ctx, after, true));
+                .map(|body| rewrite_once_block(body, ctx, after, false));
             vec![MirStmt::If {
                 arms: new_arms,
                 else_body,
@@ -349,7 +418,10 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
 
     let fresh = expr_is_fresh_alloc(value);
     let managed = expr_is_managed(value);
-    let embedded = managed_names_in_expr(value);
+    // Promote only true nests (list/struct/interp), never call arguments.
+    let nested = nested_owned_names_in_expr(value);
+    // Alias analysis still sees call args (may share after `^ path` returns).
+    let all_embedded = managed_names_in_expr(value);
 
     // Ownership / alias tracking — single transfer API for all RHS shapes.
     if let MirExpr::Name(other) = value {
@@ -359,12 +431,12 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
     } else if fresh {
         // Dest uniquely owns the new container/value object…
         ctx.note_unique_fresh(name);
-        // …but every Name nested in the RHS may share a handle with dest
-        // (ListLit/StructLit nest, call args, etc.).
-        note_may_share_handles(ctx, &embedded, Some(name));
+        // Names nested *into* the RHS may share a handle with dest (ListLit /
+        // StructLit). Call args are not nested — do not soft-alias them away.
+        note_may_share_handles(ctx, &nested, Some(name));
     } else if managed {
         ctx.note_not_unique(name);
-        note_may_share_handles(ctx, &embedded, Some(name));
+        note_may_share_handles(ctx, &all_embedded, Some(name));
     }
 
     v.push(MirStmt::Set {
@@ -386,7 +458,8 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
         // Nested Names stored into this value must be owned at dest's bind scope
         // (same as ListPush): otherwise a prior demote into this region + exit
         // frees them while dest (promoted outward) still holds the handles.
-        for n in &embedded {
+        // Call arguments are intentionally excluded (see nested_owned_names_in_expr).
+        for n in &nested {
             if *n != name {
                 v.push(MirStmt::ScopePromote {
                     value: MirExpr::Name((*n).to_string()),
@@ -400,7 +473,7 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
             value: MirExpr::Name(name.to_string()),
             target,
         });
-        for n in &embedded {
+        for n in &nested {
             if *n != name {
                 v.push(MirStmt::ScopePromote {
                     value: MirExpr::Name((*n).to_string()),
@@ -483,9 +556,7 @@ fn rewrite_loop_with_demote_wrap(
 
     let mut out = Vec::new();
     out.push(MirStmt::ScopeEnter { id: wrap });
-    // Body may store parent-owned names into outer containers — scan first.
-    prescan_body_escapes(body, ctx);
-    out.extend(demote_into_scope(wrap, body, after, ctx));
+    // Demote into loop wrap disabled (see if-arm note); graph promote owns escape.
 
     // Per-iteration body scope (re-entered); tracks break/continue exits.
     let body_sid = ctx.next_id;
@@ -1395,7 +1466,9 @@ mod tests {
     }
 
     #[test]
-    fn demote_into_loop_when_unused_after() {
+    fn demote_into_loop_disabled_under_immediate_free() {
+        // Loop demote was disabled with if-arm demote: name-keyed inward
+        // promote is unsound under immediate free; graph promote handles escape.
         let body = vec![
             MirStmt::Set {
                 name: "xs".into(),
@@ -1411,8 +1484,12 @@ mod tests {
         let mut promotes = Vec::new();
         walk_promotes(&out, &mut promotes);
         assert!(
-            promotes.iter().any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
-            "expected demote of unique xs into loop: {promotes:?}\n{out:?}"
+            !promotes.iter().any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
+            "loop demote disabled: unexpected promote of xs: {promotes:?}\n{out:?}"
+        );
+        assert!(
+            out.iter().any(|s| matches!(s, MirStmt::ScopeEnter { id: 1 })),
+            "loop still wrapped in once-scope: {out:?}"
         );
     }
 
@@ -1797,6 +1874,108 @@ mod tests {
         assert!(has_arm_scope);
         assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeDisown { .. })));
         assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeExit { id: 0 })));
+    }
+
+    #[test]
+    fn call_args_are_not_promoted_as_nested_into_result() {
+        use crate::{CallTarget, MirExpr, MirRetShape, MirStmt};
+        use std::path::PathBuf;
+        // `$ st = f(path)` must register `st` but must NOT ScopePromote `path`.
+        // Promoting call args re-homed the caller's string into the callee and
+        // freed it on ScopeExit (fs.create_dir_all(root) wiped root).
+        let body = vec![
+            MirStmt::Set {
+                name: "path".into(),
+                value: MirExpr::StringLit {
+                    bytes: b"/tmp/x".to_vec(),
+                },
+            },
+            MirStmt::Set {
+                name: "st".into(),
+                value: MirExpr::Call {
+                    target: CallTarget::Runtime {
+                        export: "fs_create_dir_all".into(),
+                    },
+                    args: vec![MirExpr::Name("path".into())],
+                    ret: MirRetShape::Plain,
+                },
+            },
+            MirStmt::ReturnOk(MirExpr::Name("path".into())),
+        ];
+        let out = inject_lifetime(body);
+        let promotes_path = out.iter().any(|s| match s {
+            MirStmt::ScopePromote {
+                value: MirExpr::Name(n),
+                ..
+            } if n == "path" => true,
+            _ => false,
+        });
+        assert!(
+            !promotes_path,
+            "must not promote call-arg path into result ownership: {out:?}"
+        );
+        assert!(
+            nested_owned_names_in_expr(&MirExpr::Call {
+                target: CallTarget::Function {
+                    module_path: PathBuf::from("m"),
+                    name: "f".into(),
+                },
+                args: vec![MirExpr::Name("path".into())],
+                ret: MirRetShape::Plain,
+            })
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn create_dir_all_shape_does_not_promote_path() {
+        use crate::{CallTarget, MirExpr, MirRetShape, MirStmt};
+        use echo_ast::BinaryOp;
+        // Mirrors std/fs create_dir_all:
+        //   $ st = runtime.fs_create_dir_all(path)
+        //   ? st < 0 { ! "..." }
+        //   ^
+        let body = vec![
+            MirStmt::Set {
+                name: "st".into(),
+                value: MirExpr::Call {
+                    target: CallTarget::Runtime {
+                        export: "fs_create_dir_all".into(),
+                    },
+                    args: vec![MirExpr::Name("path".into())],
+                    ret: MirRetShape::Plain,
+                },
+            },
+            MirStmt::If {
+                arms: vec![(
+                    MirExpr::Binary {
+                        op: BinaryOp::Lt,
+                        left: Box::new(MirExpr::Name("st".into())),
+                        right: Box::new(MirExpr::ConstI64(0)),
+                    },
+                    vec![MirStmt::ReturnErr(MirExpr::StringLit {
+                        bytes: b"create_dir_all failed".to_vec(),
+                    })],
+                )],
+                else_body: None,
+            },
+            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+        ];
+        let out = inject_lifetime(body);
+        let promotes: Vec<_> = out
+            .iter()
+            .filter_map(|s| match s {
+                MirStmt::ScopePromote {
+                    value: MirExpr::Name(n),
+                    target,
+                } => Some((n.clone(), *target)),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !promotes.iter().any(|(n, _)| n == "path"),
+            "create_dir_all shape must not promote path: {promotes:?}\nout={out:?}"
+        );
     }
 
     #[test]

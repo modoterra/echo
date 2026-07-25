@@ -106,9 +106,9 @@ export function InstallPage() {
             <span className="font-mono font-semibold text-slate-800">std</span> under XDG data, link{" "}
             <span className="font-mono font-semibold text-slate-800">~/.local/bin/xo</span>, and
             create package cache / state dirs. Upgrade flips{" "}
-            <span className="font-mono text-slate-800">current</span> without wiping packages.
-            Details: implementer doc{" "}
-            <span className="font-mono text-slate-800">docs/install.md</span>.
+            <span className="font-mono text-slate-800">current</span> without wiping packages. See
+            the checkout file <span className="font-mono text-slate-800">docs/install.md</span> for
+            install layout details.
           </p>
           <div className="mt-6">
             <InstallSnippet code={USER_INSTALL} />

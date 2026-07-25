@@ -1,0 +1,33 @@
+; std/encoding/base64
+/ runtime
+/ std/test
+/ std/str
+/ std/bytes
+
+$ encode = (b) {
+    ^ runtime.base64_encode(b)
+}
+
+$ decode = (s) {
+    $ b = runtime.base64_decode(s)
+    ? b == 0 {
+        ! "base64 decode failed"
+    }
+    ^ b
+}
+
+test.it("b64_roundtrip", () {
+    $ b = bytes.from_str("Hi")
+    $ h = encode(b)
+    test.eq(h, "SGk=")
+    | decode(h) {
+        $ out {
+            test.eq(str.from_bytes(out), "Hi")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ encode, decode

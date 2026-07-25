@@ -537,7 +537,7 @@ function DocsNavLinkItem({
             initial={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            {/* Nested child rail — same pattern as echo-php-old DocsNavLinkItem. */}
+            {/* Nested child rail for grouped docs links. */}
             <div className="relative mt-3 pl-3" ref={childRailRef}>
               <span
                 aria-hidden="true"
@@ -1018,35 +1018,15 @@ function docsChild(path: string) {
     component: () => <DocsContentPage page={docsPage(full)} />,
   });
 }
-const docsChildren = [
-  docsChild("/"),
-  docsChild("first-program"),
-  docsChild("project"),
-  docsChild("leaders"),
-  docsChild("binds"),
-  docsChild("values"),
-  docsChild("collections"),
-  docsChild("control"),
-  docsChild("result-option"),
-  docsChild("strings"),
-  docsChild("modules"),
-  docsChild("structs"),
-  docsChild("tasks"),
-  docsChild("memory"),
-  docsChild("names"),
-  docsChild("std"),
-  docsChild("std/io-strings"),
-  docsChild("std/tcp"),
-  docsChild("std/udp"),
-  docsChild("std/http"),
-  docsChild("guides/packages"),
-  docsChild("guides/diagnostics"),
-  docsChild("guides/repl"),
-  docsChild("guides/cookbook"),
-  docsChild("toolchain"),
-  docsChild("toolchain/commands"),
-  docsChild("toolchain/examples"),
-];
+/** Every docs page under /docs — derived from docsPages so std API routes stay in sync. */
+const docsChildren = docsPages
+  .filter((p) => p.path === "/docs" || p.path.startsWith("/docs/"))
+  .map((p) => {
+    if (p.path === "/docs") {
+      return docsChild("/");
+    }
+    return docsChild(p.path.slice("/docs/".length));
+  });
 
 // ── /book ────────────────────────────────────────────────────────────
 const bookLayoutRoute = createRoute({

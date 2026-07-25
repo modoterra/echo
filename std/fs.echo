@@ -485,4 +485,38 @@ test.it("read_missing", () {
     }
 })
 
-\ exists, is_file, is_dir, join, read, write, remove, copy, rename, create_dir, create_dir_all, read_dir, remove_dir, metadata, open, create, append, meta, file
+$ temp_dir = () {
+    ^ runtime.fs_temp_dir()
+}
+
+$ create_temp = (prefix) {
+    $ p = runtime.fs_create_temp(prefix)
+    ? p == 0 {
+        ! "create_temp failed"
+    }
+    ^ p
+}
+
+; Unix mode bits (e.g. 0o644 = 420). ! on failure / non-Unix.
+$ chmod = (path, mode) {
+    $ st = runtime.fs_chmod(path, mode)
+    ? st < 0 {
+        ! "chmod failed"
+    }
+    ^
+}
+
+$ symlink = (original, link) {
+    $ st = runtime.fs_symlink(original, link)
+    ? st < 0 {
+        ! "symlink failed"
+    }
+    ^
+}
+
+test.it("temp_dir", () {
+    $ t = temp_dir()
+    test.true(str.len(t) > 0)
+})
+
+\ exists, is_file, is_dir, join, read, write, remove, copy, rename, create_dir, create_dir_all, read_dir, remove_dir, metadata, open, create, append, meta, file, temp_dir, create_temp, symlink, chmod

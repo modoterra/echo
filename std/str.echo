@@ -64,6 +64,77 @@ $ ends_with = (s, suffix) {
     ^ runtime.str_ends_with(s, suffix) != 0
 }
 
+$ trim = (s) {
+    ^ runtime.str_trim(s)
+}
+
+$ to_lower = (s) {
+    ^ runtime.str_to_lower(s)
+}
+
+$ to_upper = (s) {
+    ^ runtime.str_to_upper(s)
+}
+
+$ split = (s, sep) {
+    ^ runtime.str_split(s, sep)
+}
+
+$ replace = (s, from, to) {
+    ^ runtime.str_replace(s, from, to)
+}
+
+; Result-shaped int parse: ^ n or ! "parse failed".
+$ parse_int = (s) {
+    $ r = runtime.parse_i64(s)
+    ? r.ok == 0 {
+        ! "parse failed"
+    }
+    ^ r.val
+}
+
+; Result-shaped float parse: ^ f or ! "parse failed".
+$ parse_float = (s) {
+    $ r = runtime.parse_f64(s)
+    ? r.ok == 0 {
+        ! "parse failed"
+    }
+    ^ r.val
+}
+
+$ join = (parts, sep) {
+    ~ n = 0
+    * p : parts {
+        ~ n = n + 1
+    }
+    ? n == 0 {
+        ^ ""
+    }
+    ~ out = ""
+    ~ i = 0
+    * p : parts {
+        ? i == 0 {
+            ~ out = p
+        }
+        : {
+            ~ out = cat(out, sep)
+            ~ out = cat(out, p)
+        }
+        ~ i = i + 1
+    }
+    ^ out
+}
+
+$ repeat = (s, n) {
+    ~ out = ""
+    ~ i = 0
+    * i < n {
+        ~ out = cat(out, s)
+        ~ i = i + 1
+    }
+    ^ out
+}
+
 ; UTF-8 byte at index (same width as bytes.get).
 $ get = (s, i) {
     $ n = runtime.str_len(s)
@@ -179,4 +250,41 @@ test.it("get_byte", () {
     }
 })
 
-\ from_int, from_float, from_bytes, from_duration, from_locator, from_debug, len, is_empty, cat, contains, starts_with, ends_with, get, slice
+test.it("trim_split_replace", () {
+    test.eq(trim("  hi  "), "hi")
+    test.eq(to_lower("AbC"), "abc")
+    test.eq(to_upper("ab"), "AB")
+    $ parts = split("a,b,c", ",")
+    test.eq(join(parts, "-"), "a-b-c")
+    test.eq(replace("aa", "a", "b"), "bb")
+    test.eq(repeat("x", 3), "xxx")
+})
+
+test.it("parse_int_float", () {
+    | parse_int("42") {
+        $ n {
+            test.eq(n, 42)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | parse_int("nope") {
+        $ n {
+            test.fail("expected parse fail")
+        }
+        ! e {
+            test.eq(e, "parse failed")
+        }
+    }
+    | parse_float("3.5") {
+        $ f {
+            test.eq(from_float(f), "3.5")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ from_int, from_float, from_bytes, from_duration, from_locator, from_debug, len, is_empty, cat, contains, starts_with, ends_with, get, slice, trim, to_lower, to_upper, split, replace, join, repeat, parse_int, parse_float

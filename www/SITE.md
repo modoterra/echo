@@ -1,7 +1,7 @@
 # Echo public site (www)
 
-Positioning and structure for xo.run. Implementer facts stay in `docs/`
-(ADR 0007). Edition / Spec: Echo 2026 (ADR 0015).
+Positioning and structure for xo.run. In-repo design notes live under `docs/`.
+Edition / Spec: Echo 2026.
 
 ## Voice
 
@@ -38,7 +38,7 @@ Zig clarity + TypeScript pedagogy + Elixir polish.
 ## Docs left rail
 
 The left docs TOC uses the same slate track + gradient train as **On this page**
-(right column). Nested children use the same pattern as `echo-php-old`.
+(right column), with nested children for grouped Standard library modules.
 
 ## Homepage sections
 

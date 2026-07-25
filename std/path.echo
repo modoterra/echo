@@ -1,0 +1,180 @@
+; std/path — path helpers (string form; works with locators via str.from_locator).
+; Pure Echo for parent/name/ext/is_abs. Only `join` bridges OS path rules via fs.
+/ runtime
+/ std/test
+/ std/str
+/ std/list
+/ std/fs
+
+; Platform join (separator + absolute-rel rules) lives in runtime.fs_join.
+$ join = (base, rel) {
+    ^ runtime.fs_join(base, rel)
+}
+
+; Clean `.` / `..` segments (POSIX-ish).
+$ clean = (p) {
+    ^ runtime.path_clean(p)
+}
+
+; Relative path from base to target, or ! "rel failed".
+$ rel = (base, target) {
+    $ r = runtime.path_rel(base, target)
+    ? r == 0 {
+        ! "rel failed"
+    }
+    ^ r
+}
+
+; Shallow walk: list of paths for direct children of `root` (non-recursive).
+; Full recursive Walk is deferred (function-order / HOF limits).
+$ walk = (root) {
+    ~ out = []
+    | fs.read_dir(root) {
+        $ names {
+            * name : names {
+                $ p = join(root, name)
+                ~ out[] = p
+            }
+        }
+        ! e {
+            ^ out
+        }
+    }
+    ^ out
+}
+
+$ is_abs = (p) {
+    ? str.len(p) == 0 {
+        ^ _
+    }
+    | str.get(p, 0) {
+        $ c {
+            ? c == 47 {
+                ^ |
+            }
+            ^ _
+        }
+        ! e {
+            ^ _
+        }
+    }
+}
+
+$ file_name = (p) {
+    $ n = str.len(p)
+    ~ i = n - 1
+    ~ last = -1
+    * i >= 0 {
+        | str.get(p, i) {
+            $ c {
+                ? c == 47 {
+                    ~ last = i
+                    ~ i = -1
+                }
+                : {
+                    ~ i = i - 1
+                }
+            }
+            ! e {
+                ~ i = -1
+            }
+        }
+    }
+    | str.slice(p, last + 1, n) {
+        $ s {
+            ^ s
+        }
+        ! e {
+            ^ p
+        }
+    }
+}
+
+$ parent = (p) {
+    $ n = str.len(p)
+    ~ i = n - 1
+    ~ last = -1
+    * i >= 0 {
+        | str.get(p, i) {
+            $ c {
+                ? c == 47 {
+                    ~ last = i
+                    ~ i = -1
+                }
+                : {
+                    ~ i = i - 1
+                }
+            }
+            ! e {
+                ~ i = -1
+            }
+        }
+    }
+    ? last <= 0 {
+        ^ "."
+    }
+    | str.slice(p, 0, last) {
+        $ s {
+            ^ s
+        }
+        ! e {
+            ^ "."
+        }
+    }
+}
+
+$ extension = (p) {
+    $ name = file_name(p)
+    $ n = str.len(name)
+    ~ i = n - 1
+    ~ dot = -1
+    * i >= 0 {
+        | str.get(name, i) {
+            $ c {
+                ? c == 46 {
+                    ~ dot = i
+                    ~ i = -1
+                }
+                : {
+                    ~ i = i - 1
+                }
+            }
+            ! e {
+                ~ i = -1
+            }
+        }
+    }
+    ? dot < 0 {
+        ^ ""
+    }
+    | str.slice(name, dot + 1, n) {
+        $ s {
+            ^ s
+        }
+        ! e {
+            ^ ""
+        }
+    }
+}
+
+test.it("join_parent_name_ext", () {
+    $ p = join("/tmp", "a.txt")
+    test.true(str.contains(p, "a.txt"))
+    test.eq(file_name(p), "a.txt")
+    test.eq(extension(p), "txt")
+    test.true(str.contains(parent(p), "tmp") || parent(p) == "/tmp")
+})
+
+test.it("clean_rel", () {
+    test.eq(clean("/a/b/../c/./d"), "/a/c/d")
+    | rel("/a/b", "/a/b/c") {
+        $ r {
+            test.eq(r, "c")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ join, is_abs, file_name, parent, extension, clean, rel, walk

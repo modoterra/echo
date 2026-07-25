@@ -1,0 +1,25 @@
+; std/crypto/hmac — HMAC-SHA256 (key + data → 32 bytes).
+/ runtime
+/ std/test
+/ std/bytes
+
+$ sha256 = (key, data) {
+    $ d = runtime.hmac_sha256(key, data)
+    ? d == 0 {
+        ! "hmac failed"
+    }
+    ^ d
+}
+
+test.it("hmac_sha256_len", () {
+    | sha256("key", "msg") {
+        $ d {
+            test.eq(bytes.len(d), 32)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ sha256

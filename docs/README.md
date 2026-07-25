@@ -51,6 +51,7 @@ Expand as the corresponding layer gains real rules. Status may be “not started
 | [`runtime-abi.md`](runtime-abi.md) | Runtime symbols and ABI |
 | [`memory.md`](memory.md) | Scope-owned reclamation (not tracing GC; ADR 0016) |
 | [`stdlib.md`](stdlib.md) | Standard library surface |
+| [`stdlib-go-gaps.md`](stdlib-go-gaps.md) | Echo std vs Go stdlib gap inventory |
 | [`llvm.md`](llvm.md) | Codegen, optimization, link |
 | [`lsp.md`](lsp.md) | Language server boundary |
 | [`repl.md`](repl.md) | Interactive REPL (`xo repl`, JIT) |

@@ -1,0 +1,40 @@
+; std/os — process and platform info.
+/ runtime
+/ std/test
+/ std/str
+
+$ pid = () {
+    ^ runtime.os_pid()
+}
+
+$ cwd = () {
+    $ p = runtime.os_cwd()
+    ? p == 0 {
+        ! "cwd failed"
+    }
+    ^ p
+}
+
+$ chdir = (path) {
+    $ st = runtime.os_chdir(path)
+    ? st < 0 {
+        ! "chdir failed"
+    }
+    ^
+}
+
+$ hostname = () {
+    ^ runtime.os_hostname()
+}
+
+$ platform = () {
+    ^ runtime.os_platform()
+}
+
+test.it("pid_platform", () {
+    test.true(pid() > 0)
+    $ p = platform()
+    test.true(str.len(p) > 0)
+})
+
+\ pid, cwd, chdir, hostname, platform

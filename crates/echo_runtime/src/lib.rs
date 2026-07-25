@@ -58,8 +58,30 @@ mod poll;
 mod process;
 mod sched;
 mod scope;
+mod std_ext;
+mod std_more;
 mod task;
 mod test_suite;
+pub(crate) mod tls;
+
+pub use std_ext::*;
+pub use std_more::{
+    echo_runtime_aes_gcm_decrypt, echo_runtime_aes_gcm_encrypt, echo_runtime_fs_chmod,
+    echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_hmac_sha256,
+    echo_runtime_parse_f64, echo_runtime_parse_i64, echo_runtime_path_clean,
+    echo_runtime_path_rel, echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
+    echo_runtime_process_pipe_write, echo_runtime_process_run_cwd,
+    echo_runtime_process_spawn_pipes, echo_runtime_process_wait, echo_runtime_sha512,
+    echo_runtime_time_format, echo_runtime_time_parse, echo_runtime_unix_accept,
+    echo_runtime_unix_close, echo_runtime_unix_connect, echo_runtime_unix_listen,
+    echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_url_parse,
+    echo_runtime_zip_pack, echo_runtime_zip_unpack_first,
+};
+pub use tls::{
+    echo_runtime_tls_accept, echo_runtime_tls_close, echo_runtime_tls_close_listener,
+    echo_runtime_tls_connect, echo_runtime_tls_listen, echo_runtime_tls_read,
+    echo_runtime_tls_write,
+};
 
 pub use scope::{
     echo_runtime_scope_disown, echo_runtime_scope_drain_deferred, echo_runtime_scope_enqueue_release,

@@ -37,6 +37,42 @@ $ contains = (xs, x) {
     ^ _
 }
 
+; Sum of integers in a list.
+$ sum_ints = (xs) {
+    ~ acc = 0
+    * e : xs {
+        ~ acc = acc + e
+    }
+    ^ acc
+}
+
+; Insertion sort for integers (ascending).
+$ sort_ints = (xs) {
+    ~ out = []
+    * e : xs {
+        ~ out[] = e
+    }
+    ~ n = len(out)
+    ~ i = 1
+    * i < n {
+        ~ j = i
+        * j > 0 {
+            $ a = runtime.list_get(out, j - 1)
+            $ b = runtime.list_get(out, j)
+            ? a > b {
+                ~ out[j - 1] = b
+                ~ out[j] = a
+                ~ j = j - 1
+            }
+            : {
+                ~ j = 0
+            }
+        }
+        ~ i = i + 1
+    }
+    ^ out
+}
+
 ; --- suite (xo test std/list.echo) ---
 
 test.it("len_empty", () {
@@ -97,4 +133,25 @@ test.it("contains_string", () {
     test.false(contains(["a"], "z"))
 })
 
-\ len, is_empty, get, contains
+test.it("sum_and_sort", () {
+    test.eq(sum_ints([1, 2, 3]), 6)
+    $ zs = sort_ints([3, 1, 2])
+    | get(zs, 0) {
+        $ v {
+            test.eq(v, 1)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | get(zs, 2) {
+        $ v {
+            test.eq(v, 3)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ len, is_empty, get, contains, sum_ints, sort_ints

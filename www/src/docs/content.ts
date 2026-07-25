@@ -1,3 +1,12 @@
+import {
+  stdExportCount,
+  stdExportsListing,
+  stdGroups,
+  stdImportLine,
+  stdModules,
+  type StdModule,
+} from "./std-reference";
+
 export type DocsNavGroup = {
   title: string;
   links: DocsNavLink[];
@@ -72,10 +81,15 @@ export const docsNavigation: DocsNavGroup[] = [
     title: "Standard library",
     links: [
       { label: "Overview", to: "/docs/std" },
-      { label: "I/O and strings", to: "/docs/std/io-strings" },
-      { label: "TCP", to: "/docs/std/tcp" },
-      { label: "UDP", to: "/docs/std/udp" },
-      { label: "HTTP", to: "/docs/std/http" },
+      { label: "API reference", to: "/docs/std/reference" },
+      ...stdGroups.map((group) => ({
+        label: group.title,
+        to: group.modules[0]?.docsPath ?? "/docs/std",
+        children: group.modules.map((m) => ({
+          label: m.title,
+          to: m.docsPath,
+        })),
+      })),
     ],
   },
   {
@@ -148,7 +162,74 @@ export function navigationForPath(pathname: string): DocsNavGroup[] {
   return docsNavigation;
 }
 
-export const docsPages: DocsPage[] = [
+function stdModulePage(m: StdModule): DocsPage {
+  const exportNames = m.exports.map((e) => e.name).join(", ");
+  return {
+    id: `docs-std-${m.path.replace(/\//g, "-")}`,
+    path: m.docsPath,
+    category: "Standard library",
+    title: m.title,
+    summary: m.summary,
+    tags: ["std", "api", m.path, m.name, ...m.exports.map((e) => e.name)],
+    aliases: [m.path, `std ${m.name}`, exportNames],
+    sections: [
+      {
+        title: "Import",
+        tags: ["import", m.path],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: stdImportLine(m),
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Import binds the final path segment as ",
+              { code: m.name },
+              ". Call exports as ",
+              { code: `${m.name}.name(...)` },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Exports",
+        tags: ["exports", "api", ...m.exports.map((e) => e.name)],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Public surface for ",
+              { code: m.path },
+              " (",
+              String(m.exports.length),
+              " exports). Private helpers used only by co-located tests are not listed.",
+            ],
+          },
+          {
+            kind: "code",
+            language: "echo",
+            code: stdExportsListing(m),
+          },
+        ],
+      },
+      {
+        title: "Summary",
+        tags: ["overview"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [m.summary],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+const docsPagesBase: DocsPage[] = [
   // ── Start ──────────────────────────────────────────────────────────
 
   // ── Docs (reference: how) ─────────────────────────────────────────
@@ -1668,13 +1749,14 @@ io.print(str.from_int(r[0][0]))
     path: "/docs/std",
     category: "Standard library",
     title: "Standard library",
-    summary: "Userland modules for output, conversion, TCP, UDP, and HTTP.",
-    tags: ["std", "standard library", "io", "network", "http"],
-    aliases: ["stdlib", "library modules", "api overview"],
+    summary:
+      "Userland modules for I/O, strings, files, process, JSON, encoding, crypto, collections, networking, and more.",
+    tags: ["std", "standard library", "io", "network", "http", "json", "fs", "api"],
+    aliases: ["stdlib", "library modules", "api overview", "standard library reference"],
     sections: [
       {
         title: "Import policy",
-        tags: ["import", "userland", "runtime"],
+        tags: ["import", "userland"],
         blocks: [
           {
             kind: "paragraph",
@@ -1685,9 +1767,35 @@ io.print(str.from_int(r[0][0]))
               { code: "io.print" },
               ", conversion is ",
               { code: "str.from_int" },
-              ", and networking is accessed through its module. ",
-              { code: "/ runtime" },
-              " is reserved for the privileged standard-library sources.",
+              ", and networking is accessed through its module.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "What this reference covers",
+        tags: ["api", "exports"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              "Each module page lists every public export from that module’s ",
+              { code: "\\ " },
+              " line in ",
+              { code: "std/" },
+              ". That is the product API: free functions, types, and constants. Helpers used only by co-located tests are not public. There are ",
+              String(stdModules.length),
+              " modules and ",
+              String(stdExportCount),
+              " public exports.",
+            ],
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Browse the full index under ",
+              { code: "API reference" },
+              ", or open a module from the Standard library nav.",
             ],
           },
         ],
@@ -1699,17 +1807,24 @@ io.print(str.from_int(r[0][0]))
           {
             kind: "code",
             language: "echo",
-            code: `/ std/io         ; print, log, eprint
-/ std/str        ; conversion, byte length, concatenation
-/ std/net/tcp    ; listener and connection structs + helpers
-/ std/net/udp    ; datagram socket struct + helpers
-/ std/net/http   ; request parsing, responses, routes, serving`,
+            code: stdModules
+              .map((m) => {
+                const names = m.exports
+                  .map((e) => e.name)
+                  .slice(0, 6)
+                  .join(", ");
+                const more = m.exports.length > 6 ? ", …" : "";
+                return `/ ${m.path.padEnd(22)} ; ${names}${more}`;
+              })
+              .join("\n"),
           },
           {
             kind: "paragraph",
             text: [
               "Every import binds one module name from the final path segment. Folder modules such as ",
               { code: "std/net/tcp" },
+              " and ",
+              { code: "std/crypto/hash" },
               " combine exports from the Echo files in that folder.",
             ],
           },
@@ -1722,9 +1837,9 @@ io.print(str.from_int(r[0][0]))
           {
             kind: "paragraph",
             text: [
-              "Output accepts strings, while socket reads return bytes. Convert explicitly with ",
+              "Output accepts strings, while socket and file reads often return bytes. Convert explicitly with ",
               { code: "std/str" },
-              ". TCP listeners, TCP connections, and UDP sockets are named structs passed by reference, so aliases share the same underlying resource.",
+              ". Network listeners and connections are named structs passed by reference, so aliases share the same underlying resource.",
             ],
           },
         ],
@@ -1736,7 +1851,7 @@ io.print(str.from_int(r[0][0]))
           {
             kind: "paragraph",
             text: [
-              "Network constructors report failure with a resource whose ",
+              "Many network constructors report failure with a resource whose ",
               { code: "handle" },
               " is ",
               { code: "0" },
@@ -2215,6 +2330,531 @@ http.serve('127.0.0.1:8080', routes)`,
               " when an application owns the listener and needs a finite or custom accept loop. Listen failure is logged and returns a server value with ",
               { code: "running == _" },
               ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-math",
+    path: "/docs/std/math",
+    category: "Standard library",
+    title: "Math",
+    summary: "Integer min/max/abs and f64 libm helpers under std/math.",
+    tags: ["std", "math", "float", "sqrt"],
+    aliases: ["stdlib math", "trigonometry"],
+    sections: [
+      {
+        title: "Surface",
+        tags: ["import", "export"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/math
+
+$ a = math.abs_i(-3)
+$ b = math.min(1, 2)
+$ r = math.sqrt(9.0)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Exports include ",
+              { code: "abs_i" },
+              ", ",
+              { code: "min" },
+              ", ",
+              { code: "max" },
+              ", ",
+              { code: "floor" },
+              ", ",
+              { code: "ceil" },
+              ", ",
+              { code: "sqrt" },
+              ", ",
+              { code: "pow" },
+              ", ",
+              { code: "sin" },
+              ", ",
+              { code: "cos" },
+              ", ",
+              { code: "tan" },
+              ", and ",
+              { code: "abs_f" },
+              ". Float ops use f64.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-fs",
+    path: "/docs/std/fs",
+    category: "Standard library",
+    title: "Path and filesystem",
+    summary: "Path helpers and filesystem I/O under std/path and std/fs.",
+    tags: ["std", "fs", "path", "file"],
+    aliases: ["stdlib fs", "files", "directories"],
+    sections: [
+      {
+        title: "Path",
+        tags: ["path", "join"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/path
+
+$ p = path.join("/tmp", "out.txt")
+$ name = path.file_name(p)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/path" },
+              " exports ",
+              { code: "join" },
+              ", ",
+              { code: "is_abs" },
+              ", ",
+              { code: "file_name" },
+              ", ",
+              { code: "parent" },
+              ", and ",
+              { code: "extension" },
+              ". Path arguments elsewhere accept strings or locators.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Filesystem",
+        tags: ["fs", "read", "write"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/fs" },
+              " covers existence checks, whole-file read/write (bytes), directories, metadata, streaming ",
+              { code: "% file" },
+              ", plus ",
+              { code: "temp_dir" },
+              ", ",
+              { code: "create_temp" },
+              ", and ",
+              { code: "symlink" },
+              ". Failures use result/option shapes rather than panics.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-process",
+    path: "/docs/std/process",
+    category: "Standard library",
+    title: "Process and OS",
+    summary: "Process args/env/run and OS process/host info.",
+    tags: ["std", "process", "os", "env"],
+    aliases: ["stdlib process", "environment", "spawn"],
+    sections: [
+      {
+        title: "Process",
+        tags: ["args", "env", "run"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/process" },
+              " exports ",
+              { code: "args" },
+              ", ",
+              { code: "env" },
+              ", ",
+              { code: "env_set" },
+              ", ",
+              { code: "env_unset" },
+              ", ",
+              { code: "exit" },
+              ", ",
+              { code: "run" },
+              ", and ",
+              { code: "run_capture" },
+              " (exit code plus stdout/stderr). Argv is shell-less.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "OS",
+        tags: ["pid", "cwd", "hostname"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/os
+
+io.print(str.from_int(os.pid()))
+io.print(os.platform())`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/os" },
+              " exports ",
+              { code: "pid" },
+              ", ",
+              { code: "cwd" },
+              ", ",
+              { code: "chdir" },
+              ", ",
+              { code: "hostname" },
+              ", and ",
+              { code: "platform" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-json",
+    path: "/docs/std/json",
+    category: "Standard library",
+    title: "JSON",
+    summary: "Parse and stringify product values with std/json.",
+    tags: ["std", "json", "parse"],
+    aliases: ["stdlib json"],
+    sections: [
+      {
+        title: "Surface",
+        tags: ["parse", "stringify"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/json
+
+$ v = json.parse('{"a":1}')
+$ s = json.stringify(v)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "v0 maps JSON to Echo product types (bools, numbers, strings, lists, structs). Errors are result-shaped. Streaming parse is out of scope.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-encoding",
+    path: "/docs/std/encoding",
+    category: "Standard library",
+    title: "Encoding",
+    summary: "Hex and Base64 encode/decode under std/encoding.",
+    tags: ["std", "encoding", "hex", "base64"],
+    aliases: ["stdlib encoding", "base64", "hex"],
+    sections: [
+      {
+        title: "Hex and Base64",
+        tags: ["hex", "base64"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/encoding/hex
+/ std/encoding/base64
+
+$ h = hex.encode(bytes_from_str)
+$ b = base64.encode(bytes_from_str)`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Both modules export ",
+              { code: "encode" },
+              " and ",
+              { code: "decode" },
+              ". Corrupt input fails with a result error rather than panicking.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-random-log",
+    path: "/docs/std/random-log",
+    category: "Standard library",
+    title: "Random and log",
+    summary: "Non-crypto PRNG and leveled logging.",
+    tags: ["std", "random", "log"],
+    aliases: ["stdlib random", "stdlib log", "prng"],
+    sections: [
+      {
+        title: "Random (not crypto)",
+        tags: ["random", "seed"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/random" },
+              " exports ",
+              { code: "seed" },
+              ", ",
+              { code: "u64" },
+              ", and ",
+              { code: "float" },
+              ". It is not cryptographically secure. For CSPRNG use ",
+              { code: "std/crypto/random" },
+              ".",
+            ],
+          },
+        ],
+      },
+      {
+        title: "Log levels",
+        tags: ["log", "level"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/log" },
+              " is pure over ",
+              { code: "io" },
+              ". Callers pass a minimum level into ",
+              { code: "debug" },
+              ", ",
+              { code: "info" },
+              ", ",
+              { code: "warn" },
+              ", and ",
+              { code: "error" },
+              " (or use ",
+              { code: "emit" },
+              " directly). Levels: 0 debug, 1 info, 2 warn, 3 error.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-collections",
+    path: "/docs/std/collections",
+    category: "Standard library",
+    title: "Collections",
+    summary: "Hash table, map, set, queue, and list helpers.",
+    tags: ["std", "collections", "map", "set", "queue"],
+    aliases: ["stdlib collections", "hash table"],
+    sections: [
+      {
+        title: "Map, set, queue",
+        tags: ["map", "set", "queue"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/collections/map" },
+              " and ",
+              { code: "set" },
+              " sit on ",
+              { code: "hash_table" },
+              " with mixed keys via ",
+              { code: "reflect.key_bytes" },
+              ". ",
+              { code: "std/collections/queue" },
+              " exports ",
+              { code: "make" },
+              ", ",
+              { code: "push" },
+              ", and ",
+              { code: "pop" },
+              ". ",
+              { code: "std/list" },
+              " adds ",
+              { code: "sum_ints" },
+              " and ",
+              { code: "sort_ints" },
+              " beyond core length/get helpers.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-crypto",
+    path: "/docs/std/crypto",
+    category: "Standard library",
+    title: "Crypto",
+    summary: "SipHash, SHA-256, and CSPRNG under std/crypto.",
+    tags: ["std", "crypto", "hash", "sha256"],
+    aliases: ["stdlib crypto", "siphash", "sha256"],
+    sections: [
+      {
+        title: "Hash and CSPRNG",
+        tags: ["hash", "csprng"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/crypto/hash" },
+              " provides SipHash-2-4 (",
+              { code: "sip" },
+              ") and ",
+              { code: "sha256" },
+              ". ",
+              { code: "std/crypto/random" },
+              " exports ",
+              { code: "fill" },
+              " and ",
+              { code: "u64" },
+              " as a CSPRNG. Do not confuse with non-crypto ",
+              { code: "std/random" },
+              ".",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-net-client",
+    path: "/docs/std/net-client",
+    category: "Standard library",
+    title: "DNS and HTTP client",
+    summary: "DNS lookup and cleartext HTTP GET client.",
+    tags: ["std", "dns", "http", "client"],
+    aliases: ["stdlib dns", "http client", "cleartext"],
+    sections: [
+      {
+        title: "DNS",
+        tags: ["dns", "lookup"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/net/dns
+
+$ addrs = dns.lookup("localhost")`,
+          },
+        ],
+      },
+      {
+        title: "Cleartext HTTP client",
+        tags: ["http", "get", "tls"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/net/http_client
+/ std/str
+
+| http_client.get("127.0.0.1", 8080, "/health") {
+    $ raw {
+        io.print(str.from_bytes(raw))
+    }
+    ! e {
+        io.print(e)
+    }
+}`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              { code: "get(host, port, path)" },
+              " opens a TCP connection, sends an HTTP/1.1 GET with ",
+              { code: "Connection: close" },
+              ", and returns the raw response as bytes. Use ",
+              { code: "request" },
+              " for other methods and bodies. ",
+              { code: "get_tls" },
+              " and ",
+              { code: "request_tls" },
+              " speak HTTPS via ",
+              { code: "std/net/tls" },
+              " (empty CA PEM uses platform trust roots).",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-tls",
+    path: "/docs/std/tls",
+    category: "Standard library",
+    title: "TLS",
+    summary: "TLS client and server sockets with PEM certificates or platform roots.",
+    tags: ["std", "tls", "https"],
+    aliases: ["stdlib tls", "ssl"],
+    sections: [
+      {
+        title: "Client connect",
+        tags: ["connect", "pem"],
+        blocks: [
+          {
+            kind: "paragraph",
+            text: [
+              { code: "std/net/tls.connect(host, port, server_name, ca_pem)" },
+              " opens a TLS client connection. Pass a CA PEM string for a custom trust store, or an empty string to use platform roots. Read, write, and close live on connection methods. Pair with HTTP framing for HTTPS application traffic.",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "docs-std-cli",
+    path: "/docs/std/cli",
+    category: "Standard library",
+    title: "CLI flags",
+    summary: "Pure flag and option parsing over an argv list.",
+    tags: ["std", "cli", "flags", "argv"],
+    aliases: ["stdlib cli", "args parse"],
+    sections: [
+      {
+        title: "Parse argv",
+        tags: ["parse", "flags"],
+        blocks: [
+          {
+            kind: "code",
+            language: "echo",
+            code: `/ std/cli
+
+$ argv = ["tool", "--out", "a.txt", "in.echo"]
+| cli.parse(argv) {
+    $ t {
+        | cli.get(t, "out") {
+            $ v { io.print(v) }
+            : { }
+        }
+    }
+    ! e { io.print(e) }
+}`,
+          },
+          {
+            kind: "paragraph",
+            text: [
+              "Supports ",
+              { code: "--name" },
+              ", ",
+              { code: "--name=value" },
+              ", ",
+              { code: "--name value" },
+              ", short ",
+              { code: "-x" },
+              ", and ",
+              { code: "--" },
+              " end-of-options. Not a full getopt/GNU matrix.",
             ],
           },
         ],
@@ -3921,14 +4561,12 @@ u.visit()`,
             text: [
               { code: "/docs/std" },
               " — overview. ",
-              { code: "/docs/std/io-strings" },
-              " — I/O and strings. ",
-              { code: "/docs/std/tcp" },
-              " · ",
-              { code: "/docs/std/udp" },
-              " · ",
-              { code: "/docs/std/http" },
-              " — networking.",
+              { code: "/docs/std/reference" },
+              " — full export index. Per-module pages such as ",
+              { code: "/docs/std/io" },
+              " and ",
+              { code: "/docs/std/net-tcp" },
+              ".",
             ],
           },
         ],
@@ -4403,6 +5041,61 @@ xo tools grammar tree-sitter --output <dir>`,
       },
     ],
   },
+];
+
+const stdOverviewPage = docsPagesBase.find((p) => p.path === "/docs/std");
+const stdReferenceIndexPage: DocsPage = {
+  id: "docs-std-reference",
+  path: "/docs/std/reference",
+  category: "Standard library",
+  title: "API reference",
+  summary: `Complete index of ${stdExportCount} public exports across ${stdModules.length} standard-library modules.`,
+  tags: ["std", "api", "reference", "exports", "index"],
+  aliases: ["stdlib api", "full standard library", "export index", "every function"],
+  sections: [
+    {
+      title: "How to read this index",
+      tags: ["exports"],
+      blocks: [
+        {
+          kind: "paragraph",
+          text: [
+            "Each row is a public export from a ",
+            { code: "std/" },
+            " module. Import the module, then call ",
+            { code: "module.export(...)" },
+            ". Types and shapes are listed alongside free functions. Private test helpers are not included.",
+          ],
+        },
+      ],
+    },
+    ...stdGroups.map((group) => ({
+      title: group.title,
+      tags: ["std", group.title.toLowerCase()],
+      blocks: [
+        {
+          kind: "code" as const,
+          language: "echo" as const,
+          code: group.modules
+            .map((m) => {
+              const listing = m.exports.map((e) => `  ${e.name}  —  ${e.role}`).join("\n");
+              return `; ${m.path}\n${stdImportLine(m)}\n${listing}`;
+            })
+            .join("\n\n"),
+        },
+      ],
+    })),
+  ],
+};
+
+const stdApiPages: DocsPage[] = stdModules.map(stdModulePage);
+
+/** Prefer generated complete std API pages over older partial std articles. */
+export const docsPages: DocsPage[] = [
+  ...docsPagesBase.filter((p) => !p.path.startsWith("/docs/std")),
+  ...(stdOverviewPage ? [stdOverviewPage] : []),
+  stdReferenceIndexPage,
+  ...stdApiPages,
 ];
 
 export const docsPageByPath = new Map(docsPages.map((page) => [page.path, page]));

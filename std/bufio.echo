@@ -1,0 +1,56 @@
+; std/bufio — line splitting helpers (thin; pure Echo over strings).
+;
+; Public API:
+;   lines(s) — list of lines (split on \n)
+;   read_lines(path) — result of lines from whole-file read, or ! io err
+;
+; Suite: xo test std/bufio.echo
+
+/ std/str
+/ std/fs
+/ std/list
+/ std/test
+
+$ lines = (s) {
+    ^ str.split(s, "\n")
+}
+
+$ read_lines = (path) {
+    | fs.read(path) {
+        $ b {
+            $ t = str.from_bytes(b)
+            ^ lines(t)
+        }
+        ! e {
+            ! e
+        }
+    }
+}
+
+test.it("lines_basic", () {
+    $ ls = lines("a\nb\nc")
+    test.eq(list.len(ls), 3)
+    | list.get(ls, 0) {
+        $ a {
+            test.eq(a, "a")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+    | list.get(ls, 1) {
+        $ b {
+            test.eq(b, "b")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+test.it("lines_len", () {
+    $ ls = lines("x\ny")
+    test.eq(list.len(ls), 2)
+})
+
+\ lines, read_lines

@@ -368,7 +368,7 @@ fn physical_free(handle: i64) {
             let _ = unsafe { Box::from_raw(handle as *mut crate::EchoFn) };
         }
         _ => {
-            // Unknown / non-owned kinds (sockets, tasks): do not free.
+            // Unknown / non-owned kinds (sockets, TLS, tasks): do not free.
             // Unmark dead so we don't pretend we freed.
             return;
         }

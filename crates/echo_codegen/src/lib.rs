@@ -34,7 +34,13 @@ use echo_codegen_abi::{
     RT_SCOPE_REGISTER, RT_SCOPE_RELEASE, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED,
     RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY,
     RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
-    RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS,
+    RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS, RT_MATH_SQRT, RT_MATH_SIN, RT_MATH_COS, RT_MATH_TAN, RT_MATH_FLOOR, RT_MATH_CEIL, RT_MATH_ABS_F, RT_MATH_POW, RT_MATH_ABS_I, RT_RANDOM_SEED, RT_RANDOM_U64, RT_RANDOM_FLOAT, RT_CRYPTO_RANDOM_BYTES, RT_CRYPTO_RANDOM_U64, RT_OS_PID, RT_OS_CWD, RT_OS_CHDIR, RT_OS_HOSTNAME, RT_OS_PLATFORM, RT_NOW_MONO_MS, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_DNS_LOOKUP, RT_SHA256, RT_PROCESS_RUN_CAPTURE, RT_FS_TEMP_DIR, RT_FS_CREATE_TEMP, RT_FS_SYMLINK, RT_STR_TO_LOWER, RT_STR_TO_UPPER, RT_STR_TRIM, RT_STR_SPLIT, RT_STR_REPLACE, RT_HEX_ENCODE, RT_HEX_DECODE, RT_BASE64_ENCODE, RT_BASE64_DECODE,
+    RT_TLS_LISTEN, RT_TLS_ACCEPT, RT_TLS_CONNECT, RT_TLS_READ, RT_TLS_WRITE, RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER,
+    RT_PARSE_I64, RT_PARSE_F64, RT_URL_PARSE, RT_TIME_FORMAT, RT_TIME_PARSE, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS,
+    RT_ZIP_PACK, RT_ZIP_UNPACK_FIRST, RT_HMAC_SHA256, RT_SHA512, RT_AES_GCM_ENCRYPT, RT_AES_GCM_DECRYPT,
+    RT_FS_CHMOD, RT_PATH_CLEAN, RT_PATH_REL, RT_PROCESS_RUN_CWD, RT_PROCESS_SPAWN_PIPES,
+    RT_PROCESS_PIPE_WRITE, RT_PROCESS_PIPE_READ, RT_PROCESS_PIPE_CLOSE, RT_PROCESS_WAIT,
+    RT_UNIX_LISTEN, RT_UNIX_ACCEPT, RT_UNIX_CONNECT, RT_UNIX_READ, RT_UNIX_WRITE, RT_UNIX_CLOSE,
     RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
     RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN,
     RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_FILE_CLOSE,
@@ -194,6 +200,50 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_NOW_MS, test_finish_ty, None);
     let sleep_ms_ty = context.void_type().fn_type(&[i64t.into()], false);
     module.add_function(RT_SLEEP_MS, sleep_ms_ty, None);
+
+    // Expansive std primitives
+    let rt1 = i64t.fn_type(&[i64t.into()], false);
+    let rt0 = i64t.fn_type(&[], false);
+    let rt2 = i64t.fn_type(&[i64t.into(), i64t.into()], false);
+    let rt3 = i64t.fn_type(&[i64t.into(), i64t.into(), i64t.into()], false);
+    let rt4 = i64t.fn_type(
+        &[i64t.into(), i64t.into(), i64t.into(), i64t.into()],
+        false,
+    );
+    let void1 = context.void_type().fn_type(&[i64t.into()], false);
+    for name in [
+        RT_MATH_SQRT, RT_MATH_SIN, RT_MATH_COS, RT_MATH_TAN, RT_MATH_FLOOR, RT_MATH_CEIL,
+        RT_MATH_ABS_F, RT_MATH_ABS_I, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_DNS_LOOKUP, RT_SHA256,
+        RT_CRYPTO_RANDOM_BYTES, RT_OS_CHDIR, RT_FS_CREATE_TEMP, RT_STR_TO_LOWER, RT_STR_TO_UPPER,
+        RT_STR_TRIM, RT_HEX_ENCODE, RT_HEX_DECODE, RT_BASE64_ENCODE, RT_BASE64_DECODE,
+        RT_TLS_LISTEN, RT_PARSE_I64, RT_PARSE_F64, RT_URL_PARSE, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS,
+        RT_ZIP_UNPACK_FIRST, RT_SHA512, RT_PATH_CLEAN, RT_UNIX_LISTEN, RT_UNIX_ACCEPT,
+        RT_UNIX_CONNECT, RT_PROCESS_WAIT,
+    ] {
+        module.add_function(name, rt1, None);
+    }
+    for name in [
+        RT_MATH_POW, RT_STR_SPLIT, RT_FS_SYMLINK, RT_PROCESS_RUN_CAPTURE, RT_TLS_READ, RT_TLS_WRITE,
+        RT_TIME_FORMAT, RT_TIME_PARSE, RT_ZIP_PACK, RT_HMAC_SHA256, RT_FS_CHMOD, RT_PATH_REL,
+        RT_UNIX_READ, RT_UNIX_WRITE, RT_PROCESS_SPAWN_PIPES, RT_PROCESS_PIPE_WRITE,
+        RT_PROCESS_PIPE_READ,
+    ] {
+        module.add_function(name, rt2, None);
+    }
+    module.add_function(RT_TLS_ACCEPT, rt3, None);
+    module.add_function(RT_TLS_CONNECT, rt4, None);
+    module.add_function(RT_STR_REPLACE, rt3, None);
+    module.add_function(RT_AES_GCM_ENCRYPT, rt3, None);
+    module.add_function(RT_AES_GCM_DECRYPT, rt3, None);
+    module.add_function(RT_PROCESS_RUN_CWD, rt3, None);
+    for name in [RT_RANDOM_U64, RT_RANDOM_FLOAT, RT_CRYPTO_RANDOM_U64, RT_OS_PID, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PLATFORM, RT_NOW_MONO_MS, RT_FS_TEMP_DIR] {
+        module.add_function(name, rt0, None);
+    }
+    module.add_function(RT_RANDOM_SEED, void1, None);
+    for name in [RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER, RT_UNIX_CLOSE, RT_PROCESS_PIPE_CLOSE] {
+        module.add_function(name, void1, None);
+    }
+
     // process / env / spawn
     module.add_function(RT_PROCESS_ARGS, test_finish_ty, None);
     module.add_function(RT_PROCESS_ENV_HAS, list_len_ty, None);
@@ -830,6 +880,438 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_MATH_SQRT,
+        echo_runtime_math_sqrt as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_SIN,
+        echo_runtime_math_sin as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_COS,
+        echo_runtime_math_cos as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_TAN,
+        echo_runtime_math_tan as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_FLOOR,
+        echo_runtime_math_floor as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_CEIL,
+        echo_runtime_math_ceil as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_ABS_F,
+        echo_runtime_math_abs_f as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_POW,
+        echo_runtime_math_pow as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_MATH_ABS_I,
+        echo_runtime_math_abs_i as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_RANDOM_SEED,
+        echo_runtime_random_seed as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_RANDOM_U64,
+        echo_runtime_random_u64 as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_RANDOM_FLOAT,
+        echo_runtime_random_float as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_CRYPTO_RANDOM_BYTES,
+        echo_runtime_crypto_random_bytes as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_CRYPTO_RANDOM_U64,
+        echo_runtime_crypto_random_u64 as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_OS_PID,
+        echo_runtime_os_pid as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_OS_CWD,
+        echo_runtime_os_cwd as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_OS_CHDIR,
+        echo_runtime_os_chdir as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_OS_HOSTNAME,
+        echo_runtime_os_hostname as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_OS_PLATFORM,
+        echo_runtime_os_platform as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_NOW_MONO_MS,
+        echo_runtime_now_mono_ms as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_JSON_PARSE,
+        echo_runtime_json_parse as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_JSON_STRINGIFY,
+        echo_runtime_json_stringify as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_DNS_LOOKUP,
+        echo_runtime_dns_lookup as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SHA256,
+        echo_runtime_sha256 as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_RUN_CAPTURE,
+        echo_runtime_process_run_capture as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_TEMP_DIR,
+        echo_runtime_fs_temp_dir as extern "C" fn() -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_CREATE_TEMP,
+        echo_runtime_fs_create_temp as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_SYMLINK,
+        echo_runtime_fs_symlink as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_TO_LOWER,
+        echo_runtime_str_to_lower as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_TO_UPPER,
+        echo_runtime_str_to_upper as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_TRIM,
+        echo_runtime_str_trim as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_SPLIT,
+        echo_runtime_str_split as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_STR_REPLACE,
+        echo_runtime_str_replace as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_HEX_ENCODE,
+        echo_runtime_hex_encode as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_HEX_DECODE,
+        echo_runtime_hex_decode as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_BASE64_ENCODE,
+        echo_runtime_base64_encode as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_BASE64_DECODE,
+        echo_runtime_base64_decode as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_LISTEN,
+        echo_runtime_tls_listen as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_ACCEPT,
+        echo_runtime_tls_accept as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_CONNECT,
+        echo_runtime_tls_connect as extern "C" fn(i64, i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_READ,
+        echo_runtime_tls_read as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_WRITE,
+        echo_runtime_tls_write as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_CLOSE,
+        echo_runtime_tls_close as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TLS_CLOSE_LISTENER,
+        echo_runtime_tls_close_listener as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PARSE_I64,
+        echo_runtime_parse_i64 as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PARSE_F64,
+        echo_runtime_parse_f64 as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_URL_PARSE,
+        echo_runtime_url_parse as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TIME_FORMAT,
+        echo_runtime_time_format as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TIME_PARSE,
+        echo_runtime_time_parse as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_GZIP_COMPRESS,
+        echo_runtime_gzip_compress as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_GZIP_DECOMPRESS,
+        echo_runtime_gzip_decompress as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_ZIP_PACK,
+        echo_runtime_zip_pack as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_ZIP_UNPACK_FIRST,
+        echo_runtime_zip_unpack_first as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_HMAC_SHA256,
+        echo_runtime_hmac_sha256 as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SHA512,
+        echo_runtime_sha512 as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_AES_GCM_ENCRYPT,
+        echo_runtime_aes_gcm_encrypt as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_AES_GCM_DECRYPT,
+        echo_runtime_aes_gcm_decrypt as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_FS_CHMOD,
+        echo_runtime_fs_chmod as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PATH_CLEAN,
+        echo_runtime_path_clean as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PATH_REL,
+        echo_runtime_path_rel as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_RUN_CWD,
+        echo_runtime_process_run_cwd as extern "C" fn(i64, i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_SPAWN_PIPES,
+        echo_runtime_process_spawn_pipes as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_PIPE_WRITE,
+        echo_runtime_process_pipe_write as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_PIPE_READ,
+        echo_runtime_process_pipe_read as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_PIPE_CLOSE,
+        echo_runtime_process_pipe_close as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_PROCESS_WAIT,
+        echo_runtime_process_wait as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_UNIX_LISTEN,
+        echo_runtime_unix_listen as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_UNIX_ACCEPT,
+        echo_runtime_unix_accept as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_UNIX_CONNECT,
+        echo_runtime_unix_connect as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_UNIX_READ,
+        echo_runtime_unix_read as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_UNIX_WRITE,
+        echo_runtime_unix_write as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_UNIX_CLOSE,
+        echo_runtime_unix_close as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_PROCESS_ARGS,
         echo_runtime_process_args as extern "C" fn() -> i64 as usize,
     )?;
@@ -1234,6 +1716,27 @@ use echo_runtime::{
     echo_runtime_fs_remove_dir, echo_runtime_fs_rename, echo_runtime_fs_write,
     echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
     echo_runtime_udp_send_to,
+    echo_runtime_math_sqrt, echo_runtime_math_sin, echo_runtime_math_cos, echo_runtime_math_tan,
+    echo_runtime_math_floor, echo_runtime_math_ceil, echo_runtime_math_abs_f, echo_runtime_math_pow,
+    echo_runtime_math_abs_i, echo_runtime_random_seed, echo_runtime_random_u64, echo_runtime_random_float,
+    echo_runtime_crypto_random_bytes, echo_runtime_crypto_random_u64, echo_runtime_os_pid,
+    echo_runtime_os_cwd, echo_runtime_os_chdir, echo_runtime_os_hostname, echo_runtime_os_platform,
+    echo_runtime_now_mono_ms, echo_runtime_json_parse, echo_runtime_json_stringify,
+    echo_runtime_dns_lookup, echo_runtime_sha256, echo_runtime_process_run_capture,
+    echo_runtime_fs_temp_dir, echo_runtime_fs_create_temp, echo_runtime_fs_symlink,
+    echo_runtime_str_to_lower, echo_runtime_str_to_upper, echo_runtime_str_trim,
+    echo_runtime_str_split, echo_runtime_str_replace, echo_runtime_hex_encode, echo_runtime_hex_decode, echo_runtime_base64_encode, echo_runtime_base64_decode,
+    echo_runtime_tls_listen, echo_runtime_tls_accept, echo_runtime_tls_connect, echo_runtime_tls_read,
+    echo_runtime_tls_write, echo_runtime_tls_close, echo_runtime_tls_close_listener,
+    echo_runtime_parse_i64, echo_runtime_parse_f64, echo_runtime_url_parse, echo_runtime_time_format, echo_runtime_time_parse,
+    echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_zip_pack,
+    echo_runtime_zip_unpack_first, echo_runtime_hmac_sha256, echo_runtime_sha512,
+    echo_runtime_aes_gcm_encrypt, echo_runtime_aes_gcm_decrypt, echo_runtime_fs_chmod,
+    echo_runtime_path_clean, echo_runtime_path_rel, echo_runtime_process_run_cwd,
+    echo_runtime_process_spawn_pipes, echo_runtime_process_pipe_write,
+    echo_runtime_process_pipe_read, echo_runtime_process_pipe_close, echo_runtime_process_wait,
+    echo_runtime_unix_listen, echo_runtime_unix_accept, echo_runtime_unix_connect,
+    echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_unix_close,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -2995,6 +3498,19 @@ fn emit_call<'ctx>(
                 return Some(cx.i64t.const_int(0, false));
             }
             // sleep_ms: void, return 0.
+            if native == RT_RANDOM_SEED {
+                if args.len() != 1 {
+                    cx.diags.push(
+                        Diagnostic::error("runtime.random_seed expects one argument")
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let a0 = emit_expr_i64(cx, &args[0])?;
+                let f = cx.module.get_function(RT_RANDOM_SEED).expect("random_seed");
+                let _ = cx.builder.build_call(f, &[a0.into()], "").expect("random_seed");
+                return Some(cx.i64t.const_int(0, false));
+            }
             if native == RT_SLEEP_MS {
                 if args.len() != 1 {
                     cx.diags.push(
@@ -3032,6 +3548,10 @@ fn emit_call<'ctx>(
             if native == RT_PROCESS_ENV_UNSET
                 || native == RT_PROCESS_EXIT
                 || native == RT_FS_FILE_CLOSE
+                || native == RT_TLS_CLOSE
+                || native == RT_TLS_CLOSE_LISTENER
+                || native == RT_UNIX_CLOSE
+                || native == RT_PROCESS_PIPE_CLOSE
             {
                 if args.len() != 1 {
                     cx.diags.push(
@@ -3049,6 +3569,15 @@ fn emit_call<'ctx>(
             let arity = if native == RT_NOW_MS
                 || native == RT_TEST_FINISH
                 || native == RT_PROCESS_ARGS
+                || native == RT_RANDOM_U64
+                || native == RT_RANDOM_FLOAT
+                || native == RT_CRYPTO_RANDOM_U64
+                || native == RT_OS_PID
+                || native == RT_OS_CWD
+                || native == RT_OS_HOSTNAME
+                || native == RT_OS_PLATFORM
+                || native == RT_NOW_MONO_MS
+                || native == RT_FS_TEMP_DIR
             {
                 0
             } else if native == RT_STR_FROM_INT
@@ -3087,6 +3616,41 @@ fn emit_call<'ctx>(
                 || native == RT_FS_OPEN_READ
                 || native == RT_FS_OPEN_WRITE
                 || native == RT_FS_OPEN_APPEND
+                || native == RT_MATH_SQRT
+                || native == RT_MATH_SIN
+                || native == RT_MATH_COS
+                || native == RT_MATH_TAN
+                || native == RT_MATH_FLOOR
+                || native == RT_MATH_CEIL
+                || native == RT_MATH_ABS_F
+                || native == RT_MATH_ABS_I
+                || native == RT_JSON_PARSE
+                || native == RT_JSON_STRINGIFY
+                || native == RT_DNS_LOOKUP
+                || native == RT_SHA256
+                || native == RT_CRYPTO_RANDOM_BYTES
+                || native == RT_OS_CHDIR
+                || native == RT_FS_CREATE_TEMP
+                || native == RT_STR_TO_LOWER
+                || native == RT_STR_TO_UPPER
+                || native == RT_STR_TRIM
+                || native == RT_HEX_ENCODE
+                || native == RT_HEX_DECODE
+                || native == RT_BASE64_ENCODE
+                || native == RT_BASE64_DECODE
+                || native == RT_TLS_LISTEN
+                || native == RT_PARSE_I64
+                || native == RT_PARSE_F64
+                || native == RT_URL_PARSE
+                || native == RT_GZIP_COMPRESS
+                || native == RT_GZIP_DECOMPRESS
+                || native == RT_ZIP_UNPACK_FIRST
+                || native == RT_SHA512
+                || native == RT_PATH_CLEAN
+                || native == RT_UNIX_LISTEN
+                || native == RT_UNIX_ACCEPT
+                || native == RT_UNIX_CONNECT
+                || native == RT_PROCESS_WAIT
             {
                 1
             } else if native == RT_TCP_READ
@@ -3108,13 +3672,37 @@ fn emit_call<'ctx>(
                 || native == RT_FS_FILE_READ
                 || native == RT_FS_FILE_WRITE
                 || native == RT_FS_FILE_SEEK
+                || native == RT_MATH_POW
+                || native == RT_STR_SPLIT
+                || native == RT_FS_SYMLINK
+                || native == RT_TLS_READ
+                || native == RT_TLS_WRITE
+                || native == RT_PROCESS_RUN_CAPTURE
+                || native == RT_TIME_FORMAT
+                || native == RT_TIME_PARSE
+                || native == RT_ZIP_PACK
+                || native == RT_HMAC_SHA256
+                || native == RT_FS_CHMOD
+                || native == RT_PATH_REL
+                || native == RT_UNIX_READ
+                || native == RT_UNIX_WRITE
+                || native == RT_PROCESS_SPAWN_PIPES
+                || native == RT_PROCESS_PIPE_WRITE
+                || native == RT_PROCESS_PIPE_READ
             {
                 2
             } else if native == RT_UDP_SEND_TO
                 || native == RT_STR_SLICE
                 || native == RT_BYTES_SLICE
+                || native == RT_STR_REPLACE
+                || native == RT_TLS_ACCEPT
+                || native == RT_AES_GCM_ENCRYPT
+                || native == RT_AES_GCM_DECRYPT
+                || native == RT_PROCESS_RUN_CWD
             {
                 3
+            } else if native == RT_TLS_CONNECT {
+                4
             } else {
                 cx.diags.push(
                     Diagnostic::error(format!(

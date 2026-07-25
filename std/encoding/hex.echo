@@ -1,0 +1,33 @@
+; std/encoding/hex
+/ runtime
+/ std/test
+/ std/str
+/ std/bytes
+
+$ encode = (b) {
+    ^ runtime.hex_encode(b)
+}
+
+$ decode = (s) {
+    $ b = runtime.hex_decode(s)
+    ? b == 0 {
+        ! "hex decode failed"
+    }
+    ^ b
+}
+
+test.it("hex_roundtrip", () {
+    $ b = bytes.from_str("Hi")
+    $ h = encode(b)
+    test.eq(h, "4869")
+    | decode(h) {
+        $ out {
+            test.eq(str.from_bytes(out), "Hi")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ encode, decode

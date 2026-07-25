@@ -15,6 +15,7 @@
 / std/test
 / std/list
 / std/str
+/ std/bytes
 
 $ args = () {
     ^ runtime.process_args()
@@ -48,6 +49,64 @@ $ run = (program, args) {
     $ code = runtime.process_run(program, args)
     ? code < 0 {
         ! "failed to spawn process"
+    }
+    ^ code
+}
+
+; Spawn+wait capturing stdout/stderr. Result product { code, stdout, stderr } or ! spawn fail.
+$ run_capture = (program, args) {
+    $ r = runtime.process_run_capture(program, args)
+    ? r == 0 {
+        ! "failed to spawn process"
+    }
+    ^ r
+}
+
+; Like run_capture but with working directory `cwd` (empty = inherit).
+$ run_cwd = (program, args, cwd) {
+    $ r = runtime.process_run_cwd(program, args, cwd)
+    ? r == 0 {
+        ! "failed to spawn process"
+    }
+    ^ r
+}
+
+; Spawn with piped stdin/stdout/stderr.
+; Result product { ok, child, stdin, stdout, stderr } or ! spawn fail.
+$ spawn_pipes = (program, args) {
+    $ r = runtime.process_spawn_pipes(program, args)
+    ? r.ok == 0 {
+        ! "failed to spawn process"
+    }
+    ^ r
+}
+
+$ pipe_write = (pipe, data) {
+    $ st = runtime.process_pipe_write(pipe, data)
+    ? st < 0 {
+        ! "pipe write failed"
+    }
+    ^
+}
+
+$ pipe_read = (pipe, limit) {
+    $ b = runtime.process_pipe_read(pipe, limit)
+    ? b == 0 {
+        ! "pipe read failed"
+    }
+    ^ b
+}
+
+$ pipe_close = (pipe) {
+    runtime.process_pipe_close(pipe)
+    ^
+}
+
+; Wait for child from spawn_pipes; exit code or ! fail.
+$ wait = (child) {
+    $ code = runtime.process_wait(child)
+    ? code < 0 {
+        ! "wait failed"
     }
     ^ code
 }
@@ -103,4 +162,77 @@ test.it("run_missing", () {
     }
 })
 
-\ args, env, env_set, env_unset, exit, run
+test.it("run_capture_missing", () {
+    $ empty = []
+    | run_capture("__echo_missing_binary_xyz__", empty) {
+        $ r {
+            test.true(0 == 1)
+        }
+        ! err {
+            test.eq(err, "failed to spawn process")
+        }
+    }
+})
+
+test.it("run_cwd_missing", () {
+    $ empty = []
+    | run_cwd("__echo_missing_binary_xyz__", empty, "/tmp") {
+        $ r {
+            test.true(0 == 1)
+        }
+        ! err {
+            test.eq(err, "failed to spawn process")
+        }
+    }
+})
+
+test.it("spawn_pipes_missing", () {
+    $ empty = []
+    | spawn_pipes("__echo_missing_binary_xyz__", empty) {
+        $ r {
+            test.true(0 == 1)
+        }
+        ! err {
+            test.eq(err, "failed to spawn process")
+        }
+    }
+})
+
+test.it("spawn_pipes_cat", () {
+    $ empty = []
+    | spawn_pipes("cat", empty) {
+        $ r {
+            | pipe_write(r.stdin, "hi") {
+                $ ok {
+                    pipe_close(r.stdin)
+                    | pipe_read(r.stdout, 16) {
+                        $ b {
+                            test.eq(str.from_bytes(b), "hi")
+                            pipe_close(r.stdout)
+                            pipe_close(r.stderr)
+                            | wait(r.child) {
+                                $ code {
+                                    test.eq(code, 0)
+                                }
+                                ! e {
+                                    test.fail(e)
+                                }
+                            }
+                        }
+                        ! e {
+                            test.fail(e)
+                        }
+                    }
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+        }
+        ! err {
+            test.fail(err)
+        }
+    }
+})
+
+\ args, env, env_set, env_unset, exit, run, run_capture, run_cwd, spawn_pipes, pipe_write, pipe_read, pipe_close, wait

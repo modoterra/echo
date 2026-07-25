@@ -1,0 +1,41 @@
+; std/json — parse/stringify product values.
+/ runtime
+/ std/test
+/ std/str
+
+$ parse = (s) {
+    $ v = runtime.json_parse(s)
+    ? v == 0 {
+        ! "json parse failed"
+    }
+    ^ v
+}
+
+$ stringify = (v) {
+    $ s = runtime.json_stringify(v)
+    ? s == 0 {
+        ! "json stringify failed"
+    }
+    ^ s
+}
+
+test.it("json_object", () {
+    $ raw = '{"n":1}'
+    | parse(raw) {
+        $ o {
+            | stringify(o) {
+                $ s {
+                    test.true(str.contains(s, "n"))
+                }
+                ! e {
+                    test.fail(e)
+                }
+            }
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
+\ parse, stringify

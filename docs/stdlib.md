@@ -4,7 +4,7 @@
 |--|--|
 | **Status** | **Locked** (resolution + `/ runtime` in std only + pipeline ownership) |
 | **Owners** | See [pipeline ownership](#pipeline-ownership-locked) |
-| **Related** | `docs/modules.md`, `docs/runtime-abi.md`, `docs/pipeline.md`, ADR 0001, ADR 0004 |
+| **Related** | `docs/modules.md`, `docs/runtime-abi.md`, `docs/pipeline.md`, [`stdlib-go-gaps.md`](stdlib-go-gaps.md), ADR 0001, ADR 0004 |
 
 ## Policy (locked)
 
@@ -219,8 +219,31 @@ Two layers — do **not** mix responsibilities:
 | **Language syntax** | Separate: list lits, for-in, `==` may emit `echo_runtime_*` **without** a `/ runtime` import — not std |
 | **Userland** | Only `/ std/…` — never `/ runtime`, never `echo_runtime_*` |
 
+### Where logic lives (locked)
+
+Prefer the **highest** layer that is honest and maintainable:
+
+| Layer | Prefer when | Do **not** |
+|-------|-------------|------------|
+| **Pure Echo** (`std/**` without `/ runtime`) | Policy, product types, composition, simple algorithms (map/set/queue, path string helpers, log levels, SipHash paper impl if already pure) | Invent OS/crypto/network/encoding parsers in Echo when they are hard and already solved |
+| **Rust runtime + crates** | OS, sockets, clocks, JSON, HTTP parse, real crypto (SHA-2, CSPRNG), hex/base64, DNS | Hand-roll hex/base64/JSON/TLS/HTTP parsers in our Rust; **use a crate** |
+| **Thin `std` bridge** | Result policy, named exports, `%` types around opaque handles | Re-export `runtime.*` to userland |
+
+**Hard, solved problems stay crates** (or thin wrappers over crates): HTTP parse (`httparse`), JSON (`serde_json`), SHA-2 (`sha2`), CSPRNG (`getrandom`), hex/base64 (`hex`, `base64`), TLS (later, e.g. rustls). Small OS/libm shims (`std::fs`, `f64::sqrt`) are fine without extra crates.
+
+**Implement as much as possible in Echo** when the language surface is enough: collections, pure helpers, cleartext HTTP client over TCP std, path string ops, leveled log. Only add `echo_runtime_*` when Echo cannot do it correctly (or would be a bad reimplementation of a solved problem).
+
 Authority for names: `echo_codegen_abi` + `RUNTIME_EXPORTS` must match `#[no_mangle]` in `echo_runtime`.  
 See also [`runtime-abi.md`](runtime-abi.md).
+
+
+### String and bytes policy (v0 — locked)
+
+| Kind | Rule |
+|------|------|
+| **`std/str`** | UTF-8 text. `len` / `get` / `slice` use **byte** indices (same as today). Growth ops (`split`, `join`, `trim`, `replace`, `to_lower` / `to_upper` for ASCII) document ASCII-first where casefold is incomplete. |
+| **`std/bytes`** | Opaque byte sequences; no UTF-8 assumption. Encoding helpers live under `std/encoding/*` and return **bytes** or result. |
+| **Decode to str** | `str.from_bytes` remains lossy/runtime-defined; prefer `encoding` validate when adding strict UTF-8. |
 
 ### Domain map (primitives → std)
 
@@ -237,7 +260,16 @@ See also [`runtime-abi.md`](runtime-abi.md).
 | **Test** | `test_register`, `test_fail`, `test_finish` | `std/test` | `eq` / `true` / … |
 | **Net TCP/UDP** | `tcp_*`, `udp_*` | `std/net/tcp`, `udp` | `% conn` / methods |
 | **HTTP** | `http_parse_request`, `http_*_complete` | `std/net/http` + request/response/server | serve loop |
-| **Crypto / collections** | — (hash is pure Echo + `bytes`) | `std/crypto/hash`, `std/collections/*` | SipHash, map/set/table |
+| **Crypto / collections** | hash/csprng natives as added | `std/crypto/*`, `std/collections/*` | SipHash, map/set/table, queue |
+| **Math** | `math_*` f64 | `std/math` | min/max/abs pure ints |
+| **Encoding** | — or thin | `std/encoding/hex`, `base64` | pure roundtrip |
+| **Path** | — (`fs_join` shared) | `std/path` | pure path helpers + locators |
+| **JSON** | `json_parse`, `json_stringify` | `std/json` | product types only |
+| **Random** | `random_*` | `std/random` | **non-crypto** unless `crypto/random` |
+| **Log** | — | `std/log` | pure over `io` |
+| **OS** | `os_*` | `std/os` | pid/cwd/hostname/platform |
+| **DNS** | `dns_lookup` | `std/net/dns` | list of addr strings |
+| **HTTP client** | thin over tcp | `std/net/http` client helpers | cleartext v0 |
 
 **Language-owned** (not `/ runtime` package, still `echo_runtime_*` from syntax): list
 lits, for-in, struct field ops, deep `==`, scope ownership, tasks, string builders.
@@ -301,9 +333,24 @@ call site are typed for method resolve (MIR call-site flow). Free shims
 ```text
 std/
   io.echo              ; may / runtime ; export print, log, …
-  time.echo
-  process.echo         ; args / env / exit / run (spawn+wait)
-  fs.echo              ; paths, whole-file, copy/rename, % meta, streaming % file
+  str.echo / bytes.echo / list.echo
+  time.echo            ; now_ms, sleep_ms, mono_ms
+  process.echo         ; args / env / exit / run / run_capture
+  fs.echo              ; paths, whole-file, copy/rename, % meta, streaming % file, temp/symlink
+  math.echo
+  path.echo
+  json.echo
+  random.echo          ; non-crypto PRNG
+  log.echo             ; leveled emit over io
+  os.echo
+  encoding/
+    hex.echo
+    base64.echo
+  crypto/
+    hash/sip.echo, sha256.echo
+    random.echo        ; CSPRNG
+  collections/
+    hash_table.echo / map.echo / set.echo / queue.echo
   net/
     tcp/                 ; folder module `/ std/net/tcp`
       conn.echo          ; % conn (pass by ref)
@@ -316,6 +363,8 @@ std/
     response.echo
     server.echo
     http.echo            ; parse / serve; Content-Length body complete
+    dns.echo             ; lookup
+    http_client.echo     ; cleartext get (ADR 0017)
 ```
 
 No `*_ops` in std for now. Multi-file `@` remains legal language (demo:
@@ -358,24 +407,49 @@ constants, and co-located `test.it` cases.
 
 ### Target public surfaces (inventory)
 
+Exports must match the `\ ` line in each module. Status of expansive rows is in
+[Expansive roadmap status](#expansive-roadmap-status-tier-ad) (Partial ≠ Done).
+
 | Module | Export | Intentionally private |
 |--------|--------|------------------------|
 | `std/io` | `print`, `log`, `eprint` | — |
-| `std/str` | `from_*`, `len`, `is_empty`, `cat`, `contains`, `starts_with`, `ends_with`, `get`, `slice` | suite |
-| `std/list` | `len`, `is_empty`, `get`, `contains` | suite |
+| `std/str` | `from_int`, `from_float`, `from_bytes`, `from_duration`, `from_locator`, `from_debug`, `len`, `is_empty`, `cat`, `contains`, `starts_with`, `ends_with`, `get`, `slice`, `trim`, `to_lower`, `to_upper`, `split`, `replace`, `join`, `repeat`, `parse_int`, `parse_float` | suite; byte indices; ASCII-first case; parse result-shaped |
+| `std/list` | `len`, `is_empty`, `get`, `contains`, `sum_ints`, `sort_ints` | suite; HOF map/filter/fold **not** exported yet |
 | `std/bytes` | `len`, `is_empty`, `get`, `slice`, `cat`, `from_int`, `from_str` | suite |
 | `std/reflect` | `kind`, `kind_name`, `key_bytes`, `is_*`, `KIND_*` | suite (not tools `echo_reflection`) |
-| `std/time` | `now_ms`, `sleep_ms` | suite |
-| `std/process` | `args`, `env`, `env_set`, `env_unset`, `exit`, `run` | suite; option `env`, result `run` |
-| `std/fs` | `exists`, `is_file`, `is_dir`, `join`, `read`, `write`, `remove`, `copy`, `rename`, `create_dir`, `create_dir_all`, `read_dir`, `remove_dir`, `metadata`, `open`, `create`, `append`, `meta`, `file` | suite; path string or locator; whole-file **bytes**; streaming methods on `% file` |
+| `std/time` | `now_ms`, `sleep_ms`, `mono_ms`, `format`, `parse` | suite; chrono strftime-like patterns |
+| `std/process` | `args`, `env`, `env_set`, `env_unset`, `exit`, `run`, `run_capture`, `run_cwd`, `spawn_pipes`, `pipe_write`, `pipe_read`, `pipe_close`, `wait` | suite; option `env`; pipes product `{ child, stdin, stdout, stderr }` |
+| `std/fs` | `exists`, `is_file`, `is_dir`, `join`, `read`, `write`, `remove`, `copy`, `rename`, `create_dir`, `create_dir_all`, `read_dir`, `remove_dir`, `metadata`, `open`, `create`, `append`, `meta`, `file`, `temp_dir`, `create_temp`, `symlink`, `chmod` | suite; path string or locator; whole-file **bytes**; streaming methods on `% file` |
+| `std/bufio` | `lines`, `read_lines` | suite; split on `\n` |
 | `std/test` | `it`, `eq`, `ne`, `true`, `false`, `fail` | — |
-| `std/crypto/hash` | `sip` | `sip_state`, `rotl`, `sip_round`, `byte_at`, `load_le`, paper keys |
+| `std/crypto/hash` | `sip`, `sha256`, `sha512` (folder) | sip internals; paper keys |
+| `std/crypto/hmac` | `sha256` | suite; HMAC-SHA256 |
+| `std/crypto/aes_gcm` | `encrypt`, `decrypt` | suite; AES-256-GCM; key 32B nonce 12B |
+| `std/crypto/random` | `fill`, `u64` | suite; **CSPRNG** (not `std/random`) |
+| `std/compress/gzip` | `compress`, `decompress` | suite |
+| `std/compress/zip` | `pack`, `unpack_first` | suite; single-entry thin |
+| `std/encoding/csv` | `parse_line`, `parse`, `format_line` | suite; thin split (no rich quotes) |
 | `std/collections/hash_table` | `hash_table`, `make` | `entry`, `empty_buckets`, SipHash constants; field `capacity`; keys via `reflect.key_bytes` |
 | `std/collections/map` | `map`, `make`, `from_indexed` | suite; keys/values/entries/`to_list` (entries) snapshots |
 | `std/collections/set` | `set`, `make`, `from_list` | suite; `values`/`to_list` members (no `keys`) |
+| `std/collections/queue` | `queue`, `make` (methods `len`, `is_empty`, `push`, `pop`) | suite |
 | `std/net/tcp` | `conn`, `listener`, free `listen`/`connect`/… | — |
 | `std/net/udp` | `socket`, free bind/send/recv/close | — |
 | `std/net/http` (+ request/response/server) | types; `serve`, parse/format, response helpers, `dispatch`, `handle_connection` | `status_reason` |
+| `std/net/dns` | `lookup` | suite |
+| `std/net/http_client` | `get`, `request`, `get_tls`, `request_tls` | suite; cleartext + TLS via runtime.tls_*; empty ca_pem = platform roots |
+| `std/net/url` | `parse`, `format` | suite; http/https; runtime product fields |
+| `std/net/unix` | `listener`, `conn`, `listen`, `accept`, `connect`, `read`, `write`, `close` | suite; Unix domain; handle-0 like TCP |
+| `std/net/tls` | `listener`, `conn`, `listen`, `accept`, `connect`, `read`, `write`, `close`, `close_listener`, `load_pem` | handle-0 failure like TCP; rustls; empty ca_pem = platform roots |
+| `std/cli` | `parse`, `has`, `get`, `positionals` | pure Echo; flat token encoding; not full getopt |
+| `std/math` | `abs_i`, `min`, `max`, `sqrt`, `sin`, `cos`, `tan`, `floor`, `ceil`, `abs_f`, `pow` | suite |
+| `std/encoding/hex` | `encode`, `decode` | suite |
+| `std/encoding/base64` | `encode`, `decode` | suite |
+| `std/path` | `join`, `is_abs`, `file_name`, `parent`, `extension`, `clean`, `rel`, `walk` | suite; walk is shallow (direct children) |
+| `std/json` | `parse`, `stringify` | suite; product types only |
+| `std/random` | `seed`, `u64`, `float` | suite; **not** CSPRNG — use `std/crypto/random` |
+| `std/log` | `emit`, `debug`, `info`, `warn`, `error`, `kv`, `info_kv` | suite; caller passes `min_level` (no global `set_level`) |
+| `std/os` | `pid`, `cwd`, `chdir`, `hostname`, `platform` | suite |
 
 When you add a std helper, **default is private**. Export is an explicit product
 decision, recorded on the `\ ` line and in this inventory when durable.
@@ -410,3 +484,64 @@ decision, recorded on the `\ ` line and in this inventory when durable.
 | Method on raw runtime product/handle | **Out** — wrap in `%` in std instead |
 | Bare userland `print` | **Not** intrinsic (unbound / unknown fn) |
 | `std/io.echo` body using `/ runtime` | **Done** |
+
+
+## Expansive roadmap status (Tier A–D)
+
+**Status legend:** **Partial** = sources + runtime/ABI largely present, but three
+proofs (crate · e26 · examples) and/or www/inventory not closed. **Done** =
+vertical complete under AGENTS. Do not mark Done while path/fs string lifecycle
+or suite failures remain.
+
+| Module | Status | Notes |
+|--------|--------|-------|
+| `std/math` | **Done** (thin) | e26 `001_abs`; `xo test`; example `math.echo`; www stub |
+| `std/encoding/hex` | **Done** (thin) | e26 hex; `xo test` |
+| `std/encoding/base64` | **Done** (thin) | e26 `002_base64`; `xo test` |
+| `std/str` growth | **Done** (thin) | trim/split/replace/case; suite green; ASCII-first |
+| `std/bytes` growth | Thin core | encoding under `std/encoding/*` |
+| `std/path` | **Done** (thin) | lifecycle fix (call-arg promote); e26 + suite |
+| `std/json` | **Done** (thin) | e26 parse/stringify; product types |
+| `std/random` | **Done** (thin) | seeded e26; **not** CSPRNG |
+| `std/log` | **Done** (thin) | e26 level filter; caller-supplied min level |
+| `std/os` | **Done** (thin) | e26 `001_pid`; suite |
+| `std/process` capture + pipes | **Done** (thin) | `run_capture`/`run_cwd` + `spawn_pipes`; e26 `004_pipes_cat`; suite |
+| `std/fs` polish | **Done** (thin) | temp/symlink; suite green after lifecycle fix |
+| `std/time` growth | **Done** (thin) | `mono_ms` + `format`/`parse` (chrono); e26 day format |
+| `std/net/dns` | **Done** (thin) | e26 localhost |
+| `std/net/http_client` | **Done** (thin) | `get`/`request` + TLS helpers; e26 localhost `.run`; suite refuse-port |
+| `std/net/url` | **Done** (thin) | e26 parse; runtime product |
+| `std/net/unix` | **Done** (thin) | Unix domain; e26 `001_loopback`; crate + suite |
+| `std/net/tls` | **Done** (thin) | rustls; platform roots when ca_pem empty; e26 loopback `.run` |
+| `std/cli` | **Done** (thin) | pure parse; e26 fixed argv; not GNU getopt |
+| `std/crypto` sha256/sha512 + HMAC + AES-GCM + CSPRNG | **Done** (thin) | e26 sha256/hmac; suites |
+| `std/bufio` | **Done** (thin) | `lines`; e26 |
+| `std/encoding/csv` | **Done** (thin) | e26 split |
+| `std/compress/gzip` + `zip` | **Done** (thin) | e26 gzip; zip suite |
+| `std/path` clean/rel/walk | **Done** (thin) | e26 clean; walk shallow |
+| `std/fs` chmod | **Done** (thin) | Unix mode |
+| `std/process` run_cwd | **Done** (thin) | capture + cwd |
+| `std/collections/queue` + list helpers | **Done** (thin) | queue methods; `sum_ints`/`sort_ints`; no HOF map/filter/fold |
+| `std/regex` / ICU / recursive Walk | **deferred** | regex needs ADR if public |
+
+**Lifecycle note (2026-07):** call arguments must not be `ScopePromote`d as
+nested into call results (`nested_owned_names_in_expr`). That bug freed path
+strings after `fs.create_dir_all` / other result-returning callees.
+
+### New-module checklist (copy per vertical)
+
+```text
+[ ] Classify: pure Echo vs echo_runtime_* (prefer pure Echo; hard solved → crate)
+[ ] If Rust: implement via a crate (or std), not a hand-rolled codec/crypto/parser
+[ ] Runtime + unit tests (if native)
+[ ] RT_* + RUNTIME_EXPORTS + codegen arity/JIT
+[ ] Bump RUNTIME_ABI_VERSION / STDLIB_VERSION when surface changes
+[ ] std/**.echo + \ exports + co-located xo test
+[ ] echo26/run/<domain>/NNN_*.echo + .run (+ reject if must-fail)
+[ ] examples/misc when user-runnable
+[ ] This inventory + expansive status row
+[ ] docs/runtime-abi.md if durable native
+[ ] www /docs/std/… page or section
+[ ] scripts/gate echo26 (or filter) green
+[ ] No userland / runtime; no std/task
+```
