@@ -92,7 +92,7 @@ Tasks/concurrency are **language leaders** `+` / `-` (ADR 0013), not `std/task`.
 | `embed` | embed files in binary | **Gap** | Medium for single-binary apps |
 | `flag` | CLI flags | **Thin** `std/cli` (not getopt/GNU) | Medium |
 | `log`, `log/slog` | structured logging | **Thin** levels + `kv`/`info_kv` | Medium |
-| `testing` | tests, benchmarks, fuzz | **Partial** `std/test` + `xo test`; no bench/fuzz | Medium |
+| `testing` | tests, benchmarks, fuzz | **Partial** `std/test` + `xo test` / `--bench`; no fuzz | Medium |
 
 ### Time
 

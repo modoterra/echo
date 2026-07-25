@@ -220,6 +220,8 @@ pub const RT_SCOPE_DRAIN_DEFERRED: &str = "echo_runtime_scope_drain_deferred";
 
 /// `void echo_runtime_test_register(int64_t name_str, int64_t fn_value)`
 pub const RT_TEST_REGISTER: &str = "echo_runtime_test_register";
+/// `void echo_runtime_test_bench_register(int64_t name_str, int64_t fn_value)`
+pub const RT_TEST_BENCH_REGISTER: &str = "echo_runtime_test_bench_register";
 /// `void echo_runtime_test_fail(int64_t msg_str)`
 pub const RT_TEST_FAIL: &str = "echo_runtime_test_fail";
 /// `int64_t echo_runtime_test_finish(void)` — fail count, or -1 if suite mode off

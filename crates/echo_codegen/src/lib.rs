@@ -22,7 +22,7 @@ use echo_codegen_abi::{
     RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET,
     RT_LIST_LEN, RT_LIST_NEW, RT_LIST_PUSH, RT_LIST_SET, RT_LOCATOR_FROM_UTF8, RT_NE, RT_NE_ID,
     RT_PRINT_I64, RT_RANGE_NEW, RT_STR_BUILDER_FINISH, RT_STR_BUILDER_NEW, RT_STR_BUILDER_PUSH_STR,
-    RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
+    RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
     RT_STR_BUILDER_PUSH_VALUE, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
     RT_STR_FROM_FLOAT,
     RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
@@ -193,6 +193,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
         .void_type()
         .fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_TEST_REGISTER, test_reg_ty, None);
+    module.add_function(RT_TEST_BENCH_REGISTER, test_reg_ty, None);
     let test_fail_ty = context.void_type().fn_type(&[i64t.into()], false);
     module.add_function(RT_TEST_FAIL, test_fail_ty, None);
     let test_finish_ty = i64t.fn_type(&[], false);
@@ -852,6 +853,12 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         &ee,
         RT_TEST_REGISTER,
         echo_runtime_test_register as unsafe extern "C" fn(i64, i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_TEST_BENCH_REGISTER,
+        echo_runtime_test_bench_register as unsafe extern "C" fn(i64, i64) as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -1702,7 +1709,8 @@ use echo_runtime::{
     echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
-    echo_runtime_test_fail, echo_runtime_test_finish, echo_runtime_test_register,
+    echo_runtime_test_bench_register, echo_runtime_test_fail, echo_runtime_test_finish,
+    echo_runtime_test_register,
     echo_runtime_now_ms, echo_runtime_sleep_ms,
     echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
     echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
@@ -3465,22 +3473,27 @@ fn emit_call<'ctx>(
                 let _ = cx.builder.build_call(f, &[v.into()], "").expect("rt_close");
                 return Some(cx.i64t.const_int(0, false));
             }
-            // Suite: register(name, body) void.
-            if native == RT_TEST_REGISTER {
+            // Suite: register(name, body) / bench_register(name, body) void.
+            if native == RT_TEST_REGISTER || native == RT_TEST_BENCH_REGISTER {
                 if args.len() != 2 {
+                    let which = if native == RT_TEST_REGISTER {
+                        "test_register"
+                    } else {
+                        "test_bench_register"
+                    };
                     cx.diags.push(
-                        Diagnostic::error("runtime.test_register expects two arguments")
+                        Diagnostic::error(format!("runtime.{which} expects two arguments"))
                             .with_code("cg-runtime"),
                     );
                     return None;
                 }
                 let name = emit_expr_i64(cx, &args[0])?;
                 let body = emit_expr_i64(cx, &args[1])?;
-                let f = cx.module.get_function(RT_TEST_REGISTER).expect("test_register");
+                let f = cx.module.get_function(native).expect("test register");
                 let _ = cx
                     .builder
                     .build_call(f, &[name.into(), body.into()], "")
-                    .expect("test_register");
+                    .expect("test register");
                 return Some(cx.i64t.const_int(0, false));
             }
             // Suite: fail(msg) void.

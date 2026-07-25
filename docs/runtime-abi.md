@@ -82,9 +82,10 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_struct_type_is` | `int64_t (int64_t, const uint8_t *name, size_t)` | 1 if handle’s type tag equals `name` (for `|` `% Type` arms) |
 | `echo_runtime_struct_set` | `void (int64_t, const uint8_t *name, size_t, int64_t)` | Insert/replace field by name |
 | `echo_runtime_struct_get` | `int64_t (int64_t, const uint8_t *name, size_t)` | Field by name, or 0 |
-| `echo_runtime_test_register` | `void (int64_t name_str, int64_t fn)` | Suite: register case (`XO_TEST` only) |
+| `echo_runtime_test_register` | `void (int64_t name_str, int64_t fn)` | Suite: register test case (`XO_TEST` only) |
+| `echo_runtime_test_bench_register` | `void (int64_t name_str, int64_t fn)` | Suite: register benchmark (`XO_TEST` only; runs with `XO_BENCH`) |
 | `echo_runtime_test_fail` | `void (int64_t msg_str)` | Suite: mark current case failed |
-| `echo_runtime_test_finish` | `int64_t (void)` | Suite: run cases → fail count; `-1` if suite off |
+| `echo_runtime_test_finish` | `int64_t (void)` | Suite: run tests or benches → fail count; `-1` if suite off |
 | `echo_runtime_now_ms` | `int64_t (void)` | Wall clock ms since Unix epoch |
 | `echo_runtime_sleep_ms` | `void (int64_t ms)` | Sleep ≥ `ms` (no-op if `ms ≤ 0`) |
 | `echo_runtime_process_args` | `int64_t (void)` | argv as list of string handles |

@@ -192,7 +192,7 @@ Hosts **must not** reimplement binding, typing, or execution rules.
 | `xo ir` | codegen IR dump | LLVM IR; `-O0`…`-O3`/`-Oz` (default O0); `--no-cache` / `--cache-status` |
 | `xo run` / `run --jit` | execute | AOT/JIT; same `-O` as ir/build; IR cache v3; `--no-cache` / `--cache-status` |
 | `xo build -o` | AOT native binary | same opt + IR + **AOT binary** cache as `xo run` |
-| `xo test` | language tests | **v0** — Model A (`std/test` + `XO_TEST`); paths/globs |
+| `xo test` | language tests / benches | **v0** — Model A (`std/test` + `XO_TEST`); `--bench` → `XO_BENCH` only |
 | `xo fmt` | formatter | **done** — shared parse + AST pretty-print (`-w` write in place) |
 | `xo lsp` | language server | `echo_lsp` |
 | `xo repl` | interactive | **v0** — rustyline + session + JIT |

@@ -520,6 +520,7 @@ current; fill Impl as work lands.
 | 2026-07-23 | **Memory slice 2:** precise promote, demotion, owning_scope facts, immediate free; e26 lifetime 001–007 |
 | 2026-07-23 | **Graph promote:** region evacuation + header epoch; crate nest/cycle/shared/deterministic; e26 010–012; www Memory |
 | 2026-07-25 | **LSP reliability:** `LspSession` (testable protocol), incremental `didChange`, versioned multi-file `publishDiagnostics`, path-only diag attribution, percent-encoded URIs, UTF-16 position edges; docs `lsp.md` |
+| 2026-07-25 | **`xo test --bench`:** `test.bench` + `runtime.test_bench_register`; harness auto-N / ns/op; co-located like `test.it` |
 
 ---
 

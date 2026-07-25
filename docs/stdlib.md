@@ -119,9 +119,9 @@ io.print(x)             $ print = (value) {           package of primitives)
 
 ### `std/test`
 
-Suite helpers for `xo test` (see [`testing.md`](testing.md)). Exports `it`, `eq`,
-`ne`, `true`, `false`, `fail`. Bridges to `runtime.test_*` (suite mode via env
-`XO_TEST`).
+Suite helpers for `xo test` (see [`testing.md`](testing.md)). Exports `it`,
+`bench`, `eq`, `ne`, `true`, `false`, `fail`. Bridges to `runtime.test_*`
+(suite mode via env `XO_TEST`; benches need `XO_BENCH` / `xo test --bench`).
 
 | Audience | Sees |
 |----------|------|

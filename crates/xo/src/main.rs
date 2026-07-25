@@ -135,7 +135,13 @@ enum Command {
     ///
     /// Paths may be `.echo` files, directories, or globs (`*`, `**`). With no
     /// paths, searches `.` for `*_test.echo` and `tests/**/*.echo`.
+    ///
+    /// With `--bench`, only `test.bench` cases run (auto-N, ns/op); `test.it`
+    /// cases are skipped. Without `--bench`, only `test.it` cases run.
     Test {
+        /// Run benchmarks only (`test.bench`); skip ordinary test cases.
+        #[arg(long)]
+        bench: bool,
         /// Files, directories, or glob patterns.
         paths: Vec<String>,
     },
@@ -299,7 +305,7 @@ fn main() -> ExitCode {
                 ExitCode::from(2)
             }
         },
-        Command::Test { paths } => cmd_test(&paths),
+        Command::Test { bench, paths } => cmd_test(bench, &paths),
         Command::Check {
             diag_codes,
             graph,
@@ -737,7 +743,7 @@ fn cmd_run(
     opt: OptLevel,
     args: &[String],
 ) -> ExitCode {
-    cmd_run_inner(path, jit, diag_codes, no_cache, cache_status, opt, args, false)
+    cmd_run_inner(path, jit, diag_codes, no_cache, cache_status, opt, args, false, false)
 }
 
 fn cmd_run_inner(
@@ -749,6 +755,7 @@ fn cmd_run_inner(
     opt: OptLevel,
     args: &[String],
     suite: bool,
+    bench: bool,
 ) -> ExitCode {
     let compiled = match compile_to_ir(path, no_cache, opt) {
         Ok(c) => c,
@@ -771,7 +778,11 @@ fn cmd_run_inner(
             eprintln!("xo run --jit: program args not supported yet (ignored)");
         }
         if suite {
-            echo_runtime::echo_runtime_test_enable();
+            if bench {
+                echo_runtime::echo_runtime_test_enable_bench();
+            } else {
+                echo_runtime::echo_runtime_test_enable();
+            }
         }
         return match echo_codegen::run_jit_ir(&compiled.ir) {
             Ok(status) => {
@@ -822,6 +833,9 @@ fn cmd_run_inner(
         .stderr(Stdio::inherit());
     if suite {
         cmd.env("XO_TEST", "1");
+        if bench {
+            cmd.env("XO_BENCH", "1");
+        }
     }
     let status = cmd.status();
 
@@ -1126,7 +1140,9 @@ fn cmd_tools_grammar_tree_sitter(output: &Path) -> ExitCode {
 }
 
 /// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
-fn cmd_test(paths: &[String]) -> ExitCode {
+///
+/// When `bench` is true, also sets `XO_BENCH=1` so only `test.bench` cases run.
+fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
     use std::time::{Duration, Instant};
 
     fn fmt_dur(d: Duration) -> String {
@@ -1138,14 +1154,16 @@ fn cmd_test(paths: &[String]) -> ExitCode {
         }
     }
 
+    let label = if bench { "xo test --bench" } else { "xo test" };
+
     let files = match collect_test_files(paths) {
         Ok(f) if f.is_empty() => {
-            eprintln!("xo test: no test files matched");
+            eprintln!("{label}: no test files matched");
             return ExitCode::from(1);
         }
         Ok(f) => f,
         Err(e) => {
-            eprintln!("xo test: {e}");
+            eprintln!("{label}: {e}");
             return ExitCode::from(2);
         }
     };
@@ -1154,32 +1172,32 @@ fn cmd_test(paths: &[String]) -> ExitCode {
     let total_files = files.len();
     let all_start = Instant::now();
     for (i, file) in files.iter().enumerate() {
-        eprintln!("xo test [{}/{}] {}", i + 1, total_files, file.display());
+        eprintln!("{label} [{}/{}] {}", i + 1, total_files, file.display());
         let file_start = Instant::now();
-        let code = run_suite_file(file);
+        let code = run_suite_file(file, bench);
         let file_elapsed = fmt_dur(file_start.elapsed());
         if code != 0 {
             failed_files += 1;
-            eprintln!("xo test: FAILED {} ({file_elapsed})", file.display());
+            eprintln!("{label}: FAILED {} ({file_elapsed})", file.display());
         } else {
-            eprintln!("xo test: ok {} ({file_elapsed})", file.display());
+            eprintln!("{label}: ok {} ({file_elapsed})", file.display());
         }
     }
 
     let total_elapsed = fmt_dur(all_start.elapsed());
     if failed_files > 0 {
         eprintln!(
-            "xo test: {failed_files} of {total_files} file(s) failed ({total_elapsed})"
+            "{label}: {failed_files} of {total_files} file(s) failed ({total_elapsed})"
         );
         ExitCode::from(1)
     } else {
-        eprintln!("xo test: {total_files} file(s) passed ({total_elapsed})");
+        eprintln!("{label}: {total_files} file(s) passed ({total_elapsed})");
         ExitCode::SUCCESS
     }
 }
 
-fn run_suite_file(path: &Path) -> u8 {
-    // Suite mode: AOT child gets XO_TEST=1; registration via std/test → runtime.
+fn run_suite_file(path: &Path, bench: bool) -> u8 {
+    // Suite mode: AOT child gets XO_TEST=1 (+ XO_BENCH when benchmarking).
     let code = cmd_run_inner(
         path,
         false,
@@ -1189,6 +1207,7 @@ fn run_suite_file(path: &Path) -> u8 {
         OptLevel::O0,
         &[],
         true,
+        bench,
     );
     if code == ExitCode::SUCCESS {
         0

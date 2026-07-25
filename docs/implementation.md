@@ -161,7 +161,7 @@ does not apply; do not skip applicable rows silently.
 | IR | `xo ir` | LLVM IR dump |
 | Run | `xo run` / `xo run --jit` | AOT temp vs JIT |
 | Build | `xo build -o` | Native binary |
-| Test | `xo test` | Language tests / fixtures |
+| Test | `xo test` / `xo test --bench` | Language tests + benches (`std/test`) |
 | Index | `xo index scan` | Project facts |
 | Cache | `xo cache …` | Incremental |
 | Tools | `xo tools …` | grammar, etc. |

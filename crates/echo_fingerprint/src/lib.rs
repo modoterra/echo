@@ -38,8 +38,8 @@ pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disow
 pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 37; // process pipe spawn/read/write/wait
-pub const STDLIB_VERSION: u32 = 24; // process pipes + e26 unix/tls/http proofs
+pub const RUNTIME_ABI_VERSION: u32 = 38; // test_bench_register + XO_BENCH
+pub const STDLIB_VERSION: u32 = 25; // std/test.bench
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;
