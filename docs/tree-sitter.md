@@ -38,15 +38,20 @@ Writes a recognizable tree-sitter package:
 | `package.json` | `tree-sitter-echo` metadata |
 | `tree-sitter.json` | modern CLI metadata |
 | `queries/highlights.scm` | leaders / idents / strings / comments / numbers |
+| `src/` | **Tracked** — C sources from `tree-sitter generate` (Zed and other hosts clone this path) |
 | `README.md` | regenerate notes + leader table |
+
+In-repo path for hosts: **`grammars/tree-sitter-echo`**. The Zed extension
+(`zed-echo`) pins this directory via public `repository` + `rev` + `path` — no
+machine-local `file://` URLs.
 
 ## Optional: build and parse
 
 Requires the [tree-sitter CLI](https://tree-sitter.github.io/tree-sitter/):
 
 ```bash
-cd path/to/tree-sitter-echo
-tree-sitter generate
+cd grammars/tree-sitter-echo
+tree-sitter generate   # refreshes tracked src/
 tree-sitter parse path/to/file.echo
 ```
 

@@ -40,8 +40,10 @@ www/node_modules/
 www/dist/
 www/dist-ssr/
 
-# Generated tree-sitter C sources (regenerate with tree-sitter generate)
-grammars/tree-sitter-echo/src/
+# tree-sitter package: keep generated `src/` tracked so hosts (Zed, etc.) can
+# fetch a complete grammar from GitHub without running `tree-sitter generate`.
+# Still ignore local tooling noise:
 grammars/tree-sitter-echo/bindings/
 grammars/tree-sitter-echo/node_modules/
+grammars/tree-sitter-echo/.build/
 
