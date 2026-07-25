@@ -46,8 +46,9 @@ Reference + suite.
 
 ## Docs left rail
 
-The left docs TOC uses the same slate track + gradient train as **On this page**
-(right column), with nested children for grouped Standard library modules.
+The left docs TOC uses **one** slate track + gradient train (same as **On this
+page**). Nested Standard library group children indent under that rail — never a
+second rail or nested train.
 
 ## Homepage sections
 

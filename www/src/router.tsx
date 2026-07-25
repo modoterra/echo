@@ -457,70 +457,45 @@ function navLinkIsActive(link: DocsNavLink, pathname: string): boolean {
   return Boolean(link.children?.some((child) => navLinkIsActive(child, pathname)));
 }
 
+function activeNavPath(link: DocsNavLink, pathname: string): string | null {
+  if (pathname === link.to) {
+    return link.to;
+  }
+  for (const child of link.children ?? []) {
+    const hit = activeNavPath(child, pathname);
+    if (hit) {
+      return hit;
+    }
+  }
+  return null;
+}
+
 function DocsNavLinkItem({
   link,
   onNavigate,
   pathname,
-  itemRef,
+  registerItem,
 }: {
   link: DocsNavLink;
   onNavigate?: () => void;
   pathname: string;
-  itemRef?: (element: HTMLLIElement | null) => void;
+  registerItem?: (path: string, element: HTMLLIElement | null) => void;
 }) {
   const isActive = pathname === link.to;
   const hasActiveChild = link.children?.some((child) => navLinkIsActive(child, pathname));
-  const activeChildIndex =
-    link.children?.findIndex((child) => navLinkIsActive(child, pathname)) ?? -1;
   const shouldShowChildren = Boolean(link.children && (isActive || hasActiveChild));
-  const childRailRef = useRef<HTMLDivElement | null>(null);
-  const childItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
-  const [childTrainY, setChildTrainY] = useState(0);
   const textClass = link.disabled
     ? "text-sm leading-6 text-slate-300"
     : isActive
       ? "text-sm font-semibold leading-6 text-slate-950"
       : "text-sm leading-6 text-slate-500 transition hover:text-slate-950";
 
-  useLayoutEffect(() => {
-    if (!shouldShowChildren || activeChildIndex < 0) {
-      setChildTrainY(0);
-      return;
-    }
-
-    let animationFrame = 0;
-
-    function updateChildTrainPosition() {
-      const rail = childRailRef.current;
-      const activeChild = link.children?.[activeChildIndex];
-      const item = activeChild ? childItemRefs.current[activeChild.to] : null;
-
-      if (!rail || !item) {
-        setChildTrainY(0);
-        return;
-      }
-
-      const railRect = rail.getBoundingClientRect();
-      const itemRect = item.getBoundingClientRect();
-      setChildTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
-    }
-
-    function scheduleUpdate() {
-      window.cancelAnimationFrame(animationFrame);
-      animationFrame = window.requestAnimationFrame(updateChildTrainPosition);
-    }
-
-    scheduleUpdate();
-    window.addEventListener("resize", scheduleUpdate);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener("resize", scheduleUpdate);
-    };
-  }, [activeChildIndex, link.children, shouldShowChildren]);
-
   return (
-    <li ref={itemRef}>
+    <li
+      ref={(element) => {
+        registerItem?.(link.to, element);
+      }}
+    >
       {link.disabled ? (
         <span className={textClass}>{link.label}</span>
       ) : (
@@ -537,35 +512,18 @@ function DocsNavLinkItem({
             initial={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            {/* Nested child rail for grouped docs links. */}
-            <div className="relative mt-3 pl-3" ref={childRailRef}>
-              <span
-                aria-hidden="true"
-                className="absolute bottom-0 left-0 top-0 w-[3px] bg-slate-200"
-              />
-              {activeChildIndex >= 0 ? (
-                <motion.span
-                  aria-hidden="true"
-                  animate={{ y: childTrainY }}
-                  className="docs-primary-nav-train docs-logo-gradient-rail absolute left-0 top-[3px] h-[18px] w-[3px] rounded-full"
-                  initial={false}
-                  transition={{ duration: 0.16, ease: "easeOut" }}
+            {/* Nested links only — single primary TOC rail; no nested rail/train. */}
+            <ul className="mt-3 space-y-3 pl-3">
+              {link.children?.map((child) => (
+                <DocsNavLinkItem
+                  key={child.label}
+                  link={child}
+                  onNavigate={onNavigate}
+                  pathname={pathname}
+                  registerItem={registerItem}
                 />
-              ) : null}
-              <ul className="space-y-3">
-                {link.children?.map((child) => (
-                  <DocsNavLinkItem
-                    key={child.label}
-                    link={child}
-                    onNavigate={onNavigate}
-                    pathname={pathname}
-                    itemRef={(element) => {
-                      childItemRefs.current[child.to] = element;
-                    }}
-                  />
-                ))}
-              </ul>
-            </div>
+              ))}
+            </ul>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -576,6 +534,7 @@ function DocsNavLinkItem({
 /**
  * Left docs TOC: one continuous rail (same as “On this page”) with section
  * titles and page links on the track. Gradient train marks the active page.
+ * Nested std group children indent under that rail — never a second rail.
  */
 function DocsNavigationList({
   navigation,
@@ -592,9 +551,11 @@ function DocsNavigationList({
 
   const activeKey = useMemo(() => {
     for (const group of navigation) {
-      const hit = group.links.find((link) => navLinkIsActive(link, pathname));
-      if (hit) {
-        return hit.to;
+      for (const link of group.links) {
+        const hit = activeNavPath(link, pathname);
+        if (hit) {
+          return hit;
+        }
       }
     }
     return null;
@@ -617,8 +578,11 @@ function DocsNavigationList({
         return;
       }
 
+      // Prefer the link row, not the whole expanded <li> when children are open.
+      const label = item.querySelector(":scope > a, :scope > span");
+      const target = label ?? item;
       const railRect = rail.getBoundingClientRect();
-      const itemRect = item.getBoundingClientRect();
+      const itemRect = target.getBoundingClientRect();
       setTrainY(itemRect.top - railRect.top + itemRect.height / 2 - 9);
     }
 
@@ -660,8 +624,8 @@ function DocsNavigationList({
                   link={link}
                   onNavigate={onNavigate}
                   pathname={pathname}
-                  itemRef={(element) => {
-                    itemRefs.current[link.to] = element;
+                  registerItem={(path, element) => {
+                    itemRefs.current[path] = element;
                   }}
                 />
               ))}
