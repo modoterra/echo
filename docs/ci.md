@@ -3,16 +3,31 @@
 | | |
 |--|--|
 | **Status** | Active |
-| **Workflow** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) |
+| **Workflows** | [`.github/workflows/pr.yml`](../.github/workflows/pr.yml) (PRs), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (releases) |
 | **Related** | [`development-speed.md`](development-speed.md), [`llvm.md`](llvm.md), [`fixtures.md`](fixtures.md) |
 
 ## Triggers
 
-Multi-platform **build** CI runs **only** when a GitHub **Release is published**
-(`release: types: [published]`). It does not run on push, PR, bare tags, or
+| Workflow | File | When |
+|----------|------|------|
+| **PR** | [`.github/workflows/pr.yml`](../.github/workflows/pr.yml) | Every **pull request** — Linux only |
+| **CI (release)** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | GitHub **Release published** only |
+
+Multi-platform **release** builds do **not** run on push, PR, bare tags, or
 manual dispatch.
 
 Local day-to-day gate remains `scripts/gate echo26` / `cargo test` on the developer machine.
+
+## PR gate (`pr.yml`)
+
+On `ubuntu-24.04`, same proof as release `test-linux`:
+
+1. Debug build of `xo` + `e26` + `echo_runtime` (stage staticlib)
+2. Smoke: `cargo test -p xo` non-JIT unit filters
+3. Smoke: `xo run --no-cache examples/misc/hello.echo` (AOT)
+4. **`scripts/gate echo26`** — hard fail if red
+
+Check name (for branch protection): `test-linux (smoke + echo26)`.
 
 ## Jobs
 

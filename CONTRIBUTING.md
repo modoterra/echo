@@ -75,11 +75,20 @@ Use GitHub issues for bugs and concrete proposals. Include:
 - `xo` / commit version if relevant;
 - a minimal reproduction when possible.
 
-## Code of conduct expectations
+## Code of conduct
 
-Be respectful and constructive. Harassment, spam, and bad-faith contributions
-are not welcome. Maintainers may refuse or revert contributions that violate
-the CLA, project standards, or these expectations.
+All participation is governed by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+(same policy as other Modoterra projects). Report conduct issues to
+[oss@modoterra.xyz](mailto:oss@modoterra.xyz).
+
+Maintainers may refuse or revert contributions that violate the CLA, project
+standards, or the code of conduct.
+
+## Security
+
+Report vulnerabilities privately per [`SECURITY.md`](SECURITY.md)
+([security@modoterra.xyz](mailto:security@modoterra.xyz)). Do not open public
+issues for security reports.
 
 ## Questions
 

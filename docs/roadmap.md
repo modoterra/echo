@@ -45,6 +45,29 @@ graph, structured diagnostics, docs vs www, full verticals, platform baseline).
 
 ---
 
+## Help wanted (broad scope)
+
+Outside contributions are welcome under [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+and [`CLA.md`](../CLA.md). Useful work spans the whole tree — pick any area
+below and open an issue or PR. Prefer **small vertical slices** with crate
+tests + `echo26` + docs when behavior changes.
+
+| Area | Where to look | Example contributions |
+|------|---------------|------------------------|
+| Language surface | `docs/syntax.md`, `docs/semantics.md`, `echo26/` | Spec gaps, fixtures, reject-path tests |
+| Frontend | `echo_lexer`, `echo_parser`, `echo_semantics` | Parse/check bugs, clearer diagnostics |
+| IR / backend | `echo_hir`, `echo_mir`, `echo_codegen` | Lowering, optimisations, ABI notes |
+| Runtime | `echo_runtime`, ADR 0013/0016 | Tasks, memory, host edge cases |
+| Standard library | `std/`, `docs/stdlib.md` | APIs, docs, examples; label `std` |
+| Tooling | `xo`, `echo_lsp`, `e26`, `scripts/` | CLI UX, LSP features, gate/CI |
+| Website | `www/` | Spec/reference accuracy, samples |
+| Docs | `docs/`, `examples/` | Roadmap honesty, runnable demos |
+
+Issue labels for triage: **`lexer`**, **`std`**. File bugs and proposals via
+GitHub issues.
+
+---
+
 ## 2. Full language surface map
 
 Everything a programmer can write in Echo v0. Status is **design** status unless
