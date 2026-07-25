@@ -1,9 +1,10 @@
 import {
   stdExportCount,
-  stdExportsListing,
+  stdExportHeading,
   stdGroups,
   stdImportLine,
   stdModules,
+  type StdExport,
   type StdModule,
 } from "./std-reference";
 
@@ -162,8 +163,44 @@ export function navigationForPath(pathname: string): DocsNavGroup[] {
   return docsNavigation;
 }
 
+function stdExportSection(m: StdModule, e: StdExport): DocsSection {
+  const blocks: DocsBlock[] = [
+    {
+      kind: "paragraph",
+      text: [e.description],
+    },
+    {
+      kind: "paragraph",
+      text: ["Call form: ", { code: e.call }, "."],
+    },
+  ];
+
+  if (e.params) {
+    blocks.push({
+      kind: "paragraph",
+      text: ["Parameters: ", e.params],
+    });
+  }
+
+  if (e.example) {
+    blocks.push({
+      kind: "code",
+      language: "echo",
+      code: e.example,
+    });
+  }
+
+  return {
+    title: stdExportHeading(e),
+    tags: ["export", "api", e.name, m.path, e.call],
+    aliases: [e.name, e.call, `${m.name}.${e.name}`, `${m.path}.${e.name}`],
+    blocks,
+  };
+}
+
 function stdModulePage(m: StdModule): DocsPage {
   const exportNames = m.exports.map((e) => e.name).join(", ");
+  const exportCalls = m.exports.map((e) => e.call).join(", ");
   return {
     id: `docs-std-${m.path.replace(/\//g, "-")}`,
     path: m.docsPath,
@@ -171,7 +208,7 @@ function stdModulePage(m: StdModule): DocsPage {
     title: m.title,
     summary: m.summary,
     tags: ["std", "api", m.path, m.name, ...m.exports.map((e) => e.name)],
-    aliases: [m.path, `std ${m.name}`, exportNames],
+    aliases: [m.path, `std ${m.name}`, exportNames, exportCalls],
     sections: [
       {
         title: "Import",
@@ -189,19 +226,20 @@ function stdModulePage(m: StdModule): DocsPage {
               { code: m.name },
               ". Call exports as ",
               { code: `${m.name}.name(...)` },
-              ".",
+              ". Each export below has its own heading for deep links.",
             ],
           },
         ],
       },
       {
-        title: "Exports",
-        tags: ["exports", "api", ...m.exports.map((e) => e.name)],
+        title: "Overview",
+        tags: ["overview", "exports"],
         blocks: [
           {
             kind: "paragraph",
             text: [
-              "Public surface for ",
+              m.summary,
+              " Public surface for ",
               { code: m.path },
               " (",
               String(m.exports.length),
@@ -209,22 +247,12 @@ function stdModulePage(m: StdModule): DocsPage {
             ],
           },
           {
-            kind: "code",
-            language: "echo",
-            code: stdExportsListing(m),
-          },
-        ],
-      },
-      {
-        title: "Summary",
-        tags: ["overview"],
-        blocks: [
-          {
             kind: "paragraph",
-            text: [m.summary],
+            text: ["Jump to: ", m.exports.map((e) => e.name).join(", "), "."],
           },
         ],
       },
+      ...m.exports.map((e) => stdExportSection(m, e)),
     ],
   };
 }
@@ -1779,11 +1807,11 @@ io.print(str.from_int(r[0][0]))
           {
             kind: "paragraph",
             text: [
-              "Each module page lists every public export from that module’s ",
+              "Each module page documents every public export from that module’s ",
               { code: "\\ " },
               " line in ",
               { code: "std/" },
-              ". That is the product API: free functions, types, and constants. Helpers used only by co-located tests are not public. There are ",
+              " as its own reference entry (description, call form, and on Core modules parameters plus an Echo example). That is the product API: free functions, types, and constants. Helpers used only by co-located tests are not public. There are ",
               String(stdModules.length),
               " modules and ",
               String(stdExportCount),
@@ -5050,8 +5078,21 @@ const stdReferenceIndexPage: DocsPage = {
   category: "Standard library",
   title: "API reference",
   summary: `Complete index of ${stdExportCount} public exports across ${stdModules.length} standard-library modules.`,
-  tags: ["std", "api", "reference", "exports", "index"],
-  aliases: ["stdlib api", "full standard library", "export index", "every function"],
+  tags: [
+    "std",
+    "api",
+    "reference",
+    "exports",
+    "index",
+    ...stdModules.flatMap((m) => m.exports.map((e) => e.name)),
+  ],
+  aliases: [
+    "stdlib api",
+    "full standard library",
+    "export index",
+    "every function",
+    ...stdModules.flatMap((m) => m.exports.map((e) => e.call)),
+  ],
   sections: [
     {
       title: "How to read this index",
@@ -5064,22 +5105,39 @@ const stdReferenceIndexPage: DocsPage = {
             { code: "std/" },
             " module. Import the module, then call ",
             { code: "module.export(...)" },
-            ". Types and shapes are listed alongside free functions. Private test helpers are not included.",
+            ". Open the module page for per-export headings (description, call form, and examples on Core modules). Types and shapes are listed alongside free functions. Private test helpers are not included.",
           ],
         },
       ],
     },
     ...stdGroups.map((group) => ({
       title: group.title,
-      tags: ["std", group.title.toLowerCase()],
+      tags: [
+        "std",
+        group.title.toLowerCase(),
+        ...group.modules.flatMap((m) => m.exports.map((e) => e.name)),
+      ],
+      aliases: group.modules.flatMap((m) => [
+        m.path,
+        ...m.exports.map((e) => e.call),
+        ...m.exports.map((e) => e.name),
+      ]),
       blocks: [
+        {
+          kind: "paragraph" as const,
+          text: [
+            "Modules: ",
+            group.modules.map((m) => `${m.title} (${m.docsPath})`).join("; "),
+            ".",
+          ],
+        },
         {
           kind: "code" as const,
           language: "echo" as const,
           code: group.modules
             .map((m) => {
-              const listing = m.exports.map((e) => `  ${e.name}  —  ${e.role}`).join("\n");
-              return `; ${m.path}\n${stdImportLine(m)}\n${listing}`;
+              const listing = m.exports.map((e) => `  ${e.call}  —  ${e.role}`).join("\n");
+              return `; ${m.path} → ${m.docsPath}\n${stdImportLine(m)}\n${listing}`;
             })
             .join("\n\n"),
         },

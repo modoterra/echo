@@ -13,6 +13,15 @@ Zig clarity + TypeScript pedagogy + Elixir polish.
 - Honest early-stage status; no fake logos or unearned social proof
 - Calm white space; code is the hero medium
 
+## Editorial craft
+
+Public docs aim for Laravel-class clarity (example-first, skimmable headings,
+explicit call forms) without Laravel chapter inventory or framework framing.
+Std reference entries are first-class: each public export has description and
+call form; Core modules users hit first also carry parameters and an Echo
+example. Voice stays the pillars above; language law stays Echo 2026 Spec +
+Reference + suite.
+
 ## Positioning
 
 **H1 (definition):** Echo is a compiled language with leaders instead of keywords.
