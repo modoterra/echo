@@ -152,6 +152,16 @@ just web-build
 scripts/gate web
 ```
 
+## Contributing
+
+Contributions are welcome under the project CLA.
+
+- How to contribute: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Contributor License Agreement (copyright and IP assignment to Modoterra
+  Corporation): [`CLA.md`](CLA.md)
+
 ## License
 
-MIT (to be added with the first release commit if not present).
+Licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Modoterra Corporation.

@@ -8,6 +8,9 @@ lives under `www/`.
 | Doc | Role |
 |-----|------|
 | [`../AGENTS.md`](../AGENTS.md) | Workflow and invariants for humans/agents |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | How to contribute; CLA requirement |
+| [`../CLA.md`](../CLA.md) | Contributor agreement (IP assignment to Modoterra) |
+| [`../LICENSE`](../LICENSE) | MIT License (copyright Modoterra Corporation) |
 | [`architecture.md`](architecture.md) | Crate ownership and pipeline sketch |
 | [`sota-gaps.md`](sota-gaps.md) | Current vs SOTA spine; gap inventory |
 | [`pipeline.md`](pipeline.md) | **Full** spine + hosts (fmt, LSP, REPL, e26) + build-out order |
