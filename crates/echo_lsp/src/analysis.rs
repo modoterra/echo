@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use echo_diagnostics::Severity;
 use echo_pipeline::{analyze, AnalyzeOptions};
 
-use crate::document::path_to_uri;
+use crate::document::{path_to_uri, paths_equal};
 use crate::position::{byte_to_position, Position};
 
 /// LSP diagnostic severity.
@@ -60,7 +60,7 @@ pub fn analyze_path(
         }
     }
 
-    // Prefer AST on product for span mapping when present
+    // Prefer AST on product for span mapping when present.
     let mut out = Vec::new();
     for d in product.diagnostics.items() {
         let severity = match d.severity {
@@ -69,7 +69,7 @@ pub fn analyze_path(
             Severity::Note => LspSeverity::Information,
         };
         let (uri, start, end) = if let Some(span) = d.span {
-            // Map via entry file text if we cannot recover path from span alone
+            // Attribute by SourceId → module path (never by filename substring).
             let path = product
                 .modules
                 .iter()
@@ -81,7 +81,26 @@ pub fn analyze_path(
                 })
                 .map(|m| m.path.clone())
                 .unwrap_or_else(|| entry.to_path_buf());
-            let text = texts.get(&path).map(String::as_str).unwrap_or("");
+            // Overlay text may be keyed by canonicalize; try both.
+            let text = texts
+                .get(&path)
+                .or_else(|| {
+                    path.canonicalize()
+                        .ok()
+                        .and_then(|c| texts.get(&c).map(|s| s))
+                })
+                .map(String::as_str)
+                .unwrap_or("");
+            // If still empty, try any text whose path equals this module.
+            let text = if text.is_empty() {
+                texts
+                    .iter()
+                    .find(|(p, _)| paths_equal(p, &path))
+                    .map(|(_, t)| t.as_str())
+                    .unwrap_or("")
+            } else {
+                text
+            };
             let start = byte_to_position(text, span.start.0);
             let end = byte_to_position(text, span.end.0);
             (path_to_uri(&path), start, end)

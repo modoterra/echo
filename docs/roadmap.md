@@ -299,14 +299,15 @@ Language features ship as **verticals** ([`implementation.md`](implementation.md
 | **8** | AOT polish | `xo build`, link, opts | **Opt levels landed** (shared `OptLevel`, AOT/JIT consistent); more link polish open |
 | **9** | www | Public language + std docs | User-facing mirror of locked surface |
 
-**Next concrete steps** (priority order as of 2026-07-23):
+**Next concrete steps** (priority order as of 2026-07-25):
 
-1. **Host tooling** — fuller LSP polish, www mirror of locked surface, AOT/link polish.  
-2. ~~**Memory reclamation slice 2**~~ — **done** (precise promote/demote, owning_scope facts, immediate free; e26 `run/lifetime`).  
-3. ~~**std/process + std/fs**~~ — **done** (runtime + std + e26 + examples + `xo test`).  
-4. ~~**HTTP body read-to-Content-Length**~~ — **done** (`runtime.http_request_complete` + handle_connection).  
-5. ~~**Free-fn param monomorphic typing**~~ — **done** (call-site → free-fn param struct flow in MIR; methods on params).  
-6. **Package polish** — optional; core ADR 0014 vertical is **landed**.
+1. ~~**LSP reliability polish**~~ — **done** (`LspSession`, versioned multi-file diags, incremental sync, URI encode, protocol tests; [`lsp.md`](lsp.md)).  
+2. **Host tooling (remaining)** — www mirror of locked language surface, AOT/link polish.  
+3. ~~**Memory reclamation slice 2**~~ — **done** (precise promote/demote, owning_scope facts, immediate free; e26 `run/lifetime`).  
+4. ~~**std/process + std/fs**~~ — **done** (runtime + std + e26 + examples + `xo test`).  
+5. ~~**HTTP body read-to-Content-Length**~~ — **done** (`runtime.http_request_complete` + handle_connection).  
+6. ~~**Free-fn param monomorphic typing**~~ — **done** (call-site → free-fn param struct flow in MIR; methods on params).  
+7. **Package polish** — optional; core ADR 0014 vertical is **landed**.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -410,7 +411,7 @@ current; fill Impl as work lands.
 | Match `% Type` arms | ✓ | ✓ | ✓ | ✓ | ✓ | type tag on named lits; `run/match/007` |
 | Modules paths / package cache / `xo.toml` | ✓ | ✓ | ✓ host | ✓ | ✓ | ADR 0014; folder modules; `xo get` |
 | `xo fmt` | ✓ | — | ✓ | — | ✓ | AST pretty-print; idempotent |
-| Full LSP | ✓ | — | ✓ | — | ✓ | hover/def/refs/complete/sig/rename/symbols/fmt/tokens |
+| Full LSP | ✓ | — | ✓ | — | ✓ | hover/def/refs/complete/sig/rename/symbols/fmt/tokens; **reliability:** session + versioned diags + incremental sync |
 | REPL | ✓ | — | ✓ | — | ✓ | `xo repl` — rustyline + session + JIT |
 | Task cancel | **out** (v0) | | | | — | no cancel API |
 
@@ -518,6 +519,7 @@ current; fill Impl as work lands.
 | 2026-07-23 | Vertical closed: process+fs proofs (runtime unit + e26 + `xo test` + demos); next = memory slice 2 |
 | 2026-07-23 | **Memory slice 2:** precise promote, demotion, owning_scope facts, immediate free; e26 lifetime 001–007 |
 | 2026-07-23 | **Graph promote:** region evacuation + header epoch; crate nest/cycle/shared/deterministic; e26 010–012; www Memory |
+| 2026-07-25 | **LSP reliability:** `LspSession` (testable protocol), incremental `didChange`, versioned multi-file `publishDiagnostics`, path-only diag attribution, percent-encoded URIs, UTF-16 position edges; docs `lsp.md` |
 
 ---
 

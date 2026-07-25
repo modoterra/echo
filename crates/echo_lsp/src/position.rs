@@ -67,4 +67,32 @@ mod tests {
         assert_eq!(byte_to_position(t, 4), Position { line: 1, character: 1 });
         assert_eq!(position_to_byte(t, Position { line: 1, character: 1 }), 4);
     }
+
+    #[test]
+    fn utf16_bmp_and_emoji() {
+        // "a" + emoji (U+1F600, two UTF-16 units) + "b"
+        let t = "a😀b";
+        // byte offset of 'b': "a" (1) + emoji (4) = 5
+        let pos = byte_to_position(t, 5);
+        assert_eq!(pos.line, 0);
+        assert_eq!(pos.character, 3); // 1 + 2 (surrogate pair)
+        assert_eq!(position_to_byte(t, Position { line: 0, character: 3 }), 5);
+        assert_eq!(position_to_byte(t, Position { line: 0, character: 1 }), 1);
+    }
+
+    #[test]
+    fn position_clamps_past_eol() {
+        let t = "hi\n";
+        // character past end of line → byte of newline
+        assert_eq!(
+            position_to_byte(
+                t,
+                Position {
+                    line: 0,
+                    character: 99
+                }
+            ),
+            2
+        );
+    }
 }

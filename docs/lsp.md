@@ -4,7 +4,7 @@ Editor integration presentation boundary.
 
 | | |
 |--|--|
-| **Status** | **Active** — full planned depth (diagnostics + navigation + assist + format + tokens) |
+| **Status** | **Active** — full planned depth + reliability polish (versioned diags, incremental sync, testable session) |
 | **Owners** | `echo_lsp` (`xo lsp`) |
 | **Related** | [`incremental.md`](incremental.md), [`pipeline.md`](pipeline.md), ADR 0001, [`diagnostics.md`](diagnostics.md), [`implementation.md`](implementation.md) §2.9 |
 
@@ -24,12 +24,23 @@ semantics, parsing, or resolution.
 
 ## Facts
 
-- **`DocumentStore`**: open / change / close; path from `file://` URIs.
+- **`DocumentStore`**: open / change / close; path from `file://` URIs
+  (percent-decode on input; percent-encode on `path_to_uri`).
+- **`LspSession`**: testable protocol state (no stdio). `server::run_stdio`
+  only frames Content-Length JSON-RPC around `session.handle`.
 - **Overlays**: dirty buffer text passed to `check_entry_with_overlays` so
   multi-file imports still resolve against disk + open buffers.
-- **Diagnostics**: `analyze_path` → shared check + project `.xo` cache.
+- **Diagnostics**:
+  - Shared `analyze` per open path with the session overlay map.
+  - **Versioned** `publishDiagnostics` (`version` from the open document).
+  - Attribution by **SourceId → module path** only (no filename-substring match).
+  - On any open/change/save, **every open document** is re-published so
+    multi-file overlays stay consistent.
+  - On close, empty diagnostics for that URI (no version).
+- **Text sync**: **Incremental** (`change: 2`). Full-buffer changes (no
+  `range`) are still accepted. Ranges use UTF-16 columns.
 - **Positions**: UTF-16 columns ([`position.rs`](../crates/echo_lsp/src/position.rs)).
-- **Protocol**: Content-Length JSON-RPC on stdio.
+- **Workspace root**: `workspaceFolders[0]` preferred, then `rootUri` / `rootPath`.
 - **Rename**: in-document; refuses new names that would shadow existing binds
   (language no-shadowing).
 
@@ -41,14 +52,23 @@ cargo build -p xo
 # point the editor at this binary as the language server
 ```
 
+Example VS Code / compatible client settings:
+
+```json
+{
+  "command": "xo",
+  "args": ["lsp"]
+}
+```
+
 ## Advertised capabilities
 
 `initialize` reports:
 
 | Capability | Method(s) |
 |------------|-----------|
-| Full document sync | `textDocument/didOpen` / `didChange` / `didClose` / `didSave` |
-| Diagnostics | `textDocument/publishDiagnostics` |
+| Incremental document sync | `textDocument/didOpen` / `didChange` / `didClose` / `didSave` |
+| Diagnostics | `textDocument/publishDiagnostics` (with `version` when known) |
 | Hover | `textDocument/hover` |
 | Go to definition | `textDocument/definition` |
 | Find references | `textDocument/references` |
@@ -61,7 +81,18 @@ cargo build -p xo
 | Semantic tokens (full) | `textDocument/semanticTokens/full` |
 
 **Not in this milestone** (optional later): inlay hints, code actions / quick fixes,
-range formatting.
+range formatting, pull diagnostics.
+
+## Reliability (host polish)
+
+| Concern | Behavior |
+|---------|----------|
+| Stale diagnostics | `version` on publish; client can drop outdated notes |
+| Multi-file dirty buffers | Shared overlays; republish all open URIs |
+| Cross-file diag leak | Path/URI equality only (`paths_equal` / `diagnostic_matches_doc`) |
+| Incremental edits | Ordered `contentChanges` with UTF-16 ranges |
+| Protocol tests | `LspSession` unit tests (open → change → hover / diags) |
+| Wire framing | Content-Length on stdio; invalid JSON body soft-ignored |
 
 ## Dependency on infra
 

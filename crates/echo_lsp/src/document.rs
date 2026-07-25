@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::position::{position_to_byte, Position};
+
 /// One open text document (LSP `TextDocumentItem` subset).
 #[derive(Debug, Clone)]
 pub struct OpenDocument {
@@ -10,6 +12,14 @@ pub struct OpenDocument {
     /// Filesystem path when `uri` is `file://…`; otherwise unset.
     pub path: Option<PathBuf>,
     pub version: i32,
+    pub text: String,
+}
+
+/// One `textDocument/didChange` content change (full or incremental).
+#[derive(Debug, Clone)]
+pub struct ContentChange {
+    /// When set, replace this UTF-16 range; when `None`, replace the whole buffer.
+    pub range: Option<(Position, Position)>,
     pub text: String,
 }
 
@@ -38,6 +48,7 @@ impl DocumentStore {
         );
     }
 
+    /// Full-buffer replace (TextDocumentSyncKind Full, or last resort).
     pub fn change(&mut self, uri: &str, version: i32, text: String) -> bool {
         if let Some(doc) = self.docs.get_mut(uri) {
             doc.version = version;
@@ -48,6 +59,38 @@ impl DocumentStore {
         }
     }
 
+    /// Apply an ordered list of content changes (incremental or full).
+    ///
+    /// Full changes (`range == None`) replace the entire buffer. Incremental
+    /// ranges use LSP UTF-16 positions, matching [`crate::position`].
+    pub fn apply_changes(&mut self, uri: &str, version: i32, changes: &[ContentChange]) -> bool {
+        let Some(doc) = self.docs.get_mut(uri) else {
+            return false;
+        };
+        for ch in changes {
+            match ch.range {
+                None => {
+                    doc.text = ch.text.clone();
+                }
+                Some((start, end)) => {
+                    let start_b = position_to_byte(&doc.text, start) as usize;
+                    let end_b = position_to_byte(&doc.text, end) as usize;
+                    let start_b = start_b.min(doc.text.len());
+                    let end_b = end_b.min(doc.text.len()).max(start_b);
+                    let mut next = String::with_capacity(
+                        doc.text.len() - (end_b - start_b) + ch.text.len(),
+                    );
+                    next.push_str(&doc.text[..start_b]);
+                    next.push_str(&ch.text);
+                    next.push_str(&doc.text[end_b..]);
+                    doc.text = next;
+                }
+            }
+        }
+        doc.version = version;
+        true
+    }
+
     pub fn close(&mut self, uri: &str) -> Option<OpenDocument> {
         self.docs.remove(uri)
     }
@@ -55,6 +98,17 @@ impl DocumentStore {
     #[must_use]
     pub fn get(&self, uri: &str) -> Option<&OpenDocument> {
         self.docs.get(uri)
+    }
+
+    /// Find open document by filesystem path (canonicalize-aware).
+    #[must_use]
+    pub fn get_by_path(&self, path: &Path) -> Option<&OpenDocument> {
+        self.docs.values().find(|d| {
+            d.path
+                .as_ref()
+                .map(|p| paths_equal(p, path))
+                .unwrap_or(false)
+        })
     }
 
     /// Overlay map for resolver: canonical path → buffer text.
@@ -83,6 +137,18 @@ impl DocumentStore {
     /// Iterate open documents (order unspecified).
     pub fn iter(&self) -> impl Iterator<Item = &OpenDocument> {
         self.docs.values()
+    }
+}
+
+/// Path equality that prefers canonicalize when both paths exist.
+#[must_use]
+pub fn paths_equal(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    match (a.canonicalize(), b.canonicalize()) {
+        (Ok(ca), Ok(cb)) => ca == cb,
+        _ => false,
     }
 }
 
@@ -132,11 +198,55 @@ fn from_hex(b: u8) -> Option<u8> {
     }
 }
 
-/// Path → `file://` URI for publishDiagnostics.
+/// Path → `file://` URI for locations / publishDiagnostics.
+///
+/// Percent-encodes path bytes that are not unreserved / path-safe so client
+/// URIs with spaces or non-ASCII match decode→path round-trips.
 #[must_use]
 pub fn path_to_uri(path: &Path) -> String {
     let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    format!("file://{}", abs.display())
+    let s = abs.to_string_lossy();
+    let mut out = String::with_capacity(s.len() + 16);
+    out.push_str("file://");
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'/'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~' => out.push(b as char),
+            // Keep colon for Windows drive letters after absolute form if any.
+            b':' => out.push(':'),
+            _ => {
+                out.push('%');
+                out.push(hex_digit(b >> 4));
+                out.push(hex_digit(b & 0xf));
+            }
+        }
+    }
+    out
+}
+
+fn hex_digit(n: u8) -> char {
+    char::from(if n < 10 { b'0' + n } else { b'A' + (n - 10) })
+}
+
+/// Whether an LSP diagnostic URI refers to the same document as `doc`.
+#[must_use]
+pub fn diagnostic_matches_doc(diag_uri: &str, doc: &OpenDocument) -> bool {
+    if diag_uri == doc.uri {
+        return true;
+    }
+    let Some(doc_path) = doc.path.as_ref() else {
+        return false;
+    };
+    let Some(diag_path) = uri_to_path(diag_uri) else {
+        return false;
+    };
+    paths_equal(&diag_path, doc_path)
 }
 
 #[cfg(test)]
@@ -150,6 +260,16 @@ mod tests {
     }
 
     #[test]
+    fn path_to_uri_encodes_space() {
+        let p = PathBuf::from("/tmp/my file.echo");
+        let uri = path_to_uri(&p);
+        assert!(uri.contains("%20"), "{uri}");
+        assert!(!uri.contains(' '), "{uri}");
+        let back = uri_to_path(&uri).unwrap();
+        assert_eq!(back, p);
+    }
+
+    #[test]
     fn open_change_close() {
         let mut s = DocumentStore::new();
         s.open("file:///tmp/a.echo".into(), 1, "$ x = 1\n".into());
@@ -158,5 +278,67 @@ mod tests {
         assert_eq!(s.get("file:///tmp/a.echo").unwrap().version, 2);
         assert!(s.close("file:///tmp/a.echo").is_some());
         assert!(s.is_empty());
+    }
+
+    #[test]
+    fn incremental_apply_middle() {
+        let mut s = DocumentStore::new();
+        s.open("file:///tmp/i.echo".into(), 1, "$ ab = 1\n".into());
+        let changes = [ContentChange {
+            range: Some((
+                Position {
+                    line: 0,
+                    character: 2,
+                },
+                Position {
+                    line: 0,
+                    character: 4,
+                },
+            )),
+            text: "xy".into(),
+        }];
+        assert!(s.apply_changes("file:///tmp/i.echo", 2, &changes));
+        assert_eq!(s.get("file:///tmp/i.echo").unwrap().text, "$ xy = 1\n");
+        assert_eq!(s.get("file:///tmp/i.echo").unwrap().version, 2);
+    }
+
+    #[test]
+    fn incremental_then_full() {
+        let mut s = DocumentStore::new();
+        s.open("file:///tmp/f.echo".into(), 1, "old\n".into());
+        let changes = [
+            ContentChange {
+                range: Some((
+                    Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    Position {
+                        line: 0,
+                        character: 3,
+                    },
+                )),
+                text: "mid".into(),
+            },
+            ContentChange {
+                range: None,
+                text: "full\n".into(),
+            },
+        ];
+        assert!(s.apply_changes("file:///tmp/f.echo", 3, &changes));
+        assert_eq!(s.get("file:///tmp/f.echo").unwrap().text, "full\n");
+    }
+
+    #[test]
+    fn paths_equal_same_string() {
+        assert!(paths_equal(Path::new("/tmp/a"), Path::new("/tmp/a")));
+    }
+
+    #[test]
+    fn diagnostic_matches_same_uri() {
+        let mut s = DocumentStore::new();
+        s.open("file:///tmp/a.echo".into(), 1, "".into());
+        let doc = s.get("file:///tmp/a.echo").unwrap();
+        assert!(diagnostic_matches_doc("file:///tmp/a.echo", doc));
     }
 }
