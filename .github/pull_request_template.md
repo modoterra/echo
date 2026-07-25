@@ -2,15 +2,9 @@
 
 <!-- What does this change, and why? -->
 
-## CLA
-
-I have read and agree to the Echo Contributor License Agreement ([CLA.md](../CLA.md)).
-I assign all copyright and intellectual property rights in my Contribution(s)
-to Modoterra Corporation as described in CLA.md.
-
-- [ ] I (or my employer/entity) accept the CLA as stated above
-
 ## Checklist
+
+<!-- Submitting this PR accepts CLA.md (IP assignment to Modoterra Corporation). -->
 
 - [ ] Focused tests added or updated where behavior changed
 - [ ] Echo 2026 (`echo26` / `e26`) updated if language or runtime surface changed

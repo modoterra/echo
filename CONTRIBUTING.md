@@ -7,29 +7,22 @@ the practical workflow for contributions.
 
 Echo is released under the **MIT License**. See [`LICENSE`](LICENSE).
 
-Copyright in the project is held by **Modoterra Corporation**. Every
-contribution must be made under the **Echo Contributor License Agreement**,
+Copyright in the project is held by **Modoterra Corporation**. Contributions
+are governed by the **Echo Contributor License Agreement** ([`CLA.md`](CLA.md)),
 which **assigns all copyright and intellectual property** in your contribution
-to Modoterra Corporation. See [`CLA.md`](CLA.md).
+to Modoterra Corporation.
 
-### Accepting the CLA
-
-Before we can merge your pull request, you must accept the CLA.
-
-Include this block in the pull request description (copy exactly is fine):
-
-```text
-I have read and agree to the Echo Contributor License Agreement (CLA.md).
-I assign all copyright and intellectual property rights in my Contribution(s)
-to Modoterra Corporation as described in CLA.md.
-```
+**By submitting a contribution** (pull request, commit, patch, or other material
+intended for inclusion), you accept the CLA. No separate signature or PR
+statement is required. If you do not agree, do not contribute.
 
 If you contribute on behalf of an employer or company, you must have authority
-to bind that entity, or the entity must accept the CLA (see `CLA.md`).
+to bind that entity; your submission is that entity’s acceptance for those
+contributions.
 
 We cannot accept contributions that are not original to you (or your entity)
-unless third-party material is clearly identified and under a compatible terms
-set, as described in the CLA.
+unless third-party material is clearly identified and under compatible terms,
+as described in the CLA.
 
 ## Before you start
 
@@ -68,7 +61,6 @@ scripts/gate workspace # broad check
 
 ### PR checklist
 
-- [ ] CLA acceptance statement included (see above)
 - [ ] Focused tests added or updated where behavior changed
 - [ ] `scripts/gate changed` (or relevant crate / echo26 gates) pass locally
 - [ ] Docs updated when durable facts or user-visible rules changed

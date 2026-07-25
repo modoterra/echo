@@ -154,11 +154,11 @@ scripts/gate web
 
 ## Contributing
 
-Contributions are welcome under the project CLA.
+Contributions are welcome. **By contributing, you accept the project CLA**,
+which assigns copyright and IP in your contribution to Modoterra Corporation.
 
 - How to contribute: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Contributor License Agreement (copyright and IP assignment to Modoterra
-  Corporation): [`CLA.md`](CLA.md)
+- Contributor License Agreement: [`CLA.md`](CLA.md)
 
 ## License
 

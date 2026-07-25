@@ -8,13 +8,16 @@ This Contributor License Agreement (“**Agreement**”) documents the rights
 granted by contributors to Modoterra. To make a Contribution, you must accept
 this Agreement.
 
-By submitting a Contribution (for example by opening a pull request, pushing
-commits, or otherwise sending code, documentation, or other materials intended
-for inclusion in a Modoterra project), you agree to the terms below.
+**Acceptance is by contribution.** By submitting a Contribution (for example by
+opening a pull request, pushing commits, or otherwise sending code,
+documentation, or other materials intended for inclusion in a Modoterra
+project), you accept and agree to this Agreement. No separate signature, pull
+request statement, or click-through is required.
 
 If you are making a Contribution on behalf of an employer or other entity, you
 represent that you have authority to bind that entity, and “**you**” means both
-you and that entity.
+you and that entity. Do not contribute on behalf of an entity unless that entity
+accepts this Agreement through your submission.
 
 ## 1. Definitions
 
@@ -143,23 +146,15 @@ disputes arising out of this Agreement.
 
 ## How to accept
 
-For this repository, you accept this Agreement by:
+You accept this Agreement **by submitting a Contribution** to this repository
+(or any other Modoterra project that incorporates this Agreement by reference).
+Opening a pull request, pushing commits intended for inclusion, or otherwise
+submitting materials as a Contribution is acceptance of the version of this
+Agreement in effect at the time of submission.
 
-1. reading this document; and
-2. including the following statement in your pull request description (or a
-   commit message for the contribution):
+If you do not agree to this Agreement, do not submit a Contribution.
 
-```text
-I have read and agree to the Echo Contributor License Agreement (CLA.md).
-I assign all copyright and intellectual property rights in my Contribution(s)
-to Modoterra Corporation as described in CLA.md.
-```
-
-Maintainers may also require a signed or electronically recorded acceptance
-through a CLA bot or other process. Submitting a Contribution after such a
-process is offered constitutes acceptance if you complete that process.
-
-**Corporate contributors:** if Contributions are owned by a company, an
-authorized representative should ensure the company accepts this Agreement
-(or an equivalent corporate CLA provided by Modoterra) before Contributions are
-merged.
+**Corporate contributors:** if Contributions are owned by a company, only people
+authorized to bind that company should submit them. Submission on behalf of a
+company constitutes that company’s acceptance of this Agreement for those
+Contributions.
