@@ -163,6 +163,19 @@ test.it("make_put_get", () {
     }
 })
 
+; Benchmarks: `xo test --bench std/collections/map.echo`
+; Each iteration builds a small map (includes allocation); useful for overall map cost.
+test.bench("put_get", () {
+    $ m = make()
+    m.put(1, 10)
+    m.put(2, 20)
+    m.put(3, 30)
+    | m.get(2) {
+        $ v {}
+        : {}
+    }
+})
+
 test.it("put_overwrite", () {
     $ m = make()
     m.put(1, 10)

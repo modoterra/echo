@@ -1142,6 +1142,9 @@ fn cmd_tools_grammar_tree_sitter(output: &Path) -> ExitCode {
 /// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
 ///
 /// When `bench` is true, also sets `XO_BENCH=1` so only `test.bench` cases run.
+/// Directory discovery includes co-located suites under `std/` (not only
+/// `*_test.echo` / `tests/`). With `--bench`, files without `test.bench(` are
+/// skipped so empty modules are not recompiled.
 fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
     use std::time::{Duration, Instant};
 
@@ -1157,16 +1160,21 @@ fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
     let label = if bench { "xo test --bench" } else { "xo test" };
 
     let files = match collect_test_files(paths) {
-        Ok(f) if f.is_empty() => {
-            eprintln!("{label}: no test files matched");
-            return ExitCode::from(1);
-        }
         Ok(f) => f,
         Err(e) => {
             eprintln!("{label}: {e}");
             return ExitCode::from(2);
         }
     };
+    let files: Vec<PathBuf> = if bench {
+        files.into_iter().filter(|p| file_has_bench(p)).collect()
+    } else {
+        files
+    };
+    if files.is_empty() {
+        eprintln!("{label}: no test files matched");
+        return ExitCode::from(1);
+    }
 
     let mut failed_files = 0usize;
     let total_files = files.len();
@@ -1342,8 +1350,11 @@ fn glob_match(pat: &str, name: &str) -> bool {
 }
 
 fn collect_from_dir(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
-    // Convention: `*_test.echo` anywhere under dir, and everything under `tests/`.
-    fn walk(dir: &Path, under_tests: bool, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    // Convention:
+    // - `*_test.echo` anywhere
+    // - every `.echo` under `tests/`
+    // - co-located suites under a `std/` path segment (`test.it` / `test.bench`)
+    fn walk(dir: &Path, under_tests: bool, under_std: bool, out: &mut Vec<PathBuf>) -> Result<(), String> {
         let rd = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         for ent in rd.flatten() {
             let p = ent.path();
@@ -1353,20 +1364,42 @@ fn collect_from_dir(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
             }
             if p.is_dir() {
                 let next_tests = under_tests || name == "tests";
-                walk(&p, next_tests, out)?;
+                let next_std = under_std || name == "std";
+                walk(&p, next_tests, next_std, out)?;
             } else if p.is_file() && is_echo_file(&p) {
                 if under_tests || name.ends_with("_test.echo") {
+                    out.push(p);
+                } else if under_std && file_is_suite(&p) {
                     out.push(p);
                 }
             }
         }
         Ok(())
     }
-    walk(dir, dir.ends_with("tests"), out)
+    let under_std = dir.ends_with("std") || path_has_std_segment(dir);
+    walk(dir, dir.ends_with("tests"), under_std, out)
+}
+
+fn path_has_std_segment(p: &Path) -> bool {
+    p.components().any(|c| c.as_os_str() == "std")
 }
 
 fn is_echo_file(p: &Path) -> bool {
     p.extension().and_then(|e| e.to_str()) == Some("echo")
+}
+
+/// Co-located suite: registers cases via `std/test` at top level.
+fn file_is_suite(p: &Path) -> bool {
+    let Ok(text) = std::fs::read_to_string(p) else {
+        return false;
+    };
+    text.contains("test.it(") || text.contains("test.bench(")
+}
+
+fn file_has_bench(p: &Path) -> bool {
+    std::fs::read_to_string(p)
+        .map(|t| t.contains("test.bench("))
+        .unwrap_or(false)
 }
 
 fn not_implemented(command: &str, path: Option<&Path>) -> ExitCode {

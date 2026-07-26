@@ -38,4 +38,24 @@ test.it("json_object", () {
     }
 })
 
+; Benchmarks: `xo test --bench std/json.echo`
+test.bench("parse", () {
+    | parse('{"n":1,"s":"hi"}') {
+        $ o {}
+        ! e {}
+    }
+})
+
+test.bench("roundtrip", () {
+    | parse('{"n":1}') {
+        $ o {
+            | stringify(o) {
+                $ s {}
+                ! e {}
+            }
+        }
+        ! e {}
+    }
+})
+
 \ parse, stringify

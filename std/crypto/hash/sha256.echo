@@ -24,4 +24,19 @@ test.it("sha256_empty", () {
     }
 })
 
+; Benchmarks: `xo test --bench std/crypto/hash/sha256.echo`
+test.bench("sha256_empty", () {
+    | sha256("") {
+        $ d {}
+        ! e {}
+    }
+})
+
+test.bench("sha256_msg", () {
+    | sha256("the quick brown fox jumps over the lazy dog") {
+        $ d {}
+        ! e {}
+    }
+})
+
 \ sha256

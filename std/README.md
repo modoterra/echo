@@ -46,7 +46,7 @@ $ eprint = (value) {
 
 | Path | Role |
 |------|------|
-| `io.echo` / `test.echo` | free helpers (`test` for `xo test`) |
+| `io.echo` / `test.echo` | free helpers (`test` for `xo test` / `xo test --bench`) |
 | `bytes.echo` | `len` / `get` / `slice` / `cat` / `from_int` / `from_str` |
 | `list.echo` | `len` / `is_empty` / result `get` / `contains` |
 | `str.echo` | `from_*`, text ops, byte `get`/`slice` |
@@ -58,6 +58,21 @@ $ eprint = (value) {
 | `collections/hash_table.echo` | SipHash table; keys via `reflect.key_bytes` (int/string/…); backs map + set |
 | `collections/map.echo` | map over `hash_table` (`put`/`get`/`from_indexed`; mixed keys) |
 | `collections/set.echo` | set over `hash_table` (`add`/`has`/`values`/`from_list`; no `keys`) |
+
+## Suites and benchmarks
+
+Co-located `test.it` / `test.bench` live in the same module file as production API
+(Model A; see [`docs/testing.md`](../docs/testing.md)).
+
+```bash
+xo test std/math.echo          # unit cases
+xo test --bench std            # all std modules that define test.bench
+xo test --bench std/str.echo   # one module
+```
+
+CPU-oriented modules currently ship benches (math, str, bytes, list, json, path,
+encoding/hex+base64, crypto/hash/sha256+sip, collections/map). I/O and network
+modules keep tests only for now.
 | `net/tcp/` | folder module: `conn`, `listener`, free `socket` |
 | `net/udp/` | folder module: `% socket` + free reify `socket` |
 | `net/request.echo` | `% request` |

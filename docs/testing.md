@@ -62,6 +62,29 @@ Custom libraries may wrap these; only privileged std talks to `/ runtime`.
   fails the bench.
 - Co-located next to production or tests (same file as `test.it` is fine).
 - Registration is a no-op without `XO_TEST`; benches run only with `XO_BENCH`.
+- Prefer **no asserts in the hot body** so `ns/op` measures the work, not `test.eq`.
+
+### Std library benches
+
+Co-located on pure-ish modules (CPU-bound; not fs/net/process):
+
+| Module | Benchmarks |
+|--------|------------|
+| `std/math` | `abs_i`, `sqrt` |
+| `std/str` | `cat`, `contains`, `from_int` |
+| `std/bytes` | `cat`, `from_str` |
+| `std/list` | `contains`, `sum_ints`, `sort_ints` |
+| `std/json` | `parse`, `roundtrip` |
+| `std/encoding/hex` | `encode`, `roundtrip` |
+| `std/encoding/base64` | `encode`, `roundtrip` |
+| `std/path` | `join`, `clean` |
+| `std/crypto/hash/sha256` | `sha256_empty`, `sha256_msg` |
+| `std/crypto/hash/sip` | `sip_empty`, `sip_15` |
+| `std/collections/map` | `put_get` |
+
+```bash
+xo test --bench std
+```
 
 Example output:
 
@@ -73,20 +96,26 @@ xo test --bench: 1 passed, 0 failed, 1 total (…)
 ## `xo test` CLI
 
 ```bash
-xo test                          # ./ *_test.echo and tests/**
+xo test                          # ./ *_test.echo and tests/** (+ std/ co-located suites)
 xo test path/to/file.echo
 xo test path/to/dir
 xo test '**/*_test.echo'
 xo test a_test.echo tests/
-xo test --bench                  # only test.bench cases
+xo test std                      # co-located std suites (`test.it`)
+xo test --bench                  # only files with test.bench (default discovery)
+xo test --bench std              # all co-located std benchmarks
 xo test --bench std/math.echo
 ```
 
 - Each matched **file** is compiled and executed as a suite entry with `XO_TEST=1`.
 - With **`--bench`**, also `XO_BENCH=1` — only benchmarks run; `test.it` is skipped.
+  Discovery skips files that do not contain `test.bench(`.
 - Without **`--bench`**, only `test.it` runs; registered benches are ignored.
 - Paths: files, directories (walk), or simple globs (`*`, `**`, `?`).
-- Directory convention: `*_test.echo` anywhere, and all `.echo` under `tests/`.
+- Directory convention:
+  - `*_test.echo` anywhere
+  - all `.echo` under `tests/`
+  - under a `std/` path: co-located suites that call `test.it(` / `test.bench(`
 
 ## Co-located vs separate files
 

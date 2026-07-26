@@ -17,6 +17,16 @@ e26:
     cargo build -q -p xo -p e26
     cargo run -q -p e26 -- --binary target/debug/xo
 
+# Co-located std unit suites
+std-test:
+    cargo build -q -p xo
+    ./target/debug/xo test std
+
+# Co-located std benchmarks (auto-N / ns/op; ~1s each)
+std-bench:
+    cargo build -q -p xo
+    ./target/debug/xo test --bench std
+
 fmt:
     cargo fmt --all
 

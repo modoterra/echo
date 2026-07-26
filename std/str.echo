@@ -287,4 +287,17 @@ test.it("parse_int_float", () {
     }
 })
 
+; Benchmarks: `xo test --bench std/str.echo`
+test.bench("cat", () {
+    $ s = cat("hello", "world")
+})
+
+test.bench("contains", () {
+    $ ok = contains("the quick brown fox", "brown")
+})
+
+test.bench("from_int", () {
+    $ s = from_int(123456789)
+})
+
 \ from_int, from_float, from_bytes, from_duration, from_locator, from_debug, len, is_empty, cat, contains, starts_with, ends_with, get, slice, trim, to_lower, to_upper, split, replace, join, repeat, parse_int, parse_float

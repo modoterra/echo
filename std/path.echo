@@ -177,4 +177,13 @@ test.it("clean_rel", () {
     }
 })
 
+; Benchmarks: `xo test --bench std/path.echo`
+test.bench("join", () {
+    $ p = join("/usr/local", "bin/xo")
+})
+
+test.bench("clean", () {
+    $ p = clean("/a/b/../c/./d/e/../f")
+})
+
 \ join, is_abs, file_name, parent, extension, clean, rel, walk

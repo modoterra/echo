@@ -66,10 +66,14 @@ test.it("sqrt4", () {
     test.true(y == <f64>2.0)
 })
 
-; Co-located benchmark: only runs under `xo test --bench std/math.echo`.
+; Co-located benchmarks: `xo test --bench std` / `xo test --bench std/math.echo`.
 test.bench("abs_i", () {
-    $ n = abs_i(-3)
-    test.eq(n, 3)
+    $ n = abs_i(-42)
+})
+
+test.bench("sqrt", () {
+    $ x = <f64>2.0
+    $ y = sqrt(x)
 })
 
 \ abs_i, min, max, sqrt, sin, cos, tan, floor, ceil, abs_f, pow

@@ -155,4 +155,13 @@ test.it("from_str", () {
     }
 })
 
+; Benchmarks: `xo test --bench std/bytes.echo`
+test.bench("cat", () {
+    $ b = cat(b'hello', b'world')
+})
+
+test.bench("from_str", () {
+    $ b = from_str("benchmark payload")
+})
+
 \ len, is_empty, get, slice, cat, from_int, from_str
