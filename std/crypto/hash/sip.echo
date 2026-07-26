@@ -1,16 +1,6 @@
 ; std/crypto/hash/sip — SipHash-2-4 (Aumasson & Bernstein).
-; Folder module `/ std/crypto/hash` → `hash.sip(k0, k1, msg)`.
-;
-; k0, k1: ui64 key halves (little-endian 128-bit key).
-; msg: bytes. Returns ui64 digest.
-;
-; Public API (export discipline — docs/stdlib.md): \ sip
-; Private: sip_state, rotl, sip_round, byte_at, load_le, paper constants, suite.
-;
-; Width discipline: tag field defaults + paper constants once; untagged lits
-; adopt ui64 lanes. Re-tag only at free-fn ABI entry and ui8→ui64 zext.
-;
-; Suite: paper key 00..0f; co-located `xo test` cases (XO_TEST).
+; Pure Echo proof load: scalar ui64 state + inlined rotates (logical >> via ui64).
+; Public API: \ sip
 
 / std/bytes
 / std/test
@@ -20,46 +10,7 @@
 # C2 = <ui64> 0x6c7967656e657261
 # C3 = <ui64> 0x7465646279746573
 
-% sip_state {
-    ~ v0 = <ui64> 0
-    ~ v1 = <ui64> 0
-    ~ v2 = <ui64> 0
-    ~ v3 = <ui64> 0
-}
-
-; Free-fn params are universal i64 — re-enter ui64 for logical `>>`.
-$ rotl = (x, b) {
-    $ xu = <ui64> x
-    $ n = <ui64> b & 63
-    ? n == 0 {
-        ^ xu
-    }
-    ^ (xu << n) | (xu >> (64 - n))
-}
-
-$ sip_round = (s) {
-    ~ s.v0 = s.v0 + s.v1
-    ~ s.v1 = rotl(s.v1, 13)
-    ~ s.v1 = s.v1 ^ s.v0
-    ~ s.v0 = rotl(s.v0, 32)
-
-    ~ s.v2 = s.v2 + s.v3
-    ~ s.v3 = rotl(s.v3, 16)
-    ~ s.v3 = s.v3 ^ s.v2
-
-    ~ s.v0 = s.v0 + s.v3
-    ~ s.v3 = rotl(s.v3, 21)
-    ~ s.v3 = s.v3 ^ s.v0
-
-    ~ s.v2 = s.v2 + s.v1
-    ~ s.v1 = rotl(s.v1, 17)
-    ~ s.v1 = s.v1 ^ s.v2
-    ~ s.v2 = rotl(s.v2, 32)
-    ^ s
-}
-
-; Zext byte → ui64 lane (runtime get is not ui8-typed end-to-end for free call).
-$ byte_at = (msg, i) {
+$ byte_u64 = (msg, i) {
     | bytes.get(msg, i) {
         $ b {
             ^ <ui64> b
@@ -76,7 +27,7 @@ $ load_le = (msg, off, end) {
     * j < 8 {
         $ idx = off + j
         ? idx < end {
-            ~ m = m | (byte_at(msg, idx) << (j * 8))
+            ~ m = <ui64> (m | (byte_u64(msg, idx) << (j * 8)))
         }
         ~ j = j + 1
     }
@@ -84,49 +35,146 @@ $ load_le = (msg, off, end) {
 }
 
 $ sip = (k0, k1, msg) {
-    ~ s = sip_state {
-        v0: C0 ^ k0,
-        v1: C1 ^ k1,
-        v2: C2 ^ k0,
-        v3: C3 ^ k1
-    }
+    ~ v0 = <ui64> (C0 ^ k0)
+    ~ v1 = <ui64> (C1 ^ k1)
+    ~ v2 = <ui64> (C2 ^ k0)
+    ~ v3 = <ui64> (C3 ^ k1)
 
     $ n = bytes.len(msg)
     ~ i = 0
     * i + 8 <= n {
         $ m = load_le(msg, i, i + 8)
-        ~ s.v3 = s.v3 ^ m
-        ~ s = sip_round(s)
-        ~ s = sip_round(s)
-        ~ s.v0 = s.v0 ^ m
+        ~ v3 = <ui64> (v3 ^ m)
+        ~ v0 = <ui64> (v0 + v1)
+        ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+        ~ v1 = <ui64> (v1 ^ v0)
+        ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+        ~ v2 = <ui64> (v2 + v3)
+        ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+        ~ v3 = <ui64> (v3 ^ v2)
+        ~ v0 = <ui64> (v0 + v3)
+        ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+        ~ v3 = <ui64> (v3 ^ v0)
+        ~ v2 = <ui64> (v2 + v1)
+        ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+        ~ v1 = <ui64> (v1 ^ v2)
+        ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+        ~ v0 = <ui64> (v0 + v1)
+        ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+        ~ v1 = <ui64> (v1 ^ v0)
+        ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+        ~ v2 = <ui64> (v2 + v3)
+        ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+        ~ v3 = <ui64> (v3 ^ v2)
+        ~ v0 = <ui64> (v0 + v3)
+        ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+        ~ v3 = <ui64> (v3 ^ v0)
+        ~ v2 = <ui64> (v2 + v1)
+        ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+        ~ v1 = <ui64> (v1 ^ v2)
+        ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+        ~ v0 = <ui64> (v0 ^ m)
         ~ i = i + 8
     }
 
-    ; len is i64; enter ui64 for the final partial block header.
-    ~ b = (<ui64> (n % 256)) << 56
+    ~ b = <ui64> ((<ui64> (n % 256)) << 56)
     ~ j = 0
     * i + j < n {
-        ~ b = b | (byte_at(msg, i + j) << (j * 8))
+        ~ b = <ui64> (b | (byte_u64(msg, i + j) << (j * 8)))
         ~ j = j + 1
     }
 
-    ~ s.v3 = s.v3 ^ b
-    ~ s = sip_round(s)
-    ~ s = sip_round(s)
-    ~ s.v0 = s.v0 ^ b
+    ~ v3 = <ui64> (v3 ^ b)
+    ~ v0 = <ui64> (v0 + v1)
+    ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+    ~ v1 = <ui64> (v1 ^ v0)
+    ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+    ~ v2 = <ui64> (v2 + v3)
+    ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+    ~ v3 = <ui64> (v3 ^ v2)
+    ~ v0 = <ui64> (v0 + v3)
+    ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+    ~ v3 = <ui64> (v3 ^ v0)
+    ~ v2 = <ui64> (v2 + v1)
+    ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+    ~ v1 = <ui64> (v1 ^ v2)
+    ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+    ~ v0 = <ui64> (v0 + v1)
+    ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+    ~ v1 = <ui64> (v1 ^ v0)
+    ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+    ~ v2 = <ui64> (v2 + v3)
+    ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+    ~ v3 = <ui64> (v3 ^ v2)
+    ~ v0 = <ui64> (v0 + v3)
+    ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+    ~ v3 = <ui64> (v3 ^ v0)
+    ~ v2 = <ui64> (v2 + v1)
+    ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+    ~ v1 = <ui64> (v1 ^ v2)
+    ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+    ~ v0 = <ui64> (v0 ^ b)
 
-    ~ s.v2 = s.v2 ^ 0xff
-    ~ s = sip_round(s)
-    ~ s = sip_round(s)
-    ~ s = sip_round(s)
-    ~ s = sip_round(s)
+    ~ v2 = <ui64> (v2 ^ 0xff)
+    ~ v0 = <ui64> (v0 + v1)
+    ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+    ~ v1 = <ui64> (v1 ^ v0)
+    ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+    ~ v2 = <ui64> (v2 + v3)
+    ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+    ~ v3 = <ui64> (v3 ^ v2)
+    ~ v0 = <ui64> (v0 + v3)
+    ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+    ~ v3 = <ui64> (v3 ^ v0)
+    ~ v2 = <ui64> (v2 + v1)
+    ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+    ~ v1 = <ui64> (v1 ^ v2)
+    ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+    ~ v0 = <ui64> (v0 + v1)
+    ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+    ~ v1 = <ui64> (v1 ^ v0)
+    ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+    ~ v2 = <ui64> (v2 + v3)
+    ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+    ~ v3 = <ui64> (v3 ^ v2)
+    ~ v0 = <ui64> (v0 + v3)
+    ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+    ~ v3 = <ui64> (v3 ^ v0)
+    ~ v2 = <ui64> (v2 + v1)
+    ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+    ~ v1 = <ui64> (v1 ^ v2)
+    ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+    ~ v0 = <ui64> (v0 + v1)
+    ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+    ~ v1 = <ui64> (v1 ^ v0)
+    ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+    ~ v2 = <ui64> (v2 + v3)
+    ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+    ~ v3 = <ui64> (v3 ^ v2)
+    ~ v0 = <ui64> (v0 + v3)
+    ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+    ~ v3 = <ui64> (v3 ^ v0)
+    ~ v2 = <ui64> (v2 + v1)
+    ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+    ~ v1 = <ui64> (v1 ^ v2)
+    ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
+    ~ v0 = <ui64> (v0 + v1)
+    ~ v1 = <ui64> ((v1 << 13) | (v1 >> 51))
+    ~ v1 = <ui64> (v1 ^ v0)
+    ~ v0 = <ui64> ((v0 << 32) | (v0 >> 32))
+    ~ v2 = <ui64> (v2 + v3)
+    ~ v3 = <ui64> ((v3 << 16) | (v3 >> 48))
+    ~ v3 = <ui64> (v3 ^ v2)
+    ~ v0 = <ui64> (v0 + v3)
+    ~ v3 = <ui64> ((v3 << 21) | (v3 >> 43))
+    ~ v3 = <ui64> (v3 ^ v0)
+    ~ v2 = <ui64> (v2 + v1)
+    ~ v1 = <ui64> ((v1 << 17) | (v1 >> 47))
+    ~ v1 = <ui64> (v1 ^ v2)
+    ~ v2 = <ui64> ((v2 << 32) | (v2 >> 32))
 
-    ^ s.v0 ^ s.v1 ^ s.v2 ^ s.v3
+    ^ <ui64> (v0 ^ v1 ^ v2 ^ v3)
 }
-
-; --- suite ---
-; Paper key: 00 01 02 … 0f → k0/k1 little-endian.
-; Expected digests keep <ui64> when the high bit is set (untagged hex is i64).
 
 # K0 = <ui64> 0x0706050403020100
 # K1 = <ui64> 0x0f0e0d0c0b0a0908
@@ -153,7 +201,6 @@ test.it("fifteen_bytes", () {
     test.eq(h, <ui64> 0xa129ca6149be45e5)
 })
 
-; Benchmarks: `xo test --bench std/crypto/hash/sip.echo`
 test.bench("sip_empty", () {
     $ h = sip(K0, K1, b'')
 })

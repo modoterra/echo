@@ -269,10 +269,14 @@ fn is_same_int_pair(left: MirRepr, right: MirRepr) -> Option<MirRepr> {
     if left == right && left.is_native_int() {
         return Some(left);
     }
-    // Default i64 yields to a more specific integer width (mirrors semantics).
+    // Default i64 / universal ABI yields to a more specific integer width.
+    // Free-fn params are Boxed at the ABI; `<ui64> C ^ k` must stay unsigned so
+    // `>>` lowers to logical shift (SipHash / rotl patterns).
     match (left, right) {
         (MirRepr::Int64, r) if r.is_native_int() && r != MirRepr::Int64 => Some(r),
         (l, MirRepr::Int64) if l.is_native_int() && l != MirRepr::Int64 => Some(l),
+        (l, r) if l.is_unsigned_int() && r.is_universal() => Some(l),
+        (l, r) if r.is_unsigned_int() && l.is_universal() => Some(r),
         _ => None,
     }
 }
@@ -876,6 +880,27 @@ mod tests {
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
         analyze_reprs(cfg, &[])
+    }
+
+    #[test]
+    fn ui64_xor_boxed_param_stays_unsigned() {
+        // Free-fn params are Boxed; paper constants are UInt64.
+        assert_eq!(
+            is_same_int_pair(MirRepr::UInt64, MirRepr::Boxed),
+            Some(MirRepr::UInt64)
+        );
+        assert_eq!(
+            is_same_int_pair(MirRepr::Boxed, MirRepr::UInt64),
+            Some(MirRepr::UInt64)
+        );
+        assert_eq!(
+            infer_binary(BinaryOp::BitXor, MirRepr::UInt64, MirRepr::Boxed),
+            MirRepr::UInt64
+        );
+        assert_eq!(
+            infer_binary(BinaryOp::Shr, MirRepr::UInt64, MirRepr::Int64),
+            MirRepr::UInt64
+        );
     }
 
     #[test]

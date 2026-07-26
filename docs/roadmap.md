@@ -523,6 +523,7 @@ current; fill Impl as work lands.
 | 2026-07-25 | **`xo test --bench`:** `test.bench` + `runtime.test_bench_register`; harness auto-N / ns/op; co-located like `test.it` |
 | 2026-07-25 | **Std benches:** co-located `test.bench` on math/str/bytes/list/json/hex/base64/path/sha256/sip/map; `xo test --bench std` discovery |
 | 2026-07-25 | **Bench JSONL + compare:** `--bench-out` streams results; `--bench-baseline` / `--bench-threshold` report regressions |
+| 2026-07-25 | **Sip lowerability:** pure Echo SipHash scalar ui64 + inlined rotl; ui64 `>>` → `lshr`/`fshl` (not ashr); proof-load IR |
 
 ---
 

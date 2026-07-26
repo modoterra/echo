@@ -4303,13 +4303,18 @@ fn emit_binary_typed<'ctx>(
     let (rv, rr) = emit_scalar_typed(cx, right)?;
 
     // Native integer same-width arith / compares / bitwise (`i*` / `ui*`).
-    // Default i64 yields to a more specific width (untagged lit / i64 lane).
+    // Default i64 / universal ABI yields to a more specific width (untagged lit,
+    // ui64 lane). Boxed free-fn params must not force signed `>>` (ashr).
     let int_lane = if lr == rr && lr.is_native_int() {
         Some(lr)
     } else if lr == MirRepr::Int64 && rr.is_native_int() && rr != MirRepr::Int64 {
         Some(rr)
     } else if rr == MirRepr::Int64 && lr.is_native_int() && lr != MirRepr::Int64 {
         Some(lr)
+    } else if lr.is_unsigned_int() && rr.is_universal() {
+        Some(lr)
+    } else if rr.is_unsigned_int() && lr.is_universal() {
+        Some(rr)
     } else {
         None
     };
