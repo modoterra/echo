@@ -913,19 +913,29 @@ enum ReturnKind {
 
 fn exit_then_return(ctx: &mut Ctx, ret: Option<ReturnKind>) -> Vec<MirStmt> {
     let mut v = Vec::new();
+    // Always evaluate the return expression **before** scope exits.
+    // Scalars that only *use* managed names (e.g. `xs[0] + xs[2]`) are not
+    // themselves `expr_is_managed`, but still read the heap — materializing
+    // first prevents use-after-free when root/open scopes free on exit.
     let ret = match ret {
-        Some(ReturnKind::Ok(e)) if expr_is_managed(&e) => {
+        Some(ReturnKind::Ok(e)) => {
+            let managed = expr_is_managed(&e);
             let e = materialize_once(&mut v, e, &mut ctx.next_id);
-            v.push(MirStmt::ScopeDisown {
-                value: e.clone(),
-            });
+            if managed {
+                v.push(MirStmt::ScopeDisown {
+                    value: e.clone(),
+                });
+            }
             Some(ReturnKind::Ok(e))
         }
-        Some(ReturnKind::Err(e)) if expr_is_managed(&e) => {
+        Some(ReturnKind::Err(e)) => {
+            let managed = expr_is_managed(&e);
             let e = materialize_once(&mut v, e, &mut ctx.next_id);
-            v.push(MirStmt::ScopeDisown {
-                value: e.clone(),
-            });
+            if managed {
+                v.push(MirStmt::ScopeDisown {
+                    value: e.clone(),
+                });
+            }
             Some(ReturnKind::Err(e))
         }
         other => other,
@@ -1582,6 +1592,59 @@ mod tests {
                 .iter()
                 .any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
             "must not demote xs after ListPush into holder: {promotes:?}\n{out:?}"
+        );
+    }
+
+    #[test]
+    fn return_scalar_from_index_materializes_before_scope_exit() {
+        // `$ xs = [7, 8, 9]; ^ xs[0] + xs[2]` — Binary is not managed, but must
+        // still evaluate while `xs` is live (before root ScopeExit).
+        let body = vec![
+            MirStmt::Set {
+                name: "xs".into(),
+                value: MirExpr::ListLit(vec![
+                    MirExpr::ConstI64(7),
+                    MirExpr::ConstI64(8),
+                    MirExpr::ConstI64(9),
+                ]),
+            },
+            MirStmt::ReturnOk(MirExpr::Binary {
+                op: echo_ast::BinaryOp::Add,
+                left: Box::new(MirExpr::Index {
+                    base: Box::new(MirExpr::Name("xs".into())),
+                    index: Box::new(MirExpr::ConstI64(0)),
+                }),
+                right: Box::new(MirExpr::Index {
+                    base: Box::new(MirExpr::Name("xs".into())),
+                    index: Box::new(MirExpr::ConstI64(2)),
+                }),
+            }),
+        ];
+        let out = inject_lifetime(body);
+        // Find root ScopeExit then ReturnOk — a Set of the return temp must
+        // appear before that exit.
+        let mut saw_ret_set = false;
+        let mut exit_before_eval = false;
+        for s in &out {
+            match s {
+                MirStmt::Set { name, value }
+                    if name.starts_with("__ret_")
+                        && matches!(value, MirExpr::Binary { .. }) =>
+                {
+                    saw_ret_set = true;
+                }
+                MirStmt::ScopeExit { id } if *id == ROOT_SCOPE => {
+                    if !saw_ret_set {
+                        exit_before_eval = true;
+                    }
+                }
+                MirStmt::ReturnOk(_) => {}
+                _ => {}
+            }
+        }
+        assert!(
+            saw_ret_set && !exit_before_eval,
+            "return binary must Set temp before root ScopeExit\n{out:?}"
         );
     }
 

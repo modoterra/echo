@@ -125,23 +125,19 @@ $ join = (parts, sep) {
     ^ out
 }
 
+; O(n·|s|) via runtime (avoids quadratic cat loops that dominated bulk benches).
 $ repeat = (s, n) {
-    ~ out = ""
-    ~ i = 0
-    * i < n {
-        ~ out = cat(out, s)
-        ~ i = i + 1
-    }
-    ^ out
+    ^ runtime.str_repeat(s, n)
 }
 
 ; UTF-8 byte at index (same width as bytes.get).
+; Bounds-checked UTF-8 byte index. Runtime get returns -1 for OOB/invalid.
 $ get = (s, i) {
-    $ n = runtime.str_len(s)
-    ? i < 0 || i >= n {
+    $ x = runtime.str_get(s, i)
+    ? x < 0 {
         ! "out of bounds"
     }
-    ^ <ui8> runtime.str_get(s, i)
+    ^ <ui8> x
 }
 
 ; Half-open UTF-8 byte range [start, end).

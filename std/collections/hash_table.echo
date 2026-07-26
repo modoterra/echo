@@ -16,26 +16,24 @@
 ;
 ; Suite: xo test std/collections/hash_table.echo (XO_TEST).
 
+/ runtime
 / std/test
 / std/crypto/hash
 / std/bytes
 / std/list
 / std/reflect
 
-# INITIAL_N_BUCKETS = 16
+; Start larger so common seed sizes (≤1k) rehash fewer times. empty_buckets
+; allocates one list per bucket — rehash cost dominated small tables.
+# INITIAL_N_BUCKETS = 64
 ; Load: grow when count * 4 >= capacity * 3 (≈ 0.75).
 
 # DEFAULT_K0 = <ui64> 0x0706050403020100
 # DEFAULT_K1 = <ui64> 0x0f0e0d0c0b0a0908
 
+; One runtime call builds n empty chain lists (avoids Echo loop of n×`[]`).
 $ empty_buckets = (n) {
-    ~ bs = []
-    ~ i = 0
-    * i < n {
-        ~ bs[] = []
-        ~ i = i + 1
-    }
-    ^ bs
+    ^ runtime.list_new_empty_lists(n)
 }
 
 % entry {
@@ -106,9 +104,14 @@ $ empty_buckets = (n) {
     }
 
     ; Grow if the next new key would push load over ~0.75.
+    ; Jump by 4× while small so seed paths rehash fewer times.
     $ maybe_grow = () {
         ? .count * 4 >= .capacity * 3 {
-            .rehash(.capacity * 2)
+            ~ next = .capacity * 2
+            ? .capacity < 512 {
+                ~ next = .capacity * 4
+            }
+            .rehash(next)
         }
         ^ .
     }
@@ -337,19 +340,20 @@ test.it("bucket_stable", () {
 
 test.it("grows_and_keeps_entries", () {
     $ t = make()
-    test.eq(t.capacity, 16)
-    ; Insert enough distinct keys to force at least one grow (load 0.75 of 16 = 12).
+    test.eq(t.capacity, INITIAL_N_BUCKETS)
+    ; Insert past ~0.75 load of initial capacity to force at least one grow.
+    $ n = INITIAL_N_BUCKETS
     ~ k = 0
-    * k < 40 {
+    * k < n {
         t.put(k, k * 10)
         ~ k = k + 1
     }
-    test.eq(t.len(), 40)
-    ? t.capacity <= 16 {
+    test.eq(t.len(), n)
+    ? t.capacity <= INITIAL_N_BUCKETS {
         test.fail("expected grow")
     }
     ~ j = 0
-    * j < 40 {
+    * j < n {
         | t.get(j) {
             $ v {
                 test.eq(v, j * 10)
@@ -369,7 +373,7 @@ test.it("grows_and_keeps_entries", () {
             test.fail("overwrite miss")
         }
     }
-    test.eq(t.len(), 40)
+    test.eq(t.len(), n)
 })
 
 test.it("fluent_seed", () {

@@ -32,14 +32,14 @@ pub const SEMANTICS_VERSION: u32 = 9; // Type::Value + free-param pin
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 25; // precise promote + demote wrap + leave-scope exits
+pub const MIR_LOWERER_VERSION: u32 = 27; // materialize returns; float ABI not unboxed as Int64
 pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
+pub const CODEGEN_VERSION: u32 = 15; // RT_STR_REPEAT + RT_LIST_RESERVE + RT_LIST_NEW_EMPTY_LISTS
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 40; // bench JSONL includes opt (XO_BENCH_OPT)
-pub const STDLIB_VERSION: u32 = 28; // real algo + std size-series benches
+pub const RUNTIME_ABI_VERSION: u32 = 44; // scope_disown is graph disown (return nests)
+pub const STDLIB_VERSION: u32 = 31; // hash_table empty_buckets runtime + grow×4
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

@@ -449,13 +449,13 @@ fn format_debug_value(v: i64, depth: u32) -> String {
     if depth > MAX_DEPTH {
         return "…".into();
     }
-    if let Some(s) = string_data(v) {
+    if let Some(s) = string_as_str(v) {
         return format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""));
     }
     if let Some(f) = float_data(v) {
         return format!("{f}");
     }
-    if let Some(elems) = list_elems(v) {
+    if let Some(elems) = list_as_slice(v) {
         let inner: Vec<String> = elems
             .iter()
             .map(|e| format_debug_value(*e, depth + 1))
@@ -474,10 +474,10 @@ fn format_debug_value(v: i64, depth: u32) -> String {
         }
         return format!("{} {{ {body} }}", st.type_name);
     }
-    if let Some(b) = bytes_data(v) {
-        return format!("b\"{}\"", String::from_utf8_lossy(&b));
+    if let Some(b) = bytes_as_slice(v) {
+        return format!("b\"{}\"", String::from_utf8_lossy(b));
     }
-    if let Some(loc) = locator_data(v) {
+    if let Some(loc) = locator_as_str(v) {
         return format!("p\"{loc}\"");
     }
     if let Some((lo, hi)) = range_data(v) {
@@ -607,10 +607,10 @@ pub extern "C" fn echo_runtime_str_from_locator(handle: i64) -> i64 {
 /// Byte length of a string or bytes handle (0 if invalid).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_len(handle: i64) -> i64 {
-    if let Some(s) = string_data(handle) {
+    if let Some(s) = string_as_str(handle) {
         return s.len() as i64;
     }
-    if let Some(b) = bytes_data(handle) {
+    if let Some(b) = bytes_as_slice(handle) {
         return b.len() as i64;
     }
     0
@@ -619,7 +619,7 @@ pub extern "C" fn echo_runtime_str_len(handle: i64) -> i64 {
 /// Length of a **bytes** handle only (0 if not a bytes value).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_bytes_len(handle: i64) -> i64 {
-    bytes_data(handle).map(|b| b.len() as i64).unwrap_or(0)
+    bytes_as_slice(handle).map(|b| b.len() as i64).unwrap_or(0)
 }
 
 /// Pack a signed `i64` as **8 little-endian bytes** (bit pattern of the integer).
@@ -706,16 +706,17 @@ pub extern "C" fn echo_runtime_reflect_key_bytes(v: i64) -> i64 {
 ///
 /// Returns `-1` if the handle is not bytes or `index` is out of range.
 /// Prefer bounds checks in `std/bytes` before calling.
+///
+/// **Hot path:** borrows the heap blob (no full-buffer clone).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_bytes_get(handle: i64, index: i64) -> i64 {
-    let Some(b) = bytes_data(handle) else {
+    let Some(b) = bytes_as_slice(handle) else {
         return -1;
     };
     if index < 0 {
         return -1;
     }
-    let i = index as usize;
-    match b.get(i) {
+    match b.get(index as usize) {
         Some(&byte) => i64::from(byte),
         None => -1,
     }
@@ -726,7 +727,7 @@ pub extern "C" fn echo_runtime_bytes_get(handle: i64, index: i64) -> i64 {
 /// Empty bytes handle if not bytes or range invalid. Prefer checks in `std/bytes`.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_bytes_slice(handle: i64, start: i64, end: i64) -> i64 {
-    let Some(b) = bytes_data(handle) else {
+    let Some(b) = bytes_as_slice(handle) else {
         return bytes_to_handle(Vec::new());
     };
     let len = b.len() as i64;
@@ -740,11 +741,11 @@ pub extern "C" fn echo_runtime_bytes_slice(handle: i64, start: i64, end: i64) ->
 /// Non-bytes arguments contribute empty payloads.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_bytes_cat(a: i64, b: i64) -> i64 {
-    let left = bytes_data(a).unwrap_or_default();
-    let right = bytes_data(b).unwrap_or_default();
+    let left = bytes_as_slice(a).unwrap_or_default();
+    let right = bytes_as_slice(b).unwrap_or_default();
     let mut out = Vec::with_capacity(left.len() + right.len());
-    out.extend_from_slice(&left);
-    out.extend_from_slice(&right);
+    out.extend_from_slice(left);
+    out.extend_from_slice(right);
     bytes_to_handle(out)
 }
 
@@ -752,8 +753,8 @@ pub extern "C" fn echo_runtime_bytes_cat(a: i64, b: i64) -> i64 {
 /// Empty if not a string.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_bytes_from_str(handle: i64) -> i64 {
-    match string_data(handle) {
-        Some(s) => bytes_to_handle(s.into_bytes()),
+    match string_as_str(handle) {
+        Some(s) => bytes_to_handle(s.as_bytes().to_vec()),
         None => bytes_to_handle(Vec::new()),
     }
 }
@@ -761,9 +762,11 @@ pub extern "C" fn echo_runtime_bytes_from_str(handle: i64) -> i64 {
 /// Byte at `index` of a **string** (UTF-8 bytes) as `i64` in `0..255`.
 ///
 /// Returns `-1` if not a string or OOB. Prefer bounds checks in `std/str`.
+///
+/// **Hot path:** borrows the heap string (no full clone).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_get(handle: i64, index: i64) -> i64 {
-    let Some(s) = string_data(handle) else {
+    let Some(s) = string_as_str(handle) else {
         return -1;
     };
     if index < 0 {
@@ -775,21 +778,52 @@ pub extern "C" fn echo_runtime_str_get(handle: i64, index: i64) -> i64 {
     }
 }
 
+/// Repeat string `s` exactly `n` times (O(n·|s|) with one allocation).
+///
+/// `n <= 0` or non-string `s` → empty string. Used by `std/str.repeat` so bulk
+/// benches are not dominated by quadratic `cat` in a loop.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_str_repeat(s: i64, n: i64) -> i64 {
+    if n <= 0 {
+        return string_to_handle(String::new());
+    }
+    let Some(base) = string_as_str(s) else {
+        return string_to_handle(String::new());
+    };
+    if base.is_empty() {
+        return string_to_handle(String::new());
+    }
+    let times = n as usize;
+    let mut out = String::with_capacity(base.len().saturating_mul(times));
+    for _ in 0..times {
+        out.push_str(base);
+    }
+    string_to_handle(out)
+}
+
 /// Concatenate two string/bytes handles → new string handle.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_cat(a: i64, b: i64) -> i64 {
-    let left = string_data(a)
-        .or_else(|| bytes_data(a).map(|b| String::from_utf8_lossy(&b).into_owned()))
+    let left = string_as_str(a)
+        .map(str::to_owned)
+        .or_else(|| {
+            bytes_as_slice(a).map(|b| String::from_utf8_lossy(b).into_owned())
+        })
         .unwrap_or_default();
-    let right = string_data(b)
-        .or_else(|| bytes_data(b).map(|b| String::from_utf8_lossy(&b).into_owned()))
+    let right = string_as_str(b)
+        .map(str::to_owned)
+        .or_else(|| {
+            bytes_as_slice(b).map(|b| String::from_utf8_lossy(b).into_owned())
+        })
         .unwrap_or_default();
     string_to_handle(format!("{left}{right}"))
 }
 
 fn str_utf8(handle: i64) -> Option<String> {
-    string_data(handle)
-        .or_else(|| bytes_data(handle).map(|b| String::from_utf8_lossy(&b).into_owned()))
+    if let Some(s) = string_as_str(handle) {
+        return Some(s.to_owned());
+    }
+    bytes_as_slice(handle).map(|b| String::from_utf8_lossy(b).into_owned())
 }
 
 /// Substring by **UTF-8 byte** indices `[start, end)` (half-open).
@@ -909,13 +943,23 @@ pub(crate) fn string_to_handle(data: String) -> i64 {
     heap_to_handle(s)
 }
 
-pub(crate) fn string_data(v: i64) -> Option<String> {
+/// Borrow UTF-8 payload of a string handle (no clone).
+///
+/// The returned slice is valid for as long as the heap object is live and not
+/// mutated. Callers must not free/mutate the handle while using the slice.
+pub(crate) fn string_as_str(v: i64) -> Option<&'static str> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_STRING {
         return None;
     }
     let s = unsafe { &*(v as *const EchoString) };
-    Some(s.data.clone())
+    // Heap string is valid while the handle lives; extend lifetime for FFI-style access.
+    Some(unsafe { &*(&s.data as *const String) }.as_str())
+}
+
+/// Owned copy of string payload (for APIs that need ownership).
+pub(crate) fn string_data(v: i64) -> Option<String> {
+    string_as_str(v).map(str::to_owned)
 }
 
 fn float_data(v: i64) -> Option<f64> {
@@ -935,13 +979,22 @@ pub(crate) fn bytes_to_handle(data: Vec<u8>) -> i64 {
     heap_to_handle(b)
 }
 
-pub(crate) fn bytes_data(v: i64) -> Option<Vec<u8>> {
+/// Borrow bytes payload (no full-buffer clone). Hot path for `bytes_get` / scan.
+///
+/// The returned slice is valid for as long as the heap object is live and not
+/// mutated. Callers must not free/mutate the handle while using the slice.
+pub(crate) fn bytes_as_slice(v: i64) -> Option<&'static [u8]> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_BYTES {
         return None;
     }
     let b = unsafe { &*(v as *const EchoBytes) };
-    Some(b.data.clone())
+    Some(unsafe { &*(&b.data as *const Vec<u8>) }.as_slice())
+}
+
+/// Owned copy of bytes payload (for APIs that need ownership / return ownership).
+pub(crate) fn bytes_data(v: i64) -> Option<Vec<u8>> {
+    bytes_as_slice(v).map(|s| s.to_vec())
 }
 
 fn locator_to_handle(data: String) -> i64 {
@@ -952,22 +1005,31 @@ fn locator_to_handle(data: String) -> i64 {
     heap_to_handle(loc)
 }
 
-pub(crate) fn locator_data(v: i64) -> Option<String> {
+pub(crate) fn locator_as_str(v: i64) -> Option<&'static str> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_LOCATOR {
         return None;
     }
     let loc = unsafe { &*(v as *const EchoLocator) };
-    Some(loc.data.clone())
+    Some(unsafe { &*(&loc.data as *const String) }.as_str())
 }
 
-pub(crate) fn list_elems(v: i64) -> Option<Vec<i64>> {
+pub(crate) fn locator_data(v: i64) -> Option<String> {
+    locator_as_str(v).map(str::to_owned)
+}
+
+/// Borrow list element slice (no clone). Prefer over [`list_elems`] on hot paths.
+pub(crate) fn list_as_slice(v: i64) -> Option<&'static [i64]> {
     let h = unsafe { header_at(v)? };
     if unsafe { (*h).kind } != KIND_LIST {
         return None;
     }
     let list = unsafe { &*(v as *const EchoList) };
-    Some(list.elems.clone())
+    Some(unsafe { &*(&list.elems as *const Vec<i64>) }.as_slice())
+}
+
+pub(crate) fn list_elems(v: i64) -> Option<Vec<i64>> {
+    list_as_slice(v).map(|s| s.to_vec())
 }
 
 pub(crate) fn struct_fields(v: i64) -> Option<Vec<(String, i64)>> {
@@ -984,17 +1046,17 @@ fn deep_eq(a: i64, b: i64) -> bool {
     if a == b {
         return true;
     }
-    match (string_data(a), string_data(b)) {
+    match (string_as_str(a), string_as_str(b)) {
         (Some(sa), Some(sb)) => return sa == sb,
         (Some(_), None) | (None, Some(_)) => return false,
         (None, None) => {}
     }
-    match (bytes_data(a), bytes_data(b)) {
+    match (bytes_as_slice(a), bytes_as_slice(b)) {
         (Some(ba), Some(bb)) => return ba == bb,
         (Some(_), None) | (None, Some(_)) => return false,
         (None, None) => {}
     }
-    match (locator_data(a), locator_data(b)) {
+    match (locator_as_str(a), locator_as_str(b)) {
         (Some(la), Some(lb)) => return la == lb,
         (Some(_), None) | (None, Some(_)) => return false,
         (None, None) => {}
@@ -1004,7 +1066,7 @@ fn deep_eq(a: i64, b: i64) -> bool {
         (Some(_), None) | (None, Some(_)) => return false,
         (None, None) => {}
     }
-    match (list_elems(a), list_elems(b)) {
+    match (list_as_slice(a), list_as_slice(b)) {
         (Some(la), Some(lb)) => {
             if la.len() != lb.len() {
                 return false;
@@ -1139,8 +1201,8 @@ pub extern "C" fn echo_runtime_string_builder_push_value(b: i64, v: i64) {
     if builder.header.magic != HEAP_MAGIC || builder.header.kind != KIND_BUILDER {
         return;
     }
-    if let Some(s) = string_data(v) {
-        builder.buf.push_str(&s);
+    if let Some(s) = string_as_str(v) {
+        builder.buf.push_str(s);
         return;
     }
     if let Some(h) = unsafe { header_at(v) } {
@@ -1193,6 +1255,42 @@ pub unsafe extern "C" fn echo_runtime_list_push(list: i64, value: i64) {
         return;
     }
     list.elems.push(value);
+}
+
+/// Reserve capacity for at least `additional` more pushes (no-op if invalid).
+///
+/// # Safety
+/// `list` must be a valid list handle or 0.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn echo_runtime_list_reserve(list: i64, additional: i64) {
+    if list == 0 || additional <= 0 {
+        return;
+    }
+    let list = unsafe { &mut *(list as *mut EchoList) };
+    if list.header.magic != HEAP_MAGIC || list.header.kind != KIND_LIST {
+        return;
+    }
+    list.elems.reserve(additional as usize);
+}
+
+/// Outer list of `n` distinct empty list handles (hash-table bucket array).
+///
+/// Faster than an Echo loop of `n` × `[]` + push for map/set rehash paths.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_list_new_empty_lists(n: i64) -> i64 {
+    if n <= 0 {
+        return echo_runtime_list_new();
+    }
+    let n = n as usize;
+    let mut elems = Vec::with_capacity(n);
+    for _ in 0..n {
+        elems.push(echo_runtime_list_new());
+    }
+    let list = Box::new(EchoList {
+        header: list_header(),
+        elems,
+    });
+    heap_to_handle(list)
 }
 
 /// Length of a list **or** inclusive range handle.
@@ -1619,6 +1717,78 @@ mod tests {
             bytes_data(echo_runtime_bytes_from_str(s)).as_deref(),
             Some(&b"Hi"[..])
         );
+    }
+
+    #[test]
+    fn str_repeat_linear() {
+        let s = unsafe { echo_runtime_string_from_utf8(b"ab".as_ptr(), 2) };
+        let r = echo_runtime_str_repeat(s, 4);
+        assert_eq!(string_data(r).as_deref(), Some("abababab"));
+        assert_eq!(string_data(echo_runtime_str_repeat(s, 0)).as_deref(), Some(""));
+        assert_eq!(string_data(echo_runtime_str_repeat(s, -1)).as_deref(), Some(""));
+    }
+
+    #[test]
+    fn list_reserve_allows_push() {
+        let h = echo_runtime_list_new();
+        unsafe {
+            echo_runtime_list_reserve(h, 100);
+            for i in 0..100 {
+                echo_runtime_list_push(h, i);
+            }
+            assert_eq!(echo_runtime_list_len(h), 100);
+            assert_eq!(echo_runtime_list_get(h, 50), 50);
+        }
+    }
+
+    #[test]
+    fn list_new_empty_lists_n() {
+        let h = echo_runtime_list_new_empty_lists(8);
+        unsafe {
+            assert_eq!(echo_runtime_list_len(h), 8);
+            for i in 0..8 {
+                let chain = echo_runtime_list_get(h, i);
+                assert_ne!(chain, 0);
+                assert_eq!(echo_runtime_list_len(chain), 0);
+                // Distinct handles.
+                if i > 0 {
+                    assert_ne!(chain, echo_runtime_list_get(h, i - 1));
+                }
+            }
+        }
+    }
+
+    /// Indexing must not clone the whole buffer per access (was O(n²) for scans).
+    #[test]
+    fn bytes_get_scans_without_full_clone() {
+        let n = 4096usize;
+        let raw = vec![0xABu8; n];
+        let h = unsafe { echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len()) };
+        assert_eq!(echo_runtime_bytes_len(h), n as i64);
+        // Full linear scan — correctness; perf is covered by benches.
+        let mut sum = 0i64;
+        for i in 0..n as i64 {
+            let b = echo_runtime_bytes_get(h, i);
+            assert_eq!(b, 0xAB);
+            sum += b;
+        }
+        assert_eq!(sum, (n as i64) * 0xAB);
+        assert_eq!(echo_runtime_bytes_get(h, n as i64), -1);
+        assert_eq!(echo_runtime_bytes_get(h, -1), -1);
+        // Borrowed view must match owned copy API.
+        assert_eq!(bytes_as_slice(h).map(|s| s.len()), Some(n));
+        assert_eq!(bytes_data(h).as_deref(), Some(raw.as_slice()));
+    }
+
+    #[test]
+    fn string_get_scans_without_full_clone() {
+        let s = "x".repeat(2048);
+        let h = unsafe { echo_runtime_string_from_utf8(s.as_ptr(), s.len()) };
+        assert_eq!(echo_runtime_str_len(h), 2048);
+        for i in 0..2048i64 {
+            assert_eq!(echo_runtime_str_get(h, i), i64::from(b'x'));
+        }
+        assert_eq!(echo_runtime_str_get(h, 2048), -1);
     }
 
     #[test]

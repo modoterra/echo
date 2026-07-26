@@ -54,7 +54,10 @@ bench-host:
     # Prefer newest hashed staticlib under deps/ if stage left a stale unhashed name.
     if ls -1t target/release/deps/libecho_runtime-*.a >/dev/null 2>&1; then
       src="$(ls -1t target/release/deps/libecho_runtime-*.a | head -1)"
-      cp -f "$src" target/release/libecho_runtime.a
+      # stage-runtime-lib may already have linked the same path — skip no-op cp.
+      if [[ "$(realpath "$src")" != "$(realpath target/release/libecho_runtime.a 2>/dev/null || true)" ]]; then
+        cp -f "$src" target/release/libecho_runtime.a
+      fi
     fi
     test -x target/release/xo
     test -f target/release/libecho_runtime.a

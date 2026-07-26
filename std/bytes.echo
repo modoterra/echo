@@ -21,12 +21,14 @@ $ is_empty = (b) {
     ^ len(b) == 0
 }
 
+; Bounds-checked index. Runtime get returns -1 for OOB/invalid (single probe;
+; no separate len walk on the hot path).
 $ get = (b, i) {
-    $ n = runtime.bytes_len(b)
-    ? i < 0 || i >= n {
+    $ x = runtime.bytes_get(b, i)
+    ? x < 0 {
         ! "out of bounds"
     }
-    ^ <ui8> runtime.bytes_get(b, i)
+    ^ <ui8> x
 }
 
 $ slice = (b, start, end) {

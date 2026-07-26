@@ -7,7 +7,8 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::{
     bytes_to_handle, echo_runtime_float_from_f64, echo_runtime_float_to_f64, echo_runtime_list_new,
-    echo_runtime_list_push, echo_runtime_struct_new, string_data, string_to_handle, struct_set_str,
+    echo_runtime_list_push, echo_runtime_struct_new, string_as_str, string_data, string_to_handle,
+    struct_set_str,
 };
 
 // --- Math (f64 heap floats) ---
@@ -305,22 +306,14 @@ pub extern "C" fn echo_runtime_dns_lookup(host: i64) -> i64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_sha256(data: i64) -> i64 {
     use sha2::{Digest, Sha256};
-    let bytes = if let Some(s) = string_data(data) {
-        s.into_bytes()
-    } else if crate::is_live_heap(data) {
-        let n = crate::echo_runtime_bytes_len(data);
-        if n < 0 {
-            return 0;
-        }
-        let mut buf = Vec::with_capacity(n as usize);
-        for i in 0..n {
-            buf.push(crate::echo_runtime_bytes_get(data, i) as u8);
-        }
-        buf
+    // Borrow string/bytes once — never walk byte-by-byte through get (that was O(n²)).
+    let hash = if let Some(s) = string_as_str(data) {
+        Sha256::digest(s.as_bytes())
+    } else if let Some(b) = crate::bytes_as_slice(data) {
+        Sha256::digest(b)
     } else {
         return 0;
     };
-    let hash = Sha256::digest(&bytes);
     bytes_to_handle(hash.to_vec())
 }
 
@@ -477,19 +470,11 @@ pub extern "C" fn echo_runtime_str_replace(s: i64, from: i64, to: i64) -> i64 {
 // --- Hex / Base64 (crate-backed; do not hand-roll codecs here) ---
 
 fn data_bytes(data: i64) -> Option<Vec<u8>> {
-    if let Some(s) = string_data(data) {
-        return Some(s.into_bytes());
+    if let Some(s) = string_as_str(data) {
+        return Some(s.as_bytes().to_vec());
     }
-    if crate::is_live_heap(data) {
-        let n = crate::echo_runtime_bytes_len(data);
-        if n < 0 {
-            return None;
-        }
-        let mut buf = Vec::with_capacity(n as usize);
-        for i in 0..n {
-            buf.push(crate::echo_runtime_bytes_get(data, i) as u8);
-        }
-        return Some(buf);
+    if let Some(b) = crate::bytes_as_slice(data) {
+        return Some(b.to_vec());
     }
     None
 }

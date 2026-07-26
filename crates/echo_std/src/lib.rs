@@ -35,7 +35,8 @@ use echo_codegen_abi::{
     RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME,
     RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG,
     RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET,
-    RT_STR_LEN, RT_STR_SLICE, RT_STR_STARTS_WITH, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT,
+    RT_STR_LEN, RT_STR_REPEAT, RT_STR_SLICE, RT_STR_STARTS_WITH, RT_LIST_RESERVE,
+    RT_LIST_NEW_EMPTY_LISTS, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT,
     RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH,
     RT_TEST_REGISTER,
     RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
@@ -158,6 +159,18 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
     RuntimeExport {
         name: "str_ends_with",
         native: RT_STR_ENDS_WITH,
+    },
+    RuntimeExport {
+        name: "str_repeat",
+        native: RT_STR_REPEAT,
+    },
+    RuntimeExport {
+        name: "list_reserve",
+        native: RT_LIST_RESERVE,
+    },
+    RuntimeExport {
+        name: "list_new_empty_lists",
+        native: RT_LIST_NEW_EMPTY_LISTS,
     },
     RuntimeExport {
         name: "float_from_f64",

@@ -215,6 +215,11 @@ fn managed_children(handle: i64) -> Vec<i64> {
 }
 
 /// Remove ownership without free (e.g. return / transfer out of analysis).
+///
+/// **Graph disown:** the handle and every managed child reachable through list
+/// elements / struct fields leave ownership together. Returning a nest like
+/// `holder = [xs]` must not free `xs` on the subsequent scope exit while
+/// `holder` escapes.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_scope_disown(handle: i64) {
     if handle == 0 {
@@ -222,16 +227,37 @@ pub extern "C" fn echo_runtime_scope_disown(handle: i64) {
     }
     STATE.with(|c| {
         let mut st = c.borrow_mut();
-        if let Some(idx) = st.owner.remove(&handle) {
-            if idx < st.stack.len() {
-                st.stack[idx].owned.remove(&handle);
+        if !is_managed_handle(handle) {
+            // Bare integers / non-heap: no-op (scalar return temps).
+            return;
+        }
+        let mut queue = VecDeque::new();
+        queue.push_back(handle);
+        let mut seen = HashSet::new();
+        while let Some(h) = queue.pop_front() {
+            if !seen.insert(h) {
+                continue;
             }
-        } else {
-            for f in st.stack.iter_mut() {
-                f.owned.remove(&handle);
+            disown_one(&mut st, h);
+            for child in managed_children(h) {
+                if is_managed_handle(child) {
+                    queue.push_back(child);
+                }
             }
         }
     });
+}
+
+fn disown_one(st: &mut ScopeState, handle: i64) {
+    if let Some(idx) = st.owner.remove(&handle) {
+        if idx < st.stack.len() {
+            st.stack[idx].owned.remove(&handle);
+        }
+    } else {
+        for f in st.stack.iter_mut() {
+            f.owned.remove(&handle);
+        }
+    }
 }
 
 /// Logical release of one value (immediate lightweight free when possible).
@@ -488,6 +514,36 @@ mod tests {
         echo_runtime_scope_release(h);
         echo_runtime_scope_release(h); // no crash
         echo_runtime_scope_exit(1);
+        test_reset();
+    }
+
+    #[test]
+    fn disown_graph_keeps_nested_child_live_across_exit() {
+        use crate::echo_runtime_list_push;
+        test_reset();
+        echo_runtime_scope_enter(1);
+        let child = echo_runtime_list_new();
+        echo_runtime_scope_register(child);
+        let holder = echo_runtime_list_new();
+        unsafe {
+            echo_runtime_list_push(holder, child);
+        }
+        echo_runtime_scope_register(holder);
+        // Return nest: disown holder must also drop ownership of child.
+        echo_runtime_scope_disown(holder);
+        assert!(!test_is_owned(holder));
+        assert!(
+            !test_is_owned(child),
+            "child must leave ownership with graph disown"
+        );
+        echo_runtime_scope_exit(1);
+        // Handles must still be readable (not physically freed).
+        assert_eq!(unsafe { crate::echo_runtime_list_len(holder) }, 1);
+        assert_eq!(unsafe { crate::echo_runtime_list_get(holder, 0) }, child);
+        assert_eq!(unsafe { crate::echo_runtime_list_len(child) }, 0);
+        // Manual free for test cleanup (not scope-owned).
+        physical_free(child);
+        physical_free(holder);
         test_reset();
     }
 

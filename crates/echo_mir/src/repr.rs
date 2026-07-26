@@ -317,6 +317,21 @@ fn infer_binary(op: BinaryOp, left: MirRepr, right: MirRepr) -> MirRepr {
                 MirRepr::Float64
             } else if left == MirRepr::Float32 && right == MirRepr::Float32 {
                 MirRepr::Float32
+            } else if (left == MirRepr::Float64 || right == MirRepr::Float64)
+                && (left == MirRepr::Float64
+                    || right == MirRepr::Float64
+                    || left.is_universal()
+                    || right.is_universal())
+            {
+                // Boxed float handle + float literal / peer (codegen unboxes via float_to_f64).
+                MirRepr::Float64
+            } else if (left == MirRepr::Float32 || right == MirRepr::Float32)
+                && (left == MirRepr::Float32
+                    || right == MirRepr::Float32
+                    || left.is_universal()
+                    || right.is_universal())
+            {
+                MirRepr::Float32
             } else {
                 MirRepr::Unknown
             }
@@ -653,22 +668,29 @@ fn rewrite_expr_abi(
             let (p2, right) = rewrite_expr_abi(*right, reprs, fresh);
             let mut pre = p1;
             pre.extend(p2);
-            // For int arith, ensure Int64 operands
-            let needs_int = matches!(
-                op,
-                BinaryOp::Add
-                    | BinaryOp::Sub
-                    | BinaryOp::Mul
-                    | BinaryOp::Div
-                    | BinaryOp::Rem
-                    | BinaryOp::Lt
-                    | BinaryOp::Gt
-                    | BinaryOp::LtEq
-                    | BinaryOp::GtEq
-            );
+            // For int arith, ensure Int64 operands. Do **not** force Int64 when
+            // either side is float — that unboxed heap floats as integers and
+            // broke `x + 1.0` / `a < 4.0` (codegen then saw f64 bits as i64).
+            let lr = infer_expr(&left, reprs);
+            let rr = infer_expr(&right, reprs);
+            let either_float = lr == MirRepr::Float64
+                || rr == MirRepr::Float64
+                || lr == MirRepr::Float32
+                || rr == MirRepr::Float32;
+            let needs_int = !either_float
+                && matches!(
+                    op,
+                    BinaryOp::Add
+                        | BinaryOp::Sub
+                        | BinaryOp::Mul
+                        | BinaryOp::Div
+                        | BinaryOp::Rem
+                        | BinaryOp::Lt
+                        | BinaryOp::Gt
+                        | BinaryOp::LtEq
+                        | BinaryOp::GtEq
+                );
             if needs_int {
-                let lr = infer_expr(&left, reprs);
-                let rr = infer_expr(&right, reprs);
                 let (left, extra1) = if lr == MirRepr::Int64 {
                     (left, vec![])
                 } else if lr.is_universal() {

@@ -74,8 +74,12 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_string_builder_*` | new / push_str / push_value / finish | Rich `{name}` interpolation |
 | `echo_runtime_list_new` | `int64_t echo_runtime_list_new(void)` | Empty list handle (pointer bits) |
 | `echo_runtime_list_push` | `void echo_runtime_list_push(int64_t list, int64_t v)` | Append element |
+| `echo_runtime_list_reserve` | `void (int64_t list, int64_t additional)` | Reserve push capacity |
+| `echo_runtime_list_new_empty_lists` | `int64_t (int64_t n)` | Outer list of `n` fresh empty lists (hash-table buckets) |
 | `echo_runtime_list_len` | `int64_t echo_runtime_list_len(int64_t list)` | Length |
 | `echo_runtime_list_get` | `int64_t echo_runtime_list_get(int64_t list, int64_t i)` | Element or 0 |
+| `echo_runtime_str_repeat` | `int64_t (int64_t s, int64_t n)` | String `s` repeated `n` times (O(n·\|s\|)) |
+| `echo_runtime_bytes_get` | `int64_t (int64_t bytes, int64_t i)` | Byte 0..255 or -1 OOB (**borrows**; no full-buffer clone) |
 | `echo_runtime_list_set` | `void echo_runtime_list_set(int64_t list, int64_t i, int64_t v)` | Store or soft no-op OOB |
 | `echo_runtime_struct_new` | `int64_t echo_runtime_struct_new(void)` | Empty **anonymous** struct handle (no type tag) |
 | `echo_runtime_struct_new_named` | `int64_t (const uint8_t *name, size_t)` | Empty struct with `% Shape` type tag |

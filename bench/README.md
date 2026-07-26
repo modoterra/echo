@@ -40,12 +40,17 @@ built in the bench body (Echo free functions are closed; no outer captures).
 | `sum_ints_1k` / `10k` | `std/list.echo` | ~Θ(n) scale |
 | `sort_ints_1k` | `std/list.echo` | heavier than sum |
 | `seed_1k_get` | `std/collections/map.echo` | hash table + sip |
-| `checksum_*` | `std/bytes.echo` | `bytes.get` tax |
+| `checksum_*` | `std/bytes.echo` | `bytes.get` scan (setup uses `str.repeat` O(n)) |
 | `sha256_*` | `std/crypto/hash/sha256.echo` | native floor |
 | `empty_call` | `examples/algos/call.echo` | call floor |
 
 **Ratios (same run):** e.g. `list_sum_10k / list_sum_1k ≈ 10`, `sort_1k ≫ sum_1k`,
 `sip_1k ≫ sip_empty`, `sip_empty` near thin floor after lowerability.
+
+**Runtime hot-path notes (keep green):** `bytes_get`/`str_get`/`bytes_len` must
+**borrow** heap payloads (no full-buffer clone per index). `str.repeat` is O(n)
+via `runtime.str_repeat`. Map/set bucket arrays use
+`runtime.list_new_empty_lists`.
 
 ## Notes
 

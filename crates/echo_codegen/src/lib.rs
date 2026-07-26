@@ -20,15 +20,16 @@ use echo_codegen_abi::{
     C_MAIN, ECHO_ENTRY, RT_ABORT, RT_BYTES_FROM_PTR, RT_EQ, RT_EQ_ID, RT_FLOAT_FROM_F64,
     RT_FLOAT_TO_F64, RT_FN_CODE, RT_FN_NEW, RT_FN_SHAPE, RT_HTTP_HEADERS_COMPLETE,
     RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET,
-    RT_LIST_LEN, RT_LIST_NEW, RT_LIST_PUSH, RT_LIST_SET, RT_LOCATOR_FROM_UTF8, RT_NE, RT_NE_ID,
+    RT_LIST_LEN, RT_LIST_NEW, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_PUSH, RT_LIST_RESERVE, RT_LIST_SET,
+    RT_LOCATOR_FROM_UTF8, RT_NE, RT_NE_ID,
     RT_PRINT_I64, RT_RANGE_NEW, RT_STR_BUILDER_FINISH, RT_STR_BUILDER_NEW, RT_STR_BUILDER_PUSH_STR,
     RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
     RT_STR_BUILDER_PUSH_VALUE, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
     RT_STR_FROM_FLOAT,
     RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
     RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_STR_CAT, RT_STR_CONTAINS,
-    RT_STR_ENDS_WITH, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_SLICE,
-    RT_STR_STARTS_WITH, RT_STRING_FROM_UTF8,
+    RT_STR_ENDS_WITH, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_REPEAT,
+    RT_STR_SLICE, RT_STR_STARTS_WITH, RT_STRING_FROM_UTF8,
     RT_STRUCT_GET, RT_STRUCT_NEW, RT_STRUCT_NEW_NAMED, RT_STRUCT_TYPE_IS,
     RT_STRUCT_SET, RT_SCOPE_DISOWN, RT_SCOPE_ENTER, RT_SCOPE_EXIT, RT_SCOPE_PROMOTE,
     RT_SCOPE_REGISTER, RT_SCOPE_RELEASE, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED,
@@ -136,6 +137,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_STR_CONTAINS, str_cat_ty, None);
     module.add_function(RT_STR_STARTS_WITH, str_cat_ty, None);
     module.add_function(RT_STR_ENDS_WITH, str_cat_ty, None);
+    module.add_function(RT_STR_REPEAT, str_cat_ty, None);
     let str_slice_ty = i64t.fn_type(&[i64t.into(), i64t.into(), i64t.into()], false);
     module.add_function(RT_STR_SLICE, str_slice_ty, None);
     module.add_function(RT_BYTES_SLICE, str_slice_ty, None);
@@ -170,10 +172,13 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
 
     let list_new_ty = i64t.fn_type(&[], false);
     module.add_function(RT_LIST_NEW, list_new_ty, None);
+    let list_new_n_ty = i64t.fn_type(&[i64t.into()], false);
+    module.add_function(RT_LIST_NEW_EMPTY_LISTS, list_new_n_ty, None);
     let list_push_ty = context
         .void_type()
         .fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_LIST_PUSH, list_push_ty, None);
+    module.add_function(RT_LIST_RESERVE, list_push_ty, None);
     let list_len_ty = i64t.fn_type(&[i64t.into()], false);
     module.add_function(RT_LIST_LEN, list_len_ty, None);
     let list_get_ty = i64t.fn_type(&[i64t.into(), i64t.into()], false);
@@ -706,6 +711,12 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_STR_REPEAT,
+        echo_runtime_str_repeat as extern "C" fn(i64, i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_STR_FROM_FLOAT,
         echo_runtime_str_from_float as extern "C" fn(i64) -> i64 as usize,
     )?;
@@ -803,8 +814,20 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
     map_runtime_symbol(
         &module,
         &ee,
+        RT_LIST_NEW_EMPTY_LISTS,
+        echo_runtime_list_new_empty_lists as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
         RT_LIST_PUSH,
         echo_runtime_list_push as unsafe extern "C" fn(i64, i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_LIST_RESERVE,
+        echo_runtime_list_reserve as unsafe extern "C" fn(i64, i64) as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -1728,14 +1751,16 @@ use echo_runtime::{
     echo_runtime_float_from_f64, echo_runtime_float_to_f64, echo_runtime_fn_code,
     echo_runtime_fn_new, echo_runtime_fn_shape, echo_runtime_http_headers_complete,
     echo_runtime_http_parse_request, echo_runtime_http_request_complete,
-    echo_runtime_list_get, echo_runtime_list_len, echo_runtime_list_new, echo_runtime_list_push,
-    echo_runtime_list_set, echo_runtime_locator_from_utf8, echo_runtime_ne, echo_runtime_ne_id,
+    echo_runtime_list_get, echo_runtime_list_len, echo_runtime_list_new,
+    echo_runtime_list_new_empty_lists, echo_runtime_list_push, echo_runtime_list_reserve,
+    echo_runtime_list_set, echo_runtime_locator_from_utf8,
+    echo_runtime_ne, echo_runtime_ne_id,
     echo_runtime_print_i64, echo_runtime_range_new, echo_runtime_reflect_key_bytes,
     echo_runtime_reflect_kind, echo_runtime_reflect_kind_name, echo_runtime_str_from_bytes,
     echo_runtime_str_cat, echo_runtime_str_contains, echo_runtime_str_ends_with,
     echo_runtime_str_from_debug, echo_runtime_str_from_duration, echo_runtime_str_from_float,
     echo_runtime_str_from_int, echo_runtime_str_get, echo_runtime_str_len,
-    echo_runtime_str_slice, echo_runtime_str_starts_with,
+    echo_runtime_str_repeat, echo_runtime_str_slice, echo_runtime_str_starts_with,
     echo_runtime_str_from_locator, echo_runtime_string_builder_finish,
     echo_runtime_string_builder_new, echo_runtime_string_builder_push_str,
     echo_runtime_string_builder_push_value, echo_runtime_string_from_utf8,
@@ -3254,6 +3279,36 @@ fn box_value<'ctx>(
     v: BasicValueEnum<'ctx>,
     from: MirRepr,
 ) -> Option<IntValue<'ctx>> {
+    // Prefer actual LLVM type when MIR repr is under-specified (Boxed/Unknown
+    // after float arith) so we never `into_int_value` on a double.
+    if v.is_float_value()
+        && matches!(
+            from,
+            MirRepr::Float64 | MirRepr::Float32 | MirRepr::Boxed | MirRepr::Unknown
+        )
+    {
+        let f = v.into_float_value();
+        let f64v = if f.get_type() == cx.f64t {
+            f
+        } else {
+            cx.builder
+                .build_float_ext(f, cx.f64t, "box.fpext")
+                .expect("fpext")
+        };
+        let from_f = cx
+            .module
+            .get_function(RT_FLOAT_FROM_F64)
+            .expect("float_from_f64");
+        let call = cx
+            .builder
+            .build_call(from_f, &[f64v.into()], "box.f64")
+            .expect("float_from_f64");
+        return Some(
+            call.try_as_basic_value()
+                .unwrap_basic()
+                .into_int_value(),
+        );
+    }
     match from {
         MirRepr::Int64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => {
             Some(v.into_int_value())
@@ -3549,6 +3604,24 @@ fn emit_call<'ctx>(
                 let _ = cx.builder.build_call(f, &[msg.into()], "").expect("test_fail");
                 return Some(cx.i64t.const_int(0, false));
             }
+            // list_reserve(list, additional): void, return 0.
+            if native == RT_LIST_RESERVE {
+                if args.len() != 2 {
+                    cx.diags.push(
+                        Diagnostic::error("runtime.list_reserve expects two arguments")
+                            .with_code("cg-runtime"),
+                    );
+                    return None;
+                }
+                let list = emit_expr_i64(cx, &args[0])?;
+                let add = emit_expr_i64(cx, &args[1])?;
+                let f = cx.module.get_function(RT_LIST_RESERVE).expect("list_reserve");
+                let _ = cx
+                    .builder
+                    .build_call(f, &[list.into(), add.into()], "")
+                    .expect("list_reserve");
+                return Some(cx.i64t.const_int(0, false));
+            }
             // sleep_ms: void, return 0.
             if native == RT_RANDOM_SEED {
                 if args.len() != 1 {
@@ -3641,6 +3714,7 @@ fn emit_call<'ctx>(
                 || native == RT_STR_LEN
                 || native == RT_BYTES_LEN
                 || native == RT_LIST_LEN
+                || native == RT_LIST_NEW_EMPTY_LISTS
                 || native == RT_BYTES_FROM_I64
                 || native == RT_BYTES_FROM_STR
                 || native == RT_REFLECT_KIND
@@ -3712,6 +3786,7 @@ fn emit_call<'ctx>(
                 || native == RT_STR_CONTAINS
                 || native == RT_STR_STARTS_WITH
                 || native == RT_STR_ENDS_WITH
+                || native == RT_STR_REPEAT
                 || native == RT_BYTES_GET
                 || native == RT_STR_GET
                 || native == RT_BYTES_CAT

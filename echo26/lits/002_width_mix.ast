@@ -3,4 +3,4 @@ file
     name x
     binary Add
       number_i32 1
-      number_i64 2
+      number_ui64 2

@@ -99,6 +99,15 @@ pub const RT_STR_STARTS_WITH: &str = "echo_runtime_str_starts_with";
 /// `echo_runtime_str_ends_with(s, suffix) -> i64` — 1/0.
 pub const RT_STR_ENDS_WITH: &str = "echo_runtime_str_ends_with";
 
+/// `echo_runtime_str_repeat(s, n) -> string` — `s` concatenated `n` times (O(n·|s|)).
+pub const RT_STR_REPEAT: &str = "echo_runtime_str_repeat";
+
+/// `echo_runtime_list_reserve(list, additional) -> void` — reserve capacity for push.
+pub const RT_LIST_RESERVE: &str = "echo_runtime_list_reserve";
+
+/// `echo_runtime_list_new_empty_lists(n) -> list` — outer list of `n` fresh empty lists.
+pub const RT_LIST_NEW_EMPTY_LISTS: &str = "echo_runtime_list_new_empty_lists";
+
 /// Box an `f64` as a heap float handle (`i64` bits).
 pub const RT_FLOAT_FROM_F64: &str = "echo_runtime_float_from_f64";
 
