@@ -36,17 +36,18 @@ std-test:
     cargo build -q -p xo
     ./target/debug/xo test std
 
-# Co-located std benchmarks (auto-N / ns/op; ~1s each)
-std-bench:
+# Co-located std benchmarks at -O2 (auto-N / ns/op; ~1s each)
+# Override: just std-bench O=0
+std-bench O="2":
     cargo build -q -p xo
     mkdir -p .xo/bench
-    ./target/debug/xo test --bench std --bench-out .xo/bench/last.jsonl
+    ./target/debug/xo test --bench -O{{O}} std --bench-out .xo/bench/last.jsonl
 
 # Re-run std benches and compare to .xo/bench/baseline.jsonl (20% worse → fail)
-std-bench-compare:
+std-bench-compare O="2":
     cargo build -q -p xo
     mkdir -p .xo/bench
-    ./target/debug/xo test --bench std \
+    ./target/debug/xo test --bench -O{{O}} std \
       --bench-out .xo/bench/last.jsonl \
       --bench-baseline .xo/bench/baseline.jsonl \
       --bench-threshold 20

@@ -23,20 +23,28 @@ static BENCH_OUT_LOCK: Mutex<()> = Mutex::new(());
 static BENCH_OUT_CFG: Mutex<BenchOutCfg> = Mutex::new(BenchOutCfg {
     path: None,
     file: None,
+    opt: None,
 });
 
 struct BenchOutCfg {
     path: Option<std::path::PathBuf>,
     file: Option<String>,
+    /// LLVM opt token (`O0`…`Oz`) for JSONL provenance.
+    opt: Option<String>,
 }
 
 /// Configure streaming JSONL output for this process (JIT / in-process hosts).
 ///
-/// AOT children still use `XO_BENCH_OUT` / `XO_BENCH_FILE` environment variables.
-pub fn echo_runtime_bench_configure(out: Option<&std::path::Path>, file: Option<&str>) {
+/// AOT children still use `XO_BENCH_OUT` / `XO_BENCH_FILE` / `XO_BENCH_OPT`.
+pub fn echo_runtime_bench_configure(
+    out: Option<&std::path::Path>,
+    file: Option<&str>,
+    opt: Option<&str>,
+) {
     let mut g = BENCH_OUT_CFG.lock().unwrap_or_else(|e| e.into_inner());
     g.path = out.map(|p| p.to_path_buf());
     g.file = file.map(|s| s.to_string());
+    g.opt = opt.map(|s| s.to_string());
 }
 
 /// Case-body timings: integer nanoseconds (suite cases are usually sub-ms).
@@ -285,7 +293,7 @@ fn json_escape(s: &str) -> String {
 ///
 /// Optional file label from `XO_BENCH_FILE` / configure labels the suite entry.
 fn append_bench_jsonl(result: Result<BenchRecord<'_>, &str>) {
-    let (path, file) = {
+    let (path, file, opt) = {
         let g = BENCH_OUT_CFG.lock().unwrap_or_else(|e| e.into_inner());
         let path = g
             .path
@@ -296,24 +304,31 @@ fn append_bench_jsonl(result: Result<BenchRecord<'_>, &str>) {
             .clone()
             .or_else(|| std::env::var("XO_BENCH_FILE").ok())
             .unwrap_or_default();
-        (path, file)
+        let opt = g
+            .opt
+            .clone()
+            .or_else(|| std::env::var("XO_BENCH_OPT").ok())
+            .unwrap_or_else(|| "O0".into());
+        (path, file, opt)
     };
     let Some(path) = path else {
         return;
     };
     let line = match result {
         Ok(r) => format!(
-            "{{\"v\":1,\"file\":\"{}\",\"name\":\"{}\",\"status\":\"ok\",\"n\":{},\"ns_per_op\":{},\"total_ns\":{}}}\n",
+            "{{\"v\":1,\"file\":\"{}\",\"name\":\"{}\",\"opt\":\"{}\",\"status\":\"ok\",\"n\":{},\"ns_per_op\":{},\"total_ns\":{}}}\n",
             json_escape(&file),
             json_escape(r.name),
+            json_escape(&opt),
             r.n,
             r.ns_per_op,
             r.total_ns
         ),
         Err(name) => format!(
-            "{{\"v\":1,\"file\":\"{}\",\"name\":\"{}\",\"status\":\"fail\"}}\n",
+            "{{\"v\":1,\"file\":\"{}\",\"name\":\"{}\",\"opt\":\"{}\",\"status\":\"fail\"}}\n",
             json_escape(&file),
-            json_escape(name)
+            json_escape(name),
+            json_escape(&opt)
         ),
     };
     let _guard = BENCH_OUT_LOCK.lock().unwrap_or_else(|e| e.into_inner());

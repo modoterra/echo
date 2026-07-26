@@ -141,6 +141,9 @@ enum Command {
     ///
     /// Results can stream to JSONL (`--bench-out`) and be compared to a prior
     /// run (`--bench-baseline`, optional `--bench-threshold` percent).
+    ///
+    /// LLVM mid-end / AOT opt level via `-O` / `--opt-level` (same as `xo run`).
+    /// Default `0`. Prefer `-O2` for meaningful benches; JSONL records the level.
     Test {
         /// Run benchmarks only (`test.bench`); skip ordinary test cases.
         #[arg(long)]
@@ -155,6 +158,15 @@ enum Command {
         /// (ns/op increase). Default: report only (no fail). Requires baseline.
         #[arg(long, value_name = "PCT", requires = "bench_baseline")]
         bench_threshold: Option<f64>,
+        /// LLVM optimization level: 0, 1, 2, 3, or z (Oz). Default 0.
+        /// Applies to suite compile (tests and benches). Recorded in bench JSONL.
+        #[arg(
+            short = 'O',
+            long = "opt-level",
+            default_value = "0",
+            value_name = "LEVEL"
+        )]
+        opt_level: String,
         /// Files, directories, or glob patterns.
         paths: Vec<String>,
     },
@@ -323,16 +335,24 @@ fn main() -> ExitCode {
             bench_out,
             bench_baseline,
             bench_threshold,
+            opt_level,
             paths,
-        } => cmd_test(
-            BenchTestOpts {
-                bench,
-                bench_out,
-                bench_baseline,
-                bench_threshold,
-            },
-            &paths,
-        ),
+        } => match parse_opt_level(&opt_level) {
+            Ok(opt) => cmd_test(
+                BenchTestOpts {
+                    bench,
+                    bench_out,
+                    bench_baseline,
+                    bench_threshold,
+                    opt,
+                },
+                &paths,
+            ),
+            Err(e) => {
+                eprintln!("xo test: {e}");
+                ExitCode::from(2)
+            }
+        },
         Command::Check {
             diag_codes,
             graph,
@@ -791,6 +811,8 @@ struct SuiteRun {
     bench_out: Option<PathBuf>,
     /// Suite entry label written into JSONL (`XO_BENCH_FILE`).
     bench_file: Option<String>,
+    /// Opt level token written into JSONL (`XO_BENCH_OPT`), e.g. `O2`.
+    bench_opt: Option<String>,
 }
 
 impl SuiteRun {
@@ -804,15 +826,17 @@ impl SuiteRun {
             bench: false,
             bench_out: None,
             bench_file: None,
+            bench_opt: None,
         }
     }
 
-    fn benches(out: Option<PathBuf>, file_label: String) -> Self {
+    fn benches(out: Option<PathBuf>, file_label: String, opt: String) -> Self {
         Self {
             enabled: true,
             bench: true,
             bench_out: out,
             bench_file: Some(file_label),
+            bench_opt: Some(opt),
         }
     }
 }
@@ -912,6 +936,9 @@ fn cmd_run_inner(
         }
         if let Some(label) = &suite.bench_file {
             cmd.env("XO_BENCH_FILE", label);
+        }
+        if let Some(opt) = &suite.bench_opt {
+            cmd.env("XO_BENCH_OPT", opt);
         }
     }
     let status = cmd.status();
@@ -1222,6 +1249,7 @@ struct BenchTestOpts {
     bench_out: Option<PathBuf>,
     bench_baseline: Option<PathBuf>,
     bench_threshold: Option<f64>,
+    opt: OptLevel,
 }
 
 /// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
@@ -1253,6 +1281,10 @@ fn cmd_test(opts: BenchTestOpts, paths: &[String]) -> ExitCode {
             eprintln!("{label}: --bench-out / --bench-baseline require --bench");
             return ExitCode::from(2);
         }
+    }
+
+    if opts.bench {
+        eprintln!("{label}: LLVM opt={}", opts.opt.as_str());
     }
 
     let files = match collect_test_files(paths) {
@@ -1346,6 +1378,7 @@ fn apply_suite_env(suite: &SuiteRun) {
     echo_runtime::echo_runtime_bench_configure(
         suite.bench_out.as_deref(),
         suite.bench_file.as_deref(),
+        suite.bench_opt.as_deref(),
     );
 }
 
@@ -1354,6 +1387,7 @@ fn run_suite_file(path: &Path, opts: &BenchTestOpts) -> u8 {
         SuiteRun::benches(
             opts.bench_out.clone(),
             path.display().to_string(),
+            opts.opt.as_str().to_string(),
         )
     } else {
         SuiteRun::tests()
@@ -1365,7 +1399,7 @@ fn run_suite_file(path: &Path, opts: &BenchTestOpts) -> u8 {
         false,
         false,
         false,
-        OptLevel::O0,
+        opts.opt,
         &[],
         suite,
     );
@@ -1382,14 +1416,15 @@ fn run_suite_file(path: &Path, opts: &BenchTestOpts) -> u8 {
 struct BenchRow {
     file: String,
     name: String,
+    opt: String,
     status: String,
     ns_per_op: Option<u128>,
     #[allow(dead_code)] // parsed for JSONL completeness / future reports
     n: Option<u64>,
 }
 
-fn bench_key(file: &str, name: &str) -> String {
-    format!("{}::{}", normalize_bench_path(file), name)
+fn bench_key(file: &str, name: &str, opt: &str) -> String {
+    format!("{}::{}@{}", normalize_bench_path(file), name, opt)
 }
 
 fn normalize_bench_path(p: &str) -> String {
@@ -1412,12 +1447,14 @@ fn parse_bench_jsonl(text: &str) -> Result<Vec<BenchRow>, String> {
 fn parse_bench_json_line(line: &str) -> Result<BenchRow, String> {
     let file = json_str_field(line, "file")?;
     let name = json_str_field(line, "name")?;
+    let opt = json_str_field(line, "opt").unwrap_or_else(|_| "O0".into());
     let status = json_str_field(line, "status")?;
     let ns_per_op = json_u128_field(line, "ns_per_op").ok();
     let n = json_u64_field(line, "n").ok();
     Ok(BenchRow {
         file,
         name,
+        opt,
         status,
         ns_per_op,
         n,
@@ -1480,7 +1517,7 @@ fn load_bench_map(path: &Path) -> Result<std::collections::BTreeMap<String, Benc
     let rows = parse_bench_jsonl(&text)?;
     let mut map = std::collections::BTreeMap::new();
     for row in rows {
-        map.insert(bench_key(&row.file, &row.name), row);
+        map.insert(bench_key(&row.file, &row.name, &row.opt), row);
     }
     Ok(map)
 }
@@ -1860,13 +1897,13 @@ mod tests {
     #[test]
     fn bench_jsonl_parse_and_compare() {
         let base = r#"
-{"v":1,"file":"std/math.echo","name":"abs_i","status":"ok","n":100,"ns_per_op":1000,"total_ns":100000}
-{"v":1,"file":"std/str.echo","name":"cat","status":"ok","n":50,"ns_per_op":2000,"total_ns":100000}
+{"v":1,"file":"std/math.echo","name":"abs_i","opt":"O2","status":"ok","n":100,"ns_per_op":1000,"total_ns":100000}
+{"v":1,"file":"std/str.echo","name":"cat","opt":"O2","status":"ok","n":50,"ns_per_op":2000,"total_ns":100000}
 "#;
         let cur = r#"
-{"v":1,"file":"std/math.echo","name":"abs_i","status":"ok","n":100,"ns_per_op":1300,"total_ns":130000}
-{"v":1,"file":"std/str.echo","name":"cat","status":"ok","n":50,"ns_per_op":1800,"total_ns":90000}
-{"v":1,"file":"std/list.echo","name":"sum","status":"ok","n":10,"ns_per_op":500,"total_ns":5000}
+{"v":1,"file":"std/math.echo","name":"abs_i","opt":"O2","status":"ok","n":100,"ns_per_op":1300,"total_ns":130000}
+{"v":1,"file":"std/str.echo","name":"cat","opt":"O2","status":"ok","n":50,"ns_per_op":1800,"total_ns":90000}
+{"v":1,"file":"std/list.echo","name":"sum","opt":"O2","status":"ok","n":10,"ns_per_op":500,"total_ns":5000}
 "#;
         let rows = parse_bench_jsonl(base).expect("base");
         assert_eq!(rows.len(), 2);

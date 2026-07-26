@@ -84,8 +84,9 @@ Co-located on pure-ish modules (CPU-bound; not fs/net/process):
 
 ```bash
 xo test --bench std
-xo test --bench std --bench-out .xo/bench/last.jsonl
-xo test --bench std --bench-out .xo/bench/last.jsonl \
+xo test --bench -O2 std
+xo test --bench -O2 std --bench-out .xo/bench/last.jsonl
+xo test --bench -O2 std --bench-out .xo/bench/last.jsonl \
   --bench-baseline .xo/bench/baseline.jsonl --bench-threshold 20
 ```
 
@@ -104,34 +105,37 @@ the run, then grown as cases complete (safe to `tail -f`).
 
 | Flag | Role |
 |------|------|
+| `-O` / `--opt-level LEVEL` | LLVM opt for suite compile: `0`/`1`/`2`/`3`/`z` (same as `xo run`). Default `0`. Prefer **`-O2`** for benches. |
 | `--bench-out PATH` | Stream JSONL results (requires `--bench`) |
 | `--bench-baseline PATH` | Prior JSONL to compare after the run (needs `--bench-out`) |
 | `--bench-threshold PCT` | Exit 1 if any case is **worse** than baseline by more than `PCT`% `ns/op` |
 
-JSONL fields: `v`, `file`, `name`, `status` (`ok`/`fail`), and on success
-`n`, `ns_per_op`, `total_ns`.
+JSONL fields: `v`, `file`, `name`, `opt` (`O0`…`Oz`), `status` (`ok`/`fail`),
+and on success `n`, `ns_per_op`, `total_ns`.
+
+Compare keys are `file::name@opt` so O0 and O2 baselines do not mix.
 
 Compare lines look like:
 
 ```text
-  REG  std/math.echo::abs_i  1000 → 1300 ns/op  (+30.0%)
-  IMP  std/str.echo::cat     2000 → 1800 ns/op  (-10.0%)
-  NEW  std/list.echo::sum    500ns/op
+  REG  std/math.echo::abs_i@O2  1000 → 1300 ns/op  (+30.0%)
+  IMP  std/str.echo::cat@O2     2000 → 1800 ns/op  (-10.0%)
+  NEW  std/list.echo::sum@O2    500ns/op
 summary: 1 regression(s), 1 improvement(s), 1 new, 0 gone
 ```
 
 Save a local baseline after a good run:
 
 ```bash
-xo test --bench std --bench-out .xo/bench/last.jsonl
+xo test --bench -O2 std --bench-out .xo/bench/last.jsonl
 cp .xo/bench/last.jsonl .xo/bench/baseline.jsonl
 # later:
-xo test --bench std --bench-out .xo/bench/last.jsonl \
+xo test --bench -O2 std --bench-out .xo/bench/last.jsonl \
   --bench-baseline .xo/bench/baseline.jsonl --bench-threshold 20
 ```
 
-Numbers are **single-run, O0 AOT** samples (see “How to give meaning” in session
-notes / keep recipes fixed). Do not treat absolute `ns/op` as portable truth.
+Keep the **opt level fixed** when comparing. Absolute `ns/op` is not portable
+across machines; use relative deltas on the same recipe.
 ## `xo test` CLI
 
 ```bash
