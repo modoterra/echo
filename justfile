@@ -3,9 +3,23 @@ set shell := ["bash", "-cu"]
 check:
     cargo check --workspace
 
+# Workspace check with warnings as errors (matches pre-commit).
+check-deny:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    extra=(-Dwarnings)
+    if [[ "$(uname -s)" == "Linux" ]] && command -v mold >/dev/null 2>&1; then
+      extra+=(-C "link-arg=-fuse-ld=mold")
+    fi
+    export RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }${extra[*]}"
+    cargo check --workspace --locked
+
+# Point this clone at versioned .githooks/ (pre-commit rustc clean).
+hooks:
+    scripts/install-hooks.sh
+
 test CRATE:
     cargo test -p {{CRATE}}
-
 test-fast:
     scripts/gate changed
 

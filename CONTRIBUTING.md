@@ -38,11 +38,20 @@ as described in the CLA.
 Requirements and the local edit/test loop are documented in
 [`docs/development-speed.md`](docs/development-speed.md).
 
+After clone, install Git hooks so commits that touch Rust fail on **errors or
+warnings**:
+
+```bash
+scripts/install-hooks.sh
+# or: just hooks
+```
+
 Useful commands:
 
 ```bash
 cargo build -p xo
 cargo test -p <crate>
+just check-deny          # same as pre-commit: workspace check, -Dwarnings
 scripts/gate changed
 scripts/gate echo26    # language / runtime surface changes
 scripts/gate workspace # broad check

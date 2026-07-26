@@ -35,6 +35,23 @@ just tools
 scripts/gate tools
 ```
 
+## Git hooks (warnings as errors)
+
+Versioned hooks live in [`.githooks/`](../.githooks/). Install once per clone:
+
+```bash
+scripts/install-hooks.sh
+# or: just hooks
+```
+
+That sets `core.hooksPath=.githooks`. **`pre-commit`** runs
+`cargo check --workspace` with `-Dwarnings` when the staged set includes
+Rust/Cargo (or the hooks themselves). Pure docs / `std/**/*.echo` /
+`www/` commits skip the check.
+
+- Manual equivalent: `just check-deny`
+- Emergency skip: `git commit --no-verify`
+
 ## Cache / incremental (infra)
 
 ```bash
