@@ -84,6 +84,9 @@ Co-located on pure-ish modules (CPU-bound; not fs/net/process):
 
 ```bash
 xo test --bench std
+xo test --bench std --bench-out .xo/bench/last.jsonl
+xo test --bench std --bench-out .xo/bench/last.jsonl \
+  --bench-baseline .xo/bench/baseline.jsonl --bench-threshold 20
 ```
 
 Example output:
@@ -93,6 +96,42 @@ bench abs_i  N=25000000  40ns/op  (1000000000ns)
 xo test --bench: 1 passed, 0 failed, 1 total (…)
 ```
 
+### Recording and comparing results
+
+While benches run, each finished case can be **appended as JSONL** (one object
+per line) when `--bench-out PATH` is set. The file is truncated at the start of
+the run, then grown as cases complete (safe to `tail -f`).
+
+| Flag | Role |
+|------|------|
+| `--bench-out PATH` | Stream JSONL results (requires `--bench`) |
+| `--bench-baseline PATH` | Prior JSONL to compare after the run (needs `--bench-out`) |
+| `--bench-threshold PCT` | Exit 1 if any case is **worse** than baseline by more than `PCT`% `ns/op` |
+
+JSONL fields: `v`, `file`, `name`, `status` (`ok`/`fail`), and on success
+`n`, `ns_per_op`, `total_ns`.
+
+Compare lines look like:
+
+```text
+  REG  std/math.echo::abs_i  1000 → 1300 ns/op  (+30.0%)
+  IMP  std/str.echo::cat     2000 → 1800 ns/op  (-10.0%)
+  NEW  std/list.echo::sum    500ns/op
+summary: 1 regression(s), 1 improvement(s), 1 new, 0 gone
+```
+
+Save a local baseline after a good run:
+
+```bash
+xo test --bench std --bench-out .xo/bench/last.jsonl
+cp .xo/bench/last.jsonl .xo/bench/baseline.jsonl
+# later:
+xo test --bench std --bench-out .xo/bench/last.jsonl \
+  --bench-baseline .xo/bench/baseline.jsonl --bench-threshold 20
+```
+
+Numbers are **single-run, O0 AOT** samples (see “How to give meaning” in session
+notes / keep recipes fixed). Do not treat absolute `ns/op` as portable truth.
 ## `xo test` CLI
 
 ```bash

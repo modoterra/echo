@@ -9,11 +9,35 @@
 //! registered benchmarks with auto-N harness loops; plain suite mode runs only
 //! `test.it` cases.
 
+use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::{echo_runtime_fn_code, echo_runtime_fn_shape, string_data, FN_SHAPE_PLAIN};
+
+/// Serialize appends to bench JSONL output.
+static BENCH_OUT_LOCK: Mutex<()> = Mutex::new(());
+
+/// In-process override for hosts that cannot set env (e.g. `xo` with forbid(unsafe)).
+static BENCH_OUT_CFG: Mutex<BenchOutCfg> = Mutex::new(BenchOutCfg {
+    path: None,
+    file: None,
+});
+
+struct BenchOutCfg {
+    path: Option<std::path::PathBuf>,
+    file: Option<String>,
+}
+
+/// Configure streaming JSONL output for this process (JIT / in-process hosts).
+///
+/// AOT children still use `XO_BENCH_OUT` / `XO_BENCH_FILE` environment variables.
+pub fn echo_runtime_bench_configure(out: Option<&std::path::Path>, file: Option<&str>) {
+    let mut g = BENCH_OUT_CFG.lock().unwrap_or_else(|e| e.into_inner());
+    g.path = out.map(|p| p.to_path_buf());
+    g.file = file.map(|s| s.to_string());
+}
 
 /// Case-body timings: integer nanoseconds (suite cases are usually sub-ms).
 fn fmt_ns(d: Duration) -> String {
@@ -211,10 +235,17 @@ fn run_benches(benches: Vec<Case>) -> i64 {
                     ns_per_op,
                     fmt_ns(total_d)
                 );
+                append_bench_jsonl(Ok(BenchRecord {
+                    name: &case.name,
+                    n,
+                    ns_per_op,
+                    total_ns: total_d.as_nanos(),
+                }));
             }
             Err(()) => {
                 failed += 1;
                 eprintln!("FAIL  bench {}", case.name);
+                append_bench_jsonl(Err(&case.name));
             }
         }
     }
@@ -225,6 +256,81 @@ fn run_benches(benches: Vec<Case>) -> i64 {
         "xo test --bench: {passed} passed, {failed} failed, {total} total ({suite_elapsed})"
     );
     failed
+}
+
+struct BenchRecord<'a> {
+    name: &'a str,
+    n: u64,
+    ns_per_op: u128,
+    total_ns: u128,
+}
+
+fn json_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 8);
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Append one JSONL record when output is configured (env or [`echo_runtime_bench_configure`]).
+///
+/// Optional file label from `XO_BENCH_FILE` / configure labels the suite entry.
+fn append_bench_jsonl(result: Result<BenchRecord<'_>, &str>) {
+    let (path, file) = {
+        let g = BENCH_OUT_CFG.lock().unwrap_or_else(|e| e.into_inner());
+        let path = g
+            .path
+            .clone()
+            .or_else(|| std::env::var_os("XO_BENCH_OUT").map(std::path::PathBuf::from));
+        let file = g
+            .file
+            .clone()
+            .or_else(|| std::env::var("XO_BENCH_FILE").ok())
+            .unwrap_or_default();
+        (path, file)
+    };
+    let Some(path) = path else {
+        return;
+    };
+    let line = match result {
+        Ok(r) => format!(
+            "{{\"v\":1,\"file\":\"{}\",\"name\":\"{}\",\"status\":\"ok\",\"n\":{},\"ns_per_op\":{},\"total_ns\":{}}}\n",
+            json_escape(&file),
+            json_escape(r.name),
+            r.n,
+            r.ns_per_op,
+            r.total_ns
+        ),
+        Err(name) => format!(
+            "{{\"v\":1,\"file\":\"{}\",\"name\":\"{}\",\"status\":\"fail\"}}\n",
+            json_escape(&file),
+            json_escape(name)
+        ),
+    };
+    let _guard = BENCH_OUT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(mut f) => {
+            if let Err(e) = f.write_all(line.as_bytes()) {
+                eprintln!("xo test --bench: cannot write {}: {e}", path.to_string_lossy());
+            }
+        }
+        Err(e) => {
+            eprintln!("xo test --bench: cannot open {}: {e}", path.to_string_lossy());
+        }
+    }
 }
 
 /// Auto-scale N until one measured run lasts about [`BENCH_TARGET`] (or hit

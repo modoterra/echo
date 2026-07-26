@@ -107,8 +107,9 @@ pub use task::{
 
 // Suite runner (Model A) — JIT mapping.
 pub use test_suite::{
-    echo_runtime_test_bench_register, echo_runtime_test_enable, echo_runtime_test_enable_bench,
-    echo_runtime_test_fail, echo_runtime_test_finish, echo_runtime_test_register,
+    echo_runtime_bench_configure, echo_runtime_test_bench_register, echo_runtime_test_enable,
+    echo_runtime_test_enable_bench, echo_runtime_test_fail, echo_runtime_test_finish,
+    echo_runtime_test_register,
 };
 
 // Process / env / spawn — JIT mapping.

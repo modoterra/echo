@@ -39,7 +39,23 @@ std-test:
 # Co-located std benchmarks (auto-N / ns/op; ~1s each)
 std-bench:
     cargo build -q -p xo
-    ./target/debug/xo test --bench std
+    mkdir -p .xo/bench
+    ./target/debug/xo test --bench std --bench-out .xo/bench/last.jsonl
+
+# Re-run std benches and compare to .xo/bench/baseline.jsonl (20% worse → fail)
+std-bench-compare:
+    cargo build -q -p xo
+    mkdir -p .xo/bench
+    ./target/debug/xo test --bench std \
+      --bench-out .xo/bench/last.jsonl \
+      --bench-baseline .xo/bench/baseline.jsonl \
+      --bench-threshold 20
+
+# Promote last run to local baseline
+std-bench-save:
+    mkdir -p .xo/bench
+    cp -f .xo/bench/last.jsonl .xo/bench/baseline.jsonl
+    @echo "saved .xo/bench/baseline.jsonl"
 
 fmt:
     cargo fmt --all

@@ -138,10 +138,23 @@ enum Command {
     ///
     /// With `--bench`, only `test.bench` cases run (auto-N, ns/op); `test.it`
     /// cases are skipped. Without `--bench`, only `test.it` cases run.
+    ///
+    /// Results can stream to JSONL (`--bench-out`) and be compared to a prior
+    /// run (`--bench-baseline`, optional `--bench-threshold` percent).
     Test {
         /// Run benchmarks only (`test.bench`); skip ordinary test cases.
         #[arg(long)]
         bench: bool,
+        /// Append each bench result as JSONL while running (requires `--bench`).
+        #[arg(long, value_name = "PATH", requires = "bench")]
+        bench_out: Option<PathBuf>,
+        /// Prior JSONL (from `--bench-out`) to compare against after the run.
+        #[arg(long, value_name = "PATH", requires = "bench")]
+        bench_baseline: Option<PathBuf>,
+        /// Fail if any bench is worse than baseline by more than this percent
+        /// (ns/op increase). Default: report only (no fail). Requires baseline.
+        #[arg(long, value_name = "PCT", requires = "bench_baseline")]
+        bench_threshold: Option<f64>,
         /// Files, directories, or glob patterns.
         paths: Vec<String>,
     },
@@ -305,7 +318,21 @@ fn main() -> ExitCode {
                 ExitCode::from(2)
             }
         },
-        Command::Test { bench, paths } => cmd_test(bench, &paths),
+        Command::Test {
+            bench,
+            bench_out,
+            bench_baseline,
+            bench_threshold,
+            paths,
+        } => cmd_test(
+            BenchTestOpts {
+                bench,
+                bench_out,
+                bench_baseline,
+                bench_threshold,
+            },
+            &paths,
+        ),
         Command::Check {
             diag_codes,
             graph,
@@ -743,7 +770,51 @@ fn cmd_run(
     opt: OptLevel,
     args: &[String],
 ) -> ExitCode {
-    cmd_run_inner(path, jit, diag_codes, no_cache, cache_status, opt, args, false, false)
+    cmd_run_inner(
+        path,
+        jit,
+        diag_codes,
+        no_cache,
+        cache_status,
+        opt,
+        args,
+        SuiteRun::off(),
+    )
+}
+
+/// Suite / bench process configuration for AOT children and in-process JIT.
+#[derive(Debug, Clone, Default)]
+struct SuiteRun {
+    enabled: bool,
+    bench: bool,
+    /// JSONL path for streaming bench records (`XO_BENCH_OUT`).
+    bench_out: Option<PathBuf>,
+    /// Suite entry label written into JSONL (`XO_BENCH_FILE`).
+    bench_file: Option<String>,
+}
+
+impl SuiteRun {
+    fn off() -> Self {
+        Self::default()
+    }
+
+    fn tests() -> Self {
+        Self {
+            enabled: true,
+            bench: false,
+            bench_out: None,
+            bench_file: None,
+        }
+    }
+
+    fn benches(out: Option<PathBuf>, file_label: String) -> Self {
+        Self {
+            enabled: true,
+            bench: true,
+            bench_out: out,
+            bench_file: Some(file_label),
+        }
+    }
 }
 
 fn cmd_run_inner(
@@ -754,8 +825,7 @@ fn cmd_run_inner(
     cache_status: bool,
     opt: OptLevel,
     args: &[String],
-    suite: bool,
-    bench: bool,
+    suite: SuiteRun,
 ) -> ExitCode {
     let compiled = match compile_to_ir(path, no_cache, opt) {
         Ok(c) => c,
@@ -777,8 +847,9 @@ fn cmd_run_inner(
         if !args.is_empty() {
             eprintln!("xo run --jit: program args not supported yet (ignored)");
         }
-        if suite {
-            if bench {
+        if suite.enabled {
+            apply_suite_env(&suite);
+            if suite.bench {
                 echo_runtime::echo_runtime_test_enable_bench();
             } else {
                 echo_runtime::echo_runtime_test_enable();
@@ -831,10 +902,16 @@ fn cmd_run_inner(
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    if suite {
+    if suite.enabled {
         cmd.env("XO_TEST", "1");
-        if bench {
+        if suite.bench {
             cmd.env("XO_BENCH", "1");
+        }
+        if let Some(out) = &suite.bench_out {
+            cmd.env("XO_BENCH_OUT", out);
+        }
+        if let Some(label) = &suite.bench_file {
+            cmd.env("XO_BENCH_FILE", label);
         }
     }
     let status = cmd.status();
@@ -1139,13 +1216,21 @@ fn cmd_tools_grammar_tree_sitter(output: &Path) -> ExitCode {
     }
 }
 
+#[derive(Debug, Clone)]
+struct BenchTestOpts {
+    bench: bool,
+    bench_out: Option<PathBuf>,
+    bench_baseline: Option<PathBuf>,
+    bench_threshold: Option<f64>,
+}
+
 /// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
 ///
 /// When `bench` is true, also sets `XO_BENCH=1` so only `test.bench` cases run.
 /// Directory discovery includes co-located suites under `std/` (not only
 /// `*_test.echo` / `tests/`). With `--bench`, files without `test.bench(` are
 /// skipped so empty modules are not recompiled.
-fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
+fn cmd_test(opts: BenchTestOpts, paths: &[String]) -> ExitCode {
     use std::time::{Duration, Instant};
 
     fn fmt_dur(d: Duration) -> String {
@@ -1157,7 +1242,18 @@ fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
         }
     }
 
-    let label = if bench { "xo test --bench" } else { "xo test" };
+    let label = if opts.bench {
+        "xo test --bench"
+    } else {
+        "xo test"
+    };
+
+    if !opts.bench {
+        if opts.bench_out.is_some() || opts.bench_baseline.is_some() {
+            eprintln!("{label}: --bench-out / --bench-baseline require --bench");
+            return ExitCode::from(2);
+        }
+    }
 
     let files = match collect_test_files(paths) {
         Ok(f) => f,
@@ -1166,7 +1262,7 @@ fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let files: Vec<PathBuf> = if bench {
+    let files: Vec<PathBuf> = if opts.bench {
         files.into_iter().filter(|p| file_has_bench(p)).collect()
     } else {
         files
@@ -1176,13 +1272,30 @@ fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
         return ExitCode::from(1);
     }
 
+    if let Some(out) = &opts.bench_out {
+        if let Some(parent) = out.parent() {
+            if !parent.as_os_str().is_empty() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    eprintln!("{label}: cannot create {}: {e}", parent.display());
+                    return ExitCode::from(2);
+                }
+            }
+        }
+        // Truncate so this run owns the file; runtime appends per case.
+        if let Err(e) = std::fs::write(out, "") {
+            eprintln!("{label}: cannot write {}: {e}", out.display());
+            return ExitCode::from(2);
+        }
+        eprintln!("{label}: writing JSONL → {}", out.display());
+    }
+
     let mut failed_files = 0usize;
     let total_files = files.len();
     let all_start = Instant::now();
     for (i, file) in files.iter().enumerate() {
         eprintln!("{label} [{}/{}] {}", i + 1, total_files, file.display());
         let file_start = Instant::now();
-        let code = run_suite_file(file, bench);
+        let code = run_suite_file(file, &opts);
         let file_elapsed = fmt_dur(file_start.elapsed());
         if code != 0 {
             failed_files += 1;
@@ -1193,7 +1306,7 @@ fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
     }
 
     let total_elapsed = fmt_dur(all_start.elapsed());
-    if failed_files > 0 {
+    let mut exit = if failed_files > 0 {
         eprintln!(
             "{label}: {failed_files} of {total_files} file(s) failed ({total_elapsed})"
         );
@@ -1201,10 +1314,50 @@ fn cmd_test(bench: bool, paths: &[String]) -> ExitCode {
     } else {
         eprintln!("{label}: {total_files} file(s) passed ({total_elapsed})");
         ExitCode::SUCCESS
+    };
+
+    if opts.bench {
+        if let (Some(out), Some(base)) = (&opts.bench_out, &opts.bench_baseline) {
+            match compare_bench_files(base, out, opts.bench_threshold) {
+                Ok(report) => {
+                    eprint!("{report}");
+                    if opts.bench_threshold.is_some() && report_has_regressions(&report) {
+                        exit = ExitCode::from(1);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{label}: compare failed: {e}");
+                    exit = ExitCode::from(2);
+                }
+            }
+        } else if opts.bench_baseline.is_some() && opts.bench_out.is_none() {
+            eprintln!(
+                "{label}: --bench-baseline needs --bench-out (results stream to that file)"
+            );
+            exit = ExitCode::from(2);
+        }
     }
+
+    exit
 }
 
-fn run_suite_file(path: &Path, bench: bool) -> u8 {
+fn apply_suite_env(suite: &SuiteRun) {
+    // Prefer runtime config (safe) for in-process JIT; AOT children use env.
+    echo_runtime::echo_runtime_bench_configure(
+        suite.bench_out.as_deref(),
+        suite.bench_file.as_deref(),
+    );
+}
+
+fn run_suite_file(path: &Path, opts: &BenchTestOpts) -> u8 {
+    let suite = if opts.bench {
+        SuiteRun::benches(
+            opts.bench_out.clone(),
+            path.display().to_string(),
+        )
+    } else {
+        SuiteRun::tests()
+    };
     // Suite mode: AOT child gets XO_TEST=1 (+ XO_BENCH when benchmarking).
     let code = cmd_run_inner(
         path,
@@ -1214,14 +1367,207 @@ fn run_suite_file(path: &Path, bench: bool) -> u8 {
         false,
         OptLevel::O0,
         &[],
-        true,
-        bench,
+        suite,
     );
     if code == ExitCode::SUCCESS {
         0
     } else {
         1
     }
+}
+
+// ── Bench JSONL compare ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+struct BenchRow {
+    file: String,
+    name: String,
+    status: String,
+    ns_per_op: Option<u128>,
+    #[allow(dead_code)] // parsed for JSONL completeness / future reports
+    n: Option<u64>,
+}
+
+fn bench_key(file: &str, name: &str) -> String {
+    format!("{}::{}", normalize_bench_path(file), name)
+}
+
+fn normalize_bench_path(p: &str) -> String {
+    p.trim_start_matches("./").replace('\\', "/")
+}
+
+fn parse_bench_jsonl(text: &str) -> Result<Vec<BenchRow>, String> {
+    let mut out = Vec::new();
+    for (i, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        out.push(parse_bench_json_line(line).map_err(|e| format!("line {}: {e}", i + 1))?);
+    }
+    Ok(out)
+}
+
+/// Minimal field extractors for our fixed JSONL shape (no full JSON crate).
+fn parse_bench_json_line(line: &str) -> Result<BenchRow, String> {
+    let file = json_str_field(line, "file")?;
+    let name = json_str_field(line, "name")?;
+    let status = json_str_field(line, "status")?;
+    let ns_per_op = json_u128_field(line, "ns_per_op").ok();
+    let n = json_u64_field(line, "n").ok();
+    Ok(BenchRow {
+        file,
+        name,
+        status,
+        ns_per_op,
+        n,
+    })
+}
+
+fn json_str_field(line: &str, key: &str) -> Result<String, String> {
+    let pat = format!("\"{key}\":\"");
+    let start = line
+        .find(&pat)
+        .ok_or_else(|| format!("missing string field {key}"))?
+        + pat.len();
+    let rest = &line[start..];
+    let mut out = String::new();
+    let mut chars = rest.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('"') => out.push('"'),
+                Some('\\') => out.push('\\'),
+                Some('n') => out.push('\n'),
+                Some('r') => out.push('\r'),
+                Some('t') => out.push('\t'),
+                Some(o) => out.push(o),
+                None => break,
+            }
+        } else if c == '"' {
+            return Ok(out);
+        } else {
+            out.push(c);
+        }
+    }
+    Err(format!("unterminated string field {key}"))
+}
+
+fn json_u128_field(line: &str, key: &str) -> Result<u128, String> {
+    let pat = format!("\"{key}\":");
+    let start = line
+        .find(&pat)
+        .ok_or_else(|| format!("missing field {key}"))?
+        + pat.len();
+    let rest = line[start..].trim_start();
+    let num: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    if num.is_empty() {
+        return Err(format!("bad number for {key}"));
+    }
+    num.parse()
+        .map_err(|_| format!("bad number for {key}"))
+}
+
+fn json_u64_field(line: &str, key: &str) -> Result<u64, String> {
+    Ok(u64::try_from(json_u128_field(line, key)?).unwrap_or(u64::MAX))
+}
+
+fn load_bench_map(path: &Path) -> Result<std::collections::BTreeMap<String, BenchRow>, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let rows = parse_bench_jsonl(&text)?;
+    let mut map = std::collections::BTreeMap::new();
+    for row in rows {
+        map.insert(bench_key(&row.file, &row.name), row);
+    }
+    Ok(map)
+}
+
+fn compare_bench_files(
+    baseline: &Path,
+    current: &Path,
+    threshold_pct: Option<f64>,
+) -> Result<String, String> {
+    let base = load_bench_map(baseline)?;
+    let cur = load_bench_map(current)?;
+    let mut report = String::new();
+    report.push_str(&format!(
+        "xo test --bench compare: baseline={} current={}\n",
+        baseline.display(),
+        current.display()
+    ));
+    if let Some(t) = threshold_pct {
+        report.push_str(&format!("threshold: {t}% worse (ns/op) fails\n"));
+    }
+
+    let mut keys: std::collections::BTreeSet<String> = base.keys().cloned().collect();
+    keys.extend(cur.keys().cloned());
+
+    let mut regressions = 0usize;
+    let mut improvements = 0usize;
+    let mut missing = 0usize;
+    let mut new_benches = 0usize;
+
+    for key in keys {
+        let b = base.get(&key);
+        let c = cur.get(&key);
+        match (b, c) {
+            (None, Some(c)) => {
+                new_benches += 1;
+                report.push_str(&format!(
+                    "  NEW   {key}  {}ns/op\n",
+                    c.ns_per_op.map(|n| n.to_string()).unwrap_or_else(|| "-".into())
+                ));
+            }
+            (Some(_), None) => {
+                missing += 1;
+                report.push_str(&format!("  GONE  {key}\n"));
+            }
+            (Some(b), Some(c)) => {
+                if c.status != "ok" {
+                    regressions += 1;
+                    report.push_str(&format!("  FAIL  {key}  status={}\n", c.status));
+                    continue;
+                }
+                let (Some(bn), Some(cn)) = (b.ns_per_op, c.ns_per_op) else {
+                    report.push_str(&format!("  ?     {key}  (missing ns_per_op)\n"));
+                    continue;
+                };
+                if bn == 0 {
+                    report.push_str(&format!("  ok    {key}  {cn}ns/op  (baseline 0)\n"));
+                    continue;
+                }
+                let pct = (cn as f64 - bn as f64) / bn as f64 * 100.0;
+                let mark = if pct > threshold_pct.unwrap_or(f64::INFINITY) {
+                    regressions += 1;
+                    "REG"
+                } else if pct < -5.0 {
+                    improvements += 1;
+                    "IMP"
+                } else {
+                    "ok "
+                };
+                report.push_str(&format!(
+                    "  {mark}  {key}  {bn} → {cn} ns/op  ({pct:+.1}%)\n"
+                ));
+            }
+            (None, None) => {}
+        }
+    }
+
+    report.push_str(&format!(
+        "summary: {regressions} regression(s), {improvements} improvement(s), {new_benches} new, {missing} gone\n"
+    ));
+    if regressions > 0 {
+        report.push_str("COMPARE_REGRESSIONS=1\n");
+    }
+    Ok(report)
+}
+
+fn report_has_regressions(report: &str) -> bool {
+    report.contains("COMPARE_REGRESSIONS=1")
 }
 
 fn collect_test_files(paths: &[String]) -> Result<Vec<PathBuf>, String> {
@@ -1509,6 +1855,42 @@ mod tests {
             let expected = OptLevel::parse(level).unwrap();
             assert_eq!(parse_opt_level(level).unwrap(), expected);
         }
+    }
+
+    #[test]
+    fn bench_jsonl_parse_and_compare() {
+        let base = r#"
+{"v":1,"file":"std/math.echo","name":"abs_i","status":"ok","n":100,"ns_per_op":1000,"total_ns":100000}
+{"v":1,"file":"std/str.echo","name":"cat","status":"ok","n":50,"ns_per_op":2000,"total_ns":100000}
+"#;
+        let cur = r#"
+{"v":1,"file":"std/math.echo","name":"abs_i","status":"ok","n":100,"ns_per_op":1300,"total_ns":130000}
+{"v":1,"file":"std/str.echo","name":"cat","status":"ok","n":50,"ns_per_op":1800,"total_ns":90000}
+{"v":1,"file":"std/list.echo","name":"sum","status":"ok","n":10,"ns_per_op":500,"total_ns":5000}
+"#;
+        let rows = parse_bench_jsonl(base).expect("base");
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].name, "abs_i");
+        assert_eq!(rows[0].ns_per_op, Some(1000));
+
+        let dir = std::env::temp_dir().join(format!(
+            "xo-bench-cmp-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bp = dir.join("base.jsonl");
+        let cp = dir.join("cur.jsonl");
+        std::fs::write(&bp, base).unwrap();
+        std::fs::write(&cp, cur).unwrap();
+        let report = compare_bench_files(&bp, &cp, Some(20.0)).expect("cmp");
+        assert!(report.contains("REG"), "{report}");
+        assert!(report.contains("IMP") || report.contains("ok "), "{report}");
+        assert!(report.contains("NEW"), "{report}");
+        assert!(report_has_regressions(&report), "{report}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
