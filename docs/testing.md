@@ -136,6 +136,17 @@ xo test --bench -O2 std --bench-out .xo/bench/last.jsonl \
 
 Keep the **opt level fixed** when comparing. Absolute `ns/op` is not portable
 across machines; use relative deltas on the same recipe.
+
+### Prebuilt host + warm suite cache
+
+- **Host:** run a prebuilt `xo` (`target/debug/xo` or release). Do not fold
+  `cargo build -p xo` into every bench iteration — that measures the Rust
+  toolchain, not Echo.
+- **Suite files:** each `.echo` is still compiled to an AOT child, but **IR and
+  AOT artifact caches** (under `.xo/cache/`) make the second run mostly load +
+  exec. Use `--cache-status` to confirm `hit`; use `--no-cache` only for cold
+  pipeline experiments.
+- **`just std-bench`** uses a prebuilt `XO` binary and passes `--cache-status`.
 ## `xo test` CLI
 
 ```bash
