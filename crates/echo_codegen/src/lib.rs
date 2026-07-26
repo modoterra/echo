@@ -1654,6 +1654,43 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         RT_STRUCT_GET,
         echo_runtime_struct_get as unsafe extern "C" fn(i64, *const u8, usize) -> i64 as usize,
     )?;
+    // Scope-owned memory (ADR 0016) — IR emits these on every function entry/exit.
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SCOPE_ENTER,
+        echo_runtime_scope_enter as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SCOPE_EXIT,
+        echo_runtime_scope_exit as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SCOPE_REGISTER,
+        echo_runtime_scope_register as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SCOPE_DISOWN,
+        echo_runtime_scope_disown as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SCOPE_RELEASE,
+        echo_runtime_scope_release as extern "C" fn(i64) as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_SCOPE_PROMOTE,
+        echo_runtime_scope_promote as extern "C" fn(i64, i64) as usize,
+    )?;
 
     if module.get_function(ECHO_ENTRY).is_none() {
         return Err(format!("JIT module missing `{ECHO_ENTRY}`"));
@@ -1704,6 +1741,8 @@ use echo_runtime::{
     echo_runtime_string_builder_push_value, echo_runtime_string_from_utf8,
     echo_runtime_struct_get, echo_runtime_struct_new, echo_runtime_struct_new_named,
     echo_runtime_struct_set, echo_runtime_struct_type_is,
+    echo_runtime_scope_disown, echo_runtime_scope_enter, echo_runtime_scope_exit,
+    echo_runtime_scope_promote, echo_runtime_scope_register, echo_runtime_scope_release,
     echo_runtime_task_block, echo_runtime_task_block_wide, echo_runtime_task_check_joined,
     echo_runtime_task_join, echo_runtime_task_join_wide, echo_runtime_task_shape,
     echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
