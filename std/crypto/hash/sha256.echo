@@ -2,6 +2,7 @@
 / runtime
 / std/test
 / std/bytes
+/ std/str
 / std/encoding/hex
 
 $ sha256 = (data) {
@@ -24,7 +25,7 @@ test.it("sha256_empty", () {
     }
 })
 
-; Benchmarks: `xo test --bench std/crypto/hash/sha256.echo`
+; Benches: real sha256(data); build 1k payload in-body.
 test.bench("sha256_empty", () {
     | sha256("") {
         $ d {}
@@ -34,6 +35,14 @@ test.bench("sha256_empty", () {
 
 test.bench("sha256_msg", () {
     | sha256("the quick brown fox jumps over the lazy dog") {
+        $ d {}
+        ! e {}
+    }
+})
+
+test.bench("sha256_1k", () {
+    $ b = bytes.from_str(str.repeat("x", 1024))
+    | sha256(b) {
         $ d {}
         ! e {}
     }

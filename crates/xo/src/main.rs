@@ -1309,10 +1309,12 @@ fn cmd_test(opts: BenchTestOpts, paths: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // Unit mode: only files with `test.it(` (skip bench-only canary modules).
+    // Bench mode: only files with `test.bench(`.
     let files: Vec<PathBuf> = if opts.bench {
         files.into_iter().filter(|p| file_has_bench(p)).collect()
     } else {
-        files
+        files.into_iter().filter(|p| file_has_it(p)).collect()
     };
     if files.is_empty() {
         eprintln!("{label}: no test files matched");
@@ -1799,6 +1801,12 @@ fn file_is_suite(p: &Path) -> bool {
 fn file_has_bench(p: &Path) -> bool {
     std::fs::read_to_string(p)
         .map(|t| t.contains("test.bench("))
+        .unwrap_or(false)
+}
+
+fn file_has_it(p: &Path) -> bool {
+    std::fs::read_to_string(p)
+        .map(|t| t.contains("test.it("))
         .unwrap_or(false)
 }
 

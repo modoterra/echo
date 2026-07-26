@@ -117,6 +117,26 @@ std-bench-save:
     mkdir -p .xo/bench
     cp -f .xo/bench/last.jsonl .xo/bench/baseline.jsonl
     @echo "saved .xo/bench/baseline.jsonl"
+
+# Algorithm demos + std hot paths (real functions, normal test.bench).
+algo-bench O="2": xo-ensure
+    mkdir -p .xo/bench
+    {{xo}} test --bench -O{{O}} \
+      examples/algos/call.echo \
+      examples/algos/collatz.echo \
+      examples/algos/fibonacci.echo \
+      examples/algos/gcd.echo \
+      examples/algos/list.echo \
+      examples/algos/primes.echo \
+      examples/algos/sort.echo \
+      std/list.echo \
+      std/bytes.echo \
+      std/collections/map.echo \
+      std/crypto/hash/sip.echo \
+      std/crypto/hash/sha256.echo \
+      --bench-out .xo/bench/algo-last.jsonl \
+      --cache-status
+
 fmt:
     cargo fmt --all
 

@@ -3,6 +3,7 @@
 
 / std/io
 / std/str
+/ std/test
 
 $ is_prime = (n) {
     ? n < 2 {
@@ -67,6 +68,18 @@ $ count_primes = (flags, limit) {
     ^ n
 }
 
+; Build flags[0..limit), sieve, count primes (defined before demos).
+$ sieve_count = (limit) {
+    ~ flags = []
+    ~ j = 0
+    * j < limit {
+        ~ flags[] = 0
+        ~ j = j + 1
+    }
+    $ filled = sieve(flags, limit)
+    ^ count_primes(filled, limit)
+}
+
 io.print(str.from_int(is_prime(1)))
 io.print(str.from_int(is_prime(2)))
 io.print(str.from_int(is_prime(17)))
@@ -91,4 +104,12 @@ $ s = sieve(flags, 32)
 }
 io.print(str.from_int(count_primes(s, 32)))
 
-\ is_prime, sieve, count_primes
+test.bench("is_prime_9973", () {
+    $ p = is_prime(9973)
+})
+
+test.bench("sieve_1k", () {
+    $ n = sieve_count(1000)
+})
+
+\ is_prime, sieve, count_primes, sieve_count

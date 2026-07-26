@@ -64,27 +64,24 @@ Custom libraries may wrap these; only privileged std talks to `/ runtime`.
 - Registration is a no-op without `XO_TEST`; benches run only with `XO_BENCH`.
 - Prefer **no asserts in the hot body** so `ns/op` measures the work, not `test.eq`.
 
-### Std library benches
+### Std + algorithm benches
 
-Co-located on pure-ish modules (CPU-bound; not fs/net/process):
+Benches call **real** functions (same bodies as demos / std), with args built
+in the bench body. No separate “canary wrapper” module.
 
-| Module | Benchmarks |
-|--------|------------|
-| `std/math` | `abs_i`, `sqrt` |
-| `std/str` | `cat`, `contains`, `from_int` |
-| `std/bytes` | `cat`, `from_str` |
-| `std/list` | `contains`, `sum_ints`, `sort_ints` |
-| `std/json` | `parse`, `roundtrip` |
-| `std/encoding/hex` | `encode`, `roundtrip` |
-| `std/encoding/base64` | `encode`, `roundtrip` |
-| `std/path` | `join`, `clean` |
-| `std/crypto/hash/sha256` | `sha256_empty`, `sha256_msg` |
-| `std/crypto/hash/sip` | `sip_empty`, `sip_15` |
-| `std/collections/map` | `put_get` |
+| Location | Examples |
+|----------|----------|
+| `std/list` | `sum_ints_1k`, `sort_ints_1k` |
+| `std/bytes` | `checksum_1k`, `checksum_64k` |
+| `std/crypto/hash/sip` | `sip_empty` … `sip_64k` |
+| `std/crypto/hash/sha256` | `sha256_empty`, `sha256_1k` |
+| `std/collections/map` | `seed_1k_get` |
+| `examples/algos/*` | `fib`, `gcd`, `sum_to`, sorts, primes, call overhead |
 
 ```bash
-xo test --bench std
-xo test --bench -O2 std
+just bench-host
+just std-bench          # all std co-located benches
+just algo-bench         # algorithms + selected std hot paths
 xo test --bench -O2 std --bench-out .xo/bench/last.jsonl
 xo test --bench -O2 std --bench-out .xo/bench/last.jsonl \
   --bench-baseline .xo/bench/baseline.jsonl --bench-threshold 20

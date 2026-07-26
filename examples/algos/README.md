@@ -7,9 +7,14 @@ language surface (`docs/syntax.md`).
 cargo build -p xo
 ./target/debug/xo run examples/algos/factorial.echo
 ./target/debug/xo run examples/algos/sort.echo
+
+# Real algorithms + normal test.bench (release host recommended):
+just bench-host
+just algo-bench
 ```
 
-Top-level statements run directly — no `$ demo` wrapper.
+Top-level statements run directly — no `$ demo` wrapper. Benches use the same
+functions the demos call (`test.bench` via `/ std/test`).
 
 | File | Algorithms |
 |------|------------|

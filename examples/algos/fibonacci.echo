@@ -3,6 +3,7 @@
 
 / std/io
 / std/str
+/ std/test
 
 ; F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2)
 $ fib = (n) {
@@ -84,5 +85,19 @@ $ filled = fib_fill(buf, 8)
     io.print(str.from_int(filled[i]))
     ~ i = i + 1
 }
+
+test.bench("fib_40", () {
+    | fib(40) {
+        $ v {}
+        ! e {}
+    }
+})
+
+test.bench("fib_30", () {
+    | fib(30) {
+        $ v {}
+        ! e {}
+    }
+})
 
 \ fib, fib_fill

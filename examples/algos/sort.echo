@@ -4,6 +4,7 @@
 / std/io
 / std/str
 / std/list
+/ std/test
 
 $ swap = (xs, i, j) {
     $ t = xs[i]
@@ -64,5 +65,35 @@ print_list(bubble_sort(c))
 
 ~ d = [3, 3, 1, 2, 1]
 print_list(insertion_sort(d))
+
+test.bench("insertion_sort_100", () {
+    ~ xs = []
+    ~ i = 100
+    * i > 0 {
+        ~ i = i - 1
+        ~ xs[] = i
+    }
+    $ zs = insertion_sort(xs)
+})
+
+test.bench("insertion_sort_1k", () {
+    ~ xs = []
+    ~ i = 1000
+    * i > 0 {
+        ~ i = i - 1
+        ~ xs[] = i
+    }
+    $ zs = insertion_sort(xs)
+})
+
+test.bench("bubble_sort_100", () {
+    ~ xs = []
+    ~ i = 100
+    * i > 0 {
+        ~ i = i - 1
+        ~ xs[] = i
+    }
+    $ zs = bubble_sort(xs)
+})
 
 \ bubble_sort, insertion_sort, swap

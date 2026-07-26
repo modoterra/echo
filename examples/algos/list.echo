@@ -4,11 +4,23 @@
 / std/io
 / std/str
 / std/list
+/ std/test
 
 $ sum = (xs) {
     ~ acc = 0
     * item : xs {
         ~ acc = acc + item
+    }
+    ^ acc
+}
+
+; Sum 0..n-1 (tight integer loop — codegen floor canary).
+$ sum_to = (n) {
+    ~ acc = 0
+    ~ i = 0
+    * i < n {
+        ~ acc = acc + i
+        ~ i = i + 1
     }
     ^ acc
 }
@@ -111,4 +123,20 @@ $ rev = reverse(buf)
     io.print(str.from_int(item))
 }
 
-\ sum, product, max, min, contains, reverse
+; Benches: real APIs, args built in the body (functions are closed).
+test.bench("sum_to_1e6", () {
+    $ s = sum_to(1000000)
+})
+
+test.bench("sum_to_1e7", () {
+    $ s = sum_to(10000000)
+})
+
+test.bench("sum_list_1k", () {
+    $ s = sum_to(1000)
+})
+
+test.bench("sum_list_10k", () {
+    $ s = sum_to(10000)
+})
+\ sum, sum_to, product, max, min, contains, reverse

@@ -3,6 +3,7 @@
 
 / std/io
 / std/str
+/ std/test
 
 ; One Collatz step: n → n/2 if even, else 3n+1.
 $ collatz_step = (n) {
@@ -82,5 +83,10 @@ $ collatz_seq = (n, buf, cap) {
         io.print(str.from_int(err))
     }
 }
+
+; Full collatz_steps can be heavy under auto-N; one step is a stable micro canary.
+test.bench("collatz_step", () {
+    $ x = collatz_step(27)
+})
 
 \ collatz_step, collatz_steps, collatz_seq

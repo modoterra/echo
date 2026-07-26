@@ -11,6 +11,7 @@
 
 / runtime
 / std/test
+/ std/str
 
 $ len = (b) {
     ^ runtime.bytes_len(b)
@@ -155,13 +156,45 @@ test.it("from_str", () {
     }
 })
 
-; Benchmarks: `xo test --bench std/bytes.echo`
+; Benchmarks: real bytes APIs (build inputs in-body).
 test.bench("cat", () {
     $ b = cat(b'hello', b'world')
 })
 
 test.bench("from_str", () {
     $ b = from_str("benchmark payload")
+})
+
+test.bench("checksum_1k", () {
+    $ b = from_str(str.repeat("x", 1024))
+    ~ s = 0
+    ~ i = 0
+    $ n = len(b)
+    * i < n {
+        | get(b, i) {
+            $ x {
+                ~ s = s + x
+            }
+            ! e {}
+        }
+        ~ i = i + 1
+    }
+})
+
+test.bench("checksum_64k", () {
+    $ b = from_str(str.repeat("x", 65536))
+    ~ s = 0
+    ~ i = 0
+    $ n = len(b)
+    * i < n {
+        | get(b, i) {
+            $ x {
+                ~ s = s + x
+            }
+            ! e {}
+        }
+        ~ i = i + 1
+    }
 })
 
 \ len, is_empty, get, slice, cat, from_int, from_str

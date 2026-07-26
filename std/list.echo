@@ -154,7 +154,7 @@ test.it("sum_and_sort", () {
     }
 })
 
-; Benchmarks: `xo test --bench std/list.echo`
+; Benchmarks: real list APIs (build inputs in-body; free fns are closed).
 test.bench("contains", () {
     $ ok = contains([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 7)
 })
@@ -163,8 +163,38 @@ test.bench("sum_ints", () {
     $ n = sum_ints([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 })
 
+test.bench("sum_ints_1k", () {
+    ~ xs = []
+    ~ i = 0
+    * i < 1000 {
+        ~ xs[] = i
+        ~ i = i + 1
+    }
+    $ n = sum_ints(xs)
+})
+
+test.bench("sum_ints_10k", () {
+    ~ xs = []
+    ~ i = 0
+    * i < 10000 {
+        ~ xs[] = i
+        ~ i = i + 1
+    }
+    $ n = sum_ints(xs)
+})
+
 test.bench("sort_ints", () {
     $ zs = sort_ints([9, 1, 8, 2, 7, 3, 6, 4, 5, 0])
+})
+
+test.bench("sort_ints_1k", () {
+    ~ xs = []
+    ~ i = 1000
+    * i > 0 {
+        ~ i = i - 1
+        ~ xs[] = i
+    }
+    $ zs = sort_ints(xs)
 })
 
 \ len, is_empty, get, contains, sum_ints, sort_ints

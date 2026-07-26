@@ -39,7 +39,7 @@ pub const CODEGEN_VERSION: u32 = 13; // emit RT_SCOPE_* ownership ops
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
 pub const RUNTIME_ABI_VERSION: u32 = 40; // bench JSONL includes opt (XO_BENCH_OPT)
-pub const STDLIB_VERSION: u32 = 27; // sip lowerability rewrite (scalar state)
+pub const STDLIB_VERSION: u32 = 28; // real algo + std size-series benches
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

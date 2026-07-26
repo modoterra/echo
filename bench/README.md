@@ -1,65 +1,54 @@
 # Echo benchmarks
 
-User-facing benches live **co-located** in `std/**/*.echo` as `test.bench(...)`.
-The harness is `xo test --bench` (see [`docs/testing.md`](../docs/testing.md)).
+Normal `test.bench(...)` next to **real** Echo functions — same Model A as
+`test.it`. See [`docs/testing.md`](../docs/testing.md).
 
-## Two optimization layers (do not confuse them)
-
-```text
-1. HOST (Rust)     just bench-host
-                   cargo build --release -p xo
-                   + stage libecho_runtime.a next to it
-                   → optimized compiler + optimized native runtime (sha256, …)
-
-2. ECHO program    xo test --bench -O2 …
-   (LLVM)          optimizes sip.echo / str.echo / … through LLVM
-                   links against that libecho_runtime.a
-                   first run: compile+link (cache may miss)
-                   later runs: IR/AOT hit → mostly exec
-
-3. MEASURE         auto-N loop inside the AOT child only
-                   ns/op does NOT include cargo or full pipeline
-```
-
-### Recommended flow (sip vs sha256, etc.)
-
-```bash
-just bench-host       # (1) once per host/runtime change
-just std-bench        # (2)+(3) first pass may compile Echo
-just std-bench        # warm: look for "aot cache: hit"
-just std-bench-save   # optional local baseline
-```
-
-Or one shot: `just std-bench-full` (= bench-host then std-bench).
-
-| Recipe | Role |
-|--------|------|
-| `just bench-host` | Release `target/release/xo` + `libecho_runtime.a` |
-| `just std-bench` | Prebuilt host + Echo `-O2` + cache; **no** cargo rebuild |
-| `just std-bench-cold` | `--no-cache` (compile-cost experiments) |
-| `just std-bench-compare` | Same host + `-O2` vs `.xo/bench/baseline.jsonl` |
-
-Default host path: `XO=target/release/xo`. Override: `just std-bench XO=target/debug/xo`.
-
-With `--cache-status` (on in just recipes):
+## Two optimization layers
 
 ```text
-codegen cache: hit
-aot cache: hit
+1. HOST (Rust)     just bench-host   → release xo + libecho_runtime.a
+2. ECHO (LLVM)     xo test --bench -O2 …  → optimizes .echo, links runtime
+3. MEASURE         auto-N loop in the AOT child only (ns/op)
 ```
 
-## Record / compare
-
 ```bash
-just std-bench
-just std-bench-save
+just bench-host
+just std-bench          # all std co-located benches
+just algo-bench         # algorithms + selected std hot paths
+just std-bench-save     # promote .xo/bench/last.jsonl → baseline
 just std-bench-compare
 ```
 
-JSONL keys include opt: `std/crypto/hash/sip.echo::sip_empty@O2`.
+## Where benches live
+
+| Location | What |
+|----------|------|
+| `std/**/*.echo` | Real std APIs (`list.sum_ints`, `hash.sip`, `map.put`, …) |
+| `examples/algos/*.echo` | Real algorithms (`fib`, `gcd`, `sum_to`, sorts, collatz, primes) + demos |
+
+No separate “canary wrapper” module — call the real function with real args
+built in the bench body (Echo free functions are closed; no outer captures).
+
+## Useful canaries (what to watch)
+
+| Bench | File | Signal |
+|-------|------|--------|
+| `sum_to_1e6` / `1e7` | `examples/algos/list.echo` | tight integer loop |
+| `fib_40` | `examples/algos/fibonacci.echo` | iterative arith |
+| `gcd_euclid` | `examples/algos/gcd.echo` | rem/branch |
+| `sip_*` size series | `std/crypto/hash/sip.echo` | pure Echo → LLVM (`fshl`) |
+| `sum_ints_1k` / `10k` | `std/list.echo` | ~Θ(n) scale |
+| `sort_ints_1k` | `std/list.echo` | heavier than sum |
+| `seed_1k_get` | `std/collections/map.echo` | hash table + sip |
+| `checksum_*` | `std/bytes.echo` | `bytes.get` tax |
+| `sha256_*` | `std/crypto/hash/sha256.echo` | native floor |
+| `empty_call` | `examples/algos/call.echo` | call floor |
+
+**Ratios (same run):** e.g. `list_sum_10k / list_sum_1k ≈ 10`, `sort_1k ≫ sum_1k`,
+`sip_1k ≫ sip_empty`, `sip_empty` near thin floor after lowerability.
 
 ## Notes
 
-- Host release ≠ Echo `-O2`. You need **both** for fair “native vs pure Echo.”
-- Absolute `ns/op` is not portable; compare deltas on the same host + same `-O`.
-- `.xo/bench/` and `.xo/cache/` are local.
+- Default host: `XO=target/release/xo` (override as needed).
+- JSONL keys: `file::name@opt` (e.g. `…/sip.echo::sip_empty@O2`).
+- Absolute ns/op is machine-local; use baselines + thresholds for regressions.
