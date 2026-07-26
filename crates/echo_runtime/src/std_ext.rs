@@ -229,9 +229,7 @@ fn json_to_echo(v: &serde_json::Value) -> i64 {
             let st = echo_runtime_struct_new();
             for (k, val) in map {
                 let name = k.replace('-', "_");
-                unsafe {
-                    struct_set_str(st, &name, json_to_echo(val));
-                }
+                struct_set_str(st, &name, json_to_echo(val));
             }
             st
         }
@@ -310,13 +308,13 @@ pub extern "C" fn echo_runtime_sha256(data: i64) -> i64 {
     let bytes = if let Some(s) = string_data(data) {
         s.into_bytes()
     } else if crate::is_live_heap(data) {
-        let n = unsafe { crate::echo_runtime_bytes_len(data) };
+        let n = crate::echo_runtime_bytes_len(data);
         if n < 0 {
             return 0;
         }
         let mut buf = Vec::with_capacity(n as usize);
         for i in 0..n {
-            buf.push(unsafe { crate::echo_runtime_bytes_get(data, i) } as u8);
+            buf.push(crate::echo_runtime_bytes_get(data, i) as u8);
         }
         buf
     } else {
@@ -345,19 +343,17 @@ pub extern "C" fn echo_runtime_process_run_capture(program: i64, args: i64) -> i
     match cmd.output() {
         Ok(out) => {
             let st = echo_runtime_struct_new();
-            unsafe {
-                struct_set_str(st, "code", out.status.code().unwrap_or(-1) as i64);
-                struct_set_str(
-                    st,
-                    "stdout",
-                    string_to_handle(String::from_utf8_lossy(&out.stdout).into_owned()),
-                );
-                struct_set_str(
-                    st,
-                    "stderr",
-                    string_to_handle(String::from_utf8_lossy(&out.stderr).into_owned()),
-                );
-            }
+            struct_set_str(st, "code", out.status.code().unwrap_or(-1) as i64);
+            struct_set_str(
+                st,
+                "stdout",
+                string_to_handle(String::from_utf8_lossy(&out.stdout).into_owned()),
+            );
+            struct_set_str(
+                st,
+                "stderr",
+                string_to_handle(String::from_utf8_lossy(&out.stderr).into_owned()),
+            );
             st
         }
         Err(_) => 0,

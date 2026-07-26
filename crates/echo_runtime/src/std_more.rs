@@ -15,13 +15,11 @@ use crate::{
 pub extern "C" fn echo_runtime_url_parse(s: i64) -> i64 {
     let fail = || {
         let st = echo_runtime_struct_new();
-        unsafe {
-            struct_set_str(st, "ok", 0);
-            struct_set_str(st, "scheme", string_to_handle(String::new()));
-            struct_set_str(st, "host", string_to_handle(String::new()));
-            struct_set_str(st, "port", 0);
-            struct_set_str(st, "path", string_to_handle(String::new()));
-        }
+        struct_set_str(st, "ok", 0);
+        struct_set_str(st, "scheme", string_to_handle(String::new()));
+        struct_set_str(st, "host", string_to_handle(String::new()));
+        struct_set_str(st, "port", 0);
+        struct_set_str(st, "path", string_to_handle(String::new()));
         st
     };
     let Some(raw) = string_data(s) else {
@@ -57,13 +55,11 @@ pub extern "C" fn echo_runtime_url_parse(s: i64) -> i64 {
         None => (hostport, 0i64),
     };
     let st = echo_runtime_struct_new();
-    unsafe {
-        struct_set_str(st, "ok", 1);
-        struct_set_str(st, "scheme", string_to_handle(scheme.to_string()));
-        struct_set_str(st, "host", string_to_handle(host.to_string()));
-        struct_set_str(st, "port", port);
-        struct_set_str(st, "path", string_to_handle(path.to_string()));
-    }
+    struct_set_str(st, "ok", 1);
+    struct_set_str(st, "scheme", string_to_handle(scheme.to_string()));
+    struct_set_str(st, "host", string_to_handle(host.to_string()));
+    struct_set_str(st, "port", port);
+    struct_set_str(st, "path", string_to_handle(path.to_string()));
     st
 }
 
@@ -82,10 +78,8 @@ pub extern "C" fn echo_runtime_parse_i64(s: i64) -> i64 {
 
 fn pack_parse_i64(ok: i64, val: i64) -> i64 {
     let st = echo_runtime_struct_new();
-    unsafe {
-        struct_set_str(st, "ok", ok);
-        struct_set_str(st, "val", val);
-    }
+    struct_set_str(st, "ok", ok);
+    struct_set_str(st, "val", val);
     st
 }
 
@@ -102,10 +96,8 @@ pub extern "C" fn echo_runtime_parse_f64(s: i64) -> i64 {
 
 fn pack_parse_f64(ok: i64, val: f64) -> i64 {
     let st = echo_runtime_struct_new();
-    unsafe {
-        struct_set_str(st, "ok", ok);
-        struct_set_str(st, "val", echo_runtime_float_from_f64(val));
-    }
+    struct_set_str(st, "ok", ok);
+    struct_set_str(st, "val", echo_runtime_float_from_f64(val));
     st
 }
 
@@ -223,10 +215,8 @@ pub extern "C" fn echo_runtime_zip_unpack_first(data: i64) -> i64 {
     }
     let name = file.name().to_string();
     let st = echo_runtime_struct_new();
-    unsafe {
-        struct_set_str(st, "name", string_to_handle(name));
-        struct_set_str(st, "data", bytes_to_handle(out));
-    }
+    struct_set_str(st, "name", string_to_handle(name));
+    struct_set_str(st, "data", bytes_to_handle(out));
     st
 }
 
@@ -456,19 +446,17 @@ pub extern "C" fn echo_runtime_process_run_cwd(program: i64, args: i64, cwd: i64
     match cmd.output() {
         Ok(out) => {
             let st = echo_runtime_struct_new();
-            unsafe {
-                struct_set_str(st, "code", out.status.code().unwrap_or(-1) as i64);
-                struct_set_str(
-                    st,
-                    "stdout",
-                    string_to_handle(String::from_utf8_lossy(&out.stdout).into_owned()),
-                );
-                struct_set_str(
-                    st,
-                    "stderr",
-                    string_to_handle(String::from_utf8_lossy(&out.stderr).into_owned()),
-                );
-            }
+            struct_set_str(st, "code", out.status.code().unwrap_or(-1) as i64);
+            struct_set_str(
+                st,
+                "stdout",
+                string_to_handle(String::from_utf8_lossy(&out.stdout).into_owned()),
+            );
+            struct_set_str(
+                st,
+                "stderr",
+                string_to_handle(String::from_utf8_lossy(&out.stderr).into_owned()),
+            );
             st
         }
         Err(_) => 0,
@@ -529,13 +517,11 @@ fn pipe_handle(inner: ProcPipeInner) -> i64 {
 pub extern "C" fn echo_runtime_process_spawn_pipes(program: i64, args: i64) -> i64 {
     let fail = || {
         let st = echo_runtime_struct_new();
-        unsafe {
-            struct_set_str(st, "ok", 0);
-            struct_set_str(st, "child", 0);
-            struct_set_str(st, "stdin", 0);
-            struct_set_str(st, "stdout", 0);
-            struct_set_str(st, "stderr", 0);
-        }
+        struct_set_str(st, "ok", 0);
+        struct_set_str(st, "child", 0);
+        struct_set_str(st, "stdin", 0);
+        struct_set_str(st, "stdout", 0);
+        struct_set_str(st, "stderr", 0);
         st
     };
     let Some(prog) = string_data(program) else {
@@ -577,13 +563,11 @@ pub extern "C" fn echo_runtime_process_spawn_pipes(program: i64, args: i64) -> i
         child: Some(child),
     })) as i64;
     let st = echo_runtime_struct_new();
-    unsafe {
-        struct_set_str(st, "ok", 1);
-        struct_set_str(st, "child", child_h);
-        struct_set_str(st, "stdin", pipe_handle(ProcPipeInner::Stdin(stdin)));
-        struct_set_str(st, "stdout", pipe_handle(ProcPipeInner::Stdout(stdout)));
-        struct_set_str(st, "stderr", pipe_handle(ProcPipeInner::Stderr(stderr)));
-    }
+    struct_set_str(st, "ok", 1);
+    struct_set_str(st, "child", child_h);
+    struct_set_str(st, "stdin", pipe_handle(ProcPipeInner::Stdin(stdin)));
+    struct_set_str(st, "stdout", pipe_handle(ProcPipeInner::Stdout(stdout)));
+    struct_set_str(st, "stderr", pipe_handle(ProcPipeInner::Stderr(stderr)));
     st
 }
 

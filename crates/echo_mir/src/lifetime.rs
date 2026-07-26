@@ -545,7 +545,7 @@ fn rewrite_once_block(
 /// per-iteration body still gets its own scope for break/continue cleanup.
 fn rewrite_loop_with_demote_wrap(
     ctx: &mut Ctx,
-    after: &[MirStmt],
+    _after: &[MirStmt],
     for_item: Option<&str>,
     body: &[MirStmt],
     make: impl FnOnce(Vec<MirStmt>) -> MirStmt,

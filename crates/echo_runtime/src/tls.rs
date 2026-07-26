@@ -17,7 +17,7 @@ fn ensure_crypto() {
 }
 
 use crate::{
-    bytes_data, bytes_to_handle, header_at, string_data, string_to_handle, HEAP_MAGIC,
+    bytes_data, bytes_to_handle, header_at, string_data, HEAP_MAGIC,
 };
 
 const KIND_TLS_LISTENER: u32 = 20;
