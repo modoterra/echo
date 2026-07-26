@@ -167,6 +167,12 @@ enum Command {
             value_name = "LEVEL"
         )]
         opt_level: String,
+        /// Print IR / AOT cache hit|miss per suite file (useful for warm bench runs).
+        #[arg(long)]
+        cache_status: bool,
+        /// Skip parse/check/codegen/AOT caches (cold pipeline every file).
+        #[arg(long)]
+        no_cache: bool,
         /// Files, directories, or glob patterns.
         paths: Vec<String>,
     },
@@ -336,6 +342,8 @@ fn main() -> ExitCode {
             bench_baseline,
             bench_threshold,
             opt_level,
+            cache_status,
+            no_cache,
             paths,
         } => match parse_opt_level(&opt_level) {
             Ok(opt) => cmd_test(
@@ -345,6 +353,8 @@ fn main() -> ExitCode {
                     bench_baseline,
                     bench_threshold,
                     opt,
+                    cache_status,
+                    no_cache,
                 },
                 &paths,
             ),
@@ -1250,6 +1260,8 @@ struct BenchTestOpts {
     bench_baseline: Option<PathBuf>,
     bench_threshold: Option<f64>,
     opt: OptLevel,
+    cache_status: bool,
+    no_cache: bool,
 }
 
 /// Discover and run Echo suite entries (`XO_TEST=1`, Model A registration).
@@ -1284,7 +1296,10 @@ fn cmd_test(opts: BenchTestOpts, paths: &[String]) -> ExitCode {
     }
 
     if opts.bench {
-        eprintln!("{label}: LLVM opt={}", opts.opt.as_str());
+        eprintln!(
+            "{label}: LLVM opt={}  (suite uses IR/AOT caches unless --no-cache)",
+            opts.opt.as_str()
+        );
     }
 
     let files = match collect_test_files(paths) {
@@ -1393,12 +1408,14 @@ fn run_suite_file(path: &Path, opts: &BenchTestOpts) -> u8 {
         SuiteRun::tests()
     };
     // Suite mode: AOT child gets XO_TEST=1 (+ XO_BENCH when benchmarking).
+    // Cache on by default so a prebuilt `xo` + warm `.xo/cache` mostly re-execs
+    // cached natives instead of re-running the full pipeline each file.
     let code = cmd_run_inner(
         path,
         false,
         false,
-        false,
-        false,
+        opts.no_cache,
+        opts.cache_status,
         opts.opt,
         &[],
         suite,
