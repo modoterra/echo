@@ -363,8 +363,8 @@ function SiteFooter() {
         <section>
           <p className="max-w-sm text-xl font-semibold leading-8 text-slate-950">Echo</p>
           <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
-            A compiled language with leaders instead of keywords. Write clear programs; ship native
-            binaries with xo.
+            A compiled language with statement leaders. The xo CLI checks programs and emits native
+            binaries.
           </p>
           <p className="mt-10 text-sm text-slate-400">© 2026 Modoterra Corporation</p>
         </section>
@@ -512,7 +512,7 @@ function DocsNavLinkItem({
             initial={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            {/* Nested links only — single primary TOC rail; no nested rail/train. */}
+            {/* Nested links only: single primary TOC rail (no nested rail/train). */}
             <ul className="mt-3 space-y-3 pl-3">
               {link.children?.map((child) => (
                 <DocsNavLinkItem
@@ -534,7 +534,7 @@ function DocsNavLinkItem({
 /**
  * Left docs TOC: one continuous rail (same as “On this page”) with section
  * titles and page links on the track. Gradient train marks the active page.
- * Nested std group children indent under that rail — never a second rail.
+ * Nested std group children indent under that rail (never a second rail).
  */
 function DocsNavigationList({
   navigation,
@@ -982,7 +982,7 @@ function docsChild(path: string) {
     component: () => <DocsContentPage page={docsPage(full)} />,
   });
 }
-/** Every docs page under /docs — derived from docsPages so std API routes stay in sync. */
+/** Every docs page under /docs, derived from docsPages so std API routes stay in sync. */
 const docsChildren = docsPages
   .filter((p) => p.path === "/docs" || p.path.startsWith("/docs/"))
   .map((p) => {

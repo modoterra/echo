@@ -1,12 +1,12 @@
 import type { CodeStageDemo } from "../components/code-stage";
 
-/** Homepage tabbed demos — short, identity-carrying samples. */
+/** Homepage tabbed demos: short samples that show core forms. */
 export const HOME_DEMOS: CodeStageDemo[] = [
   {
     id: "leaders",
     label: "Leaders",
     blurb:
-      "Statements start with a glyph. Bind, mutate, branch, and loop without English keywords.",
+      "Statements start with a glyph. Bind, mutate, branch, and loop with leaders at the start of each line.",
     code: `/ std/io
 
 $ xs = [1, 2, 3]
@@ -25,7 +25,7 @@ io.print("sum={sum}")
     id: "result",
     label: "Result",
     blurb:
-      "Errors are values. ! returns an err; | matches ok and err. The program does not abort on !.",
+      "Errors are values. ! returns an err arm; | matches ok and err. The program keeps running after !.",
     code: `/ std/io
 / std/str
 

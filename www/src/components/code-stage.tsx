@@ -27,7 +27,7 @@ type Props = {
 export function CodeStage({
   demos,
   title = "See it work",
-  subtitle = "Four small programs that show the surface. Static demos — run them after Install.",
+  subtitle = "Four small programs that show the surface. These are static demos; run them after Install.",
 }: Props) {
   const baseId = useId();
   const [active, setActive] = useState(0);

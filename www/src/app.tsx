@@ -32,15 +32,15 @@ const PROOF_POINTS = [
 const TOOLCHAIN_STEPS = [
   {
     command: "xo check",
-    detail: "Resolve and type-check the complete module graph before execution.",
+    detail: "Resolves and type-checks the full module graph before anything runs.",
   },
   {
     command: "xo run",
-    detail: "Compile and execute in-process through the shared LLVM pipeline.",
+    detail: "Compiles and executes through the shared LLVM pipeline.",
   },
   {
     command: "xo build",
-    detail: "Emit a native executable from the same compiler and runtime.",
+    detail: "Emits a native executable from that same compiler and runtime.",
   },
 ];
 
@@ -48,19 +48,19 @@ const EDITION_LINKS = [
   {
     eyebrow: "Learn",
     title: "First program",
-    detail: "Write, check, and run the smallest complete Echo program.",
+    detail: "Write the smallest complete Echo program, then check and run it.",
     to: "/docs/first-program",
   },
   {
     eyebrow: "Reference",
     title: "Language forms",
-    detail: "Read the form-by-form rules for leaders, values, structs, and tasks.",
+    detail: "Form-by-form rules for leaders, values, structs, and tasks.",
     to: "/docs",
   },
   {
     eyebrow: "Specification",
     title: "Echo 2026",
-    detail: "Trace public language law to the machine-checked conformance suite.",
+    detail: "Public language law mapped to the machine-checked conformance suite.",
     to: "/e26/spec",
   },
 ];
@@ -73,11 +73,12 @@ export function HomePage() {
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(560px,1.1fr)] lg:gap-12">
           <div className="max-w-2xl text-center lg:text-left">
             <h1 className="text-balance font-display text-[clamp(2.25rem,11vw,4.25rem)] font-bold leading-[0.98] tracking-[-0.055em] text-slate-950">
-              Echo is a compiled language with leaders instead of keywords.
+              Echo is a compiled language. Leaders mark each statement.
             </h1>
             <p className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl lg:mx-0">
-              Write clear programs. Check them. Ship native binaries with{" "}
-              <span className="font-mono font-semibold text-slate-900">xo</span>.
+              Each statement begins with a leader glyph. The{" "}
+              <span className="font-mono font-semibold text-slate-900">xo</span> CLI checks a program
+              and emits a native binary from the same pipeline.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <CtaLink className="min-w-32" to="/install">
@@ -88,7 +89,7 @@ export function HomePage() {
               </CtaLink>
             </div>
             <p className="mt-5 text-sm text-slate-500">
-              Built from source today. The language and toolchain are actively evolving.
+              Install from source for now. Language and toolchain keep moving.
             </p>
 
             <div className="mx-auto mt-10 max-w-lg overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-left font-mono shadow-2xl shadow-slate-950/15 md:hidden">
@@ -115,7 +116,7 @@ export function HomePage() {
         <CodeStage
           demos={HOME_DEMOS}
           title="The language surface stays in sight."
-          subtitle="Leaders make the role of a statement visible before you read the rest. Explore four small programs and their output."
+          subtitle="Each leader shows the role of a statement before you read the rest of the line. Open a sample, run it with xo, and read the output beside the form."
         />
 
         <ToolchainStory />
@@ -227,8 +228,8 @@ function ToolchainStory() {
             One tool for the whole loop.
           </h2>
           <p className="mt-6 max-w-lg text-pretty text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-            The check path is the product path. The CLI, language server, AOT compiler, and JIT use
-            the same pipeline instead of drifting into separate language implementations.
+            The check path is the product path. CLI, language server, AOT compiler, and JIT share
+            one pipeline, so every host sees the same language rules.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <CtaLink to="/docs/toolchain/commands">Toolchain commands</CtaLink>
@@ -265,11 +266,11 @@ function ToolchainStory() {
             Put the toolchain on your PATH.
           </h3>
           <p className="mt-4 max-w-lg text-sm leading-6 text-slate-400 sm:text-base sm:leading-7">
-            From a checkout, the installer builds a release, co-locates{" "}
-            <span className="font-mono text-slate-200">xo</span> and{" "}
-            <span className="font-mono text-slate-200">std</span>, then links{" "}
+            From a checkout, the installer builds a release and places{" "}
+            <span className="font-mono text-slate-200">xo</span> next to{" "}
+            <span className="font-mono text-slate-200">std</span>. By default it links{" "}
             <span className="font-mono text-slate-200">xo</span> into{" "}
-            <span className="font-mono text-slate-200">~/.local/bin</span> by default.
+            <span className="font-mono text-slate-200">~/.local/bin</span>.
           </p>
           <Link
             className="mt-5 inline-flex text-sm font-semibold text-violet-300 transition hover:text-violet-200"
@@ -313,11 +314,11 @@ function EditionStory() {
           LANGUAGE LAW
         </p>
         <h2 className="mt-5 max-w-xl text-balance font-display text-4xl font-bold leading-[1.02] tracking-[-0.045em] sm:text-5xl">
-          Echo 2026 is written down—and executable.
+          Echo 2026 is written down and executable.
         </h2>
         <p className="mt-6 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-          The public Reference states the language rules. The Echo 2026 suite connects those rules
-          to runnable fixtures, so the edition is more than a marketing name.
+          The public Reference states the language rules. The Echo 2026 suite runs those rules as
+          fixtures against a candidate binary, so the edition stays machine-checked.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <CtaLink to="/e26/spec">Open the Language Spec</CtaLink>
@@ -370,10 +371,11 @@ function ClosingCallToAction() {
           START WITH XO
         </p>
         <h2 className="mt-5 text-balance font-display text-4xl font-bold leading-[1.02] tracking-[-0.045em] sm:text-6xl">
-          See what leaders change.
+          Install xo and run a program.
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-          Build the toolchain, run the first program, and read the rules beside the code.
+          Build the toolchain, open the first program page, and keep the Reference next to the code
+          while you edit.
         </p>
         <div className="mt-9 flex flex-wrap justify-center gap-3">
           <CtaLink to="/install">Install Echo</CtaLink>

@@ -11,6 +11,7 @@
     "lint": "oxlint .",
     "preview": "vite preview",
     "test:std-ref": "node scripts/verify-std-reference.mjs",
+    "test:prose": "node scripts/verify-prose.mjs",
     "sync:tree-sitter": "node scripts/sync-tree-sitter.mjs",
     "postinstall": "npm run sync:tree-sitter"
   },

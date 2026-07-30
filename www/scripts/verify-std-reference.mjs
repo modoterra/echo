@@ -26,7 +26,6 @@ try {
   const {
     stdModules,
     stdExportCount,
-    stdCoreFullPaths,
     assertStdReferenceComplete,
     stdExportHeading,
   } = ref;
@@ -39,10 +38,10 @@ try {
   let fullCount = 0;
   for (const m of stdModules) {
     for (const e of m.exports) {
-      if (!e.call || !e.description) {
-        throw new Error(`${m.path}.${e.name}: missing call/description after assert`);
+      if (!e.call || !e.description || !e.params || !e.returns || !e.example) {
+        throw new Error(`${m.path}.${e.name}: missing Laravel-style fields after assert`);
       }
-      if (e.params && e.example) fullCount += 1;
+      fullCount += 1;
     }
   }
 
@@ -82,24 +81,34 @@ try {
       if (!text.includes(e.call) && !text.includes("Call form")) {
         throw new Error(`${m.path}.${e.name}: call form not rendered`);
       }
-      // Call form paragraph always present
-      const hasCall = section.blocks.some(
+      // Laravel-style section: Signature + Parameters + Return value + example
+      const hasSignature = section.blocks.some(
         (b) =>
-          b.kind === "paragraph" && b.text.some((p) => typeof p !== "string" && p.code === e.call),
+          b.kind === "paragraph" &&
+          b.text.some((p) => typeof p === "string" && p.startsWith("Signature:")) &&
+          b.text.some((p) => typeof p !== "string" && p.code === e.call),
       );
-      if (!hasCall) {
-        throw new Error(`${m.path}.${e.name}: call form code part not in section`);
+      if (!hasSignature) {
+        throw new Error(`${m.path}.${e.name}: signature block missing call form`);
       }
-      if (stdCoreFullPaths.includes(m.path)) {
-        const hasParams = section.blocks.some(
-          (b) =>
-            b.kind === "paragraph" &&
-            b.text.some((p) => typeof p === "string" && p.startsWith("Parameters:")),
+      const hasParams = section.blocks.some(
+        (b) =>
+          b.kind === "paragraph" &&
+          b.text.some((p) => typeof p === "string" && p.startsWith("Parameters:")),
+      );
+      const hasReturns = section.blocks.some(
+        (b) =>
+          b.kind === "paragraph" &&
+          b.text.some((p) => typeof p === "string" && p.startsWith("Return value:")),
+      );
+      const hasExample = section.blocks.some((b) => b.kind === "code" && b.code === e.example);
+      if (!hasParams || !hasReturns || !hasExample) {
+        throw new Error(
+          `${m.path}.${e.name}: full entry missing params/returns/example in section`,
         );
-        const hasExample = section.blocks.some((b) => b.kind === "code" && b.code === e.example);
-        if (!hasParams || !hasExample) {
-          throw new Error(`${m.path}.${e.name}: Core full section missing params/example`);
-        }
+      }
+      if (!e.returns?.trim()) {
+        throw new Error(`${m.path}.${e.name}: data model missing returns`);
       }
     }
   }
@@ -141,7 +150,7 @@ try {
     modules: stdModules.length,
     exports: stdExportCount,
     fullEntries: fullCount,
-    coreFullPaths: [...stdCoreFullPaths],
+    layout: "description + signature + parameters + returns + example",
     sampleAnchors: sampleExports.map((s) => `${s.path}#${headingId(s.name)}`),
     searchRecords: records.length,
   };

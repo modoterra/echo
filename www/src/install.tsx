@@ -21,7 +21,7 @@ const USER_INSTALL = `# From the checkout: release build + XDG install + ~/.loca
 ./scripts/install.sh
 ./scripts/install.sh doctor
 
-# Or install the published release tarball instead of building
+# Or install the published release tarball without a local build
 ./scripts/install.sh from-release
 
 # Upgrade (keeps prior toolchain dirs)
@@ -30,7 +30,7 @@ const USER_INSTALL = `# From the checkout: release build + XDG install + ~/.loca
 # Uninstall toolchain (add --purge to also clear $XO_HOME packages)
 ./scripts/uninstall.sh`;
 
-const FIRST_RUN = `# After from-release / install.sh — xo is on PATH
+const FIRST_RUN = `# After from-release / install.sh, xo is on PATH
 xo run examples/misc/hello.echo
 
 # Or from a debug build in a checkout
@@ -49,8 +49,8 @@ export function InstallPage() {
         </h1>
         <p className="mt-4 text-pretty text-lg leading-8 text-slate-600">
           The public CLI is <span className="font-mono font-semibold text-slate-800">xo</span>.
-          Prefer a prebuilt from the latest GitHub release, or build from source when you are
-          hacking on the compiler.
+          Take a prebuilt from the latest GitHub release when you only need to run programs. Build
+          from source when you edit the compiler.
         </p>
 
         <section className="mt-14">
@@ -58,11 +58,11 @@ export function InstallPage() {
             Prebuilt (recommended)
           </h2>
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            Downloads <span className="font-mono text-slate-800">xo</span>,{" "}
+            The script downloads <span className="font-mono text-slate-800">xo</span>,{" "}
             <span className="font-mono text-slate-800">libecho_runtime.a</span>, and{" "}
             <span className="font-mono text-slate-800">std/</span> for your platform, then links{" "}
-            <span className="font-mono font-semibold text-slate-800">~/.local/bin/xo</span>. Ships
-            for Linux x86_64 and macOS arm64 when a release is published.
+            <span className="font-mono font-semibold text-slate-800">~/.local/bin/xo</span>.
+            Published builds cover Linux x86_64 and macOS arm64.
           </p>
           <div className="mt-6">
             <InstallSnippet code={PREBUILT_INSTALL} />
@@ -76,11 +76,11 @@ export function InstallPage() {
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
             To <span className="font-semibold text-slate-800">run</span> programs you need{" "}
             <span className="font-mono font-semibold text-slate-800">clang</span> on{" "}
-            <span className="font-semibold text-slate-800">PATH</span> (AOT link). Building this
+            <span className="font-semibold text-slate-800">PATH</span> for AOT link. Building this
             repository also expects Rust (edition 2024),{" "}
             <span className="font-mono font-semibold text-slate-800">mold</span>, and{" "}
-            <span className="font-mono font-semibold text-slate-800">sccache</span> — the workspace
-            Cargo config selects them directly. LLVM is required when compiling the toolchain.
+            <span className="font-mono font-semibold text-slate-800">sccache</span>. The workspace
+            Cargo config selects those tools directly. Compiling the toolchain needs LLVM as well.
           </p>
         </section>
 
@@ -89,7 +89,7 @@ export function InstallPage() {
             Build from source
           </h2>
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            Clone the repository and build the CLI package when you are developing Echo itself.
+            Clone the repository and build the CLI package when you develop Echo itself.
           </p>
           <div className="mt-6">
             <InstallSnippet code={CLONE_BUILD} />
@@ -101,13 +101,13 @@ export function InstallPage() {
             Install to PATH (XDG)
           </h2>
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            From a checkout: install a co-located{" "}
-            <span className="font-mono font-semibold text-slate-800">xo</span> +{" "}
+            From a checkout, install co-located{" "}
+            <span className="font-mono font-semibold text-slate-800">xo</span> and{" "}
             <span className="font-mono font-semibold text-slate-800">std</span> under XDG data, link{" "}
             <span className="font-mono font-semibold text-slate-800">~/.local/bin/xo</span>, and
-            create package cache / state dirs. Upgrade flips{" "}
-            <span className="font-mono text-slate-800">current</span> without wiping packages. See
-            the checkout file <span className="font-mono text-slate-800">docs/install.md</span> for
+            create package cache and state dirs. Upgrade flips{" "}
+            <span className="font-mono text-slate-800">current</span> without wiping packages. The
+            checkout file <span className="font-mono text-slate-800">docs/install.md</span> records
             install layout details.
           </p>
           <div className="mt-6">
@@ -121,7 +121,7 @@ export function InstallPage() {
           </h2>
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
             Point <span className="font-mono font-semibold text-slate-800">xo</span> at a sample
-            program (from a checkout, or any path after install).
+            program from a checkout, or at any path after install.
           </p>
           <div className="mt-6">
             <InstallSnippet code={FIRST_RUN} />
@@ -134,16 +134,16 @@ export function InstallPage() {
           </h2>
           <ol className="mt-6 space-y-4 text-base leading-7 text-slate-600">
             <li>
-              <span className="font-semibold text-slate-950">1. First program</span> — read the
-              minimal shape and the same commands you just ran.
+              <span className="font-semibold text-slate-950">1. First program</span>: the minimal
+              shape and the same commands you just ran.
             </li>
             <li>
-              <span className="font-semibold text-slate-950">2. Reference</span> — form sheets for
+              <span className="font-semibold text-slate-950">2. Reference</span>: form sheets for
               leaders, Result, structs, and the rest of Echo 2026.
             </li>
             <li>
-              <span className="font-semibold text-slate-950">3. Language Spec</span> — edition TOC
-              mapping Reference pages to the suite.
+              <span className="font-semibold text-slate-950">3. Language Spec</span>: edition TOC
+              that maps Reference pages to the suite.
             </li>
           </ol>
           <div className="mt-8 flex flex-wrap gap-3">
