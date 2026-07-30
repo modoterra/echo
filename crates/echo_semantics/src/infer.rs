@@ -500,15 +500,16 @@ fn infer_stmt(env: &mut Env, stmt: &Stmt) {
             echo_ast::TaskJoinKind::Block { bind, body } => {
                 infer_block(env, body);
                 if let Some(name) = bind {
-                    let t = env.fresh();
-                    env.bind(&name.name, t);
+                    // Plain immediate-block payloads are i64 at the ABI.
+                    env.bind(&name.name, Type::Int);
                 }
             }
             echo_ast::TaskJoinKind::Handle { bind, handle } => {
                 let _ = infer_expr(env, handle);
                 if let Some(name) = bind {
-                    let t = env.fresh();
-                    env.bind(&name.name, t);
+                    // Plain task payloads are i64 at the ABI; result/option joins
+                    // are typically matched, not used as bare values in the REPL.
+                    env.bind(&name.name, Type::Int);
                 }
             }
         },

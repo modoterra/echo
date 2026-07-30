@@ -548,11 +548,18 @@ pub fn run_jit_with(prog: &MirProgram, opt: OptLevel) -> Result<i64, String> {
     run_jit_ir(&emitted.ir)
 }
 
+/// Serializes in-process JIT runs so process-global task state
+/// (`UNJOINED` / live task list) is not raced across concurrent tests or hosts.
+static JIT_TASK_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// JIT-execute LLVM IR text that declares `echo_runtime_*` and defines `echo_entry`.
 ///
 /// IR is assumed already at the desired opt level; the execution engine uses
 /// [`OptimizationLevel::None`] so MCJIT does not re-optimize.
 pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
+    let _task_gate = JIT_TASK_GATE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("init native target: {e}"))?;
 
@@ -1726,6 +1733,9 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
             .map_err(|e| format!("lookup {ECHO_ENTRY}: {e:?}"))?;
         f.call()
     };
+    // Drain worker threads before dropping the EE (JIT code must not run after).
+    // Also resets process-global unjoined state for the next in-process JIT run.
+    echo_runtime_task_after_run();
     Ok(status)
 }
 
@@ -1768,9 +1778,9 @@ use echo_runtime::{
     echo_runtime_struct_set, echo_runtime_struct_type_is,
     echo_runtime_scope_disown, echo_runtime_scope_enter, echo_runtime_scope_exit,
     echo_runtime_scope_promote, echo_runtime_scope_register, echo_runtime_scope_release,
-    echo_runtime_task_block, echo_runtime_task_block_wide, echo_runtime_task_check_joined,
-    echo_runtime_task_join, echo_runtime_task_join_wide, echo_runtime_task_shape,
-    echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
+    echo_runtime_task_after_run, echo_runtime_task_block, echo_runtime_task_block_wide,
+    echo_runtime_task_check_joined, echo_runtime_task_join, echo_runtime_task_join_wide,
+    echo_runtime_task_shape, echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
     echo_runtime_test_bench_register, echo_runtime_test_fail, echo_runtime_test_finish,

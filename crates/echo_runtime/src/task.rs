@@ -46,6 +46,9 @@ pub struct EchoTask {
 /// Live tasks that have not been joined yet.
 static UNJOINED: AtomicUsize = AtomicUsize::new(0);
 
+/// All tasks created this process-session (for JIT drain between runs).
+static LIVE: Mutex<Vec<Arc<TaskInner>>> = Mutex::new(Vec::new());
+
 fn task_header() -> HeapHeader {
     HeapHeader {
         magic: HEAP_MAGIC,
@@ -97,21 +100,54 @@ fn new_task(entry: usize, shape: TaskShape, argc: u8, args: [i64; MAX_TASK_ARGS]
         2 => 2,
         _ => 0,
     };
+    let inner = Arc::new(TaskInner {
+        state: Mutex::new(TaskState::Pending),
+        done: Condvar::new(),
+        entry,
+        shape,
+        argc,
+        args,
+        joined: Mutex::new(false),
+    });
+    {
+        let mut live = LIVE.lock().expect("live tasks");
+        live.push(inner.clone());
+    }
     let t = Box::new(EchoTask {
         header: task_header(),
-        inner: Arc::new(TaskInner {
-            state: Mutex::new(TaskState::Pending),
-            done: Condvar::new(),
-            entry,
-            shape,
-            argc,
-            args,
-            joined: Mutex::new(false),
-        }),
+        inner,
     });
     let h = crate::heap_to_handle(t);
     mark_spawned();
     h
+}
+
+/// Wait for every task body to finish, then clear the unjoined counter.
+///
+/// Call after a JIT `echo_entry` returns so worker threads are not still
+/// executing JIT code when the execution engine is dropped. Language-level
+/// unjoined status is already reported by [`echo_runtime_task_check_joined`];
+/// this only drains OS work and resets process-global task state for the next
+/// in-process run (REPL / repeated `run_jit_ir`).
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_task_after_run() {
+    let live = {
+        let mut g = LIVE.lock().expect("live tasks");
+        std::mem::take(&mut *g)
+    };
+    for inner in live {
+        crate::sched::schedule(inner.clone());
+        let mut st = inner.state.lock().expect("task state");
+        loop {
+            match *st {
+                TaskState::Finished(_) | TaskState::Failed => break,
+                TaskState::Pending | TaskState::Running => {
+                    st = inner.done.wait(st).expect("task done");
+                }
+            }
+        }
+    }
+    UNJOINED.store(0, Ordering::SeqCst);
 }
 
 /// Create a zero-arg task (not yet scheduled).

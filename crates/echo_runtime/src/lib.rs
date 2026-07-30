@@ -99,10 +99,10 @@ pub use net::{
 
 // Tasks / event loop (ADR 0013) — JIT mapping.
 pub use task::{
-    echo_runtime_task_block, echo_runtime_task_block_wide, echo_runtime_task_check_joined,
-    echo_runtime_task_join, echo_runtime_task_join_wide, echo_runtime_task_new,
-    echo_runtime_task_new_args, echo_runtime_task_shape, echo_runtime_task_spawn,
-    echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
+    echo_runtime_task_after_run, echo_runtime_task_block, echo_runtime_task_block_wide,
+    echo_runtime_task_check_joined, echo_runtime_task_join, echo_runtime_task_join_wide,
+    echo_runtime_task_new, echo_runtime_task_new_args, echo_runtime_task_shape,
+    echo_runtime_task_spawn, echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
 };
 
 // Suite runner (Model A) — JIT mapping.

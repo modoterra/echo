@@ -249,26 +249,34 @@ fn eval_chunk(session: &mut ReplSession, chunk: &str, interactive: bool) {
     }
 
     let kind = classify_chunk(chunk);
-    let is_expr = matches!(kind, ChunkKind::Expression(_));
+    // Bare expressions with a display path are not stored (ephemeral preview).
+    // Side-effecting bare calls (`io.print(...)`) and statements accumulate.
+    let mut store_on_ok = true;
     let program = match &kind {
         ChunkKind::Expression(expr) => {
-            let Some(ty) = infer_expr_type(session, expr) else {
-                if interactive {
-                    eprintln!(
-                        "{ANSI_DIM}(cannot infer kind for bare expression; use io.print){ANSI_RESET}"
-                    );
+            match infer_expr_type(session, expr).and_then(|ty| {
+                let conv = display_conv_for_type(&ty)?;
+                Some((ty, conv))
+            }) {
+                Some((_ty, conv)) => {
+                    store_on_ok = false;
+                    build_expression_program(session, expr, conv)
                 }
-                return;
-            };
-            let Some(conv) = display_conv_for_type(&ty) else {
-                if interactive {
-                    eprintln!(
-                        "{ANSI_DIM}(no bare-expr display for `{ty}`; use io.print / str.from_*){ANSI_RESET}"
-                    );
+                None => {
+                    // No auto-display (unit/unknown/side-effect call): run as a
+                    // statement against the session, but do not persist the line
+                    // unless it is a real declaration-style form. Persist only
+                    // when the chunk is not a pure call-for-effect later; for
+                    // `io.print` we still must not store (re-print on every eval).
+                    store_on_ok = false;
+                    let mut src = session.source();
+                    if !src.is_empty() {
+                        src.push('\n');
+                    }
+                    src.push_str(chunk);
+                    src
                 }
-                return;
-            };
-            build_expression_program(session, expr, conv)
+            }
         }
         ChunkKind::Statement => {
             let mut src = session.source();
@@ -285,7 +293,10 @@ fn eval_chunk(session: &mut ReplSession, chunk: &str, interactive: bool) {
             if status != 0 && interactive {
                 eprintln!("{ANSI_DIM}(exit {status}){ANSI_RESET}");
             }
-            if !is_expr && status == 0 {
+            // Persist statements even when exit status is non-zero so a `+` spawn
+            // that reports unjoined tasks is still available for a later `-` join
+            // in the cumulative session (each eval re-JITs full session source).
+            if store_on_ok {
                 session.chunks.push(chunk.to_string());
             }
         }
@@ -871,4 +882,160 @@ mod tests {
             "got {out_p:?}"
         );
     }
+
+    /// Drive multi-line buffer + `eval_chunk` like piped `xo repl` (real JIT).
+    fn repl_lines(lines: &[&str]) -> ReplSession {
+        let mut session = ReplSession::default();
+        let mut pending = String::new();
+        let mut depth = 0i32;
+        for line in lines {
+            if let Some(chunk) = buffer_repl_input(line, &mut pending, &mut depth) {
+                eval_chunk(&mut session, &chunk, false);
+            }
+        }
+        assert!(
+            pending.is_empty() && depth == 0,
+            "unfinished multi-line buffer: {pending:?} depth={depth}"
+        );
+        session
+    }
+
+    fn eval_display(session: &mut ReplSession, expr: &str) -> String {
+        let (st, out) = echo_runtime::with_print_capture(|| {
+            eval_chunk(session, expr, false);
+        });
+        let _ = st;
+        out
+    }
+
+    #[test]
+    fn forms_const_function_list_loop() {
+        let mut s = repl_lines(&["# A = 21", "# B = A + A"]);
+        let out = eval_display(&mut s, "B");
+        assert_eq!(out.trim(), "42");
+
+        let mut s = repl_lines(&[
+            "$ add = (a, b) {",
+            "    ^ a + b",
+            "}",
+        ]);
+        let out = eval_display(&mut s, "add(20, 22)");
+        assert_eq!(out.trim(), "42");
+
+        let mut s = repl_lines(&[
+            "$ xs = [1, 2, 3]",
+            "~ sum = 0",
+            "* x : xs {",
+            "    ~ sum = sum + x",
+            "}",
+        ]);
+        let out = eval_display(&mut s, "sum");
+        assert_eq!(out.trim(), "6");
+
+        let mut s = repl_lines(&["~ sum = 0", "* n : 1..3 {", "    ~ sum = sum + n", "}"]);
+        let out = eval_display(&mut s, "sum");
+        assert_eq!(out.trim(), "6");
+    }
+
+    #[test]
+    fn forms_import_print_and_strings() {
+        let mut s = ReplSession::default();
+        let (st, out) = echo_runtime::with_print_capture(|| {
+            eval_chunk(&mut s, "/ std/io", false);
+            eval_chunk(&mut s, "io.print(\"hello\")", false);
+        });
+        let _ = st;
+        assert_eq!(out.trim(), "hello");
+
+        let mut s = ReplSession::default();
+        eval_chunk(&mut s, "$ name = 'Ada'", false);
+        eval_chunk(&mut s, "$ s = \"hi {name}\"", false);
+        let out = eval_display(&mut s, "s");
+        assert_eq!(out.trim(), "hi Ada");
+
+        let mut s = ReplSession::default();
+        eval_chunk(&mut s, "$ s = 'hello pure'", false);
+        let out = eval_display(&mut s, "s");
+        assert_eq!(out.trim(), "hello pure");
+    }
+
+    #[test]
+    fn forms_struct_match_result() {
+        let mut s = repl_lines(&[
+            "% point {",
+            "    ~ x",
+            "    ~ y",
+            "}",
+            "$ p = point { x: 3, y: 4 }",
+        ]);
+        let out = eval_display(&mut s, "p.x");
+        assert_eq!(out.trim(), "3");
+        eval_chunk(&mut s, "~ p.x = p.x + 10", false);
+        let out = eval_display(&mut s, "p.x");
+        assert_eq!(out.trim(), "13");
+
+        // Match arm binds are block-local in Echo; drive via print in arms.
+        let mut s = ReplSession::default();
+        let (st, out) = echo_runtime::with_print_capture(|| {
+            eval_chunk(&mut s, "/ std/io", false);
+            eval_chunk(
+                &mut s,
+                "$ number = 5\n| number {\n    4..9 {\n        io.print(\"mid\")\n    }\n    : {\n        io.print(\"other\")\n    }\n}",
+                false,
+            );
+        });
+        let _ = st;
+        assert_eq!(out.trim(), "mid");
+
+        let mut s = ReplSession::default();
+        let (st, out) = echo_runtime::with_print_capture(|| {
+            eval_chunk(&mut s, "/ std/io", false);
+            eval_chunk(&mut s, "/ std/str", false);
+            eval_chunk(
+                &mut s,
+                "$ checked = (x) {\n    ? x < 0 {\n        ! 99\n    }\n    ^ x\n}",
+                false,
+            );
+            eval_chunk(
+                &mut s,
+                "| checked(7) {\n    $ v {\n        io.print(str.from_int(v))\n    }\n    ! e {\n        io.print(str.from_int(e))\n    }\n}",
+                false,
+            );
+        });
+        let _ = st;
+        assert_eq!(out.trim(), "7");
+    }
+
+    #[test]
+    fn forms_task_spawn_join_and_later_expr() {
+        let mut s = ReplSession::default();
+        // Spawn alone leaves unjoined status but must stay in session for join.
+        eval_chunk(&mut s, "+ job = {\n    ^ 7\n}", false);
+        assert!(
+            s.chunks.iter().any(|c| c.contains('+')),
+            "spawn must be stored for later join: {:?}",
+            s.chunks
+        );
+        eval_chunk(&mut s, "- v = job", false);
+        assert!(s.chunks.iter().any(|c| c.contains("- v")), "{:?}", s.chunks);
+
+        let out = eval_display(&mut s, "v");
+        assert_eq!(out.trim(), "7", "joined payload should display");
+
+        eval_chunk(&mut s, "$ x = 1", false);
+        let out = eval_display(&mut s, "x + v");
+        assert_eq!(out.trim(), "8", "later inputs must not leave unjoined tasks");
+    }
+
+    #[test]
+    fn unjoined_task_jit_does_not_abort_process() {
+        // Status 1 (unjoined) is ok; must not SIGSEGV on the host process.
+        let src = "+ job = {\n    ^ 7\n}\n";
+        let st = execute_source(src).expect("jit must return, not crash");
+        assert_ne!(st, 0, "unjoined tasks report non-zero status");
+        // Second JIT in-process must also be safe (REPL re-eval path).
+        let st2 = execute_source("/ std/io\nio.print(\"ok\")\n").expect("second jit");
+        assert_eq!(st2, 0);
+    }
 }
+
