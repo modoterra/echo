@@ -1,8 +1,10 @@
 /** Product surface derived from std module export lines.
  *  Only public exports are listed; suite-only helpers are omitted.
  *
- *  Each public export is a Laravel-style reference entry under the site voice
- *  rules: description, call form, parameters, returns, and an Echo example.
+ *  Package pages follow a Laravel-style outline:
+ *    Package intro → Constants → Structs (with methods) → Functions
+ *  Each callable entry is prose-first with an example immediately after,
+ *  then a short parameters / return note (see SITE.md).
  */
 
 /** @deprecated Kept for callers; every module now requires full entries. */
@@ -17,20 +19,32 @@ export const stdCoreFullPaths = [
 
 export type StdCoreFullPath = (typeof stdCoreFullPaths)[number];
 
-export type StdExport = {
+/** How an export is presented on the package page. */
+export type StdExportKind = "const" | "struct" | "func";
+
+/** Method or free-function documentation body (Laravel-style entry). */
+export type StdDocEntry = {
   name: string;
   /** Short index line */
   role: string;
-  /** How you invoke it after import, e.g. `io.print(value)` or `reflect.KIND_INT` */
+  /** How you invoke it after import / on a receiver */
   call: string;
-  /** Reference description */
+  /** Reference description (spoken prose) */
   description: string;
-  /** Parameter meanings (Laravel-style Parameters section) */
+  /** Parameter meanings */
   params: string;
-  /** Return value meaning (Laravel-style Return Value section) */
+  /** Return value meaning */
   returns: string;
   /** Concrete Echo usage with import */
   example: string;
+};
+
+export type StdExport = StdDocEntry & {
+  /**
+   * Presentation kind. When omitted, inferred from call form / name
+   * (KIND_* and SCREAMING constants → const; no-call shape → struct; else func).
+   */
+  kind?: StdExportKind;
 };
 
 export type StdModule = {
@@ -45,6 +59,671 @@ export type StdModule = {
   docsPath: string;
   exports: StdExport[];
 };
+
+/** Infer presentation kind for a public export. */
+export function stdExportKind(e: StdExport): StdExportKind {
+  if (e.kind) return e.kind;
+  if (e.name.startsWith("KIND_") || (/^[A-Z][A-Z0-9_]*$/.test(e.name) && !e.call.includes("("))) {
+    return "const";
+  }
+  if (!e.call.includes("(")) return "struct";
+  return "func";
+}
+
+/**
+ * Methods attached to struct-shaped exports (key: `${modulePath}.${exportName}`).
+ * Free functions stay on `exports`; these only expand the Struct section.
+ */
+export const stdStructMethods: Record<string, StdDocEntry[]> = {
+  "std/collections/hash_table.hash_table": [
+    {
+      name: "len",
+      role: "Number of live entries",
+      call: "hash_table.len()",
+      description: "Returns the number of live key/value entries.",
+      params: "No parameters.",
+      returns: "Integer count.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ n = t.len()",
+    },
+    {
+      name: "is_empty",
+      role: "Whether the table is empty",
+      call: "hash_table.is_empty()",
+      description: "Reports whether the table has no entries.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ empty = t.is_empty()",
+    },
+    {
+      name: "seed",
+      role: "Set SipHash key halves",
+      call: "hash_table.seed(k0, k1)",
+      description: "Sets SipHash key halves in place. Returns the table for fluent make().seed(...).",
+      params: "k0: first key half. k1: second key half.",
+      returns: "The hash_table receiver.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.seed(1, 2)",
+    },
+    {
+      name: "put",
+      role: "Insert or replace a key",
+      call: "hash_table.put(key, value)",
+      description: "Inserts or replaces the value for key. Grows the table when load is high.",
+      params: "key: key value. value: stored value.",
+      returns: "The hash_table receiver.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.put(\"a\", 1)",
+    },
+    {
+      name: "get",
+      role: "Look up a key",
+      call: "hash_table.get(key)",
+      description: "Looks up key. Missing keys use the option none arm.",
+      params: "key: key value.",
+      returns: "Option. Some arm: stored value. None arm: missing key.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.put(\"a\", 1)\n| t.get(\"a\") {\n    $ v { }\n    : { }\n}",
+    },
+    {
+      name: "remove",
+      role: "Remove a key",
+      call: "hash_table.remove(key)",
+      description: "Removes key if present and returns the previous value as an option.",
+      params: "key: key value.",
+      returns: "Option. Some arm: removed value. None arm: key was absent.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n| t.remove(\"a\") {\n    $ v { }\n    : { }\n}",
+    },
+    {
+      name: "has",
+      role: "Test whether a key exists",
+      call: "hash_table.has(key)",
+      description: "Reports whether key is present.",
+      params: "key: key value.",
+      returns: "Boolean.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ ok = t.has(\"a\")",
+    },
+    {
+      name: "keys",
+      role: "Snapshot of keys",
+      call: "hash_table.keys()",
+      description: "Returns a snapshot list of keys. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of keys.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ ks = t.keys()",
+    },
+    {
+      name: "values",
+      role: "Snapshot of values",
+      call: "hash_table.values()",
+      description: "Returns a snapshot list of values. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of values.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ vs = t.values()",
+    },
+    {
+      name: "entries",
+      role: "Snapshot of entries",
+      call: "hash_table.entries()",
+      description: "Returns a snapshot list of entry products. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of entry products.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ es = t.entries()",
+    },
+    {
+      name: "hash_key",
+      role: "Hash a key under the table seed",
+      call: "hash_table.hash_key(key)",
+      description: "Hashes key with the table's SipHash seed.",
+      params: "key: key value.",
+      returns: "Integer hash.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ h = t.hash_key(\"a\")",
+    },
+    {
+      name: "bucket_index",
+      role: "Bucket index for a key",
+      call: "hash_table.bucket_index(key)",
+      description: "Returns the bucket index for key under the current capacity.",
+      params: "key: key value.",
+      returns: "Integer bucket index.",
+      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ i = t.bucket_index(\"a\")",
+    }
+  ],
+  "std/collections/map.map": [
+    {
+      name: "seed",
+      role: "Set SipHash key halves on an empty map",
+      call: "map.seed(k0, k1)",
+      description:
+        "Sets SipHash key halves on an empty map for fluent make().seed(...). Reseeding a non-empty map fails with a result err.",
+      params: "k0: first key half. k1: second key half.",
+      returns: "Result. Ok arm: the map receiver. Err arm: \"cannot reseed non-empty map\".",
+      example: "/ std/collections/map\n\n$ m = map.make()\n| m.seed(1, 2) {\n    $ _ { }\n    ! e { }\n}",
+    },
+    {
+      name: "put",
+      role: "Insert or replace a key",
+      call: "map.put(key, value)",
+      description: "Inserts or replaces the value for key and returns the map for chaining.",
+      params: "key: map key. value: value to store.",
+      returns: "The map receiver.",
+      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(\"a\", 1)",
+    },
+    {
+      name: "get",
+      role: "Look up a key",
+      call: "map.get(key)",
+      description: "Looks up key. Missing keys use the option none arm.",
+      params: "key: map key.",
+      returns: "Option. Some arm: stored value. None arm: missing key.",
+      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(\"a\", 1)\n| m.get(\"a\") {\n    $ v { }\n    : { }\n}",
+    },
+    {
+      name: "remove",
+      role: "Remove a key",
+      call: "map.remove(key)",
+      description: "Removes key if present and returns the previous value as an option.",
+      params: "key: map key.",
+      returns: "Option. Some arm: removed value. None arm: key was absent.",
+      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(\"a\", 1)\n| m.remove(\"a\") {\n    $ v { }\n    : { }\n}",
+    },
+    {
+      name: "has",
+      role: "Test whether a key exists",
+      call: "map.has(key)",
+      description: "Reports whether key is present.",
+      params: "key: map key.",
+      returns: "Boolean.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ ok = m.has(\"a\")",
+    },
+    {
+      name: "len",
+      role: "Number of entries",
+      call: "map.len()",
+      description: "Returns the number of entries in the map.",
+      params: "No parameters.",
+      returns: "Integer length.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ n = m.len()",
+    },
+    {
+      name: "is_empty",
+      role: "Whether the map has no entries",
+      call: "map.is_empty()",
+      description: "Reports whether the map has no entries.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ empty = m.is_empty()",
+    },
+    {
+      name: "keys",
+      role: "Snapshot of keys",
+      call: "map.keys()",
+      description: "Returns a snapshot list of keys. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of keys.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ ks = m.keys()",
+    },
+    {
+      name: "values",
+      role: "Snapshot of values",
+      call: "map.values()",
+      description: "Returns a snapshot list of values. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of values.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ vs = m.values()",
+    },
+    {
+      name: "entries",
+      role: "Snapshot of key/value pairs",
+      call: "map.entries()",
+      description: "Returns a snapshot list of { key, value } products. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of entry products.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ es = m.entries()",
+    },
+    {
+      name: "to_list",
+      role: "Entries as a list for for-in",
+      call: "map.to_list()",
+      description: "Returns the same snapshot as entries(), for for-in over the map.",
+      params: "No parameters.",
+      returns: "List of entry products.",
+      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(1, 2)\n* e : m.to_list() { }",
+    },
+    {
+      name: "hash_key",
+      role: "Hash a key under the map seed",
+      call: "map.hash_key(key)",
+      description: "Hashes key with the map's SipHash seed (low-level helper).",
+      params: "key: map key.",
+      returns: "Integer hash.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ h = m.hash_key(\"a\")",
+    },
+    {
+      name: "bucket_index",
+      role: "Bucket index for a key",
+      call: "map.bucket_index(key)",
+      description: "Returns the bucket index for key under the current capacity.",
+      params: "key: map key.",
+      returns: "Integer bucket index.",
+      example: "/ std/collections/map\n\n$ m = map.make()\n$ i = m.bucket_index(\"a\")",
+    }
+  ],
+  "std/collections/queue.queue": [
+    {
+      name: "len",
+      role: "Number of queued items",
+      call: "queue.len()",
+      description: "Returns how many items are waiting in the queue.",
+      params: "No parameters.",
+      returns: "Integer length.",
+      example: "/ std/collections/queue\n\n$ q = queue.make()\n$ n = q.len()",
+    },
+    {
+      name: "is_empty",
+      role: "Whether the queue is empty",
+      call: "queue.is_empty()",
+      description: "Reports whether the queue has no waiting items.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/collections/queue\n\n$ q = queue.make()\n$ empty = q.is_empty()",
+    },
+    {
+      name: "push",
+      role: "Enqueue a value",
+      call: "queue.push(x)",
+      description: "Appends x at the back of the queue and returns the queue for chaining.",
+      params: "x: value to enqueue.",
+      returns: "The queue receiver.",
+      example: "/ std/collections/queue\n\n$ q = queue.make()\nq.push(1)",
+    },
+    {
+      name: "pop",
+      role: "Dequeue the front value",
+      call: "queue.pop()",
+      description: "Removes and returns the front value. An empty queue fails with a result err.",
+      params: "No parameters.",
+      returns: "Result. Ok arm: front value. Err arm: \"empty\".",
+      example: "/ std/collections/queue\n\n$ q = queue.make()\nq.push(1)\n| q.pop() {\n    $ v { }\n    ! e { }\n}",
+    }
+  ],
+  "std/collections/set.set": [
+    {
+      name: "seed",
+      role: "Set SipHash key halves on an empty set",
+      call: "set.seed(k0, k1)",
+      description:
+        "Sets SipHash key halves on an empty set. Reseeding a non-empty set fails with a result err.",
+      params: "k0: first key half. k1: second key half.",
+      returns: "Result. Ok arm: the set receiver. Err arm: \"cannot reseed non-empty set\".",
+      example: "/ std/collections/set\n\n$ s = set.make()\n| s.seed(1, 2) {\n    $ _ { }\n    ! e { }\n}",
+    },
+    {
+      name: "add",
+      role: "Add a member",
+      call: "set.add(x)",
+      description:
+        "Adds x to the set and returns the set for chaining. Adding an existing member is a no-op.",
+      params: "x: member value.",
+      returns: "The set receiver.",
+      example: "/ std/collections/set\n\n$ s = set.make()\ns.add(7)",
+    },
+    {
+      name: "remove",
+      role: "Remove a member",
+      call: "set.remove(x)",
+      description: "Removes x if present.",
+      params: "x: member value.",
+      returns: "Boolean true when the element was present and removed.",
+      example: "/ std/collections/set\n\n$ s = set.make()\ns.add(7)\n$ gone = s.remove(7)",
+    },
+    {
+      name: "has",
+      role: "Test membership",
+      call: "set.has(x)",
+      description: "Reports whether x is in the set.",
+      params: "x: member value.",
+      returns: "Boolean.",
+      example: "/ std/collections/set\n\n$ s = set.make()\n$ ok = s.has(7)",
+    },
+    {
+      name: "len",
+      role: "Number of members",
+      call: "set.len()",
+      description: "Returns the number of members.",
+      params: "No parameters.",
+      returns: "Integer length.",
+      example: "/ std/collections/set\n\n$ s = set.make()\n$ n = s.len()",
+    },
+    {
+      name: "is_empty",
+      role: "Whether the set has no members",
+      call: "set.is_empty()",
+      description: "Reports whether the set has no members.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/collections/set\n\n$ s = set.make()\n$ empty = s.is_empty()",
+    },
+    {
+      name: "values",
+      role: "Snapshot of members",
+      call: "set.values()",
+      description: "Returns a snapshot list of members. Order is undefined.",
+      params: "No parameters.",
+      returns: "List of members.",
+      example: "/ std/collections/set\n\n$ s = set.make()\n$ vs = s.values()",
+    },
+    {
+      name: "to_list",
+      role: "Members as a list for for-in",
+      call: "set.to_list()",
+      description: "Returns the same snapshot as values(), for for-in over the set.",
+      params: "No parameters.",
+      returns: "List of members.",
+      example: "/ std/collections/set\n\n$ s = set.make()\ns.add(1)\n* x : s.to_list() { }",
+    }
+  ],
+  "std/fs.file": [
+    {
+      name: "read",
+      role: "Read up to limit bytes from the open file",
+      call: "file.read(limit)",
+      description:
+        "Reads up to limit bytes from the open file. Empty bytes mean end of file. I/O failure uses a result err.",
+      params: "limit: maximum bytes to read.",
+      returns: "Result. Ok arm: bytes. Err arm: \"read failed\".",
+      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.read(4096) {\n    $ b { }\n    ! e { }\n}",
+    },
+    {
+      name: "write",
+      role: "Write data to the open file",
+      call: "file.write(data)",
+      description: "Writes data to the open file. Data may be bytes or a string.",
+      params: "data: bytes or string to write.",
+      returns: "Result. Ok arm: none. Err arm: \"write failed\".",
+      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.write(\"more\\n\") {\n    $ _ { }\n    ! e { }\n}",
+    },
+    {
+      name: "seek",
+      role: "Seek to an absolute byte position",
+      call: "file.seek(pos)",
+      description: "Moves the file position to an absolute byte offset.",
+      params: "pos: absolute byte position.",
+      returns: "Result. Ok arm: new position. Err arm: \"seek failed\".",
+      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.seek(0) {\n    $ pos { }\n    ! e { }\n}",
+    },
+    {
+      name: "close",
+      role: "Close the file handle",
+      call: "file.close()",
+      description: "Closes the file handle and marks the product closed.",
+      params: "No parameters.",
+      returns: "The file receiver (for chaining).",
+      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\nf.close()",
+    }
+  ],
+  "std/net/http.request": [
+    {
+      name: "is_get",
+      role: "Whether the method is GET",
+      call: "request.is_get()",
+      description: "Reports whether the request method is GET. Same shape as std/net/request.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/net/http\n\n$ ok = req.is_get()",
+    },
+    {
+      name: "is_post",
+      role: "Whether the method is POST",
+      call: "request.is_post()",
+      description: "Reports whether the request method is POST. Same shape as std/net/request.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/net/http\n\n$ ok = req.is_post()",
+    },
+    {
+      name: "has_body",
+      role: "Whether the body is non-empty",
+      call: "request.has_body()",
+      description: "Reports whether the request body string is non-empty. Same shape as std/net/request.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/net/http\n\n$ ok = req.has_body()",
+    }
+  ],
+  "std/net/http.response": [
+    {
+      name: "set_header",
+      role: "Set a response header",
+      call: "response.set_header(name, value)",
+      description:
+        "Sets a response header and returns the response for chaining. Same shape as std/net/response.",
+      params: "name: header name. value: header value.",
+      returns: "The response receiver.",
+      example: "/ std/net/http\n\n$ res = http.text_response(200, \"ok\")\nres.set_header(\"X-Demo\", \"1\")",
+    }
+  ],
+  "std/net/request.request": [
+    {
+      name: "is_get",
+      role: "Whether the method is GET",
+      call: "request.is_get()",
+      description: "Reports whether the request method is GET.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/net/request\n\n$ ok = req.is_get()",
+    },
+    {
+      name: "is_post",
+      role: "Whether the method is POST",
+      call: "request.is_post()",
+      description: "Reports whether the request method is POST.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/net/request\n\n$ ok = req.is_post()",
+    },
+    {
+      name: "has_body",
+      role: "Whether the body is non-empty",
+      call: "request.has_body()",
+      description: "Reports whether the request body string is non-empty.",
+      params: "No parameters.",
+      returns: "Boolean.",
+      example: "/ std/net/request\n\n$ ok = req.has_body()",
+    }
+  ],
+  "std/net/response.response": [
+    {
+      name: "set_header",
+      role: "Set a response header",
+      call: "response.set_header(name, value)",
+      description: "Sets a response header and returns the response for chaining.",
+      params: "name: header name. value: header value.",
+      returns: "The response receiver.",
+      example: "/ std/net/response\n\n; obtain a response value, then chain headers\n$ res = res.set_header(\"Content-Type\", \"text/plain\")",
+    }
+  ],
+  "std/net/tcp.conn": [
+    {
+      name: "read",
+      role: "Read bytes from the connection",
+      call: "conn.read(limit)",
+      description:
+        "Reads up to limit bytes from the connection. Empty bytes often mean EOF or a failed read depending on the peer.",
+      params: "limit: maximum bytes to read.",
+      returns: "Bytes read from the connection.",
+      example: "/ std/net/tcp\n\n$ data = conn.read(4096)",
+    },
+    {
+      name: "write",
+      role: "Write bytes to the connection",
+      call: "conn.write(data)",
+      description: "Writes data to the connection.",
+      params: "data: bytes or string to send.",
+      returns: "Integer bytes written, or -1 on failure.",
+      example: "/ std/net/tcp\n\n$ n = conn.write(\"hi\\n\")",
+    },
+    {
+      name: "close",
+      role: "Close the connection",
+      call: "conn.close()",
+      description: "Closes the connection and marks it closed.",
+      params: "No parameters.",
+      returns: "The connection receiver.",
+      example: "/ std/net/tcp\n\nconn.close()",
+    }
+  ],
+  "std/net/tcp.listener": [
+    {
+      name: "accept",
+      role: "Accept the next connection",
+      call: "listener.accept()",
+      description:
+        "Accepts the next inbound connection. A failed accept may return a conn with open false and handle 0.",
+      params: "No parameters.",
+      returns: "conn product for the accepted peer.",
+      example: "/ std/net/tcp\n\n$ conn = listener.accept()",
+    },
+    {
+      name: "close",
+      role: "Close the listener",
+      call: "listener.close()",
+      description: "Closes the listener socket.",
+      params: "No parameters.",
+      returns: "The listener receiver.",
+      example: "/ std/net/tcp\n\nlistener.close()",
+    }
+  ],
+  "std/net/tls.conn": [
+    {
+      name: "read",
+      role: "Read bytes from the TLS connection",
+      call: "conn.read(limit)",
+      description: "Reads up to limit bytes from the TLS connection.",
+      params: "limit: maximum bytes to read.",
+      returns: "Bytes read.",
+      example: "/ std/net/tls\n\n$ data = conn.read(4096)",
+    },
+    {
+      name: "write",
+      role: "Write bytes to the TLS connection",
+      call: "conn.write(data)",
+      description: "Writes data over the TLS connection.",
+      params: "data: bytes or string to send.",
+      returns: "Integer bytes written, or failure status.",
+      example: "/ std/net/tls\n\n$ n = conn.write(\"hi\")",
+    },
+    {
+      name: "close",
+      role: "Close the TLS connection",
+      call: "conn.close()",
+      description: "Closes the TLS connection and marks it closed.",
+      params: "No parameters.",
+      returns: "The connection receiver.",
+      example: "/ std/net/tls\n\nconn.close()",
+    }
+  ],
+  "std/net/tls.listener": [
+    {
+      name: "accept",
+      role: "Accept the next TLS connection",
+      call: "listener.accept(cert_pem, key_pem)",
+      description:
+        "Accepts the next TLS connection using the given certificate and key PEM text. Failure may return a conn with handle 0.",
+      params: "cert_pem: certificate PEM text. key_pem: private key PEM text.",
+      returns: "conn product for the accepted peer.",
+      example: "/ std/net/tls\n\n$ conn = listener.accept(cert_pem, key_pem)",
+    },
+    {
+      name: "close",
+      role: "Close the TLS listener",
+      call: "listener.close()",
+      description: "Closes the TLS listener.",
+      params: "No parameters.",
+      returns: "The listener receiver.",
+      example: "/ std/net/tls\n\nlistener.close()",
+    }
+  ],
+  "std/net/udp.socket": [
+    {
+      name: "send_to",
+      role: "Send a datagram",
+      call: "socket.send_to(data, to)",
+      description: "Sends a datagram to the destination address string.",
+      params: "data: payload bytes or string. to: destination address string.",
+      returns: "Integer bytes sent, or a failure status from the runtime.",
+      example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")\n$ n = sock.send_to(b\"hi\", \"127.0.0.1:9\")",
+    },
+    {
+      name: "recv_from",
+      role: "Receive a datagram",
+      call: "socket.recv_from(limit)",
+      description: "Receives a datagram and sender metadata. Limit caps the payload size.",
+      params: "limit: maximum bytes to receive.",
+      returns: "Product with data and from address fields (empty data on failure).",
+      example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")\n$ msg = sock.recv_from(4096)",
+    },
+    {
+      name: "close",
+      role: "Close the socket",
+      call: "socket.close()",
+      description: "Closes the UDP socket and marks it closed.",
+      params: "No parameters.",
+      returns: "The socket receiver.",
+      example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")\nsock.close()",
+    }
+  ],
+  "std/net/unix.conn": [
+    {
+      name: "read",
+      role: "Read bytes from the connection",
+      call: "conn.read(limit)",
+      description: "Reads up to limit bytes from the Unix domain connection.",
+      params: "limit: maximum bytes to read.",
+      returns: "Bytes read.",
+      example: "/ std/net/unix\n\n$ data = conn.read(4096)",
+    },
+    {
+      name: "write",
+      role: "Write bytes to the connection",
+      call: "conn.write(data)",
+      description: "Writes data to the Unix domain connection.",
+      params: "data: bytes or string to send.",
+      returns: "Integer bytes written, or failure status.",
+      example: "/ std/net/unix\n\n$ n = conn.write(\"hi\")",
+    },
+    {
+      name: "close",
+      role: "Close the connection",
+      call: "conn.close()",
+      description: "Closes the connection and marks it closed.",
+      params: "No parameters.",
+      returns: "The connection receiver.",
+      example: "/ std/net/unix\n\nconn.close()",
+    }
+  ],
+  "std/net/unix.listener": [
+    {
+      name: "accept",
+      role: "Accept the next connection",
+      call: "listener.accept()",
+      description:
+        "Accepts the next Unix domain connection. Failure may return a conn with handle 0 and open false.",
+      params: "No parameters.",
+      returns: "conn product for the accepted peer.",
+      example: "/ std/net/unix\n\n$ conn = listener.accept()",
+    },
+    {
+      name: "close",
+      role: "Close the listener",
+      call: "listener.close()",
+      description: "Closes the Unix domain listener.",
+      params: "No parameters.",
+      returns: "The listener receiver.",
+      example: "/ std/net/unix\n\nlistener.close()",
+    }
+  ]
+};
+
+export function stdMethodsFor(path: string, exportName: string): StdDocEntry[] {
+  return stdStructMethods[`${path}.${exportName}`] ?? [];
+}
 
 export const stdModules: StdModule[] = [
   {

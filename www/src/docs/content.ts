@@ -1,9 +1,11 @@
 import {
   stdExportCount,
-  stdExportHeading,
+  stdExportKind,
   stdGroups,
   stdImportLine,
+  stdMethodsFor,
   stdModules,
+  type StdDocEntry,
   type StdExport,
   type StdModule,
 } from "./std-reference";
@@ -163,96 +165,202 @@ export function navigationForPath(pathname: string): DocsNavGroup[] {
   return docsNavigation;
 }
 
-function stdExportSection(m: StdModule, e: StdExport): DocsSection {
-  // Laravel-style entry: description → signature → parameters → returns → example.
-  const blocks: DocsBlock[] = [
+/**
+ * Laravel-style entry body: teach in prose, show the example next, then a
+ * short parameters / return note. Matches the rate-limiting docs rhythm
+ * (intro → code → follow-on detail) without marketing cadence.
+ */
+function stdEntryBlocks(entry: StdDocEntry): DocsBlock[] {
+  return [
     {
       kind: "paragraph",
-      text: [e.description],
-    },
-    {
-      kind: "paragraph",
-      text: ["Signature: ", { code: e.call }, "."],
-    },
-    {
-      kind: "paragraph",
-      text: ["Parameters: ", e.params],
-    },
-    {
-      kind: "paragraph",
-      text: ["Return value: ", e.returns],
+      text: [entry.description, " Call form: ", { code: entry.call }, "."],
     },
     {
       kind: "code",
       language: "echo",
-      code: e.example,
+      code: entry.example,
+    },
+    {
+      kind: "paragraph",
+      text: ["Parameters: ", entry.params, " Returns: ", entry.returns],
     },
   ];
+}
 
+function stdConstSection(m: StdModule, e: StdExport): DocsSection {
   return {
-    title: stdExportHeading(e),
-    tags: ["export", "api", e.name, m.path, e.call],
+    title: e.name,
+    tags: ["export", "const", "api", e.name, m.path, e.call],
     aliases: [e.name, e.call, `${m.name}.${e.name}`, `${m.path}.${e.name}`],
-    blocks,
+    blocks: stdEntryBlocks(e),
+  };
+}
+
+function stdStructOverviewSection(m: StdModule, e: StdExport): DocsSection {
+  const methods = stdMethodsFor(m.path, e.name);
+  const methodNames = methods.map((x) => x.name);
+  return {
+    title: `Struct · ${e.name}`,
+    tags: ["export", "struct", "api", e.name, m.path, e.call, ...methodNames],
+    aliases: [e.name, e.call, `${m.name}.${e.name}`, `${m.path}.${e.name}`, `% ${e.name}`],
+    blocks: [
+      {
+        kind: "paragraph",
+        text: [
+          e.description,
+          " The shape is exported as ",
+          { code: e.call },
+          methods.length
+            ? `. Methods on the receiver are listed next.`
+            : `. Construct or obtain values through the free functions below when the package provides them.`,
+        ],
+      },
+      {
+        kind: "code",
+        language: "echo",
+        code: e.example,
+      },
+      {
+        kind: "paragraph",
+        text: ["Parameters: ", e.params, " Returns: ", e.returns],
+      },
+    ],
+  };
+}
+
+function stdMethodSection(m: StdModule, struct: StdExport, method: StdDocEntry): DocsSection {
+  const title = `${struct.name} · ${method.name}`;
+  return {
+    title,
+    tags: ["export", "method", "api", method.name, struct.name, m.path, method.call],
+    aliases: [
+      method.name,
+      method.call,
+      `${struct.name}.${method.name}`,
+      `${m.name}.${struct.name}.${method.name}`,
+      title,
+    ],
+    blocks: stdEntryBlocks(method),
+  };
+}
+
+function stdFuncSection(m: StdModule, e: StdExport): DocsSection {
+  return {
+    title: e.name,
+    tags: ["export", "func", "api", e.name, m.path, e.call],
+    aliases: [e.name, e.call, `${m.name}.${e.name}`, `${m.path}.${e.name}`],
+    blocks: stdEntryBlocks(e),
   };
 }
 
 function stdModulePage(m: StdModule): DocsPage {
   const exportNames = m.exports.map((e) => e.name).join(", ");
   const exportCalls = m.exports.map((e) => e.call).join(", ");
+  const consts = m.exports.filter((e) => stdExportKind(e) === "const");
+  const structs = m.exports.filter((e) => stdExportKind(e) === "struct");
+  const funcs = m.exports.filter((e) => stdExportKind(e) === "func");
+  const methodNames = structs.flatMap((s) => stdMethodsFor(m.path, s.name).map((x) => x.name));
+
+  const sections: DocsSection[] = [
+    {
+      title: "Introduction",
+      tags: ["package", "import", "overview", m.path],
+      blocks: [
+        {
+          kind: "paragraph",
+          text: [
+            m.summary,
+            " Import ",
+            { code: m.path },
+            " to bind the module as ",
+            { code: m.name },
+            ". Call free functions as ",
+            { code: `${m.name}.name(...)` },
+            ". Struct methods use a receiver value.",
+          ],
+        },
+        {
+          kind: "code",
+          language: "echo",
+          code: stdImportLine(m),
+        },
+        {
+          kind: "paragraph",
+          text: [
+            "This page is the package reference for ",
+            { code: m.path },
+            ". Private helpers used only by co-located tests are not listed.",
+          ],
+        },
+      ],
+    },
+  ];
+
+  if (consts.length > 0) {
+    sections.push({
+      title: "Constants",
+      tags: ["constants", m.path],
+      blocks: [
+        {
+          kind: "paragraph",
+          text: [
+            "Constants are module values you read without calling. Each constant below has its own heading.",
+          ],
+        },
+      ],
+    });
+    for (const e of consts) {
+      sections.push(stdConstSection(m, e));
+    }
+  }
+
+  if (structs.length > 0) {
+    for (const e of structs) {
+      sections.push(stdStructOverviewSection(m, e));
+      for (const method of stdMethodsFor(m.path, e.name)) {
+        sections.push(stdMethodSection(m, e, method));
+      }
+    }
+  }
+
+  if (funcs.length > 0) {
+    sections.push({
+      title: "Functions",
+      tags: ["functions", m.path],
+      blocks: [
+        {
+          kind: "paragraph",
+          text: [
+            "Free functions on ",
+            { code: m.name },
+            ". Each function has a short description, an example, then parameters and return shape.",
+          ],
+        },
+      ],
+    });
+    for (const e of funcs) {
+      sections.push(stdFuncSection(m, e));
+    }
+  }
+
   return {
     id: `docs-std-${m.path.replace(/\//g, "-")}`,
     path: m.docsPath,
     category: "Standard library",
     title: m.title,
     summary: m.summary,
-    tags: ["std", "api", m.path, m.name, ...m.exports.map((e) => e.name)],
-    aliases: [m.path, `std ${m.name}`, exportNames, exportCalls],
-    sections: [
-      {
-        title: "Import",
-        tags: ["import", m.path],
-        blocks: [
-          {
-            kind: "code",
-            language: "echo",
-            code: stdImportLine(m),
-          },
-          {
-            kind: "paragraph",
-            text: [
-              "Import binds the final path segment as ",
-              { code: m.name },
-              ". Call exports as ",
-              { code: `${m.name}.name(...)` },
-              ". Each export below is a full reference entry: signature, parameters, return value, and example.",
-            ],
-          },
-        ],
-      },
-      {
-        title: "Overview",
-        tags: ["overview", "exports"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              m.summary,
-              " Public surface for ",
-              { code: m.path },
-              " (",
-              String(m.exports.length),
-              " exports). Private helpers used only by co-located tests are not listed.",
-            ],
-          },
-          {
-            kind: "paragraph",
-            text: ["Jump to: ", m.exports.map((e) => e.name).join(", "), "."],
-          },
-        ],
-      },
-      ...m.exports.map((e) => stdExportSection(m, e)),
+    tags: [
+      "std",
+      "api",
+      "package",
+      m.path,
+      m.name,
+      ...m.exports.map((e) => e.name),
+      ...methodNames,
     ],
+    aliases: [m.path, `std ${m.name}`, exportNames, exportCalls],
+    sections,
   };
 }
 
@@ -1812,7 +1920,7 @@ io.print(str.from_int(r[0][0]))
               { code: "\\ " },
               " line in ",
               { code: "std/" },
-              " as its own reference entry (description, signature, parameters, return value, and example). That is the product API: free functions, types, and constants. Helpers used only by co-located tests are not public. There are ",
+              " as a package page: introduction, constants, structs with methods, then free functions. Each callable has prose, an example, and parameter/return notes. Helpers used only by co-located tests are not public. There are ",
               String(stdModules.length),
               " modules and ",
               String(stdExportCount),
@@ -5100,7 +5208,7 @@ const stdReferenceIndexPage: DocsPage = {
             { code: "std/" },
             " module. Import the module, then call ",
             { code: "module.export(...)" },
-            ". Open the module page for per-export headings (description, signature, parameters, return value, and example). Types and shapes are listed alongside free functions. Private test helpers are not included.",
+            ". Open the module page for the package outline (constants, structs, methods, functions). Private test helpers are not included.",
           ],
         },
       ],

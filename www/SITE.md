@@ -24,19 +24,41 @@ Public docs aim for Laravel-class clarity (example-first, skimmable headings,
 explicit call forms) without Laravel chapter inventory or framework framing.
 Language law stays Echo 2026 Spec + Reference + suite.
 
-### Std function entries (Laravel-style)
+### Std package pages (Laravel-style)
 
-Every public `std/` export is a first-class reference entry under the spoken-doc
-rules. Render order on the module page:
+Each `/docs/std/…` page is a **package** page. Outline matches product docs such
+as Laravel’s rate-limiting chapter: introduce the package, then group the
+surface, with an example next to each callable.
 
-1. **Description** — one or two sentences on what the export does
-2. **Signature** — call form after import, e.g. `io.print(value)`
-3. **Parameters** — `name: meaning.` fields (or `No parameters.`)
-4. **Return value** — what the call yields, including result/option shapes
-5. **Example** — short Echo snippet that imports the module and uses the export
+```text
+Package (Introduction + import)
+Constants          ← KIND_* and other constant exports
+Struct · name      ← shape export
+  name · method    ← receiver methods (when documented)
+  name · method
+Functions
+  free_func
+  free_func
+```
 
-Keep description and returns in spoken prose. Keep params structured. Do not
-add marketing cadence, antithesis, or em dashes in those fields.
+#### Entry body (each const, method, or function)
+
+Spoken prose first (what it does, inline call form). **Example next.** Then one
+short line for parameters and return shape:
+
+1. **Description** + call form in the same paragraph  
+2. **Example** — Echo snippet with the package import  
+3. **Parameters / Returns** — structured field notes, not a second essay  
+
+Keep description and returns in spoken prose. Keep params structured
+(`name: meaning.`). Do not add marketing cadence, antithesis, or em dashes.
+
+#### Data
+
+- Free exports live on `stdModules[].exports` with inferred kind
+  (`const` / `struct` / `func`).
+- Struct methods live in `stdStructMethods["std/path.export"]` so free exports
+  stay the public module surface while methods expand the Struct section.
 
 ### Spoken-doc intent
 

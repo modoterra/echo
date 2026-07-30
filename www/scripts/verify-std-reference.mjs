@@ -1,7 +1,10 @@
 /**
- * Verifies shipped std reference docs: every public export is a first-class
- * entry (description + call form), Core full modules include params + examples,
- * module pages expose per-export section anchors, and search indexes exports.
+ * Verifies shipped std package docs:
+ * - every public export has full entry fields
+ * - package pages use Introduction / Constants / Struct · / Functions outline
+ * - callables render prose + example + parameters/returns
+ * - documented struct methods appear as "struct · method" sections
+ * - search indexes exports
  *
  * Loads real TypeScript modules via Vite SSR (the same sources the site builds).
  */
@@ -27,93 +30,107 @@ try {
     stdModules,
     stdExportCount,
     assertStdReferenceComplete,
-    stdExportHeading,
+    stdExportKind,
+    stdMethodsFor,
   } = ref;
   const { docsPageByPath, headingId } = content;
   const { buildDocsSearchRecords } = search;
 
-  // 1) Data model completeness (drives assertStdReferenceComplete)
   assertStdReferenceComplete();
 
   let fullCount = 0;
+  let methodCount = 0;
   for (const m of stdModules) {
     for (const e of m.exports) {
       if (!e.call || !e.description || !e.params || !e.returns || !e.example) {
-        throw new Error(`${m.path}.${e.name}: missing Laravel-style fields after assert`);
+        throw new Error(`${m.path}.${e.name}: missing package entry fields after assert`);
       }
       fullCount += 1;
+      methodCount += stdMethodsFor(m.path, e.name).length;
     }
   }
 
-  // 2) Module pages: per-export sections + stable anchors
   for (const m of stdModules) {
     const page = docsPageByPath.get(m.docsPath);
     if (!page) {
       throw new Error(`missing docs page for ${m.docsPath}`);
     }
+
+    const intro = page.sections.find((s) => s.title === "Introduction");
+    if (!intro) {
+      throw new Error(`${m.docsPath}: missing Introduction section`);
+    }
+
+    const consts = m.exports.filter((e) => stdExportKind(e) === "const");
+    const funcs = m.exports.filter((e) => stdExportKind(e) === "func");
+
+    if (consts.length > 0 && !page.sections.some((s) => s.title === "Constants")) {
+      throw new Error(`${m.docsPath}: missing Constants group`);
+    }
+    if (funcs.length > 0 && !page.sections.some((s) => s.title === "Functions")) {
+      throw new Error(`${m.docsPath}: missing Functions group`);
+    }
+
     for (const e of m.exports) {
-      const title = stdExportHeading(e);
+      const kind = stdExportKind(e);
+      const title =
+        kind === "struct" ? `Struct · ${e.name}` : e.name;
       const section = page.sections.find((s) => s.title === title);
       if (!section) {
-        throw new Error(`${m.docsPath}: missing section for export ${e.name}`);
+        throw new Error(`${m.docsPath}: missing section for ${kind} ${e.name} (title ${title})`);
       }
-      const id = headingId(title);
-      if (
-        !id ||
-        id !==
-          e.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "")
-      ) {
-        // name-only headings should slug cleanly; KIND_INT → kind-int
-      }
-      if (id.length === 0) {
-        throw new Error(`${m.path}.${e.name}: empty heading id`);
-      }
+
       const text = section.blocks
         .filter((b) => b.kind === "paragraph")
         .map((b) => b.text.map((p) => (typeof p === "string" ? p : p.code)).join(""))
         .join(" ");
       if (!text.includes(e.description) && !text.includes("Call form")) {
-        throw new Error(`${m.path}.${e.name}: section missing description/call form`);
+        throw new Error(`${m.path}.${e.name}: section missing description`);
       }
-      if (!text.includes(e.call) && !text.includes("Call form")) {
+      if (!text.includes(e.call)) {
         throw new Error(`${m.path}.${e.name}: call form not rendered`);
       }
-      // Laravel-style section: Signature + Parameters + Return value + example
-      const hasSignature = section.blocks.some(
-        (b) =>
-          b.kind === "paragraph" &&
-          b.text.some((p) => typeof p === "string" && p.startsWith("Signature:")) &&
-          b.text.some((p) => typeof p !== "string" && p.code === e.call),
-      );
-      if (!hasSignature) {
-        throw new Error(`${m.path}.${e.name}: signature block missing call form`);
-      }
+
       const hasParams = section.blocks.some(
         (b) =>
           b.kind === "paragraph" &&
-          b.text.some((p) => typeof p === "string" && p.startsWith("Parameters:")),
+          b.text.some((p) => typeof p === "string" && p.includes("Parameters:")),
       );
       const hasReturns = section.blocks.some(
         (b) =>
           b.kind === "paragraph" &&
-          b.text.some((p) => typeof p === "string" && p.startsWith("Return value:")),
+          b.text.some((p) => typeof p === "string" && p.includes("Returns:")),
       );
       const hasExample = section.blocks.some((b) => b.kind === "code" && b.code === e.example);
       if (!hasParams || !hasReturns || !hasExample) {
-        throw new Error(
-          `${m.path}.${e.name}: full entry missing params/returns/example in section`,
-        );
+        throw new Error(`${m.path}.${e.name}: entry missing params/returns/example in section`);
       }
-      if (!e.returns?.trim()) {
-        throw new Error(`${m.path}.${e.name}: data model missing returns`);
+
+      if (kind === "struct") {
+        for (const method of stdMethodsFor(m.path, e.name)) {
+          const mTitle = `${e.name} · ${method.name}`;
+          const mSection = page.sections.find((s) => s.title === mTitle);
+          if (!mSection) {
+            throw new Error(`${m.docsPath}: missing method section ${mTitle}`);
+          }
+          const mText = mSection.blocks
+            .filter((b) => b.kind === "paragraph")
+            .map((b) => b.text.map((p) => (typeof p === "string" ? p : p.code)).join(""))
+            .join(" ");
+          if (!mText.includes(method.call)) {
+            throw new Error(`${m.path}.${e.name}.${method.name}: method call not rendered`);
+          }
+          const mExample = mSection.blocks.some(
+            (b) => b.kind === "code" && b.code === method.example,
+          );
+          if (!mExample) {
+            throw new Error(`${m.path}.${e.name}.${method.name}: method example missing`);
+          }
+        }
       }
     }
   }
 
-  // 3) API index route
   const index = docsPageByPath.get("/docs/std/reference");
   if (!index) {
     throw new Error("missing /docs/std/reference");
@@ -122,13 +139,13 @@ try {
     throw new Error("API index summary missing export count");
   }
 
-  // 4) Search indexes export names and descriptions
   const records = buildDocsSearchRecords();
   const sampleExports = [
     { path: "/docs/std/io", name: "print", call: "io.print" },
     { path: "/docs/std/str", name: "parse_int", call: "str.parse_int" },
     { path: "/docs/std/list", name: "sum_ints", call: "list.sum_ints" },
     { path: "/docs/std/math", name: "abs_i", call: "math.abs_i" },
+    { path: "/docs/std/fs", name: "file · read", call: "file.read" },
   ];
   for (const sample of sampleExports) {
     const hit = records.find(
@@ -140,9 +157,21 @@ try {
       throw new Error(`search missing section record for ${sample.path} ${sample.name}`);
     }
     const blob = `${hit.title} ${hit.body} ${hit.code} ${hit.tags} ${hit.aliases}`;
-    if (!blob.includes(sample.name)) {
+    if (!blob.includes(sample.name.split(" · ").pop()) && !blob.includes(sample.call)) {
       throw new Error(`search record for ${sample.name} does not include export name`);
     }
+  }
+
+  // Outline smoke: fs page has Struct · file and file · read
+  const fsPage = docsPageByPath.get("/docs/std/fs");
+  if (!fsPage?.sections.some((s) => s.title === "Struct · file")) {
+    throw new Error("fs page missing Struct · file");
+  }
+  if (!fsPage?.sections.some((s) => s.title === "file · read")) {
+    throw new Error("fs page missing file · read method");
+  }
+  if (!fsPage?.sections.some((s) => s.title === "Functions")) {
+    throw new Error("fs page missing Functions group");
   }
 
   const report = {
@@ -150,7 +179,8 @@ try {
     modules: stdModules.length,
     exports: stdExportCount,
     fullEntries: fullCount,
-    layout: "description + signature + parameters + returns + example",
+    structMethods: methodCount,
+    layout: "package → constants → struct(+methods) → functions; prose + example + params/returns",
     sampleAnchors: sampleExports.map((s) => `${s.path}#${headingId(s.name)}`),
     searchRecords: records.length,
   };
