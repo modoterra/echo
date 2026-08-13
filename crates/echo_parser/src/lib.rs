@@ -358,6 +358,23 @@ mod tests {
     }
 
     #[test]
+    fn unknown_width_tag_is_width_cast() {
+        let p = parse_str("$ a = <u8> 1\n");
+        assert_eq!(p.diagnostics.error_count(), 0, "{:?}", p.diagnostics.items());
+        let file = p.file.expect("ast");
+        match &file.stmts[0] {
+            Stmt::Bind(b) => match b.init.as_ref() {
+                Some(echo_ast::Expr::WidthCast { width, tag, .. }) => {
+                    assert!(width.is_none());
+                    assert_eq!(tag, "u8");
+                }
+                other => panic!("expected WidthCast, got {other:?}"),
+            },
+            other => panic!("expected bind, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn list_index_assign() {
         let p = parse_str("~ xs[0] = 9\n");
         assert_eq!(p.diagnostics.error_count(), 0, "{:?}", p.diagnostics.items());

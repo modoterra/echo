@@ -221,7 +221,8 @@ produce/consume result/option only via `^` / `!` and `|` match arms. Lists come
 from list **literals** and are held as runtime handles. Named structs come from
 `%` shapes + tagged lits; fields are read/written by name at the runtime.
 
-Width tags (`<i32>`, …) affect literal storage; they are not general ascriptions.
+Width tags (`<i32>`, …) fix literal storage. Explicit `<width> expr` converts
+an integer or float value; they are not general ascriptions.
 
 ## Intrinsics / primitives
 

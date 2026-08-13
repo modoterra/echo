@@ -92,6 +92,41 @@ impl Type {
     }
 
     #[must_use]
+    pub fn from_width(width: echo_ast::Width) -> Self {
+        use echo_ast::Width;
+        match width {
+            Width::I8 => Type::Int8,
+            Width::I16 => Type::Int16,
+            Width::I32 => Type::Int32,
+            Width::I64 => Type::Int,
+            Width::Ui8 => Type::UInt8,
+            Width::Ui16 => Type::UInt16,
+            Width::Ui32 => Type::UInt32,
+            Width::Ui64 => Type::UInt64,
+            Width::F32 => Type::Float32,
+            Width::F64 => Type::Float,
+        }
+    }
+
+    /// Integers and floats — legal sources/targets of `<width> expr`.
+    #[must_use]
+    pub fn is_numeric(&self) -> bool {
+        matches!(
+            self,
+            Type::Int
+                | Type::Int8
+                | Type::Int16
+                | Type::Int32
+                | Type::UInt8
+                | Type::UInt16
+                | Type::UInt32
+                | Type::UInt64
+                | Type::Float
+                | Type::Float32
+        )
+    }
+
+    #[must_use]
     pub fn func(params: Vec<Type>, ret: Type) -> Self {
         Type::Fn {
             params,

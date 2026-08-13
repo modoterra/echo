@@ -77,7 +77,7 @@ structured MIR
 | `ScopeDisown { value }` | Drop ownership without free (return transfer) |
 | `ScopeRelease { value }` | Logical release of one value |
 
-**Slice 1:** wrap function root + if/loop/for-in/match arms; register fresh allocs; promote on nested field/list/index/assign escape; exit scopes on return/break/continue edges. Demotion is represented in the design but not yet optimized. Runtime registries: `echo_runtime_scope_*` (ABI v22+).
+**Slice 1:** wrap function root + if/loop/for-in/match arms; register fresh allocs; promote on nested field/list/index/assign escape; exit scopes on return/break/continue edges. **Name-keyed demote is off** under immediate free (UAF on aliases); graph promote is the shipped escape path. Runtime registries: `echo_runtime_scope_*` (ABI v22+).
 
 ## Scope
 
@@ -116,9 +116,11 @@ Targets LLVM only (ADR 0002) but does not embed LLVM types in the IR design.
   not a mid-end pass).
 - **List index:** CFG emits `ListGetChecked` → `echo_runtime_list_get` (soft OOB
   in runtime). No MIR bounds-check elimination (LLVM / runtime own that class).
-- **Width tags:** `MirRepr::Int32` / `Float32` (plus default `Int64` / `Float64`)
-  for `<i32>` / `<f32>` lits and same-width native arith; box edges widen to the
-  heap ABI (`i64` / heap float).
+- **Width tags:** full `MirRepr` int/uint/float grid (`i8`…`i64`, `ui8`…`ui64`,
+  `f32`/`f64`) for tagged lits and same-width native arith. `MirExpr::Cast`
+  is a real convert (trunc/zext/sext, sitofp/uitofp, fptosi/fptoui,
+  fpext/fptrunc). Box edges widen to the heap ABI (`i64` / heap float).
+  Call ABI stays boxed `i64`.
 - **Bytes lits:** `MirExpr::BytesLit` → `MirRepr::BytesRef` (heap handle, parallel
   to `StringRef` but a distinct runtime kind).
 - **Duration lits:** `MirExpr::ConstDuration(nanos)` → `MirRepr::Duration` (i64

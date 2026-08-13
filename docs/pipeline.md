@@ -245,8 +245,9 @@ Details: [`fixtures.md`](fixtures.md).
 | 12 | **www** | public book, std API, search |
 | 13 | Editor ecosystem | tree-sitter, highlighting packs |
 
-Rough progress: **through slice 2** (frontend + check + multi-file + infer v1);
-slices **3–13** remain.
+Rough progress: slices **0–11** have landed (frontend through REPL + cache v4).
+Remaining language work is honesty slices on already-locked surface (see
+[`roadmap.md`](roadmap.md) §5), not a restart of 3–13.
 
 ---
 

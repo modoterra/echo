@@ -5,7 +5,7 @@
 
 use crate::{
     AssignTarget, BinaryOp, BindLeader, BindStmt, Expr, File, Ident, ImportPathSeg, LoopKind,
-    MatchArmKind, MultiBindStmt, Stmt, StringKind, TaskBody, TaskJoinKind, UnaryOp,
+    MatchArmKind, MultiBindStmt, Stmt, StringKind, TaskBody, TaskJoinKind, UnaryOp, Width,
 };
 
 const INDENT: &str = "    ";
@@ -389,9 +389,14 @@ fn write_expr(e: &Expr, parent_prec: u8, stmt_level: usize, out: &mut String) {
             }
             write_expr(expr, 10, stmt_level, out);
         }
-        Expr::WidthCast { width, expr, .. } => {
+        Expr::WidthCast {
+            width,
+            tag,
+            expr,
+            ..
+        } => {
             out.push('<');
-            out.push_str(width.as_str());
+            out.push_str(width.map(Width::as_str).unwrap_or(tag.as_str()));
             out.push('>');
             out.push(' ');
             write_expr(expr, 10, stmt_level, out);

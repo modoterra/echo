@@ -340,9 +340,8 @@ Design: functions are values like numbers (closed, no capture). Runtime value =
 Direct calls still use the body’s LLVM type; indirect calls pick i64 vs i128
 from the stored shape. See `docs/hir.md`.
 
-**Honesty:** call-through was incomplete when nested bodies used outer params as
-callees (`expr_callee` skipped capture) → SEGV. Fixed: callees share
-`check_name_use` with value uses (`echo26/check/capture/003`–`004`).
+Call-through of outer **params** as callees used to skip capture and SEGV.
+Callees now share `check_name_use` with value uses (`echo26/check/capture/003`–`004`).
 
 ### Bind before use (locked)
 
@@ -772,6 +771,9 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | Call non-function | `sem-not-callable` |
 | Wrong arity | `sem-arity` |
 | Missing field | `sem-no-field` |
+| Unknown width tag (`<u8>`, `<int>`) | `sem-width-unknown` |
+| Width tag after unary (`-<i32> 1`) | `sem-width-unary` |
+| `<width> expr` on a non-numeric | `sem-width-cast` |
 
 - `$` / `#` introduce immutable / const once; `~` intro or update mutable.
 - Method bodies = function values that are **struct members**.
@@ -788,7 +790,6 @@ Runs after name/effect checks (`infer.rs` + `unify.rs`):
 
 ## Open questions
 
-- Width tags / bytes / duration / `p` lits (lexer + kinds)  
-- Locator classification edge cases  
-- Stdlib map/set design (post-core)  
-- Richer cross-module function signatures
+- Locator classification edge cases (path vs URI normalization)  
+- Richer cross-module function signatures (imported fn arity still unknown)  
+- Field-after-call `c.inc().n` (explicit v1 deferral)

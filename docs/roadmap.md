@@ -299,15 +299,26 @@ Language features ship as **verticals** ([`implementation.md`](implementation.md
 | **8** | AOT polish | `xo build`, link, opts | **Opt levels landed** (shared `OptLevel`, AOT/JIT consistent); more link polish open |
 | **9** | www | Public language + std docs | User-facing mirror of locked surface |
 
-**Next concrete steps** (priority order as of 2026-07-25):
+**Next concrete steps** (priority order as of 2026-08-13):
 
-1. ~~**LSP reliability polish**~~ — **done** (`LspSession`, versioned multi-file diags, incremental sync, URI encode, protocol tests; [`lsp.md`](lsp.md)).  
-2. **Host tooling (remaining)** — www mirror of locked language surface, AOT/link polish.  
-3. ~~**Memory reclamation slice 2**~~ — **done** (precise promote/demote, owning_scope facts, immediate free; e26 `run/lifetime`).  
-4. ~~**std/process + std/fs**~~ — **done** (runtime + std + e26 + examples + `xo test`).  
-5. ~~**HTTP body read-to-Content-Length**~~ — **done** (`runtime.http_request_complete` + handle_connection).  
-6. ~~**Free-fn param monomorphic typing**~~ — **done** (call-site → free-fn param struct flow in MIR; methods on params).  
-7. **Package polish** — optional; core ADR 0014 vertical is **landed**.
+Locked surface is largely through run. Remaining work is **honesty** — no
+silent-wrong lowering, thin reject paths closed, memory law on every heap kind.
+
+1. **Width / cast vertical** — **this slice**: reject unknown tags; real
+   int↔float / float↔float `<width> expr`; `#` floats stay floats; e26 grid
+   (`i16`/`ui16`/`ui32`, casts, unsigned `>>`).  
+2. **Match / effect / task lowering** — per-edge match payload (kill single
+   `match_payload` + `0` fallback); `&` unwrap of call-through fn values;
+   nested `|` inside `+` tasks (ADR 0017).  
+3. **`#` const-eval honesty** — function expressions as const values; width
+   preserved; no calls.  
+4. **Reject-path e26 belt** — `sem-match-arm` / `incomplete`, struct lit
+   unknown/method/dup, `sem-arity`, methods-as-values.  
+5. **Heap dispose for remaining kinds** — task / TCP / UDP / FS file
+   `physical_free` + register (ADR 0016). Name-keyed demote stays **off**.
+
+Host polish (www, AOT/link, LLVM DI, `xo cache gc`) and std expansion are
+**out of this campaign**.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -382,7 +393,7 @@ current; fill Impl as work lands.
 | Numbers / bools / lists | ✓ | ✓ | ✓ | ✓ | ✓ | + index assign |
 | Hex / bin ints | ✓ | ✓ | ✓ | ✓ | ✓ | `0x` / `0b` |
 | Width tags i32/i64/f32/f64 | ✓ | ✓ | ✓ | ✓ | ✓ | native i32/f32 |
-| Full `i*` / `ui*` + `byte`≡`ui8` | → | → | → | → | → | signed+unsigned grid; explicit cast |
+| Full `i*` / `ui*` + `byte`≡`ui8` | ✓ | ✓ | ✓ | ✓ | ✓ | grid + explicit `<width> expr`; unknown tag / non-numeric reject |
 | Bytes | ✓ | ✓ | ✓ | ✓ | ✓ | `str.from_bytes` |
 | Duration | ✓ | ✓ | ✓ | ✓ | ✓ | nanos + add |
 | Locator `p` | ✓ | ✓ | ✓ | ✓ | ✓ | `str.from_locator` |
@@ -415,7 +426,7 @@ current; fill Impl as work lands.
 | REPL | ✓ | — | ✓ | — | ✓ | `xo repl` — rustyline + session + JIT |
 | Task cancel | **out** (v0) | | | | — | no cancel API |
 
-**Suite snapshot (2026-07-18):** `e26` **186** passed · **205** `.echo` fixtures · **97** `.run` expectations · type-match + task + net green.
+**Suite snapshot (2026-08-13):** `e26` **266** passed · **287** `.echo` · **166** `.run` · **56** `.check`.
 
 ---
 
@@ -524,6 +535,7 @@ current; fill Impl as work lands.
 | 2026-07-25 | **Std benches:** co-located `test.bench` on math/str/bytes/list/json/hex/base64/path/sha256/sip/map; `xo test --bench std` discovery |
 | 2026-07-25 | **Bench JSONL + compare:** `--bench-out` streams results; `--bench-baseline` / `--bench-threshold` report regressions |
 | 2026-07-25 | **Sip lowerability:** pure Echo SipHash scalar ui64 + inlined rotl; ui64 `>>` → `lshr`/`fshl` (not ashr); proof-load IR |
+| 2026-08-13 | Campaign: remaining language verticals = honesty (width/cast, PHI, `#`, reject belt, heap dispose). Width/cast slice: unknown tags error; real int↔float casts; `#` float bits; e26 `run/width/004`–`006` |
 
 ---
 

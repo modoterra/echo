@@ -260,6 +260,38 @@ mod tests {
     }
 
     #[test]
+    fn unknown_width_tag_is_error() {
+        let c = codes("$ a = <u8> 1\n");
+        assert!(
+            c.iter().any(|x| x == "sem-width-unknown"),
+            "expected sem-width-unknown, got {c:?}"
+        );
+        let c2 = codes("$ x = 1\n$ a = <int> x\n");
+        assert!(
+            c2.iter().any(|x| x == "sem-width-unknown"),
+            "expected sem-width-unknown on cast, got {c2:?}"
+        );
+    }
+
+    #[test]
+    fn width_cast_rejects_non_numeric() {
+        let c = codes("$ s = 'hi'\n$ a = <i32> s\n");
+        assert!(
+            c.iter().any(|x| x == "sem-width-cast"),
+            "expected sem-width-cast, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn width_cast_int_float_ok() {
+        let c = codes("$ a = <f64> 3\n$ b = <i32> a\n");
+        assert!(
+            !c.iter().any(|x| x == "sem-width-cast" || x == "sem-width-unknown"),
+            "numeric casts should check: {c:?}"
+        );
+    }
+
+    #[test]
     fn receiver_ok_in_method() {
         let src = "\
 % c {

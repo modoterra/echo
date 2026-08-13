@@ -97,10 +97,10 @@ LLVM IR emission, optimization modes (`-O`), JIT vs AOT, and host tools (`opt`,
 
 ## Kinds in IR (v1)
 
-Internal shapes only — **no keywords**, no user type names. Width tags like
-`<i32>` / `<f32>` remain the sole explicit kind-related surface on numeric lits.
-Native IR uses `i32` / `float` for those tags; box/unbox widens to the universal
-`i64` / heap-float ABI.
+Internal shapes only — **no keywords**, no user type names. Width tags
+(`<i32>` / `<ui8>` / `<f32>` / …) and explicit `<width> expr` casts are the
+only kind-related surface. Native IR uses the matching LLVM integer/float
+type; box/unbox widens to the universal `i64` / heap-float ABI.
 
 | Shape (from syntax) | Wire |
 |---------------------|------|
@@ -116,7 +116,7 @@ Native IR uses `i32` / `float` for those tags; box/unbox widens to the universal
 |---------|----------|
 | `* { … }` | infinite CFG; `<` break · `>` continue |
 | `* cond { … }` | while; cond truthy continues |
-| `* item : iter { … }` | for-in over a **list** value (`[…]` lit or bound name) |
+| `* item : iter { … }` | for-in over a **list** or inclusive **range** (`lo..hi`) |
 | `[a, b, …]` | `echo_runtime_list_*` handle stored as i64 |
 | `xs[i]` | `echo_runtime_list_get` |
 | `runtime.*` (std only, via `/ runtime`) | `echo_runtime_*` per ABI map — see `stdlib.md` |

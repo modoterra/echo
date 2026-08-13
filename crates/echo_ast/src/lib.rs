@@ -456,8 +456,12 @@ pub enum Expr {
         span: Span,
     },
     /// Explicit convert `<ui64> expr` (no silent mix).
+    ///
+    /// `width` is `None` when the tag spelling is not a locked width (`<u8>`).
     WidthCast {
-        width: Width,
+        width: Option<Width>,
+        /// Ident as written inside `<>`.
+        tag: String,
         expr: Box<Expr>,
         span: Span,
     },
@@ -829,8 +833,9 @@ fn format_expr(expr: &Expr, level: usize, out: &mut String) {
             Some(w) => out.push_str(&format!("number_{} {text}\n", w.as_str())),
             None => out.push_str(&format!("number {text}\n")),
         },
-        Expr::WidthCast { width, expr, .. } => {
-            out.push_str(&format!("width_cast {}\n", width.as_str()));
+        Expr::WidthCast { width, tag, expr, .. } => {
+            let name = width.map(Width::as_str).unwrap_or(tag.as_str());
+            out.push_str(&format!("width_cast {name}\n"));
             format_expr(expr, level + 1, out);
         }
         Expr::Duration { text, .. } => out.push_str(&format!("duration {text}\n")),

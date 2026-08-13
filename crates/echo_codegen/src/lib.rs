@@ -2241,12 +2241,101 @@ fn emit_int_cast<'ctx>(
     from: MirRepr,
     to: echo_ast::Width,
 ) -> Option<(BasicValueEnum<'ctx>, MirRepr)> {
+    emit_width_cast(cx, v, from, to)
+}
+
+fn float_ty_for_width<'ctx>(
+    cx: &EmitCx<'_, 'ctx>,
+    w: echo_ast::Width,
+) -> Option<inkwell::types::FloatType<'ctx>> {
+    match w {
+        echo_ast::Width::F32 => Some(cx.f32t),
+        echo_ast::Width::F64 => Some(cx.f64t),
+        _ => None,
+    }
+}
+
+fn as_float_value<'ctx>(
+    cx: &mut EmitCx<'_, 'ctx>,
+    v: BasicValueEnum<'ctx>,
+    from: MirRepr,
+) -> Option<inkwell::values::FloatValue<'ctx>> {
+    if v.is_float_value() {
+        return Some(v.into_float_value());
+    }
+    if matches!(from, MirRepr::Float32 | MirRepr::Float64) {
+        let uv = unbox_value(cx, v, from)?;
+        if uv.is_float_value() {
+            return Some(uv.into_float_value());
+        }
+    }
+    None
+}
+
+fn emit_width_cast<'ctx>(
+    cx: &mut EmitCx<'_, 'ctx>,
+    v: BasicValueEnum<'ctx>,
+    from: MirRepr,
+    to: echo_ast::Width,
+) -> Option<(BasicValueEnum<'ctx>, MirRepr)> {
     let to_rep = width_to_repr(to);
+    let from_float = matches!(from, MirRepr::Float32 | MirRepr::Float64) || v.is_float_value();
+
+    if to.is_float() {
+        let ft = float_ty_for_width(cx, to)?;
+        if from_float {
+            let fv = as_float_value(cx, v, from)?;
+            let src_ty = fv.get_type();
+            let out = if src_ty == ft {
+                fv
+            } else if to == echo_ast::Width::F64 {
+                cx.builder
+                    .build_float_ext(fv, ft, "cast.fpext")
+                    .expect("fpext")
+            } else {
+                cx.builder
+                    .build_float_trunc(fv, ft, "cast.fptrunc")
+                    .expect("fptrunc")
+            };
+            return Some((out.as_basic_value_enum(), to_rep));
+        }
+        let iv = if v.is_int_value() {
+            v.into_int_value()
+        } else {
+            box_value(cx, v, from)?
+        };
+        let signed = !from.is_unsigned_int();
+        let out = if signed {
+            cx.builder
+                .build_signed_int_to_float(iv, ft, "cast.sitofp")
+                .expect("sitofp")
+        } else {
+            cx.builder
+                .build_unsigned_int_to_float(iv, ft, "cast.uitofp")
+                .expect("uitofp")
+        };
+        return Some((out.as_basic_value_enum(), to_rep));
+    }
+
     if !to.is_int() {
-        let boxed = box_value(cx, v, from)?;
-        return Some((boxed.as_basic_value_enum(), MirRepr::Int64));
+        return None;
     }
     let to_ty = int_ty_for_repr(cx, to_rep)?;
+
+    if from_float {
+        let fv = as_float_value(cx, v, from)?;
+        let out = if to.is_unsigned_int() {
+            cx.builder
+                .build_float_to_unsigned_int(fv, to_ty, "cast.fptoui")
+                .expect("fptoui")
+        } else {
+            cx.builder
+                .build_float_to_signed_int(fv, to_ty, "cast.fptosi")
+                .expect("fptosi")
+        };
+        return Some((out.as_basic_value_enum(), to_rep));
+    }
+
     // Universal/boxed i64 → truncate/zext into target int width (e.g. `<ui8> call(...)`).
     if from.is_universal() || from == MirRepr::Int64 || from == MirRepr::UInt64 {
         let iv = v.into_int_value();
@@ -2260,15 +2349,13 @@ fn emit_int_cast<'ctx>(
         return Some((out.as_basic_value_enum(), to_rep));
     }
     if !from.is_native_int() {
-        let boxed = box_value(cx, v, from)?;
-        return Some((boxed.as_basic_value_enum(), MirRepr::Int64));
+        return None;
     }
     let from_ty = int_ty_for_repr(cx, from)?;
     let iv = v.into_int_value();
     let from_bits = from_ty.get_bit_width();
     let to_bits = to_ty.get_bit_width();
     let out = if to_bits == from_bits {
-        // Same size: bitcast-equivalent (reinterpret signedness).
         iv
     } else if to_bits > from_bits {
         if from.is_unsigned_int() {

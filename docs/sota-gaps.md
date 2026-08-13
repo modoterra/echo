@@ -149,5 +149,5 @@ LICM, IV, DCE, and general mid-end opts at `-O1`…`-O3`/`-Oz`.
 ## 6. Proof
 
 - Crate tests: `echo_pipeline`, `echo_mir` (CFG + SSA rename/φ), codegen SSA path  
-- `e26 --binary target/debug/xo` green (114)  
+- `e26 --binary target/debug/xo` green (`echo26/` is the living count)  
 - Hosts: `xo` uses `echo_pipeline` + line:col diags; LSP analyze uses shared pipeline

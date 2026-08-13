@@ -366,7 +366,11 @@ Aligned with [`pipeline.md`](pipeline.md) §6:
 | 12 | **www** | public book + search |
 | 13 | Editor ecosystem | tree-sitter, highlighting |
 
-Rough progress: **through slice 2**; **3–13** open.
+Rough progress: slices **0–11** have landed (frontend, check, execute AOT/JIT,
+stdlib core, fmt, LSP, REPL, cache v4). Remaining language work is honesty
+slices (width/cast, match/effect PHI, `#` fold, reject-path e26, remaining
+heap dispose) — not a green-field walk of 3–13. Host www / editor packs and
+AOT link polish continue as product work.
 
 ---
 

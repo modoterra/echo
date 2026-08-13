@@ -156,7 +156,7 @@ Full signatures: [`runtime-abi.md`](runtime-abi.md) § Memory reclamation.
 | **Slice 2 (landed)** | Precise promote targets; demotion helpers; owning_scope facts; **immediate physical free** |
 | **Graph promote (landed)** | Runtime region evacuation + header epoch; nest/cycle/shared unit tests; e26 `run/lifetime/010`–`012` |
 | **Physical free today** | **Immediate** on `scope_exit` / `scope_release`; `enqueue_release` + `drain_deferred` for short-batch points |
-| **Still open** | Richer illegal-escape diagnostics; shrink name-keyed demote as pure opt; industrial region types (SOTA G9) |
+| **Still open** | Richer illegal-escape diagnostics; name-keyed demote (disabled under immediate free); dispose of task/socket/file kinds; industrial region types (SOTA G9) |
 | **Gap framing** | Incomplete reclaim is a **gap** for unfinished edges only — not a competing GC design |
 
 Product model remains **scope-owned dispose** — still **not** tracing GC.

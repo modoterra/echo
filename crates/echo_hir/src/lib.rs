@@ -1003,10 +1003,20 @@ fn lower_expr(e: &Expr, cx: &mut LowerCx<'_>) -> HirExpr {
             op: *op,
             expr: Box::new(lower_expr(expr, cx)),
         },
-        Expr::WidthCast { width, expr, .. } => HirExprKind::WidthCast {
-            width: *width,
+        Expr::WidthCast {
+            width: Some(w),
+            expr,
+            ..
+        } => HirExprKind::WidthCast {
+            width: *w,
             expr: Box::new(lower_expr(expr, cx)),
         },
+        Expr::WidthCast { tag, expr, .. } => {
+            let _ = lower_expr(expr, cx);
+            HirExprKind::Unsupported {
+                message: format!("unknown width tag `{tag}`"),
+            }
+        }
         Expr::Binary {
             op, left, right, ..
         } => HirExprKind::Binary {

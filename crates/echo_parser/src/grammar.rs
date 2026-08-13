@@ -906,10 +906,23 @@ fn expr_parser<'a>(
                 } else {
                     text
                 };
-                Expr::Number {
-                    text,
-                    width,
-                    span: sp(source_id, span),
+                let s = sp(source_id, span);
+                match width {
+                    Some(w) => Expr::Number {
+                        text,
+                        width: Some(w),
+                        span: s,
+                    },
+                    None => Expr::WidthCast {
+                        width: None,
+                        tag: wident.name,
+                        expr: Box::new(Expr::Number {
+                            text,
+                            width: None,
+                            span: s,
+                        }),
+                        span: s,
+                    },
                 }
             });
 
@@ -1182,27 +1195,44 @@ fn expr_parser<'a>(
                         )))
                         .map_with_span(move |(wident, (is_lit, text, eopt)), span| {
                             let s = sp(source_id, span);
-                            let width = Width::parse(&wident.name).unwrap_or(Width::I64);
+                            let width = Width::parse(&wident.name);
+                            let tag = wident.name;
                             if is_lit {
-                                Expr::Number {
-                                    text,
-                                    width: Some(width),
-                                    span: s,
+                                match width {
+                                    Some(w) => Expr::Number {
+                                        text,
+                                        width: Some(w),
+                                        span: s,
+                                    },
+                                    None => Expr::WidthCast {
+                                        width: None,
+                                        tag,
+                                        expr: Box::new(Expr::Number {
+                                            text,
+                                            width: None,
+                                            span: s,
+                                        }),
+                                        span: s,
+                                    },
                                 }
                             } else {
                                 let e = eopt.expect("cast expr");
-                                match e {
-                                    Expr::Number {
+                                match (e, width) {
+                                    (
+                                        Expr::Number {
+                                            text,
+                                            width: None,
+                                            ..
+                                        },
+                                        Some(w),
+                                    ) => Expr::Number {
                                         text,
-                                        width: None,
-                                        ..
-                                    } => Expr::Number {
-                                        text,
-                                        width: Some(width),
+                                        width: Some(w),
                                         span: s,
                                     },
-                                    other => Expr::WidthCast {
-                                        width,
+                                    (other, w) => Expr::WidthCast {
+                                        width: w,
+                                        tag,
                                         expr: Box::new(other),
                                         span: s,
                                     },

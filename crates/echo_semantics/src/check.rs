@@ -394,7 +394,21 @@ impl Cx {
                 }
                 self.expr(expr, UseContext::Value);
             }
-            Expr::WidthCast { expr, .. } => {
+            Expr::WidthCast {
+                width,
+                tag,
+                expr,
+                span,
+            } => {
+                if width.is_none() {
+                    self.error(
+                        "sem-width-unknown",
+                        format!(
+                            "unknown width tag `{tag}`; use i8/i16/i32/i64, ui8/ui16/ui32/ui64, byte, f32, or f64"
+                        ),
+                        *span,
+                    );
+                }
                 self.expr(expr, UseContext::Value);
             }
             Expr::Binary { left, right, .. } => {

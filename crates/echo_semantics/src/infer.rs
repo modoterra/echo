@@ -1,4 +1,4 @@
-//! Kind inference over a file (v1: current surface, no width-tag lits yet).
+//! Kind inference over a file (v1: widths, casts, structs, result/option).
 
 use std::collections::HashMap;
 
@@ -672,23 +672,30 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
             .unwrap_or_else(|| env.fresh()),
         Expr::WidthCast {
             width,
+            tag,
             expr,
-            span: _,
+            span,
         } => {
-            let _from = infer_expr(env, expr);
-            // Result kind is the target width; convert legality checked at MIR/codegen.
-            match width {
-                Width::I8 => Type::Int8,
-                Width::I16 => Type::Int16,
-                Width::I32 => Type::Int32,
-                Width::I64 => Type::Int,
-                Width::Ui8 => Type::UInt8,
-                Width::Ui16 => Type::UInt16,
-                Width::Ui32 => Type::UInt32,
-                Width::Ui64 => Type::UInt64,
-                Width::F32 => Type::Float32,
-                Width::F64 => Type::Float,
+            let from = infer_expr(env, expr);
+            let Some(w) = width else {
+                return Type::Error;
+            };
+            let from = env.apply(&from);
+            if !matches!(
+                from,
+                Type::Unknown | Type::Value | Type::Var(_) | Type::Error
+            ) && !from.is_numeric()
+            {
+                env.diags.push(
+                    Diagnostic::error(format!(
+                        "cannot cast `{from}` to `<{tag}>`; width casts apply to integers and floats"
+                    ))
+                    .with_code("sem-width-cast")
+                    .with_span(*span),
+                );
+                return Type::Error;
             }
+            Type::from_width(*w)
         }
         Expr::Unary { op, expr, span } => {
             let t = infer_expr(env, expr);

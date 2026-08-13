@@ -5,12 +5,14 @@
 
 use std::collections::HashMap;
 
-use echo_ast::{BinaryOp, Expr, UnaryOp};
+use echo_ast::{BinaryOp, Expr, UnaryOp, Width};
 
 /// Value of a `#` constant after evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstValue {
     Int(i64),
+    /// IEEE-754 bits (so the enum stays `Eq`).
+    Float(u64),
     Bool(bool),
     /// Decoded UTF-8 payload (no quotes).
     Str(Vec<u8>),
@@ -42,11 +44,10 @@ pub fn eval_const_expr(
                 || t.starts_with("0b")
                 || t.starts_with("0B");
             if !is_radix && (t.contains('.') || t.contains('e') || t.contains('E')) {
-                // Width-tagged floats: store truncated i64 for v1 numeric path.
                 let f: f64 = t
                     .parse()
                     .map_err(|_| ConstError::new(format!("invalid float const `{text}`")))?;
-                Ok(ConstValue::Int(f as i64))
+                Ok(ConstValue::Float(f.to_bits()))
             } else {
                 let n = echo_ast::parse_int_literal(text).map_err(ConstError::new)?;
                 Ok(ConstValue::Int(n))
@@ -68,14 +69,22 @@ pub fn eval_const_expr(
                 ))
             }),
         Expr::Group { expr, .. } => eval_const_expr(expr, env),
-        Expr::WidthCast { expr, .. } => {
-            // Const width cast: evaluate inner; bit width checks deferred to MIR.
-            eval_const_expr(expr, env)
+        Expr::WidthCast { width, tag, expr, .. } => {
+            let Some(w) = width else {
+                return Err(ConstError::new(format!(
+                    "unknown width tag `{tag}` in `#` const"
+                )));
+            };
+            let v = eval_const_expr(expr, env)?;
+            apply_const_cast(v, *w)
         }
         Expr::Unary { op, expr, .. } => {
             let v = eval_const_expr(expr, env)?;
             match (op, v) {
                 (UnaryOp::Neg, ConstValue::Int(n)) => Ok(ConstValue::Int(n.wrapping_neg())),
+                (UnaryOp::Neg, ConstValue::Float(b)) => {
+                    Ok(ConstValue::Float((-f64::from_bits(b)).to_bits()))
+                }
                 (UnaryOp::Not, ConstValue::Bool(b)) => Ok(ConstValue::Bool(!b)),
                 (UnaryOp::Not, ConstValue::Int(n)) => Ok(ConstValue::Bool(n == 0)),
                 (UnaryOp::BitNot, ConstValue::Int(n)) => Ok(ConstValue::Int(!n)),
@@ -108,23 +117,76 @@ pub fn eval_const_expr(
     }
 }
 
+fn apply_const_cast(v: ConstValue, w: Width) -> Result<ConstValue, ConstError> {
+    match (v, w) {
+        (ConstValue::Int(n), w) if w.is_int() => Ok(ConstValue::Int(cast_int_bits(n, w))),
+        (ConstValue::Int(n), Width::F64) => Ok(ConstValue::Float((n as f64).to_bits())),
+        (ConstValue::Int(n), Width::F32) => Ok(ConstValue::Float((n as f32 as f64).to_bits())),
+        (ConstValue::Float(b), w) if w.is_int() => {
+            let f = f64::from_bits(b);
+            Ok(ConstValue::Int(cast_int_bits(f as i64, w)))
+        }
+        (ConstValue::Float(b), Width::F32) => {
+            let f = f64::from_bits(b) as f32;
+            Ok(ConstValue::Float((f as f64).to_bits()))
+        }
+        (ConstValue::Float(b), Width::F64) => Ok(ConstValue::Float(b)),
+        _ => Err(ConstError::new(
+            "width cast in `#` const only applies to integers and floats",
+        )),
+    }
+}
+
+fn cast_int_bits(n: i64, w: Width) -> i64 {
+    match w {
+        Width::I8 => n as i8 as i64,
+        Width::I16 => n as i16 as i64,
+        Width::I32 => n as i32 as i64,
+        Width::I64 => n,
+        Width::Ui8 => (n as u8) as i64,
+        Width::Ui16 => (n as u16) as i64,
+        Width::Ui32 => (n as u32) as i64,
+        Width::Ui64 => n,
+        Width::F32 | Width::F64 => n,
+    }
+}
+
 fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, ConstError> {
     use BinaryOp::*;
     match (op, l, r) {
         (Add, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a.wrapping_add(b))),
+        (Add, ConstValue::Float(a), ConstValue::Float(b)) => Ok(ConstValue::Float(
+            (f64::from_bits(a) + f64::from_bits(b)).to_bits(),
+        )),
         (Sub, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a.wrapping_sub(b))),
+        (Sub, ConstValue::Float(a), ConstValue::Float(b)) => Ok(ConstValue::Float(
+            (f64::from_bits(a) - f64::from_bits(b)).to_bits(),
+        )),
         (Mul, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a.wrapping_mul(b))),
+        (Mul, ConstValue::Float(a), ConstValue::Float(b)) => Ok(ConstValue::Float(
+            (f64::from_bits(a) * f64::from_bits(b)).to_bits(),
+        )),
         (Div, ConstValue::Int(a), ConstValue::Int(b)) => {
             if b == 0 {
                 return Err(ConstError::new("division by zero in `#` const"));
             }
             Ok(ConstValue::Int(a / b))
         }
+        (Div, ConstValue::Float(a), ConstValue::Float(b)) => {
+            let d = f64::from_bits(b);
+            if d == 0.0 {
+                return Err(ConstError::new("division by zero in `#` const"));
+            }
+            Ok(ConstValue::Float((f64::from_bits(a) / d).to_bits()))
+        }
         (Rem, ConstValue::Int(a), ConstValue::Int(b)) => {
             if b == 0 {
                 return Err(ConstError::new("remainder by zero in `#` const"));
             }
             Ok(ConstValue::Int(a % b))
+        }
+        (Eq | EqEqEq, ConstValue::Float(a), ConstValue::Float(b)) => {
+            Ok(ConstValue::Bool(f64::from_bits(a) == f64::from_bits(b)))
         }
         (Eq | EqEqEq, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Bool(a == b)),
         (NotEq | NotEqEq, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Bool(a != b)),
@@ -270,5 +332,28 @@ mod tests {
     fn rejects_runtime_name() {
         let e = name("x");
         assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn float_lit_keeps_fraction() {
+        let e = num("1.5");
+        match eval_const_expr(&e, &HashMap::new()).unwrap() {
+            ConstValue::Float(b) => assert_eq!(f64::from_bits(b), 1.5),
+            other => panic!("expected float, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn width_cast_int_to_int() {
+        let e = Expr::WidthCast {
+            width: Some(echo_ast::Width::I8),
+            tag: "i8".into(),
+            expr: Box::new(num("300")),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::Int(300i64 as i8 as i64)
+        );
     }
 }

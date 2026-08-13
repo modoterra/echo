@@ -3586,6 +3586,7 @@ fn lower_expr(
 fn const_to_mir(v: &ConstValue) -> MirExpr {
     match v {
         ConstValue::Int(n) => MirExpr::ConstI64(*n),
+        ConstValue::Float(bits) => MirExpr::ConstF64(f64::from_bits(*bits)),
         ConstValue::Bool(b) => MirExpr::ConstI64(i64::from(*b)),
         ConstValue::Str(bytes) => MirExpr::StringLit {
             bytes: bytes.clone(),
@@ -3596,7 +3597,7 @@ fn const_to_mir(v: &ConstValue) -> MirExpr {
 fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<ConstValue> {
     match &e.kind {
         HirExprKind::Int { value, .. } => Some(ConstValue::Int(*value)),
-        HirExprKind::Float { value, .. } => Some(ConstValue::Int(*value as i64)),
+        HirExprKind::Float { value, .. } => Some(ConstValue::Float(value.to_bits())),
         HirExprKind::Bool(b) => Some(ConstValue::Bool(*b)),
         HirExprKind::StringLit { kind, raw } => {
             let bytes = decode_string_lit(*kind, raw).ok()?;
@@ -3608,6 +3609,9 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
             let v = fold_hir_const(expr, env)?;
             match (op, v) {
                 (UnaryOp::Neg, ConstValue::Int(n)) => Some(ConstValue::Int(n.wrapping_neg())),
+                (UnaryOp::Neg, ConstValue::Float(b)) => {
+                    Some(ConstValue::Float((-f64::from_bits(b)).to_bits()))
+                }
                 (UnaryOp::Not, ConstValue::Bool(b)) => Some(ConstValue::Bool(!b)),
                 (UnaryOp::Not, ConstValue::Int(n)) => Some(ConstValue::Bool(n == 0)),
                 (UnaryOp::BitNot, ConstValue::Int(n)) => Some(ConstValue::Int(!n)),
@@ -3648,10 +3652,68 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 (BinaryOp::Shr, ConstValue::Int(a), ConstValue::Int(b)) => {
                     Some(ConstValue::Int(a.wrapping_shr((b as u32) & 63)))
                 }
+                (BinaryOp::Add, ConstValue::Float(a), ConstValue::Float(b)) => {
+                    Some(ConstValue::Float(
+                        (f64::from_bits(a) + f64::from_bits(b)).to_bits(),
+                    ))
+                }
+                (BinaryOp::Sub, ConstValue::Float(a), ConstValue::Float(b)) => {
+                    Some(ConstValue::Float(
+                        (f64::from_bits(a) - f64::from_bits(b)).to_bits(),
+                    ))
+                }
+                (BinaryOp::Mul, ConstValue::Float(a), ConstValue::Float(b)) => {
+                    Some(ConstValue::Float(
+                        (f64::from_bits(a) * f64::from_bits(b)).to_bits(),
+                    ))
+                }
+                (BinaryOp::Div, ConstValue::Float(a), ConstValue::Float(b))
+                    if f64::from_bits(b) != 0.0 =>
+                {
+                    Some(ConstValue::Float(
+                        (f64::from_bits(a) / f64::from_bits(b)).to_bits(),
+                    ))
+                }
                 _ => None,
             }
         }
+        HirExprKind::WidthCast { width, expr } => {
+            let v = fold_hir_const(expr, env)?;
+            fold_const_width_cast(v, *width)
+        }
         _ => None,
+    }
+}
+
+fn fold_const_width_cast(v: ConstValue, w: echo_ast::Width) -> Option<ConstValue> {
+    match (v, w) {
+        (ConstValue::Int(n), w) if w.is_int() => Some(ConstValue::Int(cast_const_int(n, w))),
+        (ConstValue::Int(n), echo_ast::Width::F64) => Some(ConstValue::Float((n as f64).to_bits())),
+        (ConstValue::Int(n), echo_ast::Width::F32) => {
+            Some(ConstValue::Float((n as f32 as f64).to_bits()))
+        }
+        (ConstValue::Float(b), w) if w.is_int() => {
+            Some(ConstValue::Int(cast_const_int(f64::from_bits(b) as i64, w)))
+        }
+        (ConstValue::Float(b), echo_ast::Width::F32) => {
+            Some(ConstValue::Float((f64::from_bits(b) as f32 as f64).to_bits()))
+        }
+        (ConstValue::Float(b), echo_ast::Width::F64) => Some(ConstValue::Float(b)),
+        _ => None,
+    }
+}
+
+fn cast_const_int(n: i64, w: echo_ast::Width) -> i64 {
+    match w {
+        echo_ast::Width::I8 => n as i8 as i64,
+        echo_ast::Width::I16 => n as i16 as i64,
+        echo_ast::Width::I32 => n as i32 as i64,
+        echo_ast::Width::I64 => n,
+        echo_ast::Width::Ui8 => n as u8 as i64,
+        echo_ast::Width::Ui16 => n as u16 as i64,
+        echo_ast::Width::Ui32 => n as u32 as i64,
+        echo_ast::Width::Ui64 => n,
+        echo_ast::Width::F32 | echo_ast::Width::F64 => n,
     }
 }
 
@@ -3702,6 +3764,9 @@ fn decode_string_to_mir(
                     StrPart::Name(n) => match const_env.get(&n) {
                         Some(ConstValue::Str(b)) => lit_buf.extend(b),
                         Some(ConstValue::Int(i)) => lit_buf.extend(i.to_string().as_bytes()),
+                        Some(ConstValue::Float(bits)) => {
+                            lit_buf.extend(f64::from_bits(*bits).to_string().as_bytes())
+                        }
                         Some(ConstValue::Bool(b)) => {
                             lit_buf.extend(if *b { b"1" } else { b"0" });
                         }
@@ -3782,6 +3847,9 @@ fn decode_prefixed_payload(
                     StrPart::Name(n) => match const_env.get(n) {
                         Some(ConstValue::Str(bs)) => out.extend(bs),
                         Some(ConstValue::Int(i)) => out.extend(i.to_string().as_bytes()),
+                        Some(ConstValue::Float(bits)) => {
+                            out.extend(f64::from_bits(*bits).to_string().as_bytes())
+                        }
                         Some(ConstValue::Bool(bv)) => {
                             out.extend(if *bv { b"1" } else { b"0" });
                         }

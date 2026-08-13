@@ -22,20 +22,20 @@ pub const CACHE_FORMAT_VERSION: u32 = 1;
 // --- Per-component schema versions (bump when that layer's cacheable output changes) ---
 
 pub const LEXER_VERSION: u32 = 2; // `..` range token
-pub const PARSER_VERSION: u32 = 6; // list push `~ xs[] = e`
-pub const AST_SCHEMA_VERSION: u32 = 4; // AssignTarget::Index index: Option
+pub const PARSER_VERSION: u32 = 7; // unknown width tags stay WidthCast (not silent i64)
+pub const AST_SCHEMA_VERSION: u32 = 5; // WidthCast.width: Option + tag
 pub const INDEX_VERSION: u32 = 1;
 pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const RESOLVER_VERSION: u32 = 1;
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 9; // Type::Value + free-param pin
+pub const SEMANTICS_VERSION: u32 = 10; // sem-width-unknown + sem-width-cast
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
 pub const MIR_LOWERER_VERSION: u32 = 27; // materialize returns; float ABI not unboxed as Int64
 pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 15; // RT_STR_REPEAT + RT_LIST_RESERVE + RT_LIST_NEW_EMPTY_LISTS
+pub const CODEGEN_VERSION: u32 = 16; // real int↔float / float↔float WidthCast
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
 pub const RUNTIME_ABI_VERSION: u32 = 44; // scope_disown is graph disown (return nests)

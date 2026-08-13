@@ -401,9 +401,9 @@ Details: [`modules.md`](modules.md).
 
 | Op | Meaning |
 |----|---------|
-| `&` `\|` `^` | Bit and / or / xor on `i32`/`i64` (same width both sides) |
-| `<<` | Shift left; count masked to width (`& 63` / `& 31`) |
-| `>>` | **Arithmetic** (signed) shift right; count masked |
+| `&` `\|` `^` | Bit and / or / xor; same integer width both sides (`i*` / `ui*` / `byte`) |
+| `<<` | Shift left; count masked to width (`& 63` / `& 31` / `& 15` / `& 7`) |
+| `>>` | **Arithmetic** on signed `i*`; **logical** on unsigned `ui*` / `byte`; count masked |
 | `~` | Bitwise complement |
 
 Dual-use: expr `~` / `^` vs leaders bind / return; binary `\|` vs true atom / match
