@@ -283,6 +283,35 @@ mod tests {
     }
 
     #[test]
+    fn method_is_not_a_value() {
+        let c = codes(
+            "% c {\n    ~ n = 0\n    $ inc = () {\n        ~ .n = .n + 1\n    }\n}\n$ x = c { n: 0 }\n$ f = x.inc\n",
+        );
+        assert!(
+            c.iter().any(|x| x == "sem-method-value"),
+            "expected sem-method-value, got {c:?}"
+        );
+    }
+
+    #[test]
+    fn hash_fn_expr_is_ok() {
+        let c = codes("# F = () {\n    ^ 1\n}\n");
+        assert!(
+            !c.iter().any(|x| x == "sem-const" || x == "sem-hash-name"),
+            "hash fn value should check: {c:?}"
+        );
+    }
+
+    #[test]
+    fn hash_call_still_rejected() {
+        let c = codes("# A = 1\n# B = A()\n");
+        assert!(
+            c.iter().any(|x| x == "sem-const"),
+            "expected sem-const for call in #, got {c:?}"
+        );
+    }
+
+    #[test]
     fn width_cast_int_float_ok() {
         let c = codes("$ a = <f64> 3\n$ b = <i32> a\n");
         assert!(

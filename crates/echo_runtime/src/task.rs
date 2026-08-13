@@ -57,6 +57,30 @@ fn task_header() -> HeapHeader {
     }
 }
 
+/// Drop a task handle. The inner task may keep running (`Arc`); unjoined
+/// accounting is unchanged — dispose is ownership of the **handle**, not cancel.
+pub(crate) fn free_task_object(handle: i64) {
+    let _ = unsafe { Box::from_raw(handle as *mut EchoTask) };
+}
+
+/// Allocate a task handle that is not scheduled and does not bump UNJOINED.
+#[cfg(test)]
+pub(crate) fn test_alloc_task_handle() -> i64 {
+    let inner = Arc::new(TaskInner {
+        state: Mutex::new(TaskState::Pending),
+        done: Condvar::new(),
+        entry: 1,
+        shape: 0,
+        argc: 0,
+        args: [0; MAX_TASK_ARGS],
+        joined: Mutex::new(true),
+    });
+    crate::heap_to_handle(Box::new(EchoTask {
+        header: task_header(),
+        inner,
+    }))
+}
+
 fn as_task(handle: i64) -> Option<&'static EchoTask> {
     if handle == 0 {
         return None;

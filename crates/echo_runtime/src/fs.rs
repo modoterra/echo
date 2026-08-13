@@ -385,6 +385,11 @@ pub extern "C" fn echo_runtime_fs_file_seek(handle: i64, pos: i64) -> i64 {
     }
 }
 
+/// Drop a streaming file handle (closes the OS file).
+pub(crate) fn free_file_object(handle: i64) {
+    let _ = unsafe { Box::from_raw(handle as *mut EchoFile) };
+}
+
 /// Close an open file handle (idempotent).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_fs_file_close(handle: i64) {

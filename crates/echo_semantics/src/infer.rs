@@ -759,7 +759,7 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
             args,
             span,
         } => {
-            let cty = infer_expr(env, callee);
+            let cty = infer_callee(env, callee);
             let cty = env.apply(&cty);
             match cty {
                 Type::Fn { params, ret } => {
@@ -810,6 +810,7 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
                 }
             }
             let bty = infer_expr(env, base);
+            reject_method_as_value(env, &bty, &field.name, *span);
             field_type(env, &bty, &field.name, *span)
         }
         Expr::Index {
@@ -1143,6 +1144,42 @@ fn numeric_binop(env: &mut Env, lt: &Type, rt: &Type, span: Span, _is_div: bool)
             env.unify(&lt, &rt, span);
             env.apply(&lt)
         }
+    }
+}
+
+fn infer_callee(env: &mut Env, expr: &Expr) -> Type {
+    if let Expr::Field { base, field, span } = expr {
+        if let Expr::Name(m) = base.as_ref() {
+            if let Some(exports) = env.modules.get(&m.name).cloned() {
+                if let Some(t) = exports.get(&field.name) {
+                    return env.apply(t);
+                }
+            }
+        }
+        let bty = infer_expr(env, base);
+        return field_type(env, &bty, &field.name, *span);
+    }
+    infer_expr(env, expr)
+}
+
+fn reject_method_as_value(env: &mut Env, base: &Type, field: &str, span: Span) {
+    let base = env.apply(base);
+    let Type::Named(name) = base else {
+        return;
+    };
+    if env
+        .struct_slots
+        .get(&name)
+        .and_then(|m| m.get(field))
+        .is_some_and(|s| matches!(s, FieldSlot::Method))
+    {
+        env.diags.push(
+            Diagnostic::error(format!(
+                "method `{field}` on `{name}` is not a value; call `{name}.{field}(…)`"
+            ))
+            .with_span(span)
+            .with_code("sem-method-value"),
+        );
     }
 }
 

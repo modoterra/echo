@@ -14,7 +14,7 @@ mod ssa;
 mod value_class;
 
 pub use cfg::{
-    BlockId, MirBlock, MirCfg, MirOp, Terminator, structured_to_cfg,
+    BlockId, MirBlock, MirCfg, MirOp, Terminator, match_payload_names, structured_to_cfg,
     structured_to_cfg_with_fallthrough,
 };
 pub use escape::{EscapeClass, analyze_escapes};
@@ -709,6 +709,10 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                 (m.path.clone(), f.symbol.clone()),
                 MirRetShape::from_return_shape(f.return_shape),
             );
+        }
+        seed_fn_value_shapes(&m.hir.entry, &m.path, &mut fn_shapes);
+        for f in &m.hir.bodies {
+            seed_fn_value_shapes(&f.body, &m.path, &mut fn_shapes);
         }
     }
 
@@ -2055,6 +2059,69 @@ fn desugar_effect_tail(
     out
 }
 
+/// Record bind names that hold a function value (`$ f = load`) so `&` can
+/// unwrap `f()` the same way as a named free call.
+fn seed_fn_value_shapes(
+    stmts: &[HirStmt],
+    module_path: &Path,
+    fn_shapes: &mut HashMap<(PathBuf, String), MirRetShape>,
+) {
+    for s in stmts {
+        match s {
+            HirStmt::Bind {
+                name,
+                init: Some(init),
+                ..
+            } => {
+                if let Some(shape) = fn_value_shape_of(init, module_path, fn_shapes) {
+                    fn_shapes.insert((module_path.to_path_buf(), name.clone()), shape);
+                }
+            }
+            HirStmt::If { arms, else_body, .. } => {
+                for (_, body) in arms {
+                    seed_fn_value_shapes(body, module_path, fn_shapes);
+                }
+                if let Some(b) = else_body {
+                    seed_fn_value_shapes(b, module_path, fn_shapes);
+                }
+            }
+            HirStmt::Match { arms, .. } => {
+                for arm in arms {
+                    match arm {
+                        HirMatchArm::Values { body, .. }
+                        | HirMatchArm::Type { body, .. }
+                        | HirMatchArm::Ok { body, .. }
+                        | HirMatchArm::Err { body, .. }
+                        | HirMatchArm::Default { body } => {
+                            seed_fn_value_shapes(body, module_path, fn_shapes);
+                        }
+                    }
+                }
+            }
+            HirStmt::Loop { body, .. } | HirStmt::EffectBlock { body, .. } => {
+                seed_fn_value_shapes(body, module_path, fn_shapes);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn fn_value_shape_of(
+    e: &HirExpr,
+    module_path: &Path,
+    fn_shapes: &HashMap<(PathBuf, String), MirRetShape>,
+) -> Option<MirRetShape> {
+    match &e.kind {
+        HirExprKind::FnRef { symbol } => fn_shapes
+            .get(&(module_path.to_path_buf(), symbol.clone()))
+            .copied(),
+        HirExprKind::Name(n) => fn_shapes
+            .get(&(module_path.to_path_buf(), n.clone()))
+            .copied(),
+        _ => None,
+    }
+}
+
 /// If `e` is a call to a known function, return its ret shape.
 fn hir_expr_call_shape(
     e: &HirExpr,
@@ -2073,6 +2140,9 @@ fn hir_expr_call_shape(
         } => {
             let path = imports.get(module)?;
             fn_shapes.get(&(path.clone(), name.clone())).copied()
+        }
+        HirExprKind::CallValue { callee, .. } => {
+            fn_value_shape_of(callee, module_path, fn_shapes)
         }
         _ => None,
     }
@@ -4718,6 +4788,33 @@ mod tests {
         assert!(
             !m.contains("hallas") && !m.contains("home") && !m.contains("Work"),
             "host path leaked: {m}"
+        );
+    }
+
+    #[test]
+    fn seed_fn_value_shapes_copies_rebind() {
+        use echo_ast::BindLeader;
+        use echo_hir::{HirExpr, HirExprKind, HirStmt};
+        use echo_source::{BytePos, SourceId, Span};
+        let span = Span::new(SourceId::from_u32(0), BytePos(0), BytePos(1));
+        let path = PathBuf::from("t.echo");
+        let mut shapes = HashMap::new();
+        shapes.insert((path.clone(), "load".into()), MirRetShape::Result);
+        let stmts = vec![HirStmt::Bind {
+            leader: BindLeader::Dollar,
+            name: "f".into(),
+            init: Some(HirExpr {
+                span,
+                kind: HirExprKind::FnRef {
+                    symbol: "load".into(),
+                },
+            }),
+            span,
+        }];
+        seed_fn_value_shapes(&stmts, &path, &mut shapes);
+        assert_eq!(
+            shapes.get(&(path, "f".into())).copied(),
+            Some(MirRetShape::Result)
         );
     }
 }

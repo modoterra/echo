@@ -301,24 +301,13 @@ Language features ship as **verticals** ([`implementation.md`](implementation.md
 
 **Next concrete steps** (priority order as of 2026-08-13):
 
-Locked surface is largely through run. Remaining work is **honesty** — no
-silent-wrong lowering, thin reject paths closed, memory law on every heap kind.
+Locked-language honesty campaign is **done**: width/cast, nested match
+payloads, `&` call-through unwrap, `#` function values, reject-path e26
+belt, and dispose of task/TCP/UDP/FS-file handles. Name-keyed demote stays
+**off**.
 
-1. **Width / cast vertical** — **this slice**: reject unknown tags; real
-   int↔float / float↔float `<width> expr`; `#` floats stay floats; e26 grid
-   (`i16`/`ui16`/`ui32`, casts, unsigned `>>`).  
-2. **Match / effect / task lowering** — per-edge match payload (kill single
-   `match_payload` + `0` fallback); `&` unwrap of call-through fn values;
-   nested `|` inside `+` tasks (ADR 0017).  
-3. **`#` const-eval honesty** — function expressions as const values; width
-   preserved; no calls.  
-4. **Reject-path e26 belt** — `sem-match-arm` / `incomplete`, struct lit
-   unknown/method/dup, `sem-arity`, methods-as-values.  
-5. **Heap dispose for remaining kinds** — task / TCP / UDP / FS file
-   `physical_free` + register (ADR 0016). Name-keyed demote stays **off**.
-
-Host polish (www, AOT/link, LLVM DI, `xo cache gc`) and std expansion are
-**out of this campaign**.
+Follow-on (not locked-language rows): www / AOT link polish, LLVM DI,
+`xo cache gc`, illegal-escape diagnostics, SOTA G9.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -426,7 +415,7 @@ current; fill Impl as work lands.
 | REPL | ✓ | — | ✓ | — | ✓ | `xo repl` — rustyline + session + JIT |
 | Task cancel | **out** (v0) | | | | — | no cancel API |
 
-**Suite snapshot (2026-08-13):** `e26` **266** passed · **287** `.echo` · **166** `.run` · **56** `.check`.
+**Suite snapshot (2026-08-13):** `e26` **277** passed · **298** `.echo` · **170** `.run` · **63** `.check`.
 
 ---
 
@@ -536,6 +525,7 @@ current; fill Impl as work lands.
 | 2026-07-25 | **Bench JSONL + compare:** `--bench-out` streams results; `--bench-baseline` / `--bench-threshold` report regressions |
 | 2026-07-25 | **Sip lowerability:** pure Echo SipHash scalar ui64 + inlined rotl; ui64 `>>` → `lshr`/`fshl` (not ashr); proof-load IR |
 | 2026-08-13 | Campaign: remaining language verticals = honesty (width/cast, PHI, `#`, reject belt, heap dispose). Width/cast slice: unknown tags error; real int↔float casts; `#` float bits; e26 `run/width/004`–`006` |
+| 2026-08-13 | Honesty campaign closed: per-name match payloads; `&` unwrap of fn-value calls; `# F = () { }` run; reject-path e26; dispose task/tcp/udp/fs-file |
 
 ---
 

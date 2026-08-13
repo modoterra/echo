@@ -403,6 +403,17 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
             v.push(MirStmt::Continue);
             v
         }
+        MirStmt::TaskSpawn { bind, .. } | MirStmt::TaskSpawnFn { bind, .. } => {
+            let mut v = vec![s.clone()];
+            if let Some(name) = bind {
+                let current = ctx.current();
+                ctx.bind_scope.insert(name.clone(), current);
+                v.push(MirStmt::ScopeRegister {
+                    value: MirExpr::Name(name.clone()),
+                });
+            }
+            v
+        }
         other => vec![other.clone()],
     }
 }
@@ -1937,6 +1948,29 @@ mod tests {
         assert!(has_arm_scope);
         assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeDisown { .. })));
         assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeExit { id: 0 })));
+    }
+
+    #[test]
+    fn task_spawn_bind_is_scope_registered() {
+        use std::path::PathBuf;
+        let body = vec![
+            MirStmt::TaskSpawn {
+                module_path: PathBuf::from("t.echo"),
+                body_symbol: "job".into(),
+                bind: Some("h".into()),
+            },
+            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+        ];
+        let out = inject_lifetime(body);
+        assert!(
+            out.iter().any(|s| matches!(
+                s,
+                MirStmt::ScopeRegister {
+                    value: MirExpr::Name(n)
+                } if n == "h"
+            )),
+            "task handle must be registered: {out:?}"
+        );
     }
 
     #[test]

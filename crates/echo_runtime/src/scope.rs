@@ -399,9 +399,16 @@ fn physical_free(handle: i64) {
                 crate::tls::free_tls_object(handle as *mut u8, kind);
             }
         }
+        crate::net::KIND_TCP_LISTENER | crate::net::KIND_TCP_STREAM | crate::net::KIND_UDP_SOCKET => {
+            crate::net::free_net_object(handle, kind);
+        }
+        crate::task::KIND_TASK => {
+            crate::task::free_task_object(handle);
+        }
+        crate::fs::KIND_FS_FILE => {
+            crate::fs::free_file_object(handle);
+        }
         _ => {
-            // Unknown / non-owned kinds (sockets, tasks): do not free.
-            // Unmark dead so we don't pretend we freed.
             return;
         }
     }
@@ -758,5 +765,48 @@ mod tests {
         let r2 = once();
         assert_eq!(r1, r2, "graph promote outcomes must be deterministic");
         assert_eq!(r1, (true, true, 0, 0));
+    }
+
+    fn str_handle(text: &str) -> i64 {
+        unsafe { crate::echo_runtime_string_from_utf8(text.as_ptr(), text.len()) }
+    }
+
+    #[test]
+    fn exit_frees_task_tcp_udp_fs_handles() {
+        test_reset();
+        echo_runtime_scope_enter(1);
+
+        let task = crate::task::test_alloc_task_handle();
+        echo_runtime_scope_register(task);
+        assert!(crate::is_live_heap(task));
+
+        let addr = str_handle("127.0.0.1:0");
+        let tcp = unsafe { crate::echo_runtime_tcp_listen(addr) };
+        assert_ne!(tcp, 0, "tcp listen");
+        echo_runtime_scope_register(tcp);
+
+        let udp = unsafe { crate::echo_runtime_udp_bind(addr) };
+        assert_ne!(udp, 0, "udp bind");
+        echo_runtime_scope_register(udp);
+
+        let tmp = std::env::temp_dir().join(format!(
+            "echo_scope_fs_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let path = str_handle(tmp.to_str().unwrap());
+        let file = crate::echo_runtime_fs_open_write(path);
+        assert_ne!(file, 0, "fs open_write");
+        echo_runtime_scope_register(file);
+
+        echo_runtime_scope_exit(1);
+        assert!(!crate::is_live_heap(task), "task handle must be freed");
+        assert!(!crate::is_live_heap(tcp), "tcp listener must be freed");
+        assert!(!crate::is_live_heap(udp), "udp socket must be freed");
+        assert!(!crate::is_live_heap(file), "fs file must be freed");
+        let _ = std::fs::remove_file(&tmp);
+        test_reset();
     }
 }

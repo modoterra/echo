@@ -160,6 +160,20 @@ impl MirCfg {
     }
 }
 
+/// Every [`MirOp::MatchPayload`] name in `ops`.
+///
+/// Lifetime inject may insert `ScopeEnter` before the payload bind; callers
+/// must not stop at the first non-phi op.
+#[must_use]
+pub fn match_payload_names(ops: &[MirOp]) -> Vec<String> {
+    ops.iter()
+        .filter_map(|op| match op {
+            MirOp::MatchPayload { name } => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
 struct Builder {
     blocks: Vec<MirBlock>,
 }
@@ -774,6 +788,20 @@ mod tests {
                 .iter()
                 .any(|op| matches!(op, MirOp::MatchPayload { name } if name == "v"))
         }));
+    }
+
+    #[test]
+    fn match_payload_names_finds_payload_after_scope_ops() {
+        let ops = vec![
+            MirOp::ScopeEnter { id: 1 },
+            MirOp::MatchPayload { name: "outer".into() },
+            MirOp::ScopeRegister {
+                value: MirExpr::Name("outer".into()),
+            },
+            MirOp::MatchPayload { name: "inner".into() },
+        ];
+        let names = match_payload_names(&ops);
+        assert_eq!(names, vec!["outer".to_string(), "inner".to_string()]);
     }
 
     #[test]

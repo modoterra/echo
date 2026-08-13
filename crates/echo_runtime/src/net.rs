@@ -28,9 +28,9 @@ impl<T: std::os::windows::io::AsRawSocket> AsIoRaw for T {
     }
 }
 
-const KIND_TCP_LISTENER: u32 = 10;
-const KIND_TCP_STREAM: u32 = 11;
-const KIND_UDP_SOCKET: u32 = 12;
+pub(crate) const KIND_TCP_LISTENER: u32 = 10;
+pub(crate) const KIND_TCP_STREAM: u32 = 11;
+pub(crate) const KIND_UDP_SOCKET: u32 = 12;
 
 #[repr(C)]
 struct EchoTcpListener {
@@ -356,6 +356,22 @@ pub unsafe extern "C" fn echo_runtime_tcp_write(stream: i64, data: i64) -> i64 {
             }
             Err(_) => return -1,
         }
+    }
+}
+
+/// Drop a TCP/UDP heap object after taking the OS resource (scope dispose).
+pub(crate) fn free_net_object(handle: i64, kind: u32) {
+    match kind {
+        KIND_TCP_LISTENER => {
+            let _ = unsafe { Box::from_raw(handle as *mut EchoTcpListener) };
+        }
+        KIND_TCP_STREAM => {
+            let _ = unsafe { Box::from_raw(handle as *mut EchoTcpStream) };
+        }
+        KIND_UDP_SOCKET => {
+            let _ = unsafe { Box::from_raw(handle as *mut EchoUdpSocket) };
+        }
+        _ => {}
     }
 }
 

@@ -1923,7 +1923,7 @@ fn emit_function_cfg<'ctx>(
         locals: HashMap::new(),
         values,
         reprs: &mir_fn.reprs,
-        match_payload: None,
+        match_payloads: HashMap::new(),
         fn_map,
         diags,
         loops: Vec::new(),
@@ -1943,9 +1943,10 @@ fn emit_function_cfg<'ctx>(
                 MirOp::Phi { .. } => {}
                 MirOp::MatchPayload { name } => {
                     if !cx.values.contains_key(name) {
-                        let payload = cx.match_payload.unwrap_or_else(|| i64t.const_int(0, false));
-                        cx.values
-                            .insert(name.clone(), payload.as_basic_value_enum());
+                        if let Some(payload) = cx.match_payloads.get(name).copied() {
+                            cx.values
+                                .insert(name.clone(), payload.as_basic_value_enum());
+                        }
                     }
                 }
                 MirOp::Set { name, value } => {
@@ -2434,18 +2435,13 @@ fn emit_terminator_cfg<'ctx>(
                 return;
             };
             let (tag, payload) = unpack_tag_payload(cx, packed);
-            cx.match_payload = Some(payload);
-            // Bind MatchPayload names now (block emission order ≠ CFG order).
+            // Bind every payload name in the successor blocks (not a single
+            // slot — nested `|` / `&` must not clobber an outer arm).
             for target in [*ok_bb, *err_bb] {
-                for op in &cfg.block(target).ops {
-                    match op {
-                        MirOp::Phi { .. } => {}
-                        MirOp::MatchPayload { name } => {
-                            cx.values
-                                .insert(name.clone(), payload.as_basic_value_enum());
-                        }
-                        _ => break,
-                    }
+                for name in echo_mir::match_payload_names(&cfg.block(target).ops) {
+                    cx.match_payloads.insert(name.clone(), payload);
+                    cx.values
+                        .insert(name, payload.as_basic_value_enum());
                 }
             }
             let zero = cx.i64t.const_int(0, false);
@@ -2514,8 +2510,8 @@ struct EmitCx<'a, 'ctx> {
     values: HashMap<String, BasicValueEnum<'ctx>>,
     /// Representation facts for SSA names.
     reprs: &'a HashMap<String, MirRepr>,
-    /// Payload from the last MatchTagged terminator.
-    match_payload: Option<IntValue<'ctx>>,
+    /// Payload per MatchPayload SSA name (nested matches keep distinct bindings).
+    match_payloads: HashMap<String, IntValue<'ctx>>,
     fn_map: &'a HashMap<String, (FunctionValue<'ctx>, MirRetShape)>,
     diags: &'a mut Diagnostics,
     /// Nested loops: (continue_target, break_target) — structured fallback only.

@@ -774,6 +774,7 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | Unknown width tag (`<u8>`, `<int>`) | `sem-width-unknown` |
 | Width tag after unary (`-<i32> 1`) | `sem-width-unary` |
 | `<width> expr` on a non-numeric | `sem-width-cast` |
+| Method used as a value (`$ f = c.inc`) | `sem-method-value` |
 
 - `$` / `#` introduce immutable / const once; `~` intro or update mutable.
 - Method bodies = function values that are **struct members**.

@@ -28,17 +28,17 @@ pub const INDEX_VERSION: u32 = 1;
 pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const RESOLVER_VERSION: u32 = 1;
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 10; // sem-width-unknown + sem-width-cast
+pub const SEMANTICS_VERSION: u32 = 11; // sem-method-value
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 27; // materialize returns; float ABI not unboxed as Int64
+pub const MIR_LOWERER_VERSION: u32 = 28; // effect unwrap CallValue; register TaskSpawn
 pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 16; // real int↔float / float↔float WidthCast
+pub const CODEGEN_VERSION: u32 = 17; // per-name match payloads (nested | / &)
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 44; // scope_disown is graph disown (return nests)
+pub const RUNTIME_ABI_VERSION: u32 = 45; // dispose task/tcp/udp/fs-file handles
 pub const STDLIB_VERSION: u32 = 31; // hash_table empty_buckets runtime + grow×4
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
