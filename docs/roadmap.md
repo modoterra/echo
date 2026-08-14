@@ -307,7 +307,7 @@ belt, and dispose of task/TCP/UDP/FS-file handles. Name-keyed demote stays
 **off**.
 
 Follow-on (not locked-language rows): www / AOT link polish, LLVM DI,
-`xo cache gc`, illegal-escape diagnostics, SOTA G9.
+`xo cache gc`, locator classification, SOTA G9.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -415,7 +415,7 @@ current; fill Impl as work lands.
 | REPL | ✓ | — | ✓ | — | ✓ | `xo repl` — rustyline + session + JIT |
 | Task cancel | **out** (v0) | | | | — | no cancel API |
 
-**Suite snapshot (2026-08-13):** `e26` **278** passed · **299** `.echo` · **171** `.run` · **63** `.check`.
+**Suite snapshot (2026-08-13):** `e26` **285** passed · **303** `.echo` · **172** `.run` · **63** `.check`.
 
 ---
 
@@ -528,6 +528,7 @@ current; fill Impl as work lands.
 | 2026-08-13 | Honesty campaign closed: per-name match payloads; `&` unwrap of fn-value calls; `# F = () { }` run; reject-path e26; dispose task/tcp/udp/fs-file |
 | 2026-08-13 | Field-after-call `c.inc().n`: plain method fall-off types as receiver; e26 `run/method/009` |
 | 2026-08-13 | Imported + zero-arg function arity: `sem-arity` on `module.f` and `f()` extra args; import params stay `value` |
+| 2026-08-13 | Rich escapes locked: unknown / bad `\x` is `lex-escape` (not rewritten); `\{` `\}` legal |
 
 ---
 

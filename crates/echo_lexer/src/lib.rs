@@ -9,7 +9,7 @@
 
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_source::{BytePos, SourceFile, Span};
-use echo_syntax::LeaderKind;
+use echo_syntax::{decode_escape, skip_bad_escape, LeaderKind};
 
 /// Stable crate identity for workspace linkage checks.
 pub fn crate_name() -> &'static str {
@@ -637,10 +637,7 @@ impl<'a> Lexer<'a> {
                 return;
             }
             if b == b'\\' && quote == b'"' {
-                self.pos += 1;
-                if self.pos < self.bytes.len() {
-                    self.pos += 1;
-                }
+                self.consume_rich_escape();
                 continue;
             }
             if b == b'\n' || b == b'\r' {
@@ -688,10 +685,7 @@ impl<'a> Lexer<'a> {
                 return;
             }
             if b == b'\\' {
-                self.pos += 1;
-                if self.pos < self.bytes.len() {
-                    self.pos += 1;
-                }
+                self.consume_rich_escape();
                 continue;
             }
             if b == b'\n' || b == b'\r' {
@@ -705,6 +699,31 @@ impl<'a> Lexer<'a> {
                 .with_span(span)
                 .with_code("lex-string-rich"),
         );
+    }
+
+    /// `pos` is on `\`. Validate the locked escape set; recover so we still
+    /// find the closing quote.
+    fn consume_rich_escape(&mut self) {
+        let slash = self.pos;
+        self.pos += 1;
+        let rest = &self.bytes[self.pos..];
+        match decode_escape(rest) {
+            Ok((_, n)) => self.pos += n,
+            Err(err) => {
+                let skip = skip_bad_escape(rest, &err);
+                self.pos += skip;
+                let span = Span::new(
+                    self.file.id(),
+                    BytePos(slash as u32),
+                    BytePos(self.pos as u32),
+                );
+                self.diagnostics.push(
+                    Diagnostic::error(err.to_string())
+                        .with_span(span)
+                        .with_code("lex-escape"),
+                );
+            }
+        }
     }
 }
 
@@ -948,5 +967,51 @@ $ b = 2
         let k = kinds(&lexed);
         assert!(k.contains(&TokenKind::BytesRich));
         assert!(k.contains(&TokenKind::LocatorPure));
+    }
+
+    #[test]
+    fn legal_rich_escapes_are_silent() {
+        let lexed = lex_str("$ s = \"a\\nb\\t\\{x\\}\\x41\"\n");
+        assert!(
+            lexed.diagnostics.is_empty(),
+            "{:?}",
+            lexed.diagnostics.items()
+        );
+        assert!(kinds(&lexed).contains(&TokenKind::StringRich));
+    }
+
+    #[test]
+    fn unknown_rich_escape_is_lex_escape() {
+        let lexed = lex_str("$ s = \"hello\\q\"\n");
+        let codes: Vec<_> = lexed
+            .diagnostics
+            .items()
+            .iter()
+            .filter_map(|d| d.code.as_deref())
+            .collect();
+        assert_eq!(codes, ["lex-escape"], "{:?}", lexed.diagnostics.items());
+        assert!(kinds(&lexed).contains(&TokenKind::StringRich));
+    }
+
+    #[test]
+    fn bad_hex_and_prefixed_rich_escape() {
+        let lexed = lex_str("$ a = \"\\xGG\"\n$ b = b\"\\q\"\n$ c = p\"\\q\"\n");
+        let n = lexed
+            .diagnostics
+            .items()
+            .iter()
+            .filter(|d| d.code.as_deref() == Some("lex-escape"))
+            .count();
+        assert_eq!(n, 3, "{:?}", lexed.diagnostics.items());
+    }
+
+    #[test]
+    fn pure_backslash_is_not_an_escape() {
+        let lexed = lex_str("$ s = '\\q'\n");
+        assert!(
+            lexed.diagnostics.is_empty(),
+            "{:?}",
+            lexed.diagnostics.items()
+        );
     }
 }

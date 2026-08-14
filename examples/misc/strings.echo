@@ -5,3 +5,5 @@ $ pure = 'hello pure'
 $ rich = "hello\nrich"
 io.print(pure)
 io.print(rich)
+io.print("\{x\}")
+io.print("\x41")

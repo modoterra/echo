@@ -3956,30 +3956,13 @@ pub fn decode_rich_parts(raw: &str) -> Result<Vec<StrPart>, String> {
             if i >= inner.len() {
                 return Err("rich string ends with lone backslash".into());
             }
-            match inner[i] {
-                b'n' => lit.push(b'\n'),
-                b't' => lit.push(b'\t'),
-                b'r' => lit.push(b'\r'),
-                b'\\' => lit.push(b'\\'),
-                b'"' => lit.push(b'"'),
-                b'{' => lit.push(b'{'),
-                b'}' => lit.push(b'}'),
-                // Hex byte: `\xHH` (rich strings / bytes).
-                b'x' | b'X' => {
-                    if i + 2 >= inner.len() {
-                        return Err("rich string `\\x` needs two hex digits".into());
-                    }
-                    let h = &inner[i + 1..i + 3];
-                    let s = std::str::from_utf8(h).map_err(|_| "invalid UTF-8 in \\x escape")?;
-                    let byte = u8::from_str_radix(s, 16)
-                        .map_err(|_| format!("invalid hex escape \\x{s}"))?;
+            match echo_syntax::decode_escape(&inner[i..]) {
+                Ok((byte, n)) => {
                     lit.push(byte);
-                    i += 3;
-                    continue;
+                    i += n;
                 }
-                other => lit.push(other),
+                Err(e) => return Err(e.to_string()),
             }
-            i += 1;
             continue;
         }
         if inner[i] == b'{' {
@@ -4221,6 +4204,16 @@ mod tests {
     fn rich_expands_escapes() {
         let b = decode_string_lit(StringKind::Rich, r#""a\nb\t""#).unwrap();
         assert_eq!(b, b"a\nb\t");
+        let braces = decode_string_lit(StringKind::Rich, r#""\{x\}""#).unwrap();
+        assert_eq!(braces, b"{x}");
+        let hex = decode_string_lit(StringKind::Rich, r#""\x41""#).unwrap();
+        assert_eq!(hex, b"A");
+    }
+
+    #[test]
+    fn rich_unknown_escape_is_err() {
+        assert!(decode_string_lit(StringKind::Rich, r#""\q""#).is_err());
+        assert!(decode_string_lit(StringKind::Rich, r#""\xGG""#).is_err());
     }
 
     #[test]

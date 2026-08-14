@@ -93,7 +93,7 @@ tokens `tilde` (bit-not) and `caret` (bit-xor) elsewhere.
 |------|--------|
 | `ident` | ASCII idents |
 | `number` | decimal, `0x`/`0b`, `_`, floats, exponent |
-| `string_pure` / `string_rich` | `'…'` / `"…"` (escapes scanned, not decoded fully) |
+| `string_pure` / `string_rich` | `'…'` / `"…"` (rich escapes validated; `{ident}` left for later stages) |
 | `underscore` | lone `_` (false) |
 | `pipe` | expr `\|` (true atom **or** bitwise OR between ints) — not match leader |
 | ops / punct | `+ - * / % == != === !== < > <= >= << >> && \|\| & ^ ~ ! . , : = ( ) [ ] { }` |
@@ -106,10 +106,12 @@ tokens `tilde` (bit-not) and `caret` (bit-xor) elsewhere.
 | `lex-unexpected-leader-glyph` | Leader-only glyph in expression position |
 | `lex-unexpected` | Unknown character |
 | `lex-string-pure` / `lex-string-rich` | Unterminated string |
+| `lex-escape` | Unknown / incomplete / invalid hex escape in rich `"…"`, `b"…"`, `p"…"` |
 
 ## Numbers / strings (detail)
 
 - Decimal, `0x`/`0X`, `0b`/`0B`, `_` between digits
 - Floats: `3.14`, `1e-3`
 - Pure `'...'`: no escapes; interior `'` ends the string
-- Rich `"..."`: `\\` escapes consumed as two bytes; `{ident}` left for later stages
+- Rich `"..."` / `b"..."` / `p"..."`: locked escapes `\n` `\t` `\r` `\\` `\"` `\{` `\}` `\xHH`.
+  Anything else is `lex-escape` (not rewritten). `{ident}` left for later stages

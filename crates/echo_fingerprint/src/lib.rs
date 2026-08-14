@@ -21,18 +21,18 @@ pub const CACHE_FORMAT_VERSION: u32 = 1;
 
 // --- Per-component schema versions (bump when that layer's cacheable output changes) ---
 
-pub const LEXER_VERSION: u32 = 2; // `..` range token
+pub const LEXER_VERSION: u32 = 3; // lex-escape on unknown rich escapes
 pub const PARSER_VERSION: u32 = 7; // unknown width tags stay WidthCast (not silent i64)
 pub const AST_SCHEMA_VERSION: u32 = 5; // WidthCast.width: Option + tag
 pub const INDEX_VERSION: u32 = 2; // export function arity
 pub const INDEX_SCHEMA_VERSION: u32 = 2; // ExportFact.fn_arity + ModuleFacts.fn_arities
 pub const RESOLVER_VERSION: u32 = 2; // ModuleExport.arity from folder fn binds
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 14; // imported arity params are value (not frozen)
+pub const SEMANTICS_VERSION: u32 = 15; // # const uses locked escape table
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 28; // effect unwrap CallValue; register TaskSpawn
+pub const MIR_LOWERER_VERSION: u32 = 29; // rich decode rejects unknown escapes
 pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
 pub const CODEGEN_VERSION: u32 = 17; // per-name match payloads (nested | / &)

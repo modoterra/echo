@@ -12,3 +12,4 @@ echo_hir = { path = "../echo_hir" }
 echo_semantics = { path = "../echo_semantics" }
 echo_source = { path = "../echo_source" }
 echo_std = { path = "../echo_std" }
+echo_syntax = { path = "../echo_syntax" }

@@ -240,6 +240,7 @@ $ url = p'http://xo.run'    ; full URI/URL
   - relative path
   - full URI/URL (e.g. `http://…`)
 - Pure `p'…'` and rich `p"…"` parallel string/bytes (escapes/interp on rich).
+  Locked escapes: `\n` `\t` `\r` `\\` `\"` `\{` `\}` `\xHH`. Unknown → `lex-escape`.
 - **Through run:** heap locator handle (distinct from string). Print via
   `str.from_locator` (path/URI text). Content `==`. No `+` concat. No path
   normalization in v1 (stored text is the payload as written).

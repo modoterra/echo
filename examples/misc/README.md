@@ -22,7 +22,7 @@ cargo build -p xo
 | [`if_branch.echo`](if_branch.echo) | `10` | 0 |
 | [`result_ok.echo`](result_ok.echo) | `7` | 0 |
 | [`result_err.echo`](result_err.echo) | `99` | 0 |
-| [`strings.echo`](strings.echo) | pure + rich strings | 0 |
+| [`strings.echo`](strings.echo) | pure + rich + `\{` `\}` `\xHH` | `hello pure` / `hello` `rich` / `{x}` / `A` |
 | [`multi/main.echo`](multi/main.echo) | multi-file `./lib` + std | `multi-file` / `42` / `42` |
 | [`const_hash.echo`](const_hash.echo) | `#` const-eval | `42` / `const ok` |
 | [`interp.echo`](interp.echo) | rich `{name}` + `==` | `n=7!` / `eq ok` |

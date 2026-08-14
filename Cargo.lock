@@ -505,6 +505,7 @@ dependencies = [
  "echo_semantics",
  "echo_source",
  "echo_std",
+ "echo_syntax",
 ]
 
 [[package]]
@@ -595,6 +596,7 @@ dependencies = [
  "echo_diagnostics",
  "echo_parser",
  "echo_source",
+ "echo_syntax",
 ]
 
 [[package]]

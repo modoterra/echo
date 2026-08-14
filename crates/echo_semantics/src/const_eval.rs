@@ -216,11 +216,8 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
     }
 }
 
-fn decode_string_token(
-    kind: echo_ast::StringKind,
-    raw: &str,
-) -> Result<Vec<u8>, String> {
-    // Mirror echo_mir decode (pure/rich); keep independent to avoid crate cycles.
+fn decode_string_token(kind: echo_ast::StringKind, raw: &str) -> Result<Vec<u8>, String> {
+    // Pure copy; rich uses the locked escape table in `echo_syntax`.
     match kind {
         echo_ast::StringKind::Pure => {
             let b = raw.as_bytes();
@@ -243,17 +240,13 @@ fn decode_string_token(
                     if i >= inner.len() {
                         return Err("rich string ends with lone backslash".into());
                     }
-                    match inner[i] {
-                        b'n' => out.push(b'\n'),
-                        b't' => out.push(b'\t'),
-                        b'r' => out.push(b'\r'),
-                        b'\\' => out.push(b'\\'),
-                        b'"' => out.push(b'"'),
-                        b'{' => out.push(b'{'),
-                        b'}' => out.push(b'}'),
-                        other => out.push(other),
+                    match echo_syntax::decode_escape(&inner[i..]) {
+                        Ok((byte, n)) => {
+                            out.push(byte);
+                            i += n;
+                        }
+                        Err(e) => return Err(e.to_string()),
                     }
-                    i += 1;
                 } else {
                     out.push(inner[i]);
                     i += 1;
@@ -341,6 +334,29 @@ mod tests {
             ConstValue::Float(b) => assert_eq!(f64::from_bits(b), 1.5),
             other => panic!("expected float, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn rich_const_decodes_locked_escapes() {
+        let e = Expr::String {
+            kind: echo_ast::StringKind::Rich,
+            text: r#""A\x42\{c\}""#.into(),
+            span: dummy_span(),
+        };
+        match eval_const_expr(&e, &HashMap::new()).unwrap() {
+            ConstValue::Str(b) => assert_eq!(b, b"AB{c}"),
+            other => panic!("expected str, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rich_const_rejects_unknown_escape() {
+        let e = Expr::String {
+            kind: echo_ast::StringKind::Rich,
+            text: r#""\q""#.into(),
+            span: dummy_span(),
+        };
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
     }
 
     #[test]
