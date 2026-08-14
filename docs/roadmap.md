@@ -534,6 +534,7 @@ current; fill Impl as work lands.
 | 2026-08-14 | Per-op DWARF lines + checker-kind locals; imported return kinds (`str.from_int` → string); import params stay `value`; AOT still one clang `-O0 -g` |
 | 2026-08-14 | Locator class locked: URI `scheme://`, abs `/…`, else relative; `path.class` / `is_uri`; locators and strings share the rule |
 | 2026-08-14 | AOT runtime `.a`: newest match in `xo`’s profile; clang missing `echo_runtime_*` → rebuild hint |
+| 2026-08-14 | `!` only inside a function (`sem-error-return` at file scope); top-level `^` still process status |
 
 ---
 

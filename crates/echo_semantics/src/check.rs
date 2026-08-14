@@ -636,7 +636,15 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
         }
         Stmt::Else(s) => block(cx, &s.body),
         Stmt::ErrorReturn(s) => {
-            // Top-level is the program body (no entry keyword); `!` is legal there too.
+            // `!` is Result-err return from a function (`docs/semantics.md`).
+            // Top-level `^` is process status; top-level `!` is not.
+            if cx.fn_depth == 0 {
+                cx.error(
+                    "sem-error-return",
+                    "`!` error return is only legal inside a function",
+                    s.span,
+                );
+            }
             cx.expr(&s.value, UseContext::Value);
         }
         Stmt::Return(s) => {
@@ -719,7 +727,12 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
         Stmt::Import(_) | Stmt::Export(_) => {}
         Stmt::TaskSpawn(s) => {
             match &s.body {
-                echo_ast::TaskBody::Block(body) => block(cx, body),
+                echo_ast::TaskBody::Block(body) => {
+                    // Task `{ }` bodies are closed activations — `!` is legal.
+                    cx.fn_depth += 1;
+                    block(cx, body);
+                    cx.fn_depth -= 1;
+                }
                 echo_ast::TaskBody::Call(e) => {
                     if let echo_ast::Expr::Call { args, .. } = e {
                         if args.len() > 8 {
@@ -781,7 +794,9 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
         }
         Stmt::TaskJoin(s) => match &s.kind {
             echo_ast::TaskJoinKind::Block { bind, body } => {
+                cx.fn_depth += 1;
                 block(cx, body);
+                cx.fn_depth -= 1;
                 if let Some(name) = bind {
                     cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
                 }

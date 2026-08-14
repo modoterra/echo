@@ -553,10 +553,27 @@ mod tests {
     }
 
     #[test]
-    fn error_return_ok_at_top_level() {
-        // Top-level is the program body; `!` is legal there (not "outside function").
+    fn error_return_rejected_at_top_level() {
         let c = codes("! \"x\"\n");
-        assert!(!c.iter().any(|x| x == "sem-error-return"), "{c:?}");
+        assert!(
+            c.iter().any(|x| x == "sem-error-return"),
+            "top-level ! must be sem-error-return, got {c:?}"
+        );
+        let ok = codes("$ f = () {\n    ! \"x\"\n    ^ 0\n}\n");
+        assert!(
+            !ok.iter().any(|x| x == "sem-error-return"),
+            "in-function ! is legal: {ok:?}"
+        );
+        let nested = codes("? | {\n    ! \"x\"\n}\n");
+        assert!(
+            nested.iter().any(|x| x == "sem-error-return"),
+            "file-scope if is still outside a function: {nested:?}"
+        );
+        let task = codes("- r = {\n    ! 3\n}\n");
+        assert!(
+            !task.iter().any(|x| x == "sem-error-return"),
+            "task block body may ! : {task:?}"
+        );
     }
 
     /// Imported module name occupies the outer scope (same as old import-bind shadow).

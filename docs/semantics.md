@@ -775,7 +775,7 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | Unhandled Result / Option value | `sem-unhandled-result` / `sem-unhandled-option` (suppressed inside `&` effect blocks) |
 | Effect block (`&`) | Body auto-unwraps free/module call results that are result/option; bind is `Value` (ok payload or err/none payload) |
 | Incomplete/wrong `|` arms | `sem-match-incomplete` / `sem-match-arm` |
-| `!` outside function | `sem-error-return` |
+| `!` outside a function (incl. top-level / file-scope `?`) | `sem-error-return` (task `{ }` bodies count as functions) |
 | Kind mismatch | `sem-type-mismatch` |
 | Call non-function | `sem-not-callable` |
 | Wrong arity | `sem-arity` |
