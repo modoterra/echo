@@ -53,6 +53,9 @@ pub enum Type {
     Fn {
         params: Vec<Type>,
         ret: Box<Type>,
+        /// When false, `params` is empty and call-site arity is not checked
+        /// (imported export whose param count is not yet known).
+        arity_known: bool,
     },
     Option(Box<Type>),
     Result {
@@ -131,6 +134,22 @@ impl Type {
         Type::Fn {
             params,
             ret: Box::new(ret),
+            arity_known: true,
+        }
+    }
+
+    /// Imported callable: `None` arity stays unchecked (runtime / missing facts).
+    /// Known-arity params are [`Type::Value`] — exports carry count, not param
+    /// kinds, so one call site must not freeze later mixed-kind calls.
+    #[must_use]
+    pub fn func_imported(arity: Option<usize>, ret: Type) -> Self {
+        match arity {
+            Some(n) => Type::func(vec![Type::Value; n], ret),
+            None => Type::Fn {
+                params: vec![],
+                ret: Box::new(ret),
+                arity_known: false,
+            },
         }
     }
 
@@ -202,13 +221,21 @@ impl fmt::Display for Type {
                 }
                 Ok(())
             }
-            Type::Fn { params, ret } => {
+            Type::Fn {
+                params,
+                ret,
+                arity_known,
+            } => {
                 write!(f, "fn(")?;
-                for (i, p) in params.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
+                if *arity_known {
+                    for (i, p) in params.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{p}")?;
                     }
-                    write!(f, "{p}")?;
+                } else {
+                    write!(f, "...")?;
                 }
                 write!(f, ") -> {ret}")
             }
@@ -257,10 +284,15 @@ impl Subst {
                     .map(|(n, ty)| (n.clone(), self.apply(ty)))
                     .collect(),
             ),
-            Type::Fn { params, ret } => Type::func(
-                params.iter().map(|p| self.apply(p)).collect(),
-                self.apply(ret),
-            ),
+            Type::Fn {
+                params,
+                ret,
+                arity_known,
+            } => Type::Fn {
+                params: params.iter().map(|p| self.apply(p)).collect(),
+                ret: Box::new(self.apply(ret)),
+                arity_known: *arity_known,
+            },
             Type::Option(i) => Type::option(self.apply(i)),
             Type::Result { ok, err } => Type::result(self.apply(ok), self.apply(err)),
             Type::Union(xs) => {

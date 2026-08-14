@@ -30,6 +30,8 @@ pub struct ExportFact {
     pub span: Span,
     /// Set when the export resolves to a local bind or primary struct name.
     pub kind: Option<ExportKind>,
+    /// Parameter count when the name is a top-level `$ f = (a, b) { … }`.
+    pub fn_arity: Option<usize>,
 }
 
 /// What an export refers to (for import binding).
@@ -69,6 +71,8 @@ pub struct ModuleFacts {
     pub structs: Vec<StructFact>,
     /// Top-level bind names (`$` / `~` / `#`).
     pub top_binds: Vec<(String, BindLeader, Span)>,
+    /// Top-level `$ name = (params) { … }` parameter counts.
+    pub fn_arities: std::collections::HashMap<String, usize>,
 }
 
 /// Extract indexable facts from a parsed file.
@@ -78,6 +82,7 @@ pub fn extract(file: &File) -> ModuleFacts {
     let mut exports = Vec::new();
     let mut structs = Vec::new();
     let mut top_binds = Vec::new();
+    let mut top_fn_arity = std::collections::HashMap::new();
 
     for stmt in &file.stmts {
         match stmt {
@@ -101,6 +106,7 @@ pub fn extract(file: &File) -> ModuleFacts {
                         name: n.name.clone(),
                         span: n.span,
                         kind: None,
+                        fn_arity: None,
                     });
                 }
             }
@@ -122,6 +128,9 @@ pub fn extract(file: &File) -> ModuleFacts {
             }
             Stmt::Bind(b) => {
                 top_binds.push((b.name.name.clone(), b.leader, b.name.span));
+                if let Some(echo_ast::Expr::Fn { params, .. }) = &b.init {
+                    top_fn_arity.insert(b.name.name.clone(), params.len());
+                }
             }
             _ => {}
         }
@@ -130,6 +139,7 @@ pub fn extract(file: &File) -> ModuleFacts {
     // Resolve export kinds against local definitions.
     for exp in &mut exports {
         exp.kind = resolve_export_kind(&exp.name, &top_binds, &structs);
+        exp.fn_arity = top_fn_arity.get(&exp.name).copied();
     }
 
     ModuleFacts {
@@ -138,6 +148,7 @@ pub fn extract(file: &File) -> ModuleFacts {
         exports,
         structs,
         top_binds,
+        fn_arities: top_fn_arity,
     }
 }
 
@@ -240,5 +251,27 @@ mod tests {
         assert_eq!(facts.structs.len(), 1);
         assert!(facts.structs[0].is_primary);
         assert_eq!(facts.structs[0].members[0].name, "name");
+    }
+
+    #[test]
+    fn records_export_fn_arity() {
+        let src = "\
+$ add = (a, b) {
+    ^ a + b
+}
+$ zero = () {
+    ^ 0
+}
+\\ add, zero
+";
+        let mut map = SourceMap::new();
+        let id = map.add("t.echo", src);
+        let p = parse(map.get(id).unwrap());
+        let facts = extract(p.file.as_ref().unwrap());
+        let add = facts.exports.iter().find(|e| e.name == "add").unwrap();
+        let zero = facts.exports.iter().find(|e| e.name == "zero").unwrap();
+        assert_eq!(add.fn_arity, Some(2));
+        assert_eq!(zero.fn_arity, Some(0));
+        assert_eq!(facts.fn_arities.get("add").copied(), Some(2));
     }
 }

@@ -195,6 +195,7 @@ fn run_semantic_checks(graph: &ResolvedGraph, diagnostics: &mut Diagnostics) {
                         name: exp.name.clone(),
                         kind: map_export_kind(kind),
                         return_shape,
+                        arity: folder_fn_arity(graph, target_root, &exp.name),
                     });
                 }
             }
@@ -290,6 +291,18 @@ fn map_export_kind(k: ExportKind) -> BindingKind {
         ExportKind::Const => BindingKind::Const,
         ExportKind::Struct => BindingKind::Struct,
     }
+}
+
+/// Param count of a top-level function bind anywhere in the folder module.
+fn folder_fn_arity(graph: &ResolvedGraph, root: &Path, name: &str) -> Option<usize> {
+    for unit in &graph.modules {
+        if unit.module_root == *root {
+            if let Some(&n) = unit.facts.fn_arities.get(name) {
+                return Some(n);
+            }
+        }
+    }
+    None
 }
 
 /// If `name` is a top-level `$ name = ( ) { }` in the module, compute return shape.

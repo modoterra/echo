@@ -527,6 +527,7 @@ current; fill Impl as work lands.
 | 2026-08-13 | Campaign: remaining language verticals = honesty (width/cast, PHI, `#`, reject belt, heap dispose). Width/cast slice: unknown tags error; real int↔float casts; `#` float bits; e26 `run/width/004`–`006` |
 | 2026-08-13 | Honesty campaign closed: per-name match payloads; `&` unwrap of fn-value calls; `# F = () { }` run; reject-path e26; dispose task/tcp/udp/fs-file |
 | 2026-08-13 | Field-after-call `c.inc().n`: plain method fall-off types as receiver; e26 `run/method/009` |
+| 2026-08-13 | Imported + zero-arg function arity: `sem-arity` on `module.f` and `f()` extra args; import params stay `value` |
 
 ---
 

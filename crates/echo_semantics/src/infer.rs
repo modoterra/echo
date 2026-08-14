@@ -141,9 +141,15 @@ fn setup_infer_env(file: &File, modules: &[ImportedModule]) -> Env {
                 BindingKind::Struct => Type::Named(e.name.clone()),
                 BindingKind::Module => Type::Module,
                 _ => {
-                    // Prefer function type if shape known.
-                    if let Some(shape) = e.return_shape {
-                        shape_to_fn_type(&mut env, shape)
+                    // Arity or return shape means this export is a function.
+                    // Arity alone still builds `fn(value, …)` so a missing shape
+                    // cannot monomorphize the name on the first call.
+                    if e.return_shape.is_some() || e.arity.is_some() {
+                        shape_to_fn_type(
+                            &mut env,
+                            e.return_shape.unwrap_or(ReturnShape::Plain),
+                            e.arity,
+                        )
                     } else {
                         env.fresh()
                     }
@@ -228,15 +234,14 @@ fn register_struct(env: &mut Env, s: &StructStmt) {
     env.bind(&s.name.name, Type::Named(sname));
 }
 
-fn shape_to_fn_type(env: &mut Env, shape: ReturnShape) -> Type {
+fn shape_to_fn_type(env: &mut Env, shape: ReturnShape, arity: Option<usize>) -> Type {
     let ret = match shape {
         ReturnShape::Plain => env.fresh(),
         ReturnShape::Option => Type::option(env.fresh()),
         ReturnShape::Result => Type::result(env.fresh(), env.fresh()),
         ReturnShape::ResultOption => Type::result(Type::option(env.fresh()), env.fresh()),
     };
-    // Unknown arity for imported shapes — use empty params + flexible call site.
-    Type::func(vec![], ret)
+    Type::func_imported(arity, ret)
 }
 
 fn infer_stmt(env: &mut Env, stmt: &Stmt) {
@@ -632,7 +637,7 @@ fn pin_free_param_vars(env: &mut Env, t: &Type) {
             pin_free_param_vars(env, &ok);
             pin_free_param_vars(env, &err);
         }
-        Type::Fn { params, ret } => {
+        Type::Fn { params, ret, .. } => {
             for p in params {
                 pin_free_param_vars(env, &p);
             }
@@ -776,9 +781,12 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
             let cty = infer_callee(env, callee);
             let cty = env.apply(&cty);
             match cty {
-                Type::Fn { params, ret } => {
-                    // Empty params means "arity unknown" (imported fn shapes).
-                    if !params.is_empty() && params.len() != args.len() {
+                Type::Fn {
+                    params,
+                    ret,
+                    arity_known,
+                } => {
+                    if arity_known && params.len() != args.len() {
                         env.diags.push(
                             Diagnostic::error(format!(
                                 "expected {} argument(s), found {}",

@@ -47,6 +47,9 @@ pub struct ModuleExport {
     pub kind: BindingKind,
     /// If the export is a function, its `^` / `!` result shape.
     pub return_shape: Option<ReturnShape>,
+    /// Parameter count when the export is a function value. `None` = unknown
+    /// (runtime primitives, or a non-function export).
+    pub arity: Option<usize>,
 }
 
 /// Module brought into scope by `/ path` (last path segment as name).
@@ -283,6 +286,97 @@ mod tests {
     }
 
     #[test]
+    fn imported_arity_is_checked() {
+        use echo_source::BytePos;
+        let mut map = SourceMap::new();
+        let id = map.add("t.echo", "$ x = io.print()\n$ y = io.print(1, 2)\n");
+        let p = parse(map.get(id).unwrap());
+        let file = p.file.unwrap();
+        let modules = [ImportedModule {
+            name: "io".into(),
+            span: Span::new(id, BytePos(0), BytePos(1)),
+            exports: vec![ModuleExport {
+                name: "print".into(),
+                kind: BindingKind::Immutable,
+                return_shape: Some(ReturnShape::Plain),
+                arity: Some(1),
+            }],
+        }];
+        let d = check_file_with_modules(&file, &modules);
+        let codes: Vec<_> = d
+            .items()
+            .iter()
+            .filter_map(|x| x.code.clone())
+            .collect();
+        assert_eq!(
+            codes.iter().filter(|c| *c == "sem-arity").count(),
+            2,
+            "{codes:?}"
+        );
+    }
+
+    #[test]
+    fn imported_arity_does_not_freeze_arg_kinds() {
+        use echo_source::BytePos;
+        let mut map = SourceMap::new();
+        let id = map.add("t.echo", "io.print(1)\nio.print(\"a\")\n");
+        let p = parse(map.get(id).unwrap());
+        let file = p.file.unwrap();
+        let modules = [ImportedModule {
+            name: "io".into(),
+            span: Span::new(id, BytePos(0), BytePos(1)),
+            exports: vec![ModuleExport {
+                name: "print".into(),
+                kind: BindingKind::Immutable,
+                return_shape: Some(ReturnShape::Plain),
+                arity: Some(1),
+            }],
+        }];
+        let d = check_file_with_modules(&file, &modules);
+        assert_eq!(
+            d.error_count(),
+            0,
+            "mixed-kind calls to the same import must stay open: {:?}",
+            d.items()
+        );
+    }
+
+    #[test]
+    fn imported_arity_without_shape_is_still_a_function() {
+        use echo_source::BytePos;
+        let mut map = SourceMap::new();
+        let id = map.add("t.echo", "io.print(1)\nio.print(\"a\")\n");
+        let p = parse(map.get(id).unwrap());
+        let file = p.file.unwrap();
+        let modules = [ImportedModule {
+            name: "io".into(),
+            span: Span::new(id, BytePos(0), BytePos(1)),
+            exports: vec![ModuleExport {
+                name: "print".into(),
+                kind: BindingKind::Immutable,
+                return_shape: None,
+                arity: Some(1),
+            }],
+        }];
+        let d = check_file_with_modules(&file, &modules);
+        assert_eq!(
+            d.error_count(),
+            0,
+            "arity without shape must not monomorphize: {:?}",
+            d.items()
+        );
+    }
+
+    #[test]
+    fn local_zero_arg_arity_is_checked() {
+        let c = codes("$ f = () {\n    ^ 1\n}\n$ x = f(1)\n");
+        assert!(
+            c.iter().any(|x| x == "sem-arity"),
+            "expected sem-arity on extra arg to zero-arg fn, got {c:?}"
+        );
+    }
+
+    #[test]
     fn field_after_method_call() {
         let c = codes(
             "% counter {\n    ~ n\n    $ inc = () {\n        ~ .n = .n + 1\n    }\n}\n$ c = counter { n: 0 }\n$ x = c.inc().n\n",
@@ -438,6 +532,7 @@ $ x = f()
                 name: "add".into(),
                 kind: BindingKind::Immutable,
                 return_shape: None,
+                arity: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);
@@ -464,6 +559,7 @@ $ x = f()
                 name: "add".into(),
                 kind: BindingKind::Immutable,
                 return_shape: None,
+                arity: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);

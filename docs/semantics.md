@@ -787,10 +787,11 @@ Runs after name/effect checks (`infer.rs` + `unify.rs`):
 
 - Scalars, lists, index, anon/named structs, fields  
 - Ops (no int/float mix; int `/` truncates)  
-- Calls (`sem-not-callable`, `sem-arity`; imported fns: arity unknown)  
+- Calls (`sem-not-callable`, `sem-arity`; imported fns use export param count).
+  Known-arity import params are `value` (count only, no param kinds), so mixed
+  call sites stay open. Runtime primitives still have unknown arity.
 - Codes: `sem-type-mismatch`, `sem-not-callable`, `sem-arity`, `sem-no-field`  
 
 ## Open questions
 
-- Locator classification edge cases (path vs URI normalization)  
-- Richer cross-module function signatures (imported fn arity still unknown)
+- Locator classification edge cases (path vs URI normalization)

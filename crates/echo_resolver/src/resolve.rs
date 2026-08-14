@@ -238,6 +238,7 @@ pub fn resolve_entry_with_overlays(
                 exports: vec![],
                 structs: vec![],
                 top_binds: vec![],
+                fn_arities: std::collections::HashMap::new(),
             });
 
         let idx = modules.len();
@@ -402,6 +403,7 @@ fn synthetic_runtime_unit(map: &mut SourceMap) -> ModuleUnit {
             name: exp.name.to_string(),
             span: echo_source::Span::new(id, echo_source::BytePos(0), echo_source::BytePos(0)),
             kind: Some(ExportKind::Immutable),
+            fn_arity: None,
         });
     }
     let facts = ModuleFacts {
@@ -410,6 +412,7 @@ fn synthetic_runtime_unit(map: &mut SourceMap) -> ModuleUnit {
         exports,
         structs: vec![],
         top_binds: vec![],
+        fn_arities: std::collections::HashMap::new(),
     };
     ModuleUnit {
         path: path.clone(),
@@ -700,6 +703,26 @@ mod tests {
             .map(|m| m.module_root.clone())
             .collect();
         assert!(roots.iter().all(|r| r == &math.canonicalize().unwrap()));
+    }
+
+    #[test]
+    fn folder_export_arity_reaches_check() {
+        let dir = tempfile_dir();
+        std::fs::write(
+            dir.join("io.echo"),
+            "\\ print\n$ print = (x) {\n    ^ x\n}\n",
+        )
+        .unwrap();
+        let entry = dir.join("entry.echo");
+        std::fs::write(&entry, "/ ./io\nio.print()\nio.print(1, 2)\n").unwrap();
+        let checked = crate::check_entry(&entry);
+        let n = checked
+            .diagnostics
+            .items()
+            .iter()
+            .filter(|d| d.code.as_deref() == Some("sem-arity"))
+            .count();
+        assert_eq!(n, 2, "{:?}", checked.diagnostics.items());
     }
 
     #[test]

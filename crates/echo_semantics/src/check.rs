@@ -119,6 +119,7 @@ impl Cx {
             name,
             kind,
             return_shape,
+            arity: _,
         } in &m.exports
         {
             exports.insert(name.clone(), *kind);

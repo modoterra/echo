@@ -83,21 +83,36 @@ pub fn unify(subst: &mut Subst, a: &Type, b: &Type, span: Span, diags: &mut Diag
             Type::Fn {
                 params: ap,
                 ret: ar,
+                arity_known: aka,
             },
             Type::Fn {
                 params: bp,
                 ret: br,
+                arity_known: akb,
             },
         ) => {
-            if ap.len() != bp.len() {
+            if *aka && *akb && ap.len() != bp.len() {
                 mismatch(diags, span, &a, &b);
                 return Type::Error;
             }
+            let (params_a, params_b, known) = if *aka && *akb {
+                (ap, bp, true)
+            } else if *aka {
+                (ap, ap, true)
+            } else if *akb {
+                (bp, bp, true)
+            } else {
+                (ap, bp, false)
+            };
             let mut params = Vec::new();
-            for (x, y) in ap.iter().zip(bp.iter()) {
+            for (x, y) in params_a.iter().zip(params_b.iter()) {
                 params.push(unify(subst, x, y, span, diags));
             }
-            Type::func(params, unify(subst, ar, br, span, diags))
+            Type::Fn {
+                params,
+                ret: Box::new(unify(subst, ar, br, span, diags)),
+                arity_known: known,
+            }
         }
         (Type::Anon(af), Type::Anon(bf)) => {
             // Structural: same field names (order-insensitive), unify each.
@@ -150,7 +165,7 @@ fn occurs(v: VarId, t: &Type, subst: &Subst) -> bool {
         Type::Var(w) => v == w,
         Type::List(e) | Type::Option(e) => occurs(v, &e, subst),
         Type::Result { ok, err } => occurs(v, &ok, subst) || occurs(v, &err, subst),
-        Type::Fn { params, ret } => {
+        Type::Fn { params, ret, .. } => {
             params.iter().any(|p| occurs(v, p, subst)) || occurs(v, &ret, subst)
         }
         Type::Anon(fields) => fields.iter().any(|(_, t)| occurs(v, t, subst)),
