@@ -76,8 +76,12 @@ LLVM IR emission, optimization modes (`-O`), JIT vs AOT, and host tools (`opt`,
 ## Host requirements
 
 - `clang` on `PATH` (or `ECHO_CLANG`)
-- `libecho_runtime.a` next to the `xo` binary (cargo `target/*/`), or
-  `ECHO_RUNTIME_LIB` absolute path
+- `libecho_runtime.a` (or a hashed `libecho_runtime-*.a`) in the same cargo
+  profile as `xo` (`target/debug/` + `deps/`), or next to an installed `xo`.
+  The linker takes the **newest** matching archive so a leftover unhashed
+  `.a` cannot hide a current `deps/` build. `ECHO_RUNTIME_LIB` is an explicit
+  path. A missing archive, or clang `undefined reference` to `echo_runtime_*`,
+  tells you to `cargo build -p echo_runtime`.
 - For building `xo` itself: system LLVM 22 headers/libs (`LLVM_SYS_221_PREFIX`
   if needed; Arch typically `/usr`)
 - CI installs LLVM 22 from official `llvm/llvm-project` release tarballs

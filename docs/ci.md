@@ -73,7 +73,8 @@ Task scheduling still uses portable `mio::Poll` + `Waker`.
 
 After `cargo build`, [`scripts/ci/stage-runtime-lib.sh`](../scripts/ci/stage-runtime-lib.sh)
 copies the newest `libecho_runtime*.a` into `target/<profile>/libecho_runtime.a`
-so `xo run` AOT link always finds it.
+(stable name for artifacts). `xo` AOT link also scans that profile and `deps/`
+and picks the newest matching archive itself.
 
 No third-party `setup-llvm` action — keeps the CI supply chain to GitHub-hosted
 actions (`checkout`, `upload-artifact`), `dtolnay/rust-toolchain`, and LLVM

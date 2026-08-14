@@ -10,7 +10,8 @@ Related: [`AGENTS.md`](../AGENTS.md), [`architecture.md`](architecture.md),
 This repository expects the Linux development profile in `.cargo/config.toml`:
 
 - `sccache` as the `rustc` wrapper
-- `clang` as the linker driver
+- `clang` as the linker driver (`xo run` / `build` need `libecho_runtime.a`;
+  if AOT reports a missing `echo_runtime_*` symbol, `cargo build -p echo_runtime`)
 - `mold` via `-fuse-ld=mold`
 - high default `jobs` (override with `CARGO_BUILD_JOBS` on smaller hosts)
 

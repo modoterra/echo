@@ -296,7 +296,7 @@ Language features ship as **verticals** ([`implementation.md`](implementation.md
 | **5** | Fmt | `xo fmt` | **v0 done** — shared AST pretty-print; `-w` write |
 | **6** | LSP | diagnostics, tokens, goto, complete, format | **v0:** docs + diags; more features later |
 | **7** | Cache / build | fingerprint + cache + plan | **v4:** parse + check + IR + AOT binary; IR keys include opt; LSP uses same cache |
-| **8** | AOT polish | `xo build`, link, opts | **Opt levels landed** (shared `OptLevel`, AOT/JIT consistent); more link polish open |
+| **8** | AOT polish | `xo build`, link, opts | **Opt levels landed**; runtime `.a` finder takes newest in-profile; missing-symbol hint to rebuild `echo_runtime` |
 | **9** | www | Public language + std docs | User-facing mirror of locked surface |
 
 **Next concrete steps** (priority order as of 2026-08-13):
@@ -533,6 +533,7 @@ current; fill Impl as work lands.
 | 2026-08-14 | LLVM line-table DI: compile unit + subprogram + loc (file, line 1); `-g` on AOT link |
 | 2026-08-14 | Per-op DWARF lines + checker-kind locals; imported return kinds (`str.from_int` → string); import params stay `value`; AOT still one clang `-O0 -g` |
 | 2026-08-14 | Locator class locked: URI `scheme://`, abs `/…`, else relative; `path.class` / `is_uri`; locators and strings share the rule |
+| 2026-08-14 | AOT runtime `.a`: newest match in `xo`’s profile; clang missing `echo_runtime_*` → rebuild hint |
 
 ---
 

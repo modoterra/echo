@@ -7,9 +7,11 @@
 mod debug;
 mod metrics;
 mod opt;
+mod runtime_lib;
 
 pub use metrics::{IrMetrics, measure_ir};
 pub use opt::OptLevel;
+pub use runtime_lib::find_runtime_staticlib;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -5617,13 +5619,13 @@ pub fn link_aot(ir: &str, work_dir: &Path, binary_name: &str) -> Result<AotArtif
         })?;
 
     if !output.status.success() {
-        return Err(LinkError {
-            message: format!(
-                "clang failed ({}):\n{}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr)
-            ),
-        });
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let mut message = format!("clang failed ({}):\n{}", output.status, stderr);
+        if let Some(hint) = runtime_lib::missing_runtime_symbol_hint(&stderr) {
+            message.push('\n');
+            message.push_str(hint);
+        }
+        return Err(LinkError { message });
     }
 
     Ok(AotArtifact { binary, ir_path })
@@ -5650,83 +5652,6 @@ fn which(name: &str) -> Result<PathBuf, String> {
     }
     let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
     Ok(PathBuf::from(p))
-}
-
-pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
-    if let Ok(p) = std::env::var("ECHO_RUNTIME_LIB") {
-        let path = PathBuf::from(p);
-        if path.is_file() {
-            return Ok(path);
-        }
-        return Err(format!("ECHO_RUNTIME_LIB not a file: {}", path.display()));
-    }
-
-    fn profile_candidates(dir: PathBuf) -> Vec<PathBuf> {
-        vec![
-            // Unhashed names next to profile output (CI stages these).
-            dir.join("libecho_runtime.a"),
-            dir.join("echo_runtime.lib"),
-            dir.join("deps").join("libecho_runtime.a"),
-            dir.join("deps").join("echo_runtime.lib"),
-            // Cargo hashed staticlibs live under deps/.
-            dir.join("deps"),
-        ]
-    }
-
-    let mut candidates = Vec::new();
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            // `target/debug/xo` → look in that profile dir and deps/.
-            candidates.extend(profile_candidates(dir.to_path_buf()));
-            // Installed layout: `<prefix>/bin/xo` + `<prefix>/bin/libecho_runtime.a`.
-            candidates.push(dir.join("libecho_runtime.a"));
-            candidates.push(dir.join("echo_runtime.lib"));
-        }
-    }
-    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let root = PathBuf::from(manifest_dir);
-        candidates.extend(profile_candidates(root.join("../../target/debug")));
-        candidates.extend(profile_candidates(root.join("../../target/release")));
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.extend(profile_candidates(cwd.join("target/debug")));
-        candidates.extend(profile_candidates(cwd.join("target/release")));
-    }
-
-    for c in &candidates {
-        if c.is_file() {
-            return Ok(c.canonicalize().unwrap_or_else(|_| c.clone()));
-        }
-        // Cargo names staticlibs `libecho_runtime-<hash>.a` under deps/.
-        if c.is_dir() {
-            if let Ok(rd) = std::fs::read_dir(c) {
-                let mut found: Vec<PathBuf> = rd
-                    .flatten()
-                    .map(|e| e.path())
-                    .filter(|p| {
-                        p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
-                            (n.starts_with("libecho_runtime") && n.ends_with(".a"))
-                                || (n.starts_with("echo_runtime") && n.ends_with(".lib"))
-                        })
-                    })
-                    .collect();
-                // Prefer newest mtime (current build).
-                found.sort_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
-                if let Some(p) = found.pop() {
-                    return Ok(p.canonicalize().unwrap_or(p));
-                }
-            }
-        }
-    }
-
-    Err(format!(
-        "could not find libecho_runtime.a (set ECHO_RUNTIME_LIB). tried: {}",
-        candidates
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    ))
 }
 
 // --- Durable LLVM IR artifact cache (infra v3) ---
