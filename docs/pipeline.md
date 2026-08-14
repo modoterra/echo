@@ -153,7 +153,8 @@ for phases, versioning policy, and infra milestones.
 | **Formatter** | `xo fmt` (planned) | Pretty-print from shared AST/syntax |
 | **LSP** | `echo_lsp` / `xo lsp` | Editor protocol over pipeline + index (std surface is real Echo; see `stdlib.md` surface vs bridge) |
 | **REPL** | `xo repl` (planned) | Interactive; eval via JIT/runtime |
-| **www** | `www/` | User-facing docs, search, **Echo 2026** public Spec section |
+| **www** | `www/` | User-facing docs, search, **Echo 2026** public Spec, `/try` |
+| **Browser check** | `echo_wasm` | wasm frontend for `/try` (`just wasm`); check/fmt only |
 | **Editor grammar** | from `echo_syntax` | `xo tools grammar tree-sitter -o …` ([`tree-sitter.md`](tree-sitter.md)) |
 
 Hosts **must not** reimplement binding, typing, or execution rules.

@@ -63,6 +63,7 @@ compilation pipeline.
 - Project tooling: `echo_index`, `echo_resolver`, `echo_fingerprint`,
   `echo_cache`, `echo_build`, `echo_reflection`, `echo_lsp`
 - CLI: `xo`
+- Browser check host: `echo_wasm` (`just wasm`, site `/try`)
 
 ## Requirements
 

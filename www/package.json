@@ -8,7 +8,7 @@
     "build": "npm run sync:tree-sitter && tsc -b && vite build",
     "build:semantic": "DOCS_EMBEDDINGS=true npm run build",
     "format": "oxfmt --check .",
-    "lint": "oxlint .",
+    "lint": "oxlint . --ignore-pattern public/echo-wasm",
     "preview": "vite preview",
     "test:std-ref": "node scripts/verify-std-reference.mjs",
     "test:prose": "node scripts/verify-prose.mjs",

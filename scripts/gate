@@ -20,7 +20,7 @@ Usage:
 Layers (grow with the codebase):
   source diagnostics syntax lexer ast parser semantics hir mir
   codegen codegen-abi runtime std index resolver fingerprint
-  cache build reflection lsp xo e26 echo26 pipeline web docs
+  cache build reflection lsp wasm xo e26 echo26 pipeline web docs
 
 Environment:
   GATE_ECHO_COMMANDS=1       Print each command before running it
@@ -113,6 +113,7 @@ layer_to_crate() {
     build) printf 'echo_build\n' ;;
     reflection) printf 'echo_reflection\n' ;;
     lsp) printf 'echo_lsp\n' ;;
+    wasm) printf 'echo_wasm\n' ;;
     xo) printf 'xo\n' ;;
     e26) printf 'e26\n' ;;
     *) return 1 ;;
@@ -150,6 +151,7 @@ route_path_to_layer() {
     crates/echo_build/*) printf 'build\n' ;;
     crates/echo_reflection/*) printf 'reflection\n' ;;
     crates/echo_lsp/*) printf 'lsp\n' ;;
+    crates/echo_wasm/*) printf 'wasm\n' ;;
     crates/xo/*) printf 'xo\n' ;;
     crates/e26/*) printf 'echo26\n' ;;
     echo26/*) printf 'echo26\n' ;;

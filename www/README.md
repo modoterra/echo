@@ -15,6 +15,13 @@ npm run format
 npm run build
 ```
 
+`/try` needs the compiler frontend wasm. From the repo root:
+
+```bash
+just wasm    # writes www/public/echo-wasm/
+just try     # wasm + npm --prefix www run dev
+```
+
 `npm run dev` starts the local site. `npm run lint`, `npm run format`, and
 `npm run build` validate the site before publishing `www/dist`.
 
@@ -27,6 +34,10 @@ Same layout as the previous `xo.run` site:
 | Root directory | `www`           |
 | Build command  | `npm run build` |
 | Build output   | `dist`          |
+
+`/try` loads `public/echo-wasm/` (from `just wasm`). Rebuild and commit those
+bindings when the frontend or `std/**/*.echo` changes so Pages can ship the
+playground without a Rust toolchain.
 
 SPA deep links use the same `public/404.html` → `/?/path` bounce and
 `index.html` restore script as before. Custom domain: `public/CNAME` → `xo.run`.

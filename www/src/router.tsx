@@ -25,6 +25,7 @@ import { DocsSearch } from "./components/docs-search";
 import { EchoCode } from "./components/echo-code";
 import { Logo } from "./components/logo";
 import { InstallPage } from "./install";
+import { TryPage } from "./try";
 import {
   docsPageByPath,
   docsPages,
@@ -54,6 +55,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
     title: "Learn",
     links: [
       { label: "Install", href: "/install" },
+      { label: "Try Echo", href: "/try" },
       { label: "First program", href: "/docs/first-program" },
       { label: "Reference", href: "/docs" },
       { label: "Book", href: "/book" },
@@ -232,6 +234,9 @@ function Topbar() {
             <Link className="transition hover:text-violet-700" to={"/e26" as "/"}>
               Echo 2026
             </Link>
+            <Link className="transition hover:text-violet-700" to={"/try" as "/"}>
+              Try
+            </Link>
           </nav>
           <div className="flex items-center justify-end gap-2 sm:gap-3">
             <span className="hidden xl:inline-flex">
@@ -313,6 +318,7 @@ function Topbar() {
                   ["Docs", "/docs"],
                   ["Book", "/book"],
                   ["Echo 2026", "/e26"],
+                  ["Try", "/try"],
                   ["Install", "/install"],
                 ].map(([label, to]) => (
                   <Link
@@ -968,6 +974,12 @@ const installRoute = createRoute({
   component: InstallPage,
 });
 
+const tryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/try",
+  component: TryPage,
+});
+
 // ── /docs (all paths from docsPages under /docs) ─────────────────────
 const docsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -1046,6 +1058,7 @@ const e26Children = [
 const routeTree = rootRoute.addChildren([
   indexRoute,
   installRoute,
+  tryRoute,
   docsLayoutRoute.addChildren(docsChildren),
   bookLayoutRoute.addChildren(bookChildren),
   e26LayoutRoute.addChildren(e26Children),

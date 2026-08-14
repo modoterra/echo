@@ -14,5 +14,5 @@ echo_index = { path = "../echo_index" }
 echo_source = { path = "../echo_source" }
 echo_parser = { path = "../echo_parser" }
 echo_semantics = { path = "../echo_semantics" }
-echo_std = { path = "../echo_std" }
+echo_std = { path = "../echo_std", default-features = false }
 echo_lexer = { path = "../echo_lexer" }

@@ -166,6 +166,23 @@ just fmt-check
 # equivalent: cargo fmt --all / cargo fmt-check
 ```
 
+## Browser check host (`just wasm`)
+
+The site playground (`/try`) runs the shared frontend (lex → parse → resolve →
+semantics) as `wasm32-unknown-unknown`. It does not ship LLVM and does not
+execute programs.
+
+```bash
+just wasm                 # echo_wasm + wasm-bindgen → www/public/echo-wasm/
+just try                  # wasm, then npm --prefix www run dev
+cargo test -p echo_wasm   # native tests of the same check/fmt helpers
+scripts/gate wasm
+```
+
+Needs `wasm32-unknown-unknown` (added on first run) and `wasm-bindgen-cli`
+matching the `wasm-bindgen` crate version. Output is generated; rebuild after
+frontend or `std/**/*.echo` changes.
+
 ## Gate
 
 `scripts/gate` is the focused verification dispatcher:

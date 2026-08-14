@@ -551,7 +551,9 @@ io.print("sum={sum}")`,
           {
             kind: "paragraph",
             text: [
-              "Build ",
+              "Open ",
+              { code: "/try" },
+              " to check this program in the browser. Build ",
               { code: "xo" },
               " via ",
               { code: "/install" },

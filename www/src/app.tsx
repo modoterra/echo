@@ -77,14 +77,17 @@ export function HomePage() {
             </h1>
             <p className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl lg:mx-0">
               Each statement begins with a leader glyph. The{" "}
-              <span className="font-mono font-semibold text-slate-900">xo</span> CLI checks a program
-              and emits a native binary from the same pipeline.
+              <span className="font-mono font-semibold text-slate-900">xo</span> CLI checks a
+              program and emits a native binary from the same pipeline.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <CtaLink className="min-w-32" to="/install">
                 Install Echo
               </CtaLink>
-              <CtaLink className="min-w-32" to="/docs/first-program" variant="secondary">
+              <CtaLink className="min-w-32" to="/try" variant="secondary">
+                Try Echo
+              </CtaLink>
+              <CtaLink className="min-w-32" to="/docs/first-program" variant="ghost">
                 First program
               </CtaLink>
             </div>

@@ -696,17 +696,23 @@ pub fn runtime_native_symbol(export: &str) -> Option<&'static str> {
 /// True if `file` is under a privileged `std/` directory for the given package roots.
 ///
 /// Package roots are parents of `std/` (same as resolver `SearchPaths`).
+/// Disk paths use canonicalize when the files exist. Logical paths (virtual
+/// playground sources) match by path prefix so privilege does not depend on
+/// a real filesystem.
 #[must_use]
 pub fn is_under_privileged_std(file: &Path, package_roots: &[PathBuf]) -> bool {
-    let Ok(file) = file.canonicalize() else {
-        return false;
-    };
+    if let Ok(file) = file.canonicalize() {
+        for root in package_roots {
+            let std_dir = root.join("std");
+            if let Ok(std_canon) = std_dir.canonicalize() {
+                if file.starts_with(&std_canon) {
+                    return true;
+                }
+            }
+        }
+    }
     for root in package_roots {
-        let std_dir = root.join("std");
-        let Ok(std_canon) = std_dir.canonicalize() else {
-            continue;
-        };
-        if file.starts_with(&std_canon) {
+        if file.starts_with(root.join("std")) {
             return true;
         }
     }
@@ -758,5 +764,26 @@ mod tests {
     fn runtime_path_sentinel() {
         assert!(is_runtime_module_path(&runtime_module_path()));
         assert!(!is_runtime_module_path(Path::new("/tmp/runtime.echo")));
+    }
+
+    #[test]
+    fn privileged_std_logical_path_without_canonicalize() {
+        let roots = [PathBuf::from("/echo")];
+        assert!(is_under_privileged_std(
+            Path::new("/echo/std/io.echo"),
+            &roots
+        ));
+        assert!(is_under_privileged_std(
+            Path::new("/echo/std/net/http.echo"),
+            &roots
+        ));
+        assert!(!is_under_privileged_std(
+            Path::new("/echo/playground.echo"),
+            &roots
+        ));
+        assert!(!is_under_privileged_std(
+            Path::new("/echo/stdio.echo"),
+            &roots
+        ));
     }
 }

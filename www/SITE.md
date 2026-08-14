@@ -134,13 +134,14 @@ maturity.
 
 ## Primary nav
 
-| Item              | Path       | Notes                      |
-| ----------------- | ---------- | -------------------------- |
-| Home              | `/`        | Product narrative          |
-| Docs              | `/docs`    | Form-by-form Reference     |
-| Book              | `/book`    | Narrative why / when       |
-| Echo 2026         | `/e26`     | Edition + Spec TOC + suite |
-| **Install** (CTA) | `/install` | Solid button; get `xo`     |
+| Item              | Path       | Notes                                      |
+| ----------------- | ---------- | ------------------------------------------ |
+| Home              | `/`        | Product narrative                          |
+| Docs              | `/docs`    | Form-by-form Reference                     |
+| Book              | `/book`    | Narrative why / when                       |
+| Echo 2026         | `/e26`     | Edition + Spec TOC + suite                 |
+| Try               | `/try`     | In-browser `xo check` (frontend wasm host) |
+| **Install** (CTA) | `/install` | Solid button; get `xo`                     |
 
 ## Docs left rail
 
@@ -173,6 +174,12 @@ machine-checked suite are implementation facts.
 
 Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
 
+## Playground
+
+`/try` runs the shared compiler frontend in WebAssembly (`just wasm`). It
+checks source the same way `xo check` does, including bundled `std`. Compile
+and run stay on native `xo` (LLVM).
+
 ## Out of scope (later)
 
-Playground, richer download tabs, `/e26` URL rename to `/echo-2026`.
+Richer download tabs, `/e26` URL rename to `/echo-2026`.

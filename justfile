@@ -187,3 +187,11 @@ web-format:
 
 web-build:
     npm --prefix www run build
+
+# Browser check host (compiler frontend only). Writes www/public/echo-wasm/.
+wasm:
+    scripts/build-wasm.sh
+
+# Rebuild the wasm checker, then serve the site (open /try).
+try: wasm
+    npm --prefix www run dev

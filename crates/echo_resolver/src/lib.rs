@@ -5,6 +5,7 @@
 mod merge;
 mod package_cache;
 mod resolve;
+mod virtual_fs;
 
 pub use merge::{MergedMember, MergedStruct};
 pub use package_cache::{
@@ -15,8 +16,9 @@ pub use package_cache::{
 };
 pub use resolve::{
     ModuleUnit, ResolveParseCacheStats, ResolvedGraph, SearchPaths, resolve_entry,
-    resolve_entry_with_cache, resolve_entry_with_overlays,
+    resolve_entry_virtual, resolve_entry_with_cache, resolve_entry_with_overlays,
 };
+pub use virtual_fs::VirtualSources;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -131,6 +133,28 @@ pub fn check_entry_with_overlays(
         graph,
         diagnostics,
         cache,
+        parse_cache,
+    }
+}
+
+/// Check an in-memory source set (browser playground, tests without disk).
+///
+/// `entry` must be a key in `sources`. `search.package_roots` should match the
+/// virtual layout those keys use (for example `/echo` with `/echo/std/…`).
+#[must_use]
+pub fn check_entry_virtual(
+    entry: &Path,
+    search: &SearchPaths,
+    sources: &VirtualSources,
+) -> ProjectChecked {
+    let (graph, mut diagnostics, parse_cache) = resolve_entry_virtual(entry, search, sources);
+    let mut semantic = Diagnostics::new();
+    run_semantic_checks(&graph, &mut semantic);
+    diagnostics.extend(semantic);
+    ProjectChecked {
+        graph,
+        diagnostics,
+        cache: CheckCacheOutcome::Bypass,
         parse_cache,
     }
 }

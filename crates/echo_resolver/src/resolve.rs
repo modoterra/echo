@@ -5,15 +5,16 @@ use std::path::{Path, PathBuf};
 
 use echo_cache::ArtifactStore;
 use echo_diagnostics::{Diagnostic, Diagnostics};
-use echo_index::{extract, format_import_path, ExportFact, ExportKind, ModuleFacts, PathSeg};
+use echo_index::{ExportFact, ExportKind, ModuleFacts, PathSeg, extract, format_import_path};
 use echo_lexer::Lexed;
-use echo_parser::{parse_with_cache, ParseCacheOutcome, Parsed};
+use echo_parser::{ParseCacheOutcome, Parsed, parse_with_cache};
 use echo_source::{SourceId, SourceMap};
 use echo_std::{
-    is_runtime_module_path, is_under_privileged_std, runtime_module_path, RUNTIME_EXPORTS,
+    RUNTIME_EXPORTS, is_runtime_module_path, is_under_privileged_std, runtime_module_path,
 };
 
-use crate::merge::{merge_structs, MergedStruct};
+use crate::merge::{MergedStruct, merge_structs};
+use crate::virtual_fs::{VirtualSources, normalize_path};
 
 /// How to find packages (`std/…`) and relative imports.
 #[derive(Debug, Clone)]
@@ -65,10 +66,7 @@ impl SearchPaths {
         if let Ok(exe) = std::env::current_exe() {
             if let Ok(exe) = exe.canonicalize() {
                 if let Some(bin_dir) = exe.parent() {
-                    if bin_dir
-                        .file_name()
-                        .is_some_and(|n| n == "bin")
-                    {
+                    if bin_dir.file_name().is_some_and(|n| n == "bin") {
                         if let Some(prefix) = bin_dir.parent() {
                             push_root(prefix.to_path_buf());
                         }
@@ -157,15 +155,93 @@ pub fn resolve_entry_with_overlays(
     store: Option<&ArtifactStore>,
     overlays: &HashMap<PathBuf, String>,
 ) -> (ResolvedGraph, Diagnostics, ResolveParseCacheStats) {
+    resolve_entry_inner(entry, search, store, SourceBackend::Disk { overlays })
+}
+
+/// Resolve using only [`VirtualSources`] (no disk, no canonicalize).
+#[must_use]
+pub fn resolve_entry_virtual(
+    entry: &Path,
+    search: &SearchPaths,
+    sources: &VirtualSources,
+) -> (ResolvedGraph, Diagnostics, ResolveParseCacheStats) {
+    resolve_entry_inner(entry, search, None, SourceBackend::Virtual(sources))
+}
+
+enum SourceBackend<'a> {
+    Disk {
+        overlays: &'a HashMap<PathBuf, String>,
+    },
+    Virtual(&'a VirtualSources),
+}
+
+impl SourceBackend<'_> {
+    fn prepare_entry(&self, entry: &Path) -> Result<PathBuf, String> {
+        match self {
+            Self::Disk { .. } => entry
+                .canonicalize()
+                .map_err(|e| format!("cannot open entry {}: {e}", entry.display())),
+            Self::Virtual(sources) => {
+                let path = normalize_path(entry);
+                if sources.is_file(&path) {
+                    Ok(path)
+                } else {
+                    Err(format!("cannot open entry {}", entry.display()))
+                }
+            }
+        }
+    }
+
+    fn read_text(&self, path: &Path) -> Result<String, String> {
+        match self {
+            Self::Disk { overlays } => {
+                if let Some(text) = overlay_text(overlays, path) {
+                    return Ok(text.to_string());
+                }
+                std::fs::read_to_string(path)
+                    .map_err(|e| format!("cannot read {}: {e}", path.display()))
+            }
+            Self::Virtual(sources) => sources
+                .get(path)
+                .map(str::to_string)
+                .ok_or_else(|| format!("cannot read {}", path.display())),
+        }
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        match self {
+            Self::Disk { .. } => path.is_dir(),
+            Self::Virtual(sources) => sources.is_dir(path),
+        }
+    }
+
+    fn list_echo(&self, dir: &Path) -> Vec<PathBuf> {
+        match self {
+            Self::Disk { .. } => crate::package_cache::list_echo_files(dir),
+            Self::Virtual(sources) => sources.list_echo_files(dir),
+        }
+    }
+
+    fn resolve_module(&self, base: &Path) -> Result<PathBuf, String> {
+        match self {
+            Self::Disk { .. } => crate::package_cache::resolve_file_or_dir_module(base),
+            Self::Virtual(sources) => sources.resolve_file_or_dir_module(base),
+        }
+    }
+}
+
+fn resolve_entry_inner(
+    entry: &Path,
+    search: &SearchPaths,
+    store: Option<&ArtifactStore>,
+    backend: SourceBackend<'_>,
+) -> (ResolvedGraph, Diagnostics, ResolveParseCacheStats) {
     let mut diagnostics = Diagnostics::new();
     let mut parse_stats = ResolveParseCacheStats::default();
-    let entry = match entry.canonicalize() {
+    let entry = match backend.prepare_entry(entry) {
         Ok(p) => p,
         Err(e) => {
-            diagnostics.push(
-                Diagnostic::error(format!("cannot open entry {}: {e}", entry.display()))
-                    .with_code("res-entry"),
-            );
+            diagnostics.push(Diagnostic::error(e).with_code("res-entry"));
             return (
                 ResolvedGraph {
                     entry: entry.to_path_buf(),
@@ -203,18 +279,11 @@ pub fn resolve_entry_with_overlays(
             continue;
         }
 
-        let id = if let Some(text) = overlay_text(overlays, &path) {
-            map.add(&path, text)
-        } else {
-            match map.load(&path) {
-                Ok(id) => id,
-                Err(e) => {
-                    diagnostics.push(
-                        Diagnostic::error(format!("cannot read {}: {e}", path.display()))
-                            .with_code("res-read"),
-                    );
-                    continue;
-                }
+        let id = match backend.read_text(&path) {
+            Ok(text) => map.add(&path, text),
+            Err(e) => {
+                diagnostics.push(Diagnostic::error(e).with_code("res-read"));
+                continue;
             }
         };
         let source = map.get(id).expect("loaded");
@@ -228,18 +297,14 @@ pub fn resolve_entry_with_overlays(
         for d in parsed.diagnostics.items() {
             diagnostics.push(d.clone());
         }
-        let facts = parsed
-            .file
-            .as_ref()
-            .map(extract)
-            .unwrap_or(ModuleFacts {
-                source: id,
-                imports: vec![],
-                exports: vec![],
-                structs: vec![],
-                top_binds: vec![],
-                fn_arities: std::collections::HashMap::new(),
-            });
+        let facts = parsed.file.as_ref().map(extract).unwrap_or(ModuleFacts {
+            source: id,
+            imports: vec![],
+            exports: vec![],
+            structs: vec![],
+            top_binds: vec![],
+            fn_arities: std::collections::HashMap::new(),
+        });
 
         let idx = modules.len();
         by_path.insert(path.clone(), idx);
@@ -247,17 +312,13 @@ pub fn resolve_entry_with_overlays(
         let importer_dir = path.parent().unwrap_or_else(|| Path::new("."));
         let mut import_targets = Vec::new();
         for imp in &facts.imports {
-            match resolve_import_path(&path, importer_dir, &imp.segments, search) {
+            match resolve_import_path(&path, importer_dir, &imp.segments, search, &backend) {
                 Ok(resolved_root) => {
-                    enqueue_module_root(&resolved_root, &mut pending, &by_path);
+                    enqueue_module_root(&resolved_root, &mut pending, &by_path, &backend);
                     import_targets.push((imp.clone(), resolved_root));
                 }
                 Err((msg, code)) => {
-                    diagnostics.push(
-                        Diagnostic::error(msg)
-                            .with_span(imp.span)
-                            .with_code(code),
-                    );
+                    diagnostics.push(Diagnostic::error(msg).with_span(imp.span).with_code(code));
                 }
             }
         }
@@ -324,11 +385,7 @@ fn overlay_text<'a>(overlays: &'a HashMap<PathBuf, String>, path: &Path) -> Opti
         if k == path {
             Some(v.as_str())
         } else if let (Ok(a), Ok(b)) = (k.canonicalize(), path.canonicalize()) {
-            if a == b {
-                Some(v.as_str())
-            } else {
-                None
-            }
+            if a == b { Some(v.as_str()) } else { None }
         } else {
             None
         }
@@ -436,9 +493,10 @@ fn enqueue_module_root(
     root: &Path,
     pending: &mut Vec<(PathBuf, PathBuf)>,
     by_path: &HashMap<PathBuf, usize>,
+    backend: &SourceBackend<'_>,
 ) {
-    if root.is_dir() {
-        for f in crate::package_cache::list_echo_files(root) {
+    if backend.is_dir(root) {
+        for f in backend.list_echo(root) {
             if !by_path.contains_key(&f) {
                 pending.push((f, root.to_path_buf()));
             }
@@ -454,6 +512,7 @@ fn resolve_import_path(
     importer_dir: &Path,
     segments: &[PathSeg],
     search: &SearchPaths,
+    backend: &SourceBackend<'_>,
 ) -> Result<PathBuf, (String, &'static str)> {
     let display = format_import_path(segments);
 
@@ -477,7 +536,7 @@ fn resolve_import_path(
                 PathSeg::Dot => base.push("."),
             }
         }
-        return crate::package_cache::resolve_file_or_dir_module(&base).map_err(|e| {
+        return backend.resolve_module(&base).map_err(|e| {
             (
                 format!("cannot resolve import `{display}`: {e}"),
                 "res-import",
@@ -495,7 +554,7 @@ fn resolve_import_path(
 
     for root in &search.package_roots {
         let base = root.join(&rel);
-        if let Ok(p) = crate::package_cache::resolve_file_or_dir_module(&base) {
+        if let Ok(p) = backend.resolve_module(&base) {
             return Ok(p);
         }
     }
@@ -556,11 +615,8 @@ fn detect_import_cycles(modules: &[ModuleUnit], diagnostics: &mut Diagnostics) {
                             .collect();
                         cycle.push(next.display().to_string());
                         diagnostics.push(
-                            Diagnostic::error(format!(
-                                "import cycle: {}",
-                                cycle.join(" → ")
-                            ))
-                            .with_code("res-import-cycle"),
+                            Diagnostic::error(format!("import cycle: {}", cycle.join(" → ")))
+                                .with_code("res-import-cycle"),
                         );
                     }
                     0 => dfs(next, edges, color, stack, diagnostics),
@@ -607,11 +663,7 @@ mod tests {
         let ops = dir.join("user_ops.echo");
         let entry = dir.join("entry.echo");
 
-        std::fs::write(
-            &user,
-            "% user {\n    $ name\n}\n\\ user\n",
-        )
-        .unwrap();
+        std::fs::write(&user, "% user {\n    $ name\n}\n\\ user\n").unwrap();
         std::fs::write(
             &ops,
             "/ ./user\n@ user {\n    $ greet = () {\n        ^ .name\n    }\n}\n",
@@ -686,11 +738,7 @@ mod tests {
         std::fs::write(math.join("add.echo"), "\\ add\n$ add = (a) {\n    ^ a\n}\n").unwrap();
         std::fs::write(math.join("mul.echo"), "\\ mul\n$ mul = (a) {\n    ^ a\n}\n").unwrap();
         let entry = dir.join("entry.echo");
-        std::fs::write(
-            &entry,
-            "/ ./math\n$ x = math.add(1)\n$ y = math.mul(2)\n",
-        )
-        .unwrap();
+        std::fs::write(&entry, "/ ./math\n$ x = math.add(1)\n$ y = math.mul(2)\n").unwrap();
 
         let (graph, diags) = resolve_entry(&entry, &SearchPaths::default_for(&entry));
         assert_eq!(diags.error_count(), 0, "{:?}", diags.items());
@@ -741,10 +789,10 @@ mod tests {
             let (graph, diags) = resolve_entry(&entry, &SearchPaths::default_for(&entry));
             assert_eq!(diags.error_count(), 0, "{:?}", diags.items());
             assert!(
-                graph.modules.iter().any(|m| m
-                    .path
-                    .file_name()
-                    .is_some_and(|n| n == "util.echo")),
+                graph
+                    .modules
+                    .iter()
+                    .any(|m| m.path.file_name().is_some_and(|n| n == "util.echo")),
                 "modules={:?}",
                 graph
                     .modules
@@ -753,5 +801,102 @@ mod tests {
                     .collect::<Vec<_>>()
             );
         });
+    }
+
+    fn virtual_search() -> SearchPaths {
+        SearchPaths {
+            package_roots: vec![PathBuf::from("/echo")],
+            declared_deps: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn virtual_std_import_allows_runtime_inside_std() {
+        let mut sources = VirtualSources::new();
+        sources.insert(
+            "/echo/std/io.echo",
+            "/ runtime\n\\ print\n$ print = (x) {\n    runtime.print(x)\n    ^ x\n}\n",
+        );
+        sources.insert("/echo/playground.echo", "/ std/io\n$ n = io.print(1)\n");
+        let checked = crate::check_entry_virtual(
+            Path::new("/echo/playground.echo"),
+            &virtual_search(),
+            &sources,
+        );
+        assert_eq!(
+            checked.diagnostics.error_count(),
+            0,
+            "{:?}",
+            checked.diagnostics.items()
+        );
+        assert!(
+            checked
+                .graph
+                .modules
+                .iter()
+                .any(|m| m.path == PathBuf::from("/echo/std/io.echo"))
+        );
+    }
+
+    #[test]
+    fn virtual_userland_runtime_import_is_forbidden() {
+        let mut sources = VirtualSources::new();
+        sources.insert("/echo/playground.echo", "/ runtime\n");
+        let checked = crate::check_entry_virtual(
+            Path::new("/echo/playground.echo"),
+            &virtual_search(),
+            &sources,
+        );
+        assert!(
+            checked
+                .diagnostics
+                .items()
+                .iter()
+                .any(|d| d.code.as_deref() == Some("res-runtime-forbidden")),
+            "{:?}",
+            checked.diagnostics.items()
+        );
+    }
+
+    #[test]
+    fn virtual_folder_module_unions_exports() {
+        let mut sources = VirtualSources::new();
+        sources.insert("/echo/math/add.echo", "\\ add\n$ add = (a) {\n    ^ a\n}\n");
+        sources.insert("/echo/math/mul.echo", "\\ mul\n$ mul = (a) {\n    ^ a\n}\n");
+        sources.insert(
+            "/echo/playground.echo",
+            "/ ./math\n$ x = math.add(1)\n$ y = math.mul(2)\n",
+        );
+        let checked = crate::check_entry_virtual(
+            Path::new("/echo/playground.echo"),
+            &virtual_search(),
+            &sources,
+        );
+        assert_eq!(
+            checked.diagnostics.error_count(),
+            0,
+            "{:?}",
+            checked.diagnostics.items()
+        );
+        assert_eq!(checked.graph.modules.len(), 3);
+    }
+
+    #[test]
+    fn virtual_missing_entry_is_res_entry() {
+        let sources = VirtualSources::new();
+        let checked = crate::check_entry_virtual(
+            Path::new("/echo/missing.echo"),
+            &virtual_search(),
+            &sources,
+        );
+        assert!(
+            checked
+                .diagnostics
+                .items()
+                .iter()
+                .any(|d| d.code.as_deref() == Some("res-entry")),
+            "{:?}",
+            checked.diagnostics.items()
+        );
     }
 }
