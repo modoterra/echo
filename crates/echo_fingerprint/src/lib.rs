@@ -28,7 +28,7 @@ pub const INDEX_VERSION: u32 = 1;
 pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const RESOLVER_VERSION: u32 = 1;
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 11; // sem-method-value
+pub const SEMANTICS_VERSION: u32 = 12; // method fall-off ret is receiver (c.inc().n)
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).

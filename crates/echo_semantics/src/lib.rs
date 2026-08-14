@@ -283,6 +283,17 @@ mod tests {
     }
 
     #[test]
+    fn field_after_method_call() {
+        let c = codes(
+            "% counter {\n    ~ n\n    $ inc = () {\n        ~ .n = .n + 1\n    }\n}\n$ c = counter { n: 0 }\n$ x = c.inc().n\n",
+        );
+        assert!(
+            c.is_empty(),
+            "c.inc().n should type as the field: {c:?}"
+        );
+    }
+
+    #[test]
     fn method_is_not_a_value() {
         let c = codes(
             "% c {\n    ~ n = 0\n    $ inc = () {\n        ~ .n = .n + 1\n    }\n}\n$ x = c { n: 0 }\n$ f = x.inc\n",

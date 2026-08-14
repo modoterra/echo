@@ -578,6 +578,20 @@ fn infer_fn_type(
     for p in &params_applied {
         pin_free_param_vars(env, p);
     }
+    // Plain method with no `^` / `!` falls off returning `.` — pin an
+    // unconstrained ret var to the receiver so `c.inc().n` types.
+    if let (Some(sname), ReturnShape::Plain) = (receiver_struct, shape) {
+        if matches!(env.apply(&ret), Type::Var(_)) {
+            let span = params.first().map(|p| p.span).unwrap_or_else(|| {
+                Span::new(
+                    echo_source::SourceId::from_u32(0),
+                    echo_source::BytePos(0),
+                    echo_source::BytePos(0),
+                )
+            });
+            env.unify(&ret, &Type::Named(sname.to_string()), span);
+        }
+    }
     // If ret is the same free var as a param (e.g. `id = (x) { ^ x }`), pinning
     // the param already fixed it. Re-apply params + ret for the function type.
     Type::func(

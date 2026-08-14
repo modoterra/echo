@@ -441,7 +441,8 @@ $ n2 = c.inc().inc().value()
 - Receiver may be a name, `.` (in a method), or **another call** that returns the
   same struct (self-returning methods: `^ .` or plain fall-off).
 - Struct type flows through self-returning methods so the next `.method` resolves.
-- Field access on a call result (`c.inc().n`) is not required for v1 chains.
+- Field access on a call result (`c.inc().n`) works: a plain method that falls
+  off returns `.`, so the call has that named shape and `.n` is a field load.
 
 ### Value vs reference (locked)
 
@@ -792,5 +793,4 @@ Runs after name/effect checks (`infer.rs` + `unify.rs`):
 ## Open questions
 
 - Locator classification edge cases (path vs URI normalization)  
-- Richer cross-module function signatures (imported fn arity still unknown)  
-- Field-after-call `c.inc().n` (explicit v1 deferral)
+- Richer cross-module function signatures (imported fn arity still unknown)

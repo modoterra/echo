@@ -376,7 +376,7 @@ current; fill Impl as work lands.
 | Feature | Design | Lex | Parse | Sem | Run | e26 / notes |
 |---------|--------|-----|-------|-----|-----|-------------|
 | Function values | ✓ | ✓ | ✓ | ✓ | ✓ | first-class incl. result/option call-through; methods not values |
-| Method call + `.` | ✓ | ✓ | ✓ | ✓ | ✓ | + `{.field}` interp; **`c.inc().value()` chains** |
+| Method call + `.` | ✓ | ✓ | ✓ | ✓ | ✓ | + `{.field}` interp; **`c.inc().value()`** and **`c.inc().n`** |
 | Tagged / structural lits | ✓ | ✓ | ✓ | ✓ | ✓ | `{}` anon + named |
 | Pure / rich strings | ✓ | ✓ | ✓ | ✓ | ✓ | **no** `+` concat |
 | Numbers / bools / lists | ✓ | ✓ | ✓ | ✓ | ✓ | + index assign |
@@ -415,7 +415,7 @@ current; fill Impl as work lands.
 | REPL | ✓ | — | ✓ | — | ✓ | `xo repl` — rustyline + session + JIT |
 | Task cancel | **out** (v0) | | | | — | no cancel API |
 
-**Suite snapshot (2026-08-13):** `e26` **277** passed · **298** `.echo` · **170** `.run` · **63** `.check`.
+**Suite snapshot (2026-08-13):** `e26` **278** passed · **299** `.echo` · **171** `.run` · **63** `.check`.
 
 ---
 
@@ -526,6 +526,7 @@ current; fill Impl as work lands.
 | 2026-07-25 | **Sip lowerability:** pure Echo SipHash scalar ui64 + inlined rotl; ui64 `>>` → `lshr`/`fshl` (not ashr); proof-load IR |
 | 2026-08-13 | Campaign: remaining language verticals = honesty (width/cast, PHI, `#`, reject belt, heap dispose). Width/cast slice: unknown tags error; real int↔float casts; `#` float bits; e26 `run/width/004`–`006` |
 | 2026-08-13 | Honesty campaign closed: per-name match payloads; `&` unwrap of fn-value calls; `# F = () { }` run; reject-path e26; dispose task/tcp/udp/fs-file |
+| 2026-08-13 | Field-after-call `c.inc().n`: plain method fall-off types as receiver; e26 `run/method/009` |
 
 ---
 
