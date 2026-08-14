@@ -2009,6 +2009,9 @@ mod tests {
         assert_eq!(classify_locator_text("HTTPS://X"), LOCATOR_CLASS_URI);
         assert_eq!(classify_locator_text("file:///tmp"), LOCATOR_CLASS_URI);
         assert_eq!(classify_locator_text("://x"), LOCATOR_CLASS_REL);
+        assert_eq!(classify_locator_text("file:///tmp"), LOCATOR_CLASS_URI);
+        assert_eq!(classify_locator_text("ftp://h"), LOCATOR_CLASS_URI);
+        assert_eq!(classify_locator_text("."), LOCATOR_CLASS_REL);
         let loc = unsafe { echo_runtime_locator_from_utf8(b"http://a".as_ptr(), 8) };
         assert_eq!(echo_runtime_locator_class(loc), LOCATOR_CLASS_URI);
         let s = unsafe { echo_runtime_string_from_utf8(b"/tmp".as_ptr(), 4) };

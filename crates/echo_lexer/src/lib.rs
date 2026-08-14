@@ -9,7 +9,7 @@
 
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_source::{BytePos, SourceFile, Span};
-use echo_syntax::{decode_escape, skip_bad_escape, LeaderKind};
+use echo_syntax::{LeaderKind, decode_escape, skip_bad_escape};
 
 /// Stable crate identity for workspace linkage checks.
 pub fn crate_name() -> &'static str {
@@ -597,15 +597,24 @@ impl<'a> Lexer<'a> {
             } else if rest.starts_with("ms") {
                 Some(2)
             } else if rest.starts_with('s')
-                && !rest.as_bytes().get(1).is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                && !rest
+                    .as_bytes()
+                    .get(1)
+                    .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
             {
                 Some(1)
             } else if rest.starts_with('m')
-                && !rest.as_bytes().get(1).is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                && !rest
+                    .as_bytes()
+                    .get(1)
+                    .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
             {
                 Some(1)
             } else if rest.starts_with('h')
-                && !rest.as_bytes().get(1).is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                && !rest
+                    .as_bytes()
+                    .get(1)
+                    .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
             {
                 Some(1)
             } else {
@@ -872,8 +881,14 @@ $ b = 2
             .filter(|t| matches!(t, TokenKind::Leader(LeaderKind::Dollar)))
             .count();
         assert_eq!(leader_count, 2);
-        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Star))));
-        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Slash))));
+        assert!(
+            !k.iter()
+                .any(|t| matches!(t, TokenKind::Leader(LeaderKind::Star)))
+        );
+        assert!(
+            !k.iter()
+                .any(|t| matches!(t, TokenKind::Leader(LeaderKind::Slash)))
+        );
     }
 
     #[test]
@@ -887,8 +902,14 @@ $ b = 2
         assert!(k.contains(&TokenKind::LtLt));
         assert!(k.contains(&TokenKind::GtGt));
         assert!(k.contains(&TokenKind::Tilde));
-        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Caret))));
-        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Tilde))));
+        assert!(
+            !k.iter()
+                .any(|t| matches!(t, TokenKind::Leader(LeaderKind::Caret)))
+        );
+        assert!(
+            !k.iter()
+                .any(|t| matches!(t, TokenKind::Leader(LeaderKind::Tilde)))
+        );
     }
 
     #[test]
@@ -935,7 +956,10 @@ $ b = 2
         assert!(lexed.diagnostics.is_empty());
         let k = kinds(&lexed);
         assert!(k.contains(&TokenKind::Lt));
-        assert!(!k.iter().any(|t| matches!(t, TokenKind::Leader(LeaderKind::Lt))));
+        assert!(
+            !k.iter()
+                .any(|t| matches!(t, TokenKind::Leader(LeaderKind::Lt)))
+        );
     }
 
     #[test]
@@ -1012,6 +1036,52 @@ $ b = 2
             lexed.diagnostics.is_empty(),
             "{:?}",
             lexed.diagnostics.items()
+        );
+    }
+
+    #[test]
+    fn unexpected_leader_glyph_in_expr() {
+        let lexed = lex_str("$ x = @\n");
+        let codes: Vec<_> = lexed
+            .diagnostics
+            .items()
+            .iter()
+            .filter_map(|d| d.code.as_deref())
+            .collect();
+        assert!(codes.contains(&"lex-unexpected-leader-glyph"), "{codes:?}");
+    }
+
+    #[test]
+    fn unexpected_character() {
+        let lexed = lex_str("$ x = `\n");
+        let codes: Vec<_> = lexed
+            .diagnostics
+            .items()
+            .iter()
+            .filter_map(|d| d.code.as_deref())
+            .collect();
+        assert!(codes.contains(&"lex-unexpected"), "{codes:?}");
+    }
+
+    #[test]
+    fn unterminated_pure_and_rich() {
+        let p = lex_str("$ s = 'hi\n");
+        assert!(
+            p.diagnostics
+                .items()
+                .iter()
+                .any(|d| d.code.as_deref() == Some("lex-string-pure")),
+            "{:?}",
+            p.diagnostics.items()
+        );
+        let r = lex_str("$ s = \"hi\n");
+        assert!(
+            r.diagnostics
+                .items()
+                .iter()
+                .any(|d| d.code.as_deref() == Some("lex-string-rich")),
+            "{:?}",
+            r.diagnostics.items()
         );
     }
 }

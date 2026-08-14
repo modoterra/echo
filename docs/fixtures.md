@@ -68,7 +68,8 @@ echo26/<area>/<feature>/<NNN>_<slug>.runexit  # expected process exit code, one 
 
 One fixture = one small behavior. Prefer many tiny files.
 
-**Parse stage:** every `.echo` must have a matching `.ast`.  
+**Parse stage:** every `.echo` must have a matching `.ast` (empty when
+lex/parse emits no tree — e.g. unexpected glyph, unterminated string).  
 **Check stage:** every fixture is run through `check`; `.check` lists expected
 `sem-*` codes (or omit the file if none).  
 **Run stage:** only when `.run` and/or `.runexit` is present. Executes

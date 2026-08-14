@@ -626,4 +626,17 @@ $ f = (a, b){
         );
         assert!(msg.contains('='), "{msg}");
     }
+
+    #[test]
+    fn trailing_comma_in_list_is_parse_error() {
+        let p = parse_str("$ xs = [1, 2,]\n");
+        assert!(
+            p.diagnostics
+                .items()
+                .iter()
+                .any(|d| d.code.as_deref() == Some("parse-error")),
+            "{:?}",
+            p.diagnostics.items()
+        );
+    }
 }
