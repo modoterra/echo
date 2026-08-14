@@ -35,7 +35,7 @@ pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 pub const MIR_LOWERER_VERSION: u32 = 29; // rich decode rejects unknown escapes
 pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 17; // per-name match payloads (nested | / &)
+pub const CODEGEN_VERSION: u32 = 18; // DWARF line tables (CU + subprogram + loc)
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
 pub const RUNTIME_ABI_VERSION: u32 = 45; // dispose task/tcp/udp/fs-file handles

@@ -4,6 +4,7 @@
 //!
 //! Kinds are shapes from syntax; only width tags like `<i32>` are explicit.
 
+mod debug;
 mod metrics;
 mod opt;
 
@@ -363,6 +364,21 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
         fn_map.insert(llvm_name, (fv, f.ret));
     }
 
+    let (dibuilder, di_cu, di_sub_ty) = debug::begin_module(&context, &module, &prog.entry_path);
+    for f in &prog.functions {
+        let key = f.mangled_name();
+        let (fv, _) = fn_map[&key];
+        debug::attach_subprogram(
+            &dibuilder,
+            &di_cu,
+            di_sub_ty,
+            fv,
+            &f.name,
+            &f.module_path,
+            true,
+        );
+    }
+
     for f in &prog.functions {
         let key = f.mangled_name();
         let (fv, _) = fn_map[&key];
@@ -375,6 +391,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
             fv,
             f,
             &fn_map,
+            &dibuilder,
             &mut diagnostics,
         );
     }
@@ -383,8 +400,18 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     // C `main` is only the process wrapper — Echo has no entry keyword.
     let entry_ty = i64t.fn_type(&[], false);
     let entry_fn = module.add_function(ECHO_ENTRY, entry_ty, None);
+    debug::attach_subprogram(
+        &dibuilder,
+        &di_cu,
+        di_sub_ty,
+        entry_fn,
+        ECHO_ENTRY,
+        &prog.entry_path,
+        false,
+    );
     let entry_bb = context.append_basic_block(entry_fn, "entry");
     builder.position_at_end(entry_bb);
+    debug::set_function_line(&context, &builder, &dibuilder, entry_fn);
 
     let toplevel = prog.functions.iter().find(|f| {
         f.module_path == prog.entry_path
@@ -463,8 +490,18 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
 
     let c_main_ty = i32t.fn_type(&[], false);
     let c_main_fn = module.add_function(C_MAIN, c_main_ty, None);
+    debug::attach_subprogram(
+        &dibuilder,
+        &di_cu,
+        di_sub_ty,
+        c_main_fn,
+        C_MAIN,
+        &prog.entry_path,
+        false,
+    );
     let bb = context.append_basic_block(c_main_fn, "entry");
     builder.position_at_end(bb);
+    debug::set_function_line(&context, &builder, &dibuilder, c_main_fn);
     let call = builder
         .build_call(entry_fn, &[], "status")
         .expect("call entry");
@@ -473,6 +510,8 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
         .build_int_truncate(ret64, i32t, "code")
         .expect("trunc");
     builder.build_return(Some(&ret32)).expect("ret c main");
+
+    dibuilder.finalize();
 
     // Verify after emit (before any opt).
     if let Err(e) = module.verify() {
@@ -1831,10 +1870,11 @@ fn emit_function<'ctx>(
     function: FunctionValue<'ctx>,
     mir_fn: &MirFn,
     fn_map: &HashMap<String, (FunctionValue<'ctx>, MirRetShape)>,
+    dibuilder: &inkwell::debug_info::DebugInfoBuilder<'ctx>,
     diags: &mut Diagnostics,
 ) {
     emit_function_cfg(
-        context, builder, module, i64t, i128t, function, mir_fn, fn_map, diags,
+        context, builder, module, i64t, i128t, function, mir_fn, fn_map, dibuilder, diags,
     );
 }
 
@@ -1849,8 +1889,10 @@ fn emit_function_cfg<'ctx>(
     function: FunctionValue<'ctx>,
     mir_fn: &MirFn,
     fn_map: &HashMap<String, (FunctionValue<'ctx>, MirRetShape)>,
+    dibuilder: &inkwell::debug_info::DebugInfoBuilder<'ctx>,
     diags: &mut Diagnostics,
 ) {
+    debug::set_function_line(context, builder, dibuilder, function);
     let cfg = &mir_fn.cfg;
     // LLVM entry must be the MIR entry block (first append = entry).
     let mut llvm_bbs: HashMap<u32, BasicBlock<'ctx>> = HashMap::new();
@@ -5492,6 +5534,7 @@ pub fn link_aot(ir: &str, work_dir: &Path, binary_name: &str) -> Result<AotArtif
     let output = Command::new(&clang)
         .arg(&ir_path)
         .arg("-O0")
+        .arg("-g")
         .arg("-o")
         .arg(&binary)
         .arg(&runtime)
@@ -5721,6 +5764,23 @@ mod native_repr_tests {
             emitted.diagnostics.items()
         );
         emitted.ir
+    }
+
+    #[test]
+    fn ir_has_line_table_debug_info() {
+        let ir = emit_stmts(vec![MirStmt::ReturnOk(MirExpr::ConstI64(0))]);
+        assert!(
+            ir.contains("!DICompileUnit") && ir.contains("!DISubprogram") && ir.contains("!DILocation"),
+            "expected DWARF line-table metadata; ir=\n{ir}"
+        );
+        assert!(
+            ir.contains("echo_entry") && ir.contains("producer: \"xo\""),
+            "expected xo compile unit and echo_entry; ir=\n{ir}"
+        );
+        assert!(
+            ir.contains("t.echo"),
+            "expected source file name in DI; ir=\n{ir}"
+        );
     }
 
     fn emit_stmts(stmts: Vec<MirStmt>) -> String {

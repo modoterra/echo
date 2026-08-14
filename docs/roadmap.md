@@ -306,8 +306,8 @@ payloads, `&` call-through unwrap, `#` function values, reject-path e26
 belt, and dispose of task/TCP/UDP/FS-file handles. Name-keyed demote stays
 **off**.
 
-Follow-on (not locked-language rows): www / AOT link polish, LLVM DI,
-locator classification, SOTA G9.
+Follow-on (not locked-language rows): www / AOT link polish,
+locator classification, SOTA G9. Variable/type DI after line tables.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -530,6 +530,7 @@ current; fill Impl as work lands.
 | 2026-08-13 | Imported + zero-arg function arity: `sem-arity` on `module.f` and `f()` extra args; import params stay `value` |
 | 2026-08-13 | Rich escapes locked: unknown / bad `\x` is `lex-escape` (not rewritten); `\{` `\}` legal |
 | 2026-08-14 | `xo cache gc`: drop stale compiler-stamp dirs, flat leftovers, and tmp; `clean` still wipes `.xo` |
+| 2026-08-14 | LLVM line-table DI: compile unit + subprogram + loc (file, line 1); `-g` on AOT link |
 
 ---
 

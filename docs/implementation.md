@@ -265,7 +265,7 @@ See [`fixtures.md`](fixtures.md).
 |------|--------|
 | Tree-sitter / editor grammar | `xo tools grammar tree-sitter` from `echo_syntax` ([`tree-sitter.md`](tree-sitter.md)) |
 | Syntax highlighting (non-LSP) | Same token categories as LSP |
-| Debug info | LLVM DI when codegen matures |
+| Debug info | Line tables landed (CU + subprogram + loc); types/locals later |
 | Package manager | Out of core until modules stabilize |
 
 ---
