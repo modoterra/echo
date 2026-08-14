@@ -1,5 +1,7 @@
 /** Browser bindings for the `echo_wasm` check host (`just wasm`). */
 
+import { ECHO_WASM_REV } from "./echo-wasm-rev";
+
 export type CheckDiagnostic = {
   severity: "error" | "warning" | "note" | string;
   code?: string;
@@ -37,10 +39,11 @@ export type EchoCheckApi = {
 };
 
 type WasmModule = {
-  default: () => Promise<unknown>;
+  default: (opts?: { module_or_path?: string | URL }) => Promise<unknown>;
   check: (source: string) => string;
   format: (source: string) => string;
-  run: (source: string) => string;
+  playgroundRun?: (source: string) => string;
+  run?: (source: string) => string;
   stdFileCount: () => number;
 };
 
@@ -60,17 +63,23 @@ export function loadEchoCheck(): Promise<EchoCheckApi> {
 
 async function importEchoWasm(): Promise<EchoCheckApi> {
   let mod: WasmModule;
+  const jsUrl = `/echo-wasm/echo_wasm.js?v=${ECHO_WASM_REV}`;
+  const wasmUrl = `/echo-wasm/echo_wasm_bg.wasm?v=${ECHO_WASM_REV}`;
   try {
-    const specifier = "/echo-wasm/echo_wasm.js";
-    mod = (await import(/* @vite-ignore */ specifier)) as WasmModule;
+    mod = (await import(/* @vite-ignore */ jsUrl)) as WasmModule;
   } catch (error) {
     throw rewriteLoadError(error);
   }
 
   try {
-    await mod.default();
+    await mod.default({ module_or_path: new URL(wasmUrl, window.location.origin) });
   } catch (error) {
     throw rewriteLoadError(error);
+  }
+
+  const runExport = pickRunExport(mod);
+  if (runExport == null) {
+    throw new EchoWasmMissingError();
   }
 
   return {
@@ -83,12 +92,22 @@ async function importEchoWasm(): Promise<EchoCheckApi> {
       return result;
     },
     run(source: string) {
-      const result = JSON.parse(mod.run(source)) as RunResult;
+      const result = JSON.parse(runExport(source)) as RunResult;
       result.diagnostics ??= [];
       return result;
     },
     stdFileCount: mod.stdFileCount(),
   };
+}
+
+function pickRunExport(mod: WasmModule): ((source: string) => string) | null {
+  if (typeof mod.playgroundRun === "function") {
+    return mod.playgroundRun.bind(mod);
+  }
+  if (typeof mod.run === "function") {
+    return mod.run.bind(mod);
+  }
+  return null;
 }
 
 function rewriteLoadError(error: unknown): Error {

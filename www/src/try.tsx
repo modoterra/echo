@@ -96,6 +96,20 @@ function selectAt(textarea: HTMLTextAreaElement, line: number, column: number) {
   textarea.setSelectionRange(pos, pos);
 }
 
+function safePlaygroundRun(api: EchoCheckApi, source: string): RunResult {
+  try {
+    return api.run(source);
+  } catch (error) {
+    console.error("playground run failed", error);
+    return {
+      ok: false,
+      host_error:
+        "playground-host: the in-browser runner failed to start. Hard-refresh, or rebuild with `just wasm`.",
+      diagnostics: [],
+    };
+  }
+}
+
 function diagnosticLabel(diag: CheckDiagnostic) {
   const where =
     diag.line > 0
@@ -156,7 +170,7 @@ export function TryPage() {
       const next = api.check(source);
       setResult(next);
       if (next.ok) {
-        setRunResult(api.run(source));
+        setRunResult(safePlaygroundRun(api, source));
       } else {
         setRunResult(null);
       }
@@ -181,7 +195,7 @@ export function TryPage() {
     const next = api.check(source);
     setResult(next);
     if (next.ok) {
-      setRunResult(api.run(source));
+      setRunResult(safePlaygroundRun(api, source));
     } else {
       setRunResult(null);
     }
@@ -191,7 +205,7 @@ export function TryPage() {
     if (!api) {
       return;
     }
-    setRunResult(api.run(source));
+    setRunResult(safePlaygroundRun(api, source));
     setResult(api.check(source));
   }
 

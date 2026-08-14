@@ -204,8 +204,8 @@ mod wasm_api {
         super::bundled_std_file_count() as u32
     }
 
-    #[wasm_bindgen]
-    pub fn run(source: &str) -> String {
+    #[wasm_bindgen(js_name = playgroundRun)]
+    pub fn playground_run(source: &str) -> String {
         super::run_json(source)
     }
 }

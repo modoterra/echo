@@ -5,7 +5,7 @@ export function check(source: string): string;
 
 export function format(source: string): string;
 
-export function run(source: string): string;
+export function playgroundRun(source: string): string;
 
 export function stdFileCount(): number;
 
@@ -30,7 +30,7 @@ export interface InitOutput {
     readonly echo_runtime_scope_release: (a: bigint) => void;
     readonly check: (a: number, b: number) => [number, number];
     readonly format: (a: number, b: number) => [number, number];
-    readonly run: (a: number, b: number) => [number, number];
+    readonly playgroundRun: (a: number, b: number) => [number, number];
     readonly stdFileCount: () => number;
     readonly echo_runtime_struct_get: (a: bigint, b: number, c: number) => bigint;
     readonly echo_runtime_struct_new_named: (a: number, b: number) => bigint;
