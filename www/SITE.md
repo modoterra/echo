@@ -177,8 +177,9 @@ Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
 ## Playground
 
 `/try` runs the shared compiler frontend in WebAssembly (`just wasm`). It
-checks source the same way `xo check` does, including bundled `std`. Compile
-and run stay on native `xo` (LLVM).
+checks source the same way `xo check` does, including bundled `std`. A
+playground run then executes the checked MIR and captures `io.print`. Compile
+and native run stay on `xo` (LLVM).
 
 ## Out of scope (later)
 

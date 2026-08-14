@@ -169,13 +169,14 @@ just fmt-check
 ## Browser check host (`just wasm`)
 
 The site playground (`/try`) runs the shared frontend (lex → parse → resolve →
-semantics) as `wasm32-unknown-unknown`. It does not ship LLVM and does not
-execute programs.
+semantics) as `wasm32-unknown-unknown`, then a playground run executes checked
+MIR and captures `io.print`. It does not ship LLVM. Playground run is a host
+demo; native compile and run stay on `xo`.
 
 ```bash
 just wasm                 # echo_wasm + wasm-bindgen → www/public/echo-wasm/
 just try                  # wasm, then npm --prefix www run dev
-cargo test -p echo_wasm   # native tests of the same check/fmt helpers
+cargo test -p echo_wasm   # native tests of check/fmt/playground-run helpers
 scripts/gate wasm
 ```
 

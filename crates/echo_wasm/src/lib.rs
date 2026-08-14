@@ -1,10 +1,14 @@
-//! Browser check host: shared frontend (lex → parse → resolve → semantics).
+//! Browser check/run host: shared frontend plus a playground MIR runner.
 //!
-//! This crate does **not** compile or execute Echo. LLVM AOT/JIT stays native
-//! (`xo run` / `xo build`). The playground calls [`check_source`] and
-//! [`format_source_text`].
+//! LLVM AOT/JIT stays native (`xo run` / `xo build`). The playground calls
+//! [`check_source`], [`format_source_text`], and [`run::run_source`].
+//! Playground run is a host demo, not `xo run`.
 
 #![forbid(unsafe_code)]
+
+mod run;
+
+pub use run::{RunResult, SAMPLE_RESULT, SAMPLE_STRUCT, SAMPLE_SUM, run_json, run_source};
 
 use std::path::{Path, PathBuf};
 
@@ -109,7 +113,7 @@ pub fn format_json(source: &str) -> String {
     serde_json::to_string(&format_source_text(source)).expect("format json")
 }
 
-fn playground_workspace(source: &str) -> (VirtualSources, SearchPaths) {
+pub(crate) fn playground_workspace(source: &str) -> (VirtualSources, SearchPaths) {
     let mut sources = VirtualSources::new();
     for (rel, text) in STD_FILES {
         let path = format!("{VIRTUAL_ROOT}/std/{rel}");
@@ -199,6 +203,11 @@ mod wasm_api {
     pub fn std_file_count() -> u32 {
         super::bundled_std_file_count() as u32
     }
+
+    #[wasm_bindgen]
+    pub fn run(source: &str) -> String {
+        super::run_json(source)
+    }
 }
 
 #[cfg(test)]
@@ -280,5 +289,61 @@ io.print("sum={sum}")
     fn json_round_trips() {
         let json = check_json("$ x = 1\n");
         assert!(json.contains("\"ok\":true"), "{json}");
+    }
+
+    #[test]
+    fn run_sum_sample_prints_sum() {
+        let result = run_source(SAMPLE_SUM);
+        assert!(result.ok, "{result:?}");
+        assert_eq!(result.printed.as_deref(), Some("sum=6\n"), "{result:?}");
+        assert!(result.host_error.is_none(), "{result:?}");
+    }
+
+    #[test]
+    fn run_result_sample_prints_ok_arm() {
+        let result = run_source(SAMPLE_RESULT);
+        assert!(result.ok, "{result:?}");
+        assert_eq!(result.printed.as_deref(), Some("7\n"), "{result:?}");
+    }
+
+    #[test]
+    fn run_struct_sample_prints_field_updates() {
+        let result = run_source(SAMPLE_STRUCT);
+        assert!(result.ok, "{result:?}");
+        assert_eq!(result.printed.as_deref(), Some("3\n13\n"), "{result:?}");
+    }
+
+    #[test]
+    fn run_rejects_file_scope_error_return_without_executing() {
+        let result = run_source("! 1\n");
+        assert!(!result.ok, "{result:?}");
+        assert!(result.printed.is_none(), "{result:?}");
+        assert!(result.host_error.is_none(), "{result:?}");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code.as_deref() == Some("sem-error-return")),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn run_refuses_fs_as_playground_host() {
+        let result = run_source("/ std/fs\n/ std/io\n$ ok = fs.exists(\"x\")\n");
+        assert!(!result.ok, "{result:?}");
+        assert!(result.printed.is_none(), "{result:?}");
+        let err = result.host_error.as_deref().unwrap_or("");
+        assert!(
+            err.starts_with("playground-host:"),
+            "expected playground-host error, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn run_json_exposes_printed_field() {
+        let json = run_json(SAMPLE_SUM);
+        assert!(json.contains("\"ok\":true"), "{json}");
+        assert!(json.contains("sum=6"), "{json}");
     }
 }

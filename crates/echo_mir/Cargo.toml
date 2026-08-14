@@ -11,5 +11,5 @@ echo_diagnostics = { path = "../echo_diagnostics" }
 echo_hir = { path = "../echo_hir" }
 echo_semantics = { path = "../echo_semantics" }
 echo_source = { path = "../echo_source" }
-echo_std = { path = "../echo_std" }
+echo_std = { path = "../echo_std", default-features = false }
 echo_syntax = { path = "../echo_syntax" }

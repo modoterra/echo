@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { CtaLink } from "./components/cta-link";
 import {
   EchoWasmMissingError,
@@ -7,6 +6,7 @@ import {
   type CheckDiagnostic,
   type CheckResult,
   type EchoCheckApi,
+  type RunResult,
 } from "./lib/echo-check";
 
 type Sample = {
@@ -114,6 +114,7 @@ export function TryPage() {
   const [api, setApi] = useState<EchoCheckApi | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [busy, setBusy] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -152,7 +153,13 @@ export function TryPage() {
       return;
     }
     const handle = window.setTimeout(() => {
-      setResult(api.check(source));
+      const next = api.check(source);
+      setResult(next);
+      if (next.ok) {
+        setRunResult(api.run(source));
+      } else {
+        setRunResult(null);
+      }
     }, 280);
     return () => window.clearTimeout(handle);
   }, [api, source]);
@@ -171,6 +178,20 @@ export function TryPage() {
     if (!api) {
       return;
     }
+    const next = api.check(source);
+    setResult(next);
+    if (next.ok) {
+      setRunResult(api.run(source));
+    } else {
+      setRunResult(null);
+    }
+  }
+
+  function runPlayground() {
+    if (!api) {
+      return;
+    }
+    setRunResult(api.run(source));
     setResult(api.check(source));
   }
 
@@ -202,11 +223,11 @@ export function TryPage() {
           Try Echo
         </h1>
         <p className="mt-4 max-w-3xl text-pretty text-lg leading-8 text-slate-600">
-          This page runs the same frontend as{" "}
-          <span className="font-mono font-semibold text-slate-800">xo check</span>. It lexes,
-          parses, resolves imports, and type-checks your program, including the bundled standard
-          library. Install <span className="font-mono font-semibold text-slate-800">xo</span> when
-          you want to compile and run through LLVM.
+          This page checks with the shared compiler frontend, then a playground run executes the
+          checked program and captures{" "}
+          <span className="font-mono font-semibold text-slate-800">io.print</span>. Install{" "}
+          <span className="font-mono font-semibold text-slate-800">xo</span> to compile through
+          LLVM.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <CtaLink to="/install">Install xo</CtaLink>
@@ -259,12 +280,20 @@ export function TryPage() {
                   Format
                 </button>
                 <button
-                  className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={!api}
                   onClick={runCheck}
                   type="button"
                 >
                   Check
+                </button>
+                <button
+                  className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!api}
+                  onClick={runPlayground}
+                  type="button"
+                >
+                  Playground run
                 </button>
               </div>
             </div>
@@ -281,7 +310,7 @@ export function TryPage() {
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                     event.preventDefault();
-                    runCheck();
+                    runPlayground();
                   }
                 }}
                 spellCheck={false}
@@ -289,7 +318,7 @@ export function TryPage() {
               />
             </label>
             <p className="mt-2 text-xs text-slate-400">
-              Ctrl+Enter or Cmd+Enter checks. Format uses the shared{" "}
+              Ctrl+Enter or Cmd+Enter starts a playground run. Format uses the shared{" "}
               <span className="font-mono">xo fmt</span> pretty-printer.
             </p>
           </section>
@@ -330,15 +359,26 @@ export function TryPage() {
               ))}
             </ul>
 
-            {result?.ok ? (
-              <p className="mt-4 text-sm leading-6 text-slate-600">
-                The program type-checks.{" "}
-                <Link className="font-semibold text-violet-700 hover:text-violet-800" to="/install">
-                  Install xo
-                </Link>{" "}
-                to compile and run it.
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Playground run
               </p>
-            ) : null}
+              {runResult?.ok && runResult.printed != null ? (
+                <pre className="mt-2 overflow-x-auto font-mono text-sm leading-7 text-slate-900 whitespace-pre">
+                  {runResult.printed}
+                </pre>
+              ) : runResult?.host_error ? (
+                <p className="mt-2 text-sm leading-6 text-amber-900">{runResult.host_error}</p>
+              ) : result?.ok ? (
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Check is clean. Press Playground run to capture io.print.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Playground run waits for a clean check.
+                </p>
+              )}
+            </div>
           </aside>
         </div>
       </div>

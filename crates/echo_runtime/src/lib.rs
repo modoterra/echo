@@ -52,19 +52,31 @@ pub(crate) fn heap_to_handle<T>(b: Box<T>) -> i64 {
     h
 }
 
+#[cfg(feature = "host-io")]
 mod fs;
+#[cfg(feature = "host-io")]
 mod net;
+#[cfg(feature = "host-io")]
 mod poll;
+#[cfg(feature = "host-io")]
 mod process;
+#[cfg(feature = "host-io")]
 mod sched;
 mod scope;
+#[cfg(feature = "host-io")]
 mod std_ext;
+#[cfg(feature = "host-io")]
 mod std_more;
+#[cfg(feature = "host-io")]
 mod task;
+#[cfg(feature = "host-io")]
 mod test_suite;
+#[cfg(feature = "host-io")]
 pub(crate) mod tls;
 
+#[cfg(feature = "host-io")]
 pub use std_ext::*;
+#[cfg(feature = "host-io")]
 pub use std_more::{
     echo_runtime_aes_gcm_decrypt, echo_runtime_aes_gcm_encrypt, echo_runtime_fs_chmod,
     echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_hmac_sha256,
@@ -77,6 +89,7 @@ pub use std_more::{
     echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_url_parse, echo_runtime_zip_pack,
     echo_runtime_zip_unpack_first,
 };
+#[cfg(feature = "host-io")]
 pub use tls::{
     echo_runtime_tls_accept, echo_runtime_tls_close, echo_runtime_tls_close_listener,
     echo_runtime_tls_connect, echo_runtime_tls_listen, echo_runtime_tls_read,
@@ -91,6 +104,7 @@ pub use scope::{
 };
 
 // TCP/UDP — re-export for JIT symbol mapping (`echo_codegen`).
+#[cfg(feature = "host-io")]
 pub use net::{
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write, echo_runtime_udp_bind,
@@ -98,6 +112,7 @@ pub use net::{
 };
 
 // Tasks / event loop (ADR 0013) — JIT mapping.
+#[cfg(feature = "host-io")]
 pub use task::{
     echo_runtime_task_after_run, echo_runtime_task_block, echo_runtime_task_block_wide,
     echo_runtime_task_check_joined, echo_runtime_task_join, echo_runtime_task_join_wide,
@@ -106,6 +121,7 @@ pub use task::{
 };
 
 // Suite runner (Model A) — JIT mapping.
+#[cfg(feature = "host-io")]
 pub use test_suite::{
     echo_runtime_bench_configure, echo_runtime_test_bench_register, echo_runtime_test_enable,
     echo_runtime_test_enable_bench, echo_runtime_test_fail, echo_runtime_test_finish,
@@ -113,6 +129,7 @@ pub use test_suite::{
 };
 
 // Process / env / spawn — JIT mapping.
+#[cfg(feature = "host-io")]
 pub use process::{
     echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
     echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
@@ -120,6 +137,7 @@ pub use process::{
 };
 
 // Filesystem — JIT mapping.
+#[cfg(feature = "host-io")]
 pub use fs::{
     echo_runtime_fs_copy, echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all,
     echo_runtime_fs_exists, echo_runtime_fs_file_close, echo_runtime_fs_file_read,
@@ -402,6 +420,66 @@ where
     let result = f();
     let captured = PRINT_CAPTURE.with(|cell| cell.borrow_mut().take().unwrap_or_default());
     (result, captured)
+}
+
+/// UTF-8 text → string handle (safe wrapper around [`echo_runtime_string_from_utf8`]).
+#[must_use]
+pub fn string_handle_from_utf8(text: &str) -> i64 {
+    unsafe { echo_runtime_string_from_utf8(text.as_ptr(), text.len()) }
+}
+
+/// Push `value` onto a list handle.
+pub fn list_push_value(list: i64, value: i64) {
+    unsafe { echo_runtime_list_push(list, value) }
+}
+
+/// Length of a list or range handle.
+#[must_use]
+pub fn list_len_value(list: i64) -> i64 {
+    unsafe { echo_runtime_list_len(list) }
+}
+
+/// Element at `index`, or 0 if out of range.
+#[must_use]
+pub fn list_get_value(list: i64, index: i64) -> i64 {
+    unsafe { echo_runtime_list_get(list, index) }
+}
+
+/// Named or anonymous struct handle.
+#[must_use]
+pub fn struct_new_value(type_name: &str) -> i64 {
+    if type_name.is_empty() {
+        echo_runtime_struct_new()
+    } else {
+        unsafe { echo_runtime_struct_new_named(type_name.as_ptr(), type_name.len()) }
+    }
+}
+
+/// Set a struct field by name.
+pub fn struct_set_value(handle: i64, field: &str, value: i64) {
+    unsafe { echo_runtime_struct_set(handle, field.as_ptr(), field.len(), value) }
+}
+
+/// Get a struct field by name (0 if missing).
+#[must_use]
+pub fn struct_get_value(handle: i64, field: &str) -> i64 {
+    unsafe { echo_runtime_struct_get(handle, field.as_ptr(), field.len()) }
+}
+
+/// Store `value` at `index` in a list handle.
+pub fn list_set_value(list: i64, index: i64, value: i64) {
+    unsafe { echo_runtime_list_set(list, index, value) }
+}
+
+/// 1 if `handle` is a struct tagged `type_name`.
+#[must_use]
+pub fn struct_type_is_value(handle: i64, type_name: &str) -> i64 {
+    unsafe { echo_runtime_struct_type_is(handle, type_name.as_ptr(), type_name.len()) }
+}
+
+/// Append a UTF-8 literal to a string builder.
+pub fn string_builder_push_utf8(builder: i64, text: &str) {
+    unsafe { echo_runtime_string_builder_push_str(builder, text.as_ptr(), text.len()) }
 }
 
 /// Print a **string** handle followed by newline.

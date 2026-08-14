@@ -22,9 +22,17 @@ export type FormatResult = {
   diagnostics: CheckDiagnostic[];
 };
 
+export type RunResult = {
+  ok: boolean;
+  printed?: string;
+  host_error?: string;
+  diagnostics: CheckDiagnostic[];
+};
+
 export type EchoCheckApi = {
   check: (source: string) => CheckResult;
   format: (source: string) => FormatResult;
+  run: (source: string) => RunResult;
   stdFileCount: number;
 };
 
@@ -32,6 +40,7 @@ type WasmModule = {
   default: () => Promise<unknown>;
   check: (source: string) => string;
   format: (source: string) => string;
+  run: (source: string) => string;
   stdFileCount: () => number;
 };
 
@@ -70,6 +79,11 @@ async function importEchoWasm(): Promise<EchoCheckApi> {
     },
     format(source: string) {
       const result = JSON.parse(mod.format(source)) as FormatResult;
+      result.diagnostics ??= [];
+      return result;
+    },
+    run(source: string) {
+      const result = JSON.parse(mod.run(source)) as RunResult;
       result.diagnostics ??= [];
       return result;
     },

@@ -8,8 +8,8 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{
-    header_at, list_elems, struct_fields, HEAP_MAGIC, KIND_BYTES, KIND_FLOAT, KIND_FN, KIND_LIST,
-    KIND_LOCATOR, KIND_RANGE, KIND_STRING, KIND_STRUCT,
+    HEAP_MAGIC, KIND_BYTES, KIND_FLOAT, KIND_FN, KIND_LIST, KIND_LOCATOR, KIND_RANGE, KIND_STRING,
+    KIND_STRUCT, header_at, list_elems, struct_fields,
 };
 
 /// Logical tombstone: handle may still be in memory until deferred free runs.
@@ -204,13 +204,9 @@ fn managed_children(handle: i64) -> Vec<i64> {
             .map(|(_, v)| v)
             .filter(|&e| is_managed_handle(e))
             .collect(),
-        KIND_STRING
-        | KIND_BYTES
-        | KIND_FLOAT
-        | KIND_LOCATOR
-        | KIND_RANGE
-        | KIND_FN
-        | _ => Vec::new(),
+        KIND_STRING | KIND_BYTES | KIND_FLOAT | KIND_LOCATOR | KIND_RANGE | KIND_FN | _ => {
+            Vec::new()
+        }
     }
 }
 
@@ -394,17 +390,21 @@ fn physical_free(handle: i64) {
             let _ = unsafe { Box::from_raw(handle as *mut crate::EchoFn) };
         }
         // TLS listener / stream (kinds defined in `tls` module).
-        20 | 21 => {
-            unsafe {
-                crate::tls::free_tls_object(handle as *mut u8, kind);
-            }
-        }
-        crate::net::KIND_TCP_LISTENER | crate::net::KIND_TCP_STREAM | crate::net::KIND_UDP_SOCKET => {
+        #[cfg(feature = "host-io")]
+        20 | 21 => unsafe {
+            crate::tls::free_tls_object(handle as *mut u8, kind);
+        },
+        #[cfg(feature = "host-io")]
+        crate::net::KIND_TCP_LISTENER
+        | crate::net::KIND_TCP_STREAM
+        | crate::net::KIND_UDP_SOCKET => {
             crate::net::free_net_object(handle, kind);
         }
+        #[cfg(feature = "host-io")]
         crate::task::KIND_TASK => {
             crate::task::free_task_object(handle);
         }
+        #[cfg(feature = "host-io")]
         crate::fs::KIND_FS_FILE => {
             crate::fs::free_file_object(handle);
         }
@@ -603,7 +603,10 @@ mod tests {
         echo_runtime_scope_promote(h, 1);
         echo_runtime_scope_exit(2);
         assert!(test_is_owned(h));
-        assert!(crate::is_live_heap(h), "promoted value must survive inner exit");
+        assert!(
+            crate::is_live_heap(h),
+            "promoted value must survive inner exit"
+        );
         echo_runtime_scope_exit(1);
         assert!(!crate::is_live_heap(h));
         test_reset();

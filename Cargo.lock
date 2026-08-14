@@ -622,10 +622,16 @@ version = "0.0.1"
 name = "echo_wasm"
 version = "0.0.1"
 dependencies = [
+ "echo_ast",
  "echo_diagnostics",
+ "echo_hir",
+ "echo_mir",
  "echo_parser",
  "echo_resolver",
+ "echo_runtime",
+ "echo_semantics",
  "echo_source",
+ "echo_std",
  "serde",
  "serde_json",
  "wasm-bindgen",

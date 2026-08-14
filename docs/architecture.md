@@ -65,7 +65,7 @@ There is no bytecode VM. AOT and JIT share `echo_runtime` symbols
 | `echo_std` | Std/runtime package tables |
 | `echo_fingerprint` / `cache` / `build` | Incremental (orthogonal) |
 | `echo_lsp` | Editor presentation over shared analyze path |
-| `echo_wasm` | Browser check host (`just wasm` → www `/try`) |
+| `echo_wasm` | Browser check + playground-run host (`just wasm` → www `/try`) |
 | `xo` | CLI client of `echo_pipeline` |
 
 Hosts must not redefine language semantics.
