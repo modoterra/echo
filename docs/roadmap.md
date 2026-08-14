@@ -307,7 +307,7 @@ belt, and dispose of task/TCP/UDP/FS-file handles. Name-keyed demote stays
 **off**.
 
 Follow-on (not locked-language rows): www / AOT link polish, LLVM DI,
-`xo cache gc`, locator classification, SOTA G9.
+locator classification, SOTA G9.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -529,6 +529,7 @@ current; fill Impl as work lands.
 | 2026-08-13 | Field-after-call `c.inc().n`: plain method fall-off types as receiver; e26 `run/method/009` |
 | 2026-08-13 | Imported + zero-arg function arity: `sem-arity` on `module.f` and `f()` extra args; import params stay `value` |
 | 2026-08-13 | Rich escapes locked: unknown / bad `\x` is `lex-escape` (not rewritten); `\{` `\}` legal |
+| 2026-08-14 | `xo cache gc`: drop stale compiler-stamp dirs, flat leftovers, and tmp; `clean` still wipes `.xo` |
 
 ---
 

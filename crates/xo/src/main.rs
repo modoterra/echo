@@ -11,7 +11,7 @@ mod repl;
 use clap::{Parser, Subcommand};
 use echo_ast::format_ast_kinds;
 use echo_build::project_root_for;
-use echo_cache::{ArtifactStore, CacheLayout};
+use echo_cache::{ArtifactStore, CacheLayout, GcReport};
 use echo_diagnostics::{Diagnostics, Severity};
 use echo_fingerprint::{ArtifactPhase, CACHE_FORMAT_VERSION, phase_fingerprint};
 use echo_lexer::{format_diag_codes, format_token_kinds, format_tokens, lex};
@@ -242,7 +242,7 @@ enum CacheCommand {
         #[arg(long)]
         path: Option<PathBuf>,
     },
-    /// Placeholder: reclaim unused blobs (not yet implemented).
+    /// Reclaim unused blobs (stale compiler generations and tmp leftovers).
     Gc {
         #[arg(long)]
         path: Option<PathBuf>,
@@ -385,10 +385,7 @@ fn main() -> ExitCode {
         Command::Cache { command } => match command {
             CacheCommand::Status { path } => cmd_cache_status(path.as_deref()),
             CacheCommand::Clean { path } => cmd_cache_clean(path.as_deref()),
-            CacheCommand::Gc { path: _ } => {
-                eprintln!("xo cache gc: not implemented yet (use `xo cache clean`)");
-                ExitCode::from(1)
-            }
+            CacheCommand::Gc { path } => cmd_cache_gc(path.as_deref()),
             CacheCommand::Doctor { path } => cmd_cache_doctor(path.as_deref()),
         },
         Command::Index { command } => match command {
@@ -1157,7 +1154,9 @@ fn emit_diags(path: &Path, diagnostics: &Diagnostics, codes_only: bool) {
 }
 
 fn cache_layout_for(path: Option<&Path>) -> CacheLayout {
+    // `--path DIR` is that project root. A file still walks for Cargo.toml / .git.
     let root = match path {
+        Some(p) if p.is_dir() => p.to_path_buf(),
         Some(p) => project_root_for(p),
         None => std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
     };
@@ -1184,6 +1183,27 @@ fn cmd_cache_status(path: Option<&Path>) -> ExitCode {
         }
         Err(e) => {
             eprintln!("xo cache status: {e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn cmd_cache_gc(path: Option<&Path>) -> ExitCode {
+    let layout = cache_layout_for(path);
+    let store = ArtifactStore::new(layout);
+    match store.gc() {
+        Ok(GcReport {
+            blobs_removed,
+            bytes_removed,
+            dirs_removed,
+        }) => {
+            println!(
+                "removed {blobs_removed} blob(s), {bytes_removed} byte(s), {dirs_removed} stale generation(s)"
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("xo cache gc: {e}");
             ExitCode::from(1)
         }
     }

@@ -17,7 +17,7 @@ pub fn crate_name() -> &'static str {
 }
 
 /// On-disk cache format version (layout / key encoding).
-pub const CACHE_FORMAT_VERSION: u32 = 1;
+pub const CACHE_FORMAT_VERSION: u32 = 2; // phase blobs live under compiler-stamp dirs
 
 // --- Per-component schema versions (bump when that layer's cacheable output changes) ---
 

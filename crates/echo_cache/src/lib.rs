@@ -52,6 +52,16 @@ impl CacheLayout {
         self.cache_dir().join(phase.name())
     }
 
+    /// Live blobs for `phase` sit under this compiler-only stamp.
+    ///
+    /// Stamp is [`phase_fingerprint`] with no extras (versions + format +
+    /// phase name). Source-specific extras stay in the blob file name.
+    #[must_use]
+    pub fn generation_dir(&self, phase: ArtifactPhase) -> PathBuf {
+        self.phase_dir(phase)
+            .join(phase_fingerprint(phase, &[]).fingerprint.as_str())
+    }
+
     #[must_use]
     pub fn tmp_dir(&self) -> PathBuf {
         self.root.join("tmp")
@@ -151,6 +161,9 @@ impl ArtifactStore {
     pub fn put(&self, key: &PhaseCacheKey, bytes: &[u8]) -> io::Result<PathBuf> {
         self.layout.ensure()?;
         let path = self.blob_path(key);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         // Atomic-ish: write tmp then rename.
         let tmp = self.layout.tmp_dir().join(format!(
             "{}.tmp",
@@ -178,14 +191,14 @@ impl ArtifactStore {
 
     #[must_use]
     pub fn blob_path(&self, key: &PhaseCacheKey) -> PathBuf {
-        self.layout.phase_dir(key.phase).join(key.blob_name())
+        self.layout.generation_dir(key.phase).join(key.blob_name())
     }
 
-    /// Count artifact files under each phase directory.
+    /// Count **live** artifact files (current compiler stamp) per phase.
     pub fn phase_counts(&self) -> io::Result<Vec<(ArtifactPhase, usize)>> {
         let mut out = Vec::new();
         for phase in ArtifactPhase::ALL {
-            let dir = self.layout.phase_dir(phase);
+            let dir = self.layout.generation_dir(phase);
             let n = if dir.is_dir() {
                 fs::read_dir(&dir)?
                     .filter_map(|e| e.ok())
@@ -198,6 +211,91 @@ impl ArtifactStore {
         }
         Ok(out)
     }
+
+    /// Delete unused cache files. Live blobs (current compiler stamp) stay.
+    ///
+    /// Unused:
+    /// - leftover files in `.xo/tmp`
+    /// - files in a phase directory root (pre-v2 flat layout)
+    /// - whole generation dirs whose stamp is not the current compiler mix
+    pub fn gc(&self) -> io::Result<GcReport> {
+        let mut report = GcReport::default();
+        if !self.layout.exists() {
+            return Ok(report);
+        }
+
+        let tmp = self.layout.tmp_dir();
+        if tmp.is_dir() {
+            for entry in fs::read_dir(&tmp)? {
+                let path = entry?.path();
+                if path.is_file() {
+                    remove_file_counted(&path, &mut report)?;
+                }
+            }
+        }
+
+        for phase in ArtifactPhase::ALL {
+            let dir = self.layout.phase_dir(phase);
+            if !dir.is_dir() {
+                continue;
+            }
+            let keep = phase_fingerprint(phase, &[])
+                .fingerprint
+                .as_str()
+                .to_string();
+            for entry in fs::read_dir(&dir)? {
+                let path = entry?.path();
+                if path.is_file() {
+                    remove_file_counted(&path, &mut report)?;
+                    continue;
+                }
+                if !path.is_dir() {
+                    continue;
+                }
+                let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                if name == keep {
+                    continue;
+                }
+                count_files_under(&path, &mut report)?;
+                fs::remove_dir_all(&path)?;
+                report.dirs_removed += 1;
+            }
+        }
+        Ok(report)
+    }
+}
+
+/// Result of [`ArtifactStore::gc`].
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct GcReport {
+    pub blobs_removed: usize,
+    pub bytes_removed: u64,
+    pub dirs_removed: usize,
+}
+
+fn remove_file_counted(path: &Path, report: &mut GcReport) -> io::Result<()> {
+    let n = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    fs::remove_file(path)?;
+    report.blobs_removed += 1;
+    report.bytes_removed += n;
+    Ok(())
+}
+
+fn count_files_under(dir: &Path, report: &mut GcReport) -> io::Result<()> {
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(cur) = stack.pop() {
+        for entry in fs::read_dir(&cur)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.is_file() {
+                let n = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+                report.blobs_removed += 1;
+                report.bytes_removed += n;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// SHA-256 of bytes as [`Fingerprint`] (re-export convenience).
@@ -280,5 +378,56 @@ mod tests {
             &[("artifact", "aot_binary"), ("runtime_abi", "1")],
         );
         assert_ne!(ir_key.blob_name(), aot_key.blob_name());
+    }
+
+    #[test]
+    fn gc_keeps_live_blob_and_drops_stale() {
+        let root = temp_project();
+        let layout = CacheLayout::for_project(&root);
+        let store = ArtifactStore::new(layout.clone());
+        let key = PhaseCacheKey::for_source(ArtifactPhase::Parse, b"$ x = 1\n", &[]);
+        store.put(&key, b"live").unwrap();
+
+        let parse_dir = layout.phase_dir(ArtifactPhase::Parse);
+        fs::create_dir_all(&parse_dir).unwrap();
+        let flat = parse_dir.join("old_flat.bin");
+        fs::write(&flat, b"flat").unwrap();
+        let stale = parse_dir.join("deadstamp");
+        fs::create_dir_all(&stale).unwrap();
+        fs::write(stale.join("stale.bin"), b"stale-bytes").unwrap();
+
+        layout.ensure().unwrap();
+        let tmp = layout.tmp_dir().join("leftover.tmp");
+        fs::write(&tmp, b"tmp").unwrap();
+
+        let report = store.gc().unwrap();
+        assert_eq!(report.blobs_removed, 3, "{report:?}");
+        assert_eq!(report.dirs_removed, 1, "{report:?}");
+        assert!(store.contains(&key));
+        assert_eq!(store.get(&key).unwrap().unwrap(), b"live");
+        assert!(!flat.exists());
+        assert!(!stale.exists());
+        assert!(!tmp.exists());
+
+        let counts = store.phase_counts().unwrap();
+        let parse_n = counts
+            .iter()
+            .find(|(p, _)| *p == ArtifactPhase::Parse)
+            .map(|(_, n)| *n)
+            .unwrap();
+        assert_eq!(parse_n, 1);
+
+        store.layout().clean().unwrap();
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn gc_on_missing_layout_is_noop() {
+        let root = temp_project();
+        let layout = CacheLayout::for_project(&root);
+        let store = ArtifactStore::new(layout);
+        let report = store.gc().unwrap();
+        assert_eq!(report, GcReport::default());
+        let _ = fs::remove_dir_all(&root);
     }
 }

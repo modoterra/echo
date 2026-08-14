@@ -58,6 +58,7 @@ Rust/Cargo (or the hooks themselves). Pure docs / `std/**/*.echo` /
 cargo test -p echo_fingerprint -p echo_cache -p echo_build
 ./target/debug/xo cache doctor
 ./target/debug/xo cache status
+./target/debug/xo cache gc
 ./target/debug/xo cache clean
 ```
 

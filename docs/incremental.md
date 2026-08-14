@@ -26,17 +26,22 @@ Project cache root: **`{project}/.xo/`**
 ```text
 .xo/
   cache/
-    lex/ …
-    parse/ …
-    index/ …
-    resolve/ …
-    check/ …
-    lower/ …
-    codegen/ …
-    diagnostics/ …
+    lex/<compiler-stamp>/ …
+    parse/<compiler-stamp>/ …
+    index/<compiler-stamp>/ …
+    resolve/<compiler-stamp>/ …
+    check/<compiler-stamp>/ …
+    lower/<compiler-stamp>/ …
+    codegen/<compiler-stamp>/ …
+    diagnostics/<compiler-stamp>/ …
   index/          # reserved for project fact files
   tmp/            # atomic renames
 ```
+
+`<compiler-stamp>` is `phase_fingerprint(phase, &[])` (format + phase +
+component versions). Source extras stay in the blob file name. `xo cache gc`
+deletes other stamps, leftover files in a phase root (pre-v2 flat layout), and
+`.xo/tmp` leftovers. `xo cache clean` still removes the whole `.xo` tree.
 
 CLI:
 
@@ -44,7 +49,7 @@ CLI:
 xo cache status [--path DIR]
 xo cache doctor [--path DIR]
 xo cache clean  [--path DIR]
-xo cache gc     # not yet (use clean)
+xo cache gc     [--path DIR]   # DIR is the project root; a file walks to Cargo.toml / .git
 ```
 
 ## Phases
@@ -99,7 +104,7 @@ cacheable compiler meaning (see crate header comments).
 
 - `CacheLayout::for_project` → `.xo`
 - `PhaseCacheKey::for_source(phase, bytes, extra)`
-- `ArtifactStore::put` / `get` / `contains` / `phase_counts`
+- `ArtifactStore::put` / `get` / `contains` / `phase_counts` / `gc`
 
 ### `echo_build`
 
@@ -115,7 +120,7 @@ cacheable compiler meaning (see crate header comments).
 | **v1** | `xo check` caches **semantic** diagnostics; `--no-cache` / `--cache-status` |
 | **v2** | Per-file **parse AST** cache (bincode) during resolve; index facts re-extracted |
 | **v3** | **LLVM IR** cache for `xo run` / `ir` / `build`; skips HIR/MIR/codegen on hit |
-| **v4 (this)** | **AOT binary** cache; **LSP** document store + diagnostics over shared check |
+| **v4 (this)** | **AOT binary** cache; **LSP** document store + diagnostics over shared check; **`xo cache gc`** |
 
 ### Parse cache (v2)
 
@@ -182,6 +187,7 @@ cacheable compiler meaning (see crate header comments).
 ```bash
 cargo test -p echo_fingerprint -p echo_cache -p echo_build -p echo_codegen -p echo_lsp
 cargo build -p xo
+./target/debug/xo cache gc
 ./target/debug/xo cache clean
 ./target/debug/xo run examples/misc/hello.echo --cache-status
 ./target/debug/xo run examples/misc/hello.echo --cache-status   # ir + aot hits
