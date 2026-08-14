@@ -1,9 +1,8 @@
-//! Line-table DWARF for AOT/JIT IR.
+//! Line-table and checker-kind DWARF for AOT/JIT IR.
 //!
 //! Policy: [`docs/llvm.md`](../../../docs/llvm.md) — compile unit + subprogram +
-//! one location (file, line 1, column 1) per function. MIR ops do not carry
-//! spans yet, so instructions in a function share that location. No types,
-//! locals, or inlined frames.
+//! per-op `DILocation` from MIR spans, plus `DILocalVariable` named with the
+//! checker's kind label. No inlined frames; no Echo DWARF language id.
 
 use std::path::Path;
 
@@ -14,7 +13,7 @@ use inkwell::debug_info::{
     DWARFSourceLanguage, DebugInfoBuilder,
 };
 use inkwell::module::{FlagBehavior, Module};
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValueEnum, FunctionValue};
 
 /// File name + directory for `DIFile` / compile unit.
 #[must_use]
@@ -44,7 +43,11 @@ pub fn begin_module<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     entry_path: &Path,
-) -> (DebugInfoBuilder<'ctx>, DICompileUnit<'ctx>, DISubroutineType<'ctx>) {
+) -> (
+    DebugInfoBuilder<'ctx>,
+    DICompileUnit<'ctx>,
+    DISubroutineType<'ctx>,
+) {
     let three = context.i32_type().const_int(3, false);
     module.add_basic_value_flag("Debug Info Version", FlagBehavior::Warning, three);
     let four = context.i32_type().const_int(4, false);
@@ -110,11 +113,80 @@ pub fn set_function_line<'ctx>(
     dibuilder: &DebugInfoBuilder<'ctx>,
     fv: FunctionValue<'ctx>,
 ) {
+    set_line_col(context, builder, dibuilder, fv, 1, 1);
+}
+
+/// Point the builder at a 1-based line/column in the function's subprogram.
+pub fn set_line_col<'ctx>(
+    context: &'ctx Context,
+    builder: &Builder<'ctx>,
+    dibuilder: &DebugInfoBuilder<'ctx>,
+    fv: FunctionValue<'ctx>,
+    line: u32,
+    column: u32,
+) {
     let Some(sp) = fv.get_subprogram() else {
         return;
     };
-    let loc = dibuilder.create_debug_location(context, 1, 1, sp.as_debug_info_scope(), None);
+    let loc = dibuilder.create_debug_location(
+        context,
+        line.max(1),
+        column.max(1),
+        sp.as_debug_info_scope(),
+        None,
+    );
     builder.set_current_debug_location(loc);
+}
+
+/// Emit `DILocalVariable` + `DIBasicType` named with checker kind labels.
+///
+/// inkwell 0.9's `insert_declare_at_end` wraps LLVM 19+ `DbgRecord` as
+/// `InstructionValue` and `debug_assert`s, which aborts `xo run` on LLVM 22.
+/// Variable/type metadata is still in the IR without `llvm.dbg.declare`.
+pub fn emit_variables<'ctx>(
+    _context: &'ctx Context,
+    _builder: &Builder<'ctx>,
+    dibuilder: &DebugInfoBuilder<'ctx>,
+    fv: FunctionValue<'ctx>,
+    file_path: &Path,
+    vars: &[(String, String)],
+    param_names: &[String],
+    _lookup: impl Fn(&str) -> Option<BasicValueEnum<'ctx>>,
+) {
+    let Some(sp) = fv.get_subprogram() else {
+        return;
+    };
+    let (file, dir) = split_debug_path(file_path);
+    let difile = dibuilder.create_file(&file, &dir);
+    for (i, (name, kind)) in vars.iter().enumerate() {
+        let Ok(dity) = dibuilder.create_basic_type(kind, 64, 0x05, DIFlags::PUBLIC) else {
+            continue;
+        };
+        let is_param = param_names.iter().any(|p| p == name);
+        if is_param {
+            let _ = dibuilder.create_parameter_variable(
+                sp.as_debug_info_scope(),
+                name,
+                (i as u32) + 1,
+                difile,
+                1,
+                dity.as_type(),
+                true,
+                DIFlags::PUBLIC,
+            );
+        } else {
+            let _ = dibuilder.create_auto_variable(
+                sp.as_debug_info_scope(),
+                name,
+                difile,
+                1,
+                dity.as_type(),
+                true,
+                DIFlags::PUBLIC,
+                64,
+            );
+        }
+    }
 }
 
 #[cfg(test)]

@@ -118,7 +118,7 @@ fn rename_block(
                     incomings, // filled later
                 };
             }
-            MirOp::Set { name, value } => {
+            MirOp::Set { name, value, span } => {
                 let new_val = rewrite_expr(&value, stacks);
                 let base = base_name(&name).to_string();
                 let v = fresh(&base, counters);
@@ -127,6 +127,7 @@ fn rename_block(
                 cfg.blocks[bid.0 as usize].ops[i] = MirOp::Set {
                     name: v,
                     value: new_val,
+                    span,
                 };
             }
             MirOp::MatchPayload { name } => {
@@ -146,11 +147,7 @@ fn rename_block(
                     value: rewrite_expr(&value, stacks),
                 };
             }
-            MirOp::IndexSet {
-                base,
-                index,
-                value,
-            } => {
+            MirOp::IndexSet { base, index, value } => {
                 cfg.blocks[bid.0 as usize].ops[i] = MirOp::IndexSet {
                     base: rewrite_expr(&base, stacks),
                     index: rewrite_expr(&index, stacks),
@@ -189,10 +186,7 @@ fn rename_block(
                 args,
                 bind,
             } => {
-                let args: Vec<_> = args
-                    .into_iter()
-                    .map(|a| rewrite_expr(&a, stacks))
-                    .collect();
+                let args: Vec<_> = args.into_iter().map(|a| rewrite_expr(&a, stacks)).collect();
                 let bind = if let Some(name) = bind {
                     let base = base_name(&name).to_string();
                     let v = fresh(&base, counters);
@@ -283,14 +277,7 @@ fn rename_block(
     }
 
     for &child in &dom_children[bid.0 as usize] {
-        rename_block(
-            cfg,
-            child,
-            dom_children,
-            stacks,
-            counters,
-            phi_incomings,
-        );
+        rename_block(cfg, child, dom_children, stacks, counters, phi_incomings);
     }
 
     for base in pushed.iter().rev() {
@@ -302,8 +289,7 @@ fn rename_block(
 
 fn apply_phi_incomings(cfg: &mut MirCfg, edges: &[(BlockId, usize, BlockId, String)]) {
     for &(bb, phi_idx, pred, ref ver) in edges {
-        if let Some(MirOp::Phi { incomings, .. }) = cfg.blocks[bb.0 as usize].ops.get_mut(phi_idx)
-        {
+        if let Some(MirOp::Phi { incomings, .. }) = cfg.blocks[bb.0 as usize].ops.get_mut(phi_idx) {
             if !incomings.iter().any(|(p, _)| *p == pred) {
                 incomings.push((pred, ver.clone()));
             }
@@ -316,9 +302,15 @@ fn def_name(op: &MirOp) -> Option<&str> {
         MirOp::Set { name, .. } | MirOp::MatchPayload { name } | MirOp::Phi { name, .. } => {
             Some(name)
         }
-        MirOp::TaskSpawn { bind: Some(name), .. }
-        | MirOp::TaskSpawnFn { bind: Some(name), .. }
-        | MirOp::TaskJoin { bind: Some(name), .. } => Some(name),
+        MirOp::TaskSpawn {
+            bind: Some(name), ..
+        }
+        | MirOp::TaskSpawnFn {
+            bind: Some(name), ..
+        }
+        | MirOp::TaskJoin {
+            bind: Some(name), ..
+        } => Some(name),
         MirOp::Eval(_)
         | MirOp::FieldSet { .. }
         | MirOp::IndexSet { .. }
@@ -420,9 +412,7 @@ fn rewrite_expr(e: &MirExpr, stacks: &HashMap<String, Vec<String>>) -> MirExpr {
         MirExpr::BytesLit { bytes } => MirExpr::BytesLit {
             bytes: bytes.clone(),
         },
-        MirExpr::LocatorLit { text } => MirExpr::LocatorLit {
-            text: text.clone(),
-        },
+        MirExpr::LocatorLit { text } => MirExpr::LocatorLit { text: text.clone() },
         MirExpr::StringInterp { parts } => MirExpr::StringInterp {
             parts: parts
                 .iter()
@@ -485,7 +475,7 @@ fn rewrite_term(term: Terminator, stacks: &HashMap<String, Vec<String>>) -> Term
             ok_bb,
             err_bb,
         },
-        Terminator::ReturnOk(e) => Terminator::ReturnOk(rewrite_expr(&e, stacks)),
+        Terminator::ReturnOk(e, span) => Terminator::ReturnOk(rewrite_expr(&e, stacks), span),
         Terminator::ReturnErr(e) => Terminator::ReturnErr(rewrite_expr(&e, stacks)),
         Terminator::ReturnNone => Terminator::ReturnNone,
         Terminator::Unreachable => Terminator::Unreachable,
@@ -637,7 +627,7 @@ fn dom_tree_children(n: usize, idom: &[Option<BlockId>], entry: BlockId) -> Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{structured_to_cfg, MirExpr, MirRetShape, MirStmt};
+    use crate::{MirExpr, MirRetShape, MirStmt, structured_to_cfg};
 
     #[test]
     fn ssa_renames_straight_line() {
@@ -645,6 +635,7 @@ mod tests {
             MirStmt::Set {
                 name: "n".into(),
                 value: MirExpr::ConstI64(1),
+                span: None,
             },
             MirStmt::Set {
                 name: "n".into(),
@@ -653,8 +644,9 @@ mod tests {
                     left: Box::new(MirExpr::Name("n".into())),
                     right: Box::new(MirExpr::ConstI64(1)),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("n".into())),
+            MirStmt::ReturnOk(MirExpr::Name("n".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let ssa = construct_ssa(cfg, &[]);
@@ -670,7 +662,7 @@ mod tests {
         assert_ne!(sets[0], sets[1]);
         assert!(sets[0].starts_with("n@"));
         match &ssa.blocks[0].term {
-            Terminator::ReturnOk(MirExpr::Name(n)) => assert_eq!(n, sets[1]),
+            Terminator::ReturnOk(MirExpr::Name(n), _) => assert_eq!(n, sets[1]),
             t => panic!("unexpected term {t:?}"),
         }
         // Second set's RHS uses first version
@@ -692,6 +684,7 @@ mod tests {
             MirStmt::Set {
                 name: "x".into(),
                 value: MirExpr::ConstI64(0),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -699,14 +692,16 @@ mod tests {
                     vec![MirStmt::Set {
                         name: "x".into(),
                         value: MirExpr::ConstI64(1),
+                        span: None,
                     }],
                 )],
                 else_body: Some(vec![MirStmt::Set {
                     name: "x".into(),
                     value: MirExpr::ConstI64(2),
+                    span: None,
                 }]),
             },
-            MirStmt::ReturnOk(MirExpr::Name("x".into())),
+            MirStmt::ReturnOk(MirExpr::Name("x".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let ssa = construct_ssa(cfg, &[]);
@@ -735,7 +730,7 @@ mod tests {
                     body: vec![MirStmt::ReturnNone],
                 }],
             },
-            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+            MirStmt::ReturnOk(MirExpr::ConstBool(true), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Option);
         let ssa = construct_ssa(cfg, &["buckets".into()]);
@@ -777,7 +772,7 @@ mod tests {
                 iter: MirExpr::Name("xs".into()),
                 body: vec![MirStmt::ReturnNone],
             },
-            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+            MirStmt::ReturnOk(MirExpr::ConstBool(true), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Option);
         let ssa = construct_ssa(cfg, &["xs".into()]);
@@ -809,7 +804,7 @@ mod tests {
                     body: vec![MirStmt::ReturnNone],
                 }],
             },
-            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+            MirStmt::ReturnOk(MirExpr::ConstBool(true), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Option);
         let cfg = construct_ssa(cfg, &["buckets".into()]);

@@ -131,11 +131,11 @@ type; box/unbox widens to the universal `i64` / heap-float ABI.
 
 See [`incremental.md`](incremental.md).
 
-## Debug info (line tables)
+## Debug info
 
 | | |
 |--|--|
-| **Status** | Line tables only (no types / locals / inlined frames) |
+| **Status** | Line tables + checker-kind locals (no inlined frames; no Echo DWARF language id) |
 | **Producer** | `xo` |
 | **DWARF language** | `DW_LANG_C` (no Echo language id); producer identifies the toolchain |
 
@@ -143,17 +143,22 @@ See [`incremental.md`](incremental.md).
 
 - One compile unit from the entry file (`DICompileUnit` + `DIFile`).
 - One `DISubprogram` per Echo function (`__toplevel`, user fns) plus `echo_entry` and C `main`.
-- One `DILocation` per function: that file, **line 1, column 1**.
+- Per-instruction `DILocation` from MIR source spans (`MirOp::Set` and
+  `Terminator::ReturnOk`) via a `LineMap` on the function’s module file. Ops
+  without a span keep the last location (or the function’s line 1 / column 1).
+- Parameters and locals: `DILocalVariable` + `DIBasicType` named with the
+  checker’s kind label (`ValueKind::as_di_label`: `i64`, `string`, `bool`, …).
+  Those names are diagnostic labels, not a user type language. `llvm.dbg.declare`
+  is omitted: inkwell 0.9 on LLVM 22 treats the declare record as an instruction
+  and aborts emit.
 
-MIR ops do not carry source spans yet, so every instruction in a function
-shares the function location. A later slice can thread HIR spans onto `MirOp`
-for true per-instruction lines.
-
-AOT: `link_aot` passes `-g` so clang keeps DWARF in the binary. JIT uses the
-same IR, so metadata is present (host debugger support for MCJIT varies).
+AOT: `link_aot` is **one** clang invocation at **`-O0 -g`** so clang keeps
+DWARF and does not re-run the mid-end. JIT uses the same IR (host debugger
+support for MCJIT varies).
 
 ## Open questions
 
-- Per-instruction lines (needs MIR spans)
-- Variable / type DI
+- Inlined-frame DI
+- Echo DWARF language id
+- Debugger GUI work
 - Further IR quality gates beyond verify + metrics smoke

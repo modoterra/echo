@@ -26,20 +26,20 @@ pub const PARSER_VERSION: u32 = 7; // unknown width tags stay WidthCast (not sil
 pub const AST_SCHEMA_VERSION: u32 = 5; // WidthCast.width: Option + tag
 pub const INDEX_VERSION: u32 = 2; // export function arity
 pub const INDEX_SCHEMA_VERSION: u32 = 2; // ExportFact.fn_arity + ModuleFacts.fn_arities
-pub const RESOLVER_VERSION: u32 = 2; // ModuleExport.arity from folder fn binds
+pub const RESOLVER_VERSION: u32 = 4; // exportable leaf return kinds only
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 15; // # const uses locked escape table
+pub const SEMANTICS_VERSION: u32 = 17; // exportable leaf returns; skip test.it pinning
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 29; // rich decode rejects unknown escapes
-pub const MIR_SCHEMA_VERSION: u32 = 4; // ScopeEnter/Exit/Register/Promote/Disown/Release
+pub const MIR_LOWERER_VERSION: u32 = 30; // Set/ReturnOk carry source spans
+pub const MIR_SCHEMA_VERSION: u32 = 5; // MirOp::Set.span; Terminator::ReturnOk span
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 18; // DWARF line tables (CU + subprogram + loc)
+pub const CODEGEN_VERSION: u32 = 19; // per-op DILocation + DILocalVariable kinds
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
 pub const RUNTIME_ABI_VERSION: u32 = 45; // dispose task/tcp/udp/fs-file handles
-pub const STDLIB_VERSION: u32 = 31; // hash_table empty_buckets runtime + grow×4
+pub const STDLIB_VERSION: u32 = 32; // runtime_ret_kind for imported return types
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

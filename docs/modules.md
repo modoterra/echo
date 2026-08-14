@@ -145,4 +145,5 @@ Graph-wide; not related to packages. Codes: `res-struct-dup-primary`,
 | Folder multi-file module | **Done** |
 | `xo.toml` parse + `--deps` | **Done** (minimal schema) |
 | Import cycle diagnostic | **Done** (`res-import-cycle`) |
+| Imported function return kind | **Done** (`ModuleExport.return_ty` from defining module; params stay `value`) |
 | Absolute FS imports | **Out of v0** |

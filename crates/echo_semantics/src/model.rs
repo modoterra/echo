@@ -30,6 +30,20 @@ pub enum ValueKind {
 }
 
 impl ValueKind {
+    /// DWARF / diagnostic label (not a user-written type name).
+    #[must_use]
+    pub fn as_di_label(&self) -> &str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Int => "i64",
+            Self::Bool => "bool",
+            Self::String => "string",
+            Self::List => "list",
+            Self::Struct { name } => name.as_str(),
+            Self::Module => "module",
+        }
+    }
+
     #[must_use]
     pub fn struct_name(&self) -> Option<&str> {
         match self {
@@ -223,22 +237,10 @@ mod tests {
     #[test]
     fn owning_scope_preserved_on_reassign() {
         let mut m = SemanticModel::new();
-        m.introduce_in_scope(
-            "xs",
-            BindingKind::Mutable,
-            ValueKind::List,
-            sp(),
-            0,
-        );
+        m.introduce_in_scope("xs", BindingKind::Mutable, ValueKind::List, sp(), 0);
         let nested = m.alloc_scope();
         assert_eq!(nested, 1);
-        m.introduce_in_scope(
-            "xs",
-            BindingKind::Mutable,
-            ValueKind::List,
-            sp(),
-            nested,
-        );
+        m.introduce_in_scope("xs", BindingKind::Mutable, ValueKind::List, sp(), nested);
         assert_eq!(m.owning_scope_of("xs"), Some(0));
         assert!(SemanticModel::is_managed_kind(&ValueKind::List));
         assert!(!SemanticModel::is_managed_kind(&ValueKind::Int));

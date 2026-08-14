@@ -159,8 +159,8 @@ std or free `print`.
 | **Source identity** | `echo_source` | Paths; mark/query whether a file is under std root (or resolver provides it) |
 | **Lex / parse / AST** | `echo_lexer`, `echo_parser`, `echo_ast` | `/ runtime` is ordinary import syntax; no special tokens |
 | **Index** | `echo_index` | Facts for std modules and (when imported) runtime module exports |
-| **Resolve** | `echo_resolver` | (1) `/ std/…` → toolchain std root; (2) `/ runtime` only if **importer file** is under that std root; (3) bind module name `runtime`; (4) closed graph includes runtime unit as a **synthetic/virtual module** with known exports |
-| **Semantics** | `echo_semantics` | Treat `runtime.export` as a normal module export when import is legal; arity/use checks; **never** inject free `print` into user scopes |
+| **Resolve** | `echo_resolver` | (1) `/ std/…` → toolchain std root; (2) `/ runtime` only if **importer file** is under that std root; (3) bind module name `runtime`; (4) closed graph includes runtime unit as a **synthetic/virtual module** with known exports; (5) fill `ModuleExport.return_ty` from `runtime_ret_kind` or defining-file inference |
+| **Semantics** | `echo_semantics` | Treat `runtime.export` as a normal module export when import is legal; arity/use checks; imported return kinds when known; import **params** stay `value`; **never** inject free `print` into user scopes |
 | **HIR / MIR** | `echo_hir`, `echo_mir` | Preserve calls; tag or keep callee as runtime primitive for codegen |
 | **ABI map** | `echo_codegen_abi` (+ `echo_std`) | `(runtime export name) → echo_runtime_*` string; single name authority |
 | **Codegen** | `echo_codegen` | Emit `call echo_runtime_*` for those callees; never expose symbols to Echo source |

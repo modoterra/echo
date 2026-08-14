@@ -31,6 +31,8 @@ pub enum MirOp {
     Set {
         name: String,
         value: MirExpr,
+        /// Source span of the originating bind/assign, if known.
+        span: Option<echo_source::Span>,
     },
     Eval(MirExpr),
     FieldSet {
@@ -106,11 +108,31 @@ pub enum Terminator {
         ok_bb: BlockId,
         err_bb: BlockId,
     },
-    ReturnOk(MirExpr),
+    ReturnOk(MirExpr, Option<echo_source::Span>),
     ReturnErr(MirExpr),
     ReturnNone,
     /// Fallthrough used only during construction; must be rewritten before use.
     Unreachable,
+}
+
+impl MirOp {
+    #[must_use]
+    pub fn span(&self) -> Option<echo_source::Span> {
+        match self {
+            Self::Set { span, .. } => *span,
+            _ => None,
+        }
+    }
+}
+
+impl Terminator {
+    #[must_use]
+    pub fn span(&self) -> Option<echo_source::Span> {
+        match self {
+            Self::ReturnOk(_, span) => *span,
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -140,7 +162,7 @@ impl MirCfg {
                 then_bb, else_bb, ..
             } => vec![*then_bb, *else_bb],
             Terminator::MatchTagged { ok_bb, err_bb, .. } => vec![*ok_bb, *err_bb],
-            Terminator::ReturnOk(_)
+            Terminator::ReturnOk(..)
             | Terminator::ReturnErr(_)
             | Terminator::ReturnNone
             | Terminator::Unreachable => vec![],
@@ -233,7 +255,7 @@ pub fn structured_to_cfg_with_fallthrough(
     let entry = b.alloc();
     let after = lower_seq(&mut b, entry, stmts, None);
     if matches!(b.block_mut(after).term, Terminator::Unreachable) {
-        b.set_term(after, Terminator::ReturnOk(fallthrough));
+        b.set_term(after, Terminator::ReturnOk(fallthrough, None));
     }
     b.finish(entry)
 }
@@ -253,12 +275,13 @@ fn lower_seq(b: &mut Builder, mut cur: BlockId, stmts: &[MirStmt], loop_ctx: Loo
 
 fn lower_stmt(b: &mut Builder, cur: BlockId, stmt: &MirStmt, loop_ctx: LoopCtx) -> BlockId {
     match stmt {
-        MirStmt::Set { name, value } => {
+        MirStmt::Set { name, value, span } => {
             b.push_op(
                 cur,
                 MirOp::Set {
                     name: name.clone(),
                     value: value.clone(),
+                    span: *span,
                 },
             );
             cur
@@ -278,11 +301,7 @@ fn lower_stmt(b: &mut Builder, cur: BlockId, stmt: &MirStmt, loop_ctx: LoopCtx) 
             );
             cur
         }
-        MirStmt::IndexSet {
-            base,
-            index,
-            value,
-        } => {
+        MirStmt::IndexSet { base, index, value } => {
             b.push_op(
                 cur,
                 MirOp::IndexSet {
@@ -348,8 +367,8 @@ fn lower_stmt(b: &mut Builder, cur: BlockId, stmt: &MirStmt, loop_ctx: LoopCtx) 
             );
             cur
         }
-        MirStmt::ReturnOk(e) => {
-            b.set_term(cur, Terminator::ReturnOk(e.clone()));
+        MirStmt::ReturnOk(e, span) => {
+            b.set_term(cur, Terminator::ReturnOk(e.clone(), *span));
             cur
         }
         MirStmt::ReturnErr(e) => {
@@ -616,6 +635,7 @@ fn lower_for_in(
         MirOp::Set {
             name: iter_n.clone(),
             value: iter.clone(),
+            span: None,
         },
     );
     b.push_op(
@@ -623,6 +643,7 @@ fn lower_for_in(
         MirOp::Set {
             name: idx_n.clone(),
             value: MirExpr::ConstI64(0),
+            span: None,
         },
     );
     b.set_term(cur, Terminator::Goto(header));
@@ -650,11 +671,9 @@ fn lower_for_in(
             name: item.to_string(),
             value: MirExpr::PrimCall {
                 prim: MirPrim::ListGetChecked,
-                args: vec![
-                    MirExpr::Name(iter_n.clone()),
-                    MirExpr::Name(idx_n.clone()),
-                ],
+                args: vec![MirExpr::Name(iter_n.clone()), MirExpr::Name(idx_n.clone())],
             },
+            span: None,
         },
     );
     // continue → cont (i++); break → exit
@@ -696,6 +715,7 @@ fn lower_for_in(
                     left: Box::new(MirExpr::Name(idx_n)),
                     right: Box::new(MirExpr::ConstI64(1)),
                 },
+                span: None,
             },
         );
         b.set_term(cont, Terminator::Goto(header));
@@ -719,7 +739,7 @@ fn blocks_reachable_from(b: &Builder, start: BlockId) -> HashSet<BlockId> {
                 then_bb, else_bb, ..
             } => vec![*then_bb, *else_bb],
             Terminator::MatchTagged { ok_bb, err_bb, .. } => vec![*ok_bb, *err_bb],
-            Terminator::ReturnOk(_)
+            Terminator::ReturnOk(..)
             | Terminator::ReturnErr(_)
             | Terminator::ReturnNone
             | Terminator::Unreachable => vec![],
@@ -747,9 +767,9 @@ mod tests {
         let stmts = vec![MirStmt::If {
             arms: vec![(
                 MirExpr::ConstI64(1),
-                vec![MirStmt::ReturnOk(MirExpr::ConstI64(2))],
+                vec![MirStmt::ReturnOk(MirExpr::ConstI64(2), None)],
             )],
-            else_body: Some(vec![MirStmt::ReturnOk(MirExpr::ConstI64(3))]),
+            else_body: Some(vec![MirStmt::ReturnOk(MirExpr::ConstI64(3), None)]),
         }];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         assert!(cfg.blocks.len() >= 3);
@@ -774,9 +794,9 @@ mod tests {
         let stmts = vec![MirStmt::MatchTagged {
             scrutinee: MirExpr::Name("r".into()),
             ok_name: Some("v".into()),
-            ok_body: vec![MirStmt::ReturnOk(MirExpr::Name("v".into()))],
+            ok_body: vec![MirStmt::ReturnOk(MirExpr::Name("v".into()), None)],
             err_name: Some("e".into()),
-            err_body: vec![MirStmt::ReturnOk(MirExpr::ConstI64(0))],
+            err_body: vec![MirStmt::ReturnOk(MirExpr::ConstI64(0), None)],
         }];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Result);
         assert!(matches!(
@@ -794,11 +814,15 @@ mod tests {
     fn match_payload_names_finds_payload_after_scope_ops() {
         let ops = vec![
             MirOp::ScopeEnter { id: 1 },
-            MirOp::MatchPayload { name: "outer".into() },
+            MirOp::MatchPayload {
+                name: "outer".into(),
+            },
             MirOp::ScopeRegister {
                 value: MirExpr::Name("outer".into()),
             },
-            MirOp::MatchPayload { name: "inner".into() },
+            MirOp::MatchPayload {
+                name: "inner".into(),
+            },
         ];
         let names = match_payload_names(&ops);
         assert_eq!(names, vec!["outer".to_string(), "inner".to_string()]);
@@ -832,13 +856,42 @@ mod tests {
     }
 
     #[test]
+    fn set_and_return_keep_source_span() {
+        use echo_source::{BytePos, SourceId, Span};
+        let span = Span::new(SourceId::from_u32(0), BytePos(10), BytePos(12));
+        let stmts = vec![
+            MirStmt::Set {
+                name: "n".into(),
+                value: MirExpr::ConstI64(1),
+                span: Some(span),
+            },
+            MirStmt::ReturnOk(MirExpr::Name("n".into()), Some(span)),
+        ];
+        let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
+        assert!(
+            cfg.blocks.iter().any(|b| b
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::Set { span: Some(s), .. } if *s == span))),
+            "Set span must survive CFG: {cfg:?}"
+        );
+        assert!(
+            cfg.blocks
+                .iter()
+                .any(|b| matches!(b.term, Terminator::ReturnOk(_, Some(s)) if s == span)),
+            "ReturnOk span must survive CFG: {cfg:?}"
+        );
+    }
+
+    #[test]
     fn straight_line_sets_and_return() {
         let stmts = vec![
             MirStmt::Set {
                 name: "n".into(),
                 value: MirExpr::ConstI64(1),
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("n".into())),
+            MirStmt::ReturnOk(MirExpr::Name("n".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         assert_eq!(cfg.entry, BlockId(0));
@@ -848,7 +901,7 @@ mod tests {
         ));
         assert!(matches!(
             cfg.blocks[0].term,
-            Terminator::ReturnOk(MirExpr::Name(ref n)) if n == "n"
+            Terminator::ReturnOk(MirExpr::Name(ref n), None) if n == "n"
         ));
     }
 }

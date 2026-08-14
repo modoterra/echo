@@ -306,8 +306,7 @@ payloads, `&` call-through unwrap, `#` function values, reject-path e26
 belt, and dispose of task/TCP/UDP/FS-file handles. Name-keyed demote stays
 **off**.
 
-Follow-on (not locked-language rows): www / AOT link polish,
-locator classification, SOTA G9. Variable/type DI after line tables.
+Follow-on (not locked-language rows): locator classification, SOTA G9.
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -531,6 +530,7 @@ current; fill Impl as work lands.
 | 2026-08-13 | Rich escapes locked: unknown / bad `\x` is `lex-escape` (not rewritten); `\{` `\}` legal |
 | 2026-08-14 | `xo cache gc`: drop stale compiler-stamp dirs, flat leftovers, and tmp; `clean` still wipes `.xo` |
 | 2026-08-14 | LLVM line-table DI: compile unit + subprogram + loc (file, line 1); `-g` on AOT link |
+| 2026-08-14 | Per-op DWARF lines + checker-kind locals; imported return kinds (`str.from_int` → string); import params stay `value`; AOT still one clang `-O0 -g` |
 
 ---
 

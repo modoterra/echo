@@ -78,7 +78,7 @@ pub fn analyze_escapes(
                     // Payload comes from runtime packing — treat as may-escape unknown.
                     escapes.insert(name.clone(), EscapeClass::Unknown);
                 }
-                MirOp::Set { name, value } => {
+                MirOp::Set { name, value, .. } => {
                     ensure(&mut escapes, name);
                     // Only pure SSA copies alias — do not peel through Box/Unbox.
                     if let MirExpr::Name(src) = value {
@@ -113,10 +113,7 @@ pub fn analyze_escapes(
                     mark_names_in(value, EscapeClass::EscapesToHeap, &mut escapes, &mut parent);
                 }
                 MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                    ..
+                    base, index, value, ..
                 } => {
                     mark_names_in(base, EscapeClass::Unknown, &mut escapes, &mut parent);
                     classify_expr_uses(index, UseCtx::Local, &mut escapes, &mut parent);
@@ -126,11 +123,21 @@ pub fn analyze_escapes(
                     mark_names_in(base, EscapeClass::Unknown, &mut escapes, &mut parent);
                     mark_names_in(value, EscapeClass::EscapesToHeap, &mut escapes, &mut parent);
                 }
-                MirOp::Phi { .. } | MirOp::MatchPayload { .. } | MirOp::TaskSpawn { .. } | MirOp::TaskSpawnFn { .. } | MirOp::TaskJoin { .. } | MirOp::ScopeEnter { .. } | MirOp::ScopeExit { .. } | MirOp::ScopeRegister { .. } | MirOp::ScopePromote { .. } | MirOp::ScopeDisown { .. } | MirOp::ScopeRelease { .. } => {}
+                MirOp::Phi { .. }
+                | MirOp::MatchPayload { .. }
+                | MirOp::TaskSpawn { .. }
+                | MirOp::TaskSpawnFn { .. }
+                | MirOp::TaskJoin { .. }
+                | MirOp::ScopeEnter { .. }
+                | MirOp::ScopeExit { .. }
+                | MirOp::ScopeRegister { .. }
+                | MirOp::ScopePromote { .. }
+                | MirOp::ScopeDisown { .. }
+                | MirOp::ScopeRelease { .. } => {}
             }
         }
         match &b.term {
-            Terminator::ReturnOk(e) | Terminator::ReturnErr(e) => {
+            Terminator::ReturnOk(e, _) | Terminator::ReturnErr(e) => {
                 mark_names_in(
                     e,
                     EscapeClass::EscapesFromFunction,
@@ -434,6 +441,7 @@ fn elide_noescape_scalar_boxes(
             if let MirOp::Set {
                 name,
                 value: MirExpr::BoxValue { value, from },
+                ..
             } = op
             {
                 if escapes.get(name).copied() == Some(EscapeClass::NoEscape)
@@ -451,7 +459,7 @@ fn elide_noescape_scalar_boxes(
     for b in &mut cfg.blocks {
         for op in &mut b.ops {
             match op {
-                MirOp::Set { value, name } => {
+                MirOp::Set { value, name, .. } => {
                     *value = elide_in_expr(value.clone(), &box_defs);
                     if let Some(r) = infer_after_elide(value) {
                         reprs.insert(name.clone(), r);
@@ -465,10 +473,7 @@ fn elide_noescape_scalar_boxes(
                     *value = elide_in_expr(value.clone(), &box_defs);
                 }
                 MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                    ..
+                    base, index, value, ..
                 } => {
                     *base = elide_in_expr(base.clone(), &box_defs);
                     *index = elide_in_expr(index.clone(), &box_defs);
@@ -501,10 +506,7 @@ fn elide_noescape_scalar_boxes(
                     collect_uses(value, &mut used);
                 }
                 MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                    ..
+                    base, index, value, ..
                 } => {
                     collect_uses(base, &mut used);
                     collect_uses(index, &mut used);
@@ -531,7 +533,7 @@ fn elide_noescape_scalar_boxes(
         match &b.term {
             Terminator::Branch { cond, .. } => collect_uses(cond, &mut used),
             Terminator::MatchTagged { scrutinee, .. } => collect_uses(scrutinee, &mut used),
-            Terminator::ReturnOk(e) | Terminator::ReturnErr(e) => collect_uses(e, &mut used),
+            Terminator::ReturnOk(e, _) | Terminator::ReturnErr(e) => collect_uses(e, &mut used),
             _ => {}
         }
     }
@@ -540,6 +542,7 @@ fn elide_noescape_scalar_boxes(
             MirOp::Set {
                 name,
                 value: MirExpr::BoxValue { .. },
+                ..
             } if !used.contains(name) => false,
             _ => true,
         });
@@ -566,7 +569,7 @@ fn elide_in_term(term: Terminator, boxes: &HashMap<String, (MirExpr, MirRepr)>) 
             ok_bb,
             err_bb,
         },
-        Terminator::ReturnOk(e) => Terminator::ReturnOk(elide_in_expr(e, boxes)),
+        Terminator::ReturnOk(e, span) => Terminator::ReturnOk(elide_in_expr(e, boxes), span),
         Terminator::ReturnErr(e) => Terminator::ReturnErr(elide_in_expr(e, boxes)),
         other => other,
     }
@@ -759,6 +762,7 @@ mod tests {
             MirStmt::Set {
                 name: "x".into(),
                 value: MirExpr::ConstI64(42),
+                span: None,
             },
             MirStmt::Set {
                 name: "b".into(),
@@ -766,6 +770,7 @@ mod tests {
                     value: Box::new(MirExpr::Name("x".into())),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "u".into(),
@@ -773,8 +778,9 @@ mod tests {
                     value: Box::new(MirExpr::Name("b".into())),
                     to: MirRepr::Int64,
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("u".into())),
+            MirStmt::ReturnOk(MirExpr::Name("u".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
@@ -792,6 +798,7 @@ mod tests {
                     MirOp::Set {
                         name,
                         value: MirExpr::BoxValue { .. },
+                        ..
                     } if name.starts_with("b@")
                 )
             })
@@ -811,8 +818,9 @@ mod tests {
                     value: Box::new(MirExpr::ConstI64(1)),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("b".into())),
+            MirStmt::ReturnOk(MirExpr::Name("b".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
@@ -835,6 +843,7 @@ mod tests {
                     value: Box::new(MirExpr::ConstI64(1)),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Eval(MirExpr::Call {
                 target: CallTarget::Function {
@@ -844,7 +853,7 @@ mod tests {
                 args: vec![MirExpr::Name("b".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
@@ -866,6 +875,7 @@ mod tests {
                     value: Box::new(MirExpr::ConstI64(7)),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Eval(MirExpr::Call {
                 target: CallTarget::Runtime {
@@ -874,7 +884,7 @@ mod tests {
                 args: vec![MirExpr::Name("b".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
@@ -902,6 +912,7 @@ mod tests {
                     value: Box::new(MirExpr::ConstI64(1)),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "s".into(),
@@ -909,8 +920,9 @@ mod tests {
                     type_name: String::new(),
                     fields: vec![("f".into(), MirExpr::Name("b".into()))],
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("s".into())),
+            MirStmt::ReturnOk(MirExpr::Name("s".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
@@ -936,6 +948,7 @@ mod tests {
                             value: Box::new(MirExpr::ConstI64(1)),
                             from: MirRepr::Int64,
                         },
+                        span: None,
                     }],
                 )],
                 else_body: Some(vec![MirStmt::Set {
@@ -944,9 +957,10 @@ mod tests {
                         value: Box::new(MirExpr::ConstI64(2)),
                         from: MirRepr::Int64,
                     },
+                    span: None,
                 }]),
             },
-            MirStmt::ReturnOk(MirExpr::Name("b".into())),
+            MirStmt::ReturnOk(MirExpr::Name("b".into()), None),
         ];
         let (_cfg, escapes) = pipeline(stmts, &[]);
         assert!(
@@ -962,6 +976,7 @@ mod tests {
             MirStmt::Set {
                 name: "x".into(),
                 value: MirExpr::ConstI64(3),
+                span: None,
             },
             MirStmt::Set {
                 name: "b".into(),
@@ -969,6 +984,7 @@ mod tests {
                     value: Box::new(MirExpr::Name("x".into())),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "y".into(),
@@ -976,6 +992,7 @@ mod tests {
                     value: Box::new(MirExpr::Name("b".into())),
                     to: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "z".into(),
@@ -984,8 +1001,9 @@ mod tests {
                     left: Box::new(MirExpr::Name("y".into())),
                     right: Box::new(MirExpr::ConstI64(1)),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("z".into())),
+            MirStmt::ReturnOk(MirExpr::Name("z".into()), None),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &[]);
@@ -1011,6 +1029,7 @@ mod tests {
                     MirOp::Set {
                         name,
                         value: MirExpr::BoxValue { .. },
+                        ..
                     } if name.starts_with("b@")
                 )
             })

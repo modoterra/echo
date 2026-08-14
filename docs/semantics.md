@@ -789,8 +789,12 @@ Runs after name/effect checks (`infer.rs` + `unify.rs`):
 - Scalars, lists, index, anon/named structs, fields  
 - Ops (no int/float mix; int `/` truncates)  
 - Calls (`sem-not-callable`, `sem-arity`; imported fns use export param count).
-  Known-arity import params are `value` (count only, no param kinds), so mixed
-  call sites stay open. Runtime primitives still have unknown arity.
+  Known-arity import **params** are `value` (count only, no param kinds), so
+  mixed call sites stay open. Runtime primitives still have unknown arity.
+  When the defining module has a known **leaf** return kind (`string`, `bool`,
+  `float`, `bytes`, `duration`), the importer uses that kind (`str.from_int` →
+  string). Integers, structs, and result/option wrappers stay open so width
+  tags and handle methods do not freeze. Params stay `value`.
 - Codes: `sem-type-mismatch`, `sem-not-callable`, `sem-arity`, `sem-no-field`  
 
 ## Open questions

@@ -67,11 +67,7 @@ impl MirRepr {
     pub fn is_ref(self) -> bool {
         matches!(
             self,
-            Self::StringRef
-                | Self::BytesRef
-                | Self::LocatorRef
-                | Self::ObjectRef
-                | Self::ListRef
+            Self::StringRef | Self::BytesRef | Self::LocatorRef | Self::ObjectRef | Self::ListRef
         )
     }
 
@@ -155,7 +151,7 @@ fn infer_pass(cfg: &MirCfg, reprs: &mut HashMap<String, MirRepr>) {
                     // Tagged payload is the universal i64 ABI payload.
                     reprs.insert(name.clone(), MirRepr::Boxed);
                 }
-                MirOp::Set { name, value } => {
+                MirOp::Set { name, value, .. } => {
                     let r = infer_expr(value, reprs);
                     reprs.insert(name.clone(), r);
                 }
@@ -393,7 +389,11 @@ fn insert_phi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
     for (pred, _phi_idx, phi_bb, old, boxed_name, from) in &rewrites {
         // Insert Set boxed = BoxValue(old) before terminator in pred
         let block = &mut cfg.blocks[pred.0 as usize];
-        if block.ops.iter().any(|op| matches!(op, MirOp::Set { name, .. } if name == boxed_name)) {
+        if block
+            .ops
+            .iter()
+            .any(|op| matches!(op, MirOp::Set { name, .. } if name == boxed_name))
+        {
             // already inserted
         } else {
             block.ops.push(MirOp::Set {
@@ -402,6 +402,7 @@ fn insert_phi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                     value: Box::new(MirExpr::Name(old.clone())),
                     from: *from,
                 },
+                span: None,
             });
             reprs.insert(boxed_name.clone(), MirRepr::Boxed);
         }
@@ -451,7 +452,7 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
         let ops = cfg.blocks[bi].ops.clone();
         for op in ops {
             match op {
-                MirOp::Set { name, value } => {
+                MirOp::Set { name, value, span } => {
                     let (pre, value) = rewrite_expr_abi(value, reprs, &mut fresh);
                     for p in pre {
                         if let MirOp::Set { name: ref n, .. } = p {
@@ -462,6 +463,7 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                         if let MirOp::Set {
                             name: ref tn,
                             value: ref tv,
+                            ..
                         } = p
                         {
                             reprs.insert(tn.clone(), infer_expr(tv, reprs));
@@ -470,7 +472,7 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                     }
                     let r = infer_expr(&value, reprs);
                     reprs.insert(name.clone(), r);
-                    new_ops.push(MirOp::Set { name, value });
+                    new_ops.push(MirOp::Set { name, value, span });
                 }
                 MirOp::Eval(value) => {
                     let (pre, value) = rewrite_expr_abi(value, reprs, &mut fresh);
@@ -478,6 +480,7 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                         if let MirOp::Set {
                             name: ref tn,
                             value: ref tv,
+                            span: None,
                         } = p
                         {
                             reprs.insert(tn.clone(), infer_expr(tv, reprs));
@@ -486,34 +489,23 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                     }
                     new_ops.push(MirOp::Eval(value));
                 }
-                MirOp::FieldSet {
-                    base,
-                    field,
-                    value,
-                } => {
+                MirOp::FieldSet { base, field, value } => {
                     let (pre1, base) = ensure_repr(base, MirRepr::ObjectRef, reprs, &mut fresh);
                     let (pre2, value) = ensure_repr(value, MirRepr::Boxed, reprs, &mut fresh);
                     for p in pre1.into_iter().chain(pre2) {
                         if let MirOp::Set {
                             name: ref tn,
                             value: ref tv,
+                            span: None,
                         } = p
                         {
                             reprs.insert(tn.clone(), infer_expr(tv, reprs));
                         }
                         new_ops.push(p);
                     }
-                    new_ops.push(MirOp::FieldSet {
-                        base,
-                        field,
-                        value,
-                    });
+                    new_ops.push(MirOp::FieldSet { base, field, value });
                 }
-                MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                } => {
+                MirOp::IndexSet { base, index, value } => {
                     let (pre1, base) = ensure_repr(base, MirRepr::ListRef, reprs, &mut fresh);
                     let (pre2, index) = ensure_repr(index, MirRepr::Int64, reprs, &mut fresh);
                     let (pre3, value) = ensure_repr(value, MirRepr::Boxed, reprs, &mut fresh);
@@ -521,17 +513,14 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                         if let MirOp::Set {
                             name: ref tn,
                             value: ref tv,
+                            span: None,
                         } = p
                         {
                             reprs.insert(tn.clone(), infer_expr(tv, reprs));
                         }
                         new_ops.push(p);
                     }
-                    new_ops.push(MirOp::IndexSet {
-                        base,
-                        index,
-                        value,
-                    });
+                    new_ops.push(MirOp::IndexSet { base, index, value });
                 }
                 MirOp::ListPush { base, value } => {
                     let (pre1, base) = ensure_repr(base, MirRepr::ListRef, reprs, &mut fresh);
@@ -540,6 +529,7 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
                         if let MirOp::Set {
                             name: ref tn,
                             value: ref tv,
+                            span: None,
                         } = p
                         {
                             reprs.insert(tn.clone(), infer_expr(tv, reprs));
@@ -559,6 +549,7 @@ fn insert_abi_boxes(mut cfg: MirCfg, reprs: &mut HashMap<String, MirRepr>) -> Mi
             if let MirOp::Set {
                 name: ref tn,
                 value: ref tv,
+                span: None,
             } = p
             {
                 reprs.insert(tn.clone(), infer_expr(tv, reprs));
@@ -577,10 +568,10 @@ fn rewrite_term_abi(
     fresh: &mut impl FnMut(&str) -> String,
 ) -> (Vec<MirOp>, Terminator) {
     match term {
-        Terminator::ReturnOk(e) => {
+        Terminator::ReturnOk(e, span) => {
             // Plain return ABI is i64 Echo value.
             let (pre, e) = ensure_repr(e, MirRepr::Boxed, reprs, fresh);
-            (pre, Terminator::ReturnOk(e))
+            (pre, Terminator::ReturnOk(e, span))
         }
         Terminator::ReturnErr(e) => {
             let (pre, e) = ensure_repr(e, MirRepr::Boxed, reprs, fresh);
@@ -594,18 +585,24 @@ fn rewrite_term_abi(
             // Prefer Bool; allow Int64 truthiness without boxing.
             let cr = infer_expr(&cond, reprs);
             if cr == MirRepr::Bool || cr == MirRepr::Int64 {
-                (vec![], Terminator::Branch {
-                    cond,
-                    then_bb,
-                    else_bb,
-                })
+                (
+                    vec![],
+                    Terminator::Branch {
+                        cond,
+                        then_bb,
+                        else_bb,
+                    },
+                )
             } else {
                 let (pre, cond) = ensure_repr(cond, MirRepr::Bool, reprs, fresh);
-                (pre, Terminator::Branch {
-                    cond,
-                    then_bb,
-                    else_bb,
-                })
+                (
+                    pre,
+                    Terminator::Branch {
+                        cond,
+                        then_bb,
+                        else_bb,
+                    },
+                )
             }
         }
         other => (vec![], other),
@@ -660,7 +657,13 @@ fn rewrite_expr_abi(
                     new_args.push(idx);
                 }
             }
-            (pre, MirExpr::PrimCall { prim, args: new_args })
+            (
+                pre,
+                MirExpr::PrimCall {
+                    prim,
+                    args: new_args,
+                },
+            )
         }
         MirExpr::Binary { op, left, right } => {
             // Keep native arithmetic native; only rewrite children structurally.
@@ -791,6 +794,7 @@ fn rewrite_expr_abi(
                                     value: Box::new(MirExpr::Name(n)),
                                     from: r,
                                 },
+                                span: None,
                             });
                             new_parts.push(StrPart::Name(tmp));
                         } else {
@@ -849,6 +853,7 @@ fn ensure_repr(
                     value: Box::new(e),
                     from: have,
                 },
+                span: None,
             };
             return (vec![op], MirExpr::Name(tmp));
         }
@@ -863,6 +868,7 @@ fn ensure_repr(
                 value: Box::new(e),
                 to: want,
             },
+            span: None,
         };
         return (vec![op], MirExpr::Name(tmp));
     }
@@ -896,7 +902,7 @@ fn rpo(cfg: &MirCfg) -> Vec<BlockId> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{construct_ssa, structured_to_cfg, MirRetShape, MirStmt};
+    use crate::{MirRetShape, MirStmt, construct_ssa, structured_to_cfg};
 
     fn ssa_of(stmts: Vec<MirStmt>) -> (MirCfg, HashMap<String, MirRepr>) {
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
@@ -931,10 +937,12 @@ mod tests {
             MirStmt::Set {
                 name: "a".into(),
                 value: MirExpr::ConstI64(1),
+                span: None,
             },
             MirStmt::Set {
                 name: "b".into(),
                 value: MirExpr::ConstI64(2),
+                span: None,
             },
             MirStmt::Set {
                 name: "c".into(),
@@ -943,8 +951,9 @@ mod tests {
                     left: Box::new(MirExpr::Name("a".into())),
                     right: Box::new(MirExpr::Name("b".into())),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("c".into())),
+            MirStmt::ReturnOk(MirExpr::Name("c".into()), None),
         ];
         let (_cfg, reprs) = ssa_of(stmts);
         let c = reprs
@@ -973,8 +982,9 @@ mod tests {
                     left: Box::new(MirExpr::ConstI64(1)),
                     right: Box::new(MirExpr::ConstI64(2)),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("t".into())),
+            MirStmt::ReturnOk(MirExpr::Name("t".into()), None),
         ];
         let (_cfg, reprs) = ssa_of(stmts);
         let t_reps: Vec<_> = reprs
@@ -994,14 +1004,16 @@ mod tests {
                     vec![MirStmt::Set {
                         name: "x".into(),
                         value: MirExpr::ConstI64(1),
+                        span: None,
                     }],
                 )],
                 else_body: Some(vec![MirStmt::Set {
                     name: "x".into(),
                     value: MirExpr::ConstI64(2),
+                    span: None,
                 }]),
             },
-            MirStmt::ReturnOk(MirExpr::Name("x".into())),
+            MirStmt::ReturnOk(MirExpr::Name("x".into()), None),
         ];
         let (cfg, reprs) = ssa_of(stmts);
         let phi = cfg.blocks.iter().find_map(|b| {
@@ -1032,14 +1044,16 @@ mod tests {
                     vec![MirStmt::Set {
                         name: "x".into(),
                         value: MirExpr::ConstI64(1),
+                        span: None,
                     }],
                 )],
                 else_body: Some(vec![MirStmt::Set {
                     name: "x".into(),
                     value: MirExpr::ConstBool(true),
+                    span: None,
                 }]),
             },
-            MirStmt::ReturnOk(MirExpr::Name("x".into())),
+            MirStmt::ReturnOk(MirExpr::Name("x".into()), None),
         ];
         let (cfg, reprs) = ssa_of(stmts);
         let phi = cfg.blocks.iter().find_map(|b| {
@@ -1083,6 +1097,7 @@ mod tests {
             MirStmt::Set {
                 name: "n".into(),
                 value: MirExpr::ConstI64(42),
+                span: None,
             },
             MirStmt::Eval(MirExpr::Call {
                 target: crate::CallTarget::Runtime {
@@ -1091,7 +1106,7 @@ mod tests {
                 args: vec![MirExpr::Name("n".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let (cfg, _reprs) = ssa_of(stmts);
         let has_box = cfg.blocks.iter().any(|b| {

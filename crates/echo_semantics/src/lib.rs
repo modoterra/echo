@@ -12,15 +12,15 @@ mod model;
 mod types;
 mod unify;
 
-pub use const_eval::{eval_const_expr, ConstError, ConstValue};
-pub use effect::{effects_in_stmts, ReturnShape};
-pub use infer::infer_last_expr_type;
+pub use const_eval::{ConstError, ConstValue, eval_const_expr};
+pub use effect::{ReturnShape, effects_in_stmts};
+pub use infer::{exportable_return_kind, infer_export_return_types, infer_last_expr_type};
 pub use model::{BindFact, BindId, SemanticModel, ValueKind};
 pub use types::Type;
 
 use echo_ast::File;
 use echo_diagnostics::Diagnostics;
-use echo_parser::{parse, Parsed};
+use echo_parser::{Parsed, parse};
 use echo_source::{SourceFile, Span};
 
 /// Stable crate identity for workspace linkage checks.
@@ -50,6 +50,9 @@ pub struct ModuleExport {
     /// Parameter count when the export is a function value. `None` = unknown
     /// (runtime primitives, or a non-function export).
     pub arity: Option<usize>,
+    /// Concrete return kind from the defining module, when known.
+    /// Import **params** stay `value`; only the result is pinned.
+    pub return_ty: Option<Type>,
 }
 
 /// Module brought into scope by `/ path` (last path segment as name).
@@ -147,9 +150,7 @@ mod tests {
     #[test]
     fn capture_outer_param_as_callee_rejected() {
         // Nested closed body calling outer param used to skip capture (SEGV at run).
-        let c = codes(
-            "$ compose = (f) {\n  $ h = (x) {\n    ^ f(x)\n  }\n  ^ h\n}\n",
-        );
+        let c = codes("$ compose = (f) {\n  $ h = (x) {\n    ^ f(x)\n  }\n  ^ h\n}\n");
         assert!(c.iter().any(|x| x == "sem-capture"), "{c:?}");
     }
 
@@ -173,31 +174,20 @@ mod tests {
 
     #[test]
     fn struct_lit_missing_required_field() {
-        let c = codes(
-            "% user {\n    $ name\n    ~ visits = 0\n}\n$ u = user { visits: 1 }\n",
-        );
-        assert!(
-            c.iter().any(|x| x == "sem-struct-missing-field"),
-            "{c:?}"
-        );
+        let c = codes("% user {\n    $ name\n    ~ visits = 0\n}\n$ u = user { visits: 1 }\n");
+        assert!(c.iter().any(|x| x == "sem-struct-missing-field"), "{c:?}");
     }
 
     #[test]
     fn struct_lit_omitted_default_ok() {
         let c = codes("% user {\n    $ name\n    ~ visits = 0\n}\n$ u = user { name: \"Ada\" }\n");
-        assert!(
-            !c.iter().any(|x| x.starts_with("sem-struct-")),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| x.starts_with("sem-struct-")), "{c:?}");
     }
 
     #[test]
     fn struct_lit_unknown_field() {
         let c = codes("% user {\n    $ name\n}\n$ u = user { name: \"A\", z: 1 }\n");
-        assert!(
-            c.iter().any(|x| x == "sem-struct-unknown-field"),
-            "{c:?}"
-        );
+        assert!(c.iter().any(|x| x == "sem-struct-unknown-field"), "{c:?}");
     }
 
     #[test]
@@ -242,9 +232,7 @@ mod tests {
 
     #[test]
     fn self_call_in_function_value_ok() {
-        let c = codes(
-            "$ fact = (n) {\n  ? n == 0 {\n    ^ 1\n  }\n  ^ n * fact(n - 1)\n}\n",
-        );
+        let c = codes("$ fact = (n) {\n  ? n == 0 {\n    ^ 1\n  }\n  ^ n * fact(n - 1)\n}\n");
         assert!(!c.iter().any(|x| x == "sem-unbound"), "{c:?}");
     }
 
@@ -300,14 +288,11 @@ mod tests {
                 kind: BindingKind::Immutable,
                 return_shape: Some(ReturnShape::Plain),
                 arity: Some(1),
+                return_ty: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);
-        let codes: Vec<_> = d
-            .items()
-            .iter()
-            .filter_map(|x| x.code.clone())
-            .collect();
+        let codes: Vec<_> = d.items().iter().filter_map(|x| x.code.clone()).collect();
         assert_eq!(
             codes.iter().filter(|c| *c == "sem-arity").count(),
             2,
@@ -330,6 +315,7 @@ mod tests {
                 kind: BindingKind::Immutable,
                 return_shape: Some(ReturnShape::Plain),
                 arity: Some(1),
+                return_ty: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);
@@ -338,6 +324,96 @@ mod tests {
             0,
             "mixed-kind calls to the same import must stay open: {:?}",
             d.items()
+        );
+    }
+
+    #[test]
+    fn imported_return_kind_is_used_params_stay_value() {
+        use echo_source::BytePos;
+        let mut map = SourceMap::new();
+        let id = map.add(
+            "t.echo",
+            "io.print(1)\nio.print(\"a\")\n$ s = str.from_int(1)\n$ x = s + 1\n",
+        );
+        let p = parse(map.get(id).unwrap());
+        let file = p.file.unwrap();
+        let modules = [
+            ImportedModule {
+                name: "io".into(),
+                span: Span::new(id, BytePos(0), BytePos(1)),
+                exports: vec![ModuleExport {
+                    name: "print".into(),
+                    kind: BindingKind::Immutable,
+                    return_shape: Some(ReturnShape::Plain),
+                    arity: Some(1),
+                    return_ty: None,
+                }],
+            },
+            ImportedModule {
+                name: "str".into(),
+                span: Span::new(id, BytePos(0), BytePos(1)),
+                exports: vec![ModuleExport {
+                    name: "from_int".into(),
+                    kind: BindingKind::Immutable,
+                    return_shape: Some(ReturnShape::Plain),
+                    arity: Some(1),
+                    return_ty: Some(Type::String),
+                }],
+            },
+        ];
+        let d = check_file_with_modules(&file, &modules);
+        let codes: Vec<_> = d.items().iter().filter_map(|x| x.code.clone()).collect();
+        assert!(
+            codes.iter().any(|c| c == "sem-type-mismatch"),
+            "string + int should mismatch: {codes:?}"
+        );
+        assert!(
+            !codes.iter().any(|c| c == "sem-arity"),
+            "print mixed kinds must stay open: {codes:?}"
+        );
+    }
+
+    #[test]
+    fn infer_export_return_types_sees_sibling_calls() {
+        let mut map = SourceMap::new();
+        let id = map.add(
+            "t.echo",
+            "$ len = () {\n    ^ 3\n}\n$ is_empty = () {\n    ^ len() == 0\n}\n$ greet = () {\n    ^ \"hi\"\n}\n",
+        );
+        let p = parse(map.get(id).unwrap());
+        let file = p.file.unwrap();
+        let map = infer_export_return_types(&file, &[]);
+        assert!(
+            matches!(map.get("greet"), Some(Type::String)),
+            "greet={:?}",
+            map.get("greet")
+        );
+        assert!(
+            matches!(map.get("is_empty"), Some(Type::Bool)),
+            "sibling len() must yield bool, got {:?}",
+            map.get("is_empty")
+        );
+        assert!(
+            !map.contains_key("len"),
+            "int returns stay unpinned (width-safe): {:?}",
+            map.get("len")
+        );
+    }
+
+    #[test]
+    fn infer_export_ignores_test_it_pinning() {
+        let mut map = SourceMap::new();
+        let id = map.add(
+            "t.echo",
+            "$ id = (x) {\n    ^ x\n}\ntest.it(\"t\", () {\n    $ n = id(1) + 1\n})\n",
+        );
+        let p = parse(map.get(id).unwrap());
+        let file = p.file.unwrap();
+        let map = infer_export_return_types(&file, &[]);
+        assert!(
+            !map.contains_key("id"),
+            "test.it must not pin id to int: {:?}",
+            map.get("id")
         );
     }
 
@@ -356,6 +432,7 @@ mod tests {
                 kind: BindingKind::Immutable,
                 return_shape: None,
                 arity: Some(1),
+                return_ty: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);
@@ -381,10 +458,7 @@ mod tests {
         let c = codes(
             "% counter {\n    ~ n\n    $ inc = () {\n        ~ .n = .n + 1\n    }\n}\n$ c = counter { n: 0 }\n$ x = c.inc().n\n",
         );
-        assert!(
-            c.is_empty(),
-            "c.inc().n should type as the field: {c:?}"
-        );
+        assert!(c.is_empty(), "c.inc().n should type as the field: {c:?}");
     }
 
     #[test]
@@ -420,7 +494,8 @@ mod tests {
     fn width_cast_int_float_ok() {
         let c = codes("$ a = <f64> 3\n$ b = <i32> a\n");
         assert!(
-            !c.iter().any(|x| x == "sem-width-cast" || x == "sem-width-unknown"),
+            !c.iter()
+                .any(|x| x == "sem-width-cast" || x == "sem-width-unknown"),
             "numeric casts should check: {c:?}"
         );
     }
@@ -499,7 +574,9 @@ mod tests {
         }];
         let d = check_file_with_modules(&file, &modules);
         assert!(
-            d.items().iter().any(|x| x.code.as_deref() == Some("sem-shadow")),
+            d.items()
+                .iter()
+                .any(|x| x.code.as_deref() == Some("sem-shadow")),
             "{:?}",
             d.items()
         );
@@ -533,6 +610,7 @@ $ x = f()
                 kind: BindingKind::Immutable,
                 return_shape: None,
                 arity: None,
+                return_ty: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);
@@ -560,6 +638,7 @@ $ x = f()
                 kind: BindingKind::Immutable,
                 return_shape: None,
                 arity: None,
+                return_ty: None,
             }],
         }];
         let d = check_file_with_modules(&file, &modules);
@@ -590,10 +669,7 @@ $ f = () {
 }
 ";
         let c = codes(src);
-        assert!(
-            !c.iter().any(|x| *x == "sem-unhandled-result"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-unhandled-result"), "{c:?}");
     }
 
     #[test]
@@ -608,10 +684,7 @@ $ f = () {
 }
 ";
         let c = codes(src);
-        assert!(
-            !c.iter().any(|x| *x == "sem-unhandled-result"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-unhandled-result"), "{c:?}");
     }
 
     #[test]
@@ -629,10 +702,7 @@ $ main = () {
 }
 ";
         let c = codes(src);
-        assert!(
-            !c.iter().any(|x| *x == "sem-unhandled-result"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-unhandled-result"), "{c:?}");
     }
 
     #[test]
@@ -650,19 +720,13 @@ $ main = () {
 }
 ";
         let c = codes(src);
-        assert!(
-            !c.iter().any(|x| *x == "sem-unhandled-option"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-unhandled-option"), "{c:?}");
     }
 
     #[test]
     fn infer_int_add_ok() {
         let c = codes("$ x = 1 + 2\n");
-        assert!(
-            !c.iter().any(|x| *x == "sem-type-mismatch"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
     }
 
     #[test]
@@ -827,28 +891,20 @@ $ main = () {
     #[test]
     fn infer_width_default_ok() {
         let c = codes("$ x = <i64>1 + 2\n");
-        assert!(
-            !c.iter().any(|x| *x == "sem-type-mismatch"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
     }
 
     #[test]
     fn infer_default_i64_yields_to_i32() {
         // Untagged / default i64 adopts a more specific width.
         let c = codes("$ x = <i32>1 + 2\n$ y = <i32>1 + <i64>2\n");
-        assert!(
-            !c.iter().any(|x| *x == "sem-type-mismatch"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
     }
 
     #[test]
     fn field_width_from_default_allows_ops_without_cast() {
         // `~ v = <ui64> 0` → field is ui64; load/store ops need no re-tag.
-        let c = codes(
-            "% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = t.v + <ui64> 1\n",
-        );
+        let c = codes("% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = t.v + <ui64> 1\n");
         assert!(
             !c.iter().any(|x| *x == "sem-type-mismatch"),
             "expected field ui64 from default, got {c:?}"
@@ -867,9 +923,8 @@ $ main = () {
 
     #[test]
     fn default_int_literal_yields_to_ui64_lane() {
-        let c = codes(
-            "% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = t.v + 1\n~ t.v = t.v << 3\n",
-        );
+        let c =
+            codes("% s {\n    ~ v = <ui64> 0\n}\n$ t = s {}\n~ t.v = t.v + 1\n~ t.v = t.v << 3\n");
         assert!(
             !c.iter().any(|x| *x == "sem-type-mismatch"),
             "untagged lits should adopt ui64 field lane, got {c:?}"
@@ -879,9 +934,6 @@ $ main = () {
     #[test]
     fn infer_duration_ok() {
         let c = codes("$ t = 5s\n$ u = 10ms\n");
-        assert!(
-            !c.iter().any(|x| *x == "sem-type-mismatch"),
-            "{c:?}"
-        );
+        assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
     }
 }

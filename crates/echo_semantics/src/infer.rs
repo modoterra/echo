@@ -9,7 +9,7 @@ use echo_ast::{
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_source::Span;
 
-use crate::effect::{effects_in_stmts, ReturnShape};
+use crate::effect::{ReturnShape, effects_in_stmts};
 use crate::types::{Subst, Type, VarId};
 use crate::unify::unify;
 use crate::{BindingKind, ImportedModule};
@@ -18,7 +18,9 @@ use crate::{BindingKind, ImportedModule};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FieldSlot {
     /// Data field; `has_default` when the shape provides `= expr`.
-    Data { has_default: bool },
+    Data {
+        has_default: bool,
+    },
     Method,
 }
 
@@ -103,6 +105,61 @@ impl Env {
     }
 }
 
+/// Applied return kinds of top-level `$ name = ( ) { }` binds.
+///
+/// Walks binds in order so sibling calls see earlier functions (`is_empty` →
+/// `len`). Skips expression statements (`test.it`, …) so suite bodies cannot
+/// monomorphize export returns. Only leaf kinds are exported (see
+/// [`exportable_return_kind`]).
+#[must_use]
+pub fn infer_export_return_types(file: &File, modules: &[ImportedModule]) -> HashMap<String, Type> {
+    let mut env = setup_infer_env(file, modules);
+    let mut out = HashMap::new();
+    for stmt in &file.stmts {
+        let echo_ast::Stmt::Bind(b) = stmt else {
+            continue;
+        };
+        if let Some(echo_ast::Expr::Fn { params, body, .. }) = &b.init {
+            let ft = infer_fn_type(&mut env, params, body, None);
+            let applied = env.apply(&ft);
+            env.bind(&b.name.name, applied.clone());
+            env.funs.insert(b.name.name.clone(), applied.clone());
+            if let Type::Fn { ret, .. } = applied {
+                if let Some(leaf) = exportable_return_kind(*ret) {
+                    out.insert(b.name.name.clone(), leaf);
+                }
+            }
+        } else {
+            infer_stmt(&mut env, stmt);
+        }
+    }
+    out
+}
+
+/// Leaf kind safe to attach as `ModuleExport.return_ty`.
+///
+/// Result/option wrappers are peeled (the export's `return_shape` re-wraps).
+/// Integers and named structs are omitted: width-tagged uses and handle
+/// types must stay open at the importer.
+#[must_use]
+pub fn exportable_return_kind(t: Type) -> Option<Type> {
+    let t = peel_return_shape(t);
+    match t {
+        Type::String | Type::Bool | Type::Float | Type::Float32 | Type::Bytes | Type::Duration => {
+            Some(t)
+        }
+        _ => None,
+    }
+}
+
+fn peel_return_shape(t: Type) -> Type {
+    match t {
+        Type::Result { ok, .. } => peel_return_shape(*ok),
+        Type::Option(inner) => peel_return_shape(*inner),
+        other => other,
+    }
+}
+
 /// Infer kinds for `file`; returns only inference diagnostics.
 #[must_use]
 pub fn infer_file(file: &File, modules: &[ImportedModule]) -> Diagnostics {
@@ -144,11 +201,12 @@ fn setup_infer_env(file: &File, modules: &[ImportedModule]) -> Env {
                     // Arity or return shape means this export is a function.
                     // Arity alone still builds `fn(value, …)` so a missing shape
                     // cannot monomorphize the name on the first call.
-                    if e.return_shape.is_some() || e.arity.is_some() {
+                    if e.return_shape.is_some() || e.arity.is_some() || e.return_ty.is_some() {
                         shape_to_fn_type(
                             &mut env,
                             e.return_shape.unwrap_or(ReturnShape::Plain),
                             e.arity,
+                            e.return_ty.clone(),
                         )
                     } else {
                         env.fresh()
@@ -234,12 +292,21 @@ fn register_struct(env: &mut Env, s: &StructStmt) {
     env.bind(&s.name.name, Type::Named(sname));
 }
 
-fn shape_to_fn_type(env: &mut Env, shape: ReturnShape, arity: Option<usize>) -> Type {
-    let ret = match shape {
-        ReturnShape::Plain => env.fresh(),
-        ReturnShape::Option => Type::option(env.fresh()),
-        ReturnShape::Result => Type::result(env.fresh(), env.fresh()),
-        ReturnShape::ResultOption => Type::result(Type::option(env.fresh()), env.fresh()),
+fn shape_to_fn_type(
+    env: &mut Env,
+    shape: ReturnShape,
+    arity: Option<usize>,
+    known_ret: Option<Type>,
+) -> Type {
+    let ret = match (shape, known_ret) {
+        (ReturnShape::Plain, Some(t)) => t,
+        (ReturnShape::Option, Some(t)) => Type::option(t),
+        (ReturnShape::Result, Some(t)) => Type::result(t, env.fresh()),
+        (ReturnShape::ResultOption, Some(t)) => Type::result(Type::option(t), env.fresh()),
+        (ReturnShape::Plain, None) => env.fresh(),
+        (ReturnShape::Option, None) => Type::option(env.fresh()),
+        (ReturnShape::Result, None) => Type::result(env.fresh(), env.fresh()),
+        (ReturnShape::ResultOption, None) => Type::result(Type::option(env.fresh()), env.fresh()),
     };
     Type::func_imported(arity, ret)
 }
@@ -352,16 +419,15 @@ fn infer_stmt(env: &mut Env, stmt: &Stmt) {
                             let tt = env.apply(&t);
                             // Named-struct return unions: widen return kind instead of mismatch.
                             let merged = match (other, tt) {
-                                (Type::Named(a), Type::Named(b)) if a != b => Some(Type::union_of([
-                                    Type::Named(a),
-                                    Type::Named(b),
-                                ])),
+                                (Type::Named(a), Type::Named(b)) if a != b => {
+                                    Some(Type::union_of([Type::Named(a), Type::Named(b)]))
+                                }
                                 (Type::Union(xs), Type::Named(b)) => Some(Type::union_of(
                                     xs.into_iter().chain(std::iter::once(Type::Named(b))),
                                 )),
-                                (Type::Named(a), Type::Union(ys)) => Some(Type::union_of(
-                                    std::iter::once(Type::Named(a)).chain(ys),
-                                )),
+                                (Type::Named(a), Type::Union(ys)) => {
+                                    Some(Type::union_of(std::iter::once(Type::Named(a)).chain(ys)))
+                                }
                                 (Type::Union(xs), Type::Union(ys)) => {
                                     Some(Type::union_of(xs.into_iter().chain(ys)))
                                 }
@@ -433,7 +499,10 @@ fn infer_stmt(env: &mut Env, stmt: &Stmt) {
                     }
                     MatchArmKind::Type { name } => {
                         // Refine name scrutinee to this struct type for the arm body.
-                        if let Expr::Name(Ident { name: scrut_name, .. }) = &s.scrutinee {
+                        if let Expr::Name(Ident {
+                            name: scrut_name, ..
+                        }) = &s.scrutinee
+                        {
                             env.bind(scrut_name, Type::Named(name.name.clone()));
                         }
                     }
@@ -773,11 +842,7 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
             let rt = infer_expr(env, right);
             infer_binary(env, *op, &lt, &rt, *span)
         }
-        Expr::Call {
-            callee,
-            args,
-            span,
-        } => {
+        Expr::Call { callee, args, span } => {
             let cty = infer_callee(env, callee);
             let cty = env.apply(&cty);
             match cty {
@@ -835,11 +900,7 @@ fn infer_expr(env: &mut Env, expr: &Expr) -> Type {
             reject_method_as_value(env, &bty, &field.name, *span);
             field_type(env, &bty, &field.name, *span)
         }
-        Expr::Index {
-            base,
-            index,
-            span,
-        } => {
+        Expr::Index { base, index, span } => {
             let bty = infer_expr(env, base);
             let ity = infer_expr(env, index);
             env.unify(&ity, &Type::Int, index.span());
@@ -1072,18 +1133,12 @@ fn is_int_kind(t: &Type) -> bool {
 
 #[allow(dead_code)]
 fn is_signed_int_kind(t: &Type) -> bool {
-    matches!(
-        t,
-        Type::Int | Type::Int8 | Type::Int16 | Type::Int32
-    )
+    matches!(t, Type::Int | Type::Int8 | Type::Int16 | Type::Int32)
 }
 
 #[allow(dead_code)]
 fn is_unsigned_int_kind(t: &Type) -> bool {
-    matches!(
-        t,
-        Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64
-    )
+    matches!(t, Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64)
 }
 
 fn is_float_kind(t: &Type) -> bool {

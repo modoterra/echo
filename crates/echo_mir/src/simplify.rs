@@ -66,10 +66,7 @@ fn fold_exprs(cfg: &mut MirCfg) -> bool {
                     }
                 }
                 MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                    ..
+                    base, index, value, ..
                 } => {
                     let nb = simplify_expr(base.clone());
                     let ni = simplify_expr(index.clone());
@@ -133,7 +130,7 @@ fn simplify_term(term: Terminator) -> Terminator {
             ok_bb,
             err_bb,
         },
-        Terminator::ReturnOk(e) => Terminator::ReturnOk(simplify_expr(e)),
+        Terminator::ReturnOk(e, span) => Terminator::ReturnOk(simplify_expr(e), span),
         Terminator::ReturnErr(e) => Terminator::ReturnErr(simplify_expr(e)),
         other => other,
     }
@@ -146,10 +143,7 @@ pub fn simplify_expr(e: MirExpr) -> MirExpr {
             let value = simplify_expr(*value);
             match value {
                 // UnboxValue(BoxValue(x, R), R) → x
-                MirExpr::BoxValue {
-                    value: inner,
-                    from,
-                } if from == to => simplify_expr(*inner),
+                MirExpr::BoxValue { value: inner, from } if from == to => simplify_expr(*inner),
                 // Unbox of a value already at `to` is identity (handled when Name
                 // is not available here; structural only for nested forms).
                 other => MirExpr::UnboxValue {
@@ -162,10 +156,11 @@ pub fn simplify_expr(e: MirExpr) -> MirExpr {
             let value = simplify_expr(*value);
             match value {
                 // BoxValue(UnboxValue(x, R), R) → x when x is already boxed-shaped.
-                MirExpr::UnboxValue {
-                    value: inner,
-                    to,
-                } if to == from && is_boxed_shaped(&inner) => simplify_expr(*inner),
+                MirExpr::UnboxValue { value: inner, to }
+                    if to == from && is_boxed_shaped(&inner) =>
+                {
+                    simplify_expr(*inner)
+                }
                 other => MirExpr::BoxValue {
                     value: Box::new(other),
                     from,
@@ -256,8 +251,8 @@ fn is_boxed_shaped(e: &MirExpr) -> bool {
         MirExpr::Unary { .. } | MirExpr::Binary { .. } => false,
         MirExpr::StructLit { .. } => false,
         MirExpr::StructTypeIs { .. } => true, // runtime type_is call → i64 bool
-        MirExpr::FnValue { .. } => true,     // code pointer as i64 value
-        MirExpr::Range { .. } => true,       // heap range handle
+        MirExpr::FnValue { .. } => true,      // code pointer as i64 value
+        MirExpr::Range { .. } => true,        // heap range handle
     }
 }
 
@@ -272,6 +267,7 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
             if let MirOp::Set {
                 name,
                 value: MirExpr::Name(src),
+                ..
             } = op
             {
                 let root = resolve_alias(&alias, src);
@@ -282,10 +278,8 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
             // Identity unbox/box folded to Name after fold_exprs may land here next iter.
             if let MirOp::Set {
                 name,
-                value: MirExpr::UnboxValue {
-                    value,
-                    to,
-                },
+                value: MirExpr::UnboxValue { value, to },
+                ..
             } = op
             {
                 if let MirExpr::Name(src) = value.as_ref() {
@@ -301,10 +295,8 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
             }
             if let MirOp::Set {
                 name,
-                value: MirExpr::BoxValue {
-                    value,
-                    from: _,
-                },
+                value: MirExpr::BoxValue { value, from: _ },
+                ..
             } = op
             {
                 if let MirExpr::Name(src) = value.as_ref() {
@@ -361,8 +353,7 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
                         .map(|(p, n)| (p, resolve_alias(&alias, &n)))
                         .collect();
                     // Check again after resolve
-                    if !incomings.is_empty()
-                        && incomings.iter().all(|(_, n)| n == &incomings[0].1)
+                    if !incomings.is_empty() && incomings.iter().all(|(_, n)| n == &incomings[0].1)
                     {
                         alias.insert(name.clone(), incomings[0].1.clone());
                         changed = true;
@@ -370,34 +361,26 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
                     }
                     new_ops.push(MirOp::Phi { name, incomings });
                 }
-                MirOp::Set { name, value } => {
+                MirOp::Set { name, value, span } => {
                     if alias.contains_key(&name) {
                         // Pure copy / collapsed — drop definition.
                         changed = true;
                         continue;
                     }
                     let value = rewrite_names(value, &alias);
-                    new_ops.push(MirOp::Set { name, value });
+                    new_ops.push(MirOp::Set { name, value, span });
                 }
                 MirOp::Eval(value) => {
                     new_ops.push(MirOp::Eval(rewrite_names(value, &alias)));
                 }
-                MirOp::FieldSet {
-                    base,
-                    field,
-                    value,
-                } => {
+                MirOp::FieldSet { base, field, value } => {
                     new_ops.push(MirOp::FieldSet {
                         base: rewrite_names(base, &alias),
                         field,
                         value: rewrite_names(value, &alias),
                     });
                 }
-                MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                } => {
+                MirOp::IndexSet { base, index, value } => {
                     new_ops.push(MirOp::IndexSet {
                         base: rewrite_names(base, &alias),
                         index: rewrite_names(index, &alias),
@@ -437,10 +420,7 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
                     new_ops.push(MirOp::TaskSpawnFn {
                         module_path,
                         fn_symbol,
-                        args: args
-                            .into_iter()
-                            .map(|a| rewrite_names(a, &alias))
-                            .collect(),
+                        args: args.into_iter().map(|a| rewrite_names(a, &alias)).collect(),
                         bind,
                     });
                 }
@@ -605,7 +585,7 @@ fn rewrite_term_names(term: Terminator, alias: &HashMap<String, String>) -> Term
             ok_bb,
             err_bb,
         },
-        Terminator::ReturnOk(e) => Terminator::ReturnOk(rewrite_names(e, alias)),
+        Terminator::ReturnOk(e, span) => Terminator::ReturnOk(rewrite_names(e, alias), span),
         Terminator::ReturnErr(e) => Terminator::ReturnErr(rewrite_names(e, alias)),
         other => other,
     }
@@ -629,10 +609,7 @@ fn dce_pure(cfg: &mut MirCfg, _reprs: &HashMap<String, MirRepr>) -> bool {
                     collect_uses(value, &mut used);
                 }
                 MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                    ..
+                    base, index, value, ..
                 } => {
                     collect_uses(base, &mut used);
                     collect_uses(index, &mut used);
@@ -669,7 +646,7 @@ fn dce_pure(cfg: &mut MirCfg, _reprs: &HashMap<String, MirRepr>) -> bool {
     for b in &mut cfg.blocks {
         let before = b.ops.len();
         b.ops.retain(|op| match op {
-            MirOp::Set { name, value } if is_pure_conversion_or_copy(value) => {
+            MirOp::Set { name, value, .. } if is_pure_conversion_or_copy(value) => {
                 if used.contains(name) {
                     true
                 } else {
@@ -774,7 +751,7 @@ fn collect_term_uses(term: &Terminator, used: &mut HashSet<String>) {
     match term {
         Terminator::Branch { cond, .. } => collect_uses(cond, used),
         Terminator::MatchTagged { scrutinee, .. } => collect_uses(scrutinee, used),
-        Terminator::ReturnOk(e) | Terminator::ReturnErr(e) => collect_uses(e, used),
+        Terminator::ReturnOk(e, _) | Terminator::ReturnErr(e) => collect_uses(e, used),
         Terminator::Goto(_) | Terminator::ReturnNone | Terminator::Unreachable => {}
     }
 }
@@ -783,7 +760,7 @@ fn re_infer_light(cfg: &MirCfg, reprs: &mut HashMap<String, MirRepr>) {
     for b in &cfg.blocks {
         for op in &b.ops {
             match op {
-                MirOp::Set { name, value } => {
+                MirOp::Set { name, value, .. } => {
                     let r = light_infer(value, reprs);
                     reprs.insert(name.clone(), r);
                 }
@@ -847,9 +824,7 @@ fn light_infer(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
             use echo_ast::BinaryOp::*;
             match op {
                 Add | Sub | Mul | Div | Rem if lr == rr && lr.is_native_int() => lr,
-                Add | Sub | Mul | Div | Rem
-                    if lr == MirRepr::Float32 && rr == MirRepr::Float32 =>
-                {
+                Add | Sub | Mul | Div | Rem if lr == MirRepr::Float32 && rr == MirRepr::Float32 => {
                     MirRepr::Float32
                 }
                 BitAnd | BitOr | BitXor | Shl | Shr if lr == rr && lr.is_native_int() => lr,
@@ -883,7 +858,9 @@ fn term_eq(a: &Terminator, b: &Terminator) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{analyze_reprs, construct_ssa, structured_to_cfg, CallTarget, MirRetShape, MirStmt};
+    use crate::{
+        CallTarget, MirRetShape, MirStmt, analyze_reprs, construct_ssa, structured_to_cfg,
+    };
     use echo_ast::BinaryOp;
 
     fn pipeline(stmts: Vec<MirStmt>, params: &[&str]) -> (MirCfg, HashMap<String, MirRepr>) {
@@ -907,10 +884,7 @@ mod tests {
                         n += count_boxes_expr(value);
                     }
                     MirOp::IndexSet {
-                        base,
-                        index,
-                        value,
-                        ..
+                        base, index, value, ..
                     } => {
                         n += count_boxes_expr(base);
                         n += count_boxes_expr(index);
@@ -924,7 +898,7 @@ mod tests {
                 }
             }
             match &b.term {
-                Terminator::ReturnOk(e) | Terminator::ReturnErr(e) => {
+                Terminator::ReturnOk(e, _) | Terminator::ReturnErr(e) => {
                     n += count_boxes_expr(e);
                 }
                 Terminator::Branch { cond, .. } => n += count_boxes_expr(cond),
@@ -938,9 +912,7 @@ mod tests {
         match e {
             MirExpr::BoxValue { value, .. } => 1 + count_boxes_expr(value),
             MirExpr::UnboxValue { value, .. } => count_boxes_expr(value),
-            MirExpr::Binary { left, right, .. } => {
-                count_boxes_expr(left) + count_boxes_expr(right)
-            }
+            MirExpr::Binary { left, right, .. } => count_boxes_expr(left) + count_boxes_expr(right),
             MirExpr::Unary { expr, .. } => count_boxes_expr(expr),
             MirExpr::Call { args, .. } | MirExpr::PrimCall { args, .. } => {
                 args.iter().map(count_boxes_expr).sum()
@@ -986,8 +958,9 @@ mod tests {
             MirStmt::Set {
                 name: "x".into(),
                 value: MirExpr::ConstI64(1),
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("x".into())),
+            MirStmt::ReturnOk(MirExpr::Name("x".into()), None),
         ];
         let (mut cfg, mut reprs) = {
             let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
@@ -1012,23 +985,23 @@ mod tests {
                 }),
                 to: MirRepr::Int64,
             },
+            span: None,
         });
-        cfg.blocks[0].term = Terminator::ReturnOk(MirExpr::Name("y@0".into()));
+        cfg.blocks[0].term = Terminator::ReturnOk(MirExpr::Name("y@0".into()), None);
         reprs.insert("y@0".into(), MirRepr::Int64);
 
         let (cfg, _) = simplify_local(cfg, reprs);
         // y should be copy of x and collapsed/DCE'd or return uses x
         let ret_is_x = matches!(
             &cfg.blocks[0].term,
-            Terminator::ReturnOk(MirExpr::Name(n)) if n == &x || n.starts_with("x@")
+            Terminator::ReturnOk(MirExpr::Name(n), None) if n == &x || n.starts_with("x@")
         );
         let y_is_copy = cfg.blocks[0].ops.iter().any(|op| {
             matches!(
                 op,
                 MirOp::Set {
                     name,
-                    value: MirExpr::Name(src)
-                } if name.starts_with("y") && src == &x
+                    value: MirExpr::Name(src), .. } if name.starts_with("y") && src == &x
             )
         });
         // After full simplify, return should be x without nested unbox/box
@@ -1051,6 +1024,7 @@ mod tests {
                     left: Box::new(MirExpr::Name("a".into())),
                     right: Box::new(MirExpr::Name("b".into())),
                 },
+                span: None,
             },
             MirStmt::Eval(MirExpr::Call {
                 target: CallTarget::Runtime {
@@ -1059,7 +1033,7 @@ mod tests {
                 args: vec![MirExpr::Name("c".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::Name("a".into())),
+            MirStmt::ReturnOk(MirExpr::Name("a".into()), None),
         ];
         let (cfg, _) = pipeline(stmts, &["a", "b"]);
         let boxes = count_boxes(&cfg);
@@ -1103,7 +1077,7 @@ mod tests {
                             (crate::BlockId(2), "v@0".into()),
                         ],
                     }],
-                    term: Terminator::ReturnOk(MirExpr::Name("p@0".into())),
+                    term: Terminator::ReturnOk(MirExpr::Name("p@0".into()), None),
                 },
             ],
         };
@@ -1111,14 +1085,15 @@ mod tests {
         reprs.insert("v@0".into(), MirRepr::Int64);
         reprs.insert("p@0".into(), MirRepr::Int64);
         let (cfg2, _) = simplify_local(cfg2, reprs);
-        let has_phi = cfg2.blocks.iter().any(|b| {
-            b.ops.iter().any(|op| matches!(op, MirOp::Phi { .. }))
-        });
+        let has_phi = cfg2
+            .blocks
+            .iter()
+            .any(|b| b.ops.iter().any(|op| matches!(op, MirOp::Phi { .. })));
         assert!(!has_phi, "same-incoming phi must collapse; cfg={cfg2:?}");
         assert!(
             matches!(
                 &cfg2.blocks[3].term,
-                Terminator::ReturnOk(MirExpr::Name(n)) if n == "v@0"
+                Terminator::ReturnOk(MirExpr::Name(n), None) if n == "v@0"
             ),
             "return should use v@0; cfg={cfg2:?}"
         );
@@ -1151,7 +1126,7 @@ mod tests {
                 args: vec![MirExpr::Name("n".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         // n is param boxed already — may be zero boxes if already ABI-ready
         let (cfg, _) = pipeline(stmts, &["n"]);
@@ -1162,6 +1137,7 @@ mod tests {
             MirStmt::Set {
                 name: "x".into(),
                 value: MirExpr::ConstI64(1),
+                span: None,
             },
             MirStmt::Eval(MirExpr::Call {
                 target: CallTarget::Runtime {
@@ -1170,7 +1146,7 @@ mod tests {
                 args: vec![MirExpr::Name("x".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let (cfg2, _) = pipeline(stmts, &[]);
         assert!(

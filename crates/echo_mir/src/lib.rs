@@ -18,7 +18,7 @@ pub use cfg::{
     structured_to_cfg_with_fallthrough,
 };
 pub use escape::{EscapeClass, analyze_escapes};
-pub use lifetime::{expr_is_fresh_alloc, expr_is_managed, inject_lifetime, ROOT_SCOPE};
+pub use lifetime::{ROOT_SCOPE, expr_is_fresh_alloc, expr_is_managed, inject_lifetime};
 pub use repr::{MirRepr, analyze_reprs};
 pub use simplify::simplify_local;
 pub use ssa::construct_ssa;
@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use echo_ast::{BinaryOp, StringKind, UnaryOp, Width};
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_hir::{
-    HirExpr, HirExprKind, HirBody, HirLoopKind, HirMatchArm, HirModule, HirStmt, RECV_PARAM,
+    HirBody, HirExpr, HirExprKind, HirLoopKind, HirMatchArm, HirModule, HirStmt, RECV_PARAM,
 };
 use echo_semantics::{ConstValue, ReturnShape, SemanticModel};
 use echo_std::{is_runtime_module_path, runtime_native_symbol};
@@ -104,9 +104,7 @@ fn sanitize_path_key(rel: &str) -> String {
 /// Module path → mangle key: prefer relative to project root; never bake the
 /// full absolute user path into symbols.
 fn path_key(path: &Path) -> String {
-    let abs = path
-        .canonicalize()
-        .unwrap_or_else(|_| path.to_path_buf());
+    let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let rel = strip_to_project_relative(&abs)
         .or_else(|| short_path_fallback(&abs))
         .unwrap_or_else(|| {
@@ -159,6 +157,8 @@ pub struct MirFn {
     /// Local escape classification for SSA names (allocations / boxes).
     pub escapes: HashMap<String, EscapeClass>,
     pub ret: MirRetShape,
+    /// Checker kind labels for params/locals (`ValueKind::as_di_label`).
+    pub debug_vars: Vec<(String, String)>,
 }
 
 impl MirFn {
@@ -173,6 +173,7 @@ pub enum MirStmt {
     Set {
         name: String,
         value: MirExpr,
+        span: Option<echo_source::Span>,
     },
     /// ADR 0016: push ownership scope.
     ScopeEnter {
@@ -199,7 +200,7 @@ pub enum MirStmt {
     ScopeRelease {
         value: MirExpr,
     },
-    ReturnOk(MirExpr),
+    ReturnOk(MirExpr, Option<echo_source::Span>),
     ReturnErr(MirExpr),
     ReturnNone,
     If {
@@ -478,7 +479,10 @@ fn build_graph_methods(modules: &[ModuleLowerInput]) -> GraphMethods {
         for f in &m.hir.bodies {
             if f.receiver_struct.is_some() {
                 ret_recv.insert((m.path.clone(), f.symbol.clone()), f.returns_receiver);
-                ret_structs.insert((m.path.clone(), f.symbol.clone()), f.returns_structs.clone());
+                ret_structs.insert(
+                    (m.path.clone(), f.symbol.clone()),
+                    f.returns_structs.clone(),
+                );
             }
         }
         for (struct_name, methods) in &m.hir.methods {
@@ -517,7 +521,8 @@ fn build_graph_fields(modules: &[ModuleLowerInput]) -> GraphFields {
             let slot = out.entry(struct_name.clone()).or_default();
             for f in fields {
                 // First declaration wins (same as methods).
-                slot.entry(f.name.clone()).or_insert_with(|| f.default.clone());
+                slot.entry(f.name.clone())
+                    .or_insert_with(|| f.default.clone());
             }
         }
     }
@@ -548,12 +553,7 @@ fn build_graph_field_types(
             }
         }
     }
-    fn note(
-        out: &mut GraphFieldTypes,
-        st: &str,
-        field: &str,
-        ty: String,
-    ) {
+    fn note(out: &mut GraphFieldTypes, st: &str, field: &str, ty: String) {
         out.entry(st.to_string())
             .or_default()
             .entry(field.to_string())
@@ -585,9 +585,7 @@ fn build_graph_field_types(
                     walk_expr(a, methods, fields, env, out);
                 }
             }
-            HirExprKind::MethodCall {
-                receiver, args, ..
-            } => {
+            HirExprKind::MethodCall { receiver, args, .. } => {
                 walk_expr(receiver, methods, fields, env, out);
                 for a in args {
                     walk_expr(a, methods, fields, env, out);
@@ -613,18 +611,16 @@ fn build_graph_field_types(
     ) {
         for s in stmts {
             match s {
-                HirStmt::Bind {
-                    init: Some(e), ..
-                }
+                HirStmt::Bind { init: Some(e), .. }
                 | HirStmt::Assign { value: e, .. }
                 | HirStmt::Expr(e)
-                | HirStmt::Return {
-                    value: Some(e), ..
-                }
+                | HirStmt::Return { value: Some(e), .. }
                 | HirStmt::ErrorReturn { value: e, .. } => {
                     walk_expr(e, methods, fields, env, out);
                 }
-                HirStmt::If { arms, else_body, .. } => {
+                HirStmt::If {
+                    arms, else_body, ..
+                } => {
                     for (_, b) in arms {
                         walk_stmts(b, methods, fields, env, out);
                     }
@@ -789,15 +785,14 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
             // ADR 0016: scope enter/exit/register/promote (conservative slice 1).
             let body = inject_lifetime(body);
             // Plain methods: fall-off returns the receiver (locked).
-            let fallthrough = if f.receiver_struct.is_some()
-                && matches!(f.return_shape, ReturnShape::Plain)
-            {
-                MirExpr::Name(RECV_PARAM.into())
-            } else {
-                MirExpr::ConstI64(0)
-            };
-            let (cfg, reprs, escapes) =
-                finish_cfg(body.clone(), ret, &f.params, fallthrough);
+            let fallthrough =
+                if f.receiver_struct.is_some() && matches!(f.return_shape, ReturnShape::Plain) {
+                    MirExpr::Name(RECV_PARAM.into())
+                } else {
+                    MirExpr::ConstI64(0)
+                };
+            let (cfg, reprs, escapes) = finish_cfg(body.clone(), ret, &f.params, fallthrough);
+            let debug_vars = debug_vars_from_semantic(&f.params, &body, &m.semantic);
             functions.push(MirFn {
                 module_path: m.path.clone(),
                 name: f.symbol.clone(),
@@ -807,6 +802,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                 reprs,
                 escapes,
                 ret,
+                debug_vars,
             });
         }
         // Exported value binds → zero-arg getters for `module.name` field access.
@@ -862,9 +858,10 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                         None => MirExpr::ConstI64(0),
                     }
                 };
-                let body = vec![MirStmt::ReturnOk(value)];
+                let body = vec![MirStmt::ReturnOk(value, None)];
                 let (cfg, reprs, escapes) =
                     finish_cfg(body.clone(), MirRetShape::Plain, &[], MirExpr::ConstI64(0));
+                let debug_vars = debug_vars_from_semantic(&[], &body, &m.semantic);
                 functions.push(MirFn {
                     module_path: m.path.clone(),
                     name: getter,
@@ -874,6 +871,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                     reprs,
                     escapes,
                     ret: MirRetShape::Plain,
+                    debug_vars,
                 });
             }
         }
@@ -908,12 +906,9 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                 );
                 if !body.is_empty() {
                     let body = inject_lifetime(body);
-                    let (cfg, reprs, escapes) = finish_cfg(
-                        body.clone(),
-                        MirRetShape::Plain,
-                        &[],
-                        MirExpr::ConstI64(0),
-                    );
+                    let (cfg, reprs, escapes) =
+                        finish_cfg(body.clone(), MirRetShape::Plain, &[], MirExpr::ConstI64(0));
+                    let debug_vars = debug_vars_from_semantic(&[], &body, &m.semantic);
                     functions.push(MirFn {
                         module_path: m.path.clone(),
                         name: "__toplevel".into(),
@@ -923,6 +918,7 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
                         reprs,
                         escapes,
                         ret: MirRetShape::Plain,
+                        debug_vars,
                     });
                 }
             }
@@ -964,6 +960,64 @@ fn finish_cfg(
     let (cfg, reprs, escapes) = analyze_escapes(cfg, reprs);
     let (cfg, reprs) = simplify_local(cfg, reprs);
     (cfg, reprs, escapes)
+}
+
+fn debug_vars_from_semantic(
+    params: &[String],
+    body: &[MirStmt],
+    semantic: &SemanticModel,
+) -> Vec<(String, String)> {
+    let mut names: HashSet<String> = params.iter().cloned().collect();
+    collect_debug_names(body, &mut names);
+    let mut out: Vec<(String, String)> = names
+        .into_iter()
+        .filter_map(|n| {
+            semantic
+                .binds
+                .get(&n)
+                .map(|b| (n, b.value_kind.as_di_label().to_string()))
+        })
+        .collect();
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+fn collect_debug_names(body: &[MirStmt], names: &mut HashSet<String>) {
+    for s in body {
+        match s {
+            MirStmt::Set { name, .. } => {
+                names.insert(name.clone());
+            }
+            MirStmt::If { arms, else_body } => {
+                for (_, b) in arms {
+                    collect_debug_names(b, names);
+                }
+                if let Some(b) = else_body {
+                    collect_debug_names(b, names);
+                }
+            }
+            MirStmt::MatchTagged {
+                ok_name,
+                ok_body,
+                err_name,
+                err_body,
+                ..
+            } => {
+                if let Some(n) = ok_name {
+                    names.insert(n.clone());
+                }
+                if let Some(n) = err_name {
+                    names.insert(n.clone());
+                }
+                collect_debug_names(ok_body, names);
+                collect_debug_names(err_body, names);
+            }
+            MirStmt::Loop { body, .. } | MirStmt::ForIn { body, .. } => {
+                collect_debug_names(body, names);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Projection of analysis `value_struct` facts for method/receiver lowering.
@@ -1155,14 +1209,12 @@ fn seed_local_struct_flow(
                 init: Some(e),
                 ..
             }
-            | HirStmt::Assign {
-                name,
-                value: e,
-                ..
-            } => {
+            | HirStmt::Assign { name, value: e, .. } => {
                 propagate_struct_type(name, e, methods, fields, field_types, type_env);
             }
-            HirStmt::If { arms, else_body, .. } => {
+            HirStmt::If {
+                arms, else_body, ..
+            } => {
                 for (_, body) in arms {
                     seed_local_struct_flow(body, methods, fields, field_types, type_env);
                 }
@@ -1199,22 +1251,18 @@ fn collect_calls_in_stmts(
     resolve_callee: &dyn Fn(&Path, &str, &HashMap<String, String>) -> Option<String>,
     candidates: &mut HashMap<String, Vec<HashSet<String>>>,
     record_call: impl Fn(
-            &mut HashMap<String, Vec<HashSet<String>>>,
-            &str,
-            &[HirExpr],
-            &HashMap<String, String>,
-        ) + Copy,
+        &mut HashMap<String, Vec<HashSet<String>>>,
+        &str,
+        &[HirExpr],
+        &HashMap<String, String>,
+    ) + Copy,
 ) {
     for s in stmts {
         match s {
-            HirStmt::Bind {
-                init: Some(e), ..
-            }
+            HirStmt::Bind { init: Some(e), .. }
             | HirStmt::Assign { value: e, .. }
             | HirStmt::Expr(e)
-            | HirStmt::Return {
-                value: Some(e), ..
-            }
+            | HirStmt::Return { value: Some(e), .. }
             | HirStmt::ErrorReturn { value: e, .. } => {
                 collect_calls_in_expr(
                     e,
@@ -1247,10 +1295,7 @@ fn collect_calls_in_stmts(
                 );
             }
             HirStmt::IndexAssign {
-                base,
-                index,
-                value,
-                ..
+                base, index, value, ..
             } => {
                 collect_calls_in_expr(
                     base,
@@ -1282,7 +1327,9 @@ fn collect_calls_in_stmts(
                     record_call,
                 );
             }
-            HirStmt::If { arms, else_body, .. } => {
+            HirStmt::If {
+                arms, else_body, ..
+            } => {
                 for (cond, body) in arms {
                     collect_calls_in_expr(
                         cond,
@@ -1315,7 +1362,9 @@ fn collect_calls_in_stmts(
                     );
                 }
             }
-            HirStmt::Match { scrutinee, arms, .. } => {
+            HirStmt::Match {
+                scrutinee, arms, ..
+            } => {
                 collect_calls_in_expr(
                     scrutinee,
                     module_path,
@@ -1381,7 +1430,9 @@ fn collect_calls_in_stmts(
                     record_call,
                 );
             }
-            HirStmt::TaskSpawnFn { fn_symbol, args, .. } => {
+            HirStmt::TaskSpawnFn {
+                fn_symbol, args, ..
+            } => {
                 if let Some(sym) = resolve_callee(module_path, fn_symbol, type_env) {
                     record_call(candidates, &sym, args, type_env);
                 }
@@ -1423,11 +1474,11 @@ fn collect_calls_in_expr(
     resolve_callee: &dyn Fn(&Path, &str, &HashMap<String, String>) -> Option<String>,
     candidates: &mut HashMap<String, Vec<HashSet<String>>>,
     record_call: impl Fn(
-            &mut HashMap<String, Vec<HashSet<String>>>,
-            &str,
-            &[HirExpr],
-            &HashMap<String, String>,
-        ) + Copy,
+        &mut HashMap<String, Vec<HashSet<String>>>,
+        &str,
+        &[HirExpr],
+        &HashMap<String, String>,
+    ) + Copy,
 ) {
     match &e.kind {
         HirExprKind::Call { symbol, args } => {
@@ -1466,9 +1517,7 @@ fn collect_calls_in_expr(
                 );
             }
         }
-        HirExprKind::MethodCall {
-            receiver, args, ..
-        } => {
+        HirExprKind::MethodCall { receiver, args, .. } => {
             collect_calls_in_expr(
                 receiver,
                 module_path,
@@ -1513,7 +1562,11 @@ fn collect_calls_in_expr(
             }
         }
         HirExprKind::Binary { left, right, .. }
-        | HirExprKind::Range { start: left, end: right, .. } => {
+        | HirExprKind::Range {
+            start: left,
+            end: right,
+            ..
+        } => {
             collect_calls_in_expr(
                 left,
                 module_path,
@@ -1622,7 +1675,10 @@ fn struct_type_of_expr(
                 return Some(ty.clone());
             }
             // Field default initializer (when present and monomorphic struct).
-            let def = fields.get(&st).and_then(|m| m.get(field)).and_then(|d| d.as_ref());
+            let def = fields
+                .get(&st)
+                .and_then(|m| m.get(field))
+                .and_then(|d| d.as_ref());
             if let Some(d) = def {
                 if let Some(ty) = struct_type_of_expr(d, methods, fields, field_types, type_env) {
                     return Some(ty);
@@ -1723,9 +1779,7 @@ fn seed_fn_return_struct_types(
     }
     for (import_name, root) in &module.imports {
         for dep in all.iter().filter(|m| {
-            &m.path == root
-                || m.path.parent() == Some(root.as_path())
-                || m.path.starts_with(root)
+            &m.path == root || m.path.parent() == Some(root.as_path()) || m.path.starts_with(root)
         }) {
             for f in &dep.hir.bodies {
                 if f.returns_structs.len() == 1 {
@@ -1737,10 +1791,7 @@ fn seed_fn_return_struct_types(
                         // must not clobber local `make` → `map` (else
                         // `make().seed` resolves to `hash_table.seed` and
                         // result/option matches fail with cg-match).
-                        type_env.insert(
-                            format!("__fnret_{import_name}.{}", f.symbol),
-                            st.clone(),
-                        );
+                        type_env.insert(format!("__fnret_{import_name}.{}", f.symbol), st.clone());
                     }
                 }
             }
@@ -1907,10 +1958,7 @@ fn desugar_effect_tail(
     } = head
     {
         if let Some(shape) = hir_expr_call_shape(init, module_path, imports, fn_shapes) {
-            if matches!(
-                shape,
-                MirRetShape::Result | MirRetShape::Option
-            ) {
+            if matches!(shape, MirRetShape::Result | MirRetShape::Option) {
                 let scrut = lower_expr(
                     init,
                     module_path,
@@ -1950,6 +1998,7 @@ fn desugar_effect_tail(
                     err_body.push(MirStmt::Set {
                         name: ob.to_string(),
                         value: MirExpr::Name(err_tmp.clone()),
+                        span: None,
                     });
                 }
                 // rest not run on err
@@ -1986,6 +2035,7 @@ fn desugar_effect_tail(
             out.push(MirStmt::Set {
                 name: ob.to_string(),
                 value: val,
+                span: None,
             });
         } else {
             out.push(MirStmt::Eval(val));
@@ -2019,6 +2069,7 @@ fn desugar_effect_tail(
             out.push(MirStmt::Set {
                 name: ob.to_string(),
                 value: val,
+                span: None,
             });
         }
         return out;
@@ -2077,7 +2128,9 @@ fn seed_fn_value_shapes(
                     fn_shapes.insert((module_path.to_path_buf(), name.clone()), shape);
                 }
             }
-            HirStmt::If { arms, else_body, .. } => {
+            HirStmt::If {
+                arms, else_body, ..
+            } => {
                 for (_, body) in arms {
                     seed_fn_value_shapes(body, module_path, fn_shapes);
                 }
@@ -2133,17 +2186,11 @@ fn hir_expr_call_shape(
         HirExprKind::Call { symbol, .. } => fn_shapes
             .get(&(module_path.to_path_buf(), symbol.clone()))
             .copied(),
-        HirExprKind::ModuleCall {
-            module,
-            name,
-            ..
-        } => {
+        HirExprKind::ModuleCall { module, name, .. } => {
             let path = imports.get(module)?;
             fn_shapes.get(&(path.clone(), name.clone())).copied()
         }
-        HirExprKind::CallValue { callee, .. } => {
-            fn_value_shape_of(callee, module_path, fn_shapes)
-        }
+        HirExprKind::CallValue { callee, .. } => fn_value_shape_of(callee, module_path, fn_shapes),
         _ => None,
     }
 }
@@ -2166,7 +2213,7 @@ fn lower_stmt(
             leader: _,
             name,
             init,
-            ..
+            span,
         } => {
             let value = match init {
                 Some(e) => lower_expr(
@@ -2191,9 +2238,10 @@ fn lower_stmt(
             Some(MirStmt::Set {
                 name: name.clone(),
                 value,
+                span: Some(*span),
             })
         }
-        HirStmt::Assign { name, value, .. } => {
+        HirStmt::Assign { name, value, span } => {
             let hir_value = value;
             let value = lower_expr(
                 hir_value,
@@ -2211,6 +2259,7 @@ fn lower_stmt(
             Some(MirStmt::Set {
                 name: name.clone(),
                 value,
+                span: Some(*span),
             })
         }
         HirStmt::FieldAssign {
@@ -2243,10 +2292,7 @@ fn lower_stmt(
             )?,
         }),
         HirStmt::IndexAssign {
-            base,
-            index,
-            value,
-            ..
+            base, index, value, ..
         } => {
             let base = lower_expr(
                 base,
@@ -2293,10 +2339,10 @@ fn lower_stmt(
                 Some(MirStmt::ListPush { base, value })
             }
         }
-        HirStmt::Return { value: v, .. } => match (fn_ret, v) {
+        HirStmt::Return { value: v, span } => match (fn_ret, v) {
             (MirRetShape::Option, None) => Some(MirStmt::ReturnNone),
-            (MirRetShape::Result | MirRetShape::Option, Some(e)) => {
-                Some(MirStmt::ReturnOk(lower_expr(
+            (MirRetShape::Result | MirRetShape::Option, Some(e)) => Some(MirStmt::ReturnOk(
+                lower_expr(
                     e,
                     module_path,
                     imports,
@@ -2307,22 +2353,26 @@ fn lower_stmt(
                     field_types,
                     type_env,
                     diags,
-                )?))
-            }
-            (MirRetShape::Plain, Some(e)) => Some(MirStmt::ReturnOk(lower_expr(
-                e,
-                module_path,
-                imports,
-                fn_shapes,
-                const_env,
-                methods,
-                fields,
-                field_types,
-                type_env,
-                diags,
-            )?)),
+                )?,
+                Some(*span),
+            )),
+            (MirRetShape::Plain, Some(e)) => Some(MirStmt::ReturnOk(
+                lower_expr(
+                    e,
+                    module_path,
+                    imports,
+                    fn_shapes,
+                    const_env,
+                    methods,
+                    fields,
+                    field_types,
+                    type_env,
+                    diags,
+                )?,
+                Some(*span),
+            )),
             (MirRetShape::Plain, None) | (MirRetShape::Result, None) => {
-                Some(MirStmt::ReturnOk(MirExpr::ConstI64(0)))
+                Some(MirStmt::ReturnOk(MirExpr::ConstI64(0), Some(*span)))
             }
         },
         HirStmt::ErrorReturn { value: e, .. } => Some(MirStmt::ReturnErr(lower_expr(
@@ -2481,9 +2531,7 @@ fn lower_stmt(
         HirStmt::Break { .. } => Some(MirStmt::Break),
         HirStmt::Continue { .. } => Some(MirStmt::Continue),
         HirStmt::TaskSpawn {
-            body_symbol,
-            bind,
-            ..
+            body_symbol, bind, ..
         } => Some(MirStmt::TaskSpawn {
             module_path: module_path.to_path_buf(),
             body_symbol: body_symbol.clone(),
@@ -2590,12 +2638,8 @@ fn lower_match(
     type_env: &mut HashMap<String, String>,
     diags: &mut Diagnostics,
 ) -> Option<MirStmt> {
-    let has_values = arms
-        .iter()
-        .any(|a| matches!(a, HirMatchArm::Values { .. }));
-    let has_type = arms
-        .iter()
-        .any(|a| matches!(a, HirMatchArm::Type { .. }));
+    let has_values = arms.iter().any(|a| matches!(a, HirMatchArm::Values { .. }));
+    let has_type = arms.iter().any(|a| matches!(a, HirMatchArm::Type { .. }));
     let has_result_option = arms
         .iter()
         .any(|a| matches!(a, HirMatchArm::Ok { .. } | HirMatchArm::Err { .. }));
@@ -2642,8 +2686,7 @@ fn lower_match(
 
     // Ok-arm payload keeps the scrutinee's monomorphic struct type when known
     // (e.g. `make().seed(…)` → map, so `m.put` resolves as a method).
-    let ok_payload_struct =
-        struct_type_of_expr(scrutinee, methods, fields, field_types, type_env);
+    let ok_payload_struct = struct_type_of_expr(scrutinee, methods, fields, field_types, type_env);
 
     for arm in arms {
         match arm {
@@ -2918,8 +2961,7 @@ fn lower_value_match(
             }
             HirMatchArm::Ok { .. } | HirMatchArm::Err { .. } => {
                 diags.push(
-                    Diagnostic::error("internal: tagged arm in value match")
-                        .with_code("cg-match"),
+                    Diagnostic::error("internal: tagged arm in value match").with_code("cg-match"),
                 );
                 return None;
             }
@@ -3098,9 +3140,7 @@ fn lower_expr(
             }
             Some(MirExpr::Name(n.clone()))
         }
-        HirExprKind::Int { value, width } => {
-            lower_int_const(*value, *width, e.span, diags)
-        }
+        HirExprKind::Int { value, width } => lower_int_const(*value, *width, e.span, diags),
         HirExprKind::WidthCast { width, expr } => {
             let inner = lower_expr(
                 expr,
@@ -3369,12 +3409,9 @@ fn lower_expr(
             // Prefer true methods (recv + mangled body). Else treat as field
             // holding a function value: load field, indirect call (no recv inject).
             let struct_name = struct_type_of_expr(receiver, methods, fields, field_types, type_env);
-            let method_target = struct_name.as_ref().and_then(|st| {
-                methods
-                    .get(st)
-                    .and_then(|m| m.get(method))
-                    .cloned()
-            });
+            let method_target = struct_name
+                .as_ref()
+                .and_then(|st| methods.get(st).and_then(|m| m.get(method)).cloned());
             if let Some(target) = method_target {
                 let ret = fn_shapes
                     .get(&(target.module.clone(), target.mangled.clone()))
@@ -3514,14 +3551,9 @@ fn lower_expr(
             };
             // Scalar width from shape default (`~ v = <ui64> 0`) so loads enter
             // native width without user re-tags (docs/semantics.md field width).
-            if let Some(w) = field_width_from_default(
-                base,
-                field,
-                methods,
-                fields,
-                field_types,
-                type_env,
-            ) {
+            if let Some(w) =
+                field_width_from_default(base, field, methods, fields, field_types, type_env)
+            {
                 Some(MirExpr::Cast {
                     to: w,
                     expr: Box::new(get),
@@ -3529,7 +3561,7 @@ fn lower_expr(
             } else {
                 Some(get)
             }
-        },
+        }
         HirExprKind::StructLit {
             name,
             fields: lit_fields,
@@ -3722,21 +3754,15 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 (BinaryOp::Shr, ConstValue::Int(a), ConstValue::Int(b)) => {
                     Some(ConstValue::Int(a.wrapping_shr((b as u32) & 63)))
                 }
-                (BinaryOp::Add, ConstValue::Float(a), ConstValue::Float(b)) => {
-                    Some(ConstValue::Float(
-                        (f64::from_bits(a) + f64::from_bits(b)).to_bits(),
-                    ))
-                }
-                (BinaryOp::Sub, ConstValue::Float(a), ConstValue::Float(b)) => {
-                    Some(ConstValue::Float(
-                        (f64::from_bits(a) - f64::from_bits(b)).to_bits(),
-                    ))
-                }
-                (BinaryOp::Mul, ConstValue::Float(a), ConstValue::Float(b)) => {
-                    Some(ConstValue::Float(
-                        (f64::from_bits(a) * f64::from_bits(b)).to_bits(),
-                    ))
-                }
+                (BinaryOp::Add, ConstValue::Float(a), ConstValue::Float(b)) => Some(
+                    ConstValue::Float((f64::from_bits(a) + f64::from_bits(b)).to_bits()),
+                ),
+                (BinaryOp::Sub, ConstValue::Float(a), ConstValue::Float(b)) => Some(
+                    ConstValue::Float((f64::from_bits(a) - f64::from_bits(b)).to_bits()),
+                ),
+                (BinaryOp::Mul, ConstValue::Float(a), ConstValue::Float(b)) => Some(
+                    ConstValue::Float((f64::from_bits(a) * f64::from_bits(b)).to_bits()),
+                ),
                 (BinaryOp::Div, ConstValue::Float(a), ConstValue::Float(b))
                     if f64::from_bits(b) != 0.0 =>
                 {
@@ -3765,9 +3791,9 @@ fn fold_const_width_cast(v: ConstValue, w: echo_ast::Width) -> Option<ConstValue
         (ConstValue::Float(b), w) if w.is_int() => {
             Some(ConstValue::Int(cast_const_int(f64::from_bits(b) as i64, w)))
         }
-        (ConstValue::Float(b), echo_ast::Width::F32) => {
-            Some(ConstValue::Float((f64::from_bits(b) as f32 as f64).to_bits()))
-        }
+        (ConstValue::Float(b), echo_ast::Width::F32) => Some(ConstValue::Float(
+            (f64::from_bits(b) as f32 as f64).to_bits(),
+        )),
         (ConstValue::Float(b), echo_ast::Width::F64) => Some(ConstValue::Float(b)),
         _ => None,
     }
@@ -3880,7 +3906,8 @@ fn decode_locator_to_mir(
     const_env: &HashMap<String, ConstValue>,
 ) -> Result<MirExpr, String> {
     let payload = decode_prefixed_payload(b'p', "locator", kind, raw, const_env)?;
-    let text = String::from_utf8(payload).map_err(|_| "locator payload is not UTF-8".to_string())?;
+    let text =
+        String::from_utf8(payload).map_err(|_| "locator payload is not UTF-8".to_string())?;
     Ok(MirExpr::LocatorLit { text })
 }
 
@@ -3895,7 +3922,8 @@ fn decode_prefixed_payload(
     if b.len() < 3 || b[0] != prefix {
         return Err(format!("invalid {what} token `{raw}`"));
     }
-    let inner_tok = std::str::from_utf8(&b[1..]).map_err(|_| format!("invalid {what} token UTF-8"))?;
+    let inner_tok =
+        std::str::from_utf8(&b[1..]).map_err(|_| format!("invalid {what} token UTF-8"))?;
     match kind {
         StringKind::Pure => decode_pure(inner_tok),
         StringKind::Rich => {
@@ -4031,8 +4059,7 @@ mod tests {
     fn bytes_pure_and_rich_decode() {
         let pure = decode_bytes_to_mir(StringKind::Pure, "b'raw'", &HashMap::new()).unwrap();
         assert!(matches!(pure, MirExpr::BytesLit { bytes } if bytes == b"raw"));
-        let rich =
-            decode_bytes_to_mir(StringKind::Rich, r#"b"esc\n""#, &HashMap::new()).unwrap();
+        let rich = decode_bytes_to_mir(StringKind::Rich, r#"b"esc\n""#, &HashMap::new()).unwrap();
         assert!(matches!(rich, MirExpr::BytesLit { bytes } if bytes == b"esc\n"));
     }
 
@@ -4051,12 +4078,8 @@ mod tests {
     fn rich_partial_const_fold_leaves_live_name() {
         let mut env = HashMap::new();
         env.insert("TITLE".into(), ConstValue::Str(b"surface".to_vec()));
-        let e = decode_string_to_mir(
-            StringKind::Rich,
-            r#""title={TITLE} sum={sum}""#,
-            &env,
-        )
-        .unwrap();
+        let e =
+            decode_string_to_mir(StringKind::Rich, r#""title={TITLE} sum={sum}""#, &env).unwrap();
         match e {
             MirExpr::StringInterp { parts } => {
                 let lit: Vec<u8> = parts
@@ -4073,7 +4096,11 @@ mod tests {
                         .any(|w| w == b"title=surface"),
                     "expected TITLE folded into lit, got {parts:?}"
                 );
-                assert!(parts.iter().any(|p| matches!(p, StrPart::Name(n) if n == "sum")));
+                assert!(
+                    parts
+                        .iter()
+                        .any(|p| matches!(p, StrPart::Name(n) if n == "sum"))
+                );
             }
             other => panic!("expected StringInterp, got {other:?}"),
         }
@@ -4087,9 +4114,8 @@ mod tests {
             pure,
             MirExpr::LocatorLit { text } if text == "/home/user"
         ));
-        let rich =
-            decode_locator_to_mir(StringKind::Rich, r#"p"http://xo.run""#, &HashMap::new())
-                .unwrap();
+        let rich = decode_locator_to_mir(StringKind::Rich, r#"p"http://xo.run""#, &HashMap::new())
+            .unwrap();
         assert!(matches!(
             rich,
             MirExpr::LocatorLit { text } if text == "http://xo.run"
@@ -4110,6 +4136,7 @@ mod tests {
             MirStmt::Set {
                 name: "x".into(),
                 value: MirExpr::ConstI64(1),
+                span: None,
             },
             MirStmt::Set {
                 name: "b".into(),
@@ -4117,6 +4144,7 @@ mod tests {
                     value: Box::new(MirExpr::Name("x".into())),
                     from: MirRepr::Int64,
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "y".into(),
@@ -4124,8 +4152,9 @@ mod tests {
                     value: Box::new(MirExpr::Name("b".into())),
                     to: MirRepr::Int64,
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("y".into())),
+            MirStmt::ReturnOk(MirExpr::Name("y".into()), None),
         ];
         let (cfg, _reprs, escapes) =
             finish_cfg(body, MirRetShape::Plain, &[], MirExpr::ConstI64(0));
@@ -4142,6 +4171,7 @@ mod tests {
                     MirOp::Set {
                         name,
                         value: MirExpr::BoxValue { .. },
+                        ..
                     } if name.starts_with("b@")
                 )
             })
@@ -4162,6 +4192,7 @@ mod tests {
                     MirExpr::ListLit(vec![]),
                     MirExpr::ListLit(vec![]),
                 ]),
+                span: None,
             },
             MirStmt::ForIn {
                 item: "chain".into(),
@@ -4172,7 +4203,7 @@ mod tests {
                     body: vec![MirStmt::ReturnNone],
                 }],
             },
-            MirStmt::ReturnOk(MirExpr::ConstBool(true)),
+            MirStmt::ReturnOk(MirExpr::ConstBool(true), None),
         ];
         let (cfg, _reprs, _esc) = finish_cfg(stmts, MirRetShape::Option, &[], MirExpr::ConstI64(0));
         // Unreachable for-in cont (always-return body) must not poison loop-header SSA.
@@ -4372,19 +4403,15 @@ mod tests {
         let hir = HirModule {
             entry: vec![HirStmt::Expr(HirExpr {
                 kind: HirExprKind::MethodCall {
-
                     receiver: Box::new(HirExpr {
-
                         kind: HirExprKind::Name("c".into()),
 
                         span,
-
                     }),
 
                     method: "inc".into(),
 
                     args: vec![],
-
                 },
                 span,
             })],
@@ -4449,7 +4476,7 @@ mod tests {
 
     #[test]
     fn graph_methods_resolve_across_modules() {
-        use echo_hir::{HirExpr, HirExprKind, HirBody, HirModule, HirStmt};
+        use echo_hir::{HirBody, HirExpr, HirExprKind, HirModule, HirStmt};
         use echo_semantics::{BindingKind, ValueKind};
         use echo_source::{BytePos, SourceId, Span};
 
@@ -4535,37 +4562,29 @@ mod tests {
             entry: vec![
                 HirStmt::Expr(HirExpr {
                     kind: HirExprKind::MethodCall {
-
                         receiver: Box::new(HirExpr {
-
                             kind: HirExprKind::Name("c".into()),
 
                             span,
-
                         }),
 
                         method: "get".into(),
 
                         args: vec![],
-
                     },
                     span,
                 }),
                 HirStmt::Expr(HirExpr {
                     kind: HirExprKind::MethodCall {
-
                         receiver: Box::new(HirExpr {
-
                             kind: HirExprKind::Name("c".into()),
 
                             span,
-
                         }),
 
                         method: "inc".into(),
 
                         args: vec![],
-
                     },
                     span,
                 }),
@@ -4626,11 +4645,15 @@ mod tests {
             })
             .collect();
         assert!(
-            targets.iter().any(|(p, n)| p == &primary && n == "__m_counter_get"),
+            targets
+                .iter()
+                .any(|(p, n)| p == &primary && n == "__m_counter_get"),
             "get must target primary module; targets={targets:?}"
         );
         assert!(
-            targets.iter().any(|(p, n)| p == &ops && n == "__m_counter_inc"),
+            targets
+                .iter()
+                .any(|(p, n)| p == &ops && n == "__m_counter_inc"),
             "inc must target @ module; targets={targets:?}"
         );
     }

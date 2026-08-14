@@ -133,7 +133,11 @@ fn collect_managed_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
         | MirExpr::UnboxValue { value: expr, .. }
         | MirExpr::StructTypeIs { value: expr, .. }
         | MirExpr::FieldGet { base: expr, .. } => collect_managed_names(expr, out),
-        MirExpr::Binary { left, right, .. } | MirExpr::Range { start: left, end: right } => {
+        MirExpr::Binary { left, right, .. }
+        | MirExpr::Range {
+            start: left,
+            end: right,
+        } => {
             collect_managed_names(left, out);
             collect_managed_names(right, out);
         }
@@ -267,7 +271,7 @@ fn rewrite_seq(stmts: &[MirStmt], ctx: &mut Ctx) -> Vec<MirStmt> {
 
 fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
     match s {
-        MirStmt::Set { name, value } => rewrite_set(name, value, ctx),
+        MirStmt::Set { name, value, span } => rewrite_set(name, value, *span, ctx),
         MirStmt::FieldSet { base, field, value } => {
             let mut v = Vec::new();
             note_store_escape(base, value, ctx);
@@ -289,11 +293,7 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
             });
             v
         }
-        MirStmt::IndexSet {
-            base,
-            index,
-            value,
-        } => {
+        MirStmt::IndexSet { base, index, value } => {
             let mut v = Vec::new();
             note_store_escape(base, value, ctx);
             maybe_promote_store(&mut v, base, value, ctx);
@@ -327,17 +327,15 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
                 body,
             })
         }
-        MirStmt::ForIn { item, iter, body } => rewrite_loop_with_demote_wrap(
-            ctx,
-            after,
-            Some(item.as_str()),
-            body,
-            |body| MirStmt::ForIn {
-                item: item.clone(),
-                iter: iter.clone(),
-                body,
-            },
-        ),
+        MirStmt::ForIn { item, iter, body } => {
+            rewrite_loop_with_demote_wrap(ctx, after, Some(item.as_str()), body, |body| {
+                MirStmt::ForIn {
+                    item: item.clone(),
+                    iter: iter.clone(),
+                    body,
+                }
+            })
+        }
         MirStmt::MatchTagged {
             scrutinee,
             ok_name,
@@ -390,7 +388,7 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
                 err_body: err_b,
             }]
         }
-        MirStmt::ReturnOk(e) => exit_then_return(ctx, Some(ReturnKind::Ok(e.clone()))),
+        MirStmt::ReturnOk(e, span) => exit_then_return(ctx, Some(ReturnKind::Ok(e.clone(), *span))),
         MirStmt::ReturnErr(e) => exit_then_return(ctx, Some(ReturnKind::Err(e.clone()))),
         MirStmt::ReturnNone => exit_then_return(ctx, Some(ReturnKind::None)),
         MirStmt::Break => {
@@ -418,7 +416,12 @@ fn rewrite_stmt(s: &MirStmt, ctx: &mut Ctx, after: &[MirStmt]) -> Vec<MirStmt> {
     }
 }
 
-fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
+fn rewrite_set(
+    name: &str,
+    value: &MirExpr,
+    span: Option<echo_source::Span>,
+    ctx: &mut Ctx,
+) -> Vec<MirStmt> {
     let current = ctx.current();
     let mut v = Vec::new();
 
@@ -453,6 +456,7 @@ fn rewrite_set(name: &str, value: &MirExpr, ctx: &mut Ctx) -> Vec<MirStmt> {
     v.push(MirStmt::Set {
         name: name.to_string(),
         value: value.clone(),
+        span,
     });
 
     if fresh {
@@ -599,7 +603,7 @@ fn rewrite_loop_with_demote_wrap(
 fn prescan_body_escapes(stmts: &[MirStmt], ctx: &mut Ctx) {
     for s in stmts {
         match s {
-            MirStmt::Set { name, value } => {
+            MirStmt::Set { name, value, .. } => {
                 let embedded = managed_names_in_expr(value);
                 if let MirExpr::Name(other) = value {
                     ctx.note_not_unique(name);
@@ -745,7 +749,7 @@ fn names_used_in_stmts(stmts: &[MirStmt]) -> HashSet<String> {
 
 fn collect_names_stmt(s: &MirStmt, set: &mut HashSet<String>) {
     match s {
-        MirStmt::Set { name, value } => {
+        MirStmt::Set { name, value, .. } => {
             set.insert(name.clone());
             collect_names_expr(value, set);
         }
@@ -753,18 +757,14 @@ fn collect_names_stmt(s: &MirStmt, set: &mut HashSet<String>) {
         | MirStmt::ScopePromote { value, .. }
         | MirStmt::ScopeDisown { value }
         | MirStmt::ScopeRelease { value }
-        | MirStmt::ReturnOk(value)
+        | MirStmt::ReturnOk(value, _)
         | MirStmt::ReturnErr(value)
         | MirStmt::Eval(value) => collect_names_expr(value, set),
         MirStmt::FieldSet { base, value, .. } => {
             collect_names_expr(base, set);
             collect_names_expr(value, set);
         }
-        MirStmt::IndexSet {
-            base,
-            index,
-            value,
-        } => {
+        MirStmt::IndexSet { base, index, value } => {
             collect_names_expr(base, set);
             collect_names_expr(index, set);
             collect_names_expr(value, set);
@@ -917,7 +917,7 @@ fn exit_scopes_to_loop(ctx: &Ctx) -> Vec<MirStmt> {
 }
 
 enum ReturnKind {
-    Ok(MirExpr),
+    Ok(MirExpr, Option<echo_source::Span>),
     Err(MirExpr),
     None,
 }
@@ -929,23 +929,19 @@ fn exit_then_return(ctx: &mut Ctx, ret: Option<ReturnKind>) -> Vec<MirStmt> {
     // themselves `expr_is_managed`, but still read the heap — materializing
     // first prevents use-after-free when root/open scopes free on exit.
     let ret = match ret {
-        Some(ReturnKind::Ok(e)) => {
+        Some(ReturnKind::Ok(e, span)) => {
             let managed = expr_is_managed(&e);
-            let e = materialize_once(&mut v, e, &mut ctx.next_id);
+            let e = materialize_once(&mut v, e, &mut ctx.next_id, span);
             if managed {
-                v.push(MirStmt::ScopeDisown {
-                    value: e.clone(),
-                });
+                v.push(MirStmt::ScopeDisown { value: e.clone() });
             }
-            Some(ReturnKind::Ok(e))
+            Some(ReturnKind::Ok(e, span))
         }
         Some(ReturnKind::Err(e)) => {
             let managed = expr_is_managed(&e);
-            let e = materialize_once(&mut v, e, &mut ctx.next_id);
+            let e = materialize_once(&mut v, e, &mut ctx.next_id, None);
             if managed {
-                v.push(MirStmt::ScopeDisown {
-                    value: e.clone(),
-                });
+                v.push(MirStmt::ScopeDisown { value: e.clone() });
             }
             Some(ReturnKind::Err(e))
         }
@@ -955,7 +951,7 @@ fn exit_then_return(ctx: &mut Ctx, ret: Option<ReturnKind>) -> Vec<MirStmt> {
         v.push(MirStmt::ScopeExit { id });
     }
     match ret {
-        Some(ReturnKind::Ok(e)) => v.push(MirStmt::ReturnOk(e)),
+        Some(ReturnKind::Ok(e, span)) => v.push(MirStmt::ReturnOk(e, span)),
         Some(ReturnKind::Err(e)) => v.push(MirStmt::ReturnErr(e)),
         Some(ReturnKind::None) => v.push(MirStmt::ReturnNone),
         None => {}
@@ -963,7 +959,12 @@ fn exit_then_return(ctx: &mut Ctx, ret: Option<ReturnKind>) -> Vec<MirStmt> {
     v
 }
 
-fn materialize_once(v: &mut Vec<MirStmt>, e: MirExpr, next_id: &mut u32) -> MirExpr {
+fn materialize_once(
+    v: &mut Vec<MirStmt>,
+    e: MirExpr,
+    next_id: &mut u32,
+    span: Option<echo_source::Span>,
+) -> MirExpr {
     if let MirExpr::Name(_) = &e {
         return e;
     }
@@ -973,6 +974,7 @@ fn materialize_once(v: &mut Vec<MirStmt>, e: MirExpr, next_id: &mut u32) -> MirE
     v.push(MirStmt::Set {
         name: n.clone(),
         value: e,
+        span,
     });
     if is_fresh {
         v.push(MirStmt::ScopeRegister {
@@ -1054,9 +1056,7 @@ mod tests {
     fn has_inward_demote(out: &[MirStmt], name: &str) -> bool {
         let mut promotes = Vec::new();
         walk_promotes(out, &mut promotes);
-        promotes
-            .iter()
-            .any(|(n, t)| n == name && *t != ROOT_SCOPE)
+        promotes.iter().any(|(n, t)| n == name && *t != ROOT_SCOPE)
     }
 
     /// Structural escape-surface table: each shape must refuse demotion of the
@@ -1072,7 +1072,7 @@ mod tests {
             )],
             else_body: None,
         };
-        let ret_holder = MirStmt::ReturnOk(MirExpr::Name("holder".into()));
+        let ret_holder = MirStmt::ReturnOk(MirExpr::Name("holder".into()), None);
 
         let cases: Vec<(&str, Vec<MirStmt>, &str)> = vec![
             (
@@ -1081,10 +1081,12 @@ mod tests {
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::Name("holder".into()),
+                        span: None,
                     },
                     if_use_xs.clone(),
                     ret_holder.clone(),
@@ -1097,10 +1099,12 @@ mod tests {
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                        span: None,
                     },
                     MirStmt::ListPush {
                         base: MirExpr::Name("holder".into()),
@@ -1120,10 +1124,12 @@ mod tests {
                             type_name: String::new(),
                             fields: vec![],
                         },
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     },
                     MirStmt::FieldSet {
                         base: MirExpr::Name("holder".into()),
@@ -1141,10 +1147,12 @@ mod tests {
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(0)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                        span: None,
                     },
                     MirStmt::IndexSet {
                         base: MirExpr::Name("holder".into()),
@@ -1162,10 +1170,12 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![MirExpr::Name("xs".into())]),
+                        span: None,
                     },
                     if_use_xs.clone(),
                     ret_holder.clone(),
@@ -1178,6 +1188,7 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
@@ -1185,6 +1196,7 @@ mod tests {
                             type_name: String::new(),
                             fields: vec![("f".into(), MirExpr::Name("xs".into()))],
                         },
+                        span: None,
                     },
                     if_use_xs.clone(),
                     ret_holder.clone(),
@@ -1197,12 +1209,14 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
-                        value: MirExpr::ListLit(vec![MirExpr::ListLit(vec![
-                            MirExpr::Name("xs".into()),
-                        ])]),
+                        value: MirExpr::ListLit(vec![MirExpr::ListLit(vec![MirExpr::Name(
+                            "xs".into(),
+                        )])]),
+                        span: None,
                     },
                     if_use_xs.clone(),
                     ret_holder.clone(),
@@ -1235,6 +1249,32 @@ mod tests {
     }
 
     #[test]
+    fn inject_preserves_set_and_return_spans() {
+        use echo_source::{BytePos, SourceId, Span};
+        let span = Span::new(SourceId::from_u32(0), BytePos(8), BytePos(12));
+        let out = inject_lifetime(vec![
+            MirStmt::Set {
+                name: "n".into(),
+                value: MirExpr::ConstI64(1),
+                span: Some(span),
+            },
+            MirStmt::ReturnOk(MirExpr::Name("n".into()), Some(span)),
+        ]);
+        assert!(
+            out.iter().any(|s| matches!(
+                s,
+                MirStmt::Set { name, span: Some(sp), .. } if name == "n" && *sp == span
+            )),
+            "Set span must survive inject_lifetime: {out:?}"
+        );
+        assert!(
+            out.iter()
+                .any(|s| matches!(s, MirStmt::ReturnOk(_, Some(sp)) if *sp == span)),
+            "ReturnOk span must survive inject_lifetime: {out:?}"
+        );
+    }
+
+    #[test]
     fn no_demote_when_body_nests_into_outer_holder() {
         // xs unique at root; if body does holder = [xs]; holder used after.
         // Pre-scan must see the in-body nest and refuse demote of xs (else
@@ -1243,10 +1283,12 @@ mod tests {
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                span: None,
             },
             MirStmt::Set {
                 name: "holder".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -1254,11 +1296,12 @@ mod tests {
                     vec![MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![MirExpr::Name("xs".into())]),
+                        span: None,
                     }],
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+            MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
         ];
         let out = inject_lifetime(body);
         assert!(
@@ -1269,9 +1312,7 @@ mod tests {
         let mut promotes = Vec::new();
         walk_promotes(&out, &mut promotes);
         assert!(
-            promotes
-                .iter()
-                .any(|(n, t)| n == "xs" && *t == ROOT_SCOPE),
+            promotes.iter().any(|(n, t)| n == "xs" && *t == ROOT_SCOPE),
             "nest assign must ScopePromote xs to holder owner (root): {promotes:?}"
         );
     }
@@ -1282,10 +1323,12 @@ mod tests {
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                span: None,
             },
             MirStmt::Set {
                 name: "holder".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -1297,7 +1340,7 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+            MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
         ];
         let out = inject_lifetime(body);
         assert!(
@@ -1316,10 +1359,12 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     },
                     MirStmt::If {
                         arms: vec![(
@@ -1327,11 +1372,12 @@ mod tests {
                             vec![MirStmt::Set {
                                 name: "holder".into(),
                                 value: MirExpr::ListLit(vec![MirExpr::Name("xs".into())]),
+                                span: None,
                             }],
                         )],
                         else_body: None,
                     },
-                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
                 ],
             ),
             (
@@ -1340,6 +1386,7 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
@@ -1347,6 +1394,7 @@ mod tests {
                             type_name: String::new(),
                             fields: vec![],
                         },
+                        span: None,
                     },
                     MirStmt::If {
                         arms: vec![(
@@ -1357,11 +1405,12 @@ mod tests {
                                     type_name: String::new(),
                                     fields: vec![("f".into(), MirExpr::Name("xs".into()))],
                                 },
+                                span: None,
                             }],
                         )],
                         else_body: None,
                     },
-                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
                 ],
             ),
             (
@@ -1370,6 +1419,7 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
@@ -1377,6 +1427,7 @@ mod tests {
                             type_name: String::new(),
                             fields: vec![],
                         },
+                        span: None,
                     },
                     MirStmt::If {
                         arms: vec![(
@@ -1389,7 +1440,7 @@ mod tests {
                         )],
                         else_body: None,
                     },
-                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
                 ],
             ),
             (
@@ -1398,10 +1449,12 @@ mod tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(9)]),
+                        span: None,
                     },
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![MirExpr::ConstI64(0)]),
+                        span: None,
                     },
                     MirStmt::If {
                         arms: vec![(
@@ -1414,7 +1467,7 @@ mod tests {
                         )],
                         else_body: None,
                     },
-                    MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+                    MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
                 ],
             ),
         ];
@@ -1434,6 +1487,7 @@ mod tests {
             MirStmt::Set {
                 name: "holder".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -1442,22 +1496,26 @@ mod tests {
                         MirStmt::Set {
                             name: "xs".into(),
                             value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                            span: None,
                         },
                         MirStmt::Set {
                             name: "holder".into(),
                             value: MirExpr::Name("xs".into()),
+                            span: None,
                         },
                     ],
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+            MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
         walk_promotes(&out, &mut promotes);
         assert!(
-            promotes.iter().any(|(n, t)| n == "holder" && *t == ROOT_SCOPE),
+            promotes
+                .iter()
+                .any(|(n, t)| n == "holder" && *t == ROOT_SCOPE),
             "holder reassign must promote to root: {promotes:?}\n{out:?}"
         );
     }
@@ -1471,11 +1529,12 @@ mod tests {
                     vec![MirStmt::Set {
                         name: "ys".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     }],
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
@@ -1494,12 +1553,13 @@ mod tests {
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                span: None,
             },
             MirStmt::Loop {
                 cond: Some(MirExpr::ConstI64(0)),
                 body: vec![MirStmt::Eval(MirExpr::Name("xs".into()))],
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
@@ -1509,7 +1569,8 @@ mod tests {
             "loop demote disabled: unexpected promote of xs: {promotes:?}\n{out:?}"
         );
         assert!(
-            out.iter().any(|s| matches!(s, MirStmt::ScopeEnter { id: 1 })),
+            out.iter()
+                .any(|s| matches!(s, MirStmt::ScopeEnter { id: 1 })),
             "loop still wrapped in once-scope: {out:?}"
         );
     }
@@ -1520,12 +1581,13 @@ mod tests {
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                span: None,
             },
             MirStmt::Loop {
                 cond: Some(MirExpr::ConstI64(0)),
                 body: vec![MirStmt::Eval(MirExpr::Name("xs".into()))],
             },
-            MirStmt::ReturnOk(MirExpr::Name("xs".into())),
+            MirStmt::ReturnOk(MirExpr::Name("xs".into()), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
@@ -1544,10 +1606,12 @@ mod tests {
             MirStmt::Set {
                 name: "a".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(10), MirExpr::ConstI64(20)]),
+                span: None,
             },
             MirStmt::Set {
                 name: "b".into(),
                 value: MirExpr::Name("a".into()),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -1556,7 +1620,7 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("a".into())),
+            MirStmt::ReturnOk(MirExpr::Name("a".into()), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
@@ -1577,10 +1641,12 @@ mod tests {
             MirStmt::Set {
                 name: "holder".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(7)]),
+                span: None,
             },
             MirStmt::ListPush {
                 base: MirExpr::Name("holder".into()),
@@ -1593,15 +1659,13 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("holder".into())),
+            MirStmt::ReturnOk(MirExpr::Name("holder".into()), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
         walk_promotes(&out, &mut promotes);
         assert!(
-            !promotes
-                .iter()
-                .any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
+            !promotes.iter().any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
             "must not demote xs after ListPush into holder: {promotes:?}\n{out:?}"
         );
     }
@@ -1618,18 +1682,22 @@ mod tests {
                     MirExpr::ConstI64(8),
                     MirExpr::ConstI64(9),
                 ]),
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Binary {
-                op: echo_ast::BinaryOp::Add,
-                left: Box::new(MirExpr::Index {
-                    base: Box::new(MirExpr::Name("xs".into())),
-                    index: Box::new(MirExpr::ConstI64(0)),
-                }),
-                right: Box::new(MirExpr::Index {
-                    base: Box::new(MirExpr::Name("xs".into())),
-                    index: Box::new(MirExpr::ConstI64(2)),
-                }),
-            }),
+            MirStmt::ReturnOk(
+                MirExpr::Binary {
+                    op: echo_ast::BinaryOp::Add,
+                    left: Box::new(MirExpr::Index {
+                        base: Box::new(MirExpr::Name("xs".into())),
+                        index: Box::new(MirExpr::ConstI64(0)),
+                    }),
+                    right: Box::new(MirExpr::Index {
+                        base: Box::new(MirExpr::Name("xs".into())),
+                        index: Box::new(MirExpr::ConstI64(2)),
+                    }),
+                },
+                None,
+            ),
         ];
         let out = inject_lifetime(body);
         // Find root ScopeExit then ReturnOk — a Set of the return temp must
@@ -1638,9 +1706,8 @@ mod tests {
         let mut exit_before_eval = false;
         for s in &out {
             match s {
-                MirStmt::Set { name, value }
-                    if name.starts_with("__ret_")
-                        && matches!(value, MirExpr::Binary { .. }) =>
+                MirStmt::Set { name, value, .. }
+                    if name.starts_with("__ret_") && matches!(value, MirExpr::Binary { .. }) =>
                 {
                     saw_ret_set = true;
                 }
@@ -1649,7 +1716,7 @@ mod tests {
                         exit_before_eval = true;
                     }
                 }
-                MirStmt::ReturnOk(_) => {}
+                MirStmt::ReturnOk(..) => {}
                 _ => {}
             }
         }
@@ -1669,10 +1736,12 @@ mod tests {
                     type_name: String::new(),
                     fields: vec![],
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::FieldSet {
                 base: MirExpr::Name("s".into()),
@@ -1686,15 +1755,13 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("s".into())),
+            MirStmt::ReturnOk(MirExpr::Name("s".into()), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
         walk_promotes(&out, &mut promotes);
         assert!(
-            !promotes
-                .iter()
-                .any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
+            !promotes.iter().any(|(n, t)| n == "xs" && *t != ROOT_SCOPE),
             "must not demote xs after FieldSet into s: {promotes:?}\n{out:?}"
         );
     }
@@ -1708,10 +1775,12 @@ mod tests {
             MirStmt::Set {
                 name: "a".into(),
                 value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                span: None,
             },
             MirStmt::Set {
                 name: "b".into(),
                 value: MirExpr::Name("a".into()),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -1720,7 +1789,7 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
@@ -1774,7 +1843,7 @@ mod tests {
                     else_body: None,
                 }],
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         let arm = {
@@ -1865,10 +1934,10 @@ mod tests {
                 body: vec![MirStmt::ForIn {
                     item: "e".into(),
                     iter: MirExpr::Name("chain".into()),
-                    body: vec![MirStmt::ReturnOk(MirExpr::ConstBool(true))],
+                    body: vec![MirStmt::ReturnOk(MirExpr::ConstBool(true), None)],
                 }],
             },
-            MirStmt::ReturnOk(MirExpr::ConstBool(false)),
+            MirStmt::ReturnOk(MirExpr::ConstBool(false), None),
         ]);
         let cfg = structured_to_cfg(&body, MirRetShape::Plain);
         let ssa = construct_ssa(cfg, &["buckets".into()]);
@@ -1905,7 +1974,7 @@ mod tests {
             }
             match &b.term {
                 crate::Terminator::Branch { cond, .. } => walk_expr(cond, &mut bad),
-                crate::Terminator::ReturnOk(e) | crate::Terminator::ReturnErr(e) => {
+                crate::Terminator::ReturnOk(e, _) | crate::Terminator::ReturnErr(e) => {
                     walk_expr(e, &mut bad)
                 }
                 _ => {}
@@ -1923,6 +1992,7 @@ mod tests {
             MirStmt::Set {
                 name: "xs".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -1930,15 +2000,19 @@ mod tests {
                     vec![MirStmt::Set {
                         name: "ys".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     }],
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("xs".into())),
+            MirStmt::ReturnOk(MirExpr::Name("xs".into()), None),
         ];
         let out = inject_lifetime(body);
         assert!(matches!(out.first(), Some(MirStmt::ScopeEnter { id: 0 })));
-        assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeRegister { .. })));
+        assert!(
+            out.iter()
+                .any(|s| matches!(s, MirStmt::ScopeRegister { .. }))
+        );
         let has_arm_scope = out.iter().any(|s| match s {
             MirStmt::If { arms, .. } => arms
                 .iter()
@@ -1947,7 +2021,10 @@ mod tests {
         });
         assert!(has_arm_scope);
         assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeDisown { .. })));
-        assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeExit { id: 0 })));
+        assert!(
+            out.iter()
+                .any(|s| matches!(s, MirStmt::ScopeExit { id: 0 }))
+        );
     }
 
     #[test]
@@ -1959,7 +2036,7 @@ mod tests {
                 body_symbol: "job".into(),
                 bind: Some("h".into()),
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         assert!(
@@ -1986,6 +2063,7 @@ mod tests {
                 value: MirExpr::StringLit {
                     bytes: b"/tmp/x".to_vec(),
                 },
+                span: None,
             },
             MirStmt::Set {
                 name: "st".into(),
@@ -1996,8 +2074,9 @@ mod tests {
                     args: vec![MirExpr::Name("path".into())],
                     ret: MirRetShape::Plain,
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("path".into())),
+            MirStmt::ReturnOk(MirExpr::Name("path".into()), None),
         ];
         let out = inject_lifetime(body);
         let promotes_path = out.iter().any(|s| match s {
@@ -2042,6 +2121,7 @@ mod tests {
                     args: vec![MirExpr::Name("path".into())],
                     ret: MirRetShape::Plain,
                 },
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -2056,7 +2136,7 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         let promotes: Vec<_> = out
@@ -2079,19 +2159,22 @@ mod tests {
     fn return_call_materializes_once() {
         use crate::{CallTarget, MirExpr, MirRetShape, MirStmt};
         use std::path::PathBuf;
-        let body = vec![MirStmt::ReturnOk(MirExpr::Call {
-            target: CallTarget::Function {
-                module_path: PathBuf::from("m"),
-                name: "keys".into(),
+        let body = vec![MirStmt::ReturnOk(
+            MirExpr::Call {
+                target: CallTarget::Function {
+                    module_path: PathBuf::from("m"),
+                    name: "keys".into(),
+                },
+                args: vec![MirExpr::Name("t".into())],
+                ret: MirRetShape::Plain,
             },
-            args: vec![MirExpr::Name("t".into())],
-            ret: MirRetShape::Plain,
-        })];
+            None,
+        )];
         let out = inject_lifetime(body);
         let sets: Vec<_> = out
             .iter()
             .filter_map(|s| match s {
-                MirStmt::Set { name, value } => Some((name.clone(), value.clone())),
+                MirStmt::Set { name, value, .. } => Some((name.clone(), value.clone())),
                 _ => None,
             })
             .collect();
@@ -2099,11 +2182,11 @@ mod tests {
         assert!(sets[0].0.starts_with("__ret_"), "{:?}", sets[0].0);
         let returns: Vec<_> = out
             .iter()
-            .filter(|s| matches!(s, MirStmt::ReturnOk(_)))
+            .filter(|s| matches!(s, MirStmt::ReturnOk(..)))
             .collect();
         assert_eq!(returns.len(), 1);
         match &returns[0] {
-            MirStmt::ReturnOk(MirExpr::Name(n)) => assert_eq!(n, &sets[0].0),
+            MirStmt::ReturnOk(MirExpr::Name(n), _) => assert_eq!(n, &sets[0].0),
             other => panic!("return should be name, got {other:?}"),
         }
         fn count_calls(e: &MirExpr) -> usize {
@@ -2118,7 +2201,7 @@ mod tests {
             match s {
                 MirStmt::Set { value, .. } => n_calls += count_calls(value),
                 MirStmt::ScopeDisown { value } => n_calls += count_calls(value),
-                MirStmt::ReturnOk(e) | MirStmt::ReturnErr(e) => n_calls += count_calls(e),
+                MirStmt::ReturnOk(e, _) | MirStmt::ReturnErr(e) => n_calls += count_calls(e),
                 _ => {}
             }
         }
@@ -2131,6 +2214,7 @@ mod tests {
             MirStmt::Set {
                 name: "holder".into(),
                 value: MirExpr::ListLit(vec![]),
+                span: None,
             },
             MirStmt::If {
                 arms: vec![(
@@ -2142,7 +2226,7 @@ mod tests {
                 )],
                 else_body: None,
             },
-            MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+            MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
         ];
         let out = inject_lifetime(body);
         let mut promotes = Vec::new();
@@ -2164,6 +2248,7 @@ mod tests {
                     MirStmt::Set {
                         name: "holder".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     },
                     MirStmt::If {
                         arms: vec![(
@@ -2172,10 +2257,12 @@ mod tests {
                                 MirStmt::Set {
                                     name: "xs".into(),
                                     value: MirExpr::ListLit(vec![MirExpr::ConstI64(1)]),
+                                    span: None,
                                 },
                                 MirStmt::Set {
                                     name: "holder".into(),
                                     value: MirExpr::Name("xs".into()),
+                                    span: None,
                                 },
                             ],
                         )],

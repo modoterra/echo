@@ -9,8 +9,8 @@ use echo_ast::{
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_source::Span;
 
-use crate::const_eval::{eval_const_expr, ConstValue};
-use crate::effect::{effects_in_stmts, ReturnShape};
+use crate::const_eval::{ConstValue, eval_const_expr};
+use crate::effect::{ReturnShape, effects_in_stmts};
 use crate::{BindingKind, ImportedModule, ModuleExport};
 
 #[derive(Debug, Clone)]
@@ -120,6 +120,7 @@ impl Cx {
             kind,
             return_shape,
             arity: _,
+            return_ty: _,
         } in &m.exports
         {
             exports.insert(name.clone(), *kind);
@@ -256,12 +257,7 @@ impl Cx {
     fn finish_bind_introduce(&mut self, b: &BindStmt, ret_shape: Option<ReturnShape>) {
         match b.leader {
             BindLeader::Tilde => match self.lookup(&b.name.name).map(|b| b.kind) {
-                None => self.introduce(
-                    &b.name.name,
-                    BindingKind::Mutable,
-                    ret_shape,
-                    b.name.span,
-                ),
+                None => self.introduce(&b.name.name, BindingKind::Mutable, ret_shape, b.name.span),
                 Some(BindingKind::Mutable) => {}
                 Some(
                     BindingKind::Immutable
@@ -277,12 +273,7 @@ impl Cx {
                 }
             },
             BindLeader::Dollar => {
-                self.introduce(
-                    &b.name.name,
-                    BindingKind::Immutable,
-                    ret_shape,
-                    b.name.span,
-                );
+                self.introduce(&b.name.name, BindingKind::Immutable, ret_shape, b.name.span);
             }
             BindLeader::Hash => {
                 self.introduce(&b.name.name, BindingKind::Const, ret_shape, b.name.span);
@@ -483,11 +474,7 @@ impl Cx {
     /// capture, so `f(x)` on an outer param SEGV'd instead of diagnosing.
     fn check_name_use(&mut self, n: &echo_ast::Ident) {
         if self.lookup(&n.name).is_none() {
-            self.error(
-                "sem-unbound",
-                format!("unbound name `{}`", n.name),
-                n.span,
-            );
+            self.error("sem-unbound", format!("unbound name `{}`", n.name), n.span);
             return;
         }
         let Some(base) = self.fn_scope_base else {
@@ -496,10 +483,7 @@ impl Cx {
         // Nested block/loop scopes inside the function are not "outer".
         if let Some((b, idx)) = self.lookup_scope_index(&n.name) {
             if idx < base
-                && matches!(
-                    b.kind,
-                    BindingKind::Mutable | BindingKind::Immutable
-                )
+                && matches!(b.kind, BindingKind::Mutable | BindingKind::Immutable)
                 && b.return_shape.is_none()
             {
                 self.error(
@@ -625,11 +609,7 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
                         );
                     }
                     None => {
-                        cx.error(
-                            "sem-unbound",
-                            format!("unbound name `{}`", n.name),
-                            n.span,
-                        );
+                        cx.error("sem-unbound", format!("unbound name `{}`", n.name), n.span);
                     }
                 },
                 AssignTarget::Field { base, .. } => {
@@ -706,25 +686,23 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
                     MatchArmKind::BindOk { name } | MatchArmKind::BindErr { name } => {
                         cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
                     }
-                    MatchArmKind::Type { name } => {
-                        match cx.lookup(&name.name).map(|b| b.kind) {
-                            Some(BindingKind::Struct) => {}
-                            Some(_) => {
-                                cx.error(
-                                    "sem-match-type",
-                                    format!("`% {}` is not a struct type", name.name),
-                                    name.span,
-                                );
-                            }
-                            None => {
-                                cx.error(
-                                    "sem-match-type",
-                                    format!("unknown struct type `% {}`", name.name),
-                                    name.span,
-                                );
-                            }
+                    MatchArmKind::Type { name } => match cx.lookup(&name.name).map(|b| b.kind) {
+                        Some(BindingKind::Struct) => {}
+                        Some(_) => {
+                            cx.error(
+                                "sem-match-type",
+                                format!("`% {}` is not a struct type", name.name),
+                                name.span,
+                            );
                         }
-                    }
+                        None => {
+                            cx.error(
+                                "sem-match-type",
+                                format!("unknown struct type `% {}`", name.name),
+                                name.span,
+                            );
+                        }
+                    },
                     MatchArmKind::Values(ps) => {
                         for p in ps {
                             cx.expr(p, UseContext::Value);
@@ -762,10 +740,7 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
                     // By reference: pass the binding's runtime value (heap handle identity);
                     // no deep clone. Body params share those handles.
                     if captures.len() > 8 {
-                        let span = captures
-                            .last()
-                            .map(|c| c.span)
-                            .unwrap_or(s.span);
+                        let span = captures.last().map(|c| c.span).unwrap_or(s.span);
                         cx.error(
                             "sem-task-arity",
                             format!(
@@ -804,22 +779,20 @@ fn stmt_(cx: &mut Cx, stmt: &Stmt) {
                 cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
             }
         }
-        Stmt::TaskJoin(s) => {
-            match &s.kind {
-                echo_ast::TaskJoinKind::Block { bind, body } => {
-                    block(cx, body);
-                    if let Some(name) = bind {
-                        cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
-                    }
-                }
-                echo_ast::TaskJoinKind::Handle { bind, handle } => {
-                    cx.expr(handle, UseContext::Value);
-                    if let Some(name) = bind {
-                        cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
-                    }
+        Stmt::TaskJoin(s) => match &s.kind {
+            echo_ast::TaskJoinKind::Block { bind, body } => {
+                block(cx, body);
+                if let Some(name) = bind {
+                    cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
                 }
             }
-        }
+            echo_ast::TaskJoinKind::Handle { bind, handle } => {
+                cx.expr(handle, UseContext::Value);
+                if let Some(name) = bind {
+                    cx.introduce(&name.name, BindingKind::Immutable, None, name.span);
+                }
+            }
+        },
         Stmt::EffectBlock(s) => {
             // Body is checked in a nested scope; auto-unwrap suppresses
             // unhandled-result/option. Bind is introduced after the block.
@@ -995,9 +968,7 @@ fn width_tag_of_numeric_lit(expr: &Expr) -> Option<&'static str> {
         e = inner.as_ref();
     }
     match e {
-        Expr::Number {
-            width: Some(w), ..
-        } => Some(w.as_str()),
+        Expr::Number { width: Some(w), .. } => Some(w.as_str()),
         _ => None,
     }
 }

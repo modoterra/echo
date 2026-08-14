@@ -6,40 +6,40 @@
 #![forbid(unsafe_code)]
 
 use echo_codegen_abi::{
-    RT_MATH_ABS_F, RT_MATH_ABS_I, RT_MATH_CEIL, RT_MATH_COS, RT_MATH_FLOOR, RT_MATH_POW, RT_MATH_SIN,
-    RT_MATH_SQRT, RT_MATH_TAN, RT_RANDOM_FLOAT, RT_RANDOM_SEED, RT_RANDOM_U64, RT_CRYPTO_RANDOM_BYTES,
-    RT_CRYPTO_RANDOM_U64, RT_OS_CHDIR, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PID, RT_OS_PLATFORM,
-    RT_NOW_MONO_MS, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_DNS_LOOKUP, RT_SHA256, RT_PROCESS_RUN_CAPTURE,
-    RT_FS_TEMP_DIR, RT_FS_CREATE_TEMP, RT_FS_SYMLINK, RT_STR_TO_LOWER, RT_STR_TO_UPPER, RT_STR_TRIM,
-    RT_STR_SPLIT, RT_STR_REPLACE, RT_HEX_ENCODE, RT_HEX_DECODE, RT_BASE64_ENCODE, RT_BASE64_DECODE,
-    RT_TLS_LISTEN, RT_TLS_ACCEPT, RT_TLS_CONNECT, RT_TLS_READ, RT_TLS_WRITE, RT_TLS_CLOSE,
-    RT_TLS_CLOSE_LISTENER, RT_PARSE_I64, RT_PARSE_F64, RT_URL_PARSE, RT_TIME_FORMAT, RT_TIME_PARSE,
-    RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS, RT_ZIP_PACK, RT_ZIP_UNPACK_FIRST, RT_HMAC_SHA256,
-    RT_SHA512, RT_AES_GCM_ENCRYPT, RT_AES_GCM_DECRYPT, RT_FS_CHMOD, RT_PATH_CLEAN, RT_PATH_REL,
-    RT_PROCESS_RUN_CWD, RT_PROCESS_SPAWN_PIPES, RT_PROCESS_PIPE_WRITE, RT_PROCESS_PIPE_READ,
-    RT_PROCESS_PIPE_CLOSE, RT_PROCESS_WAIT, RT_UNIX_LISTEN, RT_UNIX_ACCEPT, RT_UNIX_CONNECT,
-    RT_UNIX_READ, RT_UNIX_WRITE, RT_UNIX_CLOSE,
+    RT_AES_GCM_DECRYPT, RT_AES_GCM_ENCRYPT, RT_BASE64_DECODE, RT_BASE64_ENCODE,
+    RT_CRYPTO_RANDOM_BYTES, RT_CRYPTO_RANDOM_U64, RT_DNS_LOOKUP, RT_FS_CHMOD, RT_FS_CREATE_TEMP,
+    RT_FS_SYMLINK, RT_FS_TEMP_DIR, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS, RT_HEX_DECODE,
+    RT_HEX_ENCODE, RT_HMAC_SHA256, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_MATH_ABS_F, RT_MATH_ABS_I,
+    RT_MATH_CEIL, RT_MATH_COS, RT_MATH_FLOOR, RT_MATH_POW, RT_MATH_SIN, RT_MATH_SQRT, RT_MATH_TAN,
+    RT_NOW_MONO_MS, RT_OS_CHDIR, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PID, RT_OS_PLATFORM,
+    RT_PARSE_F64, RT_PARSE_I64, RT_PATH_CLEAN, RT_PATH_REL, RT_PROCESS_PIPE_CLOSE,
+    RT_PROCESS_PIPE_READ, RT_PROCESS_PIPE_WRITE, RT_PROCESS_RUN_CAPTURE, RT_PROCESS_RUN_CWD,
+    RT_PROCESS_SPAWN_PIPES, RT_PROCESS_WAIT, RT_RANDOM_FLOAT, RT_RANDOM_SEED, RT_RANDOM_U64,
+    RT_SHA256, RT_SHA512, RT_STR_REPLACE, RT_STR_SPLIT, RT_STR_TO_LOWER, RT_STR_TO_UPPER,
+    RT_STR_TRIM, RT_TIME_FORMAT, RT_TIME_PARSE, RT_TLS_ACCEPT, RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER,
+    RT_TLS_CONNECT, RT_TLS_LISTEN, RT_TLS_READ, RT_TLS_WRITE, RT_UNIX_ACCEPT, RT_UNIX_CLOSE,
+    RT_UNIX_CONNECT, RT_UNIX_LISTEN, RT_UNIX_READ, RT_UNIX_WRITE, RT_URL_PARSE, RT_ZIP_PACK,
+    RT_ZIP_UNPACK_FIRST,
 };
 
 use std::path::{Path, PathBuf};
 
 use echo_codegen_abi::{
     RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
-    RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
-    RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET, RT_LIST_LEN, RT_NOW_MS, RT_PRINT_I64,
-    RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_FILE_CLOSE,
-    RT_FS_FILE_READ, RT_FS_FILE_SEEK, RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
-    RT_FS_METADATA, RT_FS_OPEN_APPEND, RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ,
-    RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_RENAME, RT_FS_WRITE, RT_PROCESS_ARGS,
-    RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET, RT_PROCESS_ENV_UNSET,
-    RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME,
-    RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG,
-    RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET,
-    RT_STR_LEN, RT_STR_REPEAT, RT_STR_SLICE, RT_STR_STARTS_WITH, RT_LIST_RESERVE,
-    RT_LIST_NEW_EMPTY_LISTS, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT,
-    RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH,
-    RT_TEST_REGISTER,
-    RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
+    RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL,
+    RT_FS_EXISTS, RT_FS_FILE_CLOSE, RT_FS_FILE_READ, RT_FS_FILE_SEEK, RT_FS_FILE_WRITE,
+    RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN, RT_FS_METADATA, RT_FS_OPEN_APPEND, RT_FS_OPEN_READ,
+    RT_FS_OPEN_WRITE, RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_RENAME,
+    RT_FS_WRITE, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE,
+    RT_LIST_GET, RT_LIST_LEN, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_RESERVE, RT_NOW_MS, RT_PRINT_I64,
+    RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
+    RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND,
+    RT_REFLECT_KIND_NAME, RT_SLEEP_MS, RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH,
+    RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT,
+    RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_REPEAT, RT_STR_SLICE, RT_STR_STARTS_WITH,
+    RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
+    RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER, RT_UDP_BIND,
+    RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO,
 };
 
 /// Stable crate identity for workspace linkage checks.
@@ -56,6 +56,19 @@ pub struct RuntimeExport {
     pub name: &'static str,
     /// Native symbol (`echo_runtime_*`).
     pub native: &'static str,
+}
+
+/// Known return kind label for a runtime export (`string`, `i64`, …).
+/// `None` = unconstrained (same as a fresh checker hole).
+#[must_use]
+pub fn runtime_ret_kind(name: &str) -> Option<&'static str> {
+    match name {
+        "str_from_int" | "str_from_float" | "str_from_bytes" | "str_from_duration"
+        | "str_from_locator" | "str_from_debug" | "str_cat" | "str_trim" | "str_to_lower"
+        | "str_to_upper" | "str_slice" | "str_repeat" => Some("string"),
+        "str_len" | "bytes_len" | "str_get" | "bytes_get" => Some("i64"),
+        _ => None,
+    }
 }
 
 /// Runtime package exports (extend as the ABI grows).
@@ -368,80 +381,294 @@ pub const RUNTIME_EXPORTS: &[RuntimeExport] = &[
         name: "fs_file_close",
         native: RT_FS_FILE_CLOSE,
     },
-
-    RuntimeExport { name: "math_sqrt", native: RT_MATH_SQRT },
-    RuntimeExport { name: "math_sin", native: RT_MATH_SIN },
-    RuntimeExport { name: "math_cos", native: RT_MATH_COS },
-    RuntimeExport { name: "math_tan", native: RT_MATH_TAN },
-    RuntimeExport { name: "math_floor", native: RT_MATH_FLOOR },
-    RuntimeExport { name: "math_ceil", native: RT_MATH_CEIL },
-    RuntimeExport { name: "math_abs_f", native: RT_MATH_ABS_F },
-    RuntimeExport { name: "math_pow", native: RT_MATH_POW },
-    RuntimeExport { name: "math_abs_i", native: RT_MATH_ABS_I },
-    RuntimeExport { name: "random_seed", native: RT_RANDOM_SEED },
-    RuntimeExport { name: "random_u64", native: RT_RANDOM_U64 },
-    RuntimeExport { name: "random_float", native: RT_RANDOM_FLOAT },
-    RuntimeExport { name: "crypto_random_bytes", native: RT_CRYPTO_RANDOM_BYTES },
-    RuntimeExport { name: "crypto_random_u64", native: RT_CRYPTO_RANDOM_U64 },
-    RuntimeExport { name: "os_pid", native: RT_OS_PID },
-    RuntimeExport { name: "os_cwd", native: RT_OS_CWD },
-    RuntimeExport { name: "os_chdir", native: RT_OS_CHDIR },
-    RuntimeExport { name: "os_hostname", native: RT_OS_HOSTNAME },
-    RuntimeExport { name: "os_platform", native: RT_OS_PLATFORM },
-    RuntimeExport { name: "now_mono_ms", native: RT_NOW_MONO_MS },
-    RuntimeExport { name: "json_parse", native: RT_JSON_PARSE },
-    RuntimeExport { name: "json_stringify", native: RT_JSON_STRINGIFY },
-    RuntimeExport { name: "dns_lookup", native: RT_DNS_LOOKUP },
-    RuntimeExport { name: "sha256", native: RT_SHA256 },
-    RuntimeExport { name: "process_run_capture", native: RT_PROCESS_RUN_CAPTURE },
-    RuntimeExport { name: "fs_temp_dir", native: RT_FS_TEMP_DIR },
-    RuntimeExport { name: "fs_create_temp", native: RT_FS_CREATE_TEMP },
-    RuntimeExport { name: "fs_symlink", native: RT_FS_SYMLINK },
-    RuntimeExport { name: "str_to_lower", native: RT_STR_TO_LOWER },
-    RuntimeExport { name: "str_to_upper", native: RT_STR_TO_UPPER },
-    RuntimeExport { name: "str_trim", native: RT_STR_TRIM },
-    RuntimeExport { name: "str_split", native: RT_STR_SPLIT },
-    RuntimeExport { name: "str_replace", native: RT_STR_REPLACE },
-    RuntimeExport { name: "hex_encode", native: RT_HEX_ENCODE },
-    RuntimeExport { name: "hex_decode", native: RT_HEX_DECODE },
-    RuntimeExport { name: "base64_encode", native: RT_BASE64_ENCODE },
-    RuntimeExport { name: "base64_decode", native: RT_BASE64_DECODE },
-    RuntimeExport { name: "tls_listen", native: RT_TLS_LISTEN },
-    RuntimeExport { name: "tls_accept", native: RT_TLS_ACCEPT },
-    RuntimeExport { name: "tls_connect", native: RT_TLS_CONNECT },
-    RuntimeExport { name: "tls_read", native: RT_TLS_READ },
-    RuntimeExport { name: "tls_write", native: RT_TLS_WRITE },
-    RuntimeExport { name: "tls_close", native: RT_TLS_CLOSE },
-    RuntimeExport { name: "tls_close_listener", native: RT_TLS_CLOSE_LISTENER },
-    RuntimeExport { name: "parse_i64", native: RT_PARSE_I64 },
-    RuntimeExport { name: "parse_f64", native: RT_PARSE_F64 },
-    RuntimeExport { name: "url_parse", native: RT_URL_PARSE },
-    RuntimeExport { name: "time_format", native: RT_TIME_FORMAT },
-    RuntimeExport { name: "time_parse", native: RT_TIME_PARSE },
-    RuntimeExport { name: "gzip_compress", native: RT_GZIP_COMPRESS },
-    RuntimeExport { name: "gzip_decompress", native: RT_GZIP_DECOMPRESS },
-    RuntimeExport { name: "zip_pack", native: RT_ZIP_PACK },
-    RuntimeExport { name: "zip_unpack_first", native: RT_ZIP_UNPACK_FIRST },
-    RuntimeExport { name: "hmac_sha256", native: RT_HMAC_SHA256 },
-    RuntimeExport { name: "sha512", native: RT_SHA512 },
-    RuntimeExport { name: "aes_gcm_encrypt", native: RT_AES_GCM_ENCRYPT },
-    RuntimeExport { name: "aes_gcm_decrypt", native: RT_AES_GCM_DECRYPT },
-    RuntimeExport { name: "fs_chmod", native: RT_FS_CHMOD },
-    RuntimeExport { name: "path_clean", native: RT_PATH_CLEAN },
-    RuntimeExport { name: "path_rel", native: RT_PATH_REL },
-    RuntimeExport { name: "process_run_cwd", native: RT_PROCESS_RUN_CWD },
-    RuntimeExport { name: "process_spawn_pipes", native: RT_PROCESS_SPAWN_PIPES },
-    RuntimeExport { name: "process_pipe_write", native: RT_PROCESS_PIPE_WRITE },
-    RuntimeExport { name: "process_pipe_read", native: RT_PROCESS_PIPE_READ },
-    RuntimeExport { name: "process_pipe_close", native: RT_PROCESS_PIPE_CLOSE },
-    RuntimeExport { name: "process_wait", native: RT_PROCESS_WAIT },
-    RuntimeExport { name: "unix_listen", native: RT_UNIX_LISTEN },
-    RuntimeExport { name: "unix_accept", native: RT_UNIX_ACCEPT },
-    RuntimeExport { name: "unix_connect", native: RT_UNIX_CONNECT },
-    RuntimeExport { name: "unix_read", native: RT_UNIX_READ },
-    RuntimeExport { name: "unix_write", native: RT_UNIX_WRITE },
-    RuntimeExport { name: "unix_close", native: RT_UNIX_CLOSE },
-
+    RuntimeExport {
+        name: "math_sqrt",
+        native: RT_MATH_SQRT,
+    },
+    RuntimeExport {
+        name: "math_sin",
+        native: RT_MATH_SIN,
+    },
+    RuntimeExport {
+        name: "math_cos",
+        native: RT_MATH_COS,
+    },
+    RuntimeExport {
+        name: "math_tan",
+        native: RT_MATH_TAN,
+    },
+    RuntimeExport {
+        name: "math_floor",
+        native: RT_MATH_FLOOR,
+    },
+    RuntimeExport {
+        name: "math_ceil",
+        native: RT_MATH_CEIL,
+    },
+    RuntimeExport {
+        name: "math_abs_f",
+        native: RT_MATH_ABS_F,
+    },
+    RuntimeExport {
+        name: "math_pow",
+        native: RT_MATH_POW,
+    },
+    RuntimeExport {
+        name: "math_abs_i",
+        native: RT_MATH_ABS_I,
+    },
+    RuntimeExport {
+        name: "random_seed",
+        native: RT_RANDOM_SEED,
+    },
+    RuntimeExport {
+        name: "random_u64",
+        native: RT_RANDOM_U64,
+    },
+    RuntimeExport {
+        name: "random_float",
+        native: RT_RANDOM_FLOAT,
+    },
+    RuntimeExport {
+        name: "crypto_random_bytes",
+        native: RT_CRYPTO_RANDOM_BYTES,
+    },
+    RuntimeExport {
+        name: "crypto_random_u64",
+        native: RT_CRYPTO_RANDOM_U64,
+    },
+    RuntimeExport {
+        name: "os_pid",
+        native: RT_OS_PID,
+    },
+    RuntimeExport {
+        name: "os_cwd",
+        native: RT_OS_CWD,
+    },
+    RuntimeExport {
+        name: "os_chdir",
+        native: RT_OS_CHDIR,
+    },
+    RuntimeExport {
+        name: "os_hostname",
+        native: RT_OS_HOSTNAME,
+    },
+    RuntimeExport {
+        name: "os_platform",
+        native: RT_OS_PLATFORM,
+    },
+    RuntimeExport {
+        name: "now_mono_ms",
+        native: RT_NOW_MONO_MS,
+    },
+    RuntimeExport {
+        name: "json_parse",
+        native: RT_JSON_PARSE,
+    },
+    RuntimeExport {
+        name: "json_stringify",
+        native: RT_JSON_STRINGIFY,
+    },
+    RuntimeExport {
+        name: "dns_lookup",
+        native: RT_DNS_LOOKUP,
+    },
+    RuntimeExport {
+        name: "sha256",
+        native: RT_SHA256,
+    },
+    RuntimeExport {
+        name: "process_run_capture",
+        native: RT_PROCESS_RUN_CAPTURE,
+    },
+    RuntimeExport {
+        name: "fs_temp_dir",
+        native: RT_FS_TEMP_DIR,
+    },
+    RuntimeExport {
+        name: "fs_create_temp",
+        native: RT_FS_CREATE_TEMP,
+    },
+    RuntimeExport {
+        name: "fs_symlink",
+        native: RT_FS_SYMLINK,
+    },
+    RuntimeExport {
+        name: "str_to_lower",
+        native: RT_STR_TO_LOWER,
+    },
+    RuntimeExport {
+        name: "str_to_upper",
+        native: RT_STR_TO_UPPER,
+    },
+    RuntimeExport {
+        name: "str_trim",
+        native: RT_STR_TRIM,
+    },
+    RuntimeExport {
+        name: "str_split",
+        native: RT_STR_SPLIT,
+    },
+    RuntimeExport {
+        name: "str_replace",
+        native: RT_STR_REPLACE,
+    },
+    RuntimeExport {
+        name: "hex_encode",
+        native: RT_HEX_ENCODE,
+    },
+    RuntimeExport {
+        name: "hex_decode",
+        native: RT_HEX_DECODE,
+    },
+    RuntimeExport {
+        name: "base64_encode",
+        native: RT_BASE64_ENCODE,
+    },
+    RuntimeExport {
+        name: "base64_decode",
+        native: RT_BASE64_DECODE,
+    },
+    RuntimeExport {
+        name: "tls_listen",
+        native: RT_TLS_LISTEN,
+    },
+    RuntimeExport {
+        name: "tls_accept",
+        native: RT_TLS_ACCEPT,
+    },
+    RuntimeExport {
+        name: "tls_connect",
+        native: RT_TLS_CONNECT,
+    },
+    RuntimeExport {
+        name: "tls_read",
+        native: RT_TLS_READ,
+    },
+    RuntimeExport {
+        name: "tls_write",
+        native: RT_TLS_WRITE,
+    },
+    RuntimeExport {
+        name: "tls_close",
+        native: RT_TLS_CLOSE,
+    },
+    RuntimeExport {
+        name: "tls_close_listener",
+        native: RT_TLS_CLOSE_LISTENER,
+    },
+    RuntimeExport {
+        name: "parse_i64",
+        native: RT_PARSE_I64,
+    },
+    RuntimeExport {
+        name: "parse_f64",
+        native: RT_PARSE_F64,
+    },
+    RuntimeExport {
+        name: "url_parse",
+        native: RT_URL_PARSE,
+    },
+    RuntimeExport {
+        name: "time_format",
+        native: RT_TIME_FORMAT,
+    },
+    RuntimeExport {
+        name: "time_parse",
+        native: RT_TIME_PARSE,
+    },
+    RuntimeExport {
+        name: "gzip_compress",
+        native: RT_GZIP_COMPRESS,
+    },
+    RuntimeExport {
+        name: "gzip_decompress",
+        native: RT_GZIP_DECOMPRESS,
+    },
+    RuntimeExport {
+        name: "zip_pack",
+        native: RT_ZIP_PACK,
+    },
+    RuntimeExport {
+        name: "zip_unpack_first",
+        native: RT_ZIP_UNPACK_FIRST,
+    },
+    RuntimeExport {
+        name: "hmac_sha256",
+        native: RT_HMAC_SHA256,
+    },
+    RuntimeExport {
+        name: "sha512",
+        native: RT_SHA512,
+    },
+    RuntimeExport {
+        name: "aes_gcm_encrypt",
+        native: RT_AES_GCM_ENCRYPT,
+    },
+    RuntimeExport {
+        name: "aes_gcm_decrypt",
+        native: RT_AES_GCM_DECRYPT,
+    },
+    RuntimeExport {
+        name: "fs_chmod",
+        native: RT_FS_CHMOD,
+    },
+    RuntimeExport {
+        name: "path_clean",
+        native: RT_PATH_CLEAN,
+    },
+    RuntimeExport {
+        name: "path_rel",
+        native: RT_PATH_REL,
+    },
+    RuntimeExport {
+        name: "process_run_cwd",
+        native: RT_PROCESS_RUN_CWD,
+    },
+    RuntimeExport {
+        name: "process_spawn_pipes",
+        native: RT_PROCESS_SPAWN_PIPES,
+    },
+    RuntimeExport {
+        name: "process_pipe_write",
+        native: RT_PROCESS_PIPE_WRITE,
+    },
+    RuntimeExport {
+        name: "process_pipe_read",
+        native: RT_PROCESS_PIPE_READ,
+    },
+    RuntimeExport {
+        name: "process_pipe_close",
+        native: RT_PROCESS_PIPE_CLOSE,
+    },
+    RuntimeExport {
+        name: "process_wait",
+        native: RT_PROCESS_WAIT,
+    },
+    RuntimeExport {
+        name: "unix_listen",
+        native: RT_UNIX_LISTEN,
+    },
+    RuntimeExport {
+        name: "unix_accept",
+        native: RT_UNIX_ACCEPT,
+    },
+    RuntimeExport {
+        name: "unix_connect",
+        native: RT_UNIX_CONNECT,
+    },
+    RuntimeExport {
+        name: "unix_read",
+        native: RT_UNIX_READ,
+    },
+    RuntimeExport {
+        name: "unix_write",
+        native: RT_UNIX_WRITE,
+    },
+    RuntimeExport {
+        name: "unix_close",
+        native: RT_UNIX_CLOSE,
+    },
 ];
 
 #[must_use]
@@ -517,6 +744,8 @@ mod tests {
             Some(RT_STR_FROM_LOCATOR)
         );
         assert_eq!(runtime_native_symbol("str_len"), Some(RT_STR_LEN));
+        assert_eq!(runtime_ret_kind("str_from_int"), Some("string"));
+        assert_eq!(runtime_ret_kind("print"), None);
         assert_eq!(runtime_native_symbol("list_len"), Some(RT_LIST_LEN));
         assert_eq!(runtime_native_symbol("nope"), None);
     }

@@ -18,43 +18,48 @@ use std::process::Command;
 
 use echo_ast::{BinaryOp, UnaryOp};
 use echo_codegen_abi::{
-    C_MAIN, ECHO_ENTRY, RT_ABORT, RT_BYTES_FROM_PTR, RT_EQ, RT_EQ_ID, RT_FLOAT_FROM_F64,
-    RT_FLOAT_TO_F64, RT_FN_CODE, RT_FN_NEW, RT_FN_SHAPE, RT_HTTP_HEADERS_COMPLETE,
-    RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_LIST_GET,
-    RT_LIST_LEN, RT_LIST_NEW, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_PUSH, RT_LIST_RESERVE, RT_LIST_SET,
-    RT_LOCATOR_FROM_UTF8, RT_NE, RT_NE_ID,
-    RT_PRINT_I64, RT_RANGE_NEW, RT_STR_BUILDER_FINISH, RT_STR_BUILDER_NEW, RT_STR_BUILDER_PUSH_STR,
-    RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
-    RT_STR_BUILDER_PUSH_VALUE, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
-    RT_STR_FROM_FLOAT,
-    RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_STR, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE,
-    RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_STR_CAT, RT_STR_CONTAINS,
-    RT_STR_ENDS_WITH, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_REPEAT,
-    RT_STR_SLICE, RT_STR_STARTS_WITH, RT_STRING_FROM_UTF8,
-    RT_STRUCT_GET, RT_STRUCT_NEW, RT_STRUCT_NEW_NAMED, RT_STRUCT_TYPE_IS,
-    RT_STRUCT_SET, RT_SCOPE_DISOWN, RT_SCOPE_ENTER, RT_SCOPE_EXIT, RT_SCOPE_PROMOTE,
-    RT_SCOPE_REGISTER, RT_SCOPE_RELEASE, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED,
-    RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY,
-    RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
-    RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_NOW_MS, RT_SLEEP_MS, RT_MATH_SQRT, RT_MATH_SIN, RT_MATH_COS, RT_MATH_TAN, RT_MATH_FLOOR, RT_MATH_CEIL, RT_MATH_ABS_F, RT_MATH_POW, RT_MATH_ABS_I, RT_RANDOM_SEED, RT_RANDOM_U64, RT_RANDOM_FLOAT, RT_CRYPTO_RANDOM_BYTES, RT_CRYPTO_RANDOM_U64, RT_OS_PID, RT_OS_CWD, RT_OS_CHDIR, RT_OS_HOSTNAME, RT_OS_PLATFORM, RT_NOW_MONO_MS, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_DNS_LOOKUP, RT_SHA256, RT_PROCESS_RUN_CAPTURE, RT_FS_TEMP_DIR, RT_FS_CREATE_TEMP, RT_FS_SYMLINK, RT_STR_TO_LOWER, RT_STR_TO_UPPER, RT_STR_TRIM, RT_STR_SPLIT, RT_STR_REPLACE, RT_HEX_ENCODE, RT_HEX_DECODE, RT_BASE64_ENCODE, RT_BASE64_DECODE,
-    RT_TLS_LISTEN, RT_TLS_ACCEPT, RT_TLS_CONNECT, RT_TLS_READ, RT_TLS_WRITE, RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER,
-    RT_PARSE_I64, RT_PARSE_F64, RT_URL_PARSE, RT_TIME_FORMAT, RT_TIME_PARSE, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS,
-    RT_ZIP_PACK, RT_ZIP_UNPACK_FIRST, RT_HMAC_SHA256, RT_SHA512, RT_AES_GCM_ENCRYPT, RT_AES_GCM_DECRYPT,
-    RT_FS_CHMOD, RT_PATH_CLEAN, RT_PATH_REL, RT_PROCESS_RUN_CWD, RT_PROCESS_SPAWN_PIPES,
-    RT_PROCESS_PIPE_WRITE, RT_PROCESS_PIPE_READ, RT_PROCESS_PIPE_CLOSE, RT_PROCESS_WAIT,
-    RT_UNIX_LISTEN, RT_UNIX_ACCEPT, RT_UNIX_CONNECT, RT_UNIX_READ, RT_UNIX_WRITE, RT_UNIX_CLOSE,
-    RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
-    RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_RUN,
-    RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL, RT_FS_EXISTS, RT_FS_FILE_CLOSE,
-    RT_FS_FILE_READ, RT_FS_FILE_SEEK, RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN,
-    RT_FS_METADATA, RT_FS_OPEN_APPEND, RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ,
-    RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR, RT_FS_RENAME, RT_FS_WRITE,
+    C_MAIN, ECHO_ENTRY, RT_ABORT, RT_AES_GCM_DECRYPT, RT_AES_GCM_ENCRYPT, RT_BASE64_DECODE,
+    RT_BASE64_ENCODE, RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_PTR, RT_BYTES_FROM_STR,
+    RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE, RT_CRYPTO_RANDOM_BYTES, RT_CRYPTO_RANDOM_U64,
+    RT_DNS_LOOKUP, RT_EQ, RT_EQ_ID, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_FN_CODE, RT_FN_NEW,
+    RT_FN_SHAPE, RT_FS_CHMOD, RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL,
+    RT_FS_CREATE_TEMP, RT_FS_EXISTS, RT_FS_FILE_CLOSE, RT_FS_FILE_READ, RT_FS_FILE_SEEK,
+    RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN, RT_FS_METADATA, RT_FS_OPEN_APPEND,
+    RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR,
+    RT_FS_RENAME, RT_FS_SYMLINK, RT_FS_TEMP_DIR, RT_FS_WRITE, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS,
+    RT_HEX_DECODE, RT_HEX_ENCODE, RT_HMAC_SHA256, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
+    RT_HTTP_REQUEST_COMPLETE, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_LIST_GET, RT_LIST_LEN,
+    RT_LIST_NEW, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_PUSH, RT_LIST_RESERVE, RT_LIST_SET,
+    RT_LOCATOR_FROM_UTF8, RT_MATH_ABS_F, RT_MATH_ABS_I, RT_MATH_CEIL, RT_MATH_COS, RT_MATH_FLOOR,
+    RT_MATH_POW, RT_MATH_SIN, RT_MATH_SQRT, RT_MATH_TAN, RT_NE, RT_NE_ID, RT_NOW_MONO_MS,
+    RT_NOW_MS, RT_OS_CHDIR, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PID, RT_OS_PLATFORM, RT_PARSE_F64,
+    RT_PARSE_I64, RT_PATH_CLEAN, RT_PATH_REL, RT_PRINT_I64, RT_PROCESS_ARGS, RT_PROCESS_ENV_GET,
+    RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET, RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT,
+    RT_PROCESS_PIPE_CLOSE, RT_PROCESS_PIPE_READ, RT_PROCESS_PIPE_WRITE, RT_PROCESS_RUN,
+    RT_PROCESS_RUN_CAPTURE, RT_PROCESS_RUN_CWD, RT_PROCESS_SPAWN_PIPES, RT_PROCESS_WAIT,
+    RT_RANDOM_FLOAT, RT_RANDOM_SEED, RT_RANDOM_U64, RT_RANGE_NEW, RT_REFLECT_KEY_BYTES,
+    RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_SCOPE_DISOWN, RT_SCOPE_ENTER, RT_SCOPE_EXIT,
+    RT_SCOPE_PROMOTE, RT_SCOPE_REGISTER, RT_SCOPE_RELEASE, RT_SHA256, RT_SHA512, RT_SLEEP_MS,
+    RT_STR_BUILDER_FINISH, RT_STR_BUILDER_NEW, RT_STR_BUILDER_PUSH_STR, RT_STR_BUILDER_PUSH_VALUE,
+    RT_STR_CAT, RT_STR_CONTAINS, RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG,
+    RT_STR_FROM_DURATION, RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET,
+    RT_STR_LEN, RT_STR_REPEAT, RT_STR_REPLACE, RT_STR_SLICE, RT_STR_SPLIT, RT_STR_STARTS_WITH,
+    RT_STR_TO_LOWER, RT_STR_TO_UPPER, RT_STR_TRIM, RT_STRING_FROM_UTF8, RT_STRUCT_GET,
+    RT_STRUCT_NEW, RT_STRUCT_NEW_NAMED, RT_STRUCT_SET, RT_STRUCT_TYPE_IS, RT_TASK_BLOCK,
+    RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED, RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE,
+    RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT,
+    RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE, RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH,
+    RT_TEST_REGISTER, RT_TIME_FORMAT, RT_TIME_PARSE, RT_TLS_ACCEPT, RT_TLS_CLOSE,
+    RT_TLS_CLOSE_LISTENER, RT_TLS_CONNECT, RT_TLS_LISTEN, RT_TLS_READ, RT_TLS_WRITE, RT_UDP_BIND,
+    RT_UDP_CLOSE, RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_UNIX_ACCEPT, RT_UNIX_CLOSE, RT_UNIX_CONNECT,
+    RT_UNIX_LISTEN, RT_UNIX_READ, RT_UNIX_WRITE, RT_URL_PARSE, RT_ZIP_PACK, RT_ZIP_UNPACK_FIRST,
 };
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_mir::{
     BlockId, CallTarget, MirExpr, MirFn, MirOp, MirPrim, MirProgram, MirRepr, MirRetShape, MirStmt,
     StrPart, TAG_ERR, TAG_NONE, TAG_OK, TAG_SOME, Terminator, mangle_fn,
 };
+use echo_source::LineMap;
 use echo_std::runtime_native_symbol;
 use inkwell::AddressSpace;
 use inkwell::FloatPredicate;
@@ -213,26 +218,64 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     let rt0 = i64t.fn_type(&[], false);
     let rt2 = i64t.fn_type(&[i64t.into(), i64t.into()], false);
     let rt3 = i64t.fn_type(&[i64t.into(), i64t.into(), i64t.into()], false);
-    let rt4 = i64t.fn_type(
-        &[i64t.into(), i64t.into(), i64t.into(), i64t.into()],
-        false,
-    );
+    let rt4 = i64t.fn_type(&[i64t.into(), i64t.into(), i64t.into(), i64t.into()], false);
     let void1 = context.void_type().fn_type(&[i64t.into()], false);
     for name in [
-        RT_MATH_SQRT, RT_MATH_SIN, RT_MATH_COS, RT_MATH_TAN, RT_MATH_FLOOR, RT_MATH_CEIL,
-        RT_MATH_ABS_F, RT_MATH_ABS_I, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_DNS_LOOKUP, RT_SHA256,
-        RT_CRYPTO_RANDOM_BYTES, RT_OS_CHDIR, RT_FS_CREATE_TEMP, RT_STR_TO_LOWER, RT_STR_TO_UPPER,
-        RT_STR_TRIM, RT_HEX_ENCODE, RT_HEX_DECODE, RT_BASE64_ENCODE, RT_BASE64_DECODE,
-        RT_TLS_LISTEN, RT_PARSE_I64, RT_PARSE_F64, RT_URL_PARSE, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS,
-        RT_ZIP_UNPACK_FIRST, RT_SHA512, RT_PATH_CLEAN, RT_UNIX_LISTEN, RT_UNIX_ACCEPT,
-        RT_UNIX_CONNECT, RT_PROCESS_WAIT,
+        RT_MATH_SQRT,
+        RT_MATH_SIN,
+        RT_MATH_COS,
+        RT_MATH_TAN,
+        RT_MATH_FLOOR,
+        RT_MATH_CEIL,
+        RT_MATH_ABS_F,
+        RT_MATH_ABS_I,
+        RT_JSON_PARSE,
+        RT_JSON_STRINGIFY,
+        RT_DNS_LOOKUP,
+        RT_SHA256,
+        RT_CRYPTO_RANDOM_BYTES,
+        RT_OS_CHDIR,
+        RT_FS_CREATE_TEMP,
+        RT_STR_TO_LOWER,
+        RT_STR_TO_UPPER,
+        RT_STR_TRIM,
+        RT_HEX_ENCODE,
+        RT_HEX_DECODE,
+        RT_BASE64_ENCODE,
+        RT_BASE64_DECODE,
+        RT_TLS_LISTEN,
+        RT_PARSE_I64,
+        RT_PARSE_F64,
+        RT_URL_PARSE,
+        RT_GZIP_COMPRESS,
+        RT_GZIP_DECOMPRESS,
+        RT_ZIP_UNPACK_FIRST,
+        RT_SHA512,
+        RT_PATH_CLEAN,
+        RT_UNIX_LISTEN,
+        RT_UNIX_ACCEPT,
+        RT_UNIX_CONNECT,
+        RT_PROCESS_WAIT,
     ] {
         module.add_function(name, rt1, None);
     }
     for name in [
-        RT_MATH_POW, RT_STR_SPLIT, RT_FS_SYMLINK, RT_PROCESS_RUN_CAPTURE, RT_TLS_READ, RT_TLS_WRITE,
-        RT_TIME_FORMAT, RT_TIME_PARSE, RT_ZIP_PACK, RT_HMAC_SHA256, RT_FS_CHMOD, RT_PATH_REL,
-        RT_UNIX_READ, RT_UNIX_WRITE, RT_PROCESS_SPAWN_PIPES, RT_PROCESS_PIPE_WRITE,
+        RT_MATH_POW,
+        RT_STR_SPLIT,
+        RT_FS_SYMLINK,
+        RT_PROCESS_RUN_CAPTURE,
+        RT_TLS_READ,
+        RT_TLS_WRITE,
+        RT_TIME_FORMAT,
+        RT_TIME_PARSE,
+        RT_ZIP_PACK,
+        RT_HMAC_SHA256,
+        RT_FS_CHMOD,
+        RT_PATH_REL,
+        RT_UNIX_READ,
+        RT_UNIX_WRITE,
+        RT_PROCESS_SPAWN_PIPES,
+        RT_PROCESS_PIPE_WRITE,
         RT_PROCESS_PIPE_READ,
     ] {
         module.add_function(name, rt2, None);
@@ -243,11 +286,26 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_AES_GCM_ENCRYPT, rt3, None);
     module.add_function(RT_AES_GCM_DECRYPT, rt3, None);
     module.add_function(RT_PROCESS_RUN_CWD, rt3, None);
-    for name in [RT_RANDOM_U64, RT_RANDOM_FLOAT, RT_CRYPTO_RANDOM_U64, RT_OS_PID, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PLATFORM, RT_NOW_MONO_MS, RT_FS_TEMP_DIR] {
+    for name in [
+        RT_RANDOM_U64,
+        RT_RANDOM_FLOAT,
+        RT_CRYPTO_RANDOM_U64,
+        RT_OS_PID,
+        RT_OS_CWD,
+        RT_OS_HOSTNAME,
+        RT_OS_PLATFORM,
+        RT_NOW_MONO_MS,
+        RT_FS_TEMP_DIR,
+    ] {
         module.add_function(name, rt0, None);
     }
     module.add_function(RT_RANDOM_SEED, void1, None);
-    for name in [RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER, RT_UNIX_CLOSE, RT_PROCESS_PIPE_CLOSE] {
+    for name in [
+        RT_TLS_CLOSE,
+        RT_TLS_CLOSE_LISTENER,
+        RT_UNIX_CLOSE,
+        RT_PROCESS_PIPE_CLOSE,
+    ] {
         module.add_function(name, void1, None);
     }
 
@@ -424,9 +482,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     let check_f = module
         .get_function(RT_TASK_CHECK_JOINED)
         .expect("task_check_joined");
-    let test_finish_f = module
-        .get_function(RT_TEST_FINISH)
-        .expect("test_finish");
+    let test_finish_f = module.get_function(RT_TEST_FINISH).expect("test_finish");
     let zero = i64t.const_int(0, false);
     let neg_one = i64t.const_int((-1i64) as u64, true);
     if let Some(top_f) = toplevel {
@@ -596,9 +652,7 @@ static JIT_TASK_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// IR is assumed already at the desired opt level; the execution engine uses
 /// [`OptimizationLevel::None`] so MCJIT does not re-optimize.
 pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
-    let _task_gate = JIT_TASK_GATE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _task_gate = JIT_TASK_GATE.lock().unwrap_or_else(|e| e.into_inner());
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("init native target: {e}"))?;
 
@@ -1642,19 +1696,8 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         &ee,
         RT_TASK_SPAWN_ARGS,
         echo_runtime_task_spawn_args
-            as unsafe extern "C" fn(
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-                i64,
-            ) -> i64 as usize,
+            as unsafe extern "C" fn(i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
+            as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -1708,8 +1751,7 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         &module,
         &ee,
         RT_STRUCT_TYPE_IS,
-        echo_runtime_struct_type_is
-            as unsafe extern "C" fn(i64, *const u8, usize) -> i64 as usize,
+        echo_runtime_struct_type_is as unsafe extern "C" fn(i64, *const u8, usize) -> i64 as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -1794,70 +1836,67 @@ fn map_runtime_symbol<'ctx>(
 
 // Re-export runtime symbols for mapping (must match `echo_codegen_abi` names).
 use echo_runtime::{
-    echo_runtime_abort, echo_runtime_bytes_cat, echo_runtime_bytes_from_i64,
-    echo_runtime_bytes_from_ptr, echo_runtime_bytes_from_str, echo_runtime_bytes_get,
-    echo_runtime_bytes_len, echo_runtime_bytes_slice, echo_runtime_eq, echo_runtime_eq_id,
-    echo_runtime_float_from_f64, echo_runtime_float_to_f64, echo_runtime_fn_code,
-    echo_runtime_fn_new, echo_runtime_fn_shape, echo_runtime_http_headers_complete,
-    echo_runtime_http_parse_request, echo_runtime_http_request_complete,
-    echo_runtime_list_get, echo_runtime_list_len, echo_runtime_list_new,
-    echo_runtime_list_new_empty_lists, echo_runtime_list_push, echo_runtime_list_reserve,
-    echo_runtime_list_set, echo_runtime_locator_from_utf8,
-    echo_runtime_ne, echo_runtime_ne_id,
-    echo_runtime_print_i64, echo_runtime_range_new, echo_runtime_reflect_key_bytes,
-    echo_runtime_reflect_kind, echo_runtime_reflect_kind_name, echo_runtime_str_from_bytes,
+    echo_runtime_abort, echo_runtime_aes_gcm_decrypt, echo_runtime_aes_gcm_encrypt,
+    echo_runtime_base64_decode, echo_runtime_base64_encode, echo_runtime_bytes_cat,
+    echo_runtime_bytes_from_i64, echo_runtime_bytes_from_ptr, echo_runtime_bytes_from_str,
+    echo_runtime_bytes_get, echo_runtime_bytes_len, echo_runtime_bytes_slice,
+    echo_runtime_crypto_random_bytes, echo_runtime_crypto_random_u64, echo_runtime_dns_lookup,
+    echo_runtime_eq, echo_runtime_eq_id, echo_runtime_float_from_f64, echo_runtime_float_to_f64,
+    echo_runtime_fn_code, echo_runtime_fn_new, echo_runtime_fn_shape, echo_runtime_fs_chmod,
+    echo_runtime_fs_copy, echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all,
+    echo_runtime_fs_create_temp, echo_runtime_fs_exists, echo_runtime_fs_file_close,
+    echo_runtime_fs_file_read, echo_runtime_fs_file_seek, echo_runtime_fs_file_write,
+    echo_runtime_fs_is_dir, echo_runtime_fs_is_file, echo_runtime_fs_join,
+    echo_runtime_fs_metadata, echo_runtime_fs_open_append, echo_runtime_fs_open_read,
+    echo_runtime_fs_open_write, echo_runtime_fs_read, echo_runtime_fs_read_dir,
+    echo_runtime_fs_remove, echo_runtime_fs_remove_dir, echo_runtime_fs_rename,
+    echo_runtime_fs_symlink, echo_runtime_fs_temp_dir, echo_runtime_fs_write,
+    echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_hex_decode,
+    echo_runtime_hex_encode, echo_runtime_hmac_sha256, echo_runtime_http_headers_complete,
+    echo_runtime_http_parse_request, echo_runtime_http_request_complete, echo_runtime_json_parse,
+    echo_runtime_json_stringify, echo_runtime_list_get, echo_runtime_list_len,
+    echo_runtime_list_new, echo_runtime_list_new_empty_lists, echo_runtime_list_push,
+    echo_runtime_list_reserve, echo_runtime_list_set, echo_runtime_locator_from_utf8,
+    echo_runtime_math_abs_f, echo_runtime_math_abs_i, echo_runtime_math_ceil,
+    echo_runtime_math_cos, echo_runtime_math_floor, echo_runtime_math_pow, echo_runtime_math_sin,
+    echo_runtime_math_sqrt, echo_runtime_math_tan, echo_runtime_ne, echo_runtime_ne_id,
+    echo_runtime_now_mono_ms, echo_runtime_now_ms, echo_runtime_os_chdir, echo_runtime_os_cwd,
+    echo_runtime_os_hostname, echo_runtime_os_pid, echo_runtime_os_platform,
+    echo_runtime_parse_f64, echo_runtime_parse_i64, echo_runtime_path_clean, echo_runtime_path_rel,
+    echo_runtime_print_i64, echo_runtime_process_args, echo_runtime_process_env_get,
+    echo_runtime_process_env_has, echo_runtime_process_env_set, echo_runtime_process_env_unset,
+    echo_runtime_process_exit, echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
+    echo_runtime_process_pipe_write, echo_runtime_process_run, echo_runtime_process_run_capture,
+    echo_runtime_process_run_cwd, echo_runtime_process_spawn_pipes, echo_runtime_process_wait,
+    echo_runtime_random_float, echo_runtime_random_seed, echo_runtime_random_u64,
+    echo_runtime_range_new, echo_runtime_reflect_key_bytes, echo_runtime_reflect_kind,
+    echo_runtime_reflect_kind_name, echo_runtime_scope_disown, echo_runtime_scope_enter,
+    echo_runtime_scope_exit, echo_runtime_scope_promote, echo_runtime_scope_register,
+    echo_runtime_scope_release, echo_runtime_sha256, echo_runtime_sha512, echo_runtime_sleep_ms,
     echo_runtime_str_cat, echo_runtime_str_contains, echo_runtime_str_ends_with,
-    echo_runtime_str_from_debug, echo_runtime_str_from_duration, echo_runtime_str_from_float,
-    echo_runtime_str_from_int, echo_runtime_str_get, echo_runtime_str_len,
-    echo_runtime_str_repeat, echo_runtime_str_slice, echo_runtime_str_starts_with,
-    echo_runtime_str_from_locator, echo_runtime_string_builder_finish,
-    echo_runtime_string_builder_new, echo_runtime_string_builder_push_str,
-    echo_runtime_string_builder_push_value, echo_runtime_string_from_utf8,
-    echo_runtime_struct_get, echo_runtime_struct_new, echo_runtime_struct_new_named,
-    echo_runtime_struct_set, echo_runtime_struct_type_is,
-    echo_runtime_scope_disown, echo_runtime_scope_enter, echo_runtime_scope_exit,
-    echo_runtime_scope_promote, echo_runtime_scope_register, echo_runtime_scope_release,
+    echo_runtime_str_from_bytes, echo_runtime_str_from_debug, echo_runtime_str_from_duration,
+    echo_runtime_str_from_float, echo_runtime_str_from_int, echo_runtime_str_from_locator,
+    echo_runtime_str_get, echo_runtime_str_len, echo_runtime_str_repeat, echo_runtime_str_replace,
+    echo_runtime_str_slice, echo_runtime_str_split, echo_runtime_str_starts_with,
+    echo_runtime_str_to_lower, echo_runtime_str_to_upper, echo_runtime_str_trim,
+    echo_runtime_string_builder_finish, echo_runtime_string_builder_new,
+    echo_runtime_string_builder_push_str, echo_runtime_string_builder_push_value,
+    echo_runtime_string_from_utf8, echo_runtime_struct_get, echo_runtime_struct_new,
+    echo_runtime_struct_new_named, echo_runtime_struct_set, echo_runtime_struct_type_is,
     echo_runtime_task_after_run, echo_runtime_task_block, echo_runtime_task_block_wide,
     echo_runtime_task_check_joined, echo_runtime_task_join, echo_runtime_task_join_wide,
     echo_runtime_task_shape, echo_runtime_task_spawn_args, echo_runtime_task_spawn_entry,
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
     echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
     echo_runtime_test_bench_register, echo_runtime_test_fail, echo_runtime_test_finish,
-    echo_runtime_test_register,
-    echo_runtime_now_ms, echo_runtime_sleep_ms,
-    echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
-    echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
-    echo_runtime_process_run,
-    echo_runtime_fs_copy, echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all,
-    echo_runtime_fs_exists, echo_runtime_fs_file_close, echo_runtime_fs_file_read,
-    echo_runtime_fs_file_seek, echo_runtime_fs_file_write, echo_runtime_fs_is_dir,
-    echo_runtime_fs_is_file, echo_runtime_fs_join, echo_runtime_fs_metadata,
-    echo_runtime_fs_open_append, echo_runtime_fs_open_read, echo_runtime_fs_open_write,
-    echo_runtime_fs_read, echo_runtime_fs_read_dir, echo_runtime_fs_remove,
-    echo_runtime_fs_remove_dir, echo_runtime_fs_rename, echo_runtime_fs_write,
-    echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
-    echo_runtime_udp_send_to,
-    echo_runtime_math_sqrt, echo_runtime_math_sin, echo_runtime_math_cos, echo_runtime_math_tan,
-    echo_runtime_math_floor, echo_runtime_math_ceil, echo_runtime_math_abs_f, echo_runtime_math_pow,
-    echo_runtime_math_abs_i, echo_runtime_random_seed, echo_runtime_random_u64, echo_runtime_random_float,
-    echo_runtime_crypto_random_bytes, echo_runtime_crypto_random_u64, echo_runtime_os_pid,
-    echo_runtime_os_cwd, echo_runtime_os_chdir, echo_runtime_os_hostname, echo_runtime_os_platform,
-    echo_runtime_now_mono_ms, echo_runtime_json_parse, echo_runtime_json_stringify,
-    echo_runtime_dns_lookup, echo_runtime_sha256, echo_runtime_process_run_capture,
-    echo_runtime_fs_temp_dir, echo_runtime_fs_create_temp, echo_runtime_fs_symlink,
-    echo_runtime_str_to_lower, echo_runtime_str_to_upper, echo_runtime_str_trim,
-    echo_runtime_str_split, echo_runtime_str_replace, echo_runtime_hex_encode, echo_runtime_hex_decode, echo_runtime_base64_encode, echo_runtime_base64_decode,
-    echo_runtime_tls_listen, echo_runtime_tls_accept, echo_runtime_tls_connect, echo_runtime_tls_read,
-    echo_runtime_tls_write, echo_runtime_tls_close, echo_runtime_tls_close_listener,
-    echo_runtime_parse_i64, echo_runtime_parse_f64, echo_runtime_url_parse, echo_runtime_time_format, echo_runtime_time_parse,
-    echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_zip_pack,
-    echo_runtime_zip_unpack_first, echo_runtime_hmac_sha256, echo_runtime_sha512,
-    echo_runtime_aes_gcm_encrypt, echo_runtime_aes_gcm_decrypt, echo_runtime_fs_chmod,
-    echo_runtime_path_clean, echo_runtime_path_rel, echo_runtime_process_run_cwd,
-    echo_runtime_process_spawn_pipes, echo_runtime_process_pipe_write,
-    echo_runtime_process_pipe_read, echo_runtime_process_pipe_close, echo_runtime_process_wait,
-    echo_runtime_unix_listen, echo_runtime_unix_accept, echo_runtime_unix_connect,
-    echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_unix_close,
+    echo_runtime_test_register, echo_runtime_time_format, echo_runtime_time_parse,
+    echo_runtime_tls_accept, echo_runtime_tls_close, echo_runtime_tls_close_listener,
+    echo_runtime_tls_connect, echo_runtime_tls_listen, echo_runtime_tls_read,
+    echo_runtime_tls_write, echo_runtime_udp_bind, echo_runtime_udp_close,
+    echo_runtime_udp_recv_from, echo_runtime_udp_send_to, echo_runtime_unix_accept,
+    echo_runtime_unix_close, echo_runtime_unix_connect, echo_runtime_unix_listen,
+    echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_url_parse, echo_runtime_zip_pack,
+    echo_runtime_zip_unpack_first,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -1893,6 +1932,9 @@ fn emit_function_cfg<'ctx>(
     diags: &mut Diagnostics,
 ) {
     debug::set_function_line(context, builder, dibuilder, function);
+    let line_map = std::fs::read_to_string(&mir_fn.module_path)
+        .ok()
+        .map(|t| LineMap::from_text(&t));
     let cfg = &mir_fn.cfg;
     // LLVM entry must be the MIR entry block (first append = entry).
     let mut llvm_bbs: HashMap<u32, BasicBlock<'ctx>> = HashMap::new();
@@ -1926,6 +1968,18 @@ fn emit_function_cfg<'ctx>(
         values.insert(format!("{name}@0"), pv.as_basic_value_enum());
         values.insert(name.clone(), pv.as_basic_value_enum());
     }
+
+    builder.position_at_end(entry_bb);
+    debug::emit_variables(
+        context,
+        builder,
+        dibuilder,
+        function,
+        &mir_fn.module_path,
+        &mir_fn.debug_vars,
+        &mir_fn.params,
+        |n| values.get(n).copied(),
+    );
 
     // Create empty φ nodes first (typed by representation facts).
     let mut phi_nodes: HashMap<String, inkwell::values::PhiValue<'ctx>> = HashMap::new();
@@ -1981,6 +2035,10 @@ fn emit_function_cfg<'ctx>(
         cx.builder.position_at_end(bb);
         // Skip phi ops (already created)
         for op in &b.ops {
+            if let (Some(map), Some(span)) = (line_map.as_ref(), op.span()) {
+                let (line, col) = map.line_col_1based(span.start);
+                debug::set_line_col(context, builder, dibuilder, function, line, col);
+            }
             match op {
                 MirOp::Phi { .. } => {}
                 MirOp::MatchPayload { name } => {
@@ -1991,7 +2049,7 @@ fn emit_function_cfg<'ctx>(
                         }
                     }
                 }
-                MirOp::Set { name, value } => {
+                MirOp::Set { name, value, .. } => {
                     let want = cx.reprs.get(name).copied().unwrap_or(MirRepr::Unknown);
                     if let Some(v) = emit_expr_as(&mut cx, value, want) {
                         cx.values.insert(name.clone(), v);
@@ -2069,11 +2127,7 @@ fn emit_function_cfg<'ctx>(
                         },
                     );
                 }
-                MirOp::IndexSet {
-                    base,
-                    index,
-                    value,
-                } => {
+                MirOp::IndexSet { base, index, value } => {
                     let Some(handle) = emit_expr_i64(&mut cx, base) else {
                         continue;
                     };
@@ -2105,12 +2159,18 @@ fn emit_function_cfg<'ctx>(
                 MirOp::ScopeEnter { id } => {
                     let f = cx.module.get_function(RT_SCOPE_ENTER).expect("scope_enter");
                     let sid = cx.i64t.const_int(*id as u64, false);
-                    let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_enter");
+                    let _ = cx
+                        .builder
+                        .build_call(f, &[sid.into()], "")
+                        .expect("scope_enter");
                 }
                 MirOp::ScopeExit { id } => {
                     let f = cx.module.get_function(RT_SCOPE_EXIT).expect("scope_exit");
                     let sid = cx.i64t.const_int(*id as u64, false);
-                    let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_exit");
+                    let _ = cx
+                        .builder
+                        .build_call(f, &[sid.into()], "")
+                        .expect("scope_exit");
                 }
                 MirOp::ScopeRegister { value } => {
                     let Some(h) = emit_expr_i64(&mut cx, value) else {
@@ -2120,7 +2180,10 @@ fn emit_function_cfg<'ctx>(
                         .module
                         .get_function(RT_SCOPE_REGISTER)
                         .expect("scope_register");
-                    let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_register");
+                    let _ = cx
+                        .builder
+                        .build_call(f, &[h.into()], "")
+                        .expect("scope_register");
                 }
                 MirOp::ScopePromote { value, target } => {
                     let Some(h) = emit_expr_i64(&mut cx, value) else {
@@ -2140,8 +2203,14 @@ fn emit_function_cfg<'ctx>(
                     let Some(h) = emit_expr_i64(&mut cx, value) else {
                         continue;
                     };
-                    let f = cx.module.get_function(RT_SCOPE_DISOWN).expect("scope_disown");
-                    let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_disown");
+                    let f = cx
+                        .module
+                        .get_function(RT_SCOPE_DISOWN)
+                        .expect("scope_disown");
+                    let _ = cx
+                        .builder
+                        .build_call(f, &[h.into()], "")
+                        .expect("scope_disown");
                 }
                 MirOp::ScopeRelease { value } => {
                     let Some(h) = emit_expr_i64(&mut cx, value) else {
@@ -2151,7 +2220,10 @@ fn emit_function_cfg<'ctx>(
                         .module
                         .get_function(RT_SCOPE_RELEASE)
                         .expect("scope_release");
-                    let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_release");
+                    let _ = cx
+                        .builder
+                        .build_call(f, &[h.into()], "")
+                        .expect("scope_release");
                 }
             }
         }
@@ -2165,6 +2237,10 @@ fn emit_function_cfg<'ctx>(
             continue;
         }
 
+        if let (Some(map), Some(span)) = (line_map.as_ref(), b.term.span()) {
+            let (line, col) = map.line_col_1based(span.start);
+            debug::set_line_col(context, builder, dibuilder, function, line, col);
+        }
         emit_terminator_cfg(&mut cx, cfg, &b.term, &llvm_bbs, mir_fn.ret);
     }
 
@@ -2215,9 +2291,11 @@ fn llvm_type_for_repr<'ctx>(
     rep: MirRepr,
 ) -> BasicTypeEnum<'ctx> {
     match rep {
-        MirRepr::Int64 | MirRepr::UInt64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => {
-            i64t.into()
-        }
+        MirRepr::Int64
+        | MirRepr::UInt64
+        | MirRepr::Duration
+        | MirRepr::Boxed
+        | MirRepr::Unknown => i64t.into(),
         MirRepr::Int32 | MirRepr::UInt32 => i32t.into(),
         MirRepr::Int16 | MirRepr::UInt16 => i16t.into(),
         MirRepr::Int8 | MirRepr::UInt8 => i8t.into(),
@@ -2482,8 +2560,7 @@ fn emit_terminator_cfg<'ctx>(
             for target in [*ok_bb, *err_bb] {
                 for name in echo_mir::match_payload_names(&cfg.block(target).ops) {
                     cx.match_payloads.insert(name.clone(), payload);
-                    cx.values
-                        .insert(name, payload.as_basic_value_enum());
+                    cx.values.insert(name, payload.as_basic_value_enum());
                 }
             }
             let zero = cx.i64t.const_int(0, false);
@@ -2495,7 +2572,7 @@ fn emit_terminator_cfg<'ctx>(
                 cx.builder
                     .build_conditional_branch(is_ok, llvm_bbs[&ok_bb.0], llvm_bbs[&err_bb.0]);
         }
-        Terminator::ReturnOk(e) => {
+        Terminator::ReturnOk(e, _) => {
             if let Some(payload) = emit_expr_i64(cx, e) {
                 match fn_ret {
                     MirRetShape::Plain => {
@@ -2625,8 +2702,7 @@ fn ensure_local_i128<'ctx>(cx: &mut EmitCx<'_, 'ctx>, name: &str) -> PointerValu
 
 /// Bind a task handle/result into SSA `values` and legacy alloca (CFG emit).
 fn bind_task_local<'ctx>(cx: &mut EmitCx<'_, 'ctx>, name: &str, v: IntValue<'ctx>) {
-    cx.values
-        .insert(name.to_string(), v.as_basic_value_enum());
+    cx.values.insert(name.to_string(), v.as_basic_value_enum());
     let slot = ensure_local(cx, name);
     let _ = cx.builder.build_store(slot, v);
 }
@@ -2644,14 +2720,14 @@ fn bind_task_local_wide<'ctx>(cx: &mut EmitCx<'_, 'ctx>, name: &str, packed: Int
 
 fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
     match stmt {
-        MirStmt::Set { name, value } => {
+        MirStmt::Set { name, value, .. } => {
             // Locals are plain i64 payloads (tags only on function returns / match temps).
             if let Some(v) = emit_expr_i64(cx, value) {
                 let slot = ensure_local(cx, name);
                 let _ = cx.builder.build_store(slot, v);
             }
         }
-        MirStmt::ReturnOk(e) => {
+        MirStmt::ReturnOk(e, _) => {
             if let Some(payload) = emit_expr_i64(cx, e) {
                 match cx.fn_ret {
                     MirRetShape::Plain => {
@@ -2744,8 +2820,7 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
             body_symbol,
             bind,
         } => {
-            let Some((code, shape)) = emit_body_code_and_shape(cx, module_path, body_symbol)
-            else {
+            let Some((code, shape)) = emit_body_code_and_shape(cx, module_path, body_symbol) else {
                 return;
             };
             let f = cx
@@ -2757,10 +2832,7 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                 .builder
                 .build_call(f, &[code.into(), shape_v.into()], "task_spawn")
                 .expect("task_spawn");
-            let handle = call
-                .try_as_basic_value()
-                .unwrap_basic()
-                .into_int_value();
+            let handle = call.try_as_basic_value().unwrap_basic().into_int_value();
             if let Some(name) = bind {
                 bind_task_local(cx, name, handle);
             }
@@ -2817,10 +2889,7 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                     "task_spawn_fn",
                 )
                 .expect("task_spawn_args");
-            let handle = call
-                .try_as_basic_value()
-                .unwrap_basic()
-                .into_int_value();
+            let handle = call.try_as_basic_value().unwrap_basic().into_int_value();
             if let Some(name) = bind {
                 bind_task_local(cx, name, handle);
             }
@@ -2843,10 +2912,7 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                         .builder
                         .build_call(f, &[code.into(), shape_v.into()], "task_block")
                         .expect("task_block");
-                    let result = call
-                        .try_as_basic_value()
-                        .unwrap_basic()
-                        .into_int_value();
+                    let result = call.try_as_basic_value().unwrap_basic().into_int_value();
                     if let Some(name) = bind {
                         bind_task_local(cx, name, result);
                     }
@@ -2859,10 +2925,7 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                         .builder
                         .build_call(f, &[code.into(), shape_v.into()], "task_block_w")
                         .expect("task_block_wide");
-                    let packed = call
-                        .try_as_basic_value()
-                        .unwrap_basic()
-                        .into_int_value();
+                    let packed = call.try_as_basic_value().unwrap_basic().into_int_value();
                     if let Some(name) = bind {
                         bind_task_local_wide(cx, name, packed);
                     }
@@ -2888,16 +2951,11 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                 }
             } else {
                 cx.diags.push(
-                    Diagnostic::error("task join without body or handle")
-                        .with_code("cg-task"),
+                    Diagnostic::error("task join without body or handle").with_code("cg-task"),
                 );
             }
         }
-        MirStmt::IndexSet {
-            base,
-            index,
-            value,
-        } => {
+        MirStmt::IndexSet { base, index, value } => {
             let Some(handle) = emit_expr_i64(cx, base) else {
                 return;
             };
@@ -2929,12 +2987,18 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
         MirStmt::ScopeEnter { id } => {
             let f = cx.module.get_function(RT_SCOPE_ENTER).expect("scope_enter");
             let sid = cx.i64t.const_int(*id as u64, false);
-            let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_enter");
+            let _ = cx
+                .builder
+                .build_call(f, &[sid.into()], "")
+                .expect("scope_enter");
         }
         MirStmt::ScopeExit { id } => {
             let f = cx.module.get_function(RT_SCOPE_EXIT).expect("scope_exit");
             let sid = cx.i64t.const_int(*id as u64, false);
-            let _ = cx.builder.build_call(f, &[sid.into()], "").expect("scope_exit");
+            let _ = cx
+                .builder
+                .build_call(f, &[sid.into()], "")
+                .expect("scope_exit");
         }
         MirStmt::ScopeRegister { value } => {
             let Some(h) = emit_expr_i64(cx, value) else {
@@ -2944,7 +3008,10 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                 .module
                 .get_function(RT_SCOPE_REGISTER)
                 .expect("scope_register");
-            let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_register");
+            let _ = cx
+                .builder
+                .build_call(f, &[h.into()], "")
+                .expect("scope_register");
         }
         MirStmt::ScopePromote { value, target } => {
             let Some(h) = emit_expr_i64(cx, value) else {
@@ -2964,8 +3031,14 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
             let Some(h) = emit_expr_i64(cx, value) else {
                 return;
             };
-            let f = cx.module.get_function(RT_SCOPE_DISOWN).expect("scope_disown");
-            let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_disown");
+            let f = cx
+                .module
+                .get_function(RT_SCOPE_DISOWN)
+                .expect("scope_disown");
+            let _ = cx
+                .builder
+                .build_call(f, &[h.into()], "")
+                .expect("scope_disown");
         }
         MirStmt::ScopeRelease { value } => {
             let Some(h) = emit_expr_i64(cx, value) else {
@@ -2975,7 +3048,10 @@ fn emit_stmt<'ctx>(cx: &mut EmitCx<'_, 'ctx>, stmt: &MirStmt) {
                 .module
                 .get_function(RT_SCOPE_RELEASE)
                 .expect("scope_release");
-            let _ = cx.builder.build_call(f, &[h.into()], "").expect("scope_release");
+            let _ = cx
+                .builder
+                .build_call(f, &[h.into()], "")
+                .expect("scope_release");
         }
     }
 }
@@ -3399,11 +3475,7 @@ fn coerce_to_f64<'ctx>(
                 .builder
                 .build_call(to_f, &[iv.into()], "as.f64")
                 .expect("float_to_f64");
-            Some(
-                call.try_as_basic_value()
-                    .unwrap_basic()
-                    .into_float_value(),
-            )
+            Some(call.try_as_basic_value().unwrap_basic().into_float_value())
         }
         _ => None,
     }
@@ -3438,11 +3510,7 @@ fn box_value<'ctx>(
             .builder
             .build_call(from_f, &[f64v.into()], "box.f64")
             .expect("float_from_f64");
-        return Some(
-            call.try_as_basic_value()
-                .unwrap_basic()
-                .into_int_value(),
-        );
+        return Some(call.try_as_basic_value().unwrap_basic().into_int_value());
     }
     match from {
         MirRepr::Int64 | MirRepr::Duration | MirRepr::Boxed | MirRepr::Unknown => {
@@ -3483,11 +3551,7 @@ fn box_value<'ctx>(
                 .builder
                 .build_call(from_f, &[f.into()], "box.f64")
                 .expect("float_from_f64");
-            Some(
-                call.try_as_basic_value()
-                    .unwrap_basic()
-                    .into_int_value(),
-            )
+            Some(call.try_as_basic_value().unwrap_basic().into_int_value())
         }
         MirRepr::Float32 => {
             let f = v.into_float_value();
@@ -3503,11 +3567,7 @@ fn box_value<'ctx>(
                 .builder
                 .build_call(from_f, &[f64v.into()], "box.f32")
                 .expect("float_from_f64");
-            Some(
-                call.try_as_basic_value()
-                    .unwrap_basic()
-                    .into_int_value(),
-            )
+            Some(call.try_as_basic_value().unwrap_basic().into_int_value())
         }
         MirRepr::StringRef
         | MirRepr::BytesRef
@@ -3696,9 +3756,10 @@ fn emit_call<'ctx>(
                     return None;
                 }
                 let v = emit_expr_i64(cx, &args[0])?;
-                let f = cx.module.get_function(native).unwrap_or_else(|| {
-                    panic!("missing runtime symbol {native}")
-                });
+                let f = cx
+                    .module
+                    .get_function(native)
+                    .unwrap_or_else(|| panic!("missing runtime symbol {native}"));
                 let _ = cx.builder.build_call(f, &[v.into()], "").expect("rt_close");
                 return Some(cx.i64t.const_int(0, false));
             }
@@ -3736,7 +3797,10 @@ fn emit_call<'ctx>(
                 }
                 let msg = emit_expr_i64(cx, &args[0])?;
                 let f = cx.module.get_function(RT_TEST_FAIL).expect("test_fail");
-                let _ = cx.builder.build_call(f, &[msg.into()], "").expect("test_fail");
+                let _ = cx
+                    .builder
+                    .build_call(f, &[msg.into()], "")
+                    .expect("test_fail");
                 return Some(cx.i64t.const_int(0, false));
             }
             // list_reserve(list, additional): void, return 0.
@@ -3750,7 +3814,10 @@ fn emit_call<'ctx>(
                 }
                 let list = emit_expr_i64(cx, &args[0])?;
                 let add = emit_expr_i64(cx, &args[1])?;
-                let f = cx.module.get_function(RT_LIST_RESERVE).expect("list_reserve");
+                let f = cx
+                    .module
+                    .get_function(RT_LIST_RESERVE)
+                    .expect("list_reserve");
                 let _ = cx
                     .builder
                     .build_call(f, &[list.into(), add.into()], "")
@@ -3768,7 +3835,10 @@ fn emit_call<'ctx>(
                 }
                 let a0 = emit_expr_i64(cx, &args[0])?;
                 let f = cx.module.get_function(RT_RANDOM_SEED).expect("random_seed");
-                let _ = cx.builder.build_call(f, &[a0.into()], "").expect("random_seed");
+                let _ = cx
+                    .builder
+                    .build_call(f, &[a0.into()], "")
+                    .expect("random_seed");
                 return Some(cx.i64t.const_int(0, false));
             }
             if native == RT_SLEEP_MS {
@@ -3781,7 +3851,10 @@ fn emit_call<'ctx>(
                 }
                 let ms = emit_expr_i64(cx, &args[0])?;
                 let f = cx.module.get_function(RT_SLEEP_MS).expect("sleep_ms");
-                let _ = cx.builder.build_call(f, &[ms.into()], "").expect("sleep_ms");
+                let _ = cx
+                    .builder
+                    .build_call(f, &[ms.into()], "")
+                    .expect("sleep_ms");
                 return Some(cx.i64t.const_int(0, false));
             }
             // process env_set / env_unset / exit: void.
@@ -3988,18 +4061,12 @@ fn emit_call<'ctx>(
             for a in args {
                 argv.push(emit_expr_i64(cx, a)?.into());
             }
-            let f = cx.module.get_function(native).unwrap_or_else(|| {
-                panic!("missing runtime symbol {native}")
-            });
-            let call = cx
-                .builder
-                .build_call(f, &argv, "rt")
-                .expect("rt");
-            Some(
-                call.try_as_basic_value()
-                    .unwrap_basic()
-                    .into_int_value(),
-            )
+            let f = cx
+                .module
+                .get_function(native)
+                .unwrap_or_else(|| panic!("missing runtime symbol {native}"));
+            let call = cx.builder.build_call(f, &argv, "rt").expect("rt");
+            Some(call.try_as_basic_value().unwrap_basic().into_int_value())
         }
         CallTarget::Function { module_path, name } => {
             let key = mangle_fn(module_path, name);
@@ -4089,8 +4156,7 @@ fn emit_call<'ctx>(
                 .builder
                 .build_int_to_ptr(code, ptr_ty, "fnptr")
                 .expect("inttoptr");
-            let params: Vec<BasicMetadataTypeEnum> =
-                args.iter().map(|_| cx.i64t.into()).collect();
+            let params: Vec<BasicMetadataTypeEnum> = args.iter().map(|_| cx.i64t.into()).collect();
             let mut vals: Vec<BasicMetadataValueEnum> = Vec::new();
             for a in args {
                 vals.push(emit_expr_i64(cx, a)?.as_basic_value_enum().into());
@@ -4168,7 +4234,11 @@ fn emit_scalar_typed<'ctx>(
             let rep = width_to_repr(*width);
             let ty = int_ty_for_repr(cx, rep)?;
             let bits = *value as u64;
-            Some((ty.const_int(bits, width.is_signed_int()).as_basic_value_enum(), rep))
+            Some((
+                ty.const_int(bits, width.is_signed_int())
+                    .as_basic_value_enum(),
+                rep,
+            ))
         }
         MirExpr::Cast { to, expr } => {
             let (v, from) = emit_scalar_typed(cx, expr)?;
@@ -4210,11 +4280,11 @@ fn emit_scalar_typed<'ctx>(
                     }
                 }
             }
-            let slot = match cx.locals.get(n).or_else(|| {
-                n.split('@')
-                    .next()
-                    .and_then(|b| cx.locals.get(b))
-            }) {
+            let slot = match cx
+                .locals
+                .get(n)
+                .or_else(|| n.split('@').next().and_then(|b| cx.locals.get(b)))
+            {
                 Some(s) => *s,
                 None => {
                     cx.diags.push(
@@ -4458,19 +4528,11 @@ fn emit_scalar_typed<'ctx>(
                 .builder
                 .build_call(f, &[handle.into(), ptr.into(), len.into()], "type_is")
                 .expect("struct_type_is");
-            let iv = call
-                .try_as_basic_value()
-                .unwrap_basic()
-                .into_int_value();
+            let iv = call.try_as_basic_value().unwrap_basic().into_int_value();
             // Runtime returns i64 0/1; conds want i1-style bool repr.
             let b = cx
                 .builder
-                .build_int_compare(
-                    IntPredicate::NE,
-                    iv,
-                    cx.i64t.const_zero(),
-                    "type_is_b",
-                )
+                .build_int_compare(IntPredicate::NE, iv, cx.i64t.const_zero(), "type_is_b")
                 .expect("type_is ne");
             Some((b.as_basic_value_enum(), MirRepr::Bool))
         }
@@ -5385,9 +5447,7 @@ fn emit_binop_signedness<'ctx>(
             let bits = l.get_type().get_bit_width();
             let mask = l.get_type().const_int((bits as u64) - 1, false);
             let amt = cx.builder.build_and(r, mask, "shlamt").expect("shlamt");
-            cx.builder
-                .build_left_shift(l, amt, "shl")
-                .expect("shl")
+            cx.builder.build_left_shift(l, amt, "shl").expect("shl")
         }
         BinaryOp::Shr => {
             let bits = l.get_type().get_bit_width();
@@ -5635,20 +5695,14 @@ pub fn find_runtime_staticlib() -> Result<PathBuf, String> {
                     .flatten()
                     .map(|e| e.path())
                     .filter(|p| {
-                        p.file_name()
-                            .and_then(|n| n.to_str())
-                            .is_some_and(|n| {
-                                (n.starts_with("libecho_runtime") && n.ends_with(".a"))
-                                    || (n.starts_with("echo_runtime") && n.ends_with(".lib"))
-                            })
+                        p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                            (n.starts_with("libecho_runtime") && n.ends_with(".a"))
+                                || (n.starts_with("echo_runtime") && n.ends_with(".lib"))
+                        })
                     })
                     .collect();
                 // Prefer newest mtime (current build).
-                found.sort_by_key(|p| {
-                    std::fs::metadata(p)
-                        .and_then(|m| m.modified())
-                        .ok()
-                });
+                found.sort_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
                 if let Some(p) = found.pop() {
                     return Ok(p.canonicalize().unwrap_or(p));
                 }
@@ -5718,7 +5772,7 @@ mod native_repr_tests {
     use super::*;
     use echo_mir::{
         CallTarget, MirExpr, MirFn, MirPrim, MirProgram, MirRetShape, MirStmt, analyze_escapes,
-        analyze_reprs, construct_ssa, simplify_local, structured_to_cfg,
+        analyze_reprs, construct_ssa, inject_lifetime, simplify_local, structured_to_cfg,
     };
     use std::path::PathBuf;
 
@@ -5751,6 +5805,7 @@ mod native_repr_tests {
             reprs,
             escapes,
             ret: MirRetShape::Plain,
+            debug_vars: vec![],
         };
         let prog = MirProgram {
             functions: vec![f],
@@ -5768,9 +5823,11 @@ mod native_repr_tests {
 
     #[test]
     fn ir_has_line_table_debug_info() {
-        let ir = emit_stmts(vec![MirStmt::ReturnOk(MirExpr::ConstI64(0))]);
+        let ir = emit_stmts(vec![MirStmt::ReturnOk(MirExpr::ConstI64(0), None)]);
         assert!(
-            ir.contains("!DICompileUnit") && ir.contains("!DISubprogram") && ir.contains("!DILocation"),
+            ir.contains("!DICompileUnit")
+                && ir.contains("!DISubprogram")
+                && ir.contains("!DILocation"),
             "expected DWARF line-table metadata; ir=\n{ir}"
         );
         assert!(
@@ -5780,6 +5837,85 @@ mod native_repr_tests {
         assert!(
             ir.contains("t.echo"),
             "expected source file name in DI; ir=\n{ir}"
+        );
+    }
+
+    #[test]
+    fn ir_has_per_instruction_line_not_only_one() {
+        use echo_source::{BytePos, SourceId, Span};
+        let dir = std::env::temp_dir().join(format!("echo-di-line-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("multi.echo");
+        let src = "$ a = 1\n$ b = 2\n^ b\n";
+        std::fs::write(&path, src).unwrap();
+        let off = src.find('^').expect("^") as u32;
+        let span = Span::new(SourceId::from_u32(0), BytePos(off), BytePos(off + 3));
+        let params: Vec<String> = vec![];
+        let stmts = inject_lifetime(vec![
+            MirStmt::Set {
+                name: "b".into(),
+                value: MirExpr::ConstI64(2),
+                span: Some(span),
+            },
+            MirStmt::ReturnOk(MirExpr::Name("b".into()), Some(span)),
+        ]);
+        let (cfg, reprs, escapes) = finish_mir(&params, &stmts);
+        let f = MirFn {
+            module_path: path.clone(),
+            name: "f".into(),
+            params,
+            body: stmts,
+            cfg,
+            reprs,
+            escapes,
+            ret: MirRetShape::Plain,
+            debug_vars: vec![],
+        };
+        let prog = MirProgram {
+            functions: vec![f],
+            entry_path: path,
+        };
+        let ir = emit_llvm(&prog).ir;
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            ir.contains("!DILocation(line: 3,"),
+            "expected a location on source line 3, not only line 1; ir=\n{ir}"
+        );
+        let only_line_1 = ir
+            .lines()
+            .filter(|l| l.contains("!DILocation(line:"))
+            .all(|l| l.contains("!DILocation(line: 1,"));
+        assert!(!only_line_1, "every DILocation was line 1; ir=\n{ir}");
+    }
+
+    #[test]
+    fn ir_has_local_variable_and_type_di() {
+        let params = vec!["n".to_string()];
+        let stmts = vec![MirStmt::ReturnOk(MirExpr::Name("n".into()), None)];
+        let (cfg, reprs, escapes) = finish_mir(&params, &stmts);
+        let f = MirFn {
+            module_path: PathBuf::from("/t.echo"),
+            name: "f".into(),
+            params: params.clone(),
+            body: stmts,
+            cfg,
+            reprs,
+            escapes,
+            ret: MirRetShape::Plain,
+            debug_vars: vec![("n".into(), "i64".into())],
+        };
+        let ir = emit_llvm(&MirProgram {
+            functions: vec![f],
+            entry_path: PathBuf::from("/t.echo"),
+        })
+        .ir;
+        assert!(
+            ir.contains("!DILocalVariable") && ir.contains("name: \"n\""),
+            "expected DILocalVariable for n; ir=\n{ir}"
+        );
+        assert!(
+            ir.contains("!DIBasicType") && ir.contains("name: \"i64\""),
+            "expected checker kind label as DIBasicType; ir=\n{ir}"
         );
     }
 
@@ -5800,8 +5936,9 @@ mod native_repr_tests {
                         left: Box::new(MirExpr::Name("a".into())),
                         right: Box::new(MirExpr::Name("b".into())),
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Name("c".into())),
+                MirStmt::ReturnOk(MirExpr::Name("c".into()), None),
             ],
         );
         assert!(
@@ -5827,8 +5964,9 @@ mod native_repr_tests {
                         left: Box::new(MirExpr::Name("a".into())),
                         right: Box::new(MirExpr::Name("b".into())),
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Name("t".into())),
+                MirStmt::ReturnOk(MirExpr::Name("t".into()), None),
             ],
         );
         assert!(
@@ -5853,14 +5991,16 @@ mod native_repr_tests {
                         vec![MirStmt::Set {
                             name: "x".into(),
                             value: MirExpr::ConstI64(10),
+                            span: None,
                         }],
                     )],
                     else_body: Some(vec![MirStmt::Set {
                         name: "x".into(),
                         value: MirExpr::ConstI64(20),
+                        span: None,
                     }]),
                 },
-                MirStmt::ReturnOk(MirExpr::Name("x".into())),
+                MirStmt::ReturnOk(MirExpr::Name("x".into()), None),
             ],
         );
         assert!(
@@ -5884,14 +6024,16 @@ mod native_repr_tests {
                         vec![MirStmt::Set {
                             name: "x".into(),
                             value: MirExpr::ConstI64(1),
+                            span: None,
                         }],
                     )],
                     else_body: Some(vec![MirStmt::Set {
                         name: "x".into(),
                         value: MirExpr::ConstBool(true),
+                        span: None,
                     }]),
                 },
-                MirStmt::ReturnOk(MirExpr::Name("x".into())),
+                MirStmt::ReturnOk(MirExpr::Name("x".into()), None),
             ],
         );
         assert!(
@@ -5917,6 +6059,7 @@ mod native_repr_tests {
                         left: Box::new(MirExpr::Name("n".into())),
                         right: Box::new(MirExpr::ConstI64(1)),
                     },
+                    span: None,
                 },
                 MirStmt::Eval(MirExpr::Call {
                     target: CallTarget::Runtime {
@@ -5925,7 +6068,7 @@ mod native_repr_tests {
                     args: vec![MirExpr::Name("m".into())],
                     ret: MirRetShape::Plain,
                 }),
-                MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+                MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
             ],
         );
         assert!(
@@ -5952,8 +6095,9 @@ mod native_repr_tests {
                         left: Box::new(MirExpr::Name("a".into())),
                         right: Box::new(MirExpr::ConstI64(4)),
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Name("b".into())),
+                MirStmt::ReturnOk(MirExpr::Name("b".into()), None),
             ],
         );
         assert!(
@@ -5981,9 +6125,10 @@ mod native_repr_tests {
                             left: Box::new(MirExpr::Name("x".into())),
                             right: Box::new(MirExpr::Name("y".into())),
                         },
+                        span: None,
                     }],
                 },
-                MirStmt::ReturnOk(MirExpr::Name("t".into())),
+                MirStmt::ReturnOk(MirExpr::Name("t".into()), None),
             ],
         );
         assert!(
@@ -6009,6 +6154,7 @@ mod native_repr_tests {
                         left: Box::new(MirExpr::Name("x".into())),
                         right: Box::new(MirExpr::Name("y".into())),
                     },
+                    span: None,
                 },
                 MirStmt::Set {
                     name: "s2".into(),
@@ -6017,12 +6163,16 @@ mod native_repr_tests {
                         left: Box::new(MirExpr::Name("x".into())),
                         right: Box::new(MirExpr::Name("y".into())),
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Binary {
-                    op: BinaryOp::Add,
-                    left: Box::new(MirExpr::Name("s1".into())),
-                    right: Box::new(MirExpr::Name("s2".into())),
-                }),
+                MirStmt::ReturnOk(
+                    MirExpr::Binary {
+                        op: BinaryOp::Add,
+                        left: Box::new(MirExpr::Name("s1".into())),
+                        right: Box::new(MirExpr::Name("s2".into())),
+                    },
+                    None,
+                ),
             ],
         );
         let add_count = ir.matches("add i64").count() + ir.matches("add nsw i64").count();
@@ -6044,8 +6194,9 @@ mod native_repr_tests {
                     left: Box::new(MirExpr::ConstI64(1)),
                     right: Box::new(MirExpr::ConstI64(2)),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::Name("c".into())),
+            MirStmt::ReturnOk(MirExpr::Name("c".into()), None),
         ]);
         assert!(
             ir.contains("add i64")
@@ -6070,6 +6221,7 @@ mod native_repr_tests {
                     left: Box::new(MirExpr::Name("a".into())),
                     right: Box::new(MirExpr::Name("b".into())),
                 },
+                span: None,
             },
             MirStmt::Eval(MirExpr::Call {
                 target: CallTarget::Runtime {
@@ -6078,7 +6230,7 @@ mod native_repr_tests {
                 args: vec![MirExpr::Name("c".into())],
                 ret: MirRetShape::Plain,
             }),
-            MirStmt::ReturnOk(MirExpr::Name("a".into())),
+            MirStmt::ReturnOk(MirExpr::Name("a".into()), None),
         ];
         let (cfg, reprs, escapes) = finish_mir(&params, &stmts);
         // Count nested BoxValue∘UnboxValue / UnboxValue∘BoxValue in the CFG text
@@ -6097,6 +6249,7 @@ mod native_repr_tests {
             reprs,
             escapes,
             ret: MirRetShape::Plain,
+            debug_vars: vec![],
         };
         let prog = MirProgram {
             functions: vec![f],
@@ -6121,8 +6274,9 @@ mod native_repr_tests {
                         prim: MirPrim::ListGetChecked,
                         args: vec![MirExpr::Name("xs".into()), MirExpr::Name("i".into())],
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Name("v".into())),
+                MirStmt::ReturnOk(MirExpr::Name("v".into()), None),
             ],
         );
         assert!(
@@ -6140,6 +6294,7 @@ mod native_repr_tests {
                 MirStmt::Set {
                     name: "i".into(),
                     value: MirExpr::ConstI64(0),
+                    span: None,
                 },
                 MirStmt::Loop {
                     cond: Some(MirExpr::Binary {
@@ -6154,9 +6309,10 @@ mod native_repr_tests {
                             left: Box::new(MirExpr::Name("i".into())),
                             right: Box::new(MirExpr::ConstI64(1)),
                         },
+                        span: None,
                     }],
                 },
-                MirStmt::ReturnOk(MirExpr::Name("i".into())),
+                MirStmt::ReturnOk(MirExpr::Name("i".into()), None),
             ],
         );
         assert!(ir.contains("phi i64"), "expected native i64 phi; ir=\n{ir}");
@@ -6255,6 +6411,7 @@ mod llvm_opt_tests {
             reprs,
             escapes,
             ret: MirRetShape::Plain,
+            debug_vars: vec![],
         }
     }
 
@@ -6281,8 +6438,9 @@ mod llvm_opt_tests {
                         left: Box::new(MirExpr::Name("a".into())),
                         right: Box::new(MirExpr::ConstI64(1)),
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Name("r".into())),
+                MirStmt::ReturnOk(MirExpr::Name("r".into()), None),
             ],
         );
         let top = mir_fn(
@@ -6300,8 +6458,9 @@ mod llvm_opt_tests {
                         args: vec![MirExpr::ConstI64(41)],
                         ret: MirRetShape::Plain,
                     },
+                    span: None,
                 },
-                MirStmt::ReturnOk(MirExpr::Name("v".into())),
+                MirStmt::ReturnOk(MirExpr::Name("v".into()), None),
             ],
         );
         MirProgram {
@@ -6312,7 +6471,7 @@ mod llvm_opt_tests {
 
     #[test]
     fn emit_verifies_and_o0_matches_pre_opt() {
-        let prog = prog_toplevel(vec![MirStmt::ReturnOk(MirExpr::ConstI64(0))]);
+        let prog = prog_toplevel(vec![MirStmt::ReturnOk(MirExpr::ConstI64(0), None)]);
         let e = emit_llvm_with(&prog, OptLevel::O0);
         assert_eq!(
             e.diagnostics.error_count(),
@@ -6341,8 +6500,9 @@ mod llvm_opt_tests {
                             left: Box::new(MirExpr::Name("a".into())),
                             right: Box::new(MirExpr::Name("b".into())),
                         },
+                        span: None,
                     },
-                    MirStmt::ReturnOk(MirExpr::Name("c".into())),
+                    MirStmt::ReturnOk(MirExpr::Name("c".into()), None),
                 ],
             )],
             entry_path: path,
@@ -6476,11 +6636,15 @@ mod llvm_opt_tests {
                         to: MirRepr::Int32,
                     }),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::BoxValue {
-                value: Box::new(MirExpr::Name("c".into())),
-                from: MirRepr::Int32,
-            }),
+            MirStmt::ReturnOk(
+                MirExpr::BoxValue {
+                    value: Box::new(MirExpr::Name("c".into())),
+                    from: MirRepr::Int32,
+                },
+                None,
+            ),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &params);
@@ -6494,13 +6658,19 @@ mod llvm_opt_tests {
             reprs,
             escapes: Default::default(),
             ret: MirRetShape::Plain,
+            debug_vars: vec![],
         };
         let prog = MirProgram {
             functions: vec![f],
             entry_path: path,
         };
         let e = emit_llvm(&prog);
-        assert_eq!(e.diagnostics.error_count(), 0, "{:?}", e.diagnostics.items());
+        assert_eq!(
+            e.diagnostics.error_count(),
+            0,
+            "{:?}",
+            e.diagnostics.items()
+        );
         assert!(
             e.ir.contains("add i32") || e.ir.contains("add nsw i32"),
             "expected native i32 add; ir=\n{}",
@@ -6527,14 +6697,20 @@ mod llvm_opt_tests {
                         value: MirExpr::BytesLit {
                             bytes: b"raw".to_vec(),
                         },
+                        span: None,
                     },
-                    MirStmt::ReturnOk(MirExpr::Name("b".into())),
+                    MirStmt::ReturnOk(MirExpr::Name("b".into()), None),
                 ],
             )],
             entry_path: path,
         };
         let e = emit_llvm(&prog);
-        assert_eq!(e.diagnostics.error_count(), 0, "{:?}", e.diagnostics.items());
+        assert_eq!(
+            e.diagnostics.error_count(),
+            0,
+            "{:?}",
+            e.diagnostics.items()
+        );
         assert!(
             e.ir.contains("echo_runtime_bytes_from_ptr"),
             "expected bytes lit runtime call; ir=\n{}",
@@ -6561,11 +6737,15 @@ mod llvm_opt_tests {
                         to: MirRepr::Float32,
                     }),
                 },
+                span: None,
             },
-            MirStmt::ReturnOk(MirExpr::BoxValue {
-                value: Box::new(MirExpr::Name("c".into())),
-                from: MirRepr::Float32,
-            }),
+            MirStmt::ReturnOk(
+                MirExpr::BoxValue {
+                    value: Box::new(MirExpr::Name("c".into())),
+                    from: MirRepr::Float32,
+                },
+                None,
+            ),
         ];
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
         let cfg = construct_ssa(cfg, &params);
@@ -6579,13 +6759,19 @@ mod llvm_opt_tests {
             reprs,
             escapes: Default::default(),
             ret: MirRetShape::Plain,
+            debug_vars: vec![],
         };
         let prog = MirProgram {
             functions: vec![f],
             entry_path: path,
         };
         let e = emit_llvm(&prog);
-        assert_eq!(e.diagnostics.error_count(), 0, "{:?}", e.diagnostics.items());
+        assert_eq!(
+            e.diagnostics.error_count(),
+            0,
+            "{:?}",
+            e.diagnostics.items()
+        );
         assert!(
             e.ir.contains("fadd float") || e.ir.contains("fadd nnan float"),
             "expected native f32 add; ir=\n{}",
@@ -6609,17 +6795,15 @@ mod llvm_opt_tests {
                 vec![
                     MirStmt::Set {
                         name: "xs".into(),
-                        value: MirExpr::ListLit(vec![
-                            MirExpr::ConstI64(1),
-                            MirExpr::ConstI64(2),
-                        ]),
+                        value: MirExpr::ListLit(vec![MirExpr::ConstI64(1), MirExpr::ConstI64(2)]),
+                        span: None,
                     },
                     MirStmt::IndexSet {
                         base: MirExpr::Name("xs".into()),
                         index: MirExpr::ConstI64(0),
                         value: MirExpr::ConstI64(9),
                     },
-                    MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+                    MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
                 ],
             )],
             entry_path: path,
@@ -6643,12 +6827,13 @@ mod llvm_opt_tests {
                     MirStmt::Set {
                         name: "xs".into(),
                         value: MirExpr::ListLit(vec![]),
+                        span: None,
                     },
                     MirStmt::ListPush {
                         base: MirExpr::Name("xs".into()),
                         value: MirExpr::ConstI64(1),
                     },
-                    MirStmt::ReturnOk(MirExpr::ConstI64(0)),
+                    MirStmt::ReturnOk(MirExpr::ConstI64(0), None),
                 ],
             )],
             entry_path: path,
@@ -6691,4 +6876,3 @@ mod llvm_opt_tests {
         );
     }
 }
-
