@@ -421,7 +421,7 @@ leader (position decides).
 | Bytes rich | `b"..."` — same escapes as rich string (incl. `\{` `\}` `\xHH`) |
 | Bytes pure | `b'...'` — like pure string, byte payload |
 | Bytes rich | `b"..."` — like rich string, byte payload |
-| Locator (`p`) | `p'...'` / `p"..."` — absolute path, relative path, or full URI/URL (see semantics) |
+| Locator (`p`) | `p'...'` / `p"..."` — one kind; class is URI (`scheme://`), abs (`/…`), or relative (see semantics) |
 | Integers | decimal, `0x`, `0b`, `_` separators |
 | Floats | `3.14`, `1e-3` |
 | Duration | number + suffix: `us` `ms` `s` `m` `h` (e.g. `100us`, `5s`) |

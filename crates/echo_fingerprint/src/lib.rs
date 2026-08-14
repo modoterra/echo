@@ -38,8 +38,8 @@ pub const MIR_SCHEMA_VERSION: u32 = 5; // MirOp::Set.span; Terminator::ReturnOk 
 pub const CODEGEN_VERSION: u32 = 19; // per-op DILocation + DILocalVariable kinds
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 45; // dispose task/tcp/udp/fs-file handles
-pub const STDLIB_VERSION: u32 = 32; // runtime_ret_kind for imported return types
+pub const RUNTIME_ABI_VERSION: u32 = 46; // locator_class 0/1/2
+pub const STDLIB_VERSION: u32 = 33; // path.class / is_uri; locator_class
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

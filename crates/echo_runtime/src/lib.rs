@@ -68,14 +68,14 @@ pub use std_ext::*;
 pub use std_more::{
     echo_runtime_aes_gcm_decrypt, echo_runtime_aes_gcm_encrypt, echo_runtime_fs_chmod,
     echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_hmac_sha256,
-    echo_runtime_parse_f64, echo_runtime_parse_i64, echo_runtime_path_clean,
-    echo_runtime_path_rel, echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
+    echo_runtime_parse_f64, echo_runtime_parse_i64, echo_runtime_path_clean, echo_runtime_path_rel,
+    echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
     echo_runtime_process_pipe_write, echo_runtime_process_run_cwd,
     echo_runtime_process_spawn_pipes, echo_runtime_process_wait, echo_runtime_sha512,
     echo_runtime_time_format, echo_runtime_time_parse, echo_runtime_unix_accept,
     echo_runtime_unix_close, echo_runtime_unix_connect, echo_runtime_unix_listen,
-    echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_url_parse,
-    echo_runtime_zip_pack, echo_runtime_zip_unpack_first,
+    echo_runtime_unix_read, echo_runtime_unix_write, echo_runtime_url_parse, echo_runtime_zip_pack,
+    echo_runtime_zip_unpack_first,
 };
 pub use tls::{
     echo_runtime_tls_accept, echo_runtime_tls_close, echo_runtime_tls_close_listener,
@@ -84,17 +84,17 @@ pub use tls::{
 };
 
 pub use scope::{
-    echo_runtime_scope_disown, echo_runtime_scope_drain_deferred, echo_runtime_scope_enqueue_release,
-    echo_runtime_scope_enter, echo_runtime_scope_exit, echo_runtime_scope_promote,
-    echo_runtime_scope_promote_graph, echo_runtime_scope_register, echo_runtime_scope_release,
+    echo_runtime_scope_disown, echo_runtime_scope_drain_deferred,
+    echo_runtime_scope_enqueue_release, echo_runtime_scope_enter, echo_runtime_scope_exit,
+    echo_runtime_scope_promote, echo_runtime_scope_promote_graph, echo_runtime_scope_register,
+    echo_runtime_scope_release,
 };
 
 // TCP/UDP — re-export for JIT symbol mapping (`echo_codegen`).
 pub use net::{
     echo_runtime_tcp_accept, echo_runtime_tcp_close, echo_runtime_tcp_connect,
-    echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write,
-    echo_runtime_udp_bind, echo_runtime_udp_close, echo_runtime_udp_recv_from,
-    echo_runtime_udp_send_to,
+    echo_runtime_tcp_listen, echo_runtime_tcp_read, echo_runtime_tcp_write, echo_runtime_udp_bind,
+    echo_runtime_udp_close, echo_runtime_udp_recv_from, echo_runtime_udp_send_to,
 };
 
 // Tasks / event loop (ADR 0013) — JIT mapping.
@@ -806,15 +806,11 @@ pub extern "C" fn echo_runtime_str_repeat(s: i64, n: i64) -> i64 {
 pub extern "C" fn echo_runtime_str_cat(a: i64, b: i64) -> i64 {
     let left = string_as_str(a)
         .map(str::to_owned)
-        .or_else(|| {
-            bytes_as_slice(a).map(|b| String::from_utf8_lossy(b).into_owned())
-        })
+        .or_else(|| bytes_as_slice(a).map(|b| String::from_utf8_lossy(b).into_owned()))
         .unwrap_or_default();
     let right = string_as_str(b)
         .map(str::to_owned)
-        .or_else(|| {
-            bytes_as_slice(b).map(|b| String::from_utf8_lossy(b).into_owned())
-        })
+        .or_else(|| bytes_as_slice(b).map(|b| String::from_utf8_lossy(b).into_owned()))
         .unwrap_or_default();
     string_to_handle(format!("{left}{right}"))
 }
@@ -895,6 +891,59 @@ pub unsafe extern "C" fn echo_runtime_locator_from_utf8(ptr: *const u8, len: usi
         String::from_utf8_lossy(bytes).into_owned()
     };
     locator_to_handle(data)
+}
+
+/// Locator class codes (`docs/semantics.md`): relative / absolute / URI.
+pub const LOCATOR_CLASS_REL: i64 = 0;
+pub const LOCATOR_CLASS_ABS: i64 = 1;
+pub const LOCATOR_CLASS_URI: i64 = 2;
+
+/// Classify stored locator or string text. Non-text handles are relative (0).
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_locator_class(handle: i64) -> i64 {
+    let Some(text) = locator_or_string_text(handle) else {
+        return LOCATOR_CLASS_REL;
+    };
+    classify_locator_text(&text)
+}
+
+fn locator_or_string_text(handle: i64) -> Option<String> {
+    if let Some(s) = locator_data(handle) {
+        return Some(s);
+    }
+    string_data(handle)
+}
+
+/// Path vs URI class of UTF-8 text as written (no normalize).
+#[must_use]
+pub fn classify_locator_text(text: &str) -> i64 {
+    if locator_text_is_uri(text) {
+        LOCATOR_CLASS_URI
+    } else if text.starts_with('/') {
+        LOCATOR_CLASS_ABS
+    } else {
+        LOCATOR_CLASS_REL
+    }
+}
+
+/// URI when a RFC 3986 scheme is followed by `://` (spec example `http://…`).
+/// `mailto:x` and `C:` stay relative text.
+#[must_use]
+pub fn locator_text_is_uri(text: &str) -> bool {
+    let b = text.as_bytes();
+    if b.is_empty() || !b[0].is_ascii_alphabetic() {
+        return false;
+    }
+    let mut i = 1;
+    while i < b.len() {
+        let c = b[i];
+        if c.is_ascii_alphanumeric() || c == b'+' || c == b'-' || c == b'.' {
+            i += 1;
+            continue;
+        }
+        break;
+    }
+    b.get(i..i + 3) == Some(b"://")
 }
 
 /// Box an `f64` as a heap float handle (universal ABI).
@@ -1170,11 +1219,7 @@ pub extern "C" fn echo_runtime_string_builder_new() -> i64 {
 /// # Safety
 /// `b` must be a builder handle; `ptr` valid for `len` bytes.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn echo_runtime_string_builder_push_str(
-    b: i64,
-    ptr: *const u8,
-    len: usize,
-) {
+pub unsafe extern "C" fn echo_runtime_string_builder_push_str(b: i64, ptr: *const u8, len: usize) {
     if b == 0 {
         return;
     }
@@ -1186,9 +1231,7 @@ pub unsafe extern "C" fn echo_runtime_string_builder_push_str(
         return;
     }
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
-    builder
-        .buf
-        .push_str(&String::from_utf8_lossy(bytes));
+    builder.buf.push_str(&String::from_utf8_lossy(bytes));
 }
 
 /// Append a value: string content, float Display, or decimal integer.
@@ -1462,11 +1505,7 @@ pub unsafe extern "C" fn echo_runtime_struct_type_is(
         let bytes = unsafe { std::slice::from_raw_parts(name_ptr, name_len) };
         String::from_utf8_lossy(bytes)
     };
-    if st.type_name.as_str() == name {
-        1
-    } else {
-        0
-    }
+    if st.type_name.as_str() == name { 1 } else { 0 }
 }
 
 /// Set field `name` on a struct handle (insert or replace).
@@ -1724,8 +1763,14 @@ mod tests {
         let s = unsafe { echo_runtime_string_from_utf8(b"ab".as_ptr(), 2) };
         let r = echo_runtime_str_repeat(s, 4);
         assert_eq!(string_data(r).as_deref(), Some("abababab"));
-        assert_eq!(string_data(echo_runtime_str_repeat(s, 0)).as_deref(), Some(""));
-        assert_eq!(string_data(echo_runtime_str_repeat(s, -1)).as_deref(), Some(""));
+        assert_eq!(
+            string_data(echo_runtime_str_repeat(s, 0)).as_deref(),
+            Some("")
+        );
+        assert_eq!(
+            string_data(echo_runtime_str_repeat(s, -1)).as_deref(),
+            Some("")
+        );
     }
 
     #[test]
@@ -1953,6 +1998,25 @@ mod tests {
     }
 
     #[test]
+    fn locator_class_path_vs_uri() {
+        assert_eq!(classify_locator_text(""), LOCATOR_CLASS_REL);
+        assert_eq!(classify_locator_text("home/user"), LOCATOR_CLASS_REL);
+        assert_eq!(classify_locator_text("mailto:x"), LOCATOR_CLASS_REL);
+        assert_eq!(classify_locator_text("C:/Windows"), LOCATOR_CLASS_REL);
+        assert_eq!(classify_locator_text("/home/user"), LOCATOR_CLASS_ABS);
+        assert_eq!(classify_locator_text("/"), LOCATOR_CLASS_ABS);
+        assert_eq!(classify_locator_text("http://xo.run"), LOCATOR_CLASS_URI);
+        assert_eq!(classify_locator_text("HTTPS://X"), LOCATOR_CLASS_URI);
+        assert_eq!(classify_locator_text("file:///tmp"), LOCATOR_CLASS_URI);
+        assert_eq!(classify_locator_text("://x"), LOCATOR_CLASS_REL);
+        let loc = unsafe { echo_runtime_locator_from_utf8(b"http://a".as_ptr(), 8) };
+        assert_eq!(echo_runtime_locator_class(loc), LOCATOR_CLASS_URI);
+        let s = unsafe { echo_runtime_string_from_utf8(b"/tmp".as_ptr(), 4) };
+        assert_eq!(echo_runtime_locator_class(s), LOCATOR_CLASS_ABS);
+        assert_eq!(echo_runtime_locator_class(0), LOCATOR_CLASS_REL);
+    }
+
+    #[test]
     fn bytes_from_ptr_and_str_from_bytes() {
         let raw = b"raw\xff";
         let h = unsafe { echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len()) };
@@ -1961,9 +2025,11 @@ mod tests {
         let s = echo_runtime_str_from_bytes(h);
         // lossy UTF-8 for the invalid trail byte
         assert!(string_data(s).is_some());
-        assert!(echo_runtime_eq(h, unsafe {
-            echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len())
-        }) == 1);
+        assert!(
+            echo_runtime_eq(h, unsafe {
+                echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len())
+            }) == 1
+        );
     }
 
     #[test]

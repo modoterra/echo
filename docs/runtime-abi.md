@@ -65,6 +65,7 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_str_from_duration` | `int64_t (int64_t)` | Duration nanos → string (`5s`, `10ms`, …) |
 | `echo_runtime_locator_from_utf8` | `int64_t (const uint8_t *p, size_t n)` | Locator handle from path/URI text |
 | `echo_runtime_str_from_locator` | `int64_t (int64_t)` | Locator → string (path/URI text) |
+| `echo_runtime_locator_class` | `int64_t (int64_t)` | String or locator → `0` rel / `1` abs / `2` URI |
 | `echo_runtime_bytes_from_ptr` | `int64_t (const uint8_t *p, size_t n)` | Bytes handle from payload copy |
 | `echo_runtime_float_from_f64` | `int64_t (double)` | Box f64 as heap float handle |
 | `echo_runtime_float_to_f64` | `double (int64_t)` | Unbox heap float (or bitcast fallback) |

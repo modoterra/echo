@@ -235,10 +235,17 @@ $ url = p'http://xo.run'    ; full URI/URL
   `str.from_bytes` (UTF-8 lossy). Content equality via `==`. **No** string/`bytes`
   concatenation with `+` (forbidden; use rich string interp for text).
 - **`p` literals** are a single **locator** kind (URI/URL family), not plain
-  `String`:
-  - absolute path (e.g. starts with `/` on Unix-style)
-  - relative path
-  - full URI/URL (e.g. `http://…`)
+  `String`. Classification is of the **stored UTF-8 text as written** (no
+  resolve, no `..` clean, no percent-decode):
+
+  | Class | Code | Rule |
+  |-------|------|------|
+  | **URI** | `2` | `[A-Za-z][A-Za-z0-9+.-]*://…` (example `http://xo.run`) |
+  | **Absolute path** | `1` | not a URI, and starts with `/` (Linux baseline) |
+  | **Relative path** | `0` | everything else (`home/user`, `mailto:x`, `C:`, empty) |
+
+  `mailto:` and Windows drives are **relative text** in v1 (no `://`).
+  `std/path.class` / `is_abs` / `is_uri` accept a **string or locator**.
 - Pure `p'…'` and rich `p"…"` parallel string/bytes (escapes/interp on rich).
   Locked escapes: `\n` `\t` `\r` `\\` `\"` `\{` `\}` `\xHH`. Unknown → `lex-escape`.
 - **Through run:** heap locator handle (distinct from string). Print via
@@ -799,4 +806,4 @@ Runs after name/effect checks (`infer.rs` + `unify.rs`):
 
 ## Open questions
 
-- Locator classification edge cases (path vs URI normalization)
+Locator path vs URI classification is locked in **Bytes and locators** above.

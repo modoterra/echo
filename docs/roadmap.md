@@ -306,7 +306,8 @@ payloads, `&` call-through unwrap, `#` function values, reject-path e26
 belt, and dispose of task/TCP/UDP/FS-file handles. Name-keyed demote stays
 **off**.
 
-Follow-on (not locked-language rows): locator classification, SOTA G9.
+Follow-on (not locked-language rows): SOTA G9. Locator classification is locked
+(path vs URI: `scheme://` / leading `/` / else relative; no normalize).
 
 Core surface through run is largely green; prefer full verticals over new
 shortcuts.
@@ -531,6 +532,7 @@ current; fill Impl as work lands.
 | 2026-08-14 | `xo cache gc`: drop stale compiler-stamp dirs, flat leftovers, and tmp; `clean` still wipes `.xo` |
 | 2026-08-14 | LLVM line-table DI: compile unit + subprogram + loc (file, line 1); `-g` on AOT link |
 | 2026-08-14 | Per-op DWARF lines + checker-kind locals; imported return kinds (`str.from_int` → string); import params stay `value`; AOT still one clang `-O0 -g` |
+| 2026-08-14 | Locator class locked: URI `scheme://`, abs `/…`, else relative; `path.class` / `is_uri`; locators and strings share the rule |
 
 ---
 

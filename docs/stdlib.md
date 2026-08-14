@@ -263,7 +263,7 @@ See also [`runtime-abi.md`](runtime-abi.md).
 | **Crypto / collections** | hash/csprng natives as added | `std/crypto/*`, `std/collections/*` | SipHash, map/set/table, queue |
 | **Math** | `math_*` f64 | `std/math` | min/max/abs pure ints |
 | **Encoding** | — or thin | `std/encoding/hex`, `base64` | pure roundtrip |
-| **Path** | — (`fs_join` shared) | `std/path` | pure path helpers + locators |
+| **Path** | `locator_class` + `fs_join` | `std/path` | class/is_abs/is_uri; other helpers; locators |
 | **JSON** | `json_parse`, `json_stringify` | `std/json` | product types only |
 | **Random** | `random_*` | `std/random` | **non-crypto** unless `crypto/random` |
 | **Log** | — | `std/log` | pure over `io` |
@@ -445,7 +445,7 @@ Exports must match the `\ ` line in each module. Status of expansive rows is in
 | `std/math` | `abs_i`, `min`, `max`, `sqrt`, `sin`, `cos`, `tan`, `floor`, `ceil`, `abs_f`, `pow` | suite |
 | `std/encoding/hex` | `encode`, `decode` | suite |
 | `std/encoding/base64` | `encode`, `decode` | suite |
-| `std/path` | `join`, `is_abs`, `file_name`, `parent`, `extension`, `clean`, `rel`, `walk` | suite; walk is shallow (direct children) |
+| `std/path` | `join`, `class`, `is_abs`, `is_uri`, `file_name`, `parent`, `extension`, `clean`, `rel`, `walk` | suite; class 0/1/2 on string or locator; walk is shallow |
 | `std/json` | `parse`, `stringify` | suite; product types only |
 | `std/random` | `seed`, `u64`, `float` | suite; **not** CSPRNG — use `std/crypto/random` |
 | `std/log` | `emit`, `debug`, `info`, `warn`, `error`, `kv`, `info_kv` | suite; caller passes `min_level` (no global `set_level`) |
@@ -500,7 +500,7 @@ or suite failures remain.
 | `std/encoding/base64` | **Done** (thin) | e26 `002_base64`; `xo test` |
 | `std/str` growth | **Done** (thin) | trim/split/replace/case; suite green; ASCII-first |
 | `std/bytes` growth | Thin core | encoding under `std/encoding/*` |
-| `std/path` | **Done** (thin) | lifecycle fix (call-arg promote); e26 + suite |
+| `std/path` | **Done** (thin) | class/is_uri/is_abs on string or locator; e26 `locator/002_class` + suite |
 | `std/json` | **Done** (thin) | e26 parse/stringify; product types |
 | `std/random` | **Done** (thin) | seeded e26; **not** CSPRNG |
 | `std/log` | **Done** (thin) | e26 level filter; caller-supplied min level |

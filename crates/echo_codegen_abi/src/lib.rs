@@ -47,6 +47,9 @@ pub const RT_LOCATOR_FROM_UTF8: &str = "echo_runtime_locator_from_utf8";
 /// `echo_runtime_str_from_locator(locator_handle) -> string handle`
 pub const RT_STR_FROM_LOCATOR: &str = "echo_runtime_str_from_locator";
 
+/// `echo_runtime_locator_class(string_or_locator) -> i64` 0 rel / 1 abs / 2 uri
+pub const RT_LOCATOR_CLASS: &str = "echo_runtime_locator_class";
+
 /// `echo_runtime_str_from_debug(any_i64) -> string handle` — shallow debug text
 /// for REPL / diagnostics (structs, lists, strings, floats, bare ints).
 pub const RT_STR_FROM_DEBUG: &str = "echo_runtime_str_from_debug";
