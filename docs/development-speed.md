@@ -3,7 +3,7 @@
 The default local loop should answer the smallest useful question first.
 
 Related: [`AGENTS.md`](../AGENTS.md), [`architecture.md`](architecture.md),
-[`fixtures.md`](fixtures.md).
+[`fixtures.md`](fixtures.md), [`testing.md`](testing.md).
 
 ## Tooling profile
 
@@ -139,7 +139,8 @@ cargo test -p crate_you_touched
 scripts/gate changed
 ```
 
-**Language surface / frontend / runtime meaning** — always include the suite:
+**Language surface / frontend / runtime meaning** — always include the suite
+(which proof to write: [`testing.md`](testing.md)):
 
 ```bash
 cargo build -p xo -p e26
@@ -148,6 +149,9 @@ cargo build -p xo -p e26
 scripts/gate echo26
 # or
 just e26
+# when std/ or examples/ moved:
+scripts/gate std-test
+scripts/gate examples
 ```
 
 Full quiet gate before broad commits:
@@ -195,6 +199,9 @@ frontend or `std/**/*.echo` changes.
 | `gate changed --explain` | Show checks with routing reasons |
 | `gate workspace` | fmt + check + full nextest/workspace tests |
 | `gate <layer>` | Focused crate or pipeline check |
+| `gate echo26` | Echo 2026 suite against `target/debug/xo` |
+| `gate std-test` | `xo test std` (AOT) |
+| `gate examples` | Finite example `xo check` / `xo run` |
 | `gate tools` | Assert host toolchain pieces are present |
 
 Useful environment variables:
@@ -232,4 +239,6 @@ just profile
 just sccache
 just tools
 just gate changed --explain
+just examples            # finite example xo check / xo run
+just std-test            # xo test std (needs prebuilt XO)
 ```

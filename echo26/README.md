@@ -7,7 +7,8 @@ File-backed language fixtures. The suite runner is **`e26`** (not linked to any
 one implementation). Point it at any Echo-compatible candidate binary.
 
 **Policy:** every language implementation change updates this suite and keeps
-`e26` green. See [`docs/fixtures.md`](../docs/fixtures.md) and `AGENTS.md`.
+`e26` green. See [`docs/fixtures.md`](../docs/fixtures.md),
+[`docs/testing.md`](../docs/testing.md), and `AGENTS.md`.
 
 ```bash
 cargo build -p xo -p e26

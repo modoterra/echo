@@ -27,6 +27,7 @@ as described in the CLA.
 ## Before you start
 
 1. Read [`AGENTS.md`](AGENTS.md) for product invariants and proof requirements.
+   Which test to write: [`docs/testing.md`](docs/testing.md).
 2. Skim [`docs/architecture.md`](docs/architecture.md) and the relevant layer
    docs under [`docs/`](docs/).
 3. Prefer small, reviewable changes that land as full vertical slices when the
@@ -71,7 +72,7 @@ scripts/gate workspace # broad check
 ### PR checklist
 
 - [ ] Focused tests added or updated where behavior changed
-- [ ] `scripts/gate changed` (or relevant crate / echo26 gates) pass locally
+- [ ] `scripts/gate changed` (or relevant crate / echo26 / std-test / examples gates) pass locally
 - [ ] Docs updated when durable facts or user-visible rules changed
 - [ ] No unrelated refactors mixed into the same PR
 

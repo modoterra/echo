@@ -92,6 +92,9 @@ On Ubuntu only:
 
 Language correctness is enforced here; macOS/Windows prove the release binary links.
 
+Local `scripts/gate std-test` and `scripts/gate examples` cover `xo test std`
+and finite example programs. The PR workflow does not run those layers yet.
+
 ## Host / known gaps
 
 - Windows **AOT** (`xo run` via clang + pthread/dl flags) is not yet first-class;

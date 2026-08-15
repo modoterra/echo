@@ -28,6 +28,7 @@ authority. Track design in `docs/roadmap.md`; write agreed rules into
 | SOTA gaps / analysis product | `docs/sota-gaps.md`, ADR 0012 |
 | Shared vocabulary | `docs/glossary.md` |
 | How to run checks and host tools | `docs/development-speed.md` |
+| Which test to write (crate / e26 / examples / `xo test`) | `docs/testing.md` |
 | Durable decisions | `docs/adr/` |
 | Layer / domain rules | `docs/*.md` (syntax, parser, semantics, …) |
 | Design/syntax discussion progress | `docs/roadmap.md` |

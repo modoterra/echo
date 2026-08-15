@@ -11,7 +11,7 @@
 | **Suite** | [`echo26/`](../echo26/) |
 | **Runner** | `e26` (`crates/e26`) |
 | **Reference candidate** | `xo` |
-| **Related** | `docs/lexer.md`, `docs/parser.md`, `docs/roadmap.md`, `../AGENTS.md` |
+| **Related** | [`testing.md`](testing.md) (which proof to write), `docs/lexer.md`, `docs/parser.md`, `docs/roadmap.md`, `../AGENTS.md` |
 
 ## Mandatory on every language implementation
 
@@ -26,7 +26,8 @@ diags, CLI stage flags, runtime/std):
 | **echo26 / e26** | Add/adjust fixtures; keep the suite green |
 | **Examples** | Update `examples/misc/` (runnable), and `examples/app` / `algos` when relevant |
 
-None substitutes for another. Policy detail: [`../AGENTS.md`](../AGENTS.md).
+Each proof covers a different surface; ship every row that applies. Policy:
+[`../AGENTS.md`](../AGENTS.md). Which test to write: [`testing.md`](testing.md).
 
 ### echo26 steps
 

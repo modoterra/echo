@@ -86,6 +86,10 @@ xo-rebuild:
 std-test: xo-ensure
     {{xo}} test std
 
+# Finite example entries (check + run). Uses scripts/gate so server.echo is not started.
+examples:
+    scripts/gate examples
+
 # Std benches: prebuilt host + Echo -O{{O}} + IR/AOT cache.
 # Does NOT cargo-build. First run compiles Echo; later runs should aot: hit.
 std-bench O="2": xo-ensure

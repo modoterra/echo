@@ -232,11 +232,13 @@ Details: [`lsp.md`](lsp.md), [`pipeline.md`](pipeline.md) §7.
 | **e26 runner** | `crates/e26` | Candidate binary; extend protocol when stages grow |
 | CLI integration | `xo` | flags used by e26 |
 | `scripts/gate echo26` | must pass | After language changes |
-| `scripts/gate` routes | `echo26/*`, `crates/e26/*` | Keep mapping current |
+| `scripts/gate` routes | `echo26/*`, `crates/e26/*`, `std/**/*.echo`, `examples/**` | Keep mapping current |
+| `scripts/gate std-test` | `xo test std` | Dirty `std/**/*.echo` |
+| `scripts/gate examples` | finite `xo check` / `xo run` | Dirty `examples/**`; skip `app/server.echo` run |
 | `just e26` | optional wrapper | |
 | Snapshot / golden | `.lex` / `.ast` / `.diag` / `.check` | Via e26 |
 
-See [`fixtures.md`](fixtures.md).
+See [`fixtures.md`](fixtures.md) and [`testing.md`](testing.md).
 
 **Rule:** Implementing or changing a language feature without an `echo26` update
 (and green `e26` against reference `xo`) is incomplete work.

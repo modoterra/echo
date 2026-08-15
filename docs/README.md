@@ -24,7 +24,7 @@ lives under `www/`.
 | [`ci.md`](ci.md) | GitHub Actions multi-OS build + Linux echo26 gate |
 | [`roadmap.md`](roadmap.md) | Language coverage map + design/impl status |
 | [`fixtures.md`](fixtures.md) | Echo 2026 suite (`echo26/` / `e26`) conventions |
-| [`testing.md`](testing.md) | `xo test` + `std/test` (Model A registration) |
+| [`testing.md`](testing.md) | How to test: crate / echo26 / examples / `xo test` |
 
 ## Durable decisions
 
