@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync } from "node:fs";
+import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -8,6 +10,7 @@ import {
   type DocsSearchAsset,
   type DocsSemanticAsset,
 } from "./src/docs/search";
+import { renderStaticHomeAndHub } from "./src/docs/site";
 
 const docsSearchIndexDevFileName = "indices/search.json";
 const docsSemanticIndexDevFileName = "indices/semantic.json";
@@ -211,6 +214,29 @@ function docsIndexFileName(name: "search" | "semantic", checksum: string) {
   return `indices/${name}.${checksum}.json`;
 }
 
+function docsFirstStaticPlugin(): Plugin {
+  const fallbackMarker = '<noscript id="docs-first-fallback"></noscript>';
+
+  return {
+    name: "docs-first-static",
+    transformIndexHtml(html) {
+      if (!html.includes(fallbackMarker)) {
+        throw new Error("index.html is missing the docs-first noscript marker");
+      }
+      return html.replace(
+        fallbackMarker,
+        `<noscript id="docs-first-fallback">${renderStaticHomeAndHub()}</noscript>`,
+      );
+    },
+    writeBundle() {
+      const indexPath = path.resolve("dist/index.html");
+      const docsDir = path.resolve("dist/docs");
+      mkdirSync(docsDir, { recursive: true });
+      copyFileSync(indexPath, path.join(docsDir, "index.html"));
+    },
+  };
+}
+
 export default defineConfig({
   assetsInclude: ["**/*.wasm"],
   optimizeDeps: {
@@ -257,5 +283,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [docsSearchIndexPlugin(), react(), tailwindcss()],
+  plugins: [docsSearchIndexPlugin(), docsFirstStaticPlugin(), react(), tailwindcss()],
 });

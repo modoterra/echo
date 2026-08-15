@@ -124,11 +124,11 @@ const server = await createServer({
 try {
   const content = await server.ssrLoadModule("/src/docs/content.ts");
   const ref = await server.ssrLoadModule("/src/docs/std-reference.ts");
-  const homeDemos = await server.ssrLoadModule("/src/lib/home-demos.ts");
+  const site = await server.ssrLoadModule("/src/docs/site.ts");
 
   const { docsPages, docsPageByPath } = content;
   const { stdModules } = ref;
-  const { HOME_DEMOS } = homeDemos;
+  const { homePage, docsHubCatalog } = site;
 
   const failures = [];
   const prose = [];
@@ -148,8 +148,16 @@ try {
     }
   }
 
-  for (const demo of HOME_DEMOS) {
-    prose.push({ where: `home-demo ${demo.id}`, text: demo.blurb });
+  prose.push({ where: "home definition", text: homePage.definition });
+  prose.push({ where: "home lead", text: homePage.lead });
+  for (const link of homePage.links) {
+    prose.push({ where: `home link ${link.title}`, text: link.description });
+  }
+  for (const group of docsHubCatalog) {
+    prose.push({ where: `hub ${group.title}`, text: group.description });
+    for (const entry of group.entries) {
+      prose.push({ where: `hub ${group.title} ${entry.title}`, text: entry.description });
+    }
   }
 
   for (const item of prose) {
@@ -181,12 +189,7 @@ try {
   }
 
   // High-visibility TSX chrome: em dashes + slogan templates inside string literals
-  const tsxFiles = [
-    "src/app.tsx",
-    "src/install.tsx",
-    "src/router.tsx",
-    "src/components/code-stage.tsx",
-  ];
+  const tsxFiles = ["src/app.tsx", "src/install.tsx", "src/router.tsx", "src/docs/site.ts"];
   const stringLitRe = /"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
   for (const rel of tsxFiles) {
     const src = readFileSync(path.join(root, rel), "utf8");
@@ -197,7 +200,12 @@ try {
         failures.push(`${rel}: em dash in string literal: ${m[0].slice(0, 80)}`);
       }
       checkPatterns(`${rel} string`, lit, SLOGAN_PATTERNS, failures);
-      checkPatterns(`${rel} string`, lit, BAN_PATTERNS.filter((b) => b.name !== "em-dash"), failures);
+      checkPatterns(
+        `${rel} string`,
+        lit,
+        BAN_PATTERNS.filter((b) => b.name !== "em-dash"),
+        failures,
+      );
     }
   }
 
@@ -210,7 +218,7 @@ try {
       pages: docsPages.length,
       proseUnits: prose.length,
       stdModules: stdModules.length,
-      homeDemos: HOME_DEMOS.length,
+      homeLinks: homePage.links.length,
       banPatterns: BAN_PATTERNS.length,
       sloganPatterns: SLOGAN_PATTERNS.length,
       requiredPaths: REQUIRED_PATHS,

@@ -98,7 +98,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       name: "seed",
       role: "Set SipHash key halves",
       call: "hash_table.seed(k0, k1)",
-      description: "Sets SipHash key halves in place. Returns the table for fluent make().seed(...).",
+      description:
+        "Sets SipHash key halves in place. Returns the table for fluent make().seed(...).",
       params: "k0: first key half. k1: second key half.",
       returns: "The hash_table receiver.",
       example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.seed(1, 2)",
@@ -110,7 +111,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Inserts or replaces the value for key. Grows the table when load is high.",
       params: "key: key value. value: stored value.",
       returns: "The hash_table receiver.",
-      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.put(\"a\", 1)",
+      example: '/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.put("a", 1)',
     },
     {
       name: "get",
@@ -119,7 +120,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Looks up key. Missing keys use the option none arm.",
       params: "key: key value.",
       returns: "Option. Some arm: stored value. None arm: missing key.",
-      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.put(\"a\", 1)\n| t.get(\"a\") {\n    $ v { }\n    : { }\n}",
+      example:
+        '/ std/collections/hash_table\n\n$ t = hash_table.make()\nt.put("a", 1)\n| t.get("a") {\n    $ v { }\n    : { }\n}',
     },
     {
       name: "remove",
@@ -128,7 +130,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Removes key if present and returns the previous value as an option.",
       params: "key: key value.",
       returns: "Option. Some arm: removed value. None arm: key was absent.",
-      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n| t.remove(\"a\") {\n    $ v { }\n    : { }\n}",
+      example:
+        '/ std/collections/hash_table\n\n$ t = hash_table.make()\n| t.remove("a") {\n    $ v { }\n    : { }\n}',
     },
     {
       name: "has",
@@ -137,7 +140,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Reports whether key is present.",
       params: "key: key value.",
       returns: "Boolean.",
-      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ ok = t.has(\"a\")",
+      example: '/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ ok = t.has("a")',
     },
     {
       name: "keys",
@@ -173,7 +176,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Hashes key with the table's SipHash seed.",
       params: "key: key value.",
       returns: "Integer hash.",
-      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ h = t.hash_key(\"a\")",
+      example: '/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ h = t.hash_key("a")',
     },
     {
       name: "bucket_index",
@@ -182,8 +185,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Returns the bucket index for key under the current capacity.",
       params: "key: key value.",
       returns: "Integer bucket index.",
-      example: "/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ i = t.bucket_index(\"a\")",
-    }
+      example: '/ std/collections/hash_table\n\n$ t = hash_table.make()\n$ i = t.bucket_index("a")',
+    },
   ],
   "std/collections/map.map": [
     {
@@ -193,8 +196,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description:
         "Sets SipHash key halves on an empty map for fluent make().seed(...). Reseeding a non-empty map fails with a result err.",
       params: "k0: first key half. k1: second key half.",
-      returns: "Result. Ok arm: the map receiver. Err arm: \"cannot reseed non-empty map\".",
-      example: "/ std/collections/map\n\n$ m = map.make()\n| m.seed(1, 2) {\n    $ _ { }\n    ! e { }\n}",
+      returns: 'Result. Ok arm: the map receiver. Err arm: "cannot reseed non-empty map".',
+      example:
+        "/ std/collections/map\n\n$ m = map.make()\n| m.seed(1, 2) {\n    $ _ { }\n    ! e { }\n}",
     },
     {
       name: "put",
@@ -203,7 +207,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Inserts or replaces the value for key and returns the map for chaining.",
       params: "key: map key. value: value to store.",
       returns: "The map receiver.",
-      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(\"a\", 1)",
+      example: '/ std/collections/map\n\n$ m = map.make()\nm.put("a", 1)',
     },
     {
       name: "get",
@@ -212,7 +216,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Looks up key. Missing keys use the option none arm.",
       params: "key: map key.",
       returns: "Option. Some arm: stored value. None arm: missing key.",
-      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(\"a\", 1)\n| m.get(\"a\") {\n    $ v { }\n    : { }\n}",
+      example:
+        '/ std/collections/map\n\n$ m = map.make()\nm.put("a", 1)\n| m.get("a") {\n    $ v { }\n    : { }\n}',
     },
     {
       name: "remove",
@@ -221,7 +226,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Removes key if present and returns the previous value as an option.",
       params: "key: map key.",
       returns: "Option. Some arm: removed value. None arm: key was absent.",
-      example: "/ std/collections/map\n\n$ m = map.make()\nm.put(\"a\", 1)\n| m.remove(\"a\") {\n    $ v { }\n    : { }\n}",
+      example:
+        '/ std/collections/map\n\n$ m = map.make()\nm.put("a", 1)\n| m.remove("a") {\n    $ v { }\n    : { }\n}',
     },
     {
       name: "has",
@@ -230,7 +236,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Reports whether key is present.",
       params: "key: map key.",
       returns: "Boolean.",
-      example: "/ std/collections/map\n\n$ m = map.make()\n$ ok = m.has(\"a\")",
+      example: '/ std/collections/map\n\n$ m = map.make()\n$ ok = m.has("a")',
     },
     {
       name: "len",
@@ -293,7 +299,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Hashes key with the map's SipHash seed (low-level helper).",
       params: "key: map key.",
       returns: "Integer hash.",
-      example: "/ std/collections/map\n\n$ m = map.make()\n$ h = m.hash_key(\"a\")",
+      example: '/ std/collections/map\n\n$ m = map.make()\n$ h = m.hash_key("a")',
     },
     {
       name: "bucket_index",
@@ -302,8 +308,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Returns the bucket index for key under the current capacity.",
       params: "key: map key.",
       returns: "Integer bucket index.",
-      example: "/ std/collections/map\n\n$ m = map.make()\n$ i = m.bucket_index(\"a\")",
-    }
+      example: '/ std/collections/map\n\n$ m = map.make()\n$ i = m.bucket_index("a")',
+    },
   ],
   "std/collections/queue.queue": [
     {
@@ -339,9 +345,10 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       call: "queue.pop()",
       description: "Removes and returns the front value. An empty queue fails with a result err.",
       params: "No parameters.",
-      returns: "Result. Ok arm: front value. Err arm: \"empty\".",
-      example: "/ std/collections/queue\n\n$ q = queue.make()\nq.push(1)\n| q.pop() {\n    $ v { }\n    ! e { }\n}",
-    }
+      returns: 'Result. Ok arm: front value. Err arm: "empty".',
+      example:
+        "/ std/collections/queue\n\n$ q = queue.make()\nq.push(1)\n| q.pop() {\n    $ v { }\n    ! e { }\n}",
+    },
   ],
   "std/collections/set.set": [
     {
@@ -351,8 +358,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description:
         "Sets SipHash key halves on an empty set. Reseeding a non-empty set fails with a result err.",
       params: "k0: first key half. k1: second key half.",
-      returns: "Result. Ok arm: the set receiver. Err arm: \"cannot reseed non-empty set\".",
-      example: "/ std/collections/set\n\n$ s = set.make()\n| s.seed(1, 2) {\n    $ _ { }\n    ! e { }\n}",
+      returns: 'Result. Ok arm: the set receiver. Err arm: "cannot reseed non-empty set".',
+      example:
+        "/ std/collections/set\n\n$ s = set.make()\n| s.seed(1, 2) {\n    $ _ { }\n    ! e { }\n}",
     },
     {
       name: "add",
@@ -417,7 +425,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "List of members.",
       example: "/ std/collections/set\n\n$ s = set.make()\ns.add(1)\n* x : s.to_list() { }",
-    }
+    },
   ],
   "std/fs.file": [
     {
@@ -427,8 +435,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description:
         "Reads up to limit bytes from the open file. Empty bytes mean end of file. I/O failure uses a result err.",
       params: "limit: maximum bytes to read.",
-      returns: "Result. Ok arm: bytes. Err arm: \"read failed\".",
-      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.read(4096) {\n    $ b { }\n    ! e { }\n}",
+      returns: 'Result. Ok arm: bytes. Err arm: "read failed".',
+      example:
+        "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.read(4096) {\n    $ b { }\n    ! e { }\n}",
     },
     {
       name: "write",
@@ -436,8 +445,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       call: "file.write(data)",
       description: "Writes data to the open file. Data may be bytes or a string.",
       params: "data: bytes or string to write.",
-      returns: "Result. Ok arm: none. Err arm: \"write failed\".",
-      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.write(\"more\\n\") {\n    $ _ { }\n    ! e { }\n}",
+      returns: 'Result. Ok arm: none. Err arm: "write failed".',
+      example:
+        "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.write(\"more\\n\") {\n    $ _ { }\n    ! e { }\n}",
     },
     {
       name: "seek",
@@ -445,8 +455,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       call: "file.seek(pos)",
       description: "Moves the file position to an absolute byte offset.",
       params: "pos: absolute byte position.",
-      returns: "Result. Ok arm: new position. Err arm: \"seek failed\".",
-      example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.seek(0) {\n    $ pos { }\n    ! e { }\n}",
+      returns: 'Result. Ok arm: new position. Err arm: "seek failed".',
+      example:
+        "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\n| f.seek(0) {\n    $ pos { }\n    ! e { }\n}",
     },
     {
       name: "close",
@@ -456,7 +467,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The file receiver (for chaining).",
       example: "/ std/fs\n\n$ f = fs.open(p'/tmp/echo-demo.txt')\nf.close()",
-    }
+    },
   ],
   "std/net/http.request": [
     {
@@ -481,11 +492,12 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       name: "has_body",
       role: "Whether the body is non-empty",
       call: "request.has_body()",
-      description: "Reports whether the request body string is non-empty. Same shape as std/net/request.",
+      description:
+        "Reports whether the request body string is non-empty. Same shape as std/net/request.",
       params: "No parameters.",
       returns: "Boolean.",
       example: "/ std/net/http\n\n$ ok = req.has_body()",
-    }
+    },
   ],
   "std/net/http.response": [
     {
@@ -496,8 +508,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
         "Sets a response header and returns the response for chaining. Same shape as std/net/response.",
       params: "name: header name. value: header value.",
       returns: "The response receiver.",
-      example: "/ std/net/http\n\n$ res = http.text_response(200, \"ok\")\nres.set_header(\"X-Demo\", \"1\")",
-    }
+      example:
+        '/ std/net/http\n\n$ res = http.text_response(200, "ok")\nres.set_header("X-Demo", "1")',
+    },
   ],
   "std/net/request.request": [
     {
@@ -526,7 +539,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "Boolean.",
       example: "/ std/net/request\n\n$ ok = req.has_body()",
-    }
+    },
   ],
   "std/net/response.response": [
     {
@@ -536,8 +549,9 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Sets a response header and returns the response for chaining.",
       params: "name: header name. value: header value.",
       returns: "The response receiver.",
-      example: "/ std/net/response\n\n; obtain a response value, then chain headers\n$ res = res.set_header(\"Content-Type\", \"text/plain\")",
-    }
+      example:
+        '/ std/net/response\n\n; obtain a response value, then chain headers\n$ res = res.set_header("Content-Type", "text/plain")',
+    },
   ],
   "std/net/tcp.conn": [
     {
@@ -557,7 +571,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Writes data to the connection.",
       params: "data: bytes or string to send.",
       returns: "Integer bytes written, or -1 on failure.",
-      example: "/ std/net/tcp\n\n$ n = conn.write(\"hi\\n\")",
+      example: '/ std/net/tcp\n\n$ n = conn.write("hi\\n")',
     },
     {
       name: "close",
@@ -567,7 +581,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The connection receiver.",
       example: "/ std/net/tcp\n\nconn.close()",
-    }
+    },
   ],
   "std/net/tcp.listener": [
     {
@@ -588,7 +602,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The listener receiver.",
       example: "/ std/net/tcp\n\nlistener.close()",
-    }
+    },
   ],
   "std/net/tls.conn": [
     {
@@ -607,7 +621,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Writes data over the TLS connection.",
       params: "data: bytes or string to send.",
       returns: "Integer bytes written, or failure status.",
-      example: "/ std/net/tls\n\n$ n = conn.write(\"hi\")",
+      example: '/ std/net/tls\n\n$ n = conn.write("hi")',
     },
     {
       name: "close",
@@ -617,7 +631,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The connection receiver.",
       example: "/ std/net/tls\n\nconn.close()",
-    }
+    },
   ],
   "std/net/tls.listener": [
     {
@@ -638,7 +652,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The listener receiver.",
       example: "/ std/net/tls\n\nlistener.close()",
-    }
+    },
   ],
   "std/net/udp.socket": [
     {
@@ -648,7 +662,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Sends a datagram to the destination address string.",
       params: "data: payload bytes or string. to: destination address string.",
       returns: "Integer bytes sent, or a failure status from the runtime.",
-      example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")\n$ n = sock.send_to(b\"hi\", \"127.0.0.1:9\")",
+      example:
+        '/ std/net/udp\n\n$ sock = udp.bind("127.0.0.1:0")\n$ n = sock.send_to(b"hi", "127.0.0.1:9")',
     },
     {
       name: "recv_from",
@@ -657,7 +672,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Receives a datagram and sender metadata. Limit caps the payload size.",
       params: "limit: maximum bytes to receive.",
       returns: "Product with data and from address fields (empty data on failure).",
-      example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")\n$ msg = sock.recv_from(4096)",
+      example: '/ std/net/udp\n\n$ sock = udp.bind("127.0.0.1:0")\n$ msg = sock.recv_from(4096)',
     },
     {
       name: "close",
@@ -666,8 +681,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Closes the UDP socket and marks it closed.",
       params: "No parameters.",
       returns: "The socket receiver.",
-      example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")\nsock.close()",
-    }
+      example: '/ std/net/udp\n\n$ sock = udp.bind("127.0.0.1:0")\nsock.close()',
+    },
   ],
   "std/net/unix.conn": [
     {
@@ -686,7 +701,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       description: "Writes data to the Unix domain connection.",
       params: "data: bytes or string to send.",
       returns: "Integer bytes written, or failure status.",
-      example: "/ std/net/unix\n\n$ n = conn.write(\"hi\")",
+      example: '/ std/net/unix\n\n$ n = conn.write("hi")',
     },
     {
       name: "close",
@@ -696,7 +711,7 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The connection receiver.",
       example: "/ std/net/unix\n\nconn.close()",
-    }
+    },
   ],
   "std/net/unix.listener": [
     {
@@ -717,8 +732,8 @@ export const stdStructMethods: Record<string, StdDocEntry[]> = {
       params: "No parameters.",
       returns: "The listener receiver.",
       example: "/ std/net/unix\n\nlistener.close()",
-    }
-  ]
+    },
+  ],
 };
 
 export function stdMethodsFor(path: string, exportName: string): StdDocEntry[] {
@@ -741,7 +756,7 @@ export const stdModules: StdModule[] = [
         description: "Writes value as text to standard output, followed by a newline.",
         params: "value: string (or value rendered as text) to write.",
         returns: "None.",
-        example: "/ std/io\n\nio.print(\"hello\")",
+        example: '/ std/io\n\nio.print("hello")',
       },
       {
         name: "log",
@@ -751,7 +766,7 @@ export const stdModules: StdModule[] = [
           "Writes value to the log stream with a newline. Use for diagnostic lines separate from primary program output.",
         params: "value: text to write to the log stream.",
         returns: "None.",
-        example: "/ std/io\n\nio.log(\"ready\")",
+        example: '/ std/io\n\nio.log("ready")',
       },
       {
         name: "eprint",
@@ -761,8 +776,8 @@ export const stdModules: StdModule[] = [
           "Writes value to standard error with a newline. Use for error messages that should stay off stdout.",
         params: "value: text to write to stderr.",
         returns: "None.",
-        example: "/ std/io\n\nio.eprint(\"failed\")",
-      }
+        example: '/ std/io\n\nio.eprint("failed")',
+      },
     ],
   },
   {
@@ -795,7 +810,8 @@ export const stdModules: StdModule[] = [
         name: "from_bytes",
         role: "UTF-8 decode bytes to string (lossy)",
         call: "str.from_bytes(b)",
-        description: "Decodes a byte sequence as UTF-8 text. Invalid sequences are handled lossily.",
+        description:
+          "Decodes a byte sequence as UTF-8 text. Invalid sequences are handled lossily.",
         params: "b: bytes value to decode.",
         returns: "UTF-8 string decoded from b.",
         example: "/ std/io\n/ std/str\n\nio.print(str.from_bytes(b'hi'))",
@@ -822,7 +838,8 @@ export const stdModules: StdModule[] = [
         name: "from_debug",
         role: "Shallow debug text for any value",
         call: "str.from_debug(v)",
-        description: "Returns shallow debug text for any value (REPL bare-expr display and diagnostics).",
+        description:
+          "Returns shallow debug text for any value (REPL bare-expr display and diagnostics).",
         params: "v: any value.",
         returns: "Debug text string.",
         example: "/ std/io\n/ std/str\n\nio.print(str.from_debug([1, 2]))",
@@ -831,10 +848,11 @@ export const stdModules: StdModule[] = [
         name: "len",
         role: "Length in UTF-8 bytes",
         call: "str.len(s)",
-        description: "Returns the length of a string in UTF-8 bytes (same index space as get and slice).",
+        description:
+          "Returns the length of a string in UTF-8 bytes (same index space as get and slice).",
         params: "s: string value.",
         returns: "Byte length of s as an integer.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.from_int(str.len(\"hi\")))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.from_int(str.len("hi")))',
       },
       {
         name: "is_empty",
@@ -843,7 +861,7 @@ export const stdModules: StdModule[] = [
         description: "Reports whether a string has length zero.",
         params: "s: string value.",
         returns: "Boolean.",
-        example: "/ std/str\n\n$ empty = str.is_empty(\"\")",
+        example: '/ std/str\n\n$ empty = str.is_empty("")',
       },
       {
         name: "cat",
@@ -852,7 +870,7 @@ export const stdModules: StdModule[] = [
         description: "Concatenates two strings.",
         params: "a: left string. b: right string.",
         returns: "Concatenated string a then b.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.cat(\"hel\", \"lo\"))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.cat("hel", "lo"))',
       },
       {
         name: "contains",
@@ -861,7 +879,7 @@ export const stdModules: StdModule[] = [
         description: "Reports whether hay contains needle as a substring.",
         params: "hay: string to search. needle: substring to find.",
         returns: "Boolean.",
-        example: "/ std/str\n\n$ ok = str.contains(\"hello\", \"ell\")",
+        example: '/ std/str\n\n$ ok = str.contains("hello", "ell")',
       },
       {
         name: "starts_with",
@@ -870,7 +888,7 @@ export const stdModules: StdModule[] = [
         description: "Reports whether s begins with prefix.",
         params: "s: string. prefix: expected prefix.",
         returns: "Boolean.",
-        example: "/ std/str\n\n$ ok = str.starts_with(\"hello\", \"he\")",
+        example: '/ std/str\n\n$ ok = str.starts_with("hello", "he")',
       },
       {
         name: "ends_with",
@@ -879,27 +897,29 @@ export const stdModules: StdModule[] = [
         description: "Reports whether s ends with suffix.",
         params: "s: string. suffix: expected suffix.",
         returns: "Boolean.",
-        example: "/ std/str\n\n$ ok = str.ends_with(\"hello\", \"lo\")",
+        example: '/ std/str\n\n$ ok = str.ends_with("hello", "lo")',
       },
       {
         name: "get",
         role: "UTF-8 byte at index (result-shaped)",
         call: "str.get(s, i)",
         description:
-          "Result-shaped access: ok is the UTF-8 byte at index i as ui8; error is \"out of bounds\". Indices match str.len (byte length).",
+          'Result-shaped access: ok is the UTF-8 byte at index i as ui8; error is "out of bounds". Indices match str.len (byte length).',
         params: "s: string. i: zero-based UTF-8 byte index.",
-        returns: "Result. Ok arm: byte as ui8. Err arm: \"out of bounds\".",
-        example: "/ std/io\n/ std/str\n\n| str.get(\"AB\", 1) {\n    $ b {\n        io.print(str.from_int(b))\n    }\n    ! e {\n        io.print(e)\n    }\n}",
+        returns: 'Result. Ok arm: byte as ui8. Err arm: "out of bounds".',
+        example:
+          '/ std/io\n/ std/str\n\n| str.get("AB", 1) {\n    $ b {\n        io.print(str.from_int(b))\n    }\n    ! e {\n        io.print(e)\n    }\n}',
       },
       {
         name: "slice",
         role: "UTF-8 byte slice [start, end) (result-shaped)",
         call: "str.slice(s, start, end)",
         description:
-          "Result-shaped half-open UTF-8 byte range [start, end). Error is \"out of bounds\". Prefer char-safe bounds for non-ASCII.",
+          'Result-shaped half-open UTF-8 byte range [start, end). Error is "out of bounds". Prefer char-safe bounds for non-ASCII.',
         params: "s: string. start: inclusive byte index. end: exclusive byte index.",
-        returns: "Result. Ok arm: sliced string. Err arm: \"out of bounds\".",
-        example: "/ std/io\n/ std/str\n\n| str.slice(\"hello\", 1, 4) {\n    $ part {\n        io.print(part)\n    }\n    ! e {\n        io.print(e)\n    }\n}",
+        returns: 'Result. Ok arm: sliced string. Err arm: "out of bounds".',
+        example:
+          '/ std/io\n/ std/str\n\n| str.slice("hello", 1, 4) {\n    $ part {\n        io.print(part)\n    }\n    ! e {\n        io.print(e)\n    }\n}',
       },
       {
         name: "trim",
@@ -908,7 +928,7 @@ export const stdModules: StdModule[] = [
         description: "Strips leading and trailing ASCII whitespace.",
         params: "s: string to trim.",
         returns: "Trimmed string.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.trim(\"  hi  \"))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.trim("  hi  "))',
       },
       {
         name: "to_lower",
@@ -917,7 +937,7 @@ export const stdModules: StdModule[] = [
         description: "Lowercases ASCII letters in s.",
         params: "s: string.",
         returns: "Lowercased string.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.to_lower(\"Hi\"))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.to_lower("Hi"))',
       },
       {
         name: "to_upper",
@@ -926,7 +946,7 @@ export const stdModules: StdModule[] = [
         description: "Uppercases ASCII letters in s.",
         params: "s: string.",
         returns: "Uppercased string.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.to_upper(\"Hi\"))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.to_upper("Hi"))',
       },
       {
         name: "split",
@@ -935,7 +955,7 @@ export const stdModules: StdModule[] = [
         description: "Splits s on separator sep.",
         params: "s: string. sep: separator substring.",
         returns: "List of string parts.",
-        example: "/ std/str\n\n$ parts = str.split(\"a,b,c\", \",\")",
+        example: '/ std/str\n\n$ parts = str.split("a,b,c", ",")',
       },
       {
         name: "replace",
@@ -944,7 +964,7 @@ export const stdModules: StdModule[] = [
         description: "Replaces occurrences of from with to in s.",
         params: "s: string. from: substring to replace. to: replacement.",
         returns: "String after replacements.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.replace(\"hello\", \"l\", \"L\"))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.replace("hello", "l", "L"))',
       },
       {
         name: "join",
@@ -953,7 +973,7 @@ export const stdModules: StdModule[] = [
         description: "Joins string parts with separator sep.",
         params: "parts: list of strings. sep: separator between parts.",
         returns: "Joined string.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.join([\"a\", \"b\"], \"-\"))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.join(["a", "b"], "-"))',
       },
       {
         name: "repeat",
@@ -962,7 +982,7 @@ export const stdModules: StdModule[] = [
         description: "Repeats string s exactly n times.",
         params: "s: string. n: non-negative repeat count.",
         returns: "Repeated string.",
-        example: "/ std/io\n/ std/str\n\nio.print(str.repeat(\"ab\", 3))",
+        example: '/ std/io\n/ std/str\n\nio.print(str.repeat("ab", 3))',
       },
       {
         name: "parse_int",
@@ -971,7 +991,8 @@ export const stdModules: StdModule[] = [
         description: "Parses a decimal integer string.",
         params: "s: decimal integer text.",
         returns: "Result. Ok arm: integer. Err arm: parse failure message.",
-        example: "/ std/io\n/ std/str\n\n| str.parse_int(\"42\") {\n    $ n {\n        io.print(str.from_int(n))\n    }\n    ! e {\n        io.print(e)\n    }\n}",
+        example:
+          '/ std/io\n/ std/str\n\n| str.parse_int("42") {\n    $ n {\n        io.print(str.from_int(n))\n    }\n    ! e {\n        io.print(e)\n    }\n}',
       },
       {
         name: "parse_float",
@@ -980,8 +1001,8 @@ export const stdModules: StdModule[] = [
         description: "Parses a floating-point string.",
         params: "s: float text.",
         returns: "Result. Ok arm: float. Err arm: parse failure message.",
-        example: "/ std/str\n\n| str.parse_float(\"3.14\") {\n    $ n { }\n    ! e { }\n}",
-      }
+        example: '/ std/str\n\n| str.parse_float("3.14") {\n    $ n { }\n    ! e { }\n}',
+      },
     ],
   },
   {
@@ -1014,18 +1035,18 @@ export const stdModules: StdModule[] = [
         name: "get",
         role: "Bounds-checked byte access (result-shaped)",
         call: "bytes.get(b, i)",
-        description: "Result-shaped: ok is the byte at index i as ui8; error is \"out of bounds\".",
+        description: 'Result-shaped: ok is the byte at index i as ui8; error is "out of bounds".',
         params: "b: bytes. i: zero-based index.",
-        returns: "Result. Ok arm: byte as ui8. Err arm: \"out of bounds\".",
+        returns: 'Result. Ok arm: byte as ui8. Err arm: "out of bounds".',
         example: "/ std/bytes\n\n| bytes.get(b'AB', 1) {\n    $ x { }\n    ! e { }\n}",
       },
       {
         name: "slice",
         role: "Half-open range extract (result-shaped)",
         call: "bytes.slice(b, start, end)",
-        description: "Result-shaped half-open byte range [start, end). Error is \"out of bounds\".",
+        description: 'Result-shaped half-open byte range [start, end). Error is "out of bounds".',
         params: "b: bytes. start: inclusive index. end: exclusive index.",
-        returns: "Result. Ok arm: sliced bytes. Err arm: \"out of bounds\".",
+        returns: 'Result. Ok arm: sliced bytes. Err arm: "out of bounds".',
         example: "/ std/bytes\n\n| bytes.slice(b'hello', 1, 4) {\n    $ part { }\n    ! e { }\n}",
       },
       {
@@ -1053,8 +1074,8 @@ export const stdModules: StdModule[] = [
         description: "Encodes a string as UTF-8 bytes.",
         params: "s: string to encode.",
         returns: "UTF-8 bytes.",
-        example: "/ std/bytes\n\n$ b = bytes.from_str(\"hi\")",
-      }
+        example: '/ std/bytes\n\n$ b = bytes.from_str("hi")',
+      },
     ],
   },
   {
@@ -1087,9 +1108,9 @@ export const stdModules: StdModule[] = [
         name: "get",
         role: "Bounds-checked element access (result-shaped)",
         call: "list.get(xs, i)",
-        description: "Result-shaped: ok is the element at index i; error is \"out of bounds\".",
+        description: 'Result-shaped: ok is the element at index i; error is "out of bounds".',
         params: "xs: list. i: zero-based index.",
-        returns: "Result. Ok arm: element. Err arm: \"out of bounds\".",
+        returns: 'Result. Ok arm: element. Err arm: "out of bounds".',
         example: "/ std/list\n\n| list.get([10, 20], 0) {\n    $ v { }\n    ! e { }\n}",
       },
       {
@@ -1118,7 +1139,7 @@ export const stdModules: StdModule[] = [
         params: "xs: list of integers.",
         returns: "Sorted integer list.",
         example: "/ std/list\n\n$ ys = list.sort_ints([3, 1, 2])",
-      }
+      },
     ],
   },
   {
@@ -1165,7 +1186,7 @@ export const stdModules: StdModule[] = [
         description: "Formats wall milliseconds with a pattern string.",
         params: "ms: wall milliseconds since epoch. fmt: format pattern string.",
         returns: "Formatted time string.",
-        example: "/ std/time\n\n$ s = time.format(0, \"%Y\")",
+        example: '/ std/time\n\n$ s = time.format(0, "%Y")',
       },
       {
         name: "parse",
@@ -1174,8 +1195,8 @@ export const stdModules: StdModule[] = [
         description: "Parses a time string with a format pattern.",
         params: "s: text to parse. fmt: format pattern string.",
         returns: "Result. Ok arm: wall milliseconds. Err arm: parse failure.",
-        example: "/ std/time\n\n| time.parse(\"1970\", \"%Y\") {\n    $ ms { }\n    ! e { }\n}",
-      }
+        example: '/ std/time\n\n| time.parse("1970", "%Y") {\n    $ ms { }\n    ! e { }\n}',
+      },
     ],
   },
   {
@@ -1202,7 +1223,7 @@ export const stdModules: StdModule[] = [
         description: "Returns the smaller of two integers.",
         params: "a, b: integers.",
         returns: "Integer.",
-        example: "/ std/math\n\n$ result = math.min(\"a\", \"b\")",
+        example: '/ std/math\n\n$ result = math.min("a", "b")',
       },
       {
         name: "max",
@@ -1211,7 +1232,7 @@ export const stdModules: StdModule[] = [
         description: "Returns the larger of two integers.",
         params: "a, b: integers.",
         returns: "Integer.",
-        example: "/ std/math\n\n$ result = math.max(\"a\", \"b\")",
+        example: '/ std/math\n\n$ result = math.max("a", "b")',
       },
       {
         name: "sqrt",
@@ -1284,7 +1305,7 @@ export const stdModules: StdModule[] = [
         params: "a: base float. b: exponent float.",
         returns: "Float power.",
         example: "/ std/math\n\n$ y = math.pow(<f64>2.0, <f64>3.0)",
-      }
+      },
     ],
   },
   {
@@ -1302,7 +1323,7 @@ export const stdModules: StdModule[] = [
         description: "Splits text into lines on newline characters.",
         params: "s: text to split.",
         returns: "List of line strings without trailing newlines.",
-        example: "/ std/bufio\n\n$ lines = bufio.lines(\"a\\nb\\n\")",
+        example: '/ std/bufio\n\n$ lines = bufio.lines("a\\nb\\n")',
       },
       {
         name: "read_lines",
@@ -1312,7 +1333,7 @@ export const stdModules: StdModule[] = [
         params: "path: file path as string or locator.",
         returns: "List of line strings from the file.",
         example: "/ std/bufio\n\n$ lines = bufio.read_lines(p'/tmp/lines.txt')",
-      }
+      },
     ],
   },
   {
@@ -1330,7 +1351,7 @@ export const stdModules: StdModule[] = [
         description: "Registers a named test case. body is a zero-arg function run by xo test.",
         params: "name: test case name. body: zero-argument function.",
         returns: "None. Registers the case for the runner.",
-        example: "/ std/test\n\ntest.it(\"adds\", () {\n    test.eq(1 + 1, 2)\n})",
+        example: '/ std/test\n\ntest.it("adds", () {\n    test.eq(1 + 1, 2)\n})',
       },
       {
         name: "eq",
@@ -1339,7 +1360,7 @@ export const stdModules: StdModule[] = [
         description: "Asserts left deep-equals right; fails the current test otherwise.",
         params: "left: left value. right: right value.",
         returns: "None. Fails the current test on mismatch.",
-        example: "/ std/test\n\ntest.it(\"eq\", () {\n    test.eq(2, 1 + 1)\n})",
+        example: '/ std/test\n\ntest.it("eq", () {\n    test.eq(2, 1 + 1)\n})',
       },
       {
         name: "ne",
@@ -1348,7 +1369,7 @@ export const stdModules: StdModule[] = [
         description: "Asserts left is not equal to right.",
         params: "left: left value. right: right value.",
         returns: "None. Fails the current test on unexpected equality.",
-        example: "/ std/test\n\ntest.it(\"ne\", () {\n    test.ne(1, 2)\n})",
+        example: '/ std/test\n\ntest.it("ne", () {\n    test.ne(1, 2)\n})',
       },
       {
         name: "true",
@@ -1357,7 +1378,7 @@ export const stdModules: StdModule[] = [
         description: "Asserts cond is true.",
         params: "cond: boolean condition.",
         returns: "None. Fails the current test when cond is false.",
-        example: "/ std/test\n\ntest.it(\"true\", () {\n    test.true(1 == 1)\n})",
+        example: '/ std/test\n\ntest.it("true", () {\n    test.true(1 == 1)\n})',
       },
       {
         name: "false",
@@ -1366,7 +1387,7 @@ export const stdModules: StdModule[] = [
         description: "Asserts cond is false.",
         params: "cond: boolean condition.",
         returns: "None. Fails the current test when cond is true.",
-        example: "/ std/test\n\ntest.it(\"false\", () {\n    test.false(1 == 2)\n})",
+        example: '/ std/test\n\ntest.it("false", () {\n    test.false(1 == 2)\n})',
       },
       {
         name: "fail",
@@ -1375,8 +1396,8 @@ export const stdModules: StdModule[] = [
         description: "Fails the current test with message msg.",
         params: "msg: failure message.",
         returns: "None. Always fails the current test.",
-        example: "/ std/test\n\ntest.it(\"fail\", () {\n    test.fail(\"unreachable\")\n})",
-      }
+        example: '/ std/test\n\ntest.it("fail", () {\n    test.fail("unreachable")\n})',
+      },
     ],
   },
   {
@@ -1412,7 +1433,7 @@ export const stdModules: StdModule[] = [
         description: "Returns a stable key encoding for value v.",
         params: "v: any value.",
         returns: "Key bytes.",
-        example: "/ std/reflect\n\n$ b = reflect.key_bytes(\"a\")",
+        example: '/ std/reflect\n\n$ b = reflect.key_bytes("a")',
       },
       {
         name: "is_int",
@@ -1430,7 +1451,7 @@ export const stdModules: StdModule[] = [
         description: "Reports whether v is a string.",
         params: "v: any value.",
         returns: "Boolean.",
-        example: "/ std/reflect\n\n$ ok = reflect.is_string(\"a\")",
+        example: '/ std/reflect\n\n$ ok = reflect.is_string("a")',
       },
       {
         name: "is_bytes",
@@ -1521,7 +1542,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters. Constant export.",
         returns: "Integer kind tag for bytes.",
         example: "/ std/reflect\n\n$ k = reflect.KIND_BYTES",
-      }
+      },
     ],
   },
   {
@@ -1539,7 +1560,7 @@ export const stdModules: StdModule[] = [
         description: "Joins base and rel using platform path rules.",
         params: "base: base path. rel: relative segment or path.",
         returns: "Joined path string.",
-        example: "/ std/path\n\n$ p = path.join(\"/tmp\", \"a.txt\")",
+        example: '/ std/path\n\n$ p = path.join("/tmp", "a.txt")',
       },
       {
         name: "is_abs",
@@ -1548,7 +1569,7 @@ export const stdModules: StdModule[] = [
         description: "Reports whether path p is absolute.",
         params: "p: path string.",
         returns: "Boolean true for absolute paths.",
-        example: "/ std/path\n\n$ ok = path.is_abs(\"/tmp/a\")",
+        example: '/ std/path\n\n$ ok = path.is_abs("/tmp/a")',
       },
       {
         name: "file_name",
@@ -1557,7 +1578,7 @@ export const stdModules: StdModule[] = [
         description: "Returns the final component of path p.",
         params: "p: path string.",
         returns: "Final path component as a string.",
-        example: "/ std/path\n\n$ name = path.file_name(\"/tmp/a.txt\")",
+        example: '/ std/path\n\n$ name = path.file_name("/tmp/a.txt")',
       },
       {
         name: "parent",
@@ -1566,7 +1587,7 @@ export const stdModules: StdModule[] = [
         description: "Returns the parent directory of path p.",
         params: "p: path string.",
         returns: "Parent path string.",
-        example: "/ std/path\n\n$ dir = path.parent(\"/tmp/a/b\")",
+        example: '/ std/path\n\n$ dir = path.parent("/tmp/a/b")',
       },
       {
         name: "extension",
@@ -1575,7 +1596,7 @@ export const stdModules: StdModule[] = [
         description: "Returns the file extension of path p when present.",
         params: "p: path string.",
         returns: "Extension string, or empty when none.",
-        example: "/ std/path\n\n$ ext = path.extension(\"/tmp/a.txt\")",
+        example: '/ std/path\n\n$ ext = path.extension("/tmp/a.txt")',
       },
       {
         name: "clean",
@@ -1584,7 +1605,7 @@ export const stdModules: StdModule[] = [
         description: "Cleans . and .. segments in a path (POSIX-ish).",
         params: "p: path string.",
         returns: "Cleaned path string.",
-        example: "/ std/path\n\n$ p = path.clean(\"/tmp/./a/../b\")",
+        example: '/ std/path\n\n$ p = path.clean("/tmp/./a/../b")',
       },
       {
         name: "rel",
@@ -1592,8 +1613,8 @@ export const stdModules: StdModule[] = [
         call: "path.rel(base, target)",
         description: "Builds a relative path from base to target.",
         params: "base: base path. target: target path.",
-        returns: "Result. Ok arm: relative path string. Err arm: \"rel failed\".",
-        example: "/ std/path\n\n| path.rel(\"/tmp\", \"/tmp/a/b\") {\n    $ r { }\n    ! e { }\n}",
+        returns: 'Result. Ok arm: relative path string. Err arm: "rel failed".',
+        example: '/ std/path\n\n| path.rel("/tmp", "/tmp/a/b") {\n    $ r { }\n    ! e { }\n}',
       },
       {
         name: "walk",
@@ -1603,7 +1624,7 @@ export const stdModules: StdModule[] = [
         params: "root: directory path as string or locator.",
         returns: "List of child path strings.",
         example: "/ std/path\n\n$ kids = path.walk(p'.')",
-      }
+      },
     ],
   },
   {
@@ -1648,7 +1669,7 @@ export const stdModules: StdModule[] = [
         description: "Joins path segments with platform rules (same bridge as path.join).",
         params: "base: base path. rel: relative segment.",
         returns: "Joined path string.",
-        example: "/ std/fs\n\n$ p = fs.join(\"/tmp\", \"a.txt\")",
+        example: '/ std/fs\n\n$ p = fs.join("/tmp", "a.txt")',
       },
       {
         name: "read",
@@ -1821,7 +1842,7 @@ export const stdModules: StdModule[] = [
         params: "path: file path as string or locator. mode: mode bits.",
         returns: "None.",
         example: "/ std/fs\n\nfs.chmod(p'/tmp/a', 0o644)",
-      }
+      },
     ],
   },
   {
@@ -1848,7 +1869,7 @@ export const stdModules: StdModule[] = [
         description: "Looks up an environment variable.",
         params: "name: environment variable name.",
         returns: "Option. Some arm: string value. None arm: variable unset.",
-        example: "/ std/process\n\n| process.env(\"PATH\") {\n    $ v { }\n    : { }\n}",
+        example: '/ std/process\n\n| process.env("PATH") {\n    $ v { }\n    : { }\n}',
       },
       {
         name: "env_set",
@@ -1857,7 +1878,7 @@ export const stdModules: StdModule[] = [
         description: "Sets an environment variable for the process.",
         params: "name: variable name. value: string value.",
         returns: "None.",
-        example: "/ std/process\n\nprocess.env_set(\"ECHO_DEMO\", \"1\")",
+        example: '/ std/process\n\nprocess.env_set("ECHO_DEMO", "1")',
       },
       {
         name: "env_unset",
@@ -1866,7 +1887,7 @@ export const stdModules: StdModule[] = [
         description: "Removes an environment variable from the process.",
         params: "name: variable name.",
         returns: "None.",
-        example: "/ std/process\n\nprocess.env_unset(\"ECHO_DEMO\")",
+        example: '/ std/process\n\nprocess.env_unset("ECHO_DEMO")',
       },
       {
         name: "exit",
@@ -1883,8 +1904,8 @@ export const stdModules: StdModule[] = [
         call: "process.run(program, args)",
         description: "Spawns program with args and waits for exit.",
         params: "program: executable path or name. args: list of argument strings.",
-        returns: "Result. Ok arm: integer exit status. Err arm: \"failed to spawn process\".",
-        example: "/ std/process\n\n| process.run(\"true\", []) {\n    $ code { }\n    ! e { }\n}",
+        returns: 'Result. Ok arm: integer exit status. Err arm: "failed to spawn process".',
+        example: '/ std/process\n\n| process.run("true", []) {\n    $ code { }\n    ! e { }\n}',
       },
       {
         name: "run_capture",
@@ -1892,17 +1913,22 @@ export const stdModules: StdModule[] = [
         call: "process.run_capture(program, args)",
         description: "Spawns program with args, waits, and captures stdout and stderr.",
         params: "program: executable path or name. args: list of argument strings.",
-        returns: "Result. Ok arm: product with code, stdout, and stderr. Err arm: \"failed to spawn process\".",
-        example: "/ std/process\n\n| process.run_capture(\"echo\", [\"hi\"]) {\n    $ r { }\n    ! e { }\n}",
+        returns:
+          'Result. Ok arm: product with code, stdout, and stderr. Err arm: "failed to spawn process".',
+        example:
+          '/ std/process\n\n| process.run_capture("echo", ["hi"]) {\n    $ r { }\n    ! e { }\n}',
       },
       {
         name: "run_cwd",
         role: "Spawn with a working directory; capture output",
         call: "process.run_cwd(program, args, cwd)",
         description: "Spawns program with args in working directory cwd and captures output.",
-        params: "program: executable. args: argument list. cwd: working directory (empty inherits).",
-        returns: "Result. Ok arm: product with code, stdout, stderr. Err arm: \"failed to spawn process\".",
-        example: "/ std/process\n\n| process.run_cwd(\"pwd\", [], \".\") {\n    $ r { }\n    ! e { }\n}",
+        params:
+          "program: executable. args: argument list. cwd: working directory (empty inherits).",
+        returns:
+          'Result. Ok arm: product with code, stdout, stderr. Err arm: "failed to spawn process".',
+        example:
+          '/ std/process\n\n| process.run_cwd("pwd", [], ".") {\n    $ r { }\n    ! e { }\n}',
       },
       {
         name: "spawn_pipes",
@@ -1910,8 +1936,9 @@ export const stdModules: StdModule[] = [
         call: "process.spawn_pipes(program, args)",
         description: "Spawns program with piped stdin, stdout, and stderr.",
         params: "program: executable. args: argument list.",
-        returns: "Result. Ok arm: product with child and pipe handles. Err arm: \"failed to spawn process\".",
-        example: "/ std/process\n\n| process.spawn_pipes(\"cat\", []) {\n    $ r { }\n    ! e { }\n}",
+        returns:
+          'Result. Ok arm: product with child and pipe handles. Err arm: "failed to spawn process".',
+        example: '/ std/process\n\n| process.spawn_pipes("cat", []) {\n    $ r { }\n    ! e { }\n}',
       },
       {
         name: "pipe_write",
@@ -1920,7 +1947,7 @@ export const stdModules: StdModule[] = [
         description: "Writes data to a child pipe handle.",
         params: "handle: pipe handle. data: bytes or string.",
         returns: "Integer bytes written, or failure status.",
-        example: "/ std/process\n\n$ n = process.pipe_write(handle, \"hi\\n\")",
+        example: '/ std/process\n\n$ n = process.pipe_write(handle, "hi\\n")',
       },
       {
         name: "pipe_read",
@@ -1948,7 +1975,7 @@ export const stdModules: StdModule[] = [
         params: "child: child process handle.",
         returns: "Integer exit status.",
         example: "/ std/process\n\n$ code = process.wait(child)",
-      }
+      },
     ],
   },
   {
@@ -2003,7 +2030,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters.",
         returns: "Platform string.",
         example: "/ std/os\n\n$ p = os.platform()",
-      }
+      },
     ],
   },
   {
@@ -2020,7 +2047,7 @@ export const stdModules: StdModule[] = [
         call: "json.parse(s)",
         description: "Parses JSON text into a product value.",
         params: "s: JSON text.",
-        returns: "Result. Ok arm: parsed value. Err arm: \"json parse failed\".",
+        returns: 'Result. Ok arm: parsed value. Err arm: "json parse failed".',
         example: "/ std/json\n\n| json.parse('{\"n\":1}') {\n    $ o { }\n    ! e { }\n}",
       },
       {
@@ -2029,9 +2056,9 @@ export const stdModules: StdModule[] = [
         call: "json.stringify(v)",
         description: "Serializes a product value to JSON text.",
         params: "v: product or value to encode.",
-        returns: "Result. Ok arm: JSON string. Err arm: \"json stringify failed\".",
+        returns: 'Result. Ok arm: JSON string. Err arm: "json stringify failed".',
         example: "/ std/json\n\n| json.stringify({ n: 1 }) {\n    $ s { }\n    ! e { }\n}",
-      }
+      },
     ],
   },
   {
@@ -2049,7 +2076,7 @@ export const stdModules: StdModule[] = [
         description: "Encodes bytes or text as a hex string.",
         params: "b: bytes or text to encode.",
         returns: "Hex string.",
-        example: "/ std/encoding/hex\n\n$ s = hex.encode(b\"hi\")",
+        example: '/ std/encoding/hex\n\n$ s = hex.encode(b"hi")',
       },
       {
         name: "decode",
@@ -2058,8 +2085,8 @@ export const stdModules: StdModule[] = [
         description: "Decodes a hex string to bytes.",
         params: "s: hex text.",
         returns: "Decoded bytes.",
-        example: "/ std/encoding/hex\n\n$ b = hex.decode(\"6869\")",
-      }
+        example: '/ std/encoding/hex\n\n$ b = hex.decode("6869")',
+      },
     ],
   },
   {
@@ -2077,7 +2104,7 @@ export const stdModules: StdModule[] = [
         description: "Encodes bytes or text as base64.",
         params: "b: bytes or text to encode.",
         returns: "Base64 string.",
-        example: "/ std/encoding/base64\n\n$ s = base64.encode(b\"hi\")",
+        example: '/ std/encoding/base64\n\n$ s = base64.encode(b"hi")',
       },
       {
         name: "decode",
@@ -2086,8 +2113,8 @@ export const stdModules: StdModule[] = [
         description: "Decodes base64 text to bytes.",
         params: "s: base64 text.",
         returns: "Decoded bytes.",
-        example: "/ std/encoding/base64\n\n$ b = base64.decode(\"aGk=\")",
-      }
+        example: '/ std/encoding/base64\n\n$ b = base64.decode("aGk=")',
+      },
     ],
   },
   {
@@ -2105,7 +2132,7 @@ export const stdModules: StdModule[] = [
         description: "Splits one CSV line into fields.",
         params: "s: CSV line text.",
         returns: "List of field strings.",
-        example: "/ std/encoding/csv\n\n$ fields = csv.parse_line(\"a,b,c\")",
+        example: '/ std/encoding/csv\n\n$ fields = csv.parse_line("a,b,c")',
       },
       {
         name: "parse",
@@ -2114,7 +2141,7 @@ export const stdModules: StdModule[] = [
         description: "Parses multi-line CSV text into rows.",
         params: "s: CSV document text.",
         returns: "List of rows (each a list of fields).",
-        example: "/ std/encoding/csv\n\n$ rows = csv.parse(\"a,b\\n1,2\\n\")",
+        example: '/ std/encoding/csv\n\n$ rows = csv.parse("a,b\\n1,2\\n")',
       },
       {
         name: "format_line",
@@ -2123,8 +2150,8 @@ export const stdModules: StdModule[] = [
         description: "Formats a list of fields as one CSV line.",
         params: "fields: list of field strings.",
         returns: "CSV line string.",
-        example: "/ std/encoding/csv\n\n$ line = csv.format_line([\"a\", \"b\"])",
-      }
+        example: '/ std/encoding/csv\n\n$ line = csv.format_line(["a", "b"])',
+      },
     ],
   },
   {
@@ -2142,7 +2169,7 @@ export const stdModules: StdModule[] = [
         description: "Compresses input to gzip bytes.",
         params: "data: bytes or text to compress.",
         returns: "Gzip-compressed bytes.",
-        example: "/ std/compress/gzip\n\n$ c = gzip.compress(b\"hello\")",
+        example: '/ std/compress/gzip\n\n$ c = gzip.compress(b"hello")',
       },
       {
         name: "decompress",
@@ -2152,7 +2179,7 @@ export const stdModules: StdModule[] = [
         params: "data: gzip bytes.",
         returns: "Decompressed bytes.",
         example: "/ std/compress/gzip\n\n$ p = gzip.decompress(c)",
-      }
+      },
     ],
   },
   {
@@ -2170,7 +2197,7 @@ export const stdModules: StdModule[] = [
         description: "Packs a single named entry into a zip archive.",
         params: "name: entry name. data: entry bytes.",
         returns: "Zip archive bytes.",
-        example: "/ std/compress/zip\n\n$ z = zip.pack(\"a.txt\", b\"hi\")",
+        example: '/ std/compress/zip\n\n$ z = zip.pack("a.txt", b"hi")',
       },
       {
         name: "unpack_first",
@@ -2180,7 +2207,7 @@ export const stdModules: StdModule[] = [
         params: "data: zip bytes.",
         returns: "Product with name and data for the first entry.",
         example: "/ std/compress/zip\n\n$ e = zip.unpack_first(z)",
-      }
+      },
     ],
   },
   {
@@ -2216,8 +2243,8 @@ export const stdModules: StdModule[] = [
         description: "Builds a map from an indexed list of pairs.",
         params: "pairs: list of key/value products.",
         returns: "Map value.",
-        example: "/ std/collections/map\n\n$ m = map.from_indexed([{ key: \"a\", value: 1 }])",
-      }
+        example: '/ std/collections/map\n\n$ m = map.from_indexed([{ key: "a", value: 1 }])',
+      },
     ],
   },
   {
@@ -2254,7 +2281,7 @@ export const stdModules: StdModule[] = [
         params: "xs: list of values.",
         returns: "Set value.",
         example: "/ std/collections/set\n\n$ s = set.from_list([1, 2, 2])",
-      }
+      },
     ],
   },
   {
@@ -2282,7 +2309,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters.",
         returns: "Empty queue value.",
         example: "/ std/collections/queue\n\n$ q = queue.make()",
-      }
+      },
     ],
   },
   {
@@ -2300,7 +2327,8 @@ export const stdModules: StdModule[] = [
         description: "Hash table shape used with hash_table.make and table methods.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/collections/hash_table\n\n; shape: hash_table.hash_table\n$ t = hash_table.make()",
+        example:
+          "/ std/collections/hash_table\n\n; shape: hash_table.hash_table\n$ t = hash_table.make()",
       },
       {
         name: "make",
@@ -2310,7 +2338,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters.",
         returns: "Empty hash table value.",
         example: "/ std/collections/hash_table\n\n$ t = hash_table.make()",
-      }
+      },
     ],
   },
   {
@@ -2328,7 +2356,7 @@ export const stdModules: StdModule[] = [
         description: "Computes the SHA-256 digest of data.",
         params: "data: bytes or string input.",
         returns: "32-byte digest.",
-        example: "/ std/crypto/hash\n\n$ dig = hash.sha256(b\"abc\")",
+        example: '/ std/crypto/hash\n\n$ dig = hash.sha256(b"abc")',
       },
       {
         name: "sha512",
@@ -2337,7 +2365,7 @@ export const stdModules: StdModule[] = [
         description: "Computes the SHA-512 digest of data.",
         params: "data: bytes or string input.",
         returns: "64-byte digest.",
-        example: "/ std/crypto/hash\n\n$ dig = hash.sha512(b\"abc\")",
+        example: '/ std/crypto/hash\n\n$ dig = hash.sha512(b"abc")',
       },
       {
         name: "sip",
@@ -2346,8 +2374,8 @@ export const stdModules: StdModule[] = [
         description: "Computes a SipHash of data with the given key material.",
         params: "key: key bytes. data: bytes or string input.",
         returns: "Hash bytes.",
-        example: "/ std/crypto/hash\n\n$ dig = hash.sip(b\"0123456789abcdef\", b\"abc\")",
-      }
+        example: '/ std/crypto/hash\n\n$ dig = hash.sip(b"0123456789abcdef", b"abc")',
+      },
     ],
   },
   {
@@ -2365,8 +2393,8 @@ export const stdModules: StdModule[] = [
         description: "Computes HMAC-SHA256 of data under key.",
         params: "key: key bytes. data: bytes or string input.",
         returns: "32-byte MAC.",
-        example: "/ std/crypto/hmac\n\n$ mac = hmac.sha256(b\"key\", b\"msg\")",
-      }
+        example: '/ std/crypto/hmac\n\n$ mac = hmac.sha256(b"key", b"msg")',
+      },
     ],
   },
   {
@@ -2384,7 +2412,8 @@ export const stdModules: StdModule[] = [
         description: "Encrypts plaintext with AES-256-GCM.",
         params: "key: 32-byte key. nonce: 12-byte nonce. plaintext: bytes to encrypt.",
         returns: "Ciphertext bytes including auth tag.",
-        example: "/ std/crypto/aes_gcm\n\n$ c = aes_gcm.encrypt(b\"0123456789abcdef0123456789abcdef\", b\"0123456789ab\", b\"hi\")",
+        example:
+          '/ std/crypto/aes_gcm\n\n$ c = aes_gcm.encrypt(b"0123456789abcdef0123456789abcdef", b"0123456789ab", b"hi")',
       },
       {
         name: "decrypt",
@@ -2394,7 +2423,7 @@ export const stdModules: StdModule[] = [
         params: "key: 32-byte key. nonce: 12-byte nonce. ciphertext: bytes to decrypt.",
         returns: "Plaintext bytes, or failure on auth error.",
         example: "/ std/crypto/aes_gcm\n\n$ p = aes_gcm.decrypt(key, nonce, ciphertext)",
-      }
+      },
     ],
   },
   {
@@ -2422,7 +2451,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters.",
         returns: "Integer random value.",
         example: "/ std/crypto/random\n\n$ n = random.u64()",
-      }
+      },
     ],
   },
   {
@@ -2459,7 +2488,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters.",
         returns: "Float random value.",
         example: "/ std/random\n\nrandom.seed(1)\n$ x = random.float()",
-      }
+      },
     ],
   },
   {
@@ -2475,9 +2504,10 @@ export const stdModules: StdModule[] = [
         role: "Emit a message when msg_level meets min_level",
         call: "log.emit(min_level, msg_level, prefix, msg)",
         description: "Emits msg when msg_level meets min_level.",
-        params: "min_level: minimum level. msg_level: message level. prefix: prefix string. msg: message body.",
+        params:
+          "min_level: minimum level. msg_level: message level. prefix: prefix string. msg: message body.",
         returns: "None.",
-        example: "/ std/log\n\nlog.emit(1, 1, \"app\", \"ready\")",
+        example: '/ std/log\n\nlog.emit(1, 1, "app", "ready")',
       },
       {
         name: "debug",
@@ -2486,7 +2516,7 @@ export const stdModules: StdModule[] = [
         description: "Emits a debug-level log line.",
         params: "msg: message string.",
         returns: "None.",
-        example: "/ std/log\n\nlog.debug(\"trace\")",
+        example: '/ std/log\n\nlog.debug("trace")',
       },
       {
         name: "info",
@@ -2495,7 +2525,7 @@ export const stdModules: StdModule[] = [
         description: "Emits an info-level log line with the given message.",
         params: "msg: message string.",
         returns: "None.",
-        example: "/ std/log\n\nlog.info(\"ready\")",
+        example: '/ std/log\n\nlog.info("ready")',
       },
       {
         name: "warn",
@@ -2504,7 +2534,7 @@ export const stdModules: StdModule[] = [
         description: "Emits a warning-level log line.",
         params: "msg: message string.",
         returns: "None.",
-        example: "/ std/log\n\nlog.warn(\"slow\")",
+        example: '/ std/log\n\nlog.warn("slow")',
       },
       {
         name: "error",
@@ -2513,7 +2543,7 @@ export const stdModules: StdModule[] = [
         description: "Emits an error-level log line.",
         params: "msg: message string.",
         returns: "None.",
-        example: "/ std/log\n\nlog.error(\"failed\")",
+        example: '/ std/log\n\nlog.error("failed")',
       },
       {
         name: "kv",
@@ -2522,7 +2552,7 @@ export const stdModules: StdModule[] = [
         description: "Formats key-value fields for structured log lines.",
         params: "fields: product of fields to format.",
         returns: "Formatted fields string.",
-        example: "/ std/log\n\n$ s = log.kv({ user: \"ada\" })",
+        example: '/ std/log\n\n$ s = log.kv({ user: "ada" })',
       },
       {
         name: "info_kv",
@@ -2531,8 +2561,8 @@ export const stdModules: StdModule[] = [
         description: "Emits an info log line with a message and key-value fields.",
         params: "msg: message string. fields: product of fields.",
         returns: "None.",
-        example: "/ std/log\n\nlog.info_kv(\"login\", { user: \"ada\" })",
-      }
+        example: '/ std/log\n\nlog.info_kv("login", { user: "ada" })',
+      },
     ],
   },
   {
@@ -2550,7 +2580,7 @@ export const stdModules: StdModule[] = [
         description: "TCP connection shape.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/tcp\n\n; shape: tcp.conn\n$ conn = tcp.connect(\"127.0.0.1:8080\")",
+        example: '/ std/net/tcp\n\n; shape: tcp.conn\n$ conn = tcp.connect("127.0.0.1:8080")',
       },
       {
         name: "listener",
@@ -2559,16 +2589,16 @@ export const stdModules: StdModule[] = [
         description: "TCP listener shape returned by tcp.listen.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/tcp\n\n; shape: tcp.listener\n$ listener = tcp.listen(\"127.0.0.1:0\")",
+        example: '/ std/net/tcp\n\n; shape: tcp.listener\n$ listener = tcp.listen("127.0.0.1:0")',
       },
       {
         name: "listen",
         role: "Start listening; failure yields handle 0",
         call: "tcp.listen(addr)",
         description: "Binds a TCP listener on addr.",
-        params: "addr: listen address string such as \"127.0.0.1:0\".",
+        params: 'addr: listen address string such as "127.0.0.1:0".',
         returns: "Listener product. Check open or handle fields for bind failure.",
-        example: "/ std/net/tcp\n\n$ listener = tcp.listen(\"127.0.0.1:0\")",
+        example: '/ std/net/tcp\n\n$ listener = tcp.listen("127.0.0.1:0")',
       },
       {
         name: "connect",
@@ -2577,7 +2607,7 @@ export const stdModules: StdModule[] = [
         description: "Connects to a TCP address.",
         params: "addr: remote address string.",
         returns: "Connection product. Check open or handle fields for connect failure.",
-        example: "/ std/net/tcp\n\n$ conn = tcp.connect(\"127.0.0.1:8080\")",
+        example: '/ std/net/tcp\n\n$ conn = tcp.connect("127.0.0.1:8080")',
       },
       {
         name: "accept",
@@ -2586,7 +2616,8 @@ export const stdModules: StdModule[] = [
         description: "Accepts the next connection on a listener.",
         params: "listener: TCP listener value.",
         returns: "Connection product for the accepted peer.",
-        example: "/ std/net/tcp\n\n$ listener = tcp.listen(\"127.0.0.1:0\")\n$ conn = tcp.accept(listener)",
+        example:
+          '/ std/net/tcp\n\n$ listener = tcp.listen("127.0.0.1:0")\n$ conn = tcp.accept(listener)',
       },
       {
         name: "read",
@@ -2604,7 +2635,7 @@ export const stdModules: StdModule[] = [
         description: "Writes bytes to a connection.",
         params: "conn: TCP connection. data: bytes or string to send.",
         returns: "Integer bytes written, or -1 on failure.",
-        example: "/ std/net/tcp\n\n$ n = tcp.write(conn, \"hi\\n\")",
+        example: '/ std/net/tcp\n\n$ n = tcp.write(conn, "hi\\n")',
       },
       {
         name: "close",
@@ -2614,7 +2645,7 @@ export const stdModules: StdModule[] = [
         params: "resource: connection or listener to close.",
         returns: "None.",
         example: "/ std/net/tcp\n\ntcp.close(conn)",
-      }
+      },
     ],
   },
   {
@@ -2632,7 +2663,7 @@ export const stdModules: StdModule[] = [
         description: "Binds a UDP socket on addr.",
         params: "addr: bind address string.",
         returns: "UDP socket product.",
-        example: "/ std/net/udp\n\n$ sock = udp.bind(\"127.0.0.1:0\")",
+        example: '/ std/net/udp\n\n$ sock = udp.bind("127.0.0.1:0")',
       },
       {
         name: "send_to",
@@ -2641,7 +2672,7 @@ export const stdModules: StdModule[] = [
         description: "Sends a datagram to addr.",
         params: "socket: UDP socket. data: payload. addr: destination address.",
         returns: "Integer bytes sent, or -1 on failure.",
-        example: "/ std/net/udp\n\n$ n = udp.send_to(sock, b\"hi\", \"127.0.0.1:9\")",
+        example: '/ std/net/udp\n\n$ n = udp.send_to(sock, b"hi", "127.0.0.1:9")',
       },
       {
         name: "recv_from",
@@ -2668,8 +2699,8 @@ export const stdModules: StdModule[] = [
         description: "UDP socket shape returned by udp.bind.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/udp\n\n; shape: udp.socket\n$ sock = udp.bind(\"127.0.0.1:0\")",
-      }
+        example: '/ std/net/udp\n\n; shape: udp.socket\n$ sock = udp.bind("127.0.0.1:0")',
+      },
     ],
   },
   {
@@ -2687,7 +2718,8 @@ export const stdModules: StdModule[] = [
         description: "Unix domain listener shape.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/unix\n\n; shape: unix.listener\n$ listener = unix.listen(p'/tmp/echo.sock')",
+        example:
+          "/ std/net/unix\n\n; shape: unix.listener\n$ listener = unix.listen(p'/tmp/echo.sock')",
       },
       {
         name: "conn",
@@ -2741,7 +2773,7 @@ export const stdModules: StdModule[] = [
         description: "Writes bytes to a Unix domain connection.",
         params: "conn: Unix connection. data: bytes or string.",
         returns: "Integer bytes written, or -1 on failure.",
-        example: "/ std/net/unix\n\n$ n = unix.write(conn, \"hi\")",
+        example: '/ std/net/unix\n\n$ n = unix.write(conn, "hi")',
       },
       {
         name: "close",
@@ -2751,7 +2783,7 @@ export const stdModules: StdModule[] = [
         params: "resource: connection or listener.",
         returns: "None.",
         example: "/ std/net/unix\n\nunix.close(conn)",
-      }
+      },
     ],
   },
   {
@@ -2769,7 +2801,8 @@ export const stdModules: StdModule[] = [
         description: "TLS listener shape returned by tls.listen.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/tls\n\n; shape: tls.listener\n$ listener = tls.listen(\"127.0.0.1:0\", cert)",
+        example:
+          '/ std/net/tls\n\n; shape: tls.listener\n$ listener = tls.listen("127.0.0.1:0", cert)',
       },
       {
         name: "conn",
@@ -2778,7 +2811,7 @@ export const stdModules: StdModule[] = [
         description: "TLS connection shape.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/tls\n\n; shape: tls.conn\n$ conn = tls.connect(\"example.com\", 443)",
+        example: '/ std/net/tls\n\n; shape: tls.conn\n$ conn = tls.connect("example.com", 443)',
       },
       {
         name: "listen",
@@ -2787,7 +2820,7 @@ export const stdModules: StdModule[] = [
         description: "Binds a TLS listener with certificate material.",
         params: "addr: listen address. cert: certificate material.",
         returns: "TLS listener product.",
-        example: "/ std/net/tls\n\n$ listener = tls.listen(\"127.0.0.1:0\", cert)",
+        example: '/ std/net/tls\n\n$ listener = tls.listen("127.0.0.1:0", cert)',
       },
       {
         name: "accept",
@@ -2805,7 +2838,7 @@ export const stdModules: StdModule[] = [
         description: "Connects a TLS client socket to host:port.",
         params: "host: host name. port: port number.",
         returns: "TLS connection product.",
-        example: "/ std/net/tls\n\n$ conn = tls.connect(\"example.com\", 443)",
+        example: '/ std/net/tls\n\n$ conn = tls.connect("example.com", 443)',
       },
       {
         name: "read",
@@ -2823,7 +2856,7 @@ export const stdModules: StdModule[] = [
         description: "Writes bytes to a TLS connection.",
         params: "conn: TLS connection. data: bytes or string.",
         returns: "Integer bytes written, or -1 on failure.",
-        example: "/ std/net/tls\n\n$ n = tls.write(conn, \"hi\")",
+        example: '/ std/net/tls\n\n$ n = tls.write(conn, "hi")',
       },
       {
         name: "close",
@@ -2851,7 +2884,7 @@ export const stdModules: StdModule[] = [
         params: "pem: PEM-encoded text.",
         returns: "Certificate material product.",
         example: "/ std/net/tls\n\n$ cert = tls.load_pem(pem_text)",
-      }
+      },
     ],
   },
   {
@@ -2869,8 +2902,8 @@ export const stdModules: StdModule[] = [
         description: "Resolves a host name to address strings.",
         params: "host: host name.",
         returns: "List of address strings.",
-        example: "/ std/net/dns\n\n$ addrs = dns.lookup(\"localhost\")",
-      }
+        example: '/ std/net/dns\n\n$ addrs = dns.lookup("localhost")',
+      },
     ],
   },
   {
@@ -2888,7 +2921,7 @@ export const stdModules: StdModule[] = [
         description: "Parses an http(s) URL into product fields.",
         params: "s: URL string.",
         returns: "Product with scheme, host, path, and related fields.",
-        example: "/ std/net/url\n\n$ u = url.parse(\"http://example.com/a\")",
+        example: '/ std/net/url\n\n$ u = url.parse("http://example.com/a")',
       },
       {
         name: "format",
@@ -2898,7 +2931,7 @@ export const stdModules: StdModule[] = [
         params: "u: URL product.",
         returns: "URL string.",
         example: "/ std/net/url\n\n$ s = url.format(u)",
-      }
+      },
     ],
   },
   {
@@ -2925,7 +2958,7 @@ export const stdModules: StdModule[] = [
         description: "HTTP response shape (re-export).",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/http\n\n; shape: http.response\n$ res = http.text_response(200, \"ok\")",
+        example: '/ std/net/http\n\n; shape: http.response\n$ res = http.text_response(200, "ok")',
       },
       {
         name: "server",
@@ -2943,7 +2976,7 @@ export const stdModules: StdModule[] = [
         description: "Builds a plain-text HTTP response product.",
         params: "status: HTTP status code. body: response body text.",
         returns: "HTTP response product.",
-        example: "/ std/net/http\n\n$ res = http.text_response(200, \"ok\")",
+        example: '/ std/net/http\n\n$ res = http.text_response(200, "ok")',
       },
       {
         name: "html_response",
@@ -2952,7 +2985,7 @@ export const stdModules: StdModule[] = [
         description: "Builds an HTML HTTP response product.",
         params: "status: HTTP status code. body: HTML text.",
         returns: "HTTP response product.",
-        example: "/ std/net/http\n\n$ res = http.html_response(200, \"<p>ok</p>\")",
+        example: '/ std/net/http\n\n$ res = http.html_response(200, "<p>ok</p>")',
       },
       {
         name: "json_response",
@@ -2961,7 +2994,7 @@ export const stdModules: StdModule[] = [
         description: "Builds a JSON HTTP response product.",
         params: "status: HTTP status code. body: JSON text.",
         returns: "HTTP response product.",
-        example: "/ std/net/http\n\n$ res = http.json_response(200, \"{\\\"ok\\\":true}\")",
+        example: '/ std/net/http\n\n$ res = http.json_response(200, "{\\"ok\\":true}")',
       },
       {
         name: "parse_request",
@@ -2970,7 +3003,8 @@ export const stdModules: StdModule[] = [
         description: "Parses raw HTTP request bytes into a request product.",
         params: "data: request bytes.",
         returns: "Request product or failure shape.",
-        example: "/ std/net/http\n\n$ req = http.parse_request(b\"GET / HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n\")",
+        example:
+          '/ std/net/http\n\n$ req = http.parse_request(b"GET / HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n")',
       },
       {
         name: "format_response",
@@ -2994,7 +3028,8 @@ export const stdModules: StdModule[] = [
         name: "handle_connection",
         role: "Handle one HTTP connection",
         call: "http.handle_connection(c, routes)",
-        description: "Reads one HTTP request from conn, dispatches routes, and writes the response.",
+        description:
+          "Reads one HTTP request from conn, dispatches routes, and writes the response.",
         params: "conn: TCP connection. routes: list of path/handle products.",
         returns: "None after the response is written.",
         example: "/ std/net/http\n\nhttp.handle_connection(conn, routes)",
@@ -3006,8 +3041,9 @@ export const stdModules: StdModule[] = [
         description: "Serves routes on a TCP address until the process stops.",
         params: "addr: listen address. routes: list of path/handle products.",
         returns: "None under a long-running accept loop.",
-        example: "/ std/net/http\n\n$ health = () {\n    ^ http.text_response(200, \"ok\")\n}\nhttp.serve(\"127.0.0.1:8080\", [{ path: \"/health\", handle: health }])",
-      }
+        example:
+          '/ std/net/http\n\n$ health = () {\n    ^ http.text_response(200, "ok")\n}\nhttp.serve("127.0.0.1:8080", [{ path: "/health", handle: health }])',
+      },
     ],
   },
   {
@@ -3025,16 +3061,18 @@ export const stdModules: StdModule[] = [
         description: "Performs an HTTP GET over cleartext TCP.",
         params: "host: host name. port: port number. path: request path.",
         returns: "Response product or failure shape (see description).",
-        example: "/ std/net/http_client\n\n$ res = http_client.get(\"example.com\", 80, \"/\")",
+        example: '/ std/net/http_client\n\n$ res = http_client.get("example.com", 80, "/")',
       },
       {
         name: "request",
         role: "HTTP request with method, headers, and body",
         call: "http_client.request(method, host, port, path, headers, body)",
         description: "Performs an HTTP request over cleartext TCP.",
-        params: "host: host name. port: port number. method: HTTP method. path: request path. headers: header product. body: body text.",
+        params:
+          "host: host name. port: port number. method: HTTP method. path: request path. headers: header product. body: body text.",
         returns: "Response product or failure shape.",
-        example: "/ std/net/http_client\n\n$ res = http_client.request(\"example.com\", 80, \"GET\", \"/\", {}, \"\")",
+        example:
+          '/ std/net/http_client\n\n$ res = http_client.request("example.com", 80, "GET", "/", {}, "")',
       },
       {
         name: "get_tls",
@@ -3043,17 +3081,19 @@ export const stdModules: StdModule[] = [
         description: "Performs an HTTPS GET using TLS.",
         params: "host: host name. port: port number. path: request path.",
         returns: "Response product or failure shape.",
-        example: "/ std/net/http_client\n\n$ res = http_client.get_tls(\"example.com\", 443, \"/\")",
+        example: '/ std/net/http_client\n\n$ res = http_client.get_tls("example.com", 443, "/")',
       },
       {
         name: "request_tls",
         role: "HTTPS request over TLS",
         call: "http_client.request_tls(method, host, port, path, headers, body, server_name, ca_pem)",
         description: "Performs an HTTPS request using TLS.",
-        params: "host: host name. port: port number. method: HTTP method. path: request path. headers: header product. body: body text.",
+        params:
+          "host: host name. port: port number. method: HTTP method. path: request path. headers: header product. body: body text.",
         returns: "Response product or failure shape.",
-        example: "/ std/net/http_client\n\n$ res = http_client.request_tls(\"example.com\", 443, \"GET\", \"/\", {}, \"\")",
-      }
+        example:
+          '/ std/net/http_client\n\n$ res = http_client.request_tls("example.com", 443, "GET", "/", {}, "")',
+      },
     ],
   },
   {
@@ -3072,7 +3112,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
         example: "/ std/net/request\n\n; shape: request.request\n; see std/net/http parse_request",
-      }
+      },
     ],
   },
   {
@@ -3090,8 +3130,9 @@ export const stdModules: StdModule[] = [
         description: "HTTP response shape and helpers.",
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
-        example: "/ std/net/response\n\n; shape: response.response\n; see std/net/http text_response",
-      }
+        example:
+          "/ std/net/response\n\n; shape: response.response\n; see std/net/http text_response",
+      },
     ],
   },
   {
@@ -3110,7 +3151,7 @@ export const stdModules: StdModule[] = [
         params: "No parameters. Type or shape export.",
         returns: "Shape export used for literals and methods.",
         example: "/ std/net/server\n\n; shape: server.server\n; see std/net/http serve",
-      }
+      },
     ],
   },
   {
@@ -3128,7 +3169,7 @@ export const stdModules: StdModule[] = [
         description: "Parses an argv list into flags and positionals.",
         params: "argv: list of argument strings (often process.args()).",
         returns: "Parsed product with flag and positional fields.",
-        example: "/ std/cli\n\n$ parsed = cli.parse([\"--name\", \"ada\", \"file.echo\"])",
+        example: '/ std/cli\n\n$ parsed = cli.parse(["--name", "ada", "file.echo"])',
       },
       {
         name: "has",
@@ -3137,7 +3178,7 @@ export const stdModules: StdModule[] = [
         description: "Reports whether a long flag is present on a parse result.",
         params: "parsed: value from cli.parse. flag: flag name without leading dashes.",
         returns: "Boolean true when the flag is set.",
-        example: "/ std/cli\n\n$ parsed = cli.parse([\"--help\"])\n$ on = cli.has(parsed, \"help\")",
+        example: '/ std/cli\n\n$ parsed = cli.parse(["--help"])\n$ on = cli.has(parsed, "help")',
       },
       {
         name: "get",
@@ -3146,7 +3187,8 @@ export const stdModules: StdModule[] = [
         description: "Reads the value of a long flag from a parse result.",
         params: "parsed: value from cli.parse. flag: flag name without leading dashes.",
         returns: "Option. Some arm: flag value string. None arm: flag absent.",
-        example: "/ std/cli\n\n$ parsed = cli.parse([\"--name\", \"ada\"])\n| cli.get(parsed, \"name\") {\n    $ v { }\n    : { }\n}",
+        example:
+          '/ std/cli\n\n$ parsed = cli.parse(["--name", "ada"])\n| cli.get(parsed, "name") {\n    $ v { }\n    : { }\n}',
       },
       {
         name: "positionals",
@@ -3155,10 +3197,11 @@ export const stdModules: StdModule[] = [
         description: "Returns positional arguments from a parse result.",
         params: "parsed: value from cli.parse.",
         returns: "List of positional strings.",
-        example: "/ std/cli\n\n$ parsed = cli.parse([\"--x\", \"1\", \"a.echo\"])\n$ rest = cli.positionals(parsed)",
-      }
+        example:
+          '/ std/cli\n\n$ parsed = cli.parse(["--x", "1", "a.echo"])\n$ rest = cli.positionals(parsed)',
+      },
     ],
-  }
+  },
 ];
 
 export const stdModuleByPath: Record<string, StdModule> = Object.fromEntries(

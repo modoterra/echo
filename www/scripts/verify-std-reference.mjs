@@ -26,13 +26,8 @@ try {
   const content = await server.ssrLoadModule("/src/docs/content.ts");
   const search = await server.ssrLoadModule("/src/docs/search.ts");
 
-  const {
-    stdModules,
-    stdExportCount,
-    assertStdReferenceComplete,
-    stdExportKind,
-    stdMethodsFor,
-  } = ref;
+  const { stdModules, stdExportCount, assertStdReferenceComplete, stdExportKind, stdMethodsFor } =
+    ref;
   const { docsPageByPath, headingId } = content;
   const { buildDocsSearchRecords } = search;
 
@@ -73,8 +68,7 @@ try {
 
     for (const e of m.exports) {
       const kind = stdExportKind(e);
-      const title =
-        kind === "struct" ? `Struct · ${e.name}` : e.name;
+      const title = kind === "struct" ? `Struct · ${e.name}` : e.name;
       const section = page.sections.find((s) => s.title === title);
       if (!section) {
         throw new Error(`${m.docsPath}: missing section for ${kind} ${e.name} (title ${title})`);

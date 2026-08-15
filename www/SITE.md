@@ -46,9 +46,9 @@ Functions
 Spoken prose first (what it does, inline call form). **Example next.** Then one
 short line for parameters and return shape:
 
-1. **Description** + call form in the same paragraph  
-2. **Example** — Echo snippet with the package import  
-3. **Parameters / Returns** — structured field notes, not a second essay  
+1. **Description** + call form in the same paragraph
+2. **Example** — Echo snippet with the package import
+3. **Parameters / Returns** — structured field notes, not a second essay
 
 Keep description and returns in spoken prose. Keep params structured
 (`name: meaning.`). Do not add marketing cadence, antithesis, or em dashes.
@@ -72,28 +72,28 @@ pairs that withhold the form until a final flourish.
 
 Do not use these rhetorical patterns in user-facing narrative under `www/`:
 
-| Pattern | What to avoid |
-| ------- | ------------- |
-| Antithesis | X-vs-Y framing as flourish |
-| Corrective negation | "not X, but Y" as a device |
-| Paragraph pinning | Closing every block with a moral |
-| Parataxis | Stacked fragments that only list tone |
-| Summary beats | "In short…", "The key takeaway…" |
-| Rhetorical crutches | "Simply put", "Needless to say" |
-| Negative parallelisms | "No A. No B. No C." as rhythm |
-| Negative anaphoras | Repeated "not … / not …" openings |
-| Contrasting pairs | Book/Docs, old/new, cost/gain as twin slogans |
-| Rule of three | Forced triple cadence for style |
-| Em dashes in prose | Use periods, commas, or parentheses |
-| Throat-clearing openers | Warm-up clauses before the fact |
-| Landing sentences | Final "that's why" punchlines |
-| Setup/payoff constructions | Withhold the rule for a reveal |
-| Parallel sentence structures in one paragraph | Same skeleton repeated for effect |
-| Stacked noun phrases | Dense modifier piles |
-| Filler intensifiers | genuinely, really, truly, actually |
-| Corporate-register verbs | leverage, underscore, reflect (as prose verbs) |
-| Nominalization | Turning clear verbs into heavy abstract nouns |
-| Hedging qualifiers | somewhat, relatively, in many ways (unless a real limit) |
+| Pattern                                       | What to avoid                                            |
+| --------------------------------------------- | -------------------------------------------------------- |
+| Antithesis                                    | X-vs-Y framing as flourish                               |
+| Corrective negation                           | "not X, but Y" as a device                               |
+| Paragraph pinning                             | Closing every block with a moral                         |
+| Parataxis                                     | Stacked fragments that only list tone                    |
+| Summary beats                                 | "In short…", "The key takeaway…"                         |
+| Rhetorical crutches                           | "Simply put", "Needless to say"                          |
+| Negative parallelisms                         | "No A. No B. No C." as rhythm                            |
+| Negative anaphoras                            | Repeated "not … / not …" openings                        |
+| Contrasting pairs                             | Book/Docs, old/new, cost/gain as twin slogans            |
+| Rule of three                                 | Forced triple cadence for style                          |
+| Em dashes in prose                            | Use periods, commas, or parentheses                      |
+| Throat-clearing openers                       | Warm-up clauses before the fact                          |
+| Landing sentences                             | Final "that's why" punchlines                            |
+| Setup/payoff constructions                    | Withhold the rule for a reveal                           |
+| Parallel sentence structures in one paragraph | Same skeleton repeated for effect                        |
+| Stacked noun phrases                          | Dense modifier piles                                     |
+| Filler intensifiers                           | genuinely, really, truly, actually                       |
+| Corporate-register verbs                      | leverage, underscore, reflect (as prose verbs)           |
+| Nominalization                                | Turning clear verbs into heavy abstract nouns            |
+| Hedging qualifiers                            | somewhat, relatively, in many ways (unless a real limit) |
 
 Language-law statements may still forbid a form ("trailing commas are rejected",
 "this shape is invalid"). State the rule plainly. Do not dress the forbid as
@@ -118,10 +118,11 @@ xo build emits a native executable from that same pipeline.
 
 ## Positioning
 
-**H1 (definition):** Echo is a compiled language. Statement leaders carry control
-and binding structure; the rest of the line stays an ordinary expression.
+**H1 (definition):** Echo is a compiled language.
 
-**Subhead:** Write clear programs. Check them. Ship native binaries with `xo`.
+**Lead:** Statement leaders mark control and binding. The rest of each line is
+an ordinary expression. `xo` checks a program and emits a native binary from
+the same LLVM pipeline.
 
 Keep product claims factual. Do not invent APIs, partner logos, or unearned
 maturity.
@@ -134,14 +135,15 @@ maturity.
 
 ## Primary nav
 
-| Item              | Path       | Notes                                      |
-| ----------------- | ---------- | ------------------------------------------ |
-| Home              | `/`        | Product narrative                          |
-| Docs              | `/docs`    | Form-by-form Reference                     |
-| Book              | `/book`    | Narrative why / when                       |
-| Echo 2026         | `/e26`     | Edition + Spec TOC + suite                 |
-| Try               | `/try`     | In-browser `xo check` (frontend wasm host) |
-| **Install** (CTA) | `/install` | Solid button; get `xo`                     |
+The logo is the only Home control. Book stays at `/book` and in the footer.
+
+| Item              | Path        | Notes                                      |
+| ----------------- | ----------- | ------------------------------------------ |
+| Documents         | `/docs`     | Language reference hub                     |
+| Packages          | `/docs/std` | Standard library                           |
+| Echo 2026         | `/e26`      | Edition + Spec TOC + suite                 |
+| Try               | `/try`      | In-browser `xo check` (frontend wasm host) |
+| **Install** (CTA) | `/install`  | Solid button; get `xo`                     |
 
 ## Docs left rail
 
@@ -151,16 +153,23 @@ add a second rail or nested train.
 
 ## Homepage sections
 
-1. Hero (definition + CTAs + source → `xo` → native visual)
-2. Factual proof rail (Echo 2026 · AOT + JIT · Rust · open source)
-3. **See it work** — tabbed demos (leaders, Result, structs, tasks)
-4. Toolchain story (`check` → `run` → `build`) + source install
-5. Echo 2026 / learn path (First program · Reference · Language Spec)
-6. Final install CTA
-7. Footer
+The home page is a language-docs front door. Copy and links live in
+`src/docs/site.ts` (`homePage`, `primaryNav`, `docsHubCatalog`).
+
+1. Language definition (`Echo is a compiled language`) plus the lead
+2. Representative sample that shows statement leaders and binds
+3. First-class links: Documents (`/docs`), Packages (`/docs/std`), Spec (`/e26`)
+4. Footer
 
 Homepage trust stays factual. Rust, LLVM, the public edition, and the
 machine-checked suite are implementation facts.
+
+## Documents hub
+
+`/docs` is a short catalog. Groups: Start (install, first program, project),
+Language (the Echo 2026 form pages), Packages (std + API index), Spec
+(Echo 2026 + Language Spec). Each entry has a title, one-line description,
+and a working path.
 
 ## Echo 2026 section
 

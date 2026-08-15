@@ -38,6 +38,7 @@ import {
   type DocsPage,
   type DocsTextPart,
 } from "./docs/content";
+import { installCta, primaryNav, primaryNavItemIsActive, type SiteLink } from "./docs/site";
 
 type FooterLink = {
   label: string;
@@ -57,7 +58,7 @@ const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Install", href: "/install" },
       { label: "Try Echo", href: "/try" },
       { label: "First program", href: "/docs/first-program" },
-      { label: "Reference", href: "/docs" },
+      { label: "Documents", href: "/docs" },
       { label: "Book", href: "/book" },
       { label: "Echo 2026", href: "/e26" },
     ],
@@ -221,22 +222,19 @@ function Topbar() {
             aria-label="Primary navigation"
             className="hidden items-center justify-start gap-7 text-sm font-semibold text-slate-500 md:flex lg:gap-8"
           >
-            <Link className="transition hover:text-violet-700" to="/">
-              Home
-            </Link>
-            {/* Path union is incomplete when child routes are built as arrays. */}
-            <Link className="transition hover:text-violet-700" to={"/docs" as "/"}>
-              Docs
-            </Link>
-            <Link className="transition hover:text-violet-700" to={"/book" as "/"}>
-              Book
-            </Link>
-            <Link className="transition hover:text-violet-700" to={"/e26" as "/"}>
-              Echo 2026
-            </Link>
-            <Link className="transition hover:text-violet-700" to={"/try" as "/"}>
-              Try
-            </Link>
+            {primaryNav.map((item) => (
+              <Link
+                key={item.to}
+                className={
+                  primaryNavItemIsActive(item.to, location.pathname)
+                    ? "text-slate-950"
+                    : "transition hover:text-violet-700"
+                }
+                to={item.to as "/"}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
           <div className="flex items-center justify-end gap-2 sm:gap-3">
             <span className="hidden xl:inline-flex">
@@ -313,14 +311,7 @@ function Topbar() {
                 aria-label="Mobile primary navigation"
                 className="mt-6 border-t border-slate-200"
               >
-                {[
-                  ["Home", "/"],
-                  ["Docs", "/docs"],
-                  ["Book", "/book"],
-                  ["Echo 2026", "/e26"],
-                  ["Try", "/try"],
-                  ["Install", "/install"],
-                ].map(([label, to]) => (
+                {[...primaryNav, installCta].map(({ label, to }) => (
                   <Link
                     key={to}
                     className="flex items-center justify-between border-b border-slate-200 py-5 font-display text-2xl font-bold tracking-tight text-slate-950 transition hover:text-violet-700"
@@ -849,6 +840,25 @@ function renderInlineText(parts: DocsTextPart[]) {
   );
 }
 
+function renderCatalog(entries: SiteLink[], key: number) {
+  return (
+    <ul key={key} className="mt-8 divide-y divide-slate-200 border-y border-slate-200">
+      {entries.map((entry) => (
+        <li key={entry.to}>
+          <Link className="group block py-5 transition hover:bg-slate-50" to={entry.to as "/"}>
+            <span className="font-display text-xl font-bold tracking-tight text-slate-950 group-hover:text-violet-700">
+              {entry.title}
+            </span>
+            <span className="mt-2 block text-base leading-7 text-slate-600">
+              {entry.description}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function renderBlock(block: DocsBlock, key: number) {
   if (block.kind === "paragraph") {
     return (
@@ -856,6 +866,10 @@ function renderBlock(block: DocsBlock, key: number) {
         {renderInlineText(block.text)}
       </p>
     );
+  }
+
+  if (block.kind === "catalog") {
+    return renderCatalog(block.entries, key);
   }
 
   return <EchoCode key={key} code={block.code} language={block.language ?? "echo"} />;

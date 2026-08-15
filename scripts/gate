@@ -204,6 +204,7 @@ run_layer() {
       fi
       run_quiet npm --prefix www run lint
       run_quiet npm --prefix www run format
+      run_quiet npm --prefix www run test
       run_quiet npm --prefix www run build
       ;;
     docs)

@@ -22,8 +22,10 @@ just wasm    # writes www/public/echo-wasm/
 just try     # wasm + npm --prefix www run dev
 ```
 
-`npm run dev` starts the local site. `npm run lint`, `npm run format`, and
-`npm run build` validate the site before publishing `www/dist`.
+`npm run dev` starts the local site. `npm run lint`, `npm run format`,
+`npm run test`, and `npm run build` validate the site before publishing
+`www/dist`. The docs-first homepage, primary nav, and Documents catalog live
+in `src/docs/site.ts`.
 
 ## Cloudflare Pages
 
