@@ -128,7 +128,7 @@ try {
 
   const { docsPages, docsPageByPath } = content;
   const { stdModules } = ref;
-  const { homePage, docsHubCatalog, tryPage } = site;
+  const { homePage, docsHubCatalog, legalPages, tryPage } = site;
   const install = await server.ssrLoadModule("/src/docs/install-content.ts");
   const { installPage, inlineText } = install;
 
@@ -168,6 +168,14 @@ try {
       prose.push({ where: `hub ${group.title} ${entry.title}`, text: entry.description });
     }
   }
+  for (const page of legalPages) {
+    prose.push({ where: `${page.path} summary`, text: page.summary });
+    for (const section of page.sections) {
+      for (const paragraph of section.paragraphs) {
+        prose.push({ where: `${page.path}#${section.title}`, text: paragraph });
+      }
+    }
+  }
 
   for (const item of prose) {
     checkPatterns(item.where, item.text, BAN_PATTERNS, failures);
@@ -201,6 +209,7 @@ try {
   const tsxFiles = [
     "src/app.tsx",
     "src/install.tsx",
+    "src/legal.tsx",
     "src/router.tsx",
     "src/docs/site.ts",
     "src/docs/install-content.ts",
