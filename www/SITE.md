@@ -209,11 +209,11 @@ Compile and native run stay on `xo` (LLVM).
 ## Discovery
 
 `/sitemap.xml` lists the public catalog on `https://xo.run`: home, Install,
-Try, and every shipped docs, Book, Echo 2026, and std page. `/robots.txt`
-allows crawlers and points at that sitemap. Do not list Privacy, Terms, or
-the GitHub Pages host.
+Try, catalog and footer routes, and every shipped docs, Book, Echo 2026, and
+std page. `/robots.txt` allows crawlers and points at that sitemap. Privacy
+and Terms are listed only when those pages exist. Do not list the GitHub
+Pages host.
 
 ## Out of scope (later)
 
-Richer download tabs, `/e26` URL rename to `/echo-2026`. Privacy and Terms
-pages.
+Richer download tabs, `/e26` URL rename to `/echo-2026`.

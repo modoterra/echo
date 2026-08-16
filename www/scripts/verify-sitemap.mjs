@@ -2,9 +2,10 @@
  * Verifies public discovery files for xo.run:
  * - sitemap.xml lists the public catalog on https://xo.run
  * - robots.txt has User-agent rules and a Sitemap: line
- * - Privacy, Terms, and github.io stay out until those pages exist
+ * - Privacy and Terms are listed only when those pages exist
+ * - github.io is never listed
  *
- * Loads src/docs/site.ts and src/docs/content.ts through Vite SSR.
+ * Loads src/docs/site.ts, content.ts, and static-html.ts through Vite SSR.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -23,17 +24,20 @@ const server = await createServer({
 try {
   const site = await server.ssrLoadModule("/src/docs/site.ts");
   const content = await server.ssrLoadModule("/src/docs/content.ts");
+  const staticHtml = await server.ssrLoadModule("/src/docs/static-html.ts");
 
   const {
     collectPublicCatalogPaths,
     omittedCatalogPaths,
     publicCatalogUrl,
+    publicChromePaths,
     publicSiteOrigin,
     publicSurfacePaths,
     renderRobotsTxt,
     renderSitemapXml,
   } = site;
   const { docsPages } = content;
+  const { staticPages } = staticHtml;
 
   const failures = [];
 
@@ -45,7 +49,11 @@ try {
     fail(`publicSiteOrigin must be https://xo.run, got ${publicSiteOrigin}`);
   }
 
-  const catalogPaths = collectPublicCatalogPaths(docsPages.map((page) => page.path));
+  const existingPagePaths = [
+    ...new Set([...staticPages().map((page) => page.path), ...docsPages.map((page) => page.path)]),
+  ];
+  const existing = new Set(existingPagePaths);
+  const catalogPaths = collectPublicCatalogPaths(existingPagePaths);
   const sitemap = renderSitemapXml(catalogPaths);
   const robots = renderRobotsTxt();
   const committedRobots = readFileSync(path.join(root, "public/robots.txt"), "utf8");
@@ -59,6 +67,7 @@ try {
 
   const requiredPaths = [
     ...publicSurfacePaths,
+    ...publicChromePaths(),
     "/docs",
     "/docs/std",
     "/docs/leaders",
@@ -84,12 +93,18 @@ try {
     }
   }
 
-  for (const omitted of omittedCatalogPaths) {
-    if (catalogPaths.includes(omitted)) {
-      fail(`public catalog must not list ${omitted} until that page exists`);
+  for (const candidate of omittedCatalogPaths) {
+    if (existing.has(candidate)) {
+      if (!catalogPaths.includes(candidate)) {
+        fail(`public catalog missing existing page ${candidate}`);
+      }
+      continue;
     }
-    if (sitemap.toLowerCase().includes(omitted)) {
-      fail(`sitemap.xml must not list ${omitted}`);
+    if (catalogPaths.includes(candidate)) {
+      fail(`public catalog must not invent ${candidate}`);
+    }
+    if (sitemap.toLowerCase().includes(candidate)) {
+      fail(`sitemap.xml must not list ${candidate} until that page exists`);
     }
   }
 

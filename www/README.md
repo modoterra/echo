@@ -51,9 +51,8 @@ bounce and `index.html` restore script. Custom domain: `public/CNAME` →
 `xo.run`. Wasm bindings stay in `public/echo-wasm/`.
 
 `/robots.txt` is a static file. `/sitemap.xml` is emitted at build from the
-public catalog in `src/docs/site.ts` and `src/docs/content.ts`. Both use
-`https://xo.run`. Privacy and Terms stay out of the sitemap until those pages
-exist.
+public catalog (`staticPages` and site chrome). Both use `https://xo.run`.
+Privacy and Terms are listed only when those pages exist.
 
 ## Search
 
