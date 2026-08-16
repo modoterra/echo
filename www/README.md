@@ -24,8 +24,8 @@ just try     # wasm + npm --prefix www run dev
 
 `npm run dev` starts the local site. `npm run lint`, `npm run format`,
 `npm run test`, and `npm run build` validate the site before publishing
-`www/dist`. The docs-first homepage, primary nav, and Documents catalog live
-in `src/docs/site.ts`.
+`www/dist`. The docs-first homepage, primary nav, Documents catalog, and
+discovery files live in `src/docs/site.ts`.
 
 ## Cloudflare Pages
 
@@ -49,6 +49,11 @@ the rest of the docs tree) are written as `dist/<path>/index.html` so those
 URLs are real pages. Unknown paths still use the `public/404.html` → `/?/path`
 bounce and `index.html` restore script. Custom domain: `public/CNAME` →
 `xo.run`. Wasm bindings stay in `public/echo-wasm/`.
+
+`/robots.txt` is a static file. `/sitemap.xml` is emitted at build from the
+public catalog in `src/docs/site.ts` and `src/docs/content.ts`. Both use
+`https://xo.run`. Privacy and Terms stay out of the sitemap until those pages
+exist.
 
 ## Search
 

@@ -206,6 +206,14 @@ playground run then executes the checked MIR and captures `io.print`.
 Filesystem, net, process, and tasks fail with a playground-host error.
 Compile and native run stay on `xo` (LLVM).
 
+## Discovery
+
+`/sitemap.xml` lists the public catalog on `https://xo.run`: home, Install,
+Try, and every shipped docs, Book, Echo 2026, and std page. `/robots.txt`
+allows crawlers and points at that sitemap. Do not list Privacy, Terms, or
+the GitHub Pages host.
+
 ## Out of scope (later)
 
-Richer download tabs, `/e26` URL rename to `/echo-2026`.
+Richer download tabs, `/e26` URL rename to `/echo-2026`. Privacy and Terms
+pages.
