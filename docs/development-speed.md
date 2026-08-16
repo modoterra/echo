@@ -175,7 +175,8 @@ just fmt-check
 The site playground (`/try`) runs the shared frontend (lex → parse → resolve →
 semantics) as `wasm32-unknown-unknown`, then a playground run executes checked
 MIR and captures `io.print`. It does not ship LLVM. Playground run is a host
-demo; native compile and run stay on `xo`.
+demo; native compile and run stay on `xo`. Filesystem, net, process, and tasks
+fail with a playground-host error. Bindings stay in `www/public/echo-wasm/`.
 
 ```bash
 just wasm                 # echo_wasm + wasm-bindgen → www/public/echo-wasm/
