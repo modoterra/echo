@@ -9,6 +9,8 @@ import {
   homePage,
   legalPages,
   renderStaticHomeAndHub,
+  securityContact,
+  securityPage,
   tryPage,
   type LegalPageContent,
 } from "./site";
@@ -148,6 +150,17 @@ export function renderStaticTry(): string {
   ].join("");
 }
 
+export function renderStaticSecurity(): string {
+  return [
+    `<main>`,
+    `<h1>${escapeHtml(securityPage.title)}</h1>`,
+    `<p>${escapeHtml(securityPage.lead)}</p>`,
+    `<p>Email <a href="${escapeHtml(securityContact.mailto)}">${escapeHtml(securityContact.email)}</a> with a description of the issue and its impact, steps to reproduce or a proof of concept if available, and affected versions, commits, or platforms if known.</p>`,
+    `<p>The repository policy is <a href="${escapeHtml(securityContact.policyUrl)}">SECURITY.md</a>.</p>`,
+    `</main>`,
+  ].join("");
+}
+
 function documentTitle(pageTitle: string): string {
   return `${pageTitle} · Echo`;
 }
@@ -171,6 +184,12 @@ export function staticPages(): StaticPage[] {
       title: documentTitle(tryPage.title),
       description: tryPage.lead,
       body: renderStaticTry(),
+    },
+    {
+      path: securityContact.path,
+      title: documentTitle(securityPage.title),
+      description: securityPage.lead,
+      body: renderStaticSecurity(),
     },
   ];
 

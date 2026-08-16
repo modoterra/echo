@@ -210,6 +210,7 @@ try {
     "src/app.tsx",
     "src/install.tsx",
     "src/legal.tsx",
+    "src/security.tsx",
     "src/router.tsx",
     "src/docs/site.ts",
     "src/docs/install-content.ts",

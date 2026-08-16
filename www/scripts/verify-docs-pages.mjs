@@ -5,6 +5,7 @@
  * - footer About links Privacy and Terms; Discord stays hidden
  * - legal pages use @modoterra.xyz mail only
  * - Documents hub catalog groups
+ * - security mailbox, SECURITY.md, and footer /security pointer
  * - every language-feature catalog entry is a real page with a summary
  *   and at least one Echo code block
  * - catalog, footer, and nav destinations have static HTML snapshots
@@ -45,6 +46,7 @@ try {
     publicChromePaths,
     publicMailAddresses,
     renderStaticHomeAndHub,
+    securityContact,
     termsPage,
   } = site;
   const { docsPageByPath } = content;
@@ -95,6 +97,9 @@ try {
   if (footerByLabel.get("Terms") !== "/terms") {
     fail(`footer Terms should be /terms, got ${footerByLabel.get("Terms")}`);
   }
+  if (footerByLabel.get("Security") !== securityContact.path) {
+    fail(`footer Security should be ${securityContact.path}, got ${footerByLabel.get("Security")}`);
+  }
   if (footerByLabel.get("Modoterra") !== "https://modoterra.xyz") {
     fail("footer About must keep the Modoterra company link");
   }
@@ -133,6 +138,25 @@ try {
     if (!address.endsWith("@modoterra.xyz")) {
       fail(`legal pages published non-xyz mail: ${address}`);
     }
+  }
+
+  if (securityContact.email !== "security@modoterra.xyz") {
+    fail(`security mailbox must be security@modoterra.xyz, got ${securityContact.email}`);
+  }
+  if (/@modoterra\.com\b/.test(securityContact.email)) {
+    fail("public mail must use @modoterra.xyz, never @modoterra.com");
+  }
+  if (securityContact.mailto !== `mailto:${securityContact.email}`) {
+    fail("securityContact.mailto must match the public mailbox");
+  }
+  if (securityContact.path !== "/security") {
+    fail("securityContact.path must be /security");
+  }
+  if (!securityContact.policyUrl.includes("SECURITY.md")) {
+    fail("securityContact.policyUrl must point at SECURITY.md");
+  }
+  if (!securityContact.policyUrl.includes("github.com/modoterra/echo")) {
+    fail("securityContact.policyUrl must point at this repository");
   }
 
   if (!primaryNavItemIsActive("/docs", "/docs/leaders")) {
@@ -282,6 +306,9 @@ try {
     "/e26",
     "/docs/leaders",
     "/install",
+    securityContact.email,
+    securityContact.mailto,
+    "SECURITY.md",
   ]) {
     if (!snapshot.includes(needle)) {
       fail(`renderStaticHomeAndHub missing ${needle}`);
@@ -294,6 +321,7 @@ try {
     ["/docs/std", "Standard library"],
     ["/e26", "Echo 2026"],
     ["/install", "Install Echo"],
+    ["/security", "Security"],
     ["/docs/first-program", "First program"],
     ["/book", "Introduction"],
     ["/privacy", "Privacy"],

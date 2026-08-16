@@ -26,6 +26,7 @@ import { EchoCode } from "./components/echo-code";
 import { Logo } from "./components/logo";
 import { InstallPage } from "./install";
 import { LegalPage } from "./legal";
+import { SecurityPage } from "./security";
 import { TryPage } from "./try";
 import {
   docsPageByPath,
@@ -342,8 +343,8 @@ function SiteFooter() {
                       <a
                         className="text-sm text-slate-500 transition hover:text-slate-950"
                         href={link.href}
-                        rel="noreferrer"
-                        target="_blank"
+                        rel={link.href.startsWith("mailto:") ? undefined : "noreferrer"}
+                        target={link.href.startsWith("mailto:") ? undefined : "_blank"}
                       >
                         {link.label}
                       </a>
@@ -951,6 +952,12 @@ const installRoute = createRoute({
   component: InstallPage,
 });
 
+const securityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/security",
+  component: SecurityPage,
+});
+
 const tryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/try",
@@ -1047,6 +1054,7 @@ const e26Children = [
 const routeTree = rootRoute.addChildren([
   indexRoute,
   installRoute,
+  securityRoute,
   tryRoute,
   privacyRoute,
   termsRoute,
