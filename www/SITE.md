@@ -124,8 +124,28 @@ xo build emits a native executable from that same pipeline.
 an ordinary expression. `xo` checks a program and emits a native binary from
 the same LLVM pipeline.
 
+**Status:** Echo 2026 is the public edition. A Rust toolchain ships as
+prerelease tags on GitHub. The repository is MIT licensed.
+
 Keep product claims factual. Do not invent APIs, partner logos, or unearned
 maturity.
+
+## Public facts
+
+Public chrome (homepage, footer, install) states what this repository is:
+
+- Compiled language
+- MIT license
+- Implemented in Rust
+- LLVM pipeline
+- CLI is `xo`
+- Current edition is Echo 2026
+- GitHub releases are prerelease tags
+
+Do not call the language production-ready. Do not imply a crates.io package.
+Name a host OS only when that platform has an asset on the current release
+(v0.0.1-alpha.9 ships `linux-x86_64` and `macos-arm64`). Do not list Discord
+while there is no live invite. Public project mail stays on `@modoterra.xyz`.
 
 ## Pillars
 
@@ -157,19 +177,21 @@ add a second rail or nested train.
 ## Homepage sections
 
 The home page is a language-docs front door. Copy and links live in
-`src/docs/site.ts` (`homePage`, `primaryNav`, `docsHubCatalog`).
+`src/docs/site.ts` (`homePage`, `primaryNav`, `docsHubCatalog`, `footerLinkGroups`).
 
 1. Language definition (`Echo is a compiled language`) plus the lead
-2. Representative sample that shows statement leaders and binds
-3. First-class links: Documents (`/docs`), Packages (`/docs/std`), Spec (`/e26`)
-4. Footer
+2. Status line: Echo 2026, Rust, prerelease tags, MIT
+3. Representative sample that shows statement leaders and binds
+4. First-class links: Documents (`/docs`), Packages (`/docs/std`), Spec (`/e26`)
+5. Footer (compiled language, `xo`, LLVM, Echo 2026, prerelease, MIT)
 
 Each of those links, plus Install, First program, Book, Try, Privacy, Terms,
 and Security, is a real page (`path/index.html`) with that page title and
 body. A destination without a document is removed from the catalog or footer.
 
-Homepage trust stays factual. Rust, LLVM, the public edition, and the
-machine-checked suite are implementation facts.
+Homepage trust stays factual. Rust, LLVM, the public edition, MIT, prerelease
+tags, and the machine-checked suite are implementation facts. The footer lists
+GitHub. It does not list Discord.
 
 ## Security
 
@@ -222,11 +244,11 @@ Compile and native run stay on `xo` (LLVM).
 
 Learn, Community, and About. Copy lives in `src/docs/site.ts` (`footerLinkGroups`).
 
-| Group     | Links                                                                                               |
-| --------- | --------------------------------------------------------------------------------------------------- |
-| Learn     | Install, Try Echo, First program, Documents, Book, Echo 2026                                        |
-| Community | GitHub. Omit Discord until a public invite URL exists.                                              |
-| About     | Modoterra (`https://modoterra.xyz`), Privacy (`/privacy`), Terms (`/terms`), Security (`/security`) |
+| Group     | Links                                                                                                            |
+| --------- | ---------------------------------------------------------------------------------------------------------------- |
+| Learn     | Install, Try Echo, First program, Documents, Book, Echo 2026                                                     |
+| Community | GitHub. Omit Discord until a public invite URL exists.                                                           |
+| About     | Modoterra (`https://modoterra.xyz`), Privacy (`/privacy`), Terms (`/terms`), Security (`/security`), MIT License |
 
 Public project mail on the site is `@modoterra.xyz` only (`hello@`, `security@`,
 `oss@`). Do not publish `@modoterra.com`.
