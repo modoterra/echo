@@ -8,6 +8,7 @@ import {
   type EchoCheckApi,
   type RunResult,
 } from "./lib/echo-check";
+import { playgroundSumSource } from "./lib/playground";
 
 type Sample = {
   id: string;
@@ -15,19 +16,11 @@ type Sample = {
   source: string;
 };
 
-const SAMPLES: Sample[] = [
+export const PLAYGROUND_SAMPLES: Sample[] = [
   {
     id: "sum",
     label: "Sum",
-    source: `/ std/io
-
-$ xs = [1, 2, 3]
-~ sum = 0
-* x : xs {
-    ~ sum = sum + x
-}
-io.print("sum={sum}")
-`,
+    source: playgroundSumSource(),
   },
   {
     id: "result",
@@ -120,11 +113,12 @@ function diagnosticLabel(diag: CheckDiagnostic) {
 }
 
 /**
- * In-browser xo check. LLVM run stays on a native xo install.
+ * In-browser check plus a playground run that captures io.print.
+ * Native compile stays on an xo install.
  */
 export function TryPage() {
-  const [source, setSource] = useState(SAMPLES[0].source);
-  const [activeSample, setActiveSample] = useState(SAMPLES[0].id);
+  const [source, setSource] = useState(PLAYGROUND_SAMPLES[0].source);
+  const [activeSample, setActiveSample] = useState(PLAYGROUND_SAMPLES[0].id);
   const [api, setApi] = useState<EchoCheckApi | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
@@ -237,9 +231,10 @@ export function TryPage() {
           Try Echo
         </h1>
         <p className="mt-4 max-w-3xl text-pretty text-lg leading-8 text-slate-600">
-          This page checks with the shared compiler frontend, then a playground run executes the
+          This page checks with the shared compiler frontend. A playground run then executes the
           checked program and captures{" "}
-          <span className="font-mono font-semibold text-slate-800">io.print</span>. Install{" "}
+          <span className="font-mono font-semibold text-slate-800">io.print</span>. Filesystem, net,
+          process, and tasks stay unavailable here. Install{" "}
           <span className="font-mono font-semibold text-slate-800">xo</span> to compile through
           LLVM.
         </p>
@@ -264,7 +259,7 @@ export function TryPage() {
           <section className="min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2" role="tablist" aria-label="Sample programs">
-                {SAMPLES.map((sample) => {
+                {PLAYGROUND_SAMPLES.map((sample) => {
                   const selected = sample.id === activeSample;
                   return (
                     <button
