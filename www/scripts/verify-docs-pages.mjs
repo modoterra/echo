@@ -163,8 +163,22 @@ try {
   const readme = readFileSync(path.join(repoRoot, "README.md"), "utf8");
   const installDoc = readFileSync(path.join(repoRoot, "docs/install.md"), "utf8");
   const installSh = readFileSync(path.join(repoRoot, "scripts/install.sh"), "utf8");
+  if (
+    !installPage.includes("./lib/current-release") ||
+    !installPage.includes("currentPrereleaseTag")
+  ) {
+    fail("src/install.tsx must render the current prerelease from current-release.ts");
+  }
+  if (!installPage.includes("from-release") || !installPage.includes("currentPrereleaseTag")) {
+    fail("install page must show from-release and how to pin the current tag");
+  }
+  if (/windows-x86_64/.test(installPage)) {
+    fail("src/install.tsx must not claim a Windows tarball");
+  }
+  if (!/prerelease/i.test(installPage) || !/prerelease/i.test(readme)) {
+    fail("install page and README must say published builds are prereleases");
+  }
   for (const [label, text] of [
-    ["src/install.tsx", installPage],
     ["README.md", readme],
     ["docs/install.md", installDoc],
     ["scripts/install.sh", installSh],
@@ -182,14 +196,11 @@ try {
       fail(`${label} must not present /releases/latest as working`);
     }
   }
-  if (/windows-x86_64/.test(installPage)) {
-    fail("src/install.tsx must not claim a Windows tarball");
+  if (/latest GitHub release/i.test(installPage)) {
+    fail("src/install.tsx must not present a GitHub latest release");
   }
-  if (!/prerelease/i.test(installPage) || !/prerelease/i.test(readme)) {
-    fail("install page and README must say published builds are prereleases");
-  }
-  if (!installPage.includes("from-release") || !installPage.includes(currentPrereleaseTag)) {
-    fail("install page must show from-release and how to pin the current tag");
+  if (/releases\/latest/.test(installPage) && !/404/.test(installPage)) {
+    fail("src/install.tsx must not present /releases/latest as working");
   }
   if (!installSh.includes("releases?per_page=")) {
     fail("install.sh from-release must list published releases, including prereleases");

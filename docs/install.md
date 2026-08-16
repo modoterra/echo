@@ -33,12 +33,12 @@ curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install
 ./scripts/install.sh doctor
 ```
 
-Assets on `v0.0.1-alpha.9` (`xo-<artifact>.tar.gz`):
+Assets on `v0.0.1-alpha.9`:
 
-| Artifact | Host |
-|----------|------|
-| `linux-x86_64` | Linux x86_64 |
-| `macos-arm64` | Apple Silicon |
+| Archive | Host |
+|---------|------|
+| `xo-linux-x86_64.tar.gz` | Linux x86_64 |
+| `xo-macos-arm64.tar.gz` | Apple Silicon |
 
 A Windows tarball is not on this tag. Each archive contains `bin/xo`,
 `bin/libecho_runtime.a` (when produced), and `std/`. See `docs/ci.md` for the
