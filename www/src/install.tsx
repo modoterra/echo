@@ -48,9 +48,9 @@ export function InstallPage() {
           Install Echo
         </h1>
         <p className="mt-4 text-pretty text-lg leading-8 text-slate-600">
-          The public CLI is <span className="font-mono font-semibold text-slate-800">xo</span>.
-          Take a prebuilt from the latest GitHub release when you only need to run programs. Build
-          from source when you edit the compiler.
+          The public CLI is <span className="font-mono font-semibold text-slate-800">xo</span>. Take
+          a prebuilt from the latest GitHub release when you only need to run programs. Build from
+          source when you edit the compiler.
         </p>
 
         <section className="mt-14">

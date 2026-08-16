@@ -189,6 +189,9 @@ web-lint:
 web-format:
     npm --prefix www run format
 
+web-test:
+    npm --prefix www run test
+
 web-build:
     npm --prefix www run build
 

@@ -1,3 +1,4 @@
+import { docsHubCatalog, languageFeatureEntries, type SiteLink } from "./site";
 import {
   stdExportCount,
   stdExportKind,
@@ -26,7 +27,8 @@ export type DocsTextPart = string | { code: string };
 
 export type DocsBlock =
   | { kind: "paragraph"; text: DocsTextPart[] }
-  | { kind: "code"; code: string; language?: "shellscript" | "echo" };
+  | { kind: "code"; code: string; language?: "shellscript" | "echo" }
+  | { kind: "catalog"; entries: SiteLink[] };
 
 export type DocsSection = {
   title: string;
@@ -58,7 +60,7 @@ export const docsNavigation: DocsNavGroup[] = [
   {
     title: "Start",
     links: [
-      { label: "Overview", to: "/docs" },
+      { label: "Documents", to: "/docs" },
       { label: "First program", to: "/docs/first-program" },
       { label: "Project setup", to: "/docs/project" },
     ],
@@ -66,16 +68,7 @@ export const docsNavigation: DocsNavGroup[] = [
   {
     title: "Language reference",
     links: [
-      { label: "Leaders", to: "/docs/leaders" },
-      { label: "Binds and functions", to: "/docs/binds" },
-      { label: "Values and operators", to: "/docs/values" },
-      { label: "Collections and ranges", to: "/docs/collections" },
-      { label: "Control", to: "/docs/control" },
-      { label: "Result and option", to: "/docs/result-option" },
-      { label: "Strings", to: "/docs/strings" },
-      { label: "Modules and std", to: "/docs/modules" },
-      { label: "Structs", to: "/docs/structs" },
-      { label: "Tasks", to: "/docs/tasks" },
+      ...languageFeatureEntries.map((entry) => ({ label: entry.title, to: entry.to })),
       { label: "Memory", to: "/docs/memory" },
       { label: "Names and layout", to: "/docs/names" },
     ],
@@ -367,113 +360,30 @@ function stdModulePage(m: StdModule): DocsPage {
 const docsPagesBase: DocsPage[] = [
   // ── Start ──────────────────────────────────────────────────────────
 
-  // ── Docs (reference: how) ─────────────────────────────────────────
+  // ── Documents hub ─────────────────────────────────────────────────
   {
     id: "docs",
     path: "/docs",
-    category: "Docs",
-    title: "Reference",
+    category: "Documents",
+    title: "Documents",
     summary:
-      "Form-by-form public rules for the Echo 2026 edition. Edition home: Echo 2026.",
-    tags: ["docs", "overview", "reference", "echo 2026"],
+      "Find the first program, language forms, standard-library packages, and the Echo 2026 Spec.",
+    tags: ["docs", "overview", "documents", "reference", "echo 2026"],
     aliases: ["documentation", "home docs", "echo docs", "reference", "language spec"],
-    sections: [
-      {
-        title: "Scope",
-        tags: ["overview"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              "This section is the form-by-form ",
-              { code: "language and toolchain reference" },
-              " for the ",
-              { code: "Echo 2026" },
-              " edition: forms, rules, and commands. Edition home and conformance: ",
-              { code: "/e26" },
-              ".",
-            ],
-          },
-        ],
-      },
-      {
-        title: "Facts",
-        tags: ["language"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              "Echo is a compiled language. Statement leaders mark control and binding. The program body is the entry file’s top-level statements in order. The tool is ",
-              { code: "xo" },
-              ". The backend is LLVM.",
-            ],
-          },
-        ],
-      },
-      {
-        title: "Map",
-        tags: ["navigation"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              "Start with language pages for forms and rules. The standard library section lists shipped user APIs. Under Guides you will find projects, packages, diagnostics, the REPL, and runnable recipes. Toolchain pages begin at ",
-              { code: "/docs/toolchain" },
-              ". Narrative chapters sit at ",
-              { code: "/book" },
-              ". The Echo 2026 edition home is ",
-              { code: "/e26" },
-              ". Spec table of contents: ",
-              { code: "/e26/spec" },
-              ". Install ",
-              { code: "xo" },
-              " from ",
-              { code: "/install" },
-              ".",
-            ],
-          },
-        ],
-      },
-      {
-        title: "Echo 2026 Spec",
-        tags: ["echo 2026", "spec"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              "This Reference is the form-by-form public prose of the ",
-              { code: "Echo 2026" },
-              " edition. The edition home and Spec TOC live at ",
-              { code: "/e26" },
-              " and ",
-              { code: "/e26/spec" },
-              ". The executable contract is the ",
-              { code: "echo26/" },
-              " suite (",
-              { code: "e26" },
-              " runner).",
-            ],
-          },
-        ],
-      },
-      {
-        title: "Search",
-        tags: ["search"],
-        blocks: [
-          {
-            kind: "paragraph",
-            text: [
-              { code: "/" },
-              ", ",
-              { code: "Ctrl+K" },
-              ", or ",
-              { code: "Cmd+K" },
-              " opens the docs palette.",
-            ],
-          },
-        ],
-      },
-    ],
+    sections: docsHubCatalog.map((group) => ({
+      title: group.title,
+      tags: [group.title.toLowerCase(), "catalog"],
+      blocks: [
+        {
+          kind: "paragraph" as const,
+          text: [group.description],
+        },
+        {
+          kind: "catalog" as const,
+          entries: group.entries,
+        },
+      ],
+    })),
   },
   {
     id: "docs-first-program",
@@ -3569,8 +3479,7 @@ xo build -O 2 examples/misc/sum_list.echo -o /tmp/echo-sum
     path: "/book",
     category: "Book",
     title: "Introduction",
-    summary:
-      "Why Echo looks this way, when to reach for each construct, and how to read programs.",
+    summary: "Why Echo looks this way, when to reach for each construct, and how to read programs.",
     tags: ["book", "language", "introduction"],
     aliases: ["language book", "echo book", "docs book", "the book"],
     sections: [
@@ -4247,7 +4156,7 @@ $ checked = (x) {
               " is pure: no escapes, no interpolation, no interior single quote. ",
               { code: '"…"' },
               " is rich: locked escapes ",
-              { code: "\\n \\t \\r \\\\ \\\" \\{ \\} \\xHH" },
+              { code: '\\n \\t \\r \\\\ \\" \\{ \\} \\xHH' },
               " plus ",
               { code: "{name}" },
               " interpolation. Anything else is ",

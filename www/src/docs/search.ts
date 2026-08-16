@@ -164,10 +164,15 @@ function sectionRecords(page: DocsPage, section: DocsSection): DocsSearchRecord[
 
 function sectionText(section: DocsSection) {
   return section.blocks
-    .filter(
-      (block): block is Extract<DocsBlock, { kind: "paragraph" }> => block.kind === "paragraph",
-    )
-    .map((block) => block.text.map(textPartText).join(""))
+    .flatMap((block: DocsBlock) => {
+      if (block.kind === "paragraph") {
+        return [block.text.map(textPartText).join("")];
+      }
+      if (block.kind === "catalog") {
+        return block.entries.map((entry) => `${entry.title} ${entry.description} ${entry.to}`);
+      }
+      return [];
+    })
     .join(" ");
 }
 
