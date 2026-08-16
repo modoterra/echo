@@ -31,7 +31,7 @@ use crate::{CheckDiagnostic, PLAYGROUND_PATH, check_source, playground_workspace
 const MAX_STEPS: u32 = 2_000_000;
 const MAX_CALL_DEPTH: u32 = 256;
 
-/// `/try` Sum sample (must stay in lockstep with `www/src/try.tsx`).
+/// `/try` Sum sample (must stay in lockstep with `www/src/docs/site.ts` `homePage.sample`).
 pub const SAMPLE_SUM: &str = r#"/ std/io
 
 $ xs = [1, 2, 3]
@@ -41,6 +41,16 @@ $ xs = [1, 2, 3]
 }
 io.print("sum={sum}")
 "#;
+
+/// Homepage `sum.echo` figure: same program as [`SAMPLE_SUM`], no trailing newline.
+pub const HOMEPAGE_SUM: &str = r#"/ std/io
+
+$ xs = [1, 2, 3]
+~ sum = 0
+* x : xs {
+    ~ sum = sum + x
+}
+io.print("sum={sum}")"#;
 
 /// `/try` Result sample.
 pub const SAMPLE_RESULT: &str = r#"/ std/io
