@@ -29,6 +29,9 @@ in `src/docs/site.ts`.
 
 ## Cloudflare Pages
 
+The live host is [https://xo.run](https://xo.run). GitHub Pages is not the
+product site; it only redirects to `xo.run`.
+
 Same layout as the previous `xo.run` site:
 
 | Setting        | Value           |

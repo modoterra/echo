@@ -207,6 +207,9 @@ try {
   }
 
   const snapshot = renderStaticHomeAndHub();
+  if (snapshot.includes("modoterra.github.io")) {
+    fail("static homepage must not point at modoterra.github.io");
+  }
   for (const needle of [
     homePage.definition,
     homePage.sample.trim().split("\n")[0],
