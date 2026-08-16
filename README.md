@@ -78,18 +78,26 @@ edit/test loop.
 
 ## Install (user toolchain)
 
-**Prebuilt** (latest GitHub release for your platform):
+Published builds are **prereleases**. The current tag is
+[`v0.0.1-alpha.9`](https://github.com/modoterra/echo/releases/tag/v0.0.1-alpha.9)
+and ships `xo-linux-x86_64.tar.gz` and `xo-macos-arm64.tar.gz`.
+`from-release` with no tag installs the newest published prerelease. Pass a tag
+to pin. GitHub `/releases/latest` only resolves a non-prerelease and 404s today.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
   | bash -s -- from-release
+
+# Pin this tag
+# … | bash -s -- from-release v0.0.1-alpha.9
 ```
 
 From a checkout, build + install under XDG and link `~/.local/bin/xo`:
 
 ```bash
 ./scripts/install.sh              # build from this tree
-./scripts/install.sh from-release # or use a published release tarball
+./scripts/install.sh from-release # newest published prerelease
+./scripts/install.sh from-release v0.0.1-alpha.9
 ./scripts/install.sh upgrade      # new version, keep previous
 ./scripts/uninstall.sh            # remove toolchain ( --purge also clears $XO_HOME )
 ./scripts/install.sh doctor
@@ -119,6 +127,9 @@ GitHub release is published** — not on push, PR, or bare tags.
 | Linux x86_64 | `ubuntu-24.04` |
 | Windows x86_64 | `windows-2022` |
 | macOS arm64 | `macos-14` |
+
+The current published tag (`v0.0.1-alpha.9`) attaches `xo-linux-x86_64` and
+`xo-macos-arm64` only. A Windows tarball is not on that tag.
 
 On Linux, smoke (`cargo test -p xo`, `xo run` hello) and **`scripts/gate echo26`**
 (Echo 2026 conformance) are hard gates when that workflow runs.

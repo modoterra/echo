@@ -59,7 +59,9 @@ version                 # release tag
 ```
 
 Users install with `scripts/install.sh from-release` (see
-[`docs/install.md`](install.md)).
+[`docs/install.md`](install.md)). The current published tag is a prerelease
+and may not include every matrix artifact; `/install` lists what that tag
+attached.
 
 Each job installs **LLVM 22** from **official**
 [`llvm/llvm-project` release tarballs](https://github.com/llvm/llvm-project/releases)

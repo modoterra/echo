@@ -1,13 +1,19 @@
 import { Link } from "@tanstack/react-router";
 import { CtaLink } from "./components/cta-link";
 import { InstallSnippet } from "./components/install-snippet";
+import {
+  currentPrereleaseTag,
+  currentPrereleaseAssets,
+  currentPrereleaseUrl,
+  releasesIndexUrl,
+} from "./lib/current-release";
 
-const PREBUILT_INSTALL = `# Latest GitHub release for this machine (linux-x86_64 / macos-arm64)
+const PREBUILT_INSTALL = `# Newest published prerelease for this machine (linux-x86_64 / macos-arm64)
 curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \\
   | bash -s -- from-release
 
-# Pin a tag
-# … | bash -s -- from-release v0.0.1-alpha.1
+# Pin this tag
+# … | bash -s -- from-release ${currentPrereleaseTag}
 
 xo --help
 xo doctor 2>/dev/null || true`;
@@ -21,8 +27,9 @@ const USER_INSTALL = `# From the checkout: release build + XDG install + ~/.loca
 ./scripts/install.sh
 ./scripts/install.sh doctor
 
-# Or install the published release tarball without a local build
+# Newest published prerelease, or pin a tag
 ./scripts/install.sh from-release
+./scripts/install.sh from-release ${currentPrereleaseTag}
 
 # Upgrade (keeps prior toolchain dirs)
 ./scripts/install.sh upgrade
@@ -38,7 +45,7 @@ xo run examples/misc/hello.echo
 ./target/debug/xo run examples/misc/sum_list.echo`;
 
 /**
- * Product install page: prebuilt release path + source build fallback.
+ * Product install page: current prerelease assets + source build fallback.
  */
 export function InstallPage() {
   return (
@@ -48,9 +55,16 @@ export function InstallPage() {
           Install Echo
         </h1>
         <p className="mt-4 text-pretty text-lg leading-8 text-slate-600">
-          The public CLI is <span className="font-mono font-semibold text-slate-800">xo</span>. Take
-          a prebuilt from the latest GitHub release when you only need to run programs. Build from
-          source when you edit the compiler.
+          The public CLI is <span className="font-mono font-semibold text-slate-800">xo</span>.
+          Published builds are prereleases. The current tag is{" "}
+          <a
+            className="font-mono font-semibold text-slate-800 underline-offset-4 hover:underline"
+            href={currentPrereleaseUrl}
+          >
+            {currentPrereleaseTag}
+          </a>
+          . Take a prebuilt when you only need to run programs. Build from source when you edit the
+          compiler.
         </p>
 
         <section className="mt-14">
@@ -58,12 +72,40 @@ export function InstallPage() {
             Prebuilt (recommended)
           </h2>
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            The script downloads <span className="font-mono text-slate-800">xo</span>,{" "}
+            <span className="font-mono text-slate-800">{currentPrereleaseTag}</span> ships{" "}
+            {currentPrereleaseAssets.map((asset, index) => (
+              <span key={asset.archive}>
+                {index > 0 ? " and " : ""}
+                <span className="font-mono text-slate-800">{asset.archive}</span>
+              </span>
+            ))}
+            . The script downloads <span className="font-mono text-slate-800">xo</span>,{" "}
             <span className="font-mono text-slate-800">libecho_runtime.a</span>, and{" "}
-            <span className="font-mono text-slate-800">std/</span> for your platform, then links{" "}
+            <span className="font-mono text-slate-800">std/</span> for that host, then links{" "}
             <span className="font-mono font-semibold text-slate-800">~/.local/bin/xo</span>.
-            Published builds cover Linux x86_64 and macOS arm64.
           </p>
+          <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+            <span className="font-mono text-slate-800">from-release</span> with no tag installs the
+            newest published prerelease. Pass a tag to pin. GitHub{" "}
+            <span className="font-mono text-slate-800">/releases/latest</span> only resolves a
+            non-prerelease and 404s today. See the{" "}
+            <a
+              className="font-semibold text-slate-800 underline-offset-4 hover:underline"
+              href={releasesIndexUrl}
+            >
+              releases list
+            </a>
+            .
+          </p>
+          <ul className="mt-6 space-y-2 text-base leading-7 text-slate-600">
+            {currentPrereleaseAssets.map((asset) => (
+              <li key={asset.artifact}>
+                <span className="font-mono font-semibold text-slate-800">{asset.archive}</span>
+                {" · "}
+                {asset.host}
+              </li>
+            ))}
+          </ul>
           <div className="mt-6">
             <InstallSnippet code={PREBUILT_INSTALL} />
           </div>

@@ -146,7 +146,7 @@ export const docsHubCatalog: DocsCatalogGroup[] = [
       {
         title: "Install",
         to: "/install",
-        description: "Build xo from a checkout and put it on your PATH.",
+        description: "Install the current xo prerelease, or build from a checkout.",
       },
       {
         title: "First program",
