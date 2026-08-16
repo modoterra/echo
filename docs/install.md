@@ -11,32 +11,38 @@ User-facing install layout for the **xo** toolchain. Aligns with
 
 ## Quick start (prebuilt — recommended)
 
-Install the **latest GitHub release** for your platform (no Rust toolchain required
-for the install itself; `clang` is still needed to **run/build** Echo programs):
+Published builds are **prereleases**. The current tag is
+[`v0.0.1-alpha.9`](https://github.com/modoterra/echo/releases/tag/v0.0.1-alpha.9).
+`from-release` with no tag installs the newest published prerelease (including
+alphas). Pass a tag to pin. GitHub `/releases/latest` only resolves a
+non-prerelease and 404s today.
+
+No Rust toolchain is required for the install itself; `clang` is still needed
+to **run/build** Echo programs.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
   | bash -s -- from-release
 
-# Pin a tag
+# Pin this tag
 curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
-  | bash -s -- from-release v0.0.1-alpha.1
+  | bash -s -- from-release v0.0.1-alpha.9
 
 # From a checkout
 ./scripts/install.sh from-release
 ./scripts/install.sh doctor
 ```
 
-Prebuilt platforms (CI release assets `xo-<artifact>.tar.gz`):
+Assets on `v0.0.1-alpha.9` (`xo-<artifact>.tar.gz`):
 
 | Artifact | Host |
 |----------|------|
 | `linux-x86_64` | Linux x86_64 |
 | `macos-arm64` | Apple Silicon |
-| `windows-x86_64` | Windows x86_64 (tarball; use WSL or unpack manually if preferred) |
 
-Each archive contains `bin/xo`, `bin/libecho_runtime.a` (when produced), and
-`std/`. Assets are attached when a GitHub release is published (see `docs/ci.md`).
+A Windows tarball is not on this tag. Each archive contains `bin/xo`,
+`bin/libecho_runtime.a` (when produced), and `std/`. See `docs/ci.md` for the
+release workflow matrix.
 
 Ensure `~/.local/bin` (or `$XO_BIN_DIR`) is on your `PATH`.
 
@@ -120,9 +126,9 @@ Defaults: `~/.local/state/xo`, `~/.config/xo`.
 # From checkout: rebuild + install new version dir
 ./scripts/install.sh upgrade
 
-# Prebuilt: re-fetch latest (or tag) release
+# Prebuilt: re-fetch newest published prerelease (or pin a tag)
 ./scripts/install.sh from-release
-# ECHO_RELEASE=v0.0.2 ./scripts/install.sh from-release
+# ECHO_RELEASE=v0.0.1-alpha.9 ./scripts/install.sh from-release
 ```
 
 Upgrade path:
@@ -167,7 +173,7 @@ Uninstall removes:
 | `XO_BIN_DIR` | Directory for the `xo` PATH link |
 | `XO_INSTALL_ROOT` | Extra std package root (optional) |
 | `ECHO_REPO` | GitHub `owner/name` for prebuilts (default `modoterra/echo`) |
-| `ECHO_RELEASE` | Release tag or `latest` for `from-release` |
+| `ECHO_RELEASE` | Release tag for `from-release` (unset = newest published prerelease) |
 | `ECHO_VERSION` / `XO_VERSION` | Toolchain version directory name |
 | `GITHUB_TOKEN` / `GH_TOKEN` | Optional auth for GitHub API / downloads |
 | `CARGO_PROFILE` | `release` (default) or `debug` (checkout builds) |

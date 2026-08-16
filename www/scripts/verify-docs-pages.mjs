@@ -6,9 +6,12 @@
  * - every language-feature catalog entry is a real page with a summary
  *   and at least one Echo code block
  *
- * Loads src/docs/site.ts and src/docs/content.ts through Vite SSR.
+ * Loads src/docs/site.ts, src/docs/content.ts, and src/lib/current-release.ts
+ * through Vite SSR. Also checks that /install, README, and docs/install.md
+ * name the current prerelease and its real assets.
  */
 import { createServer } from "vite";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -24,6 +27,7 @@ const server = await createServer({
 try {
   const site = await server.ssrLoadModule("/src/docs/site.ts");
   const content = await server.ssrLoadModule("/src/docs/content.ts");
+  const release = await server.ssrLoadModule("/src/lib/current-release.ts");
 
   const {
     docsHubCatalog,
@@ -133,6 +137,62 @@ try {
     if (!hasEchoCode) {
       fail(`${entry.to}: needs at least one Echo code block`);
     }
+  }
+
+  const { currentPrereleaseTag, currentPrereleaseAssets, currentPrereleaseUrl, releasesIndexUrl } =
+    release;
+  if (currentPrereleaseTag !== "v0.0.1-alpha.9") {
+    fail(`currentPrereleaseTag should be v0.0.1-alpha.9, got ${currentPrereleaseTag}`);
+  }
+  const artifactIds = currentPrereleaseAssets.map((asset) => asset.artifact);
+  if (artifactIds.join(",") !== "linux-x86_64,macos-arm64") {
+    fail(`current prerelease assets should be linux-x86_64 and macos-arm64, got ${artifactIds}`);
+  }
+  if (currentPrereleaseAssets.some((asset) => /windows/i.test(asset.artifact + asset.archive))) {
+    fail("current prerelease must not claim a Windows tarball");
+  }
+  if (!currentPrereleaseUrl.endsWith(`/releases/tag/${currentPrereleaseTag}`)) {
+    fail("currentPrereleaseUrl must point at the current tag, not /releases/latest");
+  }
+  if (releasesIndexUrl.endsWith("/releases/latest")) {
+    fail("releasesIndexUrl must not be /releases/latest");
+  }
+
+  const repoRoot = path.resolve(root, "..");
+  const installPage = readFileSync(path.join(root, "src/install.tsx"), "utf8");
+  const readme = readFileSync(path.join(repoRoot, "README.md"), "utf8");
+  const installDoc = readFileSync(path.join(repoRoot, "docs/install.md"), "utf8");
+  const installSh = readFileSync(path.join(repoRoot, "scripts/install.sh"), "utf8");
+  for (const [label, text] of [
+    ["src/install.tsx", installPage],
+    ["README.md", readme],
+    ["docs/install.md", installDoc],
+    ["scripts/install.sh", installSh],
+  ]) {
+    if (!text.includes(currentPrereleaseTag)) {
+      fail(`${label} must name ${currentPrereleaseTag}`);
+    }
+    if (!text.includes("xo-linux-x86_64") || !text.includes("xo-macos-arm64")) {
+      fail(`${label} must list xo-linux-x86_64 and xo-macos-arm64`);
+    }
+    if (/latest GitHub release/i.test(text)) {
+      fail(`${label} must not present a GitHub latest release`);
+    }
+    if (/releases\/latest/.test(text) && !/404/.test(text)) {
+      fail(`${label} must not present /releases/latest as working`);
+    }
+  }
+  if (/windows-x86_64/.test(installPage)) {
+    fail("src/install.tsx must not claim a Windows tarball");
+  }
+  if (!/prerelease/i.test(installPage) || !/prerelease/i.test(readme)) {
+    fail("install page and README must say published builds are prereleases");
+  }
+  if (!installPage.includes("from-release") || !installPage.includes(currentPrereleaseTag)) {
+    fail("install page must show from-release and how to pin the current tag");
+  }
+  if (!installSh.includes("releases?per_page=")) {
+    fail("install.sh from-release must list published releases, including prereleases");
   }
 
   const snapshot = renderStaticHomeAndHub();
