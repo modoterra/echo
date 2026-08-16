@@ -38,51 +38,13 @@ import {
   type DocsPage,
   type DocsTextPart,
 } from "./docs/content";
-import { installCta, primaryNav, primaryNavItemIsActive, type SiteLink } from "./docs/site";
-
-type FooterLink = {
-  label: string;
-  href: string;
-  disabled?: boolean;
-};
-
-type FooterLinkGroup = {
-  title: string;
-  links: FooterLink[];
-};
-
-const footerLinkGroups: FooterLinkGroup[] = [
-  {
-    title: "Learn",
-    links: [
-      { label: "Install", href: "/install" },
-      { label: "Try Echo", href: "/try" },
-      { label: "First program", href: "/docs/first-program" },
-      { label: "Documents", href: "/docs" },
-      { label: "Book", href: "/book" },
-      { label: "Echo 2026", href: "/e26" },
-    ],
-  },
-  {
-    title: "Community",
-    links: [
-      {
-        label: "GitHub",
-        href: "https://github.com/modoterra/echo",
-      },
-      { label: "Discord", href: "#", disabled: true },
-    ],
-  },
-  {
-    title: "About",
-    links: [
-      {
-        label: "Modoterra",
-        href: "https://modoterra.xyz",
-      },
-    ],
-  },
-];
+import {
+  footerLinkGroups,
+  installCta,
+  primaryNav,
+  primaryNavItemIsActive,
+  type SiteLink,
+} from "./docs/site";
 
 type DocsShellProps = {
   category: string;

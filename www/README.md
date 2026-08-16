@@ -44,8 +44,11 @@ Same layout as the previous `xo.run` site:
 bindings when the frontend or `std/**/*.echo` changes so Pages can ship the
 playground without a Rust toolchain.
 
-SPA deep links use the same `public/404.html` → `/?/path` bounce and
-`index.html` restore script as before. Custom domain: `public/CNAME` → `xo.run`.
+Content routes (Documents, Packages, Spec, Install, First program, Book, and
+the rest of the docs tree) are written as `dist/<path>/index.html` so those
+URLs are real pages. Unknown paths still use the `public/404.html` → `/?/path`
+bounce and `index.html` restore script. Custom domain: `public/CNAME` →
+`xo.run`. Wasm bindings stay in `public/echo-wasm/`.
 
 ## Search
 

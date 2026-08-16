@@ -38,6 +38,85 @@ export const primaryNav: SiteNavItem[] = [
 
 export const installCta: SiteNavItem = { label: "Install", to: "/install" };
 
+export type FooterLink = {
+  label: string;
+  href: string;
+  disabled?: boolean;
+};
+
+export type FooterLinkGroup = {
+  title: string;
+  links: FooterLink[];
+};
+
+export const footerLinkGroups: FooterLinkGroup[] = [
+  {
+    title: "Learn",
+    links: [
+      { label: "Install", href: "/install" },
+      { label: "Try Echo", href: "/try" },
+      { label: "First program", href: "/docs/first-program" },
+      { label: "Documents", href: "/docs" },
+      { label: "Book", href: "/book" },
+      { label: "Echo 2026", href: "/e26" },
+    ],
+  },
+  {
+    title: "Community",
+    links: [
+      {
+        label: "GitHub",
+        href: "https://github.com/modoterra/echo",
+      },
+      { label: "Discord", href: "#", disabled: true },
+    ],
+  },
+  {
+    title: "About",
+    links: [
+      {
+        label: "Modoterra",
+        href: "https://modoterra.xyz",
+      },
+    ],
+  },
+];
+
+export const tryPage = {
+  title: "Try Echo",
+  lead: "This page checks with the shared compiler frontend. A playground run then executes the checked program and captures io.print. Filesystem, net, process, and tasks stay unavailable here. Install xo to compile through LLVM.",
+};
+
+/**
+ * Internal homepage, nav, Documents hub, and footer destinations.
+ * Each path must ship as a real HTML file, or the link must come down.
+ */
+export function publicChromePaths(): string[] {
+  const paths = new Set<string>();
+
+  for (const item of primaryNav) {
+    paths.add(item.to);
+  }
+  paths.add(installCta.to);
+  for (const link of homePage.links) {
+    paths.add(link.to);
+  }
+  for (const group of docsHubCatalog) {
+    for (const entry of group.entries) {
+      paths.add(entry.to);
+    }
+  }
+  for (const group of footerLinkGroups) {
+    for (const link of group.links) {
+      if (!link.disabled && link.href.startsWith("/")) {
+        paths.add(link.href);
+      }
+    }
+  }
+
+  return [...paths].sort();
+}
+
 /**
  * Documents stays active on language and guide pages. Packages owns /docs/std.
  */

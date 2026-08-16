@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run sync:tree-sitter && tsc -b && vite build",
+    "build": "npm run sync:tree-sitter && tsc -b && vite build && node scripts/verify-static-dist.mjs",
     "build:semantic": "DOCS_EMBEDDINGS=true npm run build",
     "format": "oxfmt --check .",
     "lint": "oxlint . --ignore-pattern public/echo-wasm",
