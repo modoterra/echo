@@ -138,8 +138,9 @@ cargo run -p xo -- repl
 
 ## Website
 
-The public site lives in `www/` (Vite, React, Tailwind). Minimal content, same
-layout and style as the product site.
+The public site is **[https://xo.run](https://xo.run)** (Cloudflare Pages).
+Sources live in `www/` of this repository (Vite, React, Tailwind). GitHub Pages
+on this repo only redirects to that host; it does not publish `www/`.
 
 ```bash
 npm --prefix www install
