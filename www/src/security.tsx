@@ -11,8 +11,7 @@ export function SecurityPage() {
           Security
         </h1>
         <p className="mt-4 text-pretty text-lg leading-8 text-slate-600">
-          Report vulnerabilities by email. Do not open a public GitHub issue for a security
-          report.
+          Report vulnerabilities by email. Do not open a public GitHub issue for a security report.
         </p>
 
         <section className="mt-14">
@@ -27,8 +26,8 @@ export function SecurityPage() {
             >
               {securityContact.email}
             </a>{" "}
-            with a description of the issue and its impact, steps to reproduce or a proof of
-            concept if available, and affected versions, commits, or platforms if known.
+            with a description of the issue and its impact, steps to reproduce or a proof of concept
+            if available, and affected versions, commits, or platforms if known.
           </p>
         </section>
 
@@ -46,8 +45,8 @@ export function SecurityPage() {
             >
               SECURITY.md
             </a>
-            . We acknowledge receipt when we can and work with you on coordinated disclosure.
-            Give a reasonable window to investigate and ship a fix before public discussion.
+            . We acknowledge receipt when we can and work with you on coordinated disclosure. Give a
+            reasonable window to investigate and ship a fix before public discussion.
           </p>
         </section>
 
