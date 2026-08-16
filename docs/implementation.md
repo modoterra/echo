@@ -260,6 +260,7 @@ See [`fixtures.md`](fixtures.md) and [`testing.md`](testing.md).
 | Language pages | Leaders, examples, Result/Option, modules |
 | Search index | Content records for new pages |
 | Snippets | Match **current** `syntax.md` |
+| Discovery | `/sitemap.xml` of the public catalog; `/robots.txt` on `https://xo.run` |
 
 ### 2.14 Tooling ecosystem (as needed)
 

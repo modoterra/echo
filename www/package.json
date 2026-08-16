@@ -10,11 +10,12 @@
     "format": "oxfmt --check .",
     "lint": "oxlint . --ignore-pattern public/echo-wasm",
     "preview": "vite preview",
-    "test": "npm run test:docs && npm run test:prose && npm run test:std-ref && npm run test:try",
+    "test": "npm run test:docs && npm run test:prose && npm run test:std-ref && npm run test:try && npm run test:sitemap",
     "test:docs": "node scripts/verify-docs-pages.mjs",
     "test:std-ref": "node scripts/verify-std-reference.mjs",
     "test:prose": "node scripts/verify-prose.mjs",
     "test:try": "node scripts/verify-try.mjs",
+    "test:sitemap": "node scripts/verify-sitemap.mjs",
     "sync:tree-sitter": "node scripts/sync-tree-sitter.mjs",
     "postinstall": "npm run sync:tree-sitter"
   },

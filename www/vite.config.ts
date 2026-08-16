@@ -10,7 +10,12 @@ import {
   type DocsSearchAsset,
   type DocsSemanticAsset,
 } from "./src/docs/search";
-import { renderStaticHomeAndHub } from "./src/docs/site";
+import {
+  collectPublicCatalogPaths,
+  renderRobotsTxt,
+  renderSitemapXml,
+  renderStaticHomeAndHub,
+} from "./src/docs/site";
 import { distFileForPath, escapeHtml, staticPages, type StaticPage } from "./src/docs/static-html";
 
 const docsSearchIndexDevFileName = "indices/search.json";
@@ -232,6 +237,47 @@ function applyStaticPage(html: string, page: StaticPage): string {
   });
 }
 
+function publicCatalogPaths() {
+  return collectPublicCatalogPaths(staticPages().map((page) => page.path));
+}
+
+function siteDiscoveryPlugin(): Plugin {
+  return {
+    name: "site-discovery",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const requestPath = request.url?.split("?", 1)[0] ?? "";
+
+        if (requestPath === "/sitemap.xml") {
+          response.setHeader("Content-Type", "application/xml; charset=utf-8");
+          response.end(renderSitemapXml(publicCatalogPaths()));
+          return;
+        }
+
+        if (requestPath === "/robots.txt") {
+          response.setHeader("Content-Type", "text/plain; charset=utf-8");
+          response.end(renderRobotsTxt());
+          return;
+        }
+
+        next();
+      });
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "sitemap.xml",
+        source: renderSitemapXml(publicCatalogPaths()),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "robots.txt",
+        source: renderRobotsTxt(),
+      });
+    },
+  };
+}
+
 function docsFirstStaticPlugin(): Plugin {
   const fallbackMarker = '<noscript id="docs-first-fallback"></noscript>';
 
@@ -310,5 +356,11 @@ export default defineConfig({
       },
     },
   },
-  plugins: [docsSearchIndexPlugin(), docsFirstStaticPlugin(), react(), tailwindcss()],
+  plugins: [
+    siteDiscoveryPlugin(),
+    docsSearchIndexPlugin(),
+    docsFirstStaticPlugin(),
+    react(),
+    tailwindcss(),
+  ],
 });

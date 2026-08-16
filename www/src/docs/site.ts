@@ -1,7 +1,20 @@
 /**
- * Public site chrome: homepage, primary nav, and the Documents hub catalog.
- * Pages and tests load this module; do not duplicate the lists in UI or fixtures.
+ * Public site chrome: homepage, primary nav, Documents hub catalog, and the
+ * discovery files (`/sitemap.xml`, `/robots.txt`). Pages and tests load this
+ * module; do not duplicate the lists in UI or fixtures.
  */
+
+/** Live public host. Do not emit github.io URLs in discovery files. */
+export const publicSiteOrigin = "https://xo.run";
+
+/** Top-level routes that are not docs pages. */
+export const publicSurfacePaths = ["/", "/install", "/try"] as const;
+
+/**
+ * Legal routes stay out of the sitemap until the pages exist.
+ * Do not add these paths here when inventing placeholder URLs.
+ */
+export const omittedCatalogPaths = ["/privacy", "/terms"] as const;
 
 export type SiteNavItem = {
   label: string;
@@ -278,6 +291,58 @@ export const docsHubCatalog: DocsCatalogGroup[] = [
     ],
   },
 ];
+
+/**
+ * Public catalog paths for `/sitemap.xml`.
+ * `existingPagePaths` is the shipped HTML catalog (`staticPages` / `docsPages`).
+ * Privacy and Terms are included only when those pages already exist.
+ */
+export function collectPublicCatalogPaths(existingPagePaths: readonly string[]): string[] {
+  const existing = new Set(existingPagePaths);
+  const paths = new Set<string>([
+    ...publicSurfacePaths,
+    ...publicChromePaths(),
+    ...existingPagePaths,
+  ]);
+
+  for (const omitted of omittedCatalogPaths) {
+    if (!existing.has(omitted)) {
+      paths.delete(omitted);
+    }
+  }
+
+  return [...paths].sort((left, right) => left.localeCompare(right));
+}
+
+export function publicCatalogUrl(path: string): string {
+  if (!path.startsWith("/")) {
+    throw new Error(`catalog path must be absolute, got ${path}`);
+  }
+  if (path === "/") {
+    return `${publicSiteOrigin}/`;
+  }
+  return `${publicSiteOrigin}${path}`;
+}
+
+export function renderSitemapXml(paths: readonly string[]): string {
+  const urls = paths
+    .map((path) => `  <url>\n    <loc>${escapeHtml(publicCatalogUrl(path))}</loc>\n  </url>`)
+    .join("\n");
+
+  return [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+    urls,
+    `</urlset>`,
+    ``,
+  ].join("\n");
+}
+
+export function renderRobotsTxt(): string {
+  return ["User-agent: *", "Allow: /", "", `Sitemap: ${publicSiteOrigin}/sitemap.xml`, ""].join(
+    "\n",
+  );
+}
 
 function escapeHtml(text: string): string {
   return text
