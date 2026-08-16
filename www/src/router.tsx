@@ -25,6 +25,7 @@ import { DocsSearch } from "./components/docs-search";
 import { EchoCode } from "./components/echo-code";
 import { Logo } from "./components/logo";
 import { InstallPage } from "./install";
+import { LegalPage } from "./legal";
 import { TryPage } from "./try";
 import {
   docsPageByPath,
@@ -43,6 +44,8 @@ import {
   installCta,
   primaryNav,
   primaryNavItemIsActive,
+  privacyPage,
+  termsPage,
   type SiteLink,
 } from "./docs/site";
 
@@ -335,9 +338,7 @@ function SiteFooter() {
               <ul className="mt-6 flex flex-col gap-4">
                 {group.links.map((link) => (
                   <li key={link.label}>
-                    {link.disabled ? (
-                      <span className="text-sm text-slate-300">{link.label}</span>
-                    ) : link.href.startsWith("http") ? (
+                    {link.href.startsWith("http") ? (
                       <a
                         className="text-sm text-slate-500 transition hover:text-slate-950"
                         href={link.href}
@@ -956,6 +957,18 @@ const tryRoute = createRoute({
   component: TryPage,
 });
 
+const privacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/privacy",
+  component: () => <LegalPage page={privacyPage} />,
+});
+
+const termsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/terms",
+  component: () => <LegalPage page={termsPage} />,
+});
+
 // ── /docs (all paths from docsPages under /docs) ─────────────────────
 const docsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -1035,6 +1048,8 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   installRoute,
   tryRoute,
+  privacyRoute,
+  termsRoute,
   docsLayoutRoute.addChildren(docsChildren),
   bookLayoutRoute.addChildren(bookChildren),
   e26LayoutRoute.addChildren(e26Children),

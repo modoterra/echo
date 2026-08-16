@@ -1,7 +1,7 @@
 /**
- * Public site chrome: homepage, primary nav, Documents hub catalog, and the
- * discovery files (`/sitemap.xml`, `/robots.txt`). Pages and tests load this
- * module; do not duplicate the lists in UI or fixtures.
+ * Public site chrome: homepage, primary nav, footer, legal pages, Documents
+ * hub catalog, and the discovery files (`/sitemap.xml`, `/robots.txt`). Pages
+ * and tests load this module; do not duplicate the lists in UI or fixtures.
  */
 
 /** Live public host. Do not emit github.io URLs in discovery files. */
@@ -62,6 +62,10 @@ export type FooterLinkGroup = {
   links: FooterLink[];
 };
 
+/**
+ * Footer chrome. Discord stays omitted until there is a public invite URL.
+ * Public project mail on linked pages is @modoterra.xyz only.
+ */
 export const footerLinkGroups: FooterLinkGroup[] = [
   {
     title: "Learn",
@@ -81,7 +85,6 @@ export const footerLinkGroups: FooterLinkGroup[] = [
         label: "GitHub",
         href: "https://github.com/modoterra/echo",
       },
-      { label: "Discord", href: "#", disabled: true },
     ],
   },
   {
@@ -91,6 +94,8 @@ export const footerLinkGroups: FooterLinkGroup[] = [
         label: "Modoterra",
         href: "https://modoterra.xyz",
       },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
     ],
   },
 ];
@@ -129,6 +134,127 @@ export function publicChromePaths(): string[] {
 
   return [...paths].sort();
 }
+
+/** Public addresses already used in-repo. Keep the site on this domain. */
+export const publicMailAddresses = [
+  "hello@modoterra.xyz",
+  "security@modoterra.xyz",
+  "oss@modoterra.xyz",
+] as const;
+
+export type LegalSection = {
+  title: string;
+  paragraphs: string[];
+};
+
+export type LegalPageContent = {
+  path: string;
+  title: string;
+  summary: string;
+  sections: LegalSection[];
+};
+
+export const privacyPage: LegalPageContent = {
+  path: "/privacy",
+  title: "Privacy",
+  summary:
+    "This page describes how the Echo project site and related project mail handle information. Echo is an open-source compiled language. xo.run is its public documentation site.",
+  sections: [
+    {
+      title: "The site",
+      paragraphs: [
+        "xo.run publishes language documentation, the Echo 2026 spec, install instructions, and an in-browser checker. Modoterra Corporation maintains the site. These pages have no sign-in.",
+      ],
+    },
+    {
+      title: "Hosting logs",
+      paragraphs: [
+        "The site is a static site served from a CDN. The host may record ordinary request data such as IP address, user agent, requested URL, and time. This site does not run a first-party analytics product.",
+      ],
+    },
+    {
+      title: "Mail",
+      paragraphs: [
+        "If you write to hello@modoterra.xyz, security@modoterra.xyz, or oss@modoterra.xyz, we receive the address and message you send so we can reply.",
+      ],
+    },
+    {
+      title: "GitHub",
+      paragraphs: [
+        "Issues, pull requests, and other activity on the public Echo repository are public on GitHub and follow GitHub's terms.",
+      ],
+    },
+    {
+      title: "Try Echo",
+      paragraphs: [
+        "The Try page runs the compiler frontend in your browser. Source you type there stays in that browser session. Playground source is not uploaded to a Modoterra server.",
+      ],
+    },
+    {
+      title: "The compiler",
+      paragraphs: [
+        "xo is a local toolchain. It reads source on the machine where you run it. This site is not a hosted compile service.",
+      ],
+    },
+    {
+      title: "Contact",
+      paragraphs: [
+        "Questions about this page go to hello@modoterra.xyz. Report security issues to security@modoterra.xyz.",
+      ],
+    },
+  ],
+};
+
+export const termsPage: LegalPageContent = {
+  path: "/terms",
+  title: "Terms",
+  summary:
+    "These terms cover the xo.run website and the Echo software published by Modoterra Corporation.",
+  sections: [
+    {
+      title: "Software",
+      paragraphs: [
+        "Echo is released under the MIT License. The license text lives in the project LICENSE file. You may use, copy, modify, and distribute the software under that license.",
+      ],
+    },
+    {
+      title: "Website",
+      paragraphs: [
+        "The pages on xo.run describe Echo and how to use xo. We may change or remove pages as the language changes. The site is provided as is.",
+      ],
+    },
+    {
+      title: "Warranty",
+      paragraphs: [
+        "The software and this site come with no warranty. The MIT License states the full disclaimer.",
+      ],
+    },
+    {
+      title: "Contributions",
+      paragraphs: [
+        "Contributions to the public repository are governed by the Contributor License Agreement in CLA.md. Submitting a contribution accepts that agreement.",
+      ],
+    },
+    {
+      title: "Conduct",
+      paragraphs: [
+        "Project participation follows CODE_OF_CONDUCT.md. Report conduct issues to oss@modoterra.xyz.",
+      ],
+    },
+    {
+      title: "Security",
+      paragraphs: [
+        "Report vulnerabilities to security@modoterra.xyz. Use a private report for security issues.",
+      ],
+    },
+    {
+      title: "Contact",
+      paragraphs: ["Other questions go to hello@modoterra.xyz."],
+    },
+  ],
+};
+
+export const legalPages: readonly LegalPageContent[] = [privacyPage, termsPage];
 
 /**
  * Documents stays active on language and guide pages. Packages owns /docs/std.

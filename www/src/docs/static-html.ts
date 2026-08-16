@@ -5,7 +5,13 @@
 import { docsPages, type DocsBlock, type DocsPage, type DocsTextPart } from "./content";
 import { installPage, inlineText, isLinkPart, type InlinePart } from "./install-content";
 import { currentPrereleaseAssets } from "../lib/current-release";
-import { homePage, renderStaticHomeAndHub, tryPage } from "./site";
+import {
+  homePage,
+  legalPages,
+  renderStaticHomeAndHub,
+  tryPage,
+  type LegalPageContent,
+} from "./site";
 
 export type StaticPage = {
   path: string;
@@ -107,6 +113,30 @@ export function renderStaticInstall(): string {
   ].join("");
 }
 
+function linkLegalMail(html: string): string {
+  return html.replace(/([a-z.]+@modoterra\.xyz)/g, '<a href="mailto:$1">$1</a>');
+}
+
+export function renderStaticLegal(page: LegalPageContent): string {
+  const sections = page.sections
+    .map((section) => {
+      const paragraphs = section.paragraphs
+        .map((text) => `<p>${linkLegalMail(escapeHtml(text))}</p>`)
+        .join("");
+      return `<section><h2>${escapeHtml(section.title)}</h2>${paragraphs}</section>`;
+    })
+    .join("");
+
+  return [
+    `<main>`,
+    `<h1>${escapeHtml(page.title)}</h1>`,
+    `<p>${escapeHtml(page.summary)}</p>`,
+    sections,
+    `<p><a href="/privacy">Privacy</a> <a href="/terms">Terms</a></p>`,
+    `</main>`,
+  ].join("");
+}
+
 export function renderStaticTry(): string {
   return [
     `<main>`,
@@ -143,6 +173,15 @@ export function staticPages(): StaticPage[] {
       body: renderStaticTry(),
     },
   ];
+
+  for (const page of legalPages) {
+    pages.push({
+      path: page.path,
+      title: documentTitle(page.title),
+      description: page.summary,
+      body: renderStaticLegal(page),
+    });
+  }
 
   for (const page of docsPages) {
     pages.push({

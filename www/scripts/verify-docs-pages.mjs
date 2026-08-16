@@ -2,6 +2,8 @@
  * Verifies the shipped docs-first site model:
  * - homepage definition, leader-bearing sample, docs/std/spec links
  * - primary nav labels and paths
+ * - footer About links Privacy and Terms; Discord stays hidden
+ * - legal pages use @modoterra.xyz mail only
  * - Documents hub catalog groups
  * - every language-feature catalog entry is a real page with a summary
  *   and at least one Echo code block
@@ -32,13 +34,18 @@ try {
 
   const {
     docsHubCatalog,
+    footerLinkGroups,
     homePage,
     installCta,
     languageFeatureEntries,
+    legalPages,
     primaryNav,
     primaryNavItemIsActive,
+    privacyPage,
     publicChromePaths,
+    publicMailAddresses,
     renderStaticHomeAndHub,
+    termsPage,
   } = site;
   const { docsPageByPath } = content;
   const staticHtml = await server.ssrLoadModule("/src/docs/static-html.ts");
@@ -78,6 +85,54 @@ try {
   }
   if (installCta.label !== "Install" || installCta.to !== "/install") {
     fail("installCta must be Install → /install");
+  }
+
+  const footerLinks = footerLinkGroups.flatMap((group) => group.links);
+  const footerByLabel = new Map(footerLinks.map((link) => [link.label, link.href]));
+  if (footerByLabel.get("Privacy") !== "/privacy") {
+    fail(`footer Privacy should be /privacy, got ${footerByLabel.get("Privacy")}`);
+  }
+  if (footerByLabel.get("Terms") !== "/terms") {
+    fail(`footer Terms should be /terms, got ${footerByLabel.get("Terms")}`);
+  }
+  if (footerByLabel.get("Modoterra") !== "https://modoterra.xyz") {
+    fail("footer About must keep the Modoterra company link");
+  }
+  if (footerByLabel.has("Discord") || footerLinks.some((link) => /discord/i.test(link.label))) {
+    fail("footer must hide Discord until there is a public invite");
+  }
+
+  const expectedMail = ["hello@modoterra.xyz", "security@modoterra.xyz", "oss@modoterra.xyz"];
+  if (JSON.stringify([...publicMailAddresses]) !== JSON.stringify(expectedMail)) {
+    fail(`publicMailAddresses must be ${expectedMail.join(", ")}`);
+  }
+
+  if (privacyPage.path !== "/privacy" || termsPage.path !== "/terms") {
+    fail("legal pages must live at /privacy and /terms");
+  }
+  if (legalPages.length !== 2) {
+    fail("legalPages should be Privacy and Terms only");
+  }
+
+  const legalText = legalPages
+    .flatMap((page) => [page.summary, ...page.sections.flatMap((section) => section.paragraphs)])
+    .join("\n");
+  for (const address of expectedMail) {
+    if (!legalText.includes(address)) {
+      fail(`legal pages missing ${address}`);
+    }
+  }
+  if (/@modoterra\.com\b/.test(legalText)) {
+    fail("legal pages must not publish @modoterra.com");
+  }
+  if (legalText.includes("github.io")) {
+    fail("legal pages must not list github.io");
+  }
+  const publishedMail = legalText.match(/[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+/gi) ?? [];
+  for (const address of publishedMail) {
+    if (!address.endsWith("@modoterra.xyz")) {
+      fail(`legal pages published non-xyz mail: ${address}`);
+    }
   }
 
   if (!primaryNavItemIsActive("/docs", "/docs/leaders")) {
@@ -241,6 +296,8 @@ try {
     ["/install", "Install Echo"],
     ["/docs/first-program", "First program"],
     ["/book", "Introduction"],
+    ["/privacy", "Privacy"],
+    ["/terms", "Terms"],
   ];
   for (const [path, heading] of requiredChrome) {
     const page = pages.get(path);
@@ -280,6 +337,9 @@ try {
           ok: true,
           definition: homePage.definition,
           nav: primaryNav.map((item) => item.label),
+          footerAbout: footerLinkGroups
+            .find((group) => group.title === "About")
+            ?.links.map((link) => link.label),
           languagePages: languageFeatureEntries.map((entry) => entry.to),
           hubGroups: docsHubCatalog.map((group) => group.title),
           chromePaths: publicChromePaths(),

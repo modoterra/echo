@@ -162,9 +162,9 @@ The home page is a language-docs front door. Copy and links live in
 3. First-class links: Documents (`/docs`), Packages (`/docs/std`), Spec (`/e26`)
 4. Footer
 
-Each of those links, plus Install, First program, Book, and Try, is a real
-page (`path/index.html`) with that page title and body. A destination
-without a document is removed from the catalog or footer.
+Each of those links, plus Install, First program, Book, Try, Privacy, and
+Terms, is a real page (`path/index.html`) with that page title and body. A
+destination without a document is removed from the catalog or footer.
 
 Homepage trust stays factual. Rust, LLVM, the public edition, and the
 machine-checked suite are implementation facts.
@@ -191,10 +191,11 @@ Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
 ## Static pages
 
 `npm run build` writes `index.html` for every content route: the homepage,
-`/install`, `/try`, and each page in `docsPages` (Documents, Packages, Spec,
-Book, First program, and the rest of the Reference / std / suite pages).
-Each file keeps the SPA shell and a noscript body from the same modules the
-React app renders. Unknown paths still use the `404.html` bounce.
+`/install`, `/try`, `/privacy`, `/terms`, and each page in `docsPages`
+(Documents, Packages, Spec, Book, First program, and the rest of the
+Reference / std / suite pages). Each file keeps the SPA shell and a noscript
+body from the same modules the React app renders. Unknown paths still use the
+`404.html` bounce.
 
 Wasm bindings stay in `www/public/echo-wasm/`.
 
@@ -206,6 +207,22 @@ playground run then executes the checked MIR and captures `io.print`.
 Filesystem, net, process, and tasks fail with a playground-host error.
 Compile and native run stay on `xo` (LLVM).
 
+## Footer
+
+Learn, Community, and About. Copy lives in `src/docs/site.ts` (`footerLinkGroups`).
+
+| Group     | Links                                                                       |
+| --------- | --------------------------------------------------------------------------- |
+| Learn     | Install, Try Echo, First program, Documents, Book, Echo 2026                |
+| Community | GitHub. Omit Discord until a public invite URL exists.                      |
+| About     | Modoterra (`https://modoterra.xyz`), Privacy (`/privacy`), Terms (`/terms`) |
+
+Public project mail on the site is `@modoterra.xyz` only (`hello@`, `security@`,
+`oss@`). Do not publish `@modoterra.com`.
+
+Privacy and Terms are short compiler/OSS pages for this documentation site.
+They are not a consumer-app policy.
+
 ## Discovery
 
 `/sitemap.xml` lists the public catalog on `https://xo.run`: home, Install,
@@ -216,4 +233,5 @@ Pages host.
 
 ## Out of scope (later)
 
-Richer download tabs, `/e26` URL rename to `/echo-2026`.
+Richer download tabs, `/e26` URL rename to `/echo-2026`. Discord footer link
+when a real invite exists.
