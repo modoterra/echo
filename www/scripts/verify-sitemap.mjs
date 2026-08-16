@@ -50,10 +50,10 @@ try {
   const robots = renderRobotsTxt();
   const committedRobots = readFileSync(path.join(root, "public/robots.txt"), "utf8");
 
-  if (!sitemap.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")) {
+  if (!sitemap.startsWith('<?xml version="1.0" encoding="UTF-8"?>')) {
     fail("sitemap.xml must be a real XML document");
   }
-  if (!sitemap.includes("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">")) {
+  if (!sitemap.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')) {
     fail("sitemap.xml must use the sitemaps.org urlset namespace");
   }
 

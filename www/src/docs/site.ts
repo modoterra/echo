@@ -339,13 +339,9 @@ export function renderSitemapXml(paths: readonly string[]): string {
 }
 
 export function renderRobotsTxt(): string {
-  return [
-    "User-agent: *",
-    "Allow: /",
-    "",
-    `Sitemap: ${publicSiteOrigin}/sitemap.xml`,
-    "",
-  ].join("\n");
+  return ["User-agent: *", "Allow: /", "", `Sitemap: ${publicSiteOrigin}/sitemap.xml`, ""].join(
+    "\n",
+  );
 }
 
 function escapeHtml(text: string): string {
