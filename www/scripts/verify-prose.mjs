@@ -128,7 +128,7 @@ try {
 
   const { docsPages, docsPageByPath } = content;
   const { stdModules } = ref;
-  const { homePage, docsHubCatalog, legalPages, tryPage } = site;
+  const { homePage, docsHubCatalog, footerBlurb, legalPages, tryPage } = site;
   const install = await server.ssrLoadModule("/src/docs/install-content.ts");
   const { installPage, inlineText } = install;
 
@@ -152,6 +152,8 @@ try {
 
   prose.push({ where: "home definition", text: homePage.definition });
   prose.push({ where: "home lead", text: homePage.lead });
+  prose.push({ where: "home status", text: homePage.status });
+  prose.push({ where: "footer blurb", text: footerBlurb });
   prose.push({ where: "try lead", text: tryPage.lead });
   prose.push({ where: "install lead", text: inlineText(installPage.lead) });
   for (const section of installPage.sections) {

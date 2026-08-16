@@ -1,8 +1,10 @@
 /**
  * Verifies the shipped docs-first site model:
  * - homepage definition, leader-bearing sample, docs/std/spec links
+ * - public facts: compiled language, MIT, Rust, LLVM, xo, Echo 2026, prerelease
+ * - no production-ready, crates.io, Windows, or Discord claims
  * - primary nav labels and paths
- * - footer About links Privacy and Terms; Discord stays hidden
+ * - footer About links Privacy, Terms, and MIT; Discord stays hidden
  * - legal pages use @modoterra.xyz mail only
  * - Documents hub catalog groups
  * - security mailbox, SECURITY.md, and footer /security pointer
@@ -35,6 +37,7 @@ try {
 
   const {
     docsHubCatalog,
+    footerBlurb,
     footerLinkGroups,
     homePage,
     installCta,
@@ -64,6 +67,35 @@ try {
   }
   if (!/^\$ /m.test(homePage.sample) || !/^~ /m.test(homePage.sample)) {
     fail("homePage.sample must show $ and ~ statement leaders");
+  }
+
+  const publicChrome = [homePage.definition, homePage.lead, homePage.status, footerBlurb].join(
+    "\n",
+  );
+  const requiredFacts = [
+    "compiled language",
+    "MIT",
+    "Rust",
+    "LLVM",
+    "xo",
+    "Echo 2026",
+    "prerelease",
+  ];
+  for (const needle of requiredFacts) {
+    if (!new RegExp(needle, "i").test(publicChrome)) {
+      fail(`public chrome must mention ${needle}`);
+    }
+  }
+  for (const banned of [
+    "production-ready",
+    "production ready",
+    "crates.io",
+    "Windows",
+    "Discord",
+  ]) {
+    if (publicChrome.toLowerCase().includes(banned.toLowerCase())) {
+      fail(`public chrome must not mention ${banned}`);
+    }
   }
 
   const homeTargets = new Set(homePage.links.map((link) => link.to));
@@ -102,6 +134,9 @@ try {
   }
   if (footerByLabel.get("Modoterra") !== "https://modoterra.xyz") {
     fail("footer About must keep the Modoterra company link");
+  }
+  if (footerByLabel.get("MIT License") !== "https://github.com/modoterra/echo/blob/main/LICENSE") {
+    fail("footer About must link the MIT License");
   }
   if (footerByLabel.has("Discord") || footerLinks.some((link) => /discord/i.test(link.label))) {
     fail("footer must hide Discord until there is a public invite");
@@ -298,8 +333,16 @@ try {
   if (snapshot.includes("modoterra.github.io")) {
     fail("static homepage must not point at modoterra.github.io");
   }
+  const siteMd = readFileSync(path.join(root, "SITE.md"), "utf8");
+  for (const needle of ["Public facts", "prerelease tags", "MIT license", "v0.0.1-alpha.9"]) {
+    if (!siteMd.includes(needle)) {
+      fail(`SITE.md missing public-fact marker: ${needle}`);
+    }
+  }
+
   for (const needle of [
     homePage.definition,
+    homePage.status,
     homePage.sample.trim().split("\n")[0],
     "/docs",
     "/docs/std",

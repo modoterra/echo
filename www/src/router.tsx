@@ -41,6 +41,7 @@ import {
   type DocsTextPart,
 } from "./docs/content";
 import {
+  footerBlurb,
   footerLinkGroups,
   installCta,
   primaryNav,
@@ -325,10 +326,7 @@ function SiteFooter() {
       <div className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[minmax(0,360px)_1fr]">
         <section>
           <p className="max-w-sm text-xl font-semibold leading-8 text-slate-950">Echo</p>
-          <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
-            A compiled language with statement leaders. The xo CLI checks programs and emits native
-            binaries.
-          </p>
+          <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">{footerBlurb}</p>
           <p className="mt-10 text-sm text-slate-400">© 2026 Modoterra Corporation</p>
         </section>
 
