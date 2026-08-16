@@ -57,7 +57,7 @@ try {
     }
   }
 
-  const trySource = readFileSync(trySourcePath, "utf8");
+  const trySource = `${readFileSync(trySourcePath, "utf8")}\n${site.tryPage.lead}`;
   if (/\bxo run\b/.test(trySource)) {
     fail("/try must not describe itself as xo run");
   }

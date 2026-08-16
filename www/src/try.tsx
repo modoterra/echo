@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CtaLink } from "./components/cta-link";
+import { tryPage } from "./docs/site";
 import {
   EchoWasmMissingError,
   loadEchoCheck,
@@ -228,15 +229,10 @@ export function TryPage() {
           Playground
         </p>
         <h1 className="mt-4 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
-          Try Echo
+          {tryPage.title}
         </h1>
         <p className="mt-4 max-w-3xl text-pretty text-lg leading-8 text-slate-600">
-          This page checks with the shared compiler frontend. A playground run then executes the
-          checked program and captures{" "}
-          <span className="font-mono font-semibold text-slate-800">io.print</span>. Filesystem, net,
-          process, and tasks stay unavailable here. Install{" "}
-          <span className="font-mono font-semibold text-slate-800">xo</span> to compile through
-          LLVM.
+          {tryPage.lead}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <CtaLink to="/install">Install xo</CtaLink>

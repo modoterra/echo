@@ -5,6 +5,7 @@
  * - Documents hub catalog groups
  * - every language-feature catalog entry is a real page with a summary
  *   and at least one Echo code block
+ * - catalog, footer, and nav destinations have static HTML snapshots
  *
  * Loads src/docs/site.ts, src/docs/content.ts, and src/lib/current-release.ts
  * through Vite SSR. Also checks that /install, README, and docs/install.md
@@ -36,9 +37,12 @@ try {
     languageFeatureEntries,
     primaryNav,
     primaryNavItemIsActive,
+    publicChromePaths,
     renderStaticHomeAndHub,
   } = site;
   const { docsPageByPath } = content;
+  const staticHtml = await server.ssrLoadModule("/src/docs/static-html.ts");
+  const { distFileForPath, staticPageByPath } = staticHtml;
 
   const failures = [];
 
@@ -160,22 +164,27 @@ try {
 
   const repoRoot = path.resolve(root, "..");
   const installPage = readFileSync(path.join(root, "src/install.tsx"), "utf8");
+  const installContent = readFileSync(path.join(root, "src/docs/install-content.ts"), "utf8");
+  const installSources = `${installPage}\n${installContent}`;
   const readme = readFileSync(path.join(repoRoot, "README.md"), "utf8");
   const installDoc = readFileSync(path.join(repoRoot, "docs/install.md"), "utf8");
   const installSh = readFileSync(path.join(repoRoot, "scripts/install.sh"), "utf8");
   if (
-    !installPage.includes("./lib/current-release") ||
-    !installPage.includes("currentPrereleaseTag")
+    !installSources.includes("current-release") ||
+    !installSources.includes("currentPrereleaseTag")
   ) {
-    fail("src/install.tsx must render the current prerelease from current-release.ts");
+    fail("install page must render the current prerelease from current-release.ts");
   }
-  if (!installPage.includes("from-release") || !installPage.includes("currentPrereleaseTag")) {
+  if (
+    !installSources.includes("from-release") ||
+    !installSources.includes("currentPrereleaseTag")
+  ) {
     fail("install page must show from-release and how to pin the current tag");
   }
-  if (/windows-x86_64/.test(installPage)) {
-    fail("src/install.tsx must not claim a Windows tarball");
+  if (/windows-x86_64/.test(installSources)) {
+    fail("install page must not claim a Windows tarball");
   }
-  if (!/prerelease/i.test(installPage) || !/prerelease/i.test(readme)) {
+  if (!/prerelease/i.test(installSources) || !/prerelease/i.test(readme)) {
     fail("install page and README must say published builds are prereleases");
   }
   for (const [label, text] of [
@@ -196,11 +205,11 @@ try {
       fail(`${label} must not present /releases/latest as working`);
     }
   }
-  if (/latest GitHub release/i.test(installPage)) {
-    fail("src/install.tsx must not present a GitHub latest release");
+  if (/latest GitHub release/i.test(installSources)) {
+    fail("install page must not present a GitHub latest release");
   }
-  if (/releases\/latest/.test(installPage) && !/404/.test(installPage)) {
-    fail("src/install.tsx must not present /releases/latest as working");
+  if (/releases\/latest/.test(installSources) && !/404/.test(installSources)) {
+    fail("install page must not present /releases/latest as working");
   }
   if (!installSh.includes("releases?per_page=")) {
     fail("install.sh from-release must list published releases, including prereleases");
@@ -224,6 +233,43 @@ try {
     }
   }
 
+  const pages = staticPageByPath();
+  const requiredChrome = [
+    ["/docs", "Documents"],
+    ["/docs/std", "Standard library"],
+    ["/e26", "Echo 2026"],
+    ["/install", "Install Echo"],
+    ["/docs/first-program", "First program"],
+    ["/book", "Introduction"],
+  ];
+  for (const [path, heading] of requiredChrome) {
+    const page = pages.get(path);
+    if (!page) {
+      fail(`${path}: missing static page for catalog/footer link`);
+      continue;
+    }
+    if (!page.body.includes(`<h1>${heading}</h1>`)) {
+      fail(`${path}: static page must include <h1>${heading}</h1>`);
+    }
+    if (!page.title.trim() || !page.description.trim()) {
+      fail(`${path}: static page needs a title and description`);
+    }
+    if (distFileForPath(path) !== `${path.slice(1)}/index.html`) {
+      fail(`${path}: expected dist file ${path.slice(1)}/index.html`);
+    }
+  }
+
+  for (const path of publicChromePaths()) {
+    const page = pages.get(path);
+    if (!page) {
+      fail(`${path}: catalog/nav/footer link has no static page`);
+      continue;
+    }
+    if (!page.body.includes("<h1>")) {
+      fail(`${path}: static page is missing an h1`);
+    }
+  }
+
   if (failures.length) {
     console.error(JSON.stringify({ ok: false, failures }, null, 2));
     process.exitCode = 1;
@@ -236,6 +282,7 @@ try {
           nav: primaryNav.map((item) => item.label),
           languagePages: languageFeatureEntries.map((entry) => entry.to),
           hubGroups: docsHubCatalog.map((group) => group.title),
+          chromePaths: publicChromePaths(),
         },
         null,
         2,

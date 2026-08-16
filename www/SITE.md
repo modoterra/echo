@@ -136,6 +136,7 @@ maturity.
 ## Primary nav
 
 The logo is the only Home control. Book stays at `/book` and in the footer.
+Catalog, footer, and nav destinations are real HTML files at those paths.
 
 | Item              | Path        | Notes                                         |
 | ----------------- | ----------- | --------------------------------------------- |
@@ -161,6 +162,10 @@ The home page is a language-docs front door. Copy and links live in
 3. First-class links: Documents (`/docs`), Packages (`/docs/std`), Spec (`/e26`)
 4. Footer
 
+Each of those links, plus Install, First program, Book, and Try, is a real
+page (`path/index.html`) with that page title and body. A destination
+without a document is removed from the catalog or footer.
+
 Homepage trust stays factual. Rust, LLVM, the public edition, and the
 machine-checked suite are implementation facts.
 
@@ -169,7 +174,7 @@ machine-checked suite are implementation facts.
 `/docs` is a short catalog. Groups: Start (install, first program, project),
 Language (the Echo 2026 form pages), Packages (std + API index), Spec
 (Echo 2026 + Language Spec). Each entry has a title, one-line description,
-and a working path.
+and a working path that the build writes as HTML.
 
 ## Echo 2026 section
 
@@ -182,6 +187,16 @@ and a working path.
 | `/e26/protocol` | Candidate binary protocol                 |
 
 Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
+
+## Static pages
+
+`npm run build` writes `index.html` for every content route: the homepage,
+`/install`, `/try`, and each page in `docsPages` (Documents, Packages, Spec,
+Book, First program, and the rest of the Reference / std / suite pages).
+Each file keeps the SPA shell and a noscript body from the same modules the
+React app renders. Unknown paths still use the `404.html` bounce.
+
+Wasm bindings stay in `www/public/echo-wasm/`.
 
 ## Playground
 
