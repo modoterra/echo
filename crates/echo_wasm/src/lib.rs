@@ -8,7 +8,9 @@
 
 mod run;
 
-pub use run::{RunResult, SAMPLE_RESULT, SAMPLE_STRUCT, SAMPLE_SUM, run_json, run_source};
+pub use run::{
+    HOMEPAGE_SUM, RunResult, SAMPLE_RESULT, SAMPLE_STRUCT, SAMPLE_SUM, run_json, run_source,
+};
 
 use std::path::{Path, PathBuf};
 
@@ -300,6 +302,14 @@ io.print("sum={sum}")
     }
 
     #[test]
+    fn run_homepage_sum_echo_prints_sum() {
+        let result = run_source(HOMEPAGE_SUM);
+        assert!(result.ok, "{result:?}");
+        assert_eq!(result.printed.as_deref(), Some("sum=6\n"), "{result:?}");
+        assert!(result.host_error.is_none(), "{result:?}");
+    }
+
+    #[test]
     fn run_result_sample_prints_ok_arm() {
         let result = run_source(SAMPLE_RESULT);
         assert!(result.ok, "{result:?}");
@@ -330,7 +340,26 @@ io.print("sum={sum}")
 
     #[test]
     fn run_refuses_fs_as_playground_host() {
-        let result = run_source("/ std/fs\n/ std/io\n$ ok = fs.exists(\"x\")\n");
+        assert_playground_host("/ std/fs\n/ std/io\n$ ok = fs.exists(\"x\")\n");
+    }
+
+    #[test]
+    fn run_refuses_net_as_playground_host() {
+        assert_playground_host("/ std/net/tcp\n$ c = tcp.connect(\"127.0.0.1:1\")\n");
+    }
+
+    #[test]
+    fn run_refuses_process_as_playground_host() {
+        assert_playground_host("/ std/process\n$ xs = process.args()\n");
+    }
+
+    #[test]
+    fn run_refuses_tasks_as_playground_host() {
+        assert_playground_host("+ job = {\n    ^ 1\n}\n- job\n");
+    }
+
+    fn assert_playground_host(source: &str) {
+        let result = run_source(source);
         assert!(!result.ok, "{result:?}");
         assert!(result.printed.is_none(), "{result:?}");
         let err = result.host_error.as_deref().unwrap_or("");

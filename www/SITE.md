@@ -137,13 +137,13 @@ maturity.
 
 The logo is the only Home control. Book stays at `/book` and in the footer.
 
-| Item              | Path        | Notes                                      |
-| ----------------- | ----------- | ------------------------------------------ |
-| Documents         | `/docs`     | Language reference hub                     |
-| Packages          | `/docs/std` | Standard library                           |
-| Echo 2026         | `/e26`      | Edition + Spec TOC + suite                 |
-| Try               | `/try`      | In-browser `xo check` (frontend wasm host) |
-| **Install** (CTA) | `/install`  | Solid button; get `xo`                     |
+| Item              | Path        | Notes                                         |
+| ----------------- | ----------- | --------------------------------------------- |
+| Documents         | `/docs`     | Language reference hub                        |
+| Packages          | `/docs/std` | Standard library                              |
+| Echo 2026         | `/e26`      | Edition + Spec TOC + suite                    |
+| Try               | `/try`      | In-browser check + playground run (wasm host) |
+| **Install** (CTA) | `/install`  | Solid button; get `xo`                        |
 
 ## Docs left rail
 
@@ -187,8 +187,9 @@ Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
 
 `/try` runs the shared compiler frontend in WebAssembly (`just wasm`). It
 checks source the same way `xo check` does, including bundled `std`. A
-playground run then executes the checked MIR and captures `io.print`. Compile
-and native run stay on `xo` (LLVM).
+playground run then executes the checked MIR and captures `io.print`.
+Filesystem, net, process, and tasks fail with a playground-host error.
+Compile and native run stay on `xo` (LLVM).
 
 ## Out of scope (later)
 
