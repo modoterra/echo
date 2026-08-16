@@ -36,6 +36,7 @@ export type DocsCatalogGroup = {
 export type HomePageContent = {
   definition: string;
   lead: string;
+  status: string;
   sampleCaption: string;
   sample: string;
   links: SiteLink[];
@@ -113,9 +114,16 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
       { label: "Security", href: securityContact.path },
+      {
+        label: "MIT License",
+        href: "https://github.com/modoterra/echo/blob/main/LICENSE",
+      },
     ],
   },
 ];
+
+export const footerBlurb =
+  "Echo is a compiled language. xo checks a program and emits a native binary from the same LLVM pipeline. Echo 2026 is the current edition, published as prerelease tags and licensed under MIT.";
 
 export const tryPage = {
   title: "Try Echo",
@@ -291,6 +299,8 @@ export function primaryNavItemIsActive(to: string, pathname: string): boolean {
 export const homePage: HomePageContent = {
   definition: "Echo is a compiled language.",
   lead: "Statement leaders mark control and binding. The rest of each line is an ordinary expression. xo checks a program and emits a native binary from the same LLVM pipeline.",
+  status:
+    "Echo 2026 is the public edition. A Rust toolchain ships as prerelease tags on GitHub. The repository is MIT licensed.",
   sampleCaption: "sum.echo",
   sample: `/ std/io
 
@@ -526,6 +536,7 @@ export function renderStaticHomeAndHub(): string {
     `<main>`,
     `<h1>${escapeHtml(homePage.definition)}</h1>`,
     `<p>${escapeHtml(homePage.lead)}</p>`,
+    `<p>${escapeHtml(homePage.status)}</p>`,
     `<pre>${escapeHtml(homePage.sample)}</pre>`,
     `<nav aria-label="Language surfaces"><ul>${surfaceLinks}</ul></nav>`,
     catalog,
