@@ -136,6 +136,7 @@ maturity.
 ## Primary nav
 
 The logo is the only Home control. Book stays at `/book` and in the footer.
+Security lives at `/security` and in the footer About group.
 Catalog, footer, and nav destinations are real HTML files at those paths.
 
 | Item              | Path        | Notes                                         |
@@ -145,6 +146,7 @@ Catalog, footer, and nav destinations are real HTML files at those paths.
 | Echo 2026         | `/e26`      | Edition + Spec TOC + suite                    |
 | Try               | `/try`      | In-browser check + playground run (wasm host) |
 | **Install** (CTA) | `/install`  | Solid button; get `xo`                        |
+| Security          | `/security` | Vulnerability mailbox + `SECURITY.md`         |
 
 ## Docs left rail
 
@@ -162,12 +164,21 @@ The home page is a language-docs front door. Copy and links live in
 3. First-class links: Documents (`/docs`), Packages (`/docs/std`), Spec (`/e26`)
 4. Footer
 
-Each of those links, plus Install, First program, Book, Try, Privacy, and
-Terms, is a real page (`path/index.html`) with that page title and body. A
-destination without a document is removed from the catalog or footer.
+Each of those links, plus Install, First program, Book, Try, Privacy, Terms,
+and Security, is a real page (`path/index.html`) with that page title and
+body. A destination without a document is removed from the catalog or footer.
 
 Homepage trust stays factual. Rust, LLVM, the public edition, and the
 machine-checked suite are implementation facts.
+
+## Security
+
+`/security` is the public reporting page. It points to
+`security@modoterra.xyz` and the repository `SECURITY.md`. The footer About
+group links there. Public mail uses `@modoterra.xyz` only. Discord stays
+omitted from the footer until there is a real invite.
+
+Copy and URLs live in `src/docs/site.ts` (`securityContact`, `footerLinkGroups`).
 
 ## Documents hub
 
@@ -191,11 +202,11 @@ Cross-links: Reference ↔ Spec ↔ suite pages keep the triangle explicit.
 ## Static pages
 
 `npm run build` writes `index.html` for every content route: the homepage,
-`/install`, `/try`, `/privacy`, `/terms`, and each page in `docsPages`
-(Documents, Packages, Spec, Book, First program, and the rest of the
-Reference / std / suite pages). Each file keeps the SPA shell and a noscript
-body from the same modules the React app renders. Unknown paths still use the
-`404.html` bounce.
+`/install`, `/try`, `/privacy`, `/terms`, `/security`, and each page in
+`docsPages` (Documents, Packages, Spec, Book, First program, and the rest of
+the Reference / std / suite pages). Each file keeps the SPA shell and a
+noscript body from the same modules the React app renders. Unknown paths
+still use the `404.html` bounce.
 
 Wasm bindings stay in `www/public/echo-wasm/`.
 
@@ -215,7 +226,7 @@ Learn, Community, and About. Copy lives in `src/docs/site.ts` (`footerLinkGroups
 | --------- | --------------------------------------------------------------------------- |
 | Learn     | Install, Try Echo, First program, Documents, Book, Echo 2026                |
 | Community | GitHub. Omit Discord until a public invite URL exists.                      |
-| About     | Modoterra (`https://modoterra.xyz`), Privacy (`/privacy`), Terms (`/terms`) |
+| About     | Modoterra (`https://modoterra.xyz`), Privacy (`/privacy`), Terms (`/terms`), Security (`/security`) |
 
 Public project mail on the site is `@modoterra.xyz` only (`hello@`, `security@`,
 `oss@`). Do not publish `@modoterra.com`.
@@ -226,10 +237,10 @@ They are not a consumer-app policy.
 ## Discovery
 
 `/sitemap.xml` lists the public catalog on `https://xo.run`: home, Install,
-Try, catalog and footer routes, and every shipped docs, Book, Echo 2026, and
-std page. `/robots.txt` allows crawlers and points at that sitemap. Privacy
-and Terms are listed only when those pages exist. Do not list the GitHub
-Pages host.
+Try, Security, catalog and footer routes, and every shipped docs, Book,
+Echo 2026, and std page. `/robots.txt` allows crawlers and points at that
+sitemap. Privacy and Terms are listed only when those pages exist. Do not
+list the GitHub Pages host.
 
 ## Out of scope (later)
 

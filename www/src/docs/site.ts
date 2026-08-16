@@ -51,6 +51,22 @@ export const primaryNav: SiteNavItem[] = [
 
 export const installCta: SiteNavItem = { label: "Install", to: "/install" };
 
+/**
+ * Public vulnerability reporting. Mailbox is @modoterra.xyz only.
+ * Discord stays omitted from the footer until there is a public invite.
+ */
+export const securityContact = {
+  email: "security@modoterra.xyz",
+  mailto: "mailto:security@modoterra.xyz",
+  path: "/security",
+  policyUrl: "https://github.com/modoterra/echo/blob/main/SECURITY.md",
+} as const;
+
+export const securityPage = {
+  title: "Security",
+  lead: "Report vulnerabilities by email. Do not open a public GitHub issue for a security report.",
+};
+
 export type FooterLink = {
   label: string;
   href: string;
@@ -96,6 +112,7 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
+      { label: "Security", href: securityContact.path },
     ],
   },
 ];
@@ -512,6 +529,11 @@ export function renderStaticHomeAndHub(): string {
     `<pre>${escapeHtml(homePage.sample)}</pre>`,
     `<nav aria-label="Language surfaces"><ul>${surfaceLinks}</ul></nav>`,
     catalog,
+    `<aside>`,
+    `<h2>Security</h2>`,
+    `<p>Report vulnerabilities to <a href="${escapeHtml(securityContact.mailto)}">${escapeHtml(securityContact.email)}</a>.`,
+    ` Policy: <a href="${escapeHtml(securityContact.policyUrl)}">SECURITY.md</a>.</p>`,
+    `</aside>`,
     `</main>`,
   ].join("");
 }
