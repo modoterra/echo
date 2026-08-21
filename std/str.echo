@@ -8,7 +8,8 @@
 ;   get    — result-shaped; UTF-8 **byte** at index as ui8; ! "out of bounds"
 ;   slice  — result-shaped; UTF-8 **byte** indices [start, end); ! "out of bounds"
 ;
-; Indices match `len` (byte length of UTF-8). Prefer char-safe bounds for non-ASCII.
+; Indices match `len` (byte length of the original string/bytes payload).
+; Prefer char-safe bounds for non-ASCII. Slice then lossy-decodes that range.
 ;
 ; Suite: xo test std/str.echo (XO_TEST).
 
@@ -290,6 +291,14 @@ test.bench("cat", () {
 
 test.bench("contains", () {
     $ ok = contains("the quick brown fox", "brown")
+})
+
+test.bench("slice_prefix_4k", () {
+    $ h = repeat("x", 4096)
+    | slice(h, 0, 1) {
+        $ t {}
+        ! e {}
+    }
 })
 
 test.bench("from_int", () {

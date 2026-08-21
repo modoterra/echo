@@ -123,7 +123,7 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_fs_file_write` | `int64_t (handle, data)` | 0 ok, `-1` fail |
 | `echo_runtime_fs_file_seek` | `int64_t (handle, pos)` | new offset, or `-1` |
 | `echo_runtime_fs_file_close` | `void (handle)` | close open file |
-| `echo_runtime_str_slice` | `int64_t (s, start, end)` | UTF-8 byte range `[start,end)`; empty if invalid |
+| `echo_runtime_str_slice` | `int64_t (s, start, end)` | UTF-8 **payload** byte range `[start,end)` then lossy-decode that slice; empty if invalid |
 | `echo_runtime_str_get` | `int64_t (s, index)` | UTF-8 byte 0..255, or -1 if OOB |
 | `echo_runtime_str_contains` | `int64_t (hay, needle)` | 1/0 substring |
 | `echo_runtime_str_starts_with` | `int64_t (s, prefix)` | 1/0 |

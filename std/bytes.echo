@@ -158,6 +158,19 @@ test.it("from_str", () {
     }
 })
 
+; str.slice indices are original payload bytes (0xff must not expand first).
+test.it("str_slice_raw_bytes", () {
+    $ raw = b"\xffAB"
+    | str.slice(raw, 1, 3) {
+        $ t {
+            test.eq(t, "AB")
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
 ; Benchmarks: real bytes APIs (build inputs in-body).
 test.bench("cat", () {
     $ b = cat(b'hello', b'world')

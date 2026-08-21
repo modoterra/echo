@@ -929,67 +929,76 @@ pub extern "C" fn echo_runtime_str_cat(a: i64, b: i64) -> i64 {
     string_to_handle(format!("{left}{right}"))
 }
 
-fn str_utf8(handle: i64) -> Option<String> {
+/// Borrow string/bytes payload (no full clone). Indices for slice are these bytes.
+fn str_payload_bytes(handle: i64) -> Option<&'static [u8]> {
     if let Some(s) = string_as_str(handle) {
-        return Some(s.to_owned());
+        return Some(s.as_bytes());
     }
-    bytes_as_slice(handle).map(|b| String::from_utf8_lossy(b).into_owned())
+    bytes_as_slice(handle)
+}
+
+/// UTF-8 view: borrow a string; lossy-decode bytes only when needed.
+fn str_as_utf8(handle: i64) -> Option<std::borrow::Cow<'static, str>> {
+    if let Some(s) = string_as_str(handle) {
+        return Some(std::borrow::Cow::Borrowed(s));
+    }
+    bytes_as_slice(handle).map(String::from_utf8_lossy)
 }
 
 /// Substring by **UTF-8 byte** indices `[start, end)` (half-open).
 ///
 /// Returns empty string handle if the range is invalid (`start < 0`, `end < start`,
 /// `end > len`, or not a string/bytes). Prefer bounds checks in `std/str`.
+/// Indices apply to the original payload; the slice is then lossy-decoded.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_slice(handle: i64, start: i64, end: i64) -> i64 {
-    let Some(s) = str_utf8(handle) else {
+    let Some(bytes) = str_payload_bytes(handle) else {
         return string_to_handle(String::new());
     };
-    let len = s.len() as i64;
+    let len = bytes.len() as i64;
     if start < 0 || end < start || end > len {
         return string_to_handle(String::new());
     }
     let a = start as usize;
     let b = end as usize;
-    // Slice may land mid-codepoint; still return those bytes as a new string
-    // (lossy if invalid UTF-8 mid-run is rare for well-formed inputs).
-    string_to_handle(String::from_utf8_lossy(&s.as_bytes()[a..b]).into_owned())
+    // Slice may land mid-codepoint; still return those bytes as a new string.
+    string_to_handle(String::from_utf8_lossy(&bytes[a..b]).into_owned())
 }
 
 /// 1 if `hay` contains `needle` as a substring (UTF-8 content); else 0.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_contains(hay: i64, needle: i64) -> i64 {
-    let Some(h) = str_utf8(hay) else {
+    let Some(h) = str_as_utf8(hay) else {
         return 0;
     };
-    let Some(n) = str_utf8(needle) else {
+    let Some(n) = str_as_utf8(needle) else {
         return 0;
     };
-    i64::from(h.contains(&n))
+    i64::from(h.contains(n.as_ref()))
 }
 
 /// 1 if `s` starts with `prefix`; else 0.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_starts_with(s: i64, prefix: i64) -> i64 {
-    let Some(h) = str_utf8(s) else {
+    let Some(h) = str_as_utf8(s) else {
         return 0;
     };
-    let Some(p) = str_utf8(prefix) else {
+    let Some(p) = str_as_utf8(prefix) else {
         return 0;
     };
-    i64::from(h.starts_with(&p))
+    i64::from(h.starts_with(p.as_ref()))
 }
 
 /// 1 if `s` ends with `suffix`; else 0.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_str_ends_with(s: i64, suffix: i64) -> i64 {
-    let Some(h) = str_utf8(s) else {
+    let Some(h) = str_as_utf8(s) else {
         return 0;
     };
-    let Some(p) = str_utf8(suffix) else {
+    let Some(p) = str_as_utf8(suffix) else {
         return 0;
     };
-    i64::from(h.ends_with(&p))
+    i64::from(h.ends_with(p.as_ref()))
 }
 
 /// Build a locator handle from UTF-8 path/URI bytes (copied).
@@ -1884,6 +1893,49 @@ mod tests {
         );
         assert_eq!(echo_runtime_str_get(h, 0), i64::from(b'a'));
         assert_eq!(echo_runtime_str_get(h, 99), -1);
+    }
+
+    /// Byte indices are against the original payload. Lossy-decoding the whole
+    /// buffer first expands `0xff` to U+FFFD (3 bytes) and shifts later indices.
+    #[test]
+    fn str_slice_indexes_original_bytes_not_lossy_expansion() {
+        let raw = [0xff, b'A', b'B'];
+        let h = unsafe { echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len()) };
+        assert_eq!(echo_runtime_str_len(h), 3);
+        let s = echo_runtime_str_slice(h, 1, 3);
+        assert_eq!(
+            string_as_str(s),
+            Some("AB"),
+            "slice [1,3) of [0xff, A, B] must be AB, not a window into U+FFFD"
+        );
+        let one = echo_runtime_str_slice(h, 1, 2);
+        assert_eq!(string_as_str(one), Some("A"));
+    }
+
+    /// Prefix slice of a large string must be cheaper than cloning the haystack
+    /// each time (`str_utf8` + `to_owned` used to copy all bytes).
+    #[test]
+    fn str_slice_prefix_cheaper_than_full_clone() {
+        use std::time::Instant;
+        let n = 1024 * 1024usize;
+        let s = "x".repeat(n);
+        let h = unsafe { echo_runtime_string_from_utf8(s.as_ptr(), s.len()) };
+        let reps = 400u32;
+        let t0 = Instant::now();
+        for _ in 0..reps {
+            assert_eq!(string_data(h).as_deref().map(str::len), Some(n));
+        }
+        let clone_dt = t0.elapsed();
+        let t1 = Instant::now();
+        for _ in 0..reps {
+            let p = echo_runtime_str_slice(h, 0, 1);
+            assert_eq!(string_as_str(p), Some("x"));
+        }
+        let slice_dt = t1.elapsed();
+        assert!(
+            slice_dt.as_nanos() < clone_dt.as_nanos() / 2 + 8_000_000,
+            "str_slice {slice_dt:?} must beat full-payload clone {clone_dt:?}"
+        );
     }
 
     #[test]
