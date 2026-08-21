@@ -1,20 +1,70 @@
 //! Process args, environment, exit, and spawn+wait (`std/process`).
 
 use std::process::Command;
+use std::sync::Mutex;
 
 use crate::{
     echo_runtime_list_new, echo_runtime_list_push, string_data, string_to_handle, EchoList,
     HEAP_MAGIC, KIND_LIST,
 };
 
+/// In-process host override for `echo_runtime_process_args` (JIT / tests).
+/// `None` → `std::env::args()` (AOT child, default).
+static PROCESS_ARGS_OVERRIDE: Mutex<Option<Vec<String>>> = Mutex::new(None);
+
+fn args_override_lock() -> std::sync::MutexGuard<'static, Option<Vec<String>>> {
+    PROCESS_ARGS_OVERRIDE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
+/// Replace process argv for this process until [`echo_runtime_process_clear_args`].
+pub fn echo_runtime_process_set_args(args: Vec<String>) {
+    *args_override_lock() = Some(args);
+}
+
+/// Restore `echo_runtime_process_args` to `std::env::args()`.
+pub fn echo_runtime_process_clear_args() {
+    *args_override_lock() = None;
+}
+
+/// Sets in-process argv; restores env argv on drop.
+pub struct ProcessArgsOverride;
+
+impl ProcessArgsOverride {
+    pub fn apply(args: Vec<String>) -> Self {
+        echo_runtime_process_set_args(args);
+        Self
+    }
+}
+
+impl Drop for ProcessArgsOverride {
+    fn drop(&mut self) {
+        echo_runtime_process_clear_args();
+    }
+}
+
 /// Current process arguments as a list of string handles (`argv[0]` is the program).
+///
+/// In-process JIT hosts install argv via [`ProcessArgsOverride`] so user args
+/// are not the host CLI (`xo run --jit …`).
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_process_args() -> i64 {
     let list = echo_runtime_list_new();
-    for a in std::env::args() {
-        let h = string_to_handle(a);
-        unsafe {
-            echo_runtime_list_push(list, h);
+    let override_args = args_override_lock().clone();
+    if let Some(args) = override_args {
+        for a in args {
+            let h = string_to_handle(a);
+            unsafe {
+                echo_runtime_list_push(list, h);
+            }
+        }
+    } else {
+        for a in std::env::args() {
+            let h = string_to_handle(a);
+            unsafe {
+                echo_runtime_list_push(list, h);
+            }
         }
     }
     list
@@ -151,6 +201,39 @@ mod tests {
         assert!(n >= 1, "expected at least argv0, got {n}");
         let a0 = unsafe { crate::echo_runtime_list_get(list, 0) };
         let text = string_data(a0).expect("argv0 string");
+        assert!(!text.is_empty());
+    }
+
+    #[test]
+    fn args_override_replaces_env_argv() {
+        let _g = ProcessArgsOverride::apply(vec![
+            "prog.echo".into(),
+            "--verbose".into(),
+            "in.echo".into(),
+        ]);
+        let list = echo_runtime_process_args();
+        let n = unsafe { crate::echo_runtime_list_len(list) };
+        assert_eq!(n, 3, "override argv length, got {n}");
+        let a0 = unsafe { crate::echo_runtime_list_get(list, 0) };
+        let a1 = unsafe { crate::echo_runtime_list_get(list, 1) };
+        let a2 = unsafe { crate::echo_runtime_list_get(list, 2) };
+        assert_eq!(string_data(a0).as_deref(), Some("prog.echo"));
+        assert_eq!(string_data(a1).as_deref(), Some("--verbose"));
+        assert_eq!(string_data(a2).as_deref(), Some("in.echo"));
+    }
+
+    #[test]
+    fn args_override_drop_restores_env_argv() {
+        {
+            let _g = ProcessArgsOverride::apply(vec!["only-override".into()]);
+            let list = echo_runtime_process_args();
+            let a0 = unsafe { crate::echo_runtime_list_get(list, 0) };
+            assert_eq!(string_data(a0).as_deref(), Some("only-override"));
+        }
+        let list = echo_runtime_process_args();
+        let a0 = unsafe { crate::echo_runtime_list_get(list, 0) };
+        let text = string_data(a0).expect("argv0 after clear");
+        assert_ne!(text, "only-override");
         assert!(!text.is_empty());
     }
 

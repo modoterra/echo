@@ -131,9 +131,10 @@ pub use test_suite::{
 // Process / env / spawn — JIT mapping.
 #[cfg(feature = "host-io")]
 pub use process::{
-    echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
-    echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
-    echo_runtime_process_run,
+    echo_runtime_process_args, echo_runtime_process_clear_args, echo_runtime_process_env_get,
+    echo_runtime_process_env_has, echo_runtime_process_env_set, echo_runtime_process_env_unset,
+    echo_runtime_process_exit, echo_runtime_process_run, echo_runtime_process_set_args,
+    ProcessArgsOverride,
 };
 
 // Filesystem — JIT mapping.

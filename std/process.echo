@@ -118,6 +118,12 @@ test.it("args_nonempty", () {
     test.true(list.len(a) >= 1)
 })
 
+test.it("e26_argv_is_program", () {
+    ; Same lock as echo26/run/process/005_argv_len: argv is the suite child, not `xo`.
+    $ a = args()
+    test.eq(list.len(a), 1)
+})
+
 test.it("env_roundtrip", () {
     $ key = "ECHO_STD_PROCESS_TEST"
     env_unset(key)

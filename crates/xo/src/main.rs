@@ -848,6 +848,14 @@ impl SuiteRun {
     }
 }
 
+/// JIT `process.args()`: source path as argv0, then trailing `xo run` args.
+fn jit_process_argv(path: &Path, args: &[String]) -> Vec<String> {
+    let mut v = Vec::with_capacity(1 + args.len());
+    v.push(path.to_string_lossy().into_owned());
+    v.extend_from_slice(args);
+    v
+}
+
 fn cmd_run_inner(
     path: &Path,
     jit: bool,
@@ -875,9 +883,8 @@ fn cmd_run_inner(
     }
 
     if jit {
-        if !args.is_empty() {
-            eprintln!("xo run --jit: program args not supported yet (ignored)");
-        }
+        // argv0 is the source path (no AOT child binary); then user args.
+        let _argv = echo_runtime::ProcessArgsOverride::apply(jit_process_argv(path, args));
         if suite.enabled {
             apply_suite_env(&suite);
             if suite.bench {
@@ -1896,6 +1903,16 @@ mod tests {
             Command::Build { opt_level, .. } => parse_opt_level(&opt_level),
             other => Err(format!("expected Build, got {other:?}")),
         }
+    }
+
+    #[test]
+    fn jit_process_argv_source_then_user() {
+        let p = Path::new("app.echo");
+        assert_eq!(
+            jit_process_argv(p, &["--verbose".into(), "in.echo".into()]),
+            vec!["app.echo", "--verbose", "in.echo"]
+        );
+        assert_eq!(jit_process_argv(p, &[]), vec!["app.echo"]);
     }
 
     #[test]

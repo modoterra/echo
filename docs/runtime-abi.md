@@ -95,7 +95,7 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_test_finish` | `int64_t (void)` | Suite: run tests or benches → fail count; `-1` if suite off |
 | `echo_runtime_now_ms` | `int64_t (void)` | Wall clock ms since Unix epoch |
 | `echo_runtime_sleep_ms` | `void (int64_t ms)` | Sleep ≥ `ms` (no-op if `ms ≤ 0`) |
-| `echo_runtime_process_args` | `int64_t (void)` | argv as list of string handles |
+| `echo_runtime_process_args` | `int64_t (void)` | argv as list of string handles; in-process JIT hosts override to source path + user args (not the `xo` CLI) |
 | `echo_runtime_process_env_has` | `int64_t (name)` | 1 if env var set, else 0 |
 | `echo_runtime_process_env_get` | `int64_t (name)` | string handle; empty if unset |
 | `echo_runtime_process_env_set` | `void (name, value)` | set env var (strings) |
