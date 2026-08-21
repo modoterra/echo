@@ -77,6 +77,18 @@ wrapper so runners without sccache still compile.
 | macOS | For **cargo build only**: system `clang` as linker driver + tarball **`ld64.lld`** (`-fuse-ld=…`) so LLVM 22 bitcode links; explicit `-lc++`/`-lc++abi`; min macOS 14. Do **not** set `CC`/`CXX` to LLVM clang. | Job-global `DYLD_LIBRARY_PATH`; `CC`/`CXX`=LLVM clang (missing SDK headers) |
 | Windows | `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH`; `scripts/ci/windows-llvm-deps.sh` supplies **`xml2s.lib`** (from ShiftMedia libxml2) into LLVM `lib/` + `LIB=` | raw `D:\…` extract dirs (break `tar`) |
 
+**Windows LLVM rpmalloc vs UCRT:** official LLVM 19+ x64 tarballs build
+LLVMSupport with in-tree **rpmalloc** replacing CRT `malloc` / `free` /
+`realloc` (static `/MT`). rustc on MSVC links the UCRT (`/MD`). llvm-sys
+`prefer-dynamic` still falls back to static on MSVC (dynamic LLVM is
+unsupported there). The `xo.exe` link then fails **LNK2005** /
+**LNK1169** (`rpmalloc.c.obj` vs `ucrt.lib`). Workspace
+[`.cargo/config.toml`](../.cargo/config.toml) `[target.x86_64-pc-windows-msvc]`
+and [`crates/xo/build.rs`](../crates/xo/build.rs) pass `/FORCE:MULTIPLE` and
+`/NODEFAULTLIB:libcmt` so the first (rpmalloc) heap symbols win and LLVM’s
+`libcmt` defaultlib is dropped. Crate proof:
+`windows_msvc_llvm_rpmalloc_link_flags`.
+
 **Windows runtime:** net park uses a short yield instead of `mio::unix::SourceFd` (Unix-only).
 Task scheduling still uses portable `mio::Poll` + `Waker`. Unix domain socket
 natives (`echo_runtime_unix_*`) compile as stubs that return handle 0 / write
@@ -110,5 +122,7 @@ and finite example programs. The PR workflow does not run those layers yet.
 
 - Windows **AOT** (`xo run` via clang + pthread/dl flags) is not yet first-class;
   shipping `xo.exe` for check/fmt/lsp/repl is still the goal of the Windows build.
-- Dynamic LLVM (`prefer-dynamic`) may need `PATH` / DLL layout on Windows; CI
-  puts the LLVM bin dir on `PATH`.
+- Dynamic LLVM (`prefer-dynamic`) is **not** used on Windows MSVC (llvm-sys
+  refuses `--link-shared` there). Static LLVM + rpmalloc is linked with
+  `/FORCE:MULTIPLE` (see table above). CI still puts the LLVM bin dir on
+  `PATH` for `llvm-config`.

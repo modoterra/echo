@@ -1906,6 +1906,31 @@ mod tests {
     }
 
     #[test]
+    fn windows_msvc_llvm_rpmalloc_link_flags() {
+        // v0.0.1-alpha.11 windows-x86_64: LNK2005 malloc/free/realloc already
+        // defined in llvm-sys rlib (rpmalloc.c.obj) vs ucrt.lib.
+        let build = include_str!("../build.rs");
+        assert!(
+            build.contains("/FORCE:MULTIPLE"),
+            "xo MSVC link must keep rpmalloc malloc over UCRT"
+        );
+        assert!(
+            build.contains("/NODEFAULTLIB:libcmt"),
+            "xo MSVC link must not mix LLVM /MT libcmt with rustc /MD"
+        );
+        let cargo_config = include_str!("../../../.cargo/config.toml");
+        assert!(
+            cargo_config.contains("x86_64-pc-windows-msvc"),
+            "workspace MSVC rustflags must exist for llvm-sys test bins"
+        );
+        assert!(cargo_config.contains("/FORCE:MULTIPLE"), "{cargo_config}");
+        assert!(
+            cargo_config.contains("/NODEFAULTLIB:libcmt"),
+            "{cargo_config}"
+        );
+    }
+
+    #[test]
     fn jit_process_argv_source_then_user() {
         let p = Path::new("app.echo");
         assert_eq!(

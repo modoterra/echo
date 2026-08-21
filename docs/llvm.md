@@ -61,7 +61,11 @@ LLVM IR emission, optimization modes (`-O`), JIT vs AOT, and host tools (`opt`,
 ## Facts
 
 - Backend library: **inkwell** with **`llvm22-1-prefer-dynamic`** (LLVM **22**)
-  and host targets **`target-x86`** + **`target-aarch64`**.
+  and host targets **`target-x86`** + **`target-aarch64`**. On Windows MSVC,
+  llvm-sys still **statically** links official LLVM (no `--link-shared`);
+  `xo.exe` then needs `/FORCE:MULTIPLE` + `/NODEFAULTLIB:libcmt` because
+  LLVMSupport vendors rpmalloc as `malloc`/`free`/`realloc` (see
+  [`ci.md`](ci.md)).
 - AOT path: emit LLVM IR text (`.ll`) → host **clang** links with
   `libecho_runtime.a` (+ pthread, dl, m). Mid-end opts run **in-process** via
   inkwell; clang is invoked at `-O0` so it does not re-run the mid-end.

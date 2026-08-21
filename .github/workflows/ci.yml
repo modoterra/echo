@@ -249,7 +249,8 @@ jobs:
             short_and_long \
             invalid_opt \
             ir_run_build_share \
-            aot_cache_key
+            aot_cache_key \
+            windows_msvc_llvm
 
       - name: Smoke — xo run hello (AOT)
         run: |
