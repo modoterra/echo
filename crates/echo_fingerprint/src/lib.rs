@@ -38,8 +38,8 @@ pub const MIR_SCHEMA_VERSION: u32 = 7; // MirExpr::BytesInterp
 pub const CODEGEN_VERSION: u32 = 21; // bytes_from_value for live b"…"
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 50; // str_slice indexes original bytes, not lossy expansion
-pub const STDLIB_VERSION: u32 = 33; // path.class / is_uri; locator_class
+pub const RUNTIME_ABI_VERSION: u32 = 51; // http complete/parse borrow payload
+pub const STDLIB_VERSION: u32 = 34; // http.handle_connection accumulates bytes
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;
 pub const PROJECT_METADATA_VERSION: u32 = 1;

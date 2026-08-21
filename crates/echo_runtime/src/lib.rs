@@ -1736,6 +1736,13 @@ fn normalize_header_name(name: &str) -> String {
     out
 }
 
+/// Borrow HTTP raw payload (bytes handle, else UTF-8 of a string). No clone.
+fn http_raw_bytes(raw: i64) -> &'static [u8] {
+    bytes_as_slice(raw)
+        .or_else(|| string_as_str(raw).map(str::as_bytes))
+        .unwrap_or(&[])
+}
+
 /// Return 1 if `raw` (string or bytes) contains a complete HTTP header block
 /// (`\r\n\r\n`), else 0. Used by `http.handle_connection` to accumulate reads.
 ///
@@ -1743,9 +1750,7 @@ fn normalize_header_name(name: &str) -> String {
 /// `raw` is 0 or a valid string/bytes handle.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_runtime_http_headers_complete(raw: i64) -> i64 {
-    let bytes = bytes_data(raw)
-        .or_else(|| string_data(raw).map(|s| s.into_bytes()))
-        .unwrap_or_default();
+    let bytes = http_raw_bytes(raw);
     if bytes.windows(4).any(|w| w == b"\r\n\r\n") {
         1
     } else {
@@ -1761,9 +1766,7 @@ pub unsafe extern "C" fn echo_runtime_http_headers_complete(raw: i64) -> i64 {
 /// `raw` is 0 or a valid string/bytes handle.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_runtime_http_request_complete(raw: i64) -> i64 {
-    let bytes = bytes_data(raw)
-        .or_else(|| string_data(raw).map(|s| s.into_bytes()))
-        .unwrap_or_default();
+    let bytes = http_raw_bytes(raw);
     if !bytes.windows(4).any(|w| w == b"\r\n\r\n") {
         return 0;
     }
@@ -1804,9 +1807,7 @@ pub unsafe extern "C" fn echo_runtime_http_request_complete(raw: i64) -> i64 {
 /// `raw` is 0 or a valid string/bytes handle.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn echo_runtime_http_parse_request(raw: i64) -> i64 {
-    let bytes = bytes_data(raw)
-        .or_else(|| string_data(raw).map(|s| s.into_bytes()))
-        .unwrap_or_default();
+    let bytes = http_raw_bytes(raw);
 
     let mut headers_buf = [httparse::EMPTY_HEADER; 64];
     let mut req = httparse::Request::new(&mut headers_buf);
@@ -2157,6 +2158,46 @@ mod tests {
             assert_eq!(echo_runtime_http_headers_complete(p), 0);
             assert_eq!(echo_runtime_http_headers_complete(f), 1);
             assert_eq!(echo_runtime_http_headers_complete(0), 0);
+        }
+    }
+
+    /// Completeness checks run on every `handle_connection` read. Cloning the
+    /// growing buffer each time is Θ(n) extra memcpy (same class as old `str_slice`).
+    #[test]
+    fn http_request_complete_cheaper_than_full_clone() {
+        use std::time::Instant;
+        let mut raw = b"GET / HTTP/1.1\r\nHost: x\r\n\r\n".to_vec();
+        raw.resize(1024 * 1024, b'x');
+        let h = unsafe { echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len()) };
+        let reps = 1500u32;
+        let t0 = Instant::now();
+        for _ in 0..reps {
+            assert_eq!(bytes_data(h).as_deref().map(<[u8]>::len), Some(raw.len()));
+        }
+        let clone_dt = t0.elapsed();
+        let t1 = Instant::now();
+        for _ in 0..reps {
+            assert_eq!(unsafe { echo_runtime_http_request_complete(h) }, 1);
+        }
+        let complete_dt = t1.elapsed();
+        assert!(
+            complete_dt.as_nanos() < clone_dt.as_nanos() / 2 + 8_000_000,
+            "http_request_complete {complete_dt:?} must beat full-payload clone {clone_dt:?}"
+        );
+    }
+
+    #[test]
+    fn http_parse_utf8_body_after_byte_concat() {
+        let mut raw = b"POST /e HTTP/1.1\r\nContent-Length: 2\r\n\r\n".to_vec();
+        raw.push(0xc3);
+        raw.push(0xa9);
+        unsafe {
+            let h = echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len());
+            assert_eq!(echo_runtime_http_request_complete(h), 1);
+            let p = echo_runtime_http_parse_request(h);
+            let body = b"body";
+            let b = echo_runtime_struct_get(p, body.as_ptr(), body.len());
+            assert_eq!(string_as_str(b), Some("é"));
         }
     }
 

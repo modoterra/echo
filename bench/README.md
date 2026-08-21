@@ -50,7 +50,8 @@ built in the bench body (Echo free functions are closed; no outer captures).
 **Runtime hot-path notes (keep green):** `bytes_get`/`str_get`/`bytes_len` must
 **borrow** heap payloads (no full-buffer clone per index). `str_slice` /
 `str_contains` / `starts_with` / `ends_with` borrow then copy only the result
-range. `str.repeat` is O(n) via `runtime.str_repeat`. Map/set bucket arrays use
+range. HTTP `request_complete` / `parse_request` borrow the accumulating buffer.
+`str.repeat` is O(n) via `runtime.str_repeat`. Map/set bucket arrays use
 `runtime.list_new_empty_lists`.
 
 ## Notes

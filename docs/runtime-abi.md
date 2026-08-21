@@ -235,9 +235,9 @@ an integer or float value; they are not general ascriptions.
 |---------|----------|
 | `runtime.print` (std only, via `/ runtime`) | `echo_runtime_print_i64` — **strings only** |
 | `runtime.str_from_int` / `str_from_float` / `str_from_bytes` / `str_from_duration` / `str_from_locator` | explicit convert → string for print |
-| `runtime.http_headers_complete` | 1 if `\r\n\r\n` present |
-| `runtime.http_request_complete` | 1 if headers + body for `Content-Length` (if any) ready |
-| `runtime.http_parse_request` | method/path/headers/body product |
+| `runtime.http_headers_complete` | 1 if `\r\n\r\n` present (borrows string/bytes payload) |
+| `runtime.http_request_complete` | 1 if headers + body for `Content-Length` (if any) ready (borrows) |
+| `runtime.http_parse_request` | method/path/headers/body product (borrows raw; body lossy-decoded once) |
 | locator lit | `echo_runtime_locator_from_utf8` |
 | bytes lit | `echo_runtime_bytes_from_ptr` |
 | Bare userland `print` | **Not** an intrinsic (unbound unless user-defined) |

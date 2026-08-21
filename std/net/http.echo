@@ -6,6 +6,7 @@
 / runtime
 / std/test
 / std/str
+/ std/bytes
 / std/io
 / std/net/tcp
 / std/net/request
@@ -93,27 +94,27 @@ $ dispatch = (routes, req) {
     ^ text_response(404, "not found: {path}")
 }
 
-; One TCP connection (% conn): accumulate until request is complete
+; One TCP connection (% conn): accumulate **bytes** until request is complete
 ; (headers + body up to Content-Length when present), then respond.
+; Per-chunk `str.from_bytes` would split UTF-8 and shift Content-Length.
 ; Free-fn param `c` is monomorphic `% conn` from call sites → methods resolve.
 $ handle_connection = (c, routes) {
-    ~ raw = ""
+    ~ raw = b''
     * i : 0..256 {
         $ chunk = c.read(65536)
-        $ s = str.from_bytes(chunk)
-        ? str.len(s) == 0 {
-            ? str.len(raw) == 0 {
+        ? bytes.len(chunk) == 0 {
+            ? bytes.len(raw) == 0 {
                 c.close()
                 ^
             }
             <
         }
-        ~ raw = str.cat(raw, s)
+        ~ raw = bytes.cat(raw, chunk)
         ? runtime.http_request_complete(raw) != 0 {
             <
         }
     }
-    ? str.len(raw) == 0 {
+    ? bytes.len(raw) == 0 {
         c.close()
         ^
     }
@@ -157,6 +158,15 @@ test.it("e26_body_content_length", () {
     test.eq(req.method, "POST")
     test.eq(req.path, "/echo")
     test.eq(req.body, "hello")
+})
+
+; Two TCP-sized chunks that split UTF-8 `é` (U+00E9 = c3 a9).
+test.it("parse_split_utf8_chunks", () {
+    $ headers = b"POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\n"
+    $ c1 = bytes.cat(headers, b"\xc3")
+    $ raw = bytes.cat(c1, b"\xa9")
+    $ req = parse_request(raw)
+    test.eq(req.body, "é")
 })
 
 ; Public API (export discipline — docs/stdlib.md):
