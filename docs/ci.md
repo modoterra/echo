@@ -3,7 +3,7 @@
 | | |
 |--|--|
 | **Status** | Active |
-| **Workflows** | [`.github/workflows/pr.yml`](../.github/workflows/pr.yml) (PRs), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (releases) |
+| **Workflows** | [`.github/workflows/pr.yml`](../.github/workflows/pr.yml) (PRs), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (releases), [`.github/workflows/pages-redirect.yml`](../.github/workflows/pages-redirect.yml) (GitHub Pages → xo.run) |
 | **Related** | [`development-speed.md`](development-speed.md), [`llvm.md`](llvm.md), [`fixtures.md`](fixtures.md) |
 
 ## Triggers
@@ -12,11 +12,18 @@
 |----------|------|------|
 | **PR** | [`.github/workflows/pr.yml`](../.github/workflows/pr.yml) | Every **pull request** — Linux only |
 | **CI (release)** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | GitHub **Release published** only |
+| **Pages redirect** | [`.github/workflows/pages-redirect.yml`](../.github/workflows/pages-redirect.yml) | Push to `main` when the redirect stub changes, or `workflow_dispatch` |
 
 Multi-platform **release** builds do **not** run on push, PR, bare tags, or
 manual dispatch.
 
 Local day-to-day gate remains `scripts/gate echo26` / `cargo test` on the developer machine.
+
+The public site is [https://xo.run](https://xo.run) (Cloudflare Pages, `www/`).
+GitHub Pages is enabled with a workflow build so the default project host
+redirects there. The workflow publishes only
+[`.github/pages-redirect/`](../.github/pages-redirect/); it does not build
+`www/`.
 
 ## PR gate (`pr.yml`)
 
@@ -52,7 +59,9 @@ version                 # release tag
 ```
 
 Users install with `scripts/install.sh from-release` (see
-[`docs/install.md`](install.md)).
+[`docs/install.md`](install.md)). The current published tag is a prerelease
+and may not include every matrix artifact; `/install` lists what that tag
+attached.
 
 Each job installs **LLVM 22** from **official**
 [`llvm/llvm-project` release tarballs](https://github.com/llvm/llvm-project/releases)

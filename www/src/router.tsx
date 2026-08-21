@@ -25,6 +25,8 @@ import { DocsSearch } from "./components/docs-search";
 import { EchoCode } from "./components/echo-code";
 import { Logo } from "./components/logo";
 import { InstallPage } from "./install";
+import { LegalPage } from "./legal";
+import { SecurityPage } from "./security";
 import { TryPage } from "./try";
 import {
   docsPageByPath,
@@ -38,51 +40,16 @@ import {
   type DocsPage,
   type DocsTextPart,
 } from "./docs/content";
-import { installCta, primaryNav, primaryNavItemIsActive, type SiteLink } from "./docs/site";
-
-type FooterLink = {
-  label: string;
-  href: string;
-  disabled?: boolean;
-};
-
-type FooterLinkGroup = {
-  title: string;
-  links: FooterLink[];
-};
-
-const footerLinkGroups: FooterLinkGroup[] = [
-  {
-    title: "Learn",
-    links: [
-      { label: "Install", href: "/install" },
-      { label: "Try Echo", href: "/try" },
-      { label: "First program", href: "/docs/first-program" },
-      { label: "Documents", href: "/docs" },
-      { label: "Book", href: "/book" },
-      { label: "Echo 2026", href: "/e26" },
-    ],
-  },
-  {
-    title: "Community",
-    links: [
-      {
-        label: "GitHub",
-        href: "https://github.com/modoterra/echo",
-      },
-      { label: "Discord", href: "#", disabled: true },
-    ],
-  },
-  {
-    title: "About",
-    links: [
-      {
-        label: "Modoterra",
-        href: "https://modoterra.xyz",
-      },
-    ],
-  },
-];
+import {
+  footerBlurb,
+  footerLinkGroups,
+  installCta,
+  primaryNav,
+  primaryNavItemIsActive,
+  privacyPage,
+  termsPage,
+  type SiteLink,
+} from "./docs/site";
 
 type DocsShellProps = {
   category: string;
@@ -359,10 +326,7 @@ function SiteFooter() {
       <div className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[minmax(0,360px)_1fr]">
         <section>
           <p className="max-w-sm text-xl font-semibold leading-8 text-slate-950">Echo</p>
-          <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">
-            A compiled language with statement leaders. The xo CLI checks programs and emits native
-            binaries.
-          </p>
+          <p className="mt-5 max-w-sm text-sm leading-6 text-slate-500">{footerBlurb}</p>
           <p className="mt-10 text-sm text-slate-400">© 2026 Modoterra Corporation</p>
         </section>
 
@@ -373,14 +337,12 @@ function SiteFooter() {
               <ul className="mt-6 flex flex-col gap-4">
                 {group.links.map((link) => (
                   <li key={link.label}>
-                    {link.disabled ? (
-                      <span className="text-sm text-slate-300">{link.label}</span>
-                    ) : link.href.startsWith("http") ? (
+                    {link.href.startsWith("http") ? (
                       <a
                         className="text-sm text-slate-500 transition hover:text-slate-950"
                         href={link.href}
-                        rel="noreferrer"
-                        target="_blank"
+                        rel={link.href.startsWith("mailto:") ? undefined : "noreferrer"}
+                        target={link.href.startsWith("mailto:") ? undefined : "_blank"}
                       >
                         {link.label}
                       </a>
@@ -988,10 +950,28 @@ const installRoute = createRoute({
   component: InstallPage,
 });
 
+const securityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/security",
+  component: SecurityPage,
+});
+
 const tryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/try",
   component: TryPage,
+});
+
+const privacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/privacy",
+  component: () => <LegalPage page={privacyPage} />,
+});
+
+const termsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/terms",
+  component: () => <LegalPage page={termsPage} />,
 });
 
 // ── /docs (all paths from docsPages under /docs) ─────────────────────
@@ -1072,7 +1052,10 @@ const e26Children = [
 const routeTree = rootRoute.addChildren([
   indexRoute,
   installRoute,
+  securityRoute,
   tryRoute,
+  privacyRoute,
+  termsRoute,
   docsLayoutRoute.addChildren(docsChildren),
   bookLayoutRoute.addChildren(bookChildren),
   e26LayoutRoute.addChildren(e26Children),

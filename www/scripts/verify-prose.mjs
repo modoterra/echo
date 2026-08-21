@@ -128,7 +128,9 @@ try {
 
   const { docsPages, docsPageByPath } = content;
   const { stdModules } = ref;
-  const { homePage, docsHubCatalog } = site;
+  const { homePage, docsHubCatalog, footerBlurb, legalPages, tryPage } = site;
+  const install = await server.ssrLoadModule("/src/docs/install-content.ts");
+  const { installPage, inlineText } = install;
 
   const failures = [];
   const prose = [];
@@ -150,6 +152,15 @@ try {
 
   prose.push({ where: "home definition", text: homePage.definition });
   prose.push({ where: "home lead", text: homePage.lead });
+  prose.push({ where: "home status", text: homePage.status });
+  prose.push({ where: "footer blurb", text: footerBlurb });
+  prose.push({ where: "try lead", text: tryPage.lead });
+  prose.push({ where: "install lead", text: inlineText(installPage.lead) });
+  for (const section of installPage.sections) {
+    for (const paragraph of section.paragraphs) {
+      prose.push({ where: `install ${section.title}`, text: inlineText(paragraph) });
+    }
+  }
   for (const link of homePage.links) {
     prose.push({ where: `home link ${link.title}`, text: link.description });
   }
@@ -157,6 +168,14 @@ try {
     prose.push({ where: `hub ${group.title}`, text: group.description });
     for (const entry of group.entries) {
       prose.push({ where: `hub ${group.title} ${entry.title}`, text: entry.description });
+    }
+  }
+  for (const page of legalPages) {
+    prose.push({ where: `${page.path} summary`, text: page.summary });
+    for (const section of page.sections) {
+      for (const paragraph of section.paragraphs) {
+        prose.push({ where: `${page.path}#${section.title}`, text: paragraph });
+      }
     }
   }
 
@@ -189,7 +208,15 @@ try {
   }
 
   // High-visibility TSX chrome: em dashes + slogan templates inside string literals
-  const tsxFiles = ["src/app.tsx", "src/install.tsx", "src/router.tsx", "src/docs/site.ts"];
+  const tsxFiles = [
+    "src/app.tsx",
+    "src/install.tsx",
+    "src/legal.tsx",
+    "src/security.tsx",
+    "src/router.tsx",
+    "src/docs/site.ts",
+    "src/docs/install-content.ts",
+  ];
   const stringLitRe = /"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
   for (const rel of tsxFiles) {
     const src = readFileSync(path.join(root, rel), "utf8");

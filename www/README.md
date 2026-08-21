@@ -24,10 +24,13 @@ just try     # wasm + npm --prefix www run dev
 
 `npm run dev` starts the local site. `npm run lint`, `npm run format`,
 `npm run test`, and `npm run build` validate the site before publishing
-`www/dist`. The docs-first homepage, primary nav, and Documents catalog live
-in `src/docs/site.ts`.
+`www/dist`. The docs-first homepage, primary nav, Documents catalog, and
+discovery files live in `src/docs/site.ts`.
 
 ## Cloudflare Pages
+
+The live host is [https://xo.run](https://xo.run). GitHub Pages is not the
+product site; it only redirects to `xo.run`.
 
 Same layout as the previous `xo.run` site:
 
@@ -41,8 +44,18 @@ Same layout as the previous `xo.run` site:
 bindings when the frontend or `std/**/*.echo` changes so Pages can ship the
 playground without a Rust toolchain.
 
-SPA deep links use the same `public/404.html` → `/?/path` bounce and
-`index.html` restore script as before. Custom domain: `public/CNAME` → `xo.run`.
+Content routes (Documents, Packages, Spec, Install, First program, Book, and
+the rest of the docs tree) are written as `dist/<path>/index.html` so those
+URLs are real pages. Unknown paths use `public/_redirects`
+(`/* /index.html 200`) so they are a rewrite, not HTTP 404. Crawlers and
+`curl` see 200. Existing static files still win. `public/404.html` remains
+the older browser bounce for hosts that still fall back to a 404 page;
+`index.html` restores `?/` paths from that bounce. Custom domain:
+`public/CNAME` → `xo.run`. Wasm bindings stay in `public/echo-wasm/`.
+
+`/robots.txt` is a static file. `/sitemap.xml` is emitted at build from the
+public catalog (`staticPages` and site chrome). Both use `https://xo.run`.
+Privacy and Terms are listed only when those pages exist.
 
 ## Search
 

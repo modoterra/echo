@@ -1,14 +1,23 @@
 /**
  * Verifies the shipped docs-first site model:
  * - homepage definition, leader-bearing sample, docs/std/spec links
+ * - public facts: compiled language, MIT, Rust, LLVM, xo, Echo 2026, prerelease
+ * - no production-ready, crates.io, Windows, or Discord claims
  * - primary nav labels and paths
+ * - footer About links Privacy, Terms, and MIT; Discord stays hidden
+ * - legal pages use @modoterra.xyz mail only
  * - Documents hub catalog groups
+ * - security mailbox, SECURITY.md, and footer /security pointer
  * - every language-feature catalog entry is a real page with a summary
  *   and at least one Echo code block
+ * - catalog, footer, and nav destinations have static HTML snapshots
  *
- * Loads src/docs/site.ts and src/docs/content.ts through Vite SSR.
+ * Loads src/docs/site.ts, src/docs/content.ts, and src/lib/current-release.ts
+ * through Vite SSR. Also checks that /install, README, and docs/install.md
+ * name the current prerelease and its real assets.
  */
 import { createServer } from "vite";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -24,17 +33,28 @@ const server = await createServer({
 try {
   const site = await server.ssrLoadModule("/src/docs/site.ts");
   const content = await server.ssrLoadModule("/src/docs/content.ts");
+  const release = await server.ssrLoadModule("/src/lib/current-release.ts");
 
   const {
     docsHubCatalog,
+    footerBlurb,
+    footerLinkGroups,
     homePage,
     installCta,
     languageFeatureEntries,
+    legalPages,
     primaryNav,
     primaryNavItemIsActive,
+    privacyPage,
+    publicChromePaths,
+    publicMailAddresses,
     renderStaticHomeAndHub,
+    securityContact,
+    termsPage,
   } = site;
   const { docsPageByPath } = content;
+  const staticHtml = await server.ssrLoadModule("/src/docs/static-html.ts");
+  const { distFileForPath, staticPageByPath } = staticHtml;
 
   const failures = [];
 
@@ -47,6 +67,35 @@ try {
   }
   if (!/^\$ /m.test(homePage.sample) || !/^~ /m.test(homePage.sample)) {
     fail("homePage.sample must show $ and ~ statement leaders");
+  }
+
+  const publicChrome = [homePage.definition, homePage.lead, homePage.status, footerBlurb].join(
+    "\n",
+  );
+  const requiredFacts = [
+    "compiled language",
+    "MIT",
+    "Rust",
+    "LLVM",
+    "xo",
+    "Echo 2026",
+    "prerelease",
+  ];
+  for (const needle of requiredFacts) {
+    if (!new RegExp(needle, "i").test(publicChrome)) {
+      fail(`public chrome must mention ${needle}`);
+    }
+  }
+  for (const banned of [
+    "production-ready",
+    "production ready",
+    "crates.io",
+    "Windows",
+    "Discord",
+  ]) {
+    if (publicChrome.toLowerCase().includes(banned.toLowerCase())) {
+      fail(`public chrome must not mention ${banned}`);
+    }
   }
 
   const homeTargets = new Set(homePage.links.map((link) => link.to));
@@ -70,6 +119,79 @@ try {
   }
   if (installCta.label !== "Install" || installCta.to !== "/install") {
     fail("installCta must be Install → /install");
+  }
+
+  const footerLinks = footerLinkGroups.flatMap((group) => group.links);
+  const footerByLabel = new Map(footerLinks.map((link) => [link.label, link.href]));
+  if (footerByLabel.get("Privacy") !== "/privacy") {
+    fail(`footer Privacy should be /privacy, got ${footerByLabel.get("Privacy")}`);
+  }
+  if (footerByLabel.get("Terms") !== "/terms") {
+    fail(`footer Terms should be /terms, got ${footerByLabel.get("Terms")}`);
+  }
+  if (footerByLabel.get("Security") !== securityContact.path) {
+    fail(`footer Security should be ${securityContact.path}, got ${footerByLabel.get("Security")}`);
+  }
+  if (footerByLabel.get("Modoterra") !== "https://modoterra.xyz") {
+    fail("footer About must keep the Modoterra company link");
+  }
+  if (footerByLabel.get("MIT License") !== "https://github.com/modoterra/echo/blob/main/LICENSE") {
+    fail("footer About must link the MIT License");
+  }
+  if (footerByLabel.has("Discord") || footerLinks.some((link) => /discord/i.test(link.label))) {
+    fail("footer must hide Discord until there is a public invite");
+  }
+
+  const expectedMail = ["hello@modoterra.xyz", "security@modoterra.xyz", "oss@modoterra.xyz"];
+  if (JSON.stringify([...publicMailAddresses]) !== JSON.stringify(expectedMail)) {
+    fail(`publicMailAddresses must be ${expectedMail.join(", ")}`);
+  }
+
+  if (privacyPage.path !== "/privacy" || termsPage.path !== "/terms") {
+    fail("legal pages must live at /privacy and /terms");
+  }
+  if (legalPages.length !== 2) {
+    fail("legalPages should be Privacy and Terms only");
+  }
+
+  const legalText = legalPages
+    .flatMap((page) => [page.summary, ...page.sections.flatMap((section) => section.paragraphs)])
+    .join("\n");
+  for (const address of expectedMail) {
+    if (!legalText.includes(address)) {
+      fail(`legal pages missing ${address}`);
+    }
+  }
+  if (/@modoterra\.com\b/.test(legalText)) {
+    fail("legal pages must not publish @modoterra.com");
+  }
+  if (legalText.includes("github.io")) {
+    fail("legal pages must not list github.io");
+  }
+  const publishedMail = legalText.match(/[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+/gi) ?? [];
+  for (const address of publishedMail) {
+    if (!address.endsWith("@modoterra.xyz")) {
+      fail(`legal pages published non-xyz mail: ${address}`);
+    }
+  }
+
+  if (securityContact.email !== "security@modoterra.xyz") {
+    fail(`security mailbox must be security@modoterra.xyz, got ${securityContact.email}`);
+  }
+  if (/@modoterra\.com\b/.test(securityContact.email)) {
+    fail("public mail must use @modoterra.xyz, never @modoterra.com");
+  }
+  if (securityContact.mailto !== `mailto:${securityContact.email}`) {
+    fail("securityContact.mailto must match the public mailbox");
+  }
+  if (securityContact.path !== "/security") {
+    fail("securityContact.path must be /security");
+  }
+  if (!securityContact.policyUrl.includes("SECURITY.md")) {
+    fail("securityContact.policyUrl must point at SECURITY.md");
+  }
+  if (!securityContact.policyUrl.includes("github.com/modoterra/echo")) {
+    fail("securityContact.policyUrl must point at this repository");
   }
 
   if (!primaryNavItemIsActive("/docs", "/docs/leaders")) {
@@ -135,18 +257,144 @@ try {
     }
   }
 
+  const { currentPrereleaseTag, currentPrereleaseAssets, currentPrereleaseUrl, releasesIndexUrl } =
+    release;
+  if (currentPrereleaseTag !== "v0.0.1-alpha.9") {
+    fail(`currentPrereleaseTag should be v0.0.1-alpha.9, got ${currentPrereleaseTag}`);
+  }
+  const artifactIds = currentPrereleaseAssets.map((asset) => asset.artifact);
+  if (artifactIds.join(",") !== "linux-x86_64,macos-arm64") {
+    fail(`current prerelease assets should be linux-x86_64 and macos-arm64, got ${artifactIds}`);
+  }
+  if (currentPrereleaseAssets.some((asset) => /windows/i.test(asset.artifact + asset.archive))) {
+    fail("current prerelease must not claim a Windows tarball");
+  }
+  if (!currentPrereleaseUrl.endsWith(`/releases/tag/${currentPrereleaseTag}`)) {
+    fail("currentPrereleaseUrl must point at the current tag, not /releases/latest");
+  }
+  if (releasesIndexUrl.endsWith("/releases/latest")) {
+    fail("releasesIndexUrl must not be /releases/latest");
+  }
+
+  const repoRoot = path.resolve(root, "..");
+  const installPage = readFileSync(path.join(root, "src/install.tsx"), "utf8");
+  const installContent = readFileSync(path.join(root, "src/docs/install-content.ts"), "utf8");
+  const installSources = `${installPage}\n${installContent}`;
+  const readme = readFileSync(path.join(repoRoot, "README.md"), "utf8");
+  const installDoc = readFileSync(path.join(repoRoot, "docs/install.md"), "utf8");
+  const installSh = readFileSync(path.join(repoRoot, "scripts/install.sh"), "utf8");
+  if (
+    !installSources.includes("current-release") ||
+    !installSources.includes("currentPrereleaseTag")
+  ) {
+    fail("install page must render the current prerelease from current-release.ts");
+  }
+  if (
+    !installSources.includes("from-release") ||
+    !installSources.includes("currentPrereleaseTag")
+  ) {
+    fail("install page must show from-release and how to pin the current tag");
+  }
+  if (/windows-x86_64/.test(installSources)) {
+    fail("install page must not claim a Windows tarball");
+  }
+  if (!/prerelease/i.test(installSources) || !/prerelease/i.test(readme)) {
+    fail("install page and README must say published builds are prereleases");
+  }
+  for (const [label, text] of [
+    ["README.md", readme],
+    ["docs/install.md", installDoc],
+    ["scripts/install.sh", installSh],
+  ]) {
+    if (!text.includes(currentPrereleaseTag)) {
+      fail(`${label} must name ${currentPrereleaseTag}`);
+    }
+    if (!text.includes("xo-linux-x86_64") || !text.includes("xo-macos-arm64")) {
+      fail(`${label} must list xo-linux-x86_64 and xo-macos-arm64`);
+    }
+    if (/latest GitHub release/i.test(text)) {
+      fail(`${label} must not present a GitHub latest release`);
+    }
+    if (/releases\/latest/.test(text) && !/404/.test(text)) {
+      fail(`${label} must not present /releases/latest as working`);
+    }
+  }
+  if (/latest GitHub release/i.test(installSources)) {
+    fail("install page must not present a GitHub latest release");
+  }
+  if (/releases\/latest/.test(installSources) && !/404/.test(installSources)) {
+    fail("install page must not present /releases/latest as working");
+  }
+  if (!installSh.includes("releases?per_page=")) {
+    fail("install.sh from-release must list published releases, including prereleases");
+  }
+
   const snapshot = renderStaticHomeAndHub();
+  if (snapshot.includes("modoterra.github.io")) {
+    fail("static homepage must not point at modoterra.github.io");
+  }
+  const siteMd = readFileSync(path.join(root, "SITE.md"), "utf8");
+  for (const needle of ["Public facts", "prerelease tags", "MIT license", "v0.0.1-alpha.9"]) {
+    if (!siteMd.includes(needle)) {
+      fail(`SITE.md missing public-fact marker: ${needle}`);
+    }
+  }
+
   for (const needle of [
     homePage.definition,
+    homePage.status,
     homePage.sample.trim().split("\n")[0],
     "/docs",
     "/docs/std",
     "/e26",
     "/docs/leaders",
     "/install",
+    securityContact.email,
+    securityContact.mailto,
+    "SECURITY.md",
   ]) {
     if (!snapshot.includes(needle)) {
       fail(`renderStaticHomeAndHub missing ${needle}`);
+    }
+  }
+
+  const pages = staticPageByPath();
+  const requiredChrome = [
+    ["/docs", "Documents"],
+    ["/docs/std", "Standard library"],
+    ["/e26", "Echo 2026"],
+    ["/install", "Install Echo"],
+    ["/security", "Security"],
+    ["/docs/first-program", "First program"],
+    ["/book", "Introduction"],
+    ["/privacy", "Privacy"],
+    ["/terms", "Terms"],
+  ];
+  for (const [path, heading] of requiredChrome) {
+    const page = pages.get(path);
+    if (!page) {
+      fail(`${path}: missing static page for catalog/footer link`);
+      continue;
+    }
+    if (!page.body.includes(`<h1>${heading}</h1>`)) {
+      fail(`${path}: static page must include <h1>${heading}</h1>`);
+    }
+    if (!page.title.trim() || !page.description.trim()) {
+      fail(`${path}: static page needs a title and description`);
+    }
+    if (distFileForPath(path) !== `${path.slice(1)}/index.html`) {
+      fail(`${path}: expected dist file ${path.slice(1)}/index.html`);
+    }
+  }
+
+  for (const path of publicChromePaths()) {
+    const page = pages.get(path);
+    if (!page) {
+      fail(`${path}: catalog/nav/footer link has no static page`);
+      continue;
+    }
+    if (!page.body.includes("<h1>")) {
+      fail(`${path}: static page is missing an h1`);
     }
   }
 
@@ -160,8 +408,12 @@ try {
           ok: true,
           definition: homePage.definition,
           nav: primaryNav.map((item) => item.label),
+          footerAbout: footerLinkGroups
+            .find((group) => group.title === "About")
+            ?.links.map((link) => link.label),
           languagePages: languageFeatureEntries.map((entry) => entry.to),
           hubGroups: docsHubCatalog.map((group) => group.title),
+          chromePaths: publicChromePaths(),
         },
         null,
         2,

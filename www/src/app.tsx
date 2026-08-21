@@ -14,6 +14,9 @@ export function HomePage() {
           <p className="mt-7 max-w-xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl sm:leading-8">
             {homePage.lead}
           </p>
+          <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-slate-500 sm:text-lg sm:leading-8">
+            {homePage.status}
+          </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <CtaLink to="/docs">Documents</CtaLink>
             <CtaLink to="/try" variant="secondary">

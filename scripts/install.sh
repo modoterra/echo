@@ -4,7 +4,7 @@
 # Usage:
 #   ./scripts/install.sh              # build from checkout (default when in repo)
 #   ./scripts/install.sh install
-#   ./scripts/install.sh from-release [tag]   # latest (or tag) GitHub release
+#   ./scripts/install.sh from-release [tag]   # newest published prerelease (or pin a tag)
 #   ./scripts/install.sh upgrade      # rebuild + flip current (checkout)
 #   ./scripts/install.sh uninstall [--purge]
 #   ./scripts/install.sh doctor
@@ -172,24 +172,6 @@ need_cmd() {
 }
 
 # JSON helpers without requiring jq (keep install self-contained).
-json_string_field() {
-  # json_string_field <field>  — reads JSON object on stdin, prints unescaped string or empty.
-  local field="$1"
-  # shellcheck disable=SC2016
-  python3 -c '
-import json, sys
-field = sys.argv[1]
-data = json.load(sys.stdin)
-val = data.get(field)
-if val is None:
-    sys.exit(0)
-if isinstance(val, str):
-    print(val)
-else:
-    print(val)
-' "$field" 2>/dev/null || true
-}
-
 github_api() {
   local url="$1"
   local args=(-fsSL -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
@@ -214,15 +196,11 @@ resolve_release_asset() {
   need_cmd tar
 
   if [[ -z "$want_tag" || "$want_tag" == "latest" ]]; then
-    # Prefer /releases/latest (stable). If missing (404) or empty assets, use newest
-    # published release including prereleases (current alpha cadence).
-    if json="$(github_api "${api_base}/releases/latest" 2>/dev/null)" && [[ -n "$json" ]]; then
-      tag="$(printf '%s' "$json" | json_string_field tag_name)"
-    fi
-    if [[ -z "${tag:-}" ]]; then
-      json="$(github_api "${api_base}/releases?per_page=10")"
-      tag="$(
-        printf '%s' "$json" | python3 -c '
+    # Newest published release, including prereleases. GitHub /releases/latest
+    # only returns a non-prerelease and 404s while every Echo tag is still an alpha.
+    json="$(github_api "${api_base}/releases?per_page=10")"
+    tag="$(
+      printf '%s' "$json" | python3 -c '
 import json, sys
 rels = json.load(sys.stdin)
 for r in rels:
@@ -231,11 +209,9 @@ for r in rels:
     print(r["tag_name"])
     break
 '
-      )"
-      json="$(github_api "${api_base}/releases/tags/${tag}")"
-    else
-      json="$(github_api "${api_base}/releases/tags/${tag}")"
-    fi
+    )"
+    [[ -n "$tag" ]] || die "could not resolve a GitHub release for ${ECHO_REPO}"
+    json="$(github_api "${api_base}/releases/tags/${tag}")"
   else
     tag="$want_tag"
     json="$(github_api "${api_base}/releases/tags/${tag}")"
@@ -624,7 +600,7 @@ Echo / xo installer (XDG)
 Usage:
   scripts/install.sh [install]              From checkout: build + install
                                             Without checkout: same as from-release
-  scripts/install.sh from-release [tag]     Install prebuilt from GitHub release
+  scripts/install.sh from-release [tag]     Newest published prerelease, or pin a tag
   scripts/install.sh upgrade                New version (build or from-release)
   scripts/install.sh uninstall [--purge]
   scripts/install.sh doctor                 Show paths and install status
@@ -634,7 +610,10 @@ One-liner (no git clone):
   curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
     | bash -s -- from-release
 
-Prebuilt platforms (CI): linux-x86_64, macos-arm64, windows-x86_64 (tarball).
+  # Pin a tag
+  # … | bash -s -- from-release v0.0.1-alpha.9
+
+Current prerelease (v0.0.1-alpha.9) assets: xo-linux-x86_64, xo-macos-arm64.
 
 Environment:
   XO_HOME           User .xo root (packages); default $XDG_CACHE_HOME/.xo
@@ -643,7 +622,7 @@ Environment:
   XDG_CONFIG_HOME   Config (…/xo)
   XO_BIN_DIR        Where to place the xo PATH link (default ~/.local/bin)
   ECHO_REPO         GitHub owner/name (default modoterra/echo)
-  ECHO_RELEASE      Release tag or "latest" (default latest)
+  ECHO_RELEASE      Release tag, or newest published prerelease when unset
   ECHO_VERSION / XO_VERSION   Force toolchain version directory name
   CARGO_PROFILE     release (default) or debug — checkout builds only
   GITHUB_TOKEN / GH_TOKEN     Optional; higher API rate limits

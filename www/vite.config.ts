@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -10,7 +10,13 @@ import {
   type DocsSearchAsset,
   type DocsSemanticAsset,
 } from "./src/docs/search";
-import { renderStaticHomeAndHub } from "./src/docs/site";
+import {
+  collectPublicCatalogPaths,
+  renderRobotsTxt,
+  renderSitemapXml,
+  renderStaticHomeAndHub,
+} from "./src/docs/site";
+import { distFileForPath, escapeHtml, staticPages, type StaticPage } from "./src/docs/static-html";
 
 const docsSearchIndexDevFileName = "indices/search.json";
 const docsSemanticIndexDevFileName = "indices/semantic.json";
@@ -214,6 +220,64 @@ function docsIndexFileName(name: "search" | "semantic", checksum: string) {
   return `indices/${name}.${checksum}.json`;
 }
 
+function applyStaticPage(html: string, page: StaticPage): string {
+  const titled = html.replace(
+    /<title>[^<]*<\/title>/,
+    () => `<title>${escapeHtml(page.title)}</title>`,
+  );
+  const described = titled.replace(
+    /<meta name="description" content="[^"]*"\s*\/?>/,
+    () => `<meta name="description" content="${escapeHtml(page.description)}" />`,
+  );
+  if (!described.includes('<noscript id="docs-first-fallback">')) {
+    throw new Error("built index.html is missing the docs-first noscript marker");
+  }
+  return described.replace(/<noscript id="docs-first-fallback">[\s\S]*?<\/noscript>/, () => {
+    return `<noscript id="docs-first-fallback">${page.body}</noscript>`;
+  });
+}
+
+function publicCatalogPaths() {
+  return collectPublicCatalogPaths(staticPages().map((page) => page.path));
+}
+
+function siteDiscoveryPlugin(): Plugin {
+  return {
+    name: "site-discovery",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const requestPath = request.url?.split("?", 1)[0] ?? "";
+
+        if (requestPath === "/sitemap.xml") {
+          response.setHeader("Content-Type", "application/xml; charset=utf-8");
+          response.end(renderSitemapXml(publicCatalogPaths()));
+          return;
+        }
+
+        if (requestPath === "/robots.txt") {
+          response.setHeader("Content-Type", "text/plain; charset=utf-8");
+          response.end(renderRobotsTxt());
+          return;
+        }
+
+        next();
+      });
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "sitemap.xml",
+        source: renderSitemapXml(publicCatalogPaths()),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "robots.txt",
+        source: renderRobotsTxt(),
+      });
+    },
+  };
+}
+
 function docsFirstStaticPlugin(): Plugin {
   const fallbackMarker = '<noscript id="docs-first-fallback"></noscript>';
 
@@ -223,6 +287,9 @@ function docsFirstStaticPlugin(): Plugin {
       if (!html.includes(fallbackMarker)) {
         throw new Error("index.html is missing the docs-first noscript marker");
       }
+      if (!html.includes('name="description"')) {
+        throw new Error("index.html is missing the description meta");
+      }
       return html.replace(
         fallbackMarker,
         `<noscript id="docs-first-fallback">${renderStaticHomeAndHub()}</noscript>`,
@@ -230,9 +297,15 @@ function docsFirstStaticPlugin(): Plugin {
     },
     writeBundle() {
       const indexPath = path.resolve("dist/index.html");
-      const docsDir = path.resolve("dist/docs");
-      mkdirSync(docsDir, { recursive: true });
-      copyFileSync(indexPath, path.join(docsDir, "index.html"));
+      const built = readFileSync(indexPath, "utf8");
+      const pages = staticPages();
+
+      for (const page of pages) {
+        const relative = distFileForPath(page.path);
+        const outPath = path.resolve("dist", relative);
+        mkdirSync(path.dirname(outPath), { recursive: true });
+        writeFileSync(outPath, applyStaticPage(built, page));
+      }
     },
   };
 }
@@ -283,5 +356,11 @@ export default defineConfig({
       },
     },
   },
-  plugins: [docsSearchIndexPlugin(), docsFirstStaticPlugin(), react(), tailwindcss()],
+  plugins: [
+    siteDiscoveryPlugin(),
+    docsSearchIndexPlugin(),
+    docsFirstStaticPlugin(),
+    react(),
+    tailwindcss(),
+  ],
 });
