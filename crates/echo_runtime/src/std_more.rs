@@ -676,10 +676,16 @@ pub extern "C" fn echo_runtime_process_wait(child: i64) -> i64 {
 }
 
 // --- unix domain sockets ---
+//
+// Natives exist on every host (codegen always declares the symbols). On
+// non-Unix they return handle 0 / -1. The listener/stream types are Unix-only.
 
+#[cfg(unix)]
 const KIND_UNIX_LISTENER: u32 = 30;
+#[cfg(unix)]
 const KIND_UNIX_STREAM: u32 = 31;
 
+#[cfg(unix)]
 #[repr(C)]
 struct EchoUnixListener {
     header: crate::HeapHeader,
@@ -687,6 +693,7 @@ struct EchoUnixListener {
     inner: Option<std::os::unix::net::UnixListener>,
 }
 
+#[cfg(unix)]
 #[repr(C)]
 struct EchoUnixStream {
     header: crate::HeapHeader,
@@ -993,6 +1000,17 @@ mod tests {
         echo_runtime_unix_close(c);
         t.join().unwrap();
         echo_runtime_unix_close(lis);
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn unix_socket_stubs_unavailable() {
+        assert_eq!(echo_runtime_unix_listen(s("/tmp/x.sock")), 0);
+        assert_eq!(echo_runtime_unix_accept(1), 0);
+        assert_eq!(echo_runtime_unix_connect(s("/tmp/x.sock")), 0);
+        assert_eq!(echo_runtime_unix_read(1, 16), 0);
+        assert_eq!(echo_runtime_unix_write(1, s("hi")), -1);
+        echo_runtime_unix_close(1);
     }
 
     #[test]

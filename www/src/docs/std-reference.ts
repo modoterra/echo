@@ -2707,7 +2707,7 @@ export const stdModules: StdModule[] = [
     path: "std/net/unix",
     name: "unix",
     title: "Unix sockets",
-    summary: "Unix domain sockets.",
+    summary: "Unix domain sockets. On Windows, listen/connect fail with handle 0.",
     group: "Network",
     docsPath: "/docs/std/net-unix",
     exports: [
@@ -2734,7 +2734,7 @@ export const stdModules: StdModule[] = [
         name: "listen",
         role: "Start listening; failure yields handle 0",
         call: "unix.listen(path)",
-        description: "Binds a Unix domain listener on path.",
+        description: "Binds a Unix domain listener on path. On Windows the native returns handle 0.",
         params: "path: socket path.",
         returns: "Unix listener product.",
         example: "/ std/net/unix\n\n$ listener = unix.listen(p'/tmp/echo.sock')",

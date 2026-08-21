@@ -1,4 +1,5 @@
-; std/net/unix — Unix domain sockets (blocking). Handle-0 failure like TCP.
+; std/net/unix — Unix domain sockets (blocking). Handle-0 failure like TCP
+; (including on Windows, where the natives stub handle 0).
 ;
 ; Public API:
 ;   listen(path) → % listener

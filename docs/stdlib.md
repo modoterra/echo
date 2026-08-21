@@ -439,7 +439,7 @@ Exports must match the `\ ` line in each module. Status of expansive rows is in
 | `std/net/dns` | `lookup` | suite |
 | `std/net/http_client` | `get`, `request`, `get_tls`, `request_tls` | suite; cleartext + TLS via runtime.tls_*; empty ca_pem = platform roots |
 | `std/net/url` | `parse`, `format` | suite; http/https; runtime product fields |
-| `std/net/unix` | `listener`, `conn`, `listen`, `accept`, `connect`, `read`, `write`, `close` | suite; Unix domain; handle-0 like TCP |
+| `std/net/unix` | `listener`, `conn`, `listen`, `accept`, `connect`, `read`, `write`, `close` | suite; Unix domain on Unix; handle-0 stubs on Windows (same failure as TCP) |
 | `std/net/tls` | `listener`, `conn`, `listen`, `accept`, `connect`, `read`, `write`, `close`, `close_listener`, `load_pem` | handle-0 failure like TCP; rustls; empty ca_pem = platform roots |
 | `std/cli` | `parse`, `has`, `get`, `positionals` | pure Echo; flat token encoding; not full getopt |
 | `std/math` | `abs_i`, `min`, `max`, `sqrt`, `sin`, `cos`, `tan`, `floor`, `ceil`, `abs_f`, `pow` | suite |
@@ -511,7 +511,7 @@ or suite failures remain.
 | `std/net/dns` | **Done** (thin) | e26 localhost |
 | `std/net/http_client` | **Done** (thin) | `get`/`request` + TLS helpers; e26 localhost `.run`; suite refuse-port |
 | `std/net/url` | **Done** (thin) | e26 parse; runtime product |
-| `std/net/unix` | **Done** (thin) | Unix domain; e26 `001_loopback`; crate + suite |
+| `std/net/unix` | **Done** (thin) | Unix domain; e26 `001_loopback`; crate + suite; Windows natives stub handle-0 |
 | `std/net/tls` | **Done** (thin) | rustls; platform roots when ca_pem empty; e26 loopback `.run` |
 | `std/cli` | **Done** (thin) | pure parse; e26 `run/cli/001_flags` execute; not GNU getopt |
 | `std/crypto` sha256/sha512 + HMAC + AES-GCM + CSPRNG | **Done** (thin) | e26 sha256/hmac; suites |

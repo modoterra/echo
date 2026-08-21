@@ -78,7 +78,9 @@ wrapper so runners without sccache still compile.
 | Windows | `cygpath` for Git Bash `tar`; LLVM `bin` on `PATH`; `scripts/ci/windows-llvm-deps.sh` supplies **`xml2s.lib`** (from ShiftMedia libxml2) into LLVM `lib/` + `LIB=` | raw `D:\…` extract dirs (break `tar`) |
 
 **Windows runtime:** net park uses a short yield instead of `mio::unix::SourceFd` (Unix-only).
-Task scheduling still uses portable `mio::Poll` + `Waker`.
+Task scheduling still uses portable `mio::Poll` + `Waker`. Unix domain socket
+natives (`echo_runtime_unix_*`) compile as stubs that return handle 0 / write
+`-1`; `std/net/unix` treats that as the same handle-0 failure as TCP.
 
 After `cargo build`, [`scripts/ci/stage-runtime-lib.sh`](../scripts/ci/stage-runtime-lib.sh)
 copies the newest `libecho_runtime*.a` into `target/<profile>/libecho_runtime.a`
