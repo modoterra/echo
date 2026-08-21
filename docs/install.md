@@ -12,7 +12,7 @@ User-facing install layout for the **xo** toolchain. Aligns with
 ## Quick start (prebuilt — recommended)
 
 Published builds are **prereleases**. The current tag is
-[`v0.0.1-alpha.9`](https://github.com/modoterra/echo/releases/tag/v0.0.1-alpha.9).
+[`v0.0.1-alpha.10`](https://github.com/modoterra/echo/releases/tag/v0.0.1-alpha.10).
 `from-release` with no tag installs the newest published prerelease (including
 alphas). Pass a tag to pin. GitHub `/releases/latest` only resolves a
 non-prerelease and 404s today.
@@ -26,14 +26,14 @@ curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install
 
 # Pin this tag
 curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \
-  | bash -s -- from-release v0.0.1-alpha.9
+  | bash -s -- from-release v0.0.1-alpha.10
 
 # From a checkout
 ./scripts/install.sh from-release
 ./scripts/install.sh doctor
 ```
 
-Assets on `v0.0.1-alpha.9`:
+Assets on `v0.0.1-alpha.10`:
 
 | Archive | Host |
 |---------|------|
@@ -128,7 +128,7 @@ Defaults: `~/.local/state/xo`, `~/.config/xo`.
 
 # Prebuilt: re-fetch newest published prerelease (or pin a tag)
 ./scripts/install.sh from-release
-# ECHO_RELEASE=v0.0.1-alpha.9 ./scripts/install.sh from-release
+# ECHO_RELEASE=v0.0.1-alpha.10 ./scripts/install.sh from-release
 ```
 
 Upgrade path:

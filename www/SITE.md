@@ -144,7 +144,7 @@ Public chrome (homepage, footer, install) states what this repository is:
 
 Do not call the language production-ready. Do not imply a crates.io package.
 Name a host OS only when that platform has an asset on the current release
-(v0.0.1-alpha.9 ships `linux-x86_64` and `macos-arm64`). Do not list Discord
+(v0.0.1-alpha.10 ships `linux-x86_64` and `macos-arm64`). Do not list Discord
 while there is no live invite. Public project mail stays on `@modoterra.xyz`.
 
 ## Pillars

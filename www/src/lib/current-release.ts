@@ -5,7 +5,7 @@
  * tag is still an alpha. Keep this file, `/install`, README, and docs/install.md
  * aligned when a new tag is published. List only assets on that tag.
  */
-export const currentPrereleaseTag = "v0.0.1-alpha.9";
+export const currentPrereleaseTag = "v0.0.1-alpha.10";
 
 export const currentPrereleaseAssets = [
   {
