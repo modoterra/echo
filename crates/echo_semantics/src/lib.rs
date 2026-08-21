@@ -741,6 +741,16 @@ $ main = () {
     }
 
     #[test]
+    fn option_match_incomplete() {
+        // Option needs `$ name` some and `: ` none (docs/semantics.md).
+        let c = codes("$ f = () {\n    ^\n    ^ 1\n}\n| f() {\n    $ v {\n        ^ v\n    }\n}\n");
+        assert!(
+            c.iter().any(|x| x == "sem-match-incomplete"),
+            "expected sem-match-incomplete for option match without none, got {c:?}"
+        );
+    }
+
+    #[test]
     fn infer_int_add_ok() {
         let c = codes("$ x = 1 + 2\n");
         assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
