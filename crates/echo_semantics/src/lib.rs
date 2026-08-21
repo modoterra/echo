@@ -775,6 +775,18 @@ $ main = () {
     }
 
     #[test]
+    fn option_match_bang_rejected() {
+        // Option none arm is `: `, not `! name` (docs/semantics.md).
+        let c = codes(
+            "$ f = () {\n    ^\n    ^ 1\n}\n| f() {\n    $ v {\n        ^ v\n    }\n    ! e {\n        ^ e\n    }\n}\n",
+        );
+        assert!(
+            c.iter().any(|x| x == "sem-match-arm"),
+            "expected sem-match-arm for option `! name` none arm, got {c:?}"
+        );
+    }
+
+    #[test]
     fn infer_int_add_ok() {
         let c = codes("$ x = 1 + 2\n");
         assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
