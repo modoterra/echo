@@ -2131,6 +2131,28 @@ mod tests {
     }
 
     #[test]
+    fn http_parse_request_post_body() {
+        let raw = b"POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello";
+        let h = unsafe { echo_runtime_string_from_utf8(raw.as_ptr(), raw.len()) };
+        let p = unsafe { echo_runtime_http_parse_request(h) };
+        let method = b"method";
+        let path = b"path";
+        let body = b"body";
+        unsafe {
+            let m = echo_runtime_struct_get(p, method.as_ptr(), method.len());
+            let pth = echo_runtime_struct_get(p, path.as_ptr(), path.len());
+            let b = echo_runtime_struct_get(p, body.as_ptr(), body.len());
+            assert_eq!(string_data(m).as_deref(), Some("POST"));
+            assert_eq!(string_data(pth).as_deref(), Some("/echo"));
+            assert_eq!(string_data(b).as_deref(), Some("hello"));
+            assert_eq!(echo_runtime_http_request_complete(h), 1);
+            let short = b"POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhel";
+            let s = echo_runtime_string_from_utf8(short.as_ptr(), short.len());
+            assert_eq!(echo_runtime_http_request_complete(s), 0);
+        }
+    }
+
+    #[test]
     fn locator_from_utf8_and_str_roundtrip() {
         let path = "/home/user";
         let h = unsafe { echo_runtime_locator_from_utf8(path.as_ptr(), path.len()) };

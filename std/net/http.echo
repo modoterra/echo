@@ -4,6 +4,7 @@
 ; Connections are % conn from std/net.
 
 / runtime
+/ std/test
 / std/str
 / std/io
 / std/net/tcp
@@ -148,6 +149,15 @@ $ serve = (addr, routes) {
         running: |
     }
 }
+
+test.it("e26_body_content_length", () {
+    ; Same POST /echo bytes as echo26/run/http/006_body_content_length.
+    $ raw = "POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello"
+    $ req = parse_request(raw)
+    test.eq(req.method, "POST")
+    test.eq(req.path, "/echo")
+    test.eq(req.body, "hello")
+})
 
 ; Public API (export discipline — docs/stdlib.md):
 ;   types; serve; parse/format; response helpers; dispatch + handle_connection
