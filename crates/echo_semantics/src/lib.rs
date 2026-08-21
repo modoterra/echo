@@ -723,6 +723,18 @@ $ main = () {
     }
 
     #[test]
+    fn result_match_colon_rejected() {
+        // Result err arm is `! name`, not `: ` (docs/semantics.md).
+        let c = codes(
+            "$ f = () {\n    ! 1\n}\n| f() {\n    $ v {\n        ^ v\n    }\n    : {\n        ^ 0\n    }\n}\n",
+        );
+        assert!(
+            c.iter().any(|x| x == "sem-match-arm"),
+            "expected sem-match-arm for result `: ` err arm, got {c:?}"
+        );
+    }
+
+    #[test]
     fn option_match_ok() {
         let src = "\
 $ f = () {
