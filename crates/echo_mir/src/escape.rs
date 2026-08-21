@@ -189,6 +189,7 @@ fn seed_alloc(name: &str, value: &MirExpr, escapes: &mut HashMap<String, EscapeC
         | MirExpr::BytesLit { .. }
         | MirExpr::LocatorLit { .. }
         | MirExpr::LocatorInterp { .. }
+        | MirExpr::BytesInterp { .. }
         | MirExpr::StringInterp { .. } => {
             escapes.insert(name.to_string(), EscapeClass::NoEscape);
         }
@@ -285,7 +286,9 @@ fn classify_expr_uses(
         MirExpr::FieldGet { base, .. } => {
             classify_expr_uses(base, ctx, escapes, parent);
         }
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     // String builder may retain stringified value briefly —
@@ -375,7 +378,9 @@ fn mark_names_in(
             mark_names_in(index, class, escapes, parent);
         }
         MirExpr::FieldGet { base, .. } => mark_names_in(base, class, escapes, parent),
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     mark_name(n, class, escapes, parent);
@@ -722,7 +727,9 @@ fn collect_uses(e: &MirExpr, used: &mut HashSet<String>) {
             collect_uses(index, used);
         }
         MirExpr::FieldGet { base, .. } => collect_uses(base, used),
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     used.insert(n.clone());

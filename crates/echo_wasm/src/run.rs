@@ -14,6 +14,7 @@ use echo_mir::{
 };
 use echo_resolver::{check_entry_virtual, module_bind_name, ProjectChecked, VirtualSources};
 use echo_runtime::{
+    bytes_handle_from_slice, echo_runtime_bytes_cat, echo_runtime_bytes_from_value,
     echo_runtime_float_from_f64, echo_runtime_list_new, echo_runtime_locator_from_string,
     echo_runtime_print_i64, echo_runtime_range_new, echo_runtime_str_from_debug,
     echo_runtime_str_from_int, echo_runtime_string_builder_finish, echo_runtime_string_builder_new,
@@ -252,6 +253,28 @@ impl Slot {
             Self::Fn { symbol, .. } => Err(format!("playground-host: {symbol} is a function")),
         }
     }
+}
+
+fn eval_bytes_interp(parts: &[StrPart], env: &HashMap<String, Slot>) -> Result<i64, String> {
+    let mut acc: Option<i64> = None;
+    for part in parts {
+        let chunk = match part {
+            StrPart::Lit(bytes) => bytes_handle_from_slice(bytes),
+            StrPart::Name(n) => {
+                let v = env
+                    .get(n)
+                    .cloned()
+                    .ok_or_else(|| format!("playground-host: unbound {n}"))?
+                    .i64()?;
+                echo_runtime_bytes_from_value(v)
+            }
+        };
+        acc = Some(match acc {
+            None => chunk,
+            Some(prev) => echo_runtime_bytes_cat(prev, chunk),
+        });
+    }
+    Ok(acc.unwrap_or_else(|| bytes_handle_from_slice(&[])))
 }
 
 fn eval_string_interp(parts: &[StrPart], env: &HashMap<String, Slot>) -> Result<i64, String> {
@@ -545,6 +568,7 @@ impl<'a> Machine<'a> {
                 let s = eval_string_interp(parts, env)?;
                 Ok(Slot::I64(echo_runtime_locator_from_string(s)))
             }
+            MirExpr::BytesInterp { parts } => Ok(Slot::I64(eval_bytes_interp(parts, env)?)),
             MirExpr::StringInterp { parts } => Ok(Slot::I64(eval_string_interp(parts, env)?)),
             MirExpr::Index { base, index } => {
                 let h = self.eval(base, env, depth)?.i64()?;

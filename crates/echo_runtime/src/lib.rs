@@ -428,6 +428,12 @@ pub fn string_handle_from_utf8(text: &str) -> i64 {
     unsafe { echo_runtime_string_from_utf8(text.as_ptr(), text.len()) }
 }
 
+/// Payload bytes → bytes handle (safe wrapper around [`echo_runtime_bytes_from_ptr`]).
+#[must_use]
+pub fn bytes_handle_from_slice(bytes: &[u8]) -> i64 {
+    unsafe { echo_runtime_bytes_from_ptr(bytes.as_ptr(), bytes.len()) }
+}
+
 /// Push `value` onto a list handle.
 pub fn list_push_value(list: i64, value: i64) {
     unsafe { echo_runtime_list_push(list, value) }
@@ -835,6 +841,31 @@ pub extern "C" fn echo_runtime_bytes_from_str(handle: i64) -> i64 {
         Some(s) => bytes_to_handle(s.as_bytes().to_vec()),
         None => bytes_to_handle(Vec::new()),
     }
+}
+
+/// Bytes payload of a universal value for rich `b"…{name}…"` interpolation.
+///
+/// Bytes copy as raw. String and locator copy UTF-8 text. Floats use Display.
+/// Bare integers use decimal. Other heap kinds yield empty.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_bytes_from_value(v: i64) -> i64 {
+    if let Some(b) = bytes_as_slice(v) {
+        return bytes_to_handle(b.to_vec());
+    }
+    if let Some(s) = string_as_str(v) {
+        return bytes_to_handle(s.as_bytes().to_vec());
+    }
+    if let Some(s) = locator_as_str(v) {
+        return bytes_to_handle(s.as_bytes().to_vec());
+    }
+    if let Some(h) = unsafe { header_at(v) } {
+        if unsafe { (*h).kind } == KIND_FLOAT {
+            let f = unsafe { &*(v as *const EchoFloat) };
+            return bytes_to_handle(f.value.to_string().into_bytes());
+        }
+        return bytes_to_handle(Vec::new());
+    }
+    bytes_to_handle(v.to_string().into_bytes())
 }
 
 /// Byte at `index` of a **string** (UTF-8 bytes) as `i64` in `0..255`.
@@ -1850,6 +1881,29 @@ mod tests {
         assert_eq!(
             bytes_data(echo_runtime_bytes_from_str(s)).as_deref(),
             Some(&b"Hi"[..])
+        );
+    }
+
+    #[test]
+    fn bytes_from_value_copies_bytes_string_and_int() {
+        let raw = unsafe { echo_runtime_bytes_from_ptr(b"ab\xff".as_ptr(), 3) };
+        assert_eq!(
+            bytes_data(echo_runtime_bytes_from_value(raw)).as_deref(),
+            Some(&b"ab\xff"[..])
+        );
+        let s = unsafe { echo_runtime_string_from_utf8(b"Hi".as_ptr(), 2) };
+        assert_eq!(
+            bytes_data(echo_runtime_bytes_from_value(s)).as_deref(),
+            Some(&b"Hi"[..])
+        );
+        assert_eq!(
+            bytes_data(echo_runtime_bytes_from_value(3)).as_deref(),
+            Some(&b"3"[..])
+        );
+        let loc = unsafe { echo_runtime_locator_from_utf8(b"/tmp".as_ptr(), 4) };
+        assert_eq!(
+            bytes_data(echo_runtime_bytes_from_value(loc)).as_deref(),
+            Some(&b"/tmp"[..])
         );
     }
 

@@ -242,7 +242,7 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
         },
         MirExpr::ListLit(_) => MirRepr::ListRef,
         MirExpr::StringLit { .. } | MirExpr::StringInterp { .. } => MirRepr::StringRef,
-        MirExpr::BytesLit { .. } => MirRepr::BytesRef,
+        MirExpr::BytesLit { .. } | MirExpr::BytesInterp { .. } => MirRepr::BytesRef,
         MirExpr::LocatorLit { .. } | MirExpr::LocatorInterp { .. } => MirRepr::LocatorRef,
         MirExpr::StructLit { .. } => MirRepr::ObjectRef,
         MirExpr::StructTypeIs { value, .. } => {
@@ -784,6 +784,10 @@ fn rewrite_expr_abi(
         MirExpr::LocatorInterp { parts } => {
             let (pre, parts) = rewrite_interp_parts(parts, reprs, fresh);
             (pre, MirExpr::LocatorInterp { parts })
+        }
+        MirExpr::BytesInterp { parts } => {
+            let (pre, parts) = rewrite_interp_parts(parts, reprs, fresh);
+            (pre, MirExpr::BytesInterp { parts })
         }
         other => (vec![], other),
     }

@@ -5,6 +5,8 @@ $ a = b'raw'
 io.print(str.from_bytes(a))
 $ b = b"esc\t!"
 io.print(str.from_bytes(b))
+$ n = 3
+io.print(str.from_bytes(b"x={n}"))
 ? a == b'raw' {
     io.print(str.from_int(1))
 }

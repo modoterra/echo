@@ -17,6 +17,10 @@ Rich `p"…{name}…"` lowers to `MirExpr::LocatorInterp` (same `{name}` / `{.fi
 parts as `StringInterp`). Const-only names still bake to `LocatorLit`. Codegen
 builds the string, then `echo_runtime_locator_from_string`.
 
+Rich `b"…{name}…"` lowers to `MirExpr::BytesInterp`. Const-only names bake to
+`BytesLit`. Codegen cats lit chunks (`bytes_from_ptr`) with
+`echo_runtime_bytes_from_value` for live names so `\xHH` bytes stay raw.
+
 | Class | Kinds | Pass |
 |-------|--------|------|
 | **RefValue** | struct, list | copy reference (share) |

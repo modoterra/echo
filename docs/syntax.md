@@ -418,9 +418,8 @@ leader (position decides).
 |------|------|
 | String pure | `'...'` — no escapes, no interp, no interior `'` |
 | String rich | `"..."` — escapes (`\n` `\t` `\r` `\\` `\"` `\{` `\}` `\xHH`) + `{name}` interp (no `+` concat) |
-| Bytes rich | `b"..."` — same escapes as rich string (incl. `\{` `\}` `\xHH`) |
 | Bytes pure | `b'...'` — like pure string, byte payload |
-| Bytes rich | `b"..."` — like rich string, byte payload |
+| Bytes rich | `b"..."` — like rich string: same escapes (`\n` `\t` `\r` `\\` `\"` `\{` `\}` `\xHH`) + `{name}` interp; payload is bytes |
 | Locator (`p`) | `p'...'` / `p"..."` — one kind; class is URI (`scheme://`), abs (`/…`), or relative; rich `p"..."` has the same escapes + `{name}` interp as rich strings (see semantics) |
 | Integers | decimal, `0x`, `0b`, `_` separators |
 | Floats | `3.14`, `1e-3` |

@@ -215,6 +215,7 @@ pub fn simplify_expr(e: MirExpr) -> MirExpr {
         },
         MirExpr::StringInterp { parts } => MirExpr::StringInterp { parts },
         MirExpr::LocatorInterp { parts } => MirExpr::LocatorInterp { parts },
+        MirExpr::BytesInterp { parts } => MirExpr::BytesInterp { parts },
         MirExpr::FnValue { .. } => e,
         MirExpr::Range { start, end } => MirExpr::Range {
             start: Box::new(simplify_expr(*start)),
@@ -237,6 +238,7 @@ fn is_boxed_shaped(e: &MirExpr) -> bool {
         | MirExpr::BytesLit { .. }
         | MirExpr::LocatorLit { .. }
         | MirExpr::LocatorInterp { .. }
+        | MirExpr::BytesInterp { .. }
         | MirExpr::StringInterp { .. } => {
             // These produce refs; after unbox path they're not typically unbox sources.
             false
@@ -578,6 +580,9 @@ fn rewrite_names(e: MirExpr, alias: &HashMap<String, String>) -> MirExpr {
         MirExpr::LocatorInterp { parts } => MirExpr::LocatorInterp {
             parts: alias_interp_parts(parts, alias),
         },
+        MirExpr::BytesInterp { parts } => MirExpr::BytesInterp {
+            parts: alias_interp_parts(parts, alias),
+        },
         other => other,
     }
 }
@@ -739,7 +744,9 @@ fn collect_uses(e: &MirExpr, used: &mut HashSet<String>) {
             collect_uses(index, used);
         }
         MirExpr::FieldGet { base, .. } => collect_uses(base, used),
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             collect_interp_uses(parts, used);
         }
         MirExpr::ConstI64(_)
@@ -852,7 +859,7 @@ fn light_infer(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
         MirExpr::Call { .. } => MirRepr::Boxed,
         MirExpr::ListLit(_) => MirRepr::ListRef,
         MirExpr::StringLit { .. } | MirExpr::StringInterp { .. } => MirRepr::StringRef,
-        MirExpr::BytesLit { .. } => MirRepr::BytesRef,
+        MirExpr::BytesLit { .. } | MirExpr::BytesInterp { .. } => MirRepr::BytesRef,
         MirExpr::LocatorLit { .. } | MirExpr::LocatorInterp { .. } => MirRepr::LocatorRef,
         MirExpr::StructLit { .. } => MirRepr::ObjectRef,
         _ => MirRepr::Unknown,

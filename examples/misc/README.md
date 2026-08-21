@@ -36,7 +36,7 @@ cargo build -p xo
 | [`list_assign.echo`](list_assign.echo) | `~ xs[i] =` list mutation | `1` / `9` / `2` / `11` |
 | [`width_i32.echo`](width_i32.echo) | `<i32>` / `<i64>` width tags | `30` / `8` / `103` |
 | [`width_f32.echo`](width_f32.echo) | `<f32>` / `<f64>` width tags | `3.75` / `1` / `20` |
-| [`bytes.echo`](bytes.echo) | `b'…'` / `b"…"` + `str.from_bytes` | `raw` / `esc\t!` / `1` |
+| [`bytes.echo`](bytes.echo) | `b'…'` / `b"…"` + live `{name}` + `str.from_bytes` | `raw` / `esc\t!` / `x=3` / `1` |
 | [`bytes_get.echo`](bytes_get.echo) | `std/bytes` `len` / `get` | `3` / `65` / `66` / `out of bounds` |
 | [`siphash.echo`](siphash.echo) | `hash.sip` SipHash-2-4 paper vectors | digest ints |
 | [`core_surface.echo`](core_surface.echo) | integrated core smoke | `3` / `9` / `ok=core` / … / `raw` |
@@ -68,7 +68,7 @@ get/set (incl. `~ a.b.c =`, `~ xs[i] =`), methods with receiver `.` / `~ .field`
 rich `"…"` (escapes + `{name}` interp), string `==` / `!=` (no `+` concat),
 `/ std/io` → `io.print` (**strings only**; use `str.from_int` / `str.from_float`),
 multi-file user packages, `#` const-eval, f64/`<f32>` floats, bytes lits
-(`b'…'` / `b"…"`, print via `str.from_bytes`), duration lits (`5s`/`10ms`/… as
+(`b'…'` / `b"…"` with live `{name}` interp, print via `str.from_bytes`), duration lits (`5s`/`10ms`/… as
 nanoseconds; print via `str.from_duration`), locator lits (`p'…'` / `p"…"` with live `{name}` interp,
 print via `str.from_locator`). Top-level statements are
 the program

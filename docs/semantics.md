@@ -231,9 +231,12 @@ $ url = p'http://xo.run'    ; full URI/URL
 ```
 
 - Bytes are **language literals**, parallel to strings (pure `b'…'` / rich `b"…"`).
+  Rich `b"…"` interpolates `{name}` / `{.field}` like a rich string; `#` consts
+  bake at lower time. Lit `\xHH` bytes stay raw (not UTF-8 lossy). A `{name}`
+  that is already bytes copies its payload; strings and locators copy UTF-8 text.
 - Through run: heap bytes handle (not a string). Print only after
   `str.from_bytes` (UTF-8 lossy). Content equality via `==`. **No** string/`bytes`
-  concatenation with `+` (forbidden; use rich string interp for text).
+  concatenation with `+` (forbidden; use rich string or bytes interp for text).
 - **`p` literals** are a single **locator** kind (URI/URL family), not plain
   `String`. Classification is of the **stored UTF-8 text as written** (no
   resolve, no `..` clean, no percent-decode):

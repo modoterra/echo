@@ -78,6 +78,9 @@ pub const RT_BYTES_CAT: &str = "echo_runtime_bytes_cat";
 /// `echo_runtime_bytes_from_str(string) -> bytes` — UTF-8 payload copy.
 pub const RT_BYTES_FROM_STR: &str = "echo_runtime_bytes_from_str";
 
+/// `echo_runtime_bytes_from_value(any) -> bytes` — interp a `{name}` into bytes.
+pub const RT_BYTES_FROM_VALUE: &str = "echo_runtime_bytes_from_value";
+
 /// `echo_runtime_str_get(s, index) -> i64` — UTF-8 byte 0..255, or -1 if OOB.
 pub const RT_STR_GET: &str = "echo_runtime_str_get";
 

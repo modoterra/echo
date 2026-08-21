@@ -22,16 +22,16 @@ use echo_ast::{BinaryOp, UnaryOp};
 use echo_codegen_abi::{
     C_MAIN, ECHO_ENTRY, RT_ABORT, RT_AES_GCM_DECRYPT, RT_AES_GCM_ENCRYPT, RT_BASE64_DECODE,
     RT_BASE64_ENCODE, RT_BYTES_CAT, RT_BYTES_FROM_I64, RT_BYTES_FROM_PTR, RT_BYTES_FROM_STR,
-    RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE, RT_CRYPTO_RANDOM_BYTES, RT_CRYPTO_RANDOM_U64,
-    RT_DNS_LOOKUP, RT_EQ, RT_EQ_ID, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64, RT_FN_CODE, RT_FN_NEW,
-    RT_FN_SHAPE, RT_FS_CHMOD, RT_FS_COPY, RT_FS_CREATE_DIR, RT_FS_CREATE_DIR_ALL,
-    RT_FS_CREATE_TEMP, RT_FS_EXISTS, RT_FS_FILE_CLOSE, RT_FS_FILE_READ, RT_FS_FILE_SEEK,
-    RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN, RT_FS_METADATA, RT_FS_OPEN_APPEND,
-    RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE, RT_FS_REMOVE_DIR,
-    RT_FS_RENAME, RT_FS_SYMLINK, RT_FS_TEMP_DIR, RT_FS_WRITE, RT_GZIP_COMPRESS, RT_GZIP_DECOMPRESS,
-    RT_HEX_DECODE, RT_HEX_ENCODE, RT_HMAC_SHA256, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
-    RT_HTTP_REQUEST_COMPLETE, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_LIST_GET, RT_LIST_LEN,
-    RT_LIST_NEW, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_PUSH, RT_LIST_RESERVE, RT_LIST_SET,
+    RT_BYTES_FROM_VALUE, RT_BYTES_GET, RT_BYTES_LEN, RT_BYTES_SLICE, RT_CRYPTO_RANDOM_BYTES,
+    RT_CRYPTO_RANDOM_U64, RT_DNS_LOOKUP, RT_EQ, RT_EQ_ID, RT_FLOAT_FROM_F64, RT_FLOAT_TO_F64,
+    RT_FN_CODE, RT_FN_NEW, RT_FN_SHAPE, RT_FS_CHMOD, RT_FS_COPY, RT_FS_CREATE_DIR,
+    RT_FS_CREATE_DIR_ALL, RT_FS_CREATE_TEMP, RT_FS_EXISTS, RT_FS_FILE_CLOSE, RT_FS_FILE_READ,
+    RT_FS_FILE_SEEK, RT_FS_FILE_WRITE, RT_FS_IS_DIR, RT_FS_IS_FILE, RT_FS_JOIN, RT_FS_METADATA,
+    RT_FS_OPEN_APPEND, RT_FS_OPEN_READ, RT_FS_OPEN_WRITE, RT_FS_READ, RT_FS_READ_DIR, RT_FS_REMOVE,
+    RT_FS_REMOVE_DIR, RT_FS_RENAME, RT_FS_SYMLINK, RT_FS_TEMP_DIR, RT_FS_WRITE, RT_GZIP_COMPRESS,
+    RT_GZIP_DECOMPRESS, RT_HEX_DECODE, RT_HEX_ENCODE, RT_HMAC_SHA256, RT_HTTP_HEADERS_COMPLETE,
+    RT_HTTP_PARSE_REQUEST, RT_HTTP_REQUEST_COMPLETE, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_LIST_GET,
+    RT_LIST_LEN, RT_LIST_NEW, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_PUSH, RT_LIST_RESERVE, RT_LIST_SET,
     RT_LOCATOR_CLASS, RT_LOCATOR_FROM_STRING, RT_LOCATOR_FROM_UTF8, RT_MATH_ABS_F, RT_MATH_ABS_I,
     RT_MATH_CEIL, RT_MATH_COS, RT_MATH_FLOOR, RT_MATH_POW, RT_MATH_SIN, RT_MATH_SQRT, RT_MATH_TAN,
     RT_NE, RT_NE_ID, RT_NOW_MONO_MS, RT_NOW_MS, RT_OS_CHDIR, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PID,
@@ -138,6 +138,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_BYTES_LEN, str_from_int_ty, None);
     module.add_function(RT_BYTES_FROM_I64, str_from_int_ty, None);
     module.add_function(RT_BYTES_FROM_STR, str_from_int_ty, None);
+    module.add_function(RT_BYTES_FROM_VALUE, str_from_int_ty, None);
     let bytes_get_ty = i64t.fn_type(&[i64t.into(), i64t.into()], false);
     module.add_function(RT_BYTES_GET, bytes_get_ty, None);
     module.add_function(RT_STR_GET, bytes_get_ty, None);
@@ -764,6 +765,12 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         &ee,
         RT_BYTES_FROM_STR,
         echo_runtime_bytes_from_str as extern "C" fn(i64) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_BYTES_FROM_VALUE,
+        echo_runtime_bytes_from_value as extern "C" fn(i64) -> i64 as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -1856,34 +1863,34 @@ use echo_runtime::{
     echo_runtime_abort, echo_runtime_aes_gcm_decrypt, echo_runtime_aes_gcm_encrypt,
     echo_runtime_base64_decode, echo_runtime_base64_encode, echo_runtime_bytes_cat,
     echo_runtime_bytes_from_i64, echo_runtime_bytes_from_ptr, echo_runtime_bytes_from_str,
-    echo_runtime_bytes_get, echo_runtime_bytes_len, echo_runtime_bytes_slice,
-    echo_runtime_crypto_random_bytes, echo_runtime_crypto_random_u64, echo_runtime_dns_lookup,
-    echo_runtime_eq, echo_runtime_eq_id, echo_runtime_float_from_f64, echo_runtime_float_to_f64,
-    echo_runtime_fn_code, echo_runtime_fn_new, echo_runtime_fn_shape, echo_runtime_fs_chmod,
-    echo_runtime_fs_copy, echo_runtime_fs_create_dir, echo_runtime_fs_create_dir_all,
-    echo_runtime_fs_create_temp, echo_runtime_fs_exists, echo_runtime_fs_file_close,
-    echo_runtime_fs_file_read, echo_runtime_fs_file_seek, echo_runtime_fs_file_write,
-    echo_runtime_fs_is_dir, echo_runtime_fs_is_file, echo_runtime_fs_join,
-    echo_runtime_fs_metadata, echo_runtime_fs_open_append, echo_runtime_fs_open_read,
-    echo_runtime_fs_open_write, echo_runtime_fs_read, echo_runtime_fs_read_dir,
-    echo_runtime_fs_remove, echo_runtime_fs_remove_dir, echo_runtime_fs_rename,
-    echo_runtime_fs_symlink, echo_runtime_fs_temp_dir, echo_runtime_fs_write,
-    echo_runtime_gzip_compress, echo_runtime_gzip_decompress, echo_runtime_hex_decode,
-    echo_runtime_hex_encode, echo_runtime_hmac_sha256, echo_runtime_http_headers_complete,
-    echo_runtime_http_parse_request, echo_runtime_http_request_complete, echo_runtime_json_parse,
-    echo_runtime_json_stringify, echo_runtime_list_get, echo_runtime_list_len,
-    echo_runtime_list_new, echo_runtime_list_new_empty_lists, echo_runtime_list_push,
-    echo_runtime_list_reserve, echo_runtime_list_set, echo_runtime_locator_class,
-    echo_runtime_locator_from_string, echo_runtime_locator_from_utf8, echo_runtime_math_abs_f,
-    echo_runtime_math_abs_i, echo_runtime_math_ceil, echo_runtime_math_cos,
-    echo_runtime_math_floor, echo_runtime_math_pow, echo_runtime_math_sin, echo_runtime_math_sqrt,
-    echo_runtime_math_tan, echo_runtime_ne, echo_runtime_ne_id, echo_runtime_now_mono_ms,
-    echo_runtime_now_ms, echo_runtime_os_chdir, echo_runtime_os_cwd, echo_runtime_os_hostname,
-    echo_runtime_os_pid, echo_runtime_os_platform, echo_runtime_parse_f64, echo_runtime_parse_i64,
-    echo_runtime_path_clean, echo_runtime_path_rel, echo_runtime_print_i64,
-    echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
-    echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
-    echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
+    echo_runtime_bytes_from_value, echo_runtime_bytes_get, echo_runtime_bytes_len,
+    echo_runtime_bytes_slice, echo_runtime_crypto_random_bytes, echo_runtime_crypto_random_u64,
+    echo_runtime_dns_lookup, echo_runtime_eq, echo_runtime_eq_id, echo_runtime_float_from_f64,
+    echo_runtime_float_to_f64, echo_runtime_fn_code, echo_runtime_fn_new, echo_runtime_fn_shape,
+    echo_runtime_fs_chmod, echo_runtime_fs_copy, echo_runtime_fs_create_dir,
+    echo_runtime_fs_create_dir_all, echo_runtime_fs_create_temp, echo_runtime_fs_exists,
+    echo_runtime_fs_file_close, echo_runtime_fs_file_read, echo_runtime_fs_file_seek,
+    echo_runtime_fs_file_write, echo_runtime_fs_is_dir, echo_runtime_fs_is_file,
+    echo_runtime_fs_join, echo_runtime_fs_metadata, echo_runtime_fs_open_append,
+    echo_runtime_fs_open_read, echo_runtime_fs_open_write, echo_runtime_fs_read,
+    echo_runtime_fs_read_dir, echo_runtime_fs_remove, echo_runtime_fs_remove_dir,
+    echo_runtime_fs_rename, echo_runtime_fs_symlink, echo_runtime_fs_temp_dir,
+    echo_runtime_fs_write, echo_runtime_gzip_compress, echo_runtime_gzip_decompress,
+    echo_runtime_hex_decode, echo_runtime_hex_encode, echo_runtime_hmac_sha256,
+    echo_runtime_http_headers_complete, echo_runtime_http_parse_request,
+    echo_runtime_http_request_complete, echo_runtime_json_parse, echo_runtime_json_stringify,
+    echo_runtime_list_get, echo_runtime_list_len, echo_runtime_list_new,
+    echo_runtime_list_new_empty_lists, echo_runtime_list_push, echo_runtime_list_reserve,
+    echo_runtime_list_set, echo_runtime_locator_class, echo_runtime_locator_from_string,
+    echo_runtime_locator_from_utf8, echo_runtime_math_abs_f, echo_runtime_math_abs_i,
+    echo_runtime_math_ceil, echo_runtime_math_cos, echo_runtime_math_floor, echo_runtime_math_pow,
+    echo_runtime_math_sin, echo_runtime_math_sqrt, echo_runtime_math_tan, echo_runtime_ne,
+    echo_runtime_ne_id, echo_runtime_now_mono_ms, echo_runtime_now_ms, echo_runtime_os_chdir,
+    echo_runtime_os_cwd, echo_runtime_os_hostname, echo_runtime_os_pid, echo_runtime_os_platform,
+    echo_runtime_parse_f64, echo_runtime_parse_i64, echo_runtime_path_clean, echo_runtime_path_rel,
+    echo_runtime_print_i64, echo_runtime_process_args, echo_runtime_process_env_get,
+    echo_runtime_process_env_has, echo_runtime_process_env_set, echo_runtime_process_env_unset,
+    echo_runtime_process_exit, echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
     echo_runtime_process_pipe_write, echo_runtime_process_run, echo_runtime_process_run_capture,
     echo_runtime_process_run_cwd, echo_runtime_process_spawn_pipes, echo_runtime_process_wait,
     echo_runtime_random_float, echo_runtime_random_seed, echo_runtime_random_u64,
@@ -3943,6 +3950,7 @@ fn emit_call<'ctx>(
                 || native == RT_LIST_NEW_EMPTY_LISTS
                 || native == RT_BYTES_FROM_I64
                 || native == RT_BYTES_FROM_STR
+                || native == RT_BYTES_FROM_VALUE
                 || native == RT_REFLECT_KIND
                 || native == RT_REFLECT_KIND_NAME
                 || native == RT_REFLECT_KEY_BYTES
@@ -4506,6 +4514,10 @@ fn emit_scalar_typed<'ctx>(
         }
         MirExpr::BytesLit { bytes } => {
             let iv = emit_bytes_lit(cx, bytes)?;
+            Some((iv.as_basic_value_enum(), MirRepr::BytesRef))
+        }
+        MirExpr::BytesInterp { parts } => {
+            let iv = emit_bytes_interp(cx, parts)?;
             Some((iv.as_basic_value_enum(), MirRepr::BytesRef))
         }
         MirExpr::LocatorLit { text } => {
@@ -5340,6 +5352,51 @@ fn emit_const_bytes<'ctx>(
     (ptr, len)
 }
 
+fn emit_bytes_interp<'ctx>(cx: &mut EmitCx<'_, 'ctx>, parts: &[StrPart]) -> Option<IntValue<'ctx>> {
+    let from_val = cx
+        .module
+        .get_function(RT_BYTES_FROM_VALUE)
+        .expect("bytes_from_value");
+    let cat_f = cx.module.get_function(RT_BYTES_CAT).expect("bytes_cat");
+    let mut acc: Option<IntValue<'ctx>> = None;
+    for part in parts {
+        let chunk = match part {
+            StrPart::Lit(bytes) => emit_bytes_lit(cx, bytes)?,
+            StrPart::Name(name) => {
+                let expr = if let Some(field) = name.strip_prefix('.') {
+                    MirExpr::FieldGet {
+                        base: Box::new(MirExpr::Name(echo_hir::RECV_PARAM.into())),
+                        field: field.to_string(),
+                    }
+                } else {
+                    MirExpr::Name(name.clone())
+                };
+                let v = emit_expr_i64(cx, &expr)?;
+                cx.builder
+                    .build_call(from_val, &[v.into()], "binterp")
+                    .expect("bytes_from_value")
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_int_value()
+            }
+        };
+        acc = Some(match acc {
+            None => chunk,
+            Some(prev) => cx
+                .builder
+                .build_call(cat_f, &[prev.into(), chunk.into()], "bcat")
+                .expect("bytes_cat")
+                .try_as_basic_value()
+                .unwrap_basic()
+                .into_int_value(),
+        });
+    }
+    match acc {
+        Some(v) => Some(v),
+        None => emit_bytes_lit(cx, b""),
+    }
+}
+
 fn emit_locator_interp<'ctx>(
     cx: &mut EmitCx<'_, 'ctx>,
     parts: &[StrPart],
@@ -5799,6 +5856,28 @@ mod native_repr_tests {
         assert!(
             ir.contains("t.echo"),
             "expected source file name in DI; ir=\n{ir}"
+        );
+    }
+
+    #[test]
+    fn bytes_interp_calls_bytes_from_value() {
+        use echo_mir::StrPart;
+        let ir = emit_fn(
+            &["n"],
+            vec![MirStmt::ReturnOk(
+                MirExpr::BytesInterp {
+                    parts: vec![StrPart::Lit(b"x=".to_vec()), StrPart::Name("n".into())],
+                },
+                None,
+            )],
+        );
+        assert!(
+            ir.contains("echo_runtime_bytes_from_value"),
+            "expected bytes_from_value in IR; ir=\n{ir}"
+        );
+        assert!(
+            ir.contains("echo_runtime_bytes_from_ptr") || ir.contains("echo_runtime_bytes_cat"),
+            "expected bytes lit/cat for live bytes interp; ir=\n{ir}"
         );
     }
 

@@ -431,6 +431,9 @@ fn rewrite_expr(e: &MirExpr, stacks: &HashMap<String, Vec<String>>) -> MirExpr {
         MirExpr::LocatorInterp { parts } => MirExpr::LocatorInterp {
             parts: rewrite_interp_parts(parts, stacks),
         },
+        MirExpr::BytesInterp { parts } => MirExpr::BytesInterp {
+            parts: rewrite_interp_parts(parts, stacks),
+        },
         MirExpr::Index { base, index } => MirExpr::Index {
             base: Box::new(rewrite_expr(base, stacks)),
             index: Box::new(rewrite_expr(index, stacks)),

@@ -345,6 +345,10 @@ pub enum MirExpr {
     BytesLit {
         bytes: Vec<u8>,
     },
+    /// Rich bytes `b"…{name}…"` with live interpolation parts.
+    BytesInterp {
+        parts: Vec<StrPart>,
+    },
     /// Locator value from `p'…'` / `p"…"` (decoded UTF-8 path/URI text).
     LocatorLit {
         text: String,
@@ -3853,14 +3857,28 @@ fn decode_string_to_mir(
     }
 }
 
-/// Decode `b'…'` / `b"…"` into a [`MirExpr::BytesLit`] (no live interp in v1).
+/// Decode `b'…'` / `b"…"` into a bytes lit or live `{name}` interp.
 fn decode_bytes_to_mir(
     kind: StringKind,
     raw: &str,
     const_env: &HashMap<String, ConstValue>,
 ) -> Result<MirExpr, String> {
-    let payload = decode_prefixed_payload(b'b', "bytes", kind, raw, const_env)?;
-    Ok(MirExpr::BytesLit { bytes: payload })
+    let inner = strip_prefix_token(b'b', "bytes", raw)?;
+    match kind {
+        StringKind::Pure => Ok(MirExpr::BytesLit {
+            bytes: decode_pure(inner)?,
+        }),
+        StringKind::Rich => {
+            let folded = fold_rich_parts(decode_rich_parts(inner)?, const_env);
+            if folded.iter().any(|p| matches!(p, StrPart::Name(_))) {
+                Ok(MirExpr::BytesInterp { parts: folded })
+            } else {
+                Ok(MirExpr::BytesLit {
+                    bytes: parts_to_bytes(&folded),
+                })
+            }
+        }
+    }
 }
 
 /// Decode `p'…'` / `p"…"` into a locator lit or live `{name}` interp.
@@ -3938,50 +3956,6 @@ fn parts_to_bytes(parts: &[StrPart]) -> Vec<u8> {
         }
     }
     out
-}
-
-fn decode_prefixed_payload(
-    prefix: u8,
-    what: &str,
-    kind: StringKind,
-    raw: &str,
-    const_env: &HashMap<String, ConstValue>,
-) -> Result<Vec<u8>, String> {
-    let inner_tok = strip_prefix_token(prefix, what, raw)?;
-    match kind {
-        StringKind::Pure => decode_pure(inner_tok),
-        StringKind::Rich => {
-            let parts = decode_rich_parts(inner_tok)?;
-            if parts.iter().any(|p| matches!(p, StrPart::Name(_))) {
-                if !parts.iter().all(|p| match p {
-                    StrPart::Lit(_) => true,
-                    StrPart::Name(n) => const_env.contains_key(n),
-                }) {
-                    return Err(format!(
-                        "rich {what} with live `{{name}}` interpolation not supported in v1"
-                    ));
-                }
-            }
-            let mut out = Vec::new();
-            for p in &parts {
-                match p {
-                    StrPart::Lit(bs) => out.extend(bs),
-                    StrPart::Name(n) => match const_env.get(n) {
-                        Some(ConstValue::Str(bs)) => out.extend(bs),
-                        Some(ConstValue::Int(i)) => out.extend(i.to_string().as_bytes()),
-                        Some(ConstValue::Float(bits)) => {
-                            out.extend(f64::from_bits(*bits).to_string().as_bytes())
-                        }
-                        Some(ConstValue::Bool(bv)) => {
-                            out.extend(if *bv { b"1" } else { b"0" });
-                        }
-                        None => unreachable!(),
-                    },
-                }
-            }
-            Ok(out)
-        }
-    }
 }
 
 fn decode_pure(raw: &str) -> Result<Vec<u8>, String> {
@@ -4085,6 +4059,71 @@ mod tests {
         assert!(matches!(pure, MirExpr::BytesLit { bytes } if bytes == b"raw"));
         let rich = decode_bytes_to_mir(StringKind::Rich, r#"b"esc\n""#, &HashMap::new()).unwrap();
         assert!(matches!(rich, MirExpr::BytesLit { bytes } if bytes == b"esc\n"));
+    }
+
+    #[test]
+    fn bytes_live_interp_keeps_name() {
+        // docs/syntax.md: rich b"…" is like a rich string (byte payload + {name} interp).
+        let e = decode_bytes_to_mir(StringKind::Rich, r#"b"x={n}""#, &HashMap::new());
+        let e = e.expect("live bytes {name} interpolation is locked through run");
+        match e {
+            MirExpr::BytesInterp { parts } => {
+                assert!(
+                    parts
+                        .iter()
+                        .any(|p| matches!(p, StrPart::Name(n) if n == "n")),
+                    "expected live name n, got {parts:?}"
+                );
+            }
+            other => panic!("expected BytesInterp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bytes_const_fold_mixed_with_live_name() {
+        let mut env = HashMap::new();
+        env.insert("PRE".into(), ConstValue::Str(b"ab".to_vec()));
+        let e = decode_bytes_to_mir(StringKind::Rich, r#"b"{PRE}{n}""#, &env)
+            .expect("mixed # const + live name");
+        match e {
+            MirExpr::BytesInterp { parts } => {
+                let lit: Vec<u8> = parts
+                    .iter()
+                    .filter_map(|p| match p {
+                        StrPart::Lit(b) => Some(b.as_slice()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .copied()
+                    .collect();
+                assert_eq!(lit, b"ab", "PRE should bake, got {parts:?}");
+                assert!(parts
+                    .iter()
+                    .any(|p| matches!(p, StrPart::Name(n) if n == "n")));
+            }
+            other => panic!("expected BytesInterp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bytes_all_const_names_still_lit() {
+        let mut env = HashMap::new();
+        env.insert("S".into(), ConstValue::Str(b"raw".to_vec()));
+        let e = decode_bytes_to_mir(StringKind::Rich, r#"b"{S}""#, &env).unwrap();
+        assert!(
+            matches!(e, MirExpr::BytesLit { ref bytes } if bytes == b"raw"),
+            "all-const bytes interp should bake to BytesLit, got {e:?}"
+        );
+    }
+
+    #[test]
+    fn bytes_rejects_path_interp_name() {
+        let err = decode_bytes_to_mir(StringKind::Rich, r#"b"{mod.export}""#, &HashMap::new())
+            .unwrap_err();
+        assert!(
+            err.contains("invalid interpolation name"),
+            "expected invalid name, got {err}"
+        );
     }
 
     #[test]

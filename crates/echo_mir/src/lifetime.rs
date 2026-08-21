@@ -160,7 +160,9 @@ fn collect_managed_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
                 collect_managed_names(v, out);
             }
         }
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     out.push(n.as_str());
@@ -196,7 +198,9 @@ fn collect_nested_owned_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
                 collect_managed_names(v, out);
             }
         }
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     out.push(n.as_str());
@@ -877,7 +881,9 @@ fn collect_names_expr(e: &MirExpr, set: &mut HashSet<String>) {
                 collect_names_expr(v, set);
             }
         }
-        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+        MirExpr::StringInterp { parts }
+        | MirExpr::LocatorInterp { parts }
+        | MirExpr::BytesInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     set.insert(n.clone());
@@ -997,6 +1003,7 @@ pub fn expr_is_fresh_alloc(e: &MirExpr) -> bool {
         | MirExpr::FnValue { .. }
         | MirExpr::StringInterp { .. }
         | MirExpr::LocatorInterp { .. }
+        | MirExpr::BytesInterp { .. }
         | MirExpr::Call { .. }
         | MirExpr::BoxValue { .. } => true,
         _ => false,

@@ -831,7 +831,7 @@ add(20, 22)`,
 3.14  1e-3             ; floats
 <i32> 42  <f32> 3.5    ; explicit width
 |  _                    ; true, false
-b'raw'  b"rich\\n"      ; bytes
+b'raw'  b"rich\\n{name}" ; bytes (rich interpolates like a string)
 p'/tmp/file'            ; locator (absolute)
 p'home/user'            ; locator (relative)
 p"http://xo.run"        ; locator (URI)
