@@ -715,6 +715,8 @@ Ordinary scrutinees (not Option/Result dialect) use **value arms** and/or
   type name must resolve to a `%` struct in scope (`sem-match-type`).
 - Default still `: { … }`. No ordinary `$ name` arm.
 - Cannot mix value/`% type` arms with `$` / `!` Option/Result arms on the same match.
+- Empty `| expr { }` (zero arms) is incomplete (`sem-match-incomplete`). A
+  default-only arm is still an arm.
 
 ### Handling Result and Option with `|` match (locked)
 

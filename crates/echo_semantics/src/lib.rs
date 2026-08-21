@@ -953,4 +953,32 @@ $ main = () {
         let c = codes("$ t = 5s\n$ u = 10ms\n");
         assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
     }
+
+    #[test]
+    fn empty_match_is_incomplete() {
+        // `| name { }` parses as a struct lit; use a non-name scrutinee.
+        let c = codes("| 1 {\n}\n");
+        assert!(
+            c.iter().any(|x| x == "sem-match-incomplete"),
+            "expected sem-match-incomplete for empty match, got {c:?}"
+        );
+        assert!(
+            !c.iter().any(|x| x == "cg-unsupported"),
+            "empty match is a check error, not codegen: {c:?}"
+        );
+        let call = codes("$ f = () {\n    ^ 1\n}\n| f() {\n}\n");
+        assert!(
+            call.iter().any(|x| x == "sem-match-incomplete"),
+            "expected sem-match-incomplete for empty call match, got {call:?}"
+        );
+    }
+
+    #[test]
+    fn default_only_match_is_complete() {
+        let c = codes("| 1 {\n    : {\n        ^\n    }\n}\n");
+        assert!(
+            !c.iter().any(|x| x == "sem-match-incomplete"),
+            "default-only match is an arm, got {c:?}"
+        );
+    }
 }

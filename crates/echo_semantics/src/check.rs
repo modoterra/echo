@@ -902,6 +902,10 @@ fn validate_match_arms(
             }
         }
         Some(ReturnShape::Plain) | None => {
+            // Ordinary or unknown: empty `| expr { }` is incomplete (docs/semantics.md).
+            if arms.is_empty() {
+                cx.error("sem-match-incomplete", "match needs at least one arm", span);
+            }
             // Ordinary or unknown: allow literal/default; reject ok/err if present without Result
             if has_ok || has_err {
                 // Might still be valid if we don't know shape — treat as Result dialect
