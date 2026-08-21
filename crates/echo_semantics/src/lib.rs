@@ -751,6 +751,18 @@ $ main = () {
     }
 
     #[test]
+    fn option_match_mix_rejected() {
+        // Cannot mix value arms with `$` / `:` on Option (docs/semantics.md).
+        let c = codes(
+            "$ f = () {\n    ^\n    ^ 1\n}\n| f() {\n    $ v {\n        ^ v\n    }\n    : {\n        ^ 0\n    }\n    1 {\n        ^ 0\n    }\n}\n",
+        );
+        assert!(
+            c.iter().any(|x| x == "sem-match-arm"),
+            "expected sem-match-arm for option value-arm mix, got {c:?}"
+        );
+    }
+
+    #[test]
     fn infer_int_add_ok() {
         let c = codes("$ x = 1 + 2\n");
         assert!(!c.iter().any(|x| *x == "sem-type-mismatch"), "{c:?}");
