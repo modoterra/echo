@@ -198,6 +198,7 @@ sibling expectation files; fixture numbers stay stable when possible.
 | `echo26/run/string/**` | run | `io.print` pure/rich strings |
 | `echo26/run/locator/**` | run | `p'…'` / `p"…"` including live `{name}` interp |
 | `echo26/run/bytes/**` | run | `b'…'` / `b"…"` including live `{name}` interp |
+| `echo26/run/cli/**` | run | `cli.parse` on a fixed argv vector |
 | `echo26/run/multi/**` | run | multi-file `module.fn` / value / chain |
 | `echo26/check/hash/**` | check | SCREAMING_SNAKE + `sem-const` |
 | `echo26/run/hash/**` | run | `#` const-eval used at runtime |

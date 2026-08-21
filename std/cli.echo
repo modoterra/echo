@@ -357,6 +357,29 @@ $ positionals = (tokens) {
     ^ pos
 }
 
+test.it("e26_fixed_argv_verbose_out", () {
+    ; Same vector as echo26/run/cli/001_flags.echo.
+    $ argv = ["tool", "--verbose", "--out", "a.txt", "in.echo"]
+    | parse(argv) {
+        $ t {
+            test.true(has(t, "verbose"))
+            | get(t, "out") {
+                $ v {
+                    test.eq(v, "a.txt")
+                }
+                : {
+                    test.fail("missing out")
+                }
+            }
+            $ pos = positionals(t)
+            test.eq(list.len(pos), 2)
+        }
+        ! e {
+            test.fail(e)
+        }
+    }
+})
+
 test.it("parse_flags_and_positionals", () {
     $ argv = ["prog", "--verbose", "--out", "a.txt", "in.echo", "-x"]
     | parse(argv) {

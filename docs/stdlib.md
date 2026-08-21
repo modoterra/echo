@@ -513,7 +513,7 @@ or suite failures remain.
 | `std/net/url` | **Done** (thin) | e26 parse; runtime product |
 | `std/net/unix` | **Done** (thin) | Unix domain; e26 `001_loopback`; crate + suite |
 | `std/net/tls` | **Done** (thin) | rustls; platform roots when ca_pem empty; e26 loopback `.run` |
-| `std/cli` | **Done** (thin) | pure parse; e26 fixed argv; not GNU getopt |
+| `std/cli` | **Done** (thin) | pure parse; e26 `run/cli/001_flags` execute; not GNU getopt |
 | `std/crypto` sha256/sha512 + HMAC + AES-GCM + CSPRNG | **Done** (thin) | e26 sha256/hmac; suites |
 | `std/bufio` | **Done** (thin) | `lines`; e26 |
 | `std/encoding/csv` | **Done** (thin) | e26 split |
