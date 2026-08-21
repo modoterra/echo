@@ -208,7 +208,7 @@ competing free policy. See [ADR 0016](adr/0016-scope-owned-memory.md).
 | list (`[…]`) | `i64` handle | runtime heap list (magic header + elems) |
 | range (`lo..hi`) | `i64` handle | inclusive i64 range; `list_len`/`list_get` iterate |
 | function value | `i64` handle | `fn_new(code, shape)`; shape 0 plain / 1 result / 2 option |
-| HTTP request parse | `i64` struct handle | `http_parse_request(raw)` via **httparse**; `method`/`path`/`body`; `headers` product (names lowercased, `-`→`_`) |
+| HTTP request parse | `i64` struct handle | `http_parse_request(raw)` via **httparse** (up to **128** headers); `method`/`path`/`body`; `headers` product (names lowercased, `-`→`_`) |
 | HTTP headers complete | `i64` 0/1 | `http_headers_complete(raw)` — `\r\n\r\n` present (serve read accumulate) |
 | TCP listener / stream | `i64` handle | kinds 10/11; **runtime-only** opaque ids — language model: field of `% listener` / `% conn` ([`semantics.md`](semantics.md) § Value vs reference); not a userland `RefValue` leaf |
 | UDP socket | `i64` handle | kind 12; same — wrap in a std struct for userland |

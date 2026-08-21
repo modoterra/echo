@@ -1743,6 +1743,9 @@ fn http_raw_bytes(raw: i64) -> &'static [u8] {
         .unwrap_or(&[])
 }
 
+/// httparse scratch; 64 silently failed open as `GET /` (TooManyHeaders).
+const HTTP_MAX_HEADERS: usize = 128;
+
 /// Return 1 if `raw` (string or bytes) contains a complete HTTP header block
 /// (`\r\n\r\n`), else 0. Used by `http.handle_connection` to accumulate reads.
 ///
@@ -1770,7 +1773,7 @@ pub unsafe extern "C" fn echo_runtime_http_request_complete(raw: i64) -> i64 {
     if !bytes.windows(4).any(|w| w == b"\r\n\r\n") {
         return 0;
     }
-    let mut headers_buf = [httparse::EMPTY_HEADER; 64];
+    let mut headers_buf = [httparse::EMPTY_HEADER; HTTP_MAX_HEADERS];
     let mut req = httparse::Request::new(&mut headers_buf);
     match req.parse(&bytes) {
         Ok(httparse::Status::Complete(header_end)) => {
@@ -1809,7 +1812,7 @@ pub unsafe extern "C" fn echo_runtime_http_request_complete(raw: i64) -> i64 {
 pub unsafe extern "C" fn echo_runtime_http_parse_request(raw: i64) -> i64 {
     let bytes = http_raw_bytes(raw);
 
-    let mut headers_buf = [httparse::EMPTY_HEADER; 64];
+    let mut headers_buf = [httparse::EMPTY_HEADER; HTTP_MAX_HEADERS];
     let mut req = httparse::Request::new(&mut headers_buf);
 
     let headers = echo_runtime_struct_new();
@@ -2198,6 +2201,27 @@ mod tests {
             let body = b"body";
             let b = echo_runtime_struct_get(p, body.as_ptr(), body.len());
             assert_eq!(string_as_str(b), Some("é"));
+        }
+    }
+
+    #[test]
+    fn http_parse_more_than_64_headers() {
+        let mut raw = b"GET /health HTTP/1.1\r\nHost: x\r\n".to_vec();
+        for i in 0..70 {
+            raw.extend(format!("X-H{i}: v\r\n").as_bytes());
+        }
+        raw.extend(b"\r\n");
+        unsafe {
+            let h = echo_runtime_bytes_from_ptr(raw.as_ptr(), raw.len());
+            let p = echo_runtime_http_parse_request(h);
+            let path = b"path";
+            let pth = echo_runtime_struct_get(p, path.as_ptr(), path.len());
+            assert_eq!(
+                string_as_str(pth),
+                Some("/health"),
+                "httparse EMPTY_HEADER cap must not drop a well-formed request"
+            );
+            assert_eq!(echo_runtime_http_request_complete(h), 1);
         }
     }
 

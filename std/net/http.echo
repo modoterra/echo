@@ -160,6 +160,20 @@ test.it("e26_body_content_length", () {
     test.eq(req.body, "hello")
 })
 
+test.it("parse_70_headers", () {
+    ~ raw = "GET /health HTTP/1.1\r\nHost: x\r\n"
+    ~ i = 0
+    * i < 70 {
+        ~ raw = str.cat(raw, "X-H")
+        ~ raw = str.cat(raw, str.from_int(i))
+        ~ raw = str.cat(raw, ": v\r\n")
+        ~ i = i + 1
+    }
+    ~ raw = str.cat(raw, "\r\n")
+    $ req = parse_request(raw)
+    test.eq(req.path, "/health")
+})
+
 ; Two TCP-sized chunks that split UTF-8 `é` (U+00E9 = c3 a9).
 test.it("parse_split_utf8_chunks", () {
     $ headers = b"POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\n"
