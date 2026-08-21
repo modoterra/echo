@@ -14,12 +14,12 @@ mod ssa;
 mod value_class;
 
 pub use cfg::{
-    BlockId, MirBlock, MirCfg, MirOp, Terminator, match_payload_names, structured_to_cfg,
-    structured_to_cfg_with_fallthrough,
+    match_payload_names, structured_to_cfg, structured_to_cfg_with_fallthrough, BlockId, MirBlock,
+    MirCfg, MirOp, Terminator,
 };
-pub use escape::{EscapeClass, analyze_escapes};
-pub use lifetime::{ROOT_SCOPE, expr_is_fresh_alloc, expr_is_managed, inject_lifetime};
-pub use repr::{MirRepr, analyze_reprs};
+pub use escape::{analyze_escapes, EscapeClass};
+pub use lifetime::{expr_is_fresh_alloc, expr_is_managed, inject_lifetime, ROOT_SCOPE};
+pub use repr::{analyze_reprs, MirRepr};
 pub use simplify::simplify_local;
 pub use ssa::construct_ssa;
 pub use value_class::ValueClass;
@@ -348,6 +348,10 @@ pub enum MirExpr {
     /// Locator value from `p'…'` / `p"…"` (decoded UTF-8 path/URI text).
     LocatorLit {
         text: String,
+    },
+    /// Rich locator `p"…{name}…"` with live interpolation parts.
+    LocatorInterp {
+        parts: Vec<StrPart>,
     },
     /// Rich string with `{name}` interpolation parts.
     StringInterp {
@@ -1250,12 +1254,8 @@ fn collect_calls_in_stmts(
     methods: &GraphMethods,
     resolve_callee: &dyn Fn(&Path, &str, &HashMap<String, String>) -> Option<String>,
     candidates: &mut HashMap<String, Vec<HashSet<String>>>,
-    record_call: impl Fn(
-        &mut HashMap<String, Vec<HashSet<String>>>,
-        &str,
-        &[HirExpr],
-        &HashMap<String, String>,
-    ) + Copy,
+    record_call: impl Fn(&mut HashMap<String, Vec<HashSet<String>>>, &str, &[HirExpr], &HashMap<String, String>)
+        + Copy,
 ) {
     for s in stmts {
         match s {
@@ -1473,12 +1473,8 @@ fn collect_calls_in_expr(
     methods: &GraphMethods,
     resolve_callee: &dyn Fn(&Path, &str, &HashMap<String, String>) -> Option<String>,
     candidates: &mut HashMap<String, Vec<HashSet<String>>>,
-    record_call: impl Fn(
-        &mut HashMap<String, Vec<HashSet<String>>>,
-        &str,
-        &[HirExpr],
-        &HashMap<String, String>,
-    ) + Copy,
+    record_call: impl Fn(&mut HashMap<String, Vec<HashSet<String>>>, &str, &[HirExpr], &HashMap<String, String>)
+        + Copy,
 ) {
     match &e.kind {
         HirExprKind::Call { symbol, args } => {
@@ -3845,45 +3841,13 @@ fn decode_string_to_mir(
             bytes: decode_pure(raw)?,
         }),
         StringKind::Rich => {
-            let parts = decode_rich_parts(raw)?;
-            // Partial const-fold: bake `#` consts into lit segments; leave live names.
-            let mut folded: Vec<StrPart> = Vec::new();
-            let mut lit_buf = Vec::new();
-            let flush_lit = |buf: &mut Vec<u8>, out: &mut Vec<StrPart>| {
-                if !buf.is_empty() {
-                    out.push(StrPart::Lit(std::mem::take(buf)));
-                }
-            };
-            for p in parts {
-                match p {
-                    StrPart::Lit(b) => lit_buf.extend(b),
-                    StrPart::Name(n) => match const_env.get(&n) {
-                        Some(ConstValue::Str(b)) => lit_buf.extend(b),
-                        Some(ConstValue::Int(i)) => lit_buf.extend(i.to_string().as_bytes()),
-                        Some(ConstValue::Float(bits)) => {
-                            lit_buf.extend(f64::from_bits(*bits).to_string().as_bytes())
-                        }
-                        Some(ConstValue::Bool(b)) => {
-                            lit_buf.extend(if *b { b"1" } else { b"0" });
-                        }
-                        None => {
-                            flush_lit(&mut lit_buf, &mut folded);
-                            folded.push(StrPart::Name(n));
-                        }
-                    },
-                }
-            }
-            flush_lit(&mut lit_buf, &mut folded);
+            let folded = fold_rich_parts(decode_rich_parts(raw)?, const_env);
             if folded.iter().any(|p| matches!(p, StrPart::Name(_))) {
                 Ok(MirExpr::StringInterp { parts: folded })
             } else {
-                let mut out = Vec::new();
-                for p in folded {
-                    if let StrPart::Lit(b) = p {
-                        out.extend(b);
-                    }
-                }
-                Ok(MirExpr::StringLit { bytes: out })
+                Ok(MirExpr::StringLit {
+                    bytes: parts_to_bytes(&folded),
+                })
             }
         }
     }
@@ -3899,16 +3863,81 @@ fn decode_bytes_to_mir(
     Ok(MirExpr::BytesLit { bytes: payload })
 }
 
-/// Decode `p'…'` / `p"…"` into a [`MirExpr::LocatorLit`] (UTF-8 text).
+/// Decode `p'…'` / `p"…"` into a locator lit or live `{name}` interp.
 fn decode_locator_to_mir(
     kind: StringKind,
     raw: &str,
     const_env: &HashMap<String, ConstValue>,
 ) -> Result<MirExpr, String> {
-    let payload = decode_prefixed_payload(b'p', "locator", kind, raw, const_env)?;
-    let text =
-        String::from_utf8(payload).map_err(|_| "locator payload is not UTF-8".to_string())?;
-    Ok(MirExpr::LocatorLit { text })
+    let inner = strip_prefix_token(b'p', "locator", raw)?;
+    match kind {
+        StringKind::Pure => {
+            let payload = decode_pure(inner)?;
+            let text = String::from_utf8(payload)
+                .map_err(|_| "locator payload is not UTF-8".to_string())?;
+            Ok(MirExpr::LocatorLit { text })
+        }
+        StringKind::Rich => {
+            let folded = fold_rich_parts(decode_rich_parts(inner)?, const_env);
+            if folded.iter().any(|p| matches!(p, StrPart::Name(_))) {
+                Ok(MirExpr::LocatorInterp { parts: folded })
+            } else {
+                let text = String::from_utf8(parts_to_bytes(&folded))
+                    .map_err(|_| "locator payload is not UTF-8".to_string())?;
+                Ok(MirExpr::LocatorLit { text })
+            }
+        }
+    }
+}
+
+fn strip_prefix_token<'a>(prefix: u8, what: &str, raw: &'a str) -> Result<&'a str, String> {
+    let b = raw.as_bytes();
+    if b.len() < 3 || b[0] != prefix {
+        return Err(format!("invalid {what} token `{raw}`"));
+    }
+    std::str::from_utf8(&b[1..]).map_err(|_| format!("invalid {what} token UTF-8"))
+}
+
+/// Bake `#` consts into lit segments; leave live `{name}` / `{.field}` parts.
+fn fold_rich_parts(parts: Vec<StrPart>, const_env: &HashMap<String, ConstValue>) -> Vec<StrPart> {
+    let mut folded: Vec<StrPart> = Vec::new();
+    let mut lit_buf = Vec::new();
+    let flush_lit = |buf: &mut Vec<u8>, out: &mut Vec<StrPart>| {
+        if !buf.is_empty() {
+            out.push(StrPart::Lit(std::mem::take(buf)));
+        }
+    };
+    for p in parts {
+        match p {
+            StrPart::Lit(b) => lit_buf.extend(b),
+            StrPart::Name(n) => match const_env.get(&n) {
+                Some(ConstValue::Str(b)) => lit_buf.extend(b),
+                Some(ConstValue::Int(i)) => lit_buf.extend(i.to_string().as_bytes()),
+                Some(ConstValue::Float(bits)) => {
+                    lit_buf.extend(f64::from_bits(*bits).to_string().as_bytes())
+                }
+                Some(ConstValue::Bool(b)) => {
+                    lit_buf.extend(if *b { b"1" } else { b"0" });
+                }
+                None => {
+                    flush_lit(&mut lit_buf, &mut folded);
+                    folded.push(StrPart::Name(n));
+                }
+            },
+        }
+    }
+    flush_lit(&mut lit_buf, &mut folded);
+    folded
+}
+
+fn parts_to_bytes(parts: &[StrPart]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for p in parts {
+        if let StrPart::Lit(b) = p {
+            out.extend(b);
+        }
+    }
+    out
 }
 
 fn decode_prefixed_payload(
@@ -3918,12 +3947,7 @@ fn decode_prefixed_payload(
     raw: &str,
     const_env: &HashMap<String, ConstValue>,
 ) -> Result<Vec<u8>, String> {
-    let b = raw.as_bytes();
-    if b.len() < 3 || b[0] != prefix {
-        return Err(format!("invalid {what} token `{raw}`"));
-    }
-    let inner_tok =
-        std::str::from_utf8(&b[1..]).map_err(|_| format!("invalid {what} token UTF-8"))?;
+    let inner_tok = strip_prefix_token(prefix, what, raw)?;
     match kind {
         StringKind::Pure => decode_pure(inner_tok),
         StringKind::Rich => {
@@ -4096,11 +4120,9 @@ mod tests {
                         .any(|w| w == b"title=surface"),
                     "expected TITLE folded into lit, got {parts:?}"
                 );
-                assert!(
-                    parts
-                        .iter()
-                        .any(|p| matches!(p, StrPart::Name(n) if n == "sum"))
-                );
+                assert!(parts
+                    .iter()
+                    .any(|p| matches!(p, StrPart::Name(n) if n == "sum")));
             }
             other => panic!("expected StringInterp, got {other:?}"),
         }
@@ -4120,6 +4142,84 @@ mod tests {
             rich,
             MirExpr::LocatorLit { text } if text == "http://xo.run"
         ));
+    }
+
+    #[test]
+    fn locator_live_interp_keeps_name() {
+        // docs/semantics.md: rich p"…" interpolates {name} (local / param / # const).
+        let e = decode_locator_to_mir(StringKind::Rich, r#"p"http://{host}""#, &HashMap::new());
+        let e = e.expect("live locator {name} interpolation is locked through run");
+        match e {
+            MirExpr::LocatorInterp { parts } => {
+                assert!(
+                    parts
+                        .iter()
+                        .any(|p| matches!(p, StrPart::Name(n) if n == "host")),
+                    "expected live name host, got {parts:?}"
+                );
+                let lit: Vec<u8> = parts
+                    .iter()
+                    .filter_map(|p| match p {
+                        StrPart::Lit(b) => Some(b.as_slice()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .copied()
+                    .collect();
+                assert_eq!(&lit, b"http://");
+            }
+            other => panic!("expected LocatorInterp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn locator_const_fold_mixed_with_live_name() {
+        let mut env = HashMap::new();
+        env.insert("SCHEME".into(), ConstValue::Str(b"http".to_vec()));
+        let e = decode_locator_to_mir(StringKind::Rich, r#"p"{SCHEME}://{host}""#, &env)
+            .expect("mixed # const + live name");
+        match e {
+            MirExpr::LocatorInterp { parts } => {
+                let lit: Vec<u8> = parts
+                    .iter()
+                    .filter_map(|p| match p {
+                        StrPart::Lit(b) => Some(b.as_slice()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .copied()
+                    .collect();
+                assert!(
+                    lit.windows(b"http://".len()).any(|w| w == b"http://"),
+                    "SCHEME should bake, got {parts:?}"
+                );
+                assert!(parts
+                    .iter()
+                    .any(|p| matches!(p, StrPart::Name(n) if n == "host")));
+            }
+            other => panic!("expected LocatorInterp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn locator_all_const_names_still_lit() {
+        let mut env = HashMap::new();
+        env.insert("HOST".into(), ConstValue::Str(b"xo.run".to_vec()));
+        let e = decode_locator_to_mir(StringKind::Rich, r#"p"http://{HOST}""#, &env).unwrap();
+        assert!(
+            matches!(e, MirExpr::LocatorLit { ref text } if text == "http://xo.run"),
+            "all-const locator interp should bake to LocatorLit, got {e:?}"
+        );
+    }
+
+    #[test]
+    fn locator_rejects_path_interp_name() {
+        let err = decode_locator_to_mir(StringKind::Rich, r#"p"{mod.export}""#, &HashMap::new())
+            .unwrap_err();
+        assert!(
+            err.contains("invalid interpolation name"),
+            "expected invalid name, got {err}"
+        );
     }
 
     #[test]

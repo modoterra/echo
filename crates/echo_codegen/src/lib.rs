@@ -9,7 +9,7 @@ mod metrics;
 mod opt;
 mod runtime_lib;
 
-pub use metrics::{IrMetrics, measure_ir};
+pub use metrics::{measure_ir, IrMetrics};
 pub use opt::OptLevel;
 pub use runtime_lib::find_runtime_staticlib;
 
@@ -32,9 +32,9 @@ use echo_codegen_abi::{
     RT_HEX_DECODE, RT_HEX_ENCODE, RT_HMAC_SHA256, RT_HTTP_HEADERS_COMPLETE, RT_HTTP_PARSE_REQUEST,
     RT_HTTP_REQUEST_COMPLETE, RT_JSON_PARSE, RT_JSON_STRINGIFY, RT_LIST_GET, RT_LIST_LEN,
     RT_LIST_NEW, RT_LIST_NEW_EMPTY_LISTS, RT_LIST_PUSH, RT_LIST_RESERVE, RT_LIST_SET,
-    RT_LOCATOR_CLASS, RT_LOCATOR_FROM_UTF8, RT_MATH_ABS_F, RT_MATH_ABS_I, RT_MATH_CEIL,
-    RT_MATH_COS, RT_MATH_FLOOR, RT_MATH_POW, RT_MATH_SIN, RT_MATH_SQRT, RT_MATH_TAN, RT_NE,
-    RT_NE_ID, RT_NOW_MONO_MS, RT_NOW_MS, RT_OS_CHDIR, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PID,
+    RT_LOCATOR_CLASS, RT_LOCATOR_FROM_STRING, RT_LOCATOR_FROM_UTF8, RT_MATH_ABS_F, RT_MATH_ABS_I,
+    RT_MATH_CEIL, RT_MATH_COS, RT_MATH_FLOOR, RT_MATH_POW, RT_MATH_SIN, RT_MATH_SQRT, RT_MATH_TAN,
+    RT_NE, RT_NE_ID, RT_NOW_MONO_MS, RT_NOW_MS, RT_OS_CHDIR, RT_OS_CWD, RT_OS_HOSTNAME, RT_OS_PID,
     RT_OS_PLATFORM, RT_PARSE_F64, RT_PARSE_I64, RT_PATH_CLEAN, RT_PATH_REL, RT_PRINT_I64,
     RT_PROCESS_ARGS, RT_PROCESS_ENV_GET, RT_PROCESS_ENV_HAS, RT_PROCESS_ENV_SET,
     RT_PROCESS_ENV_UNSET, RT_PROCESS_EXIT, RT_PROCESS_PIPE_CLOSE, RT_PROCESS_PIPE_READ,
@@ -42,32 +42,28 @@ use echo_codegen_abi::{
     RT_PROCESS_SPAWN_PIPES, RT_PROCESS_WAIT, RT_RANDOM_FLOAT, RT_RANDOM_SEED, RT_RANDOM_U64,
     RT_RANGE_NEW, RT_REFLECT_KEY_BYTES, RT_REFLECT_KIND, RT_REFLECT_KIND_NAME, RT_SCOPE_DISOWN,
     RT_SCOPE_ENTER, RT_SCOPE_EXIT, RT_SCOPE_PROMOTE, RT_SCOPE_REGISTER, RT_SCOPE_RELEASE,
-    RT_SHA256, RT_SHA512, RT_SLEEP_MS, RT_STR_BUILDER_FINISH, RT_STR_BUILDER_NEW,
-    RT_STR_BUILDER_PUSH_STR, RT_STR_BUILDER_PUSH_VALUE, RT_STR_CAT, RT_STR_CONTAINS,
-    RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
+    RT_SHA256, RT_SHA512, RT_SLEEP_MS, RT_STRING_FROM_UTF8, RT_STRUCT_GET, RT_STRUCT_NEW,
+    RT_STRUCT_NEW_NAMED, RT_STRUCT_SET, RT_STRUCT_TYPE_IS, RT_STR_BUILDER_FINISH,
+    RT_STR_BUILDER_NEW, RT_STR_BUILDER_PUSH_STR, RT_STR_BUILDER_PUSH_VALUE, RT_STR_CAT,
+    RT_STR_CONTAINS, RT_STR_ENDS_WITH, RT_STR_FROM_BYTES, RT_STR_FROM_DEBUG, RT_STR_FROM_DURATION,
     RT_STR_FROM_FLOAT, RT_STR_FROM_INT, RT_STR_FROM_LOCATOR, RT_STR_GET, RT_STR_LEN, RT_STR_REPEAT,
     RT_STR_REPLACE, RT_STR_SLICE, RT_STR_SPLIT, RT_STR_STARTS_WITH, RT_STR_TO_LOWER,
-    RT_STR_TO_UPPER, RT_STR_TRIM, RT_STRING_FROM_UTF8, RT_STRUCT_GET, RT_STRUCT_NEW,
-    RT_STRUCT_NEW_NAMED, RT_STRUCT_SET, RT_STRUCT_TYPE_IS, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE,
-    RT_TASK_CHECK_JOINED, RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS,
-    RT_TASK_SPAWN_ENTRY, RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ,
-    RT_TCP_WRITE, RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER,
-    RT_TIME_FORMAT, RT_TIME_PARSE, RT_TLS_ACCEPT, RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER,
-    RT_TLS_CONNECT, RT_TLS_LISTEN, RT_TLS_READ, RT_TLS_WRITE, RT_UDP_BIND, RT_UDP_CLOSE,
-    RT_UDP_RECV_FROM, RT_UDP_SEND_TO, RT_UNIX_ACCEPT, RT_UNIX_CLOSE, RT_UNIX_CONNECT,
-    RT_UNIX_LISTEN, RT_UNIX_READ, RT_UNIX_WRITE, RT_URL_PARSE, RT_ZIP_PACK, RT_ZIP_UNPACK_FIRST,
+    RT_STR_TO_UPPER, RT_STR_TRIM, RT_TASK_BLOCK, RT_TASK_BLOCK_WIDE, RT_TASK_CHECK_JOINED,
+    RT_TASK_JOIN, RT_TASK_JOIN_WIDE, RT_TASK_SHAPE, RT_TASK_SPAWN_ARGS, RT_TASK_SPAWN_ENTRY,
+    RT_TCP_ACCEPT, RT_TCP_CLOSE, RT_TCP_CONNECT, RT_TCP_LISTEN, RT_TCP_READ, RT_TCP_WRITE,
+    RT_TEST_BENCH_REGISTER, RT_TEST_FAIL, RT_TEST_FINISH, RT_TEST_REGISTER, RT_TIME_FORMAT,
+    RT_TIME_PARSE, RT_TLS_ACCEPT, RT_TLS_CLOSE, RT_TLS_CLOSE_LISTENER, RT_TLS_CONNECT,
+    RT_TLS_LISTEN, RT_TLS_READ, RT_TLS_WRITE, RT_UDP_BIND, RT_UDP_CLOSE, RT_UDP_RECV_FROM,
+    RT_UDP_SEND_TO, RT_UNIX_ACCEPT, RT_UNIX_CLOSE, RT_UNIX_CONNECT, RT_UNIX_LISTEN, RT_UNIX_READ,
+    RT_UNIX_WRITE, RT_URL_PARSE, RT_ZIP_PACK, RT_ZIP_UNPACK_FIRST,
 };
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_mir::{
-    BlockId, CallTarget, MirExpr, MirFn, MirOp, MirPrim, MirProgram, MirRepr, MirRetShape, MirStmt,
-    StrPart, TAG_ERR, TAG_NONE, TAG_OK, TAG_SOME, Terminator, mangle_fn,
+    mangle_fn, BlockId, CallTarget, MirExpr, MirFn, MirOp, MirPrim, MirProgram, MirRepr,
+    MirRetShape, MirStmt, StrPart, Terminator, TAG_ERR, TAG_NONE, TAG_OK, TAG_SOME,
 };
 use echo_source::LineMap;
 use echo_std::runtime_native_symbol;
-use inkwell::AddressSpace;
-use inkwell::FloatPredicate;
-use inkwell::IntPredicate;
-use inkwell::OptimizationLevel;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -78,6 +74,10 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FloatType, IntType, P
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
+use inkwell::AddressSpace;
+use inkwell::FloatPredicate;
+use inkwell::IntPredicate;
+use inkwell::OptimizationLevel;
 
 /// Stable crate identity for workspace linkage checks.
 pub fn crate_name() -> &'static str {
@@ -132,6 +132,7 @@ pub fn emit_llvm_with(prog: &MirProgram, opt: OptLevel) -> EmitResult {
     module.add_function(RT_STR_FROM_BYTES, str_from_int_ty, None);
     module.add_function(RT_STR_FROM_DURATION, str_from_int_ty, None);
     module.add_function(RT_STR_FROM_LOCATOR, str_from_int_ty, None);
+    module.add_function(RT_LOCATOR_FROM_STRING, str_from_int_ty, None);
     module.add_function(RT_STR_FROM_DEBUG, str_from_int_ty, None);
     module.add_function(RT_STR_LEN, str_from_int_ty, None);
     module.add_function(RT_BYTES_LEN, str_from_int_ty, None);
@@ -709,6 +710,12 @@ pub fn run_jit_ir(ir: &str) -> Result<i64, String> {
         &ee,
         RT_LOCATOR_FROM_UTF8,
         echo_runtime_locator_from_utf8 as unsafe extern "C" fn(*const u8, usize) -> i64 as usize,
+    )?;
+    map_runtime_symbol(
+        &module,
+        &ee,
+        RT_LOCATOR_FROM_STRING,
+        echo_runtime_locator_from_string as extern "C" fn(i64) -> i64 as usize,
     )?;
     map_runtime_symbol(
         &module,
@@ -1867,15 +1874,16 @@ use echo_runtime::{
     echo_runtime_json_stringify, echo_runtime_list_get, echo_runtime_list_len,
     echo_runtime_list_new, echo_runtime_list_new_empty_lists, echo_runtime_list_push,
     echo_runtime_list_reserve, echo_runtime_list_set, echo_runtime_locator_class,
-    echo_runtime_locator_from_utf8, echo_runtime_math_abs_f, echo_runtime_math_abs_i,
-    echo_runtime_math_ceil, echo_runtime_math_cos, echo_runtime_math_floor, echo_runtime_math_pow,
-    echo_runtime_math_sin, echo_runtime_math_sqrt, echo_runtime_math_tan, echo_runtime_ne,
-    echo_runtime_ne_id, echo_runtime_now_mono_ms, echo_runtime_now_ms, echo_runtime_os_chdir,
-    echo_runtime_os_cwd, echo_runtime_os_hostname, echo_runtime_os_pid, echo_runtime_os_platform,
-    echo_runtime_parse_f64, echo_runtime_parse_i64, echo_runtime_path_clean, echo_runtime_path_rel,
-    echo_runtime_print_i64, echo_runtime_process_args, echo_runtime_process_env_get,
-    echo_runtime_process_env_has, echo_runtime_process_env_set, echo_runtime_process_env_unset,
-    echo_runtime_process_exit, echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
+    echo_runtime_locator_from_string, echo_runtime_locator_from_utf8, echo_runtime_math_abs_f,
+    echo_runtime_math_abs_i, echo_runtime_math_ceil, echo_runtime_math_cos,
+    echo_runtime_math_floor, echo_runtime_math_pow, echo_runtime_math_sin, echo_runtime_math_sqrt,
+    echo_runtime_math_tan, echo_runtime_ne, echo_runtime_ne_id, echo_runtime_now_mono_ms,
+    echo_runtime_now_ms, echo_runtime_os_chdir, echo_runtime_os_cwd, echo_runtime_os_hostname,
+    echo_runtime_os_pid, echo_runtime_os_platform, echo_runtime_parse_f64, echo_runtime_parse_i64,
+    echo_runtime_path_clean, echo_runtime_path_rel, echo_runtime_print_i64,
+    echo_runtime_process_args, echo_runtime_process_env_get, echo_runtime_process_env_has,
+    echo_runtime_process_env_set, echo_runtime_process_env_unset, echo_runtime_process_exit,
+    echo_runtime_process_pipe_close, echo_runtime_process_pipe_read,
     echo_runtime_process_pipe_write, echo_runtime_process_run, echo_runtime_process_run_capture,
     echo_runtime_process_run_cwd, echo_runtime_process_spawn_pipes, echo_runtime_process_wait,
     echo_runtime_random_float, echo_runtime_random_seed, echo_runtime_random_u64,
@@ -4504,6 +4512,10 @@ fn emit_scalar_typed<'ctx>(
             let iv = emit_locator_lit(cx, text.as_bytes())?;
             Some((iv.as_basic_value_enum(), MirRepr::LocatorRef))
         }
+        MirExpr::LocatorInterp { parts } => {
+            let iv = emit_locator_interp(cx, parts)?;
+            Some((iv.as_basic_value_enum(), MirRepr::LocatorRef))
+        }
         MirExpr::StringInterp { parts } => {
             let iv = emit_string_interp(cx, parts)?;
             Some((iv.as_basic_value_enum(), MirRepr::StringRef))
@@ -5328,6 +5340,22 @@ fn emit_const_bytes<'ctx>(
     (ptr, len)
 }
 
+fn emit_locator_interp<'ctx>(
+    cx: &mut EmitCx<'_, 'ctx>,
+    parts: &[StrPart],
+) -> Option<IntValue<'ctx>> {
+    let s = emit_string_interp(cx, parts)?;
+    let f = cx
+        .module
+        .get_function(RT_LOCATOR_FROM_STRING)
+        .expect("locator_from_string");
+    let call = cx
+        .builder
+        .build_call(f, &[s.into()], "locator_interp")
+        .expect("locator_from_string call");
+    Some(call.try_as_basic_value().unwrap_basic().into_int_value())
+}
+
 fn emit_string_interp<'ctx>(
     cx: &mut EmitCx<'_, 'ctx>,
     parts: &[StrPart],
@@ -5705,8 +5733,8 @@ mod ir_cache_tests {
 mod native_repr_tests {
     use super::*;
     use echo_mir::{
-        CallTarget, MirExpr, MirFn, MirPrim, MirProgram, MirRetShape, MirStmt, analyze_escapes,
-        analyze_reprs, construct_ssa, inject_lifetime, simplify_local, structured_to_cfg,
+        analyze_escapes, analyze_reprs, construct_ssa, inject_lifetime, simplify_local,
+        structured_to_cfg, CallTarget, MirExpr, MirFn, MirPrim, MirProgram, MirRetShape, MirStmt,
     };
     use std::path::PathBuf;
 
@@ -5771,6 +5799,31 @@ mod native_repr_tests {
         assert!(
             ir.contains("t.echo"),
             "expected source file name in DI; ir=\n{ir}"
+        );
+    }
+
+    #[test]
+    fn locator_interp_calls_locator_from_string() {
+        use echo_mir::StrPart;
+        let ir = emit_fn(
+            &["host"],
+            vec![MirStmt::ReturnOk(
+                MirExpr::LocatorInterp {
+                    parts: vec![
+                        StrPart::Lit(b"http://".to_vec()),
+                        StrPart::Name("host".into()),
+                    ],
+                },
+                None,
+            )],
+        );
+        assert!(
+            ir.contains("echo_runtime_locator_from_string"),
+            "expected locator_from_string in IR; ir=\n{ir}"
+        );
+        assert!(
+            ir.contains("echo_runtime_string_builder_new"),
+            "expected string builder for live locator interp; ir=\n{ir}"
         );
     }
 
@@ -6283,7 +6336,7 @@ pub fn aot_binary_cache_key(ir: &str) -> echo_cache::PhaseCacheKey {
 #[must_use]
 pub fn aot_binary_cache_key_with_opt(ir: &str, opt: OptLevel) -> echo_cache::PhaseCacheKey {
     use echo_cache::PhaseCacheKey;
-    use echo_fingerprint::{ArtifactPhase, RUNTIME_ABI_VERSION, phase_fingerprint};
+    use echo_fingerprint::{phase_fingerprint, ArtifactPhase, RUNTIME_ABI_VERSION};
     let abi = RUNTIME_ABI_VERSION.to_string();
     let lower = phase_fingerprint(ArtifactPhase::Lower, &[]);
     let codegen = phase_fingerprint(ArtifactPhase::Codegen, &[]);
@@ -6310,8 +6363,8 @@ mod llvm_opt_tests {
 
     use super::*;
     use echo_mir::{
-        CallTarget, MirExpr, MirFn, MirProgram, MirRetShape, MirStmt, analyze_escapes,
-        analyze_reprs, construct_ssa, simplify_local, structured_to_cfg,
+        analyze_escapes, analyze_reprs, construct_ssa, simplify_local, structured_to_cfg,
+        CallTarget, MirExpr, MirFn, MirProgram, MirRetShape, MirStmt,
     };
     use std::path::PathBuf;
     use std::time::Instant;

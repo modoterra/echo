@@ -44,6 +44,9 @@ pub const RT_STR_FROM_DURATION: &str = "echo_runtime_str_from_duration";
 /// `echo_runtime_locator_from_utf8(ptr, len) -> locator handle`
 pub const RT_LOCATOR_FROM_UTF8: &str = "echo_runtime_locator_from_utf8";
 
+/// `echo_runtime_locator_from_string(string_handle) -> locator handle`
+pub const RT_LOCATOR_FROM_STRING: &str = "echo_runtime_locator_from_string";
+
 /// `echo_runtime_str_from_locator(locator_handle) -> string handle`
 pub const RT_STR_FROM_LOCATOR: &str = "echo_runtime_str_from_locator";
 

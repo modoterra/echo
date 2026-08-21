@@ -971,6 +971,15 @@ pub unsafe extern "C" fn echo_runtime_locator_from_utf8(ptr: *const u8, len: usi
     locator_to_handle(data)
 }
 
+/// Locator handle from a string handle's UTF-8 text (copy). Empty if not a string.
+#[unsafe(no_mangle)]
+pub extern "C" fn echo_runtime_locator_from_string(handle: i64) -> i64 {
+    match string_as_str(handle) {
+        Some(s) => locator_to_handle(s.to_owned()),
+        None => locator_to_handle(String::new()),
+    }
+}
+
 /// Locator class codes (`docs/semantics.md`): relative / absolute / URI.
 pub const LOCATOR_CLASS_REL: i64 = 0;
 pub const LOCATOR_CLASS_ABS: i64 = 1;
@@ -1312,7 +1321,7 @@ pub unsafe extern "C" fn echo_runtime_string_builder_push_str(b: i64, ptr: *cons
     builder.buf.push_str(&String::from_utf8_lossy(bytes));
 }
 
-/// Append a value: string content, float Display, or decimal integer.
+/// Append a value: string or locator text, float Display, or decimal integer.
 #[unsafe(no_mangle)]
 pub extern "C" fn echo_runtime_string_builder_push_value(b: i64, v: i64) {
     if b == 0 {
@@ -1323,6 +1332,10 @@ pub extern "C" fn echo_runtime_string_builder_push_value(b: i64, v: i64) {
         return;
     }
     if let Some(s) = string_as_str(v) {
+        builder.buf.push_str(s);
+        return;
+    }
+    if let Some(s) = locator_as_str(v) {
         builder.buf.push_str(s);
         return;
     }
@@ -1583,7 +1596,11 @@ pub unsafe extern "C" fn echo_runtime_struct_type_is(
         let bytes = unsafe { std::slice::from_raw_parts(name_ptr, name_len) };
         String::from_utf8_lossy(bytes)
     };
-    if st.type_name.as_str() == name { 1 } else { 0 }
+    if st.type_name.as_str() == name {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set field `name` on a struct handle (insert or replace).
@@ -2073,6 +2090,28 @@ mod tests {
             }),
             1
         );
+    }
+
+    #[test]
+    fn locator_from_string_copies_text() {
+        let path = "/tmp/echo";
+        let s = unsafe { echo_runtime_string_from_utf8(path.as_ptr(), path.len()) };
+        let loc = echo_runtime_locator_from_string(s);
+        assert_eq!(locator_data(loc).as_deref(), Some(path));
+        assert_eq!(echo_runtime_locator_class(loc), LOCATOR_CLASS_ABS);
+        let empty = echo_runtime_locator_from_string(0);
+        assert_eq!(locator_data(empty).as_deref(), Some(""));
+        assert_eq!(echo_runtime_locator_class(empty), LOCATOR_CLASS_REL);
+    }
+
+    #[test]
+    fn string_builder_push_value_appends_locator_text() {
+        let loc = unsafe { echo_runtime_locator_from_utf8(b"/tmp".as_ptr(), 4) };
+        let b = echo_runtime_string_builder_new();
+        echo_runtime_string_builder_push_value(b, loc);
+        unsafe { echo_runtime_string_builder_push_str(b, b"/x".as_ptr(), 2) };
+        let s = echo_runtime_string_builder_finish(b);
+        assert_eq!(string_data(s).as_deref(), Some("/tmp/x"));
     }
 
     #[test]

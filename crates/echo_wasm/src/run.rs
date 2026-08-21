@@ -9,14 +9,14 @@ use std::path::{Path, PathBuf};
 use echo_ast::{BinaryOp, UnaryOp};
 use echo_hir::lower_file;
 use echo_mir::{
-    CallTarget, LoweredProgram, MirCfg, MirExpr, MirFn, MirOp, MirPrim, MirProgram, MirRetShape,
-    ModuleLowerInput, StrPart, TAG_ERR, TAG_NONE, Terminator, lower_program,
+    lower_program, CallTarget, LoweredProgram, MirCfg, MirExpr, MirFn, MirOp, MirPrim, MirProgram,
+    MirRetShape, ModuleLowerInput, StrPart, Terminator, TAG_ERR, TAG_NONE,
 };
-use echo_resolver::{ProjectChecked, VirtualSources, check_entry_virtual, module_bind_name};
+use echo_resolver::{check_entry_virtual, module_bind_name, ProjectChecked, VirtualSources};
 use echo_runtime::{
-    echo_runtime_float_from_f64, echo_runtime_list_new, echo_runtime_print_i64,
-    echo_runtime_range_new, echo_runtime_str_from_debug, echo_runtime_str_from_int,
-    echo_runtime_string_builder_finish, echo_runtime_string_builder_new,
+    echo_runtime_float_from_f64, echo_runtime_list_new, echo_runtime_locator_from_string,
+    echo_runtime_print_i64, echo_runtime_range_new, echo_runtime_str_from_debug,
+    echo_runtime_str_from_int, echo_runtime_string_builder_finish, echo_runtime_string_builder_new,
     echo_runtime_string_builder_push_value, list_get_value, list_len_value, list_push_value,
     list_set_value, string_builder_push_utf8, string_handle_from_utf8, struct_get_value,
     struct_new_value, struct_set_value, struct_type_is_value, with_print_capture,
@@ -26,7 +26,7 @@ use echo_source::{BytePos, SourceId, Span};
 use echo_std::is_runtime_module_path;
 use serde::Serialize;
 
-use crate::{CheckDiagnostic, PLAYGROUND_PATH, check_source, playground_workspace};
+use crate::{check_source, playground_workspace, CheckDiagnostic, PLAYGROUND_PATH};
 
 const MAX_STEPS: u32 = 2_000_000;
 const MAX_CALL_DEPTH: u32 = 256;
@@ -252,6 +252,27 @@ impl Slot {
             Self::Fn { symbol, .. } => Err(format!("playground-host: {symbol} is a function")),
         }
     }
+}
+
+fn eval_string_interp(parts: &[StrPart], env: &HashMap<String, Slot>) -> Result<i64, String> {
+    let b = echo_runtime_string_builder_new();
+    for part in parts {
+        match part {
+            StrPart::Lit(bytes) => {
+                let s = String::from_utf8_lossy(bytes);
+                string_builder_push_utf8(b, &s);
+            }
+            StrPart::Name(n) => {
+                let v = env
+                    .get(n)
+                    .cloned()
+                    .ok_or_else(|| format!("playground-host: unbound {n}"))?
+                    .i64()?;
+                echo_runtime_string_builder_push_value(b, v);
+            }
+        }
+    }
+    Ok(echo_runtime_string_builder_finish(b))
 }
 
 struct Machine<'a> {
@@ -520,26 +541,11 @@ impl<'a> Machine<'a> {
                 Ok(Slot::I64(string_handle_from_utf8(&s)))
             }
             MirExpr::LocatorLit { text } => Ok(Slot::I64(string_handle_from_utf8(text))),
-            MirExpr::StringInterp { parts } => {
-                let b = echo_runtime_string_builder_new();
-                for part in parts {
-                    match part {
-                        StrPart::Lit(bytes) => {
-                            let s = String::from_utf8_lossy(bytes);
-                            string_builder_push_utf8(b, &s);
-                        }
-                        StrPart::Name(n) => {
-                            let v = env
-                                .get(n)
-                                .cloned()
-                                .ok_or_else(|| format!("playground-host: unbound {n}"))?
-                                .i64()?;
-                            echo_runtime_string_builder_push_value(b, v);
-                        }
-                    }
-                }
-                Ok(Slot::I64(echo_runtime_string_builder_finish(b)))
+            MirExpr::LocatorInterp { parts } => {
+                let s = eval_string_interp(parts, env)?;
+                Ok(Slot::I64(echo_runtime_locator_from_string(s)))
             }
+            MirExpr::StringInterp { parts } => Ok(Slot::I64(eval_string_interp(parts, env)?)),
             MirExpr::Index { base, index } => {
                 let h = self.eval(base, env, depth)?.i64()?;
                 let i = self.eval(index, env, depth)?.i64()?;

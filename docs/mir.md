@@ -13,6 +13,10 @@ Mid-level, backend-neutral executable intermediate representation.
 Distinct from storage [`MirRepr`](../crates/echo_mir/src/repr.rs). API:
 `echo_mir::ValueClass` (`value_class.rs`).
 
+Rich `p"…{name}…"` lowers to `MirExpr::LocatorInterp` (same `{name}` / `{.field}`
+parts as `StringInterp`). Const-only names still bake to `LocatorLit`. Codegen
+builds the string, then `echo_runtime_locator_from_string`.
+
 | Class | Kinds | Pass |
 |-------|--------|------|
 | **RefValue** | struct, list | copy reference (share) |

@@ -349,6 +349,18 @@ fn stack_top(stacks: &HashMap<String, Vec<String>>, name: &str) -> String {
         .unwrap_or_else(|| format!("{base}@undef"))
 }
 
+fn rewrite_interp_parts(parts: &[StrPart], stacks: &HashMap<String, Vec<String>>) -> Vec<StrPart> {
+    parts
+        .iter()
+        .map(|p| match p {
+            StrPart::Lit(b) => StrPart::Lit(b.clone()),
+            // `{.field}` is receiver field access — not an SSA local.
+            StrPart::Name(n) if n.starts_with('.') => StrPart::Name(n.clone()),
+            StrPart::Name(n) => StrPart::Name(stack_top(stacks, n)),
+        })
+        .collect()
+}
+
 fn rewrite_expr(e: &MirExpr, stacks: &HashMap<String, Vec<String>>) -> MirExpr {
     match e {
         MirExpr::Name(n) => MirExpr::Name(stack_top(stacks, n)),
@@ -414,15 +426,10 @@ fn rewrite_expr(e: &MirExpr, stacks: &HashMap<String, Vec<String>>) -> MirExpr {
         },
         MirExpr::LocatorLit { text } => MirExpr::LocatorLit { text: text.clone() },
         MirExpr::StringInterp { parts } => MirExpr::StringInterp {
-            parts: parts
-                .iter()
-                .map(|p| match p {
-                    StrPart::Lit(b) => StrPart::Lit(b.clone()),
-                    // `{.field}` is receiver field access — not an SSA local.
-                    StrPart::Name(n) if n.starts_with('.') => StrPart::Name(n.clone()),
-                    StrPart::Name(n) => StrPart::Name(stack_top(stacks, n)),
-                })
-                .collect(),
+            parts: rewrite_interp_parts(parts, stacks),
+        },
+        MirExpr::LocatorInterp { parts } => MirExpr::LocatorInterp {
+            parts: rewrite_interp_parts(parts, stacks),
         },
         MirExpr::Index { base, index } => MirExpr::Index {
             base: Box::new(rewrite_expr(base, stacks)),
@@ -627,7 +634,7 @@ fn dom_tree_children(n: usize, idom: &[Option<BlockId>], entry: BlockId) -> Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MirExpr, MirRetShape, MirStmt, structured_to_cfg};
+    use crate::{structured_to_cfg, MirExpr, MirRetShape, MirStmt};
 
     #[test]
     fn ssa_renames_straight_line() {

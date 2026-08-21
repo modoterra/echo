@@ -64,6 +64,7 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_str_from_bytes` | `int64_t (int64_t)` | Bytes handle → string (UTF-8 lossy) |
 | `echo_runtime_str_from_duration` | `int64_t (int64_t)` | Duration nanos → string (`5s`, `10ms`, …) |
 | `echo_runtime_locator_from_utf8` | `int64_t (const uint8_t *p, size_t n)` | Locator handle from path/URI text |
+| `echo_runtime_locator_from_string` | `int64_t (int64_t)` | String handle → locator (path/URI text copy) |
 | `echo_runtime_str_from_locator` | `int64_t (int64_t)` | Locator → string (path/URI text) |
 | `echo_runtime_locator_class` | `int64_t (int64_t)` | String or locator → `0` rel / `1` abs / `2` URI |
 | `echo_runtime_bytes_from_ptr` | `int64_t (const uint8_t *p, size_t n)` | Bytes handle from payload copy |
@@ -72,7 +73,7 @@ List lits, for-in, index, result/option packing emit `echo_runtime_*` from
 | `echo_runtime_string_from_utf8` | `int64_t echo_runtime_string_from_utf8(const uint8_t *p, size_t n)` | String handle |
 | `echo_runtime_eq` / `_ne` | `int64_t (int64_t, int64_t)` | **Deep** eq (lists/structs recursive; string/bytes content; ints) |
 | `echo_runtime_eq_id` / `_ne_id` | `int64_t (int64_t, int64_t)` | **Identity** eq (`===` / `!==` — handle/bit pattern) |
-| `echo_runtime_string_builder_*` | new / push_str / push_value / finish | Rich `{name}` interpolation |
+| `echo_runtime_string_builder_*` | new / push_str / push_value / finish | Rich `{name}` interpolation (strings; locators stringify as path/URI text) |
 | `echo_runtime_list_new` | `int64_t echo_runtime_list_new(void)` | Empty list handle (pointer bits) |
 | `echo_runtime_list_push` | `void echo_runtime_list_push(int64_t list, int64_t v)` | Append element |
 | `echo_runtime_list_reserve` | `void (int64_t list, int64_t additional)` | Reserve push capacity |

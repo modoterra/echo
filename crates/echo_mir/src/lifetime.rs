@@ -160,7 +160,7 @@ fn collect_managed_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
                 collect_managed_names(v, out);
             }
         }
-        MirExpr::StringInterp { parts } => {
+        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     out.push(n.as_str());
@@ -196,7 +196,7 @@ fn collect_nested_owned_names<'a>(e: &'a MirExpr, out: &mut Vec<&'a str>) {
                 collect_managed_names(v, out);
             }
         }
-        MirExpr::StringInterp { parts } => {
+        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     out.push(n.as_str());
@@ -877,7 +877,7 @@ fn collect_names_expr(e: &MirExpr, set: &mut HashSet<String>) {
                 collect_names_expr(v, set);
             }
         }
-        MirExpr::StringInterp { parts } => {
+        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
             for p in parts {
                 if let StrPart::Name(n) = p {
                     set.insert(n.clone());
@@ -996,6 +996,7 @@ pub fn expr_is_fresh_alloc(e: &MirExpr) -> bool {
         | MirExpr::Range { .. }
         | MirExpr::FnValue { .. }
         | MirExpr::StringInterp { .. }
+        | MirExpr::LocatorInterp { .. }
         | MirExpr::Call { .. }
         | MirExpr::BoxValue { .. } => true,
         _ => false,
@@ -1019,7 +1020,7 @@ pub fn expr_is_managed(e: &MirExpr) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MirRetShape, structured_to_cfg};
+    use crate::{structured_to_cfg, MirRetShape};
 
     fn walk_promotes(stmts: &[MirStmt], out: &mut Vec<(String, u32)>) {
         for s in stmts {
@@ -1926,7 +1927,7 @@ mod tests {
     fn inject_nested_for_in_return_versions_indices() {
         use crate::cfg::structured_to_cfg;
         use crate::ssa::construct_ssa;
-        use crate::{MirExpr, MirRetShape, MirStmt, inject_lifetime};
+        use crate::{inject_lifetime, MirExpr, MirRetShape, MirStmt};
         let body = inject_lifetime(vec![
             MirStmt::ForIn {
                 item: "chain".into(),
@@ -2009,10 +2010,9 @@ mod tests {
         ];
         let out = inject_lifetime(body);
         assert!(matches!(out.first(), Some(MirStmt::ScopeEnter { id: 0 })));
-        assert!(
-            out.iter()
-                .any(|s| matches!(s, MirStmt::ScopeRegister { .. }))
-        );
+        assert!(out
+            .iter()
+            .any(|s| matches!(s, MirStmt::ScopeRegister { .. })));
         let has_arm_scope = out.iter().any(|s| match s {
             MirStmt::If { arms, .. } => arms
                 .iter()
@@ -2021,10 +2021,9 @@ mod tests {
         });
         assert!(has_arm_scope);
         assert!(out.iter().any(|s| matches!(s, MirStmt::ScopeDisown { .. })));
-        assert!(
-            out.iter()
-                .any(|s| matches!(s, MirStmt::ScopeExit { id: 0 }))
-        );
+        assert!(out
+            .iter()
+            .any(|s| matches!(s, MirStmt::ScopeExit { id: 0 })));
     }
 
     #[test]
@@ -2090,17 +2089,15 @@ mod tests {
             !promotes_path,
             "must not promote call-arg path into result ownership: {out:?}"
         );
-        assert!(
-            nested_owned_names_in_expr(&MirExpr::Call {
-                target: CallTarget::Function {
-                    module_path: PathBuf::from("m"),
-                    name: "f".into(),
-                },
-                args: vec![MirExpr::Name("path".into())],
-                ret: MirRetShape::Plain,
-            })
-            .is_empty()
-        );
+        assert!(nested_owned_names_in_expr(&MirExpr::Call {
+            target: CallTarget::Function {
+                module_path: PathBuf::from("m"),
+                name: "f".into(),
+            },
+            args: vec![MirExpr::Name("path".into())],
+            ret: MirRetShape::Plain,
+        })
+        .is_empty());
     }
 
     #[test]

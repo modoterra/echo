@@ -8,6 +8,8 @@ $ rel = p'home/user'
 io.print(str.from_locator(rel))
 $ url = p"http://xo.run"
 io.print(str.from_locator(url))
+$ host = "xo.run"
+io.print(str.from_locator(p"http://{host}"))
 ? abs == p'/home/user' {
     io.print('eq')
 }

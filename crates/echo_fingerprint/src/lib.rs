@@ -32,13 +32,13 @@ pub const SEMANTICS_VERSION: u32 = 19; // ! outside fn; task { } bodies count as
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 30; // Set/ReturnOk carry source spans
-pub const MIR_SCHEMA_VERSION: u32 = 5; // MirOp::Set.span; Terminator::ReturnOk span
+pub const MIR_LOWERER_VERSION: u32 = 31; // LocatorInterp for live p"{name}"
+pub const MIR_SCHEMA_VERSION: u32 = 6; // MirExpr::LocatorInterp
 /// Bumped when LLVM emission / opt / cache-key participation changes.
-pub const CODEGEN_VERSION: u32 = 19; // per-op DILocation + DILocalVariable kinds
+pub const CODEGEN_VERSION: u32 = 20; // locator_from_string for live p"…"
 pub const CODEGEN_SCHEMA_VERSION: u32 = 1;
 /// Bumped when runtime deep eq / identity eq / locator heap changes.
-pub const RUNTIME_ABI_VERSION: u32 = 46; // locator_class 0/1/2
+pub const RUNTIME_ABI_VERSION: u32 = 47; // locator_from_string; interp locators
 pub const STDLIB_VERSION: u32 = 33; // path.class / is_uri; locator_class
 pub const DIAGNOSTICS_VERSION: u32 = 1;
 pub const TARGET_OPTIONS_VERSION: u32 = 1;

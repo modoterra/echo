@@ -44,7 +44,7 @@ cargo build -p xo
 | [`hex_bin.echo`](hex_bin.echo) | `0x` / `0b` integer lits | `255` / `10` / `18` |
 | [`bitwise.echo`](bitwise.echo) | `& \| ^ << >> ~` | `8` / `14` / `6` / `16` / `2` / `-1` |
 | [`widths.echo`](widths.echo) | `i*` / `ui*` / `byte` / cast | `255` / `5` / `768` / `3` |
-| [`locator.echo`](locator.echo) | `p'…'` / `p"…"` + `str.from_locator` | paths + `eq` |
+| [`locator.echo`](locator.echo) | `p'…'` / `p"…"` + live `{name}` + `str.from_locator` | paths + `eq` |
 | [`struct_defaults.echo`](struct_defaults.echo) | omit fields with shape defaults | `Ada` / `0` |
 | [`eq_deep_id.echo`](eq_deep_id.echo) | deep `==` vs identity `===` | `1` / `0` / `1` / … |
 | [`multi_bind.echo`](multi_bind.echo) | same-line `~ a = 1, b = 2` | `3` / `30` |
@@ -69,7 +69,7 @@ rich `"…"` (escapes + `{name}` interp), string `==` / `!=` (no `+` concat),
 `/ std/io` → `io.print` (**strings only**; use `str.from_int` / `str.from_float`),
 multi-file user packages, `#` const-eval, f64/`<f32>` floats, bytes lits
 (`b'…'` / `b"…"`, print via `str.from_bytes`), duration lits (`5s`/`10ms`/… as
-nanoseconds; print via `str.from_duration`), locator lits (`p'…'` / `p"…"`,
+nanoseconds; print via `str.from_duration`), locator lits (`p'…'` / `p"…"` with live `{name}` interp,
 print via `str.from_locator`). Top-level statements are
 the program
 (no entry keyword).

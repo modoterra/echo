@@ -214,6 +214,7 @@ pub fn simplify_expr(e: MirExpr) -> MirExpr {
             field,
         },
         MirExpr::StringInterp { parts } => MirExpr::StringInterp { parts },
+        MirExpr::LocatorInterp { parts } => MirExpr::LocatorInterp { parts },
         MirExpr::FnValue { .. } => e,
         MirExpr::Range { start, end } => MirExpr::Range {
             start: Box::new(simplify_expr(*start)),
@@ -235,6 +236,7 @@ fn is_boxed_shaped(e: &MirExpr) -> bool {
         | MirExpr::StringLit { .. }
         | MirExpr::BytesLit { .. }
         | MirExpr::LocatorLit { .. }
+        | MirExpr::LocatorInterp { .. }
         | MirExpr::StringInterp { .. } => {
             // These produce refs; after unbox path they're not typically unbox sources.
             false
@@ -477,6 +479,24 @@ fn propagate_and_collapse(cfg: &mut MirCfg, reprs: &mut HashMap<String, MirRepr>
     !alias.is_empty() || changed
 }
 
+fn alias_interp_parts(parts: Vec<StrPart>, alias: &HashMap<String, String>) -> Vec<StrPart> {
+    parts
+        .into_iter()
+        .map(|p| match p {
+            StrPart::Lit(b) => StrPart::Lit(b),
+            StrPart::Name(n) => StrPart::Name(resolve_alias(alias, &n)),
+        })
+        .collect()
+}
+
+fn collect_interp_uses(parts: &[StrPart], used: &mut HashSet<String>) {
+    for p in parts {
+        if let StrPart::Name(n) = p {
+            used.insert(n.clone());
+        }
+    }
+}
+
 fn resolve_alias(alias: &HashMap<String, String>, name: &str) -> String {
     let mut cur = name.to_string();
     let mut seen = HashSet::new();
@@ -553,13 +573,10 @@ fn rewrite_names(e: MirExpr, alias: &HashMap<String, String>) -> MirExpr {
             field,
         },
         MirExpr::StringInterp { parts } => MirExpr::StringInterp {
-            parts: parts
-                .into_iter()
-                .map(|p| match p {
-                    StrPart::Lit(b) => StrPart::Lit(b),
-                    StrPart::Name(n) => StrPart::Name(resolve_alias(alias, &n)),
-                })
-                .collect(),
+            parts: alias_interp_parts(parts, alias),
+        },
+        MirExpr::LocatorInterp { parts } => MirExpr::LocatorInterp {
+            parts: alias_interp_parts(parts, alias),
         },
         other => other,
     }
@@ -722,12 +739,8 @@ fn collect_uses(e: &MirExpr, used: &mut HashSet<String>) {
             collect_uses(index, used);
         }
         MirExpr::FieldGet { base, .. } => collect_uses(base, used),
-        MirExpr::StringInterp { parts } => {
-            for p in parts {
-                if let StrPart::Name(n) = p {
-                    used.insert(n.clone());
-                }
-            }
+        MirExpr::StringInterp { parts } | MirExpr::LocatorInterp { parts } => {
+            collect_interp_uses(parts, used);
         }
         MirExpr::ConstI64(_)
         | MirExpr::ConstI32(_)
@@ -840,7 +853,7 @@ fn light_infer(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
         MirExpr::ListLit(_) => MirRepr::ListRef,
         MirExpr::StringLit { .. } | MirExpr::StringInterp { .. } => MirRepr::StringRef,
         MirExpr::BytesLit { .. } => MirRepr::BytesRef,
-        MirExpr::LocatorLit { .. } => MirRepr::LocatorRef,
+        MirExpr::LocatorLit { .. } | MirExpr::LocatorInterp { .. } => MirRepr::LocatorRef,
         MirExpr::StructLit { .. } => MirRepr::ObjectRef,
         _ => MirRepr::Unknown,
     }
@@ -859,7 +872,7 @@ fn term_eq(a: &Terminator, b: &Terminator) -> bool {
 mod tests {
     use super::*;
     use crate::{
-        CallTarget, MirRetShape, MirStmt, analyze_reprs, construct_ssa, structured_to_cfg,
+        analyze_reprs, construct_ssa, structured_to_cfg, CallTarget, MirRetShape, MirStmt,
     };
     use echo_ast::BinaryOp;
 

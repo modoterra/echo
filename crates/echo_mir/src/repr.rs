@@ -243,7 +243,7 @@ fn infer_expr(e: &MirExpr, reprs: &HashMap<String, MirRepr>) -> MirRepr {
         MirExpr::ListLit(_) => MirRepr::ListRef,
         MirExpr::StringLit { .. } | MirExpr::StringInterp { .. } => MirRepr::StringRef,
         MirExpr::BytesLit { .. } => MirRepr::BytesRef,
-        MirExpr::LocatorLit { .. } => MirRepr::LocatorRef,
+        MirExpr::LocatorLit { .. } | MirExpr::LocatorInterp { .. } => MirRepr::LocatorRef,
         MirExpr::StructLit { .. } => MirRepr::ObjectRef,
         MirExpr::StructTypeIs { value, .. } => {
             let _ = infer_expr(value, reprs);
@@ -778,35 +778,48 @@ fn rewrite_expr_abi(
             )
         }
         MirExpr::StringInterp { parts } => {
-            // Names in interp are pushed as universal values.
-            let mut pre = Vec::new();
-            let mut new_parts = Vec::new();
-            for part in parts {
-                match part {
-                    StrPart::Lit(b) => new_parts.push(StrPart::Lit(b)),
-                    StrPart::Name(n) => {
-                        let r = reprs.get(&n).copied().unwrap_or(MirRepr::Unknown);
-                        if r.is_native_scalar() || r.is_ref() {
-                            let tmp = fresh("box");
-                            pre.push(MirOp::Set {
-                                name: tmp.clone(),
-                                value: MirExpr::BoxValue {
-                                    value: Box::new(MirExpr::Name(n)),
-                                    from: r,
-                                },
-                                span: None,
-                            });
-                            new_parts.push(StrPart::Name(tmp));
-                        } else {
-                            new_parts.push(StrPart::Name(n));
-                        }
-                    }
-                }
-            }
-            (pre, MirExpr::StringInterp { parts: new_parts })
+            let (pre, parts) = rewrite_interp_parts(parts, reprs, fresh);
+            (pre, MirExpr::StringInterp { parts })
+        }
+        MirExpr::LocatorInterp { parts } => {
+            let (pre, parts) = rewrite_interp_parts(parts, reprs, fresh);
+            (pre, MirExpr::LocatorInterp { parts })
         }
         other => (vec![], other),
     }
+}
+
+fn rewrite_interp_parts(
+    parts: Vec<StrPart>,
+    reprs: &HashMap<String, MirRepr>,
+    fresh: &mut impl FnMut(&str) -> String,
+) -> (Vec<MirOp>, Vec<StrPart>) {
+    // Names in interp are pushed as universal values.
+    let mut pre = Vec::new();
+    let mut new_parts = Vec::new();
+    for part in parts {
+        match part {
+            StrPart::Lit(b) => new_parts.push(StrPart::Lit(b)),
+            StrPart::Name(n) => {
+                let r = reprs.get(&n).copied().unwrap_or(MirRepr::Unknown);
+                if r.is_native_scalar() || r.is_ref() {
+                    let tmp = fresh("box");
+                    pre.push(MirOp::Set {
+                        name: tmp.clone(),
+                        value: MirExpr::BoxValue {
+                            value: Box::new(MirExpr::Name(n)),
+                            from: r,
+                        },
+                        span: None,
+                    });
+                    new_parts.push(StrPart::Name(tmp));
+                } else {
+                    new_parts.push(StrPart::Name(n));
+                }
+            }
+        }
+    }
+    (pre, new_parts)
 }
 
 fn ensure_list_handle(
@@ -902,7 +915,7 @@ fn rpo(cfg: &MirCfg) -> Vec<BlockId> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MirRetShape, MirStmt, construct_ssa, structured_to_cfg};
+    use crate::{construct_ssa, structured_to_cfg, MirRetShape, MirStmt};
 
     fn ssa_of(stmts: Vec<MirStmt>) -> (MirCfg, HashMap<String, MirRepr>) {
         let cfg = structured_to_cfg(&stmts, MirRetShape::Plain);
