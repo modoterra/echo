@@ -9,19 +9,25 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::ptr;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
-// Handles produced by `Box::into_raw` in this runtime (exact set — no pointer probe).
-thread_local! {
-    static LIVE_HEAP: RefCell<HashSet<i64>> = RefCell::new(HashSet::new());
+/// Handles produced by `Box::into_raw` in this runtime (exact set — no pointer probe).
+///
+/// Process-global: `+` task bodies run on the worker pool, and natives such as
+/// `json_stringify` consult this set on the joining thread.
+static LIVE_HEAP: LazyLock<Mutex<HashSet<i64>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn live_heap() -> MutexGuard<'static, HashSet<i64>> {
+    LIVE_HEAP
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Record a new heap handle (every `Box::into_raw` path must call this).
 #[inline]
 pub(crate) fn note_heap_alloc(handle: i64) {
     if handle != 0 {
-        LIVE_HEAP.with(|s| {
-            s.borrow_mut().insert(handle);
-        });
+        live_heap().insert(handle);
     }
 }
 
@@ -29,9 +35,7 @@ pub(crate) fn note_heap_alloc(handle: i64) {
 #[inline]
 pub(crate) fn note_heap_free(handle: i64) {
     if handle != 0 {
-        LIVE_HEAP.with(|s| {
-            s.borrow_mut().remove(&handle);
-        });
+        live_heap().remove(&handle);
     }
 }
 
@@ -41,7 +45,7 @@ pub(crate) fn is_live_heap(handle: i64) -> bool {
     if handle == 0 {
         return false;
     }
-    LIVE_HEAP.with(|s| s.borrow().contains(&handle))
+    live_heap().contains(&handle)
 }
 
 /// `Box::into_raw` + live-set registration.
@@ -1843,6 +1847,21 @@ mod tests {
         assert!(unsafe { header_at(h) }.is_some());
         // Integers are not heap objects.
         assert!(unsafe { header_at(42) }.is_none());
+    }
+
+    /// Task workers allocate on other threads; `is_live_heap` must still see the handle
+    /// (`json_stringify` and list-arg natives consult the live set, not a pointer probe).
+    #[test]
+    fn live_heap_is_visible_on_other_threads() {
+        let h =
+            std::thread::spawn(|| unsafe { echo_runtime_string_from_utf8(b"hello".as_ptr(), 5) })
+                .join()
+                .expect("alloc thread");
+        assert!(
+            is_live_heap(h),
+            "handle allocated on a worker thread must stay live on the joiner"
+        );
+        assert_eq!(string_as_str(h), Some("hello"));
     }
 
     #[test]

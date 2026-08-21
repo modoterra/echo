@@ -19,3 +19,17 @@
         io.print(e)
     }
 }
+
+; Worker-allocated strings must stringify as JSON strings, not as pointer ints.
++ job = {
+    ^ "hello"
+}
+- s = job
+| json.stringify(s) {
+    $ out {
+        io.print(out)
+    }
+    ! e {
+        io.print(e)
+    }
+}

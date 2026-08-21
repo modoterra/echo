@@ -555,6 +555,17 @@ mod tests {
         assert!(text.contains('1'));
     }
 
+    /// `+` bodies run on the worker pool. Stringify must not treat a
+    /// worker-allocated string as a bare integer.
+    #[test]
+    fn json_stringify_string_allocated_on_another_thread() {
+        let h = std::thread::spawn(|| s("hello"))
+            .join()
+            .expect("alloc thread");
+        let out = echo_runtime_json_stringify(h);
+        assert_eq!(string_data(out).as_deref(), Some("\"hello\""));
+    }
+
     #[test]
     fn hex_roundtrip_crate() {
         let raw = s("Hi");

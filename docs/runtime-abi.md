@@ -192,6 +192,8 @@ scope.
 | `echo_runtime_scope_drain_deferred` | `void (void)` | Physical free deferred batch |
 
 Heap headers carry `promotion_epoch` for visit uniqueness during graph promote.
+The live-handle set is **process-global** so natives that classify heap vs
+bare int (`json_stringify`, …) see allocations from `+` worker threads.
 
 Runtime implements dispose ops for heap kinds; codegen must not invent a
 competing free policy. See [ADR 0016](adr/0016-scope-owned-memory.md).
