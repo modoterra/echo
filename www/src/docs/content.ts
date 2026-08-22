@@ -748,7 +748,8 @@ xo build -O 2 main.echo -o my_app
 # B = A + A    ; constants may use other constants
 # D = 5s       ; duration / bytes / locator lits fold
 # XS = [1, 2]  ; list lits fold
-# R = 1..3     ; inclusive range lits fold`,
+# R = 1..3     ; inclusive range lits fold
+# P = point { x: 1, y: 2 } ; named / anon struct lits fold`,
           },
         ],
       },
@@ -807,7 +808,7 @@ add(20, 22)`,
             kind: "paragraph",
             text: [
               { code: "#" },
-              " accepts literals and operations over other constants, including duration, bytes, locator, list, and range lits. Runtime calls are not constant expressions. Constant names use ",
+              " accepts literals and operations over other constants, including duration, bytes, locator, list, range, and struct lits. Runtime calls are not constant expressions. Constant names use ",
               { code: "SCREAMING_SNAKE" },
               ".",
             ],
@@ -3725,7 +3726,7 @@ $ name = expr     ; immutable bind
               { code: "#" },
               " is compile-time only: literals and ops on other ",
               { code: "#" },
-              " names (including list and range lits). Runtime calls are outside constant expressions.",
+              " names (including list, range, and struct lits). Runtime calls are outside constant expressions.",
             ],
           },
         ],

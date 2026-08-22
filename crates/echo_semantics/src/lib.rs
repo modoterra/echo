@@ -555,6 +555,22 @@ mod tests {
     }
 
     #[test]
+    fn hash_const_struct_and_anon_ok() {
+        let src = "% point {\n    $ x\n    $ y\n}\n# X = 3\n# P = point { x: X, y: 4 }\n# Q = { a: 1, b: 2 }\n";
+        assert!(
+            !codes(src).iter().any(|x| x == "sem-const"),
+            "named/anon struct lits should fold in `#`: {:?}",
+            codes(src)
+        );
+    }
+
+    #[test]
+    fn hash_const_struct_rejects_call_field() {
+        let c = codes("# Q = { a: f() }\n");
+        assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");
+    }
+
+    #[test]
     fn hash_const_rejects_call() {
         let c = codes("# A = f()\n");
         assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");

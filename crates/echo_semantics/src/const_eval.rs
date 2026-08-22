@@ -29,6 +29,11 @@ pub enum ConstValue {
         start: i64,
         end: i64,
     },
+    /// Named `type { … }` when `name` is non-empty; structural `{ … }` when empty.
+    Struct {
+        name: String,
+        fields: Vec<(String, ConstValue)>,
+    },
 }
 
 impl ConstValue {
@@ -50,7 +55,7 @@ impl ConstValue {
                     b"0".to_vec()
                 }
             }
-            Self::List(_) | Self::Range { .. } => Vec::new(),
+            Self::List(_) | Self::Range { .. } | Self::Struct { .. } => Vec::new(),
         }
     }
 }
@@ -167,14 +172,30 @@ pub fn eval_const_expr(
                 )),
             }
         }
+        Expr::Object { fields, .. } => {
+            let mut out = Vec::with_capacity(fields.len());
+            for (k, v) in fields {
+                out.push((k.name.clone(), eval_const_expr(v, env)?));
+            }
+            Ok(ConstValue::Struct {
+                name: String::new(),
+                fields: out,
+            })
+        }
+        Expr::StructLit { path, fields, .. } => {
+            let name = path.last().map(|id| id.name.clone()).unwrap_or_default();
+            let mut out = Vec::with_capacity(fields.len());
+            for (k, v) in fields {
+                out.push((k.name.clone(), eval_const_expr(v, env)?));
+            }
+            Ok(ConstValue::Struct { name, fields: out })
+        }
         Expr::Call { .. } => Err(ConstError::new(
             "`#` const expression cannot call functions",
         )),
         Expr::Field { .. }
         | Expr::Index { .. }
         | Expr::Receiver { .. }
-        | Expr::Object { .. }
-        | Expr::StructLit { .. }
         | Expr::Fn { .. } => Err(ConstError::new(
             "`#` const expression only allows literals and ops on `#` constants",
         )),
@@ -299,6 +320,16 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
         (Eq, ConstValue::List(a), ConstValue::List(b)) => Ok(ConstValue::Bool(a == b)),
         (NotEq, ConstValue::List(a), ConstValue::List(b)) => Ok(ConstValue::Bool(a != b)),
         (
+            Eq,
+            ConstValue::Struct { fields: a, .. },
+            ConstValue::Struct { fields: b, .. },
+        ) => Ok(ConstValue::Bool(struct_fields_eq(&a, &b))),
+        (
+            NotEq,
+            ConstValue::Struct { fields: a, .. },
+            ConstValue::Struct { fields: b, .. },
+        ) => Ok(ConstValue::Bool(!struct_fields_eq(&a, &b))),
+        (
             Eq | EqEqEq,
             ConstValue::Range { start: a0, end: a1 },
             ConstValue::Range { start: b0, end: b1 },
@@ -312,6 +343,12 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
             "invalid operands for operator in `#` const expression",
         )),
     }
+}
+
+fn struct_fields_eq(a: &[(String, ConstValue)], b: &[(String, ConstValue)]) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .all(|(k, va)| b.iter().any(|(kb, vb)| k == kb && va == vb))
 }
 
 fn decode_prefixed_token(
@@ -695,6 +732,93 @@ mod tests {
             args: vec![],
             span: dummy_span(),
         }]);
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    fn ident(n: &str) -> Ident {
+        Ident {
+            name: n.into(),
+            span: dummy_span(),
+        }
+    }
+
+    fn object(fields: Vec<(&str, Expr)>) -> Expr {
+        Expr::Object {
+            fields: fields
+                .into_iter()
+                .map(|(k, v)| (ident(k), v))
+                .collect(),
+            span: dummy_span(),
+        }
+    }
+
+    fn struct_lit(ty: &str, fields: Vec<(&str, Expr)>) -> Expr {
+        Expr::StructLit {
+            path: vec![ident(ty)],
+            fields: fields
+                .into_iter()
+                .map(|(k, v)| (ident(k), v))
+                .collect(),
+            span: dummy_span(),
+        }
+    }
+
+    #[test]
+    fn anon_struct_lit() {
+        assert_eq!(
+            eval_const_expr(&object(vec![("x", num("1")), ("y", num("2"))]), &HashMap::new())
+                .unwrap(),
+            ConstValue::Struct {
+                name: String::new(),
+                fields: vec![
+                    ("x".into(), ConstValue::Int(1)),
+                    ("y".into(), ConstValue::Int(2))
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn named_struct_lit_uses_prior_const() {
+        let mut env = HashMap::new();
+        env.insert("X".into(), ConstValue::Int(3));
+        assert_eq!(
+            eval_const_expr(&struct_lit("point", vec![("x", name("X")), ("y", num("4"))]), &env)
+                .unwrap(),
+            ConstValue::Struct {
+                name: "point".into(),
+                fields: vec![
+                    ("x".into(), ConstValue::Int(3)),
+                    ("y".into(), ConstValue::Int(4))
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn anon_struct_eq_ignores_field_order() {
+        let e = Expr::Binary {
+            op: BinaryOp::Eq,
+            left: Box::new(object(vec![("x", num("1")), ("y", num("2"))])),
+            right: Box::new(object(vec![("y", num("2")), ("x", num("1"))])),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::Bool(true)
+        );
+    }
+
+    #[test]
+    fn struct_rejects_call_field() {
+        let e = object(vec![(
+            "x",
+            Expr::Call {
+                callee: Box::new(name("f")),
+                args: vec![],
+                span: dummy_span(),
+            },
+        )]);
         assert!(eval_const_expr(&e, &HashMap::new()).is_err());
     }
 }

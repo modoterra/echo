@@ -488,9 +488,10 @@ effect blocks for short-circuit unwrap chains.
 ## Const `#`
 
 Literals + ops on other `#` only — no calls. Includes number, bool, string,
-bytes, locator, duration, list `[…]`, and range `lo..hi` lits; duration `+` /
-`-` / `==` on other `#`; list `==` / `!=` (deep); range `==` / `!=` / `===`.
-Anon/named struct lits, field/index, and calls are not `#`-folded.
+bytes, locator, duration, list `[…]`, range `lo..hi`, named struct
+`name { … }`, and anon `{ k: v }` lits; duration `+` / `-` / `==` on other `#`;
+list `==` / `!=` (deep); range `==` / `!=` / `===`; struct `==` / `!=` (deep,
+by field name). Field, index, and calls are not `#`-folded.
 
 ## Structs, params, mutation (value vs reference)
 

@@ -755,7 +755,10 @@ pub fn lower_program(entry_path: PathBuf, modules: &[ModuleLowerInput]) -> Lower
             } = stmt
             {
                 if let Some(v) = fold_hir_const(init, &const_env) {
-                    const_env.insert(name.clone(), v);
+                    const_env.insert(
+                        name.clone(),
+                        fill_const_struct_defaults(v, &graph_fields, &const_env),
+                    );
                 }
             }
         }
@@ -3703,6 +3706,13 @@ fn const_to_mir(v: &ConstValue) -> MirExpr {
             start: Box::new(MirExpr::ConstI64(*start)),
             end: Box::new(MirExpr::ConstI64(*end)),
         },
+        ConstValue::Struct { name, fields } => MirExpr::StructLit {
+            type_name: name.clone(),
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.clone(), const_to_mir(v)))
+                .collect(),
+        },
     }
 }
 
@@ -3830,6 +3840,16 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                     Some(ConstValue::Bool(a != b))
                 }
                 (
+                    BinaryOp::Eq,
+                    ConstValue::Struct { fields: a, .. },
+                    ConstValue::Struct { fields: b, .. },
+                ) => Some(ConstValue::Bool(const_struct_fields_eq(&a, &b))),
+                (
+                    BinaryOp::NotEq,
+                    ConstValue::Struct { fields: a, .. },
+                    ConstValue::Struct { fields: b, .. },
+                ) => Some(ConstValue::Bool(!const_struct_fields_eq(&a, &b))),
+                (
                     BinaryOp::Eq | BinaryOp::EqEqEq,
                     ConstValue::Range {
                         start: a0,
@@ -3873,7 +3893,65 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 _ => None,
             }
         }
+        HirExprKind::StructLit { name, fields } => {
+            let mut out = Vec::with_capacity(fields.len());
+            for (k, v) in fields {
+                out.push((k.clone(), fold_hir_const(v, env)?));
+            }
+            Some(ConstValue::Struct {
+                name: name.clone(),
+                fields: out,
+            })
+        }
         _ => None,
+    }
+}
+
+fn const_struct_fields_eq(a: &[(String, ConstValue)], b: &[(String, ConstValue)]) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .all(|(k, va)| b.iter().any(|(kb, vb)| k == kb && va == vb))
+}
+
+/// Apply `%` shape defaults that themselves `#`-fold (lits / other `#`).
+fn fill_const_struct_defaults(
+    v: ConstValue,
+    shapes: &GraphFields,
+    env: &HashMap<String, ConstValue>,
+) -> ConstValue {
+    match v {
+        ConstValue::List(xs) => ConstValue::List(
+            xs.into_iter()
+                .map(|x| fill_const_struct_defaults(x, shapes, env))
+                .collect(),
+        ),
+        ConstValue::Struct { name, fields } => {
+            let mut fields: Vec<(String, ConstValue)> = fields
+                .into_iter()
+                .map(|(k, val)| (k, fill_const_struct_defaults(val, shapes, env)))
+                .collect();
+            if !name.is_empty() {
+                if let Some(shape) = shapes.get(&name) {
+                    let provided: HashSet<String> = fields.iter().map(|(k, _)| k.clone()).collect();
+                    for (fname, default) in shape {
+                        if provided.contains(fname) {
+                            continue;
+                        }
+                        let Some(def) = default else {
+                            continue;
+                        };
+                        if let Some(dv) = fold_hir_const(def, env) {
+                            fields.push((
+                                fname.clone(),
+                                fill_const_struct_defaults(dv, shapes, env),
+                            ));
+                        }
+                    }
+                }
+            }
+            ConstValue::Struct { name, fields }
+        }
+        other => other,
     }
 }
 
@@ -4266,6 +4344,18 @@ mod tests {
                 if matches!(&*start, MirExpr::ConstI64(1))
                     && matches!(&*end, MirExpr::ConstI64(3))
         ));
+        assert!(matches!(
+            const_to_mir(&ConstValue::Struct {
+                name: "point".into(),
+                fields: vec![("x".into(), ConstValue::Int(3))],
+            }),
+            MirExpr::StructLit { type_name, fields }
+                if type_name == "point"
+                    && matches!(
+                        fields.as_slice(),
+                        [(k, MirExpr::ConstI64(3))] if k == "x"
+                    )
+        ));
     }
 
     #[test]
@@ -4302,6 +4392,23 @@ mod tests {
         assert_eq!(
             fold_hir_const(&range, &HashMap::new()),
             Some(ConstValue::Range { start: 1, end: 3 })
+        );
+        let st = HirExpr {
+            span,
+            kind: HirExprKind::StructLit {
+                name: "point".into(),
+                fields: vec![("x".into(), int(3)), ("y".into(), int(4))],
+            },
+        };
+        assert_eq!(
+            fold_hir_const(&st, &HashMap::new()),
+            Some(ConstValue::Struct {
+                name: "point".into(),
+                fields: vec![
+                    ("x".into(), ConstValue::Int(3)),
+                    ("y".into(), ConstValue::Int(4))
+                ]
+            })
         );
     }
 
