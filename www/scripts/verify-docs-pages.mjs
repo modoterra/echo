@@ -259,8 +259,8 @@ try {
 
   const { currentPrereleaseTag, currentPrereleaseAssets, currentPrereleaseUrl, releasesIndexUrl } =
     release;
-  if (currentPrereleaseTag !== "v0.0.1-alpha.11") {
-    fail(`currentPrereleaseTag should be v0.0.1-alpha.11, got ${currentPrereleaseTag}`);
+  if (currentPrereleaseTag !== "v0.0.1-alpha.12") {
+    fail(`currentPrereleaseTag should be v0.0.1-alpha.12, got ${currentPrereleaseTag}`);
   }
   const artifactIds = currentPrereleaseAssets.map((asset) => asset.artifact);
   if (artifactIds.join(",") !== "linux-x86_64,macos-arm64") {
@@ -334,7 +334,7 @@ try {
     fail("static homepage must not point at modoterra.github.io");
   }
   const siteMd = readFileSync(path.join(root, "SITE.md"), "utf8");
-  for (const needle of ["Public facts", "prerelease tags", "MIT license", "v0.0.1-alpha.11"]) {
+  for (const needle of ["Public facts", "prerelease tags", "MIT license", "v0.0.1-alpha.12"]) {
     if (!siteMd.includes(needle)) {
       fail(`SITE.md missing public-fact marker: ${needle}`);
     }

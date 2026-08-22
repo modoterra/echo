@@ -611,9 +611,9 @@ One-liner (no git clone):
     | bash -s -- from-release
 
   # Pin a tag
-  # … | bash -s -- from-release v0.0.1-alpha.11
+  # … | bash -s -- from-release v0.0.1-alpha.12
 
-Current prerelease (v0.0.1-alpha.11) assets: xo-linux-x86_64, xo-macos-arm64.
+Current prerelease (v0.0.1-alpha.12) assets: xo-linux-x86_64, xo-macos-arm64.
 
 Environment:
   XO_HOME           User .xo root (packages); default $XDG_CACHE_HOME/.xo
