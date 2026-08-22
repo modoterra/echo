@@ -491,7 +491,8 @@ Literals + ops on other `#` only — no calls. Includes number, bool, string,
 bytes, locator, duration, list `[…]`, range `lo..hi`, named struct
 `name { … }`, and anon `{ k: v }` lits; duration `+` / `-` / `==` on other `#`;
 list `==` / `!=` (deep); range `==` / `!=` / `===`; struct `==` / `!=` (deep,
-by field name). Field, index, and calls are not `#`-folded.
+by field name). Field `name.f` and index `xs[i]` on other `#` values fold
+(written fields / in-range list elements). Calls are not `#`-folded.
 
 ## Structs, params, mutation (value vs reference)
 

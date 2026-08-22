@@ -3903,6 +3903,17 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 fields: out,
             })
         }
+        HirExprKind::Field { base, field } => {
+            let v = fold_hir_const(base, env)?;
+            v.field(field).ok()
+        }
+        HirExprKind::Index { base, index } => {
+            let b = fold_hir_const(base, env)?;
+            match fold_hir_const(index, env)? {
+                ConstValue::Int(i) => b.index(i).ok(),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -4410,6 +4421,40 @@ mod tests {
                 ]
             })
         );
+        let mut env = HashMap::new();
+        env.insert(
+            "XS".into(),
+            ConstValue::List(vec![ConstValue::Int(10), ConstValue::Int(20)]),
+        );
+        env.insert(
+            "Q".into(),
+            ConstValue::Struct {
+                name: String::new(),
+                fields: vec![("a".into(), ConstValue::Int(1))],
+            },
+        );
+        let idx = HirExpr {
+            span,
+            kind: HirExprKind::Index {
+                base: Box::new(HirExpr {
+                    span,
+                    kind: HirExprKind::Name("XS".into()),
+                }),
+                index: Box::new(int(1)),
+            },
+        };
+        assert_eq!(fold_hir_const(&idx, &env), Some(ConstValue::Int(20)));
+        let fld = HirExpr {
+            span,
+            kind: HirExprKind::Field {
+                base: Box::new(HirExpr {
+                    span,
+                    kind: HirExprKind::Name("Q".into()),
+                }),
+                field: "a".into(),
+            },
+        };
+        assert_eq!(fold_hir_const(&fld, &env), Some(ConstValue::Int(1)));
     }
 
     #[test]

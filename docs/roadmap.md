@@ -401,7 +401,7 @@ current; fill Impl as work lands.
 | Functions closed | ✓ | | | ✓ | ✓ | outer `$`/`~` → `sem-capture`; `#`/imports OK |
 | Nested fn values | ✓ | ✓ | ✓ | ✓ | ✓ | closed body + `FnRef` bind; `__n_*` symbol |
 | HIR bodies / FnRef | ✓ | — | — | — | ✓ | no language fn table; `bodies` + binds |
-| `#` const-eval | ✓ | | | ✓ | ✓ | no calls in `#`; list/`..`/struct lits fold; no field/index |
+| `#` const-eval | ✓ | | | ✓ | ✓ | no calls in `#`; list/`..`/struct lits; field/index on `#` |
 | Kitchen sink | — | | | | ✓ | `examples/app/surface.echo` |
 | Std io/str | stub→thin | | | | ✓ | print strings-only |
 | Std process | **Done** | | | | ✓ | e26 `run/process`; `xo test std/process.echo` |
@@ -538,6 +538,7 @@ current; fill Impl as work lands.
 | 2026-08-22 | `#` const-eval folds duration/bytes/locator lits (`# D = 5s`, `b'…'`, `p'…'`); duration `+`/`-`/`==` |
 | 2026-08-22 | `#` const-eval folds list `[…]` and range `lo..hi` lits (`# XS = [1, 2]`, `# R = 1..3`) |
 | 2026-08-22 | `#` const-eval folds named/anon struct lits (`# P = point { x: 1 }`, `# Q = { a: 1 }`) |
+| 2026-08-22 | `#` const-eval folds field `P.x` and index `XS[i]` on other `#` values |
 
 ---
 

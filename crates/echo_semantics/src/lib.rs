@@ -571,6 +571,28 @@ mod tests {
     }
 
     #[test]
+    fn hash_const_field_and_index_ok() {
+        let src = "# XS = [10, 20]\n# A = XS[0]\n# Q = { a: 1, b: 2 }\n# B = Q.a\n";
+        assert!(
+            !codes(src).iter().any(|x| x == "sem-const"),
+            "field/index on `#` consts should fold: {:?}",
+            codes(src)
+        );
+    }
+
+    #[test]
+    fn hash_const_index_oob() {
+        let c = codes("# XS = [1]\n# A = XS[2]\n");
+        assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");
+    }
+
+    #[test]
+    fn hash_const_missing_field() {
+        let c = codes("# Q = { a: 1 }\n# B = Q.b\n");
+        assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");
+    }
+
+    #[test]
     fn hash_const_rejects_call() {
         let c = codes("# A = f()\n");
         assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");

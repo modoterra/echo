@@ -121,7 +121,8 @@ Targets LLVM only (ADR 0002) but does not embed LLVM types in the IR design.
   placement uses only blocks **reachable from entry** so a dead cont cannot
   poison the loop header (would freeze the index at 0 → infinite loop).
 - Const `#` folding into `const_env` for getters and foldable exprs (lower-time,
-  not a mid-end pass): int/float/bool/string/bytes/locator/duration/list/range/struct.
+  not a mid-end pass): int/float/bool/string/bytes/locator/duration/list/range/struct
+  plus field/index on those values.
 - **List index:** CFG emits `ListGetChecked` → `echo_runtime_list_get` (soft OOB
   in runtime). No MIR bounds-check elimination (LLVM / runtime own that class).
 - **Width tags:** full `MirRepr` int/uint/float grid (`i8`…`i64`, `ui8`…`ui64`,

@@ -24,7 +24,7 @@ cargo build -p xo
 | [`result_err.echo`](result_err.echo) | `99` | 0 |
 | [`strings.echo`](strings.echo) | pure + rich + `\{` `\}` `\xHH` | `hello pure` / `hello` `rich` / `{x}` / `A` |
 | [`multi/main.echo`](multi/main.echo) | multi-file `./lib` + std | `multi-file` / `42` / `42` |
-| [`const_hash.echo`](const_hash.echo) | `#` const-eval (incl. list/range/struct) | `42` / `5010ms` / `raw` / `/tmp` / `2` / `6` / `3` / `1` / `const ok` |
+| [`const_hash.echo`](const_hash.echo) | `#` const-eval (incl. list/range/struct/field/index) | `42` / `5010ms` / `raw` / `/tmp` / `2` / `6` / `3` / `1` / `10` / `const ok` |
 | [`interp.echo`](interp.echo) | rich `{name}` + `==` | `n=7!` / `eq ok` |
 | [`point.echo`](point.echo) | struct lit + field R/W | `3` `4` `13` / `{x: 13, y: 4}` |
 | [`anon_struct.echo`](anon_struct.echo) | structural `{ k: v }` product | `1` `2` `10` / `0` `3` |

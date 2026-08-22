@@ -58,6 +58,35 @@ impl ConstValue {
             Self::List(_) | Self::Range { .. } | Self::Struct { .. } => Vec::new(),
         }
     }
+
+    /// Project a named field from a folded struct (`# X = P.x`).
+    pub fn field(&self, name: &str) -> Result<ConstValue, ConstError> {
+        match self {
+            Self::Struct { fields, .. } => fields
+                .iter()
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.clone())
+                .ok_or_else(|| {
+                    ConstError::new(format!("no field `{name}` on `#` const struct"))
+                }),
+            _ => Err(ConstError::new(
+                "field access in `#` const requires a struct",
+            )),
+        }
+    }
+
+    /// Project a list element (`# A = XS[0]`). Index must be in range.
+    pub fn index(&self, i: i64) -> Result<ConstValue, ConstError> {
+        match self {
+            Self::List(items) => {
+                if i < 0 || (i as u64) >= items.len() as u64 {
+                    return Err(ConstError::new("list index out of bounds in `#` const"));
+                }
+                Ok(items[i as usize].clone())
+            }
+            _ => Err(ConstError::new("index in `#` const requires a list")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -190,13 +219,23 @@ pub fn eval_const_expr(
             }
             Ok(ConstValue::Struct { name, fields: out })
         }
+        Expr::Field { base, field, .. } => {
+            let v = eval_const_expr(base, env)?;
+            v.field(&field.name)
+        }
+        Expr::Index { base, index, .. } => {
+            let b = eval_const_expr(base, env)?;
+            match eval_const_expr(index, env)? {
+                ConstValue::Int(i) => b.index(i),
+                _ => Err(ConstError::new(
+                    "list index in `#` const requires an integer",
+                )),
+            }
+        }
         Expr::Call { .. } => Err(ConstError::new(
             "`#` const expression cannot call functions",
         )),
-        Expr::Field { .. }
-        | Expr::Index { .. }
-        | Expr::Receiver { .. }
-        | Expr::Fn { .. } => Err(ConstError::new(
+        Expr::Receiver { .. } | Expr::Fn { .. } => Err(ConstError::new(
             "`#` const expression only allows literals and ops on `#` constants",
         )),
     }
@@ -819,6 +858,69 @@ mod tests {
                 span: dummy_span(),
             },
         )]);
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    fn field(base: Expr, f: &str) -> Expr {
+        Expr::Field {
+            base: Box::new(base),
+            field: ident(f),
+            span: dummy_span(),
+        }
+    }
+
+    fn index(base: Expr, i: Expr) -> Expr {
+        Expr::Index {
+            base: Box::new(base),
+            index: Box::new(i),
+            span: dummy_span(),
+        }
+    }
+
+    #[test]
+    fn list_index_from_prior_const() {
+        let mut env = HashMap::new();
+        env.insert(
+            "XS".into(),
+            ConstValue::List(vec![ConstValue::Int(10), ConstValue::Int(20)]),
+        );
+        assert_eq!(
+            eval_const_expr(&index(name("XS"), num("1")), &env).unwrap(),
+            ConstValue::Int(20)
+        );
+    }
+
+    #[test]
+    fn list_index_oob_is_err() {
+        let e = index(list(vec![num("1")]), num("2"));
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn struct_field_from_prior_const() {
+        let mut env = HashMap::new();
+        env.insert(
+            "Q".into(),
+            ConstValue::Struct {
+                name: String::new(),
+                fields: vec![("a".into(), ConstValue::Int(1))],
+            },
+        );
+        assert_eq!(
+            eval_const_expr(&field(name("Q"), "a"), &env).unwrap(),
+            ConstValue::Int(1)
+        );
+    }
+
+    #[test]
+    fn struct_missing_field_is_err() {
+        let e = field(object(vec![("a", num("1"))]), "b");
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn field_on_int_is_err() {
+        let e = field(num("1"), "x");
         assert!(eval_const_expr(&e, &HashMap::new()).is_err());
     }
 }
