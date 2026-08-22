@@ -124,7 +124,7 @@ does not apply; do not skip applicable rows silently.
 | Result / Option produce | `echo_semantics` | `!` err return; bare `^` / `^ v` option shape |
 | Result / Option consume | `echo_semantics` | `\|` arms `$`/`!`/`:` |
 | Kind inference | `echo_semantics` | unify + infer v1 |
-| `#` const-eval | `echo_semantics` | Literals + ops on `#` only (later) |
+| `#` const-eval | `echo_semantics` | Literals + ops on `#` only; duration/bytes/locator fold |
 | Receiver `.` | `echo_semantics` | Only on method-call activation |
 | Call resolution | `echo_semantics` / resolver | Free fn vs `value.member()` vs `module.f` |
 | HIR lowering | `echo_hir` | Desugar surface → analyzed form |

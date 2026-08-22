@@ -16,6 +16,34 @@ pub enum ConstValue {
     Bool(bool),
     /// Decoded UTF-8 payload (no quotes).
     Str(Vec<u8>),
+    /// Duration as i64 nanoseconds (same as runtime).
+    Duration(i64),
+    /// Decoded bytes payload (no `b` prefix / quotes).
+    Bytes(Vec<u8>),
+    /// Locator UTF-8 text as written (no `p` prefix / quotes).
+    Locator(String),
+}
+
+impl ConstValue {
+    /// Bytes to bake into rich `"…"`, `b"…"`, `p"…"` interpolation of this name.
+    ///
+    /// Duration bakes as decimal nanoseconds (same as live unboxed duration interp).
+    #[must_use]
+    pub fn interp_bytes(&self) -> Vec<u8> {
+        match self {
+            Self::Str(b) | Self::Bytes(b) => b.clone(),
+            Self::Locator(s) => s.as_bytes().to_vec(),
+            Self::Int(i) | Self::Duration(i) => i.to_string().into_bytes(),
+            Self::Float(bits) => f64::from_bits(*bits).to_string().into_bytes(),
+            Self::Bool(b) => {
+                if *b {
+                    b"1".to_vec()
+                } else {
+                    b"0".to_vec()
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,9 +83,22 @@ pub fn eval_const_expr(
         }
         Expr::Bool { value, .. } => Ok(ConstValue::Bool(*value)),
         Expr::String { kind, text, .. } => {
-            let bytes = decode_string_token(*kind, text)
-                .map_err(ConstError::new)?;
+            let bytes = decode_string_token(*kind, text).map_err(ConstError::new)?;
             Ok(ConstValue::Str(bytes))
+        }
+        Expr::Duration { text, .. } => {
+            let nanos = echo_ast::parse_duration_nanos(text).map_err(ConstError::new)?;
+            Ok(ConstValue::Duration(nanos))
+        }
+        Expr::Bytes { kind, text, .. } => {
+            let bytes = decode_prefixed_token(b'b', "bytes", *kind, text)?;
+            Ok(ConstValue::Bytes(bytes))
+        }
+        Expr::Locator { kind, text, .. } => {
+            let bytes = decode_prefixed_token(b'p', "locator", *kind, text)?;
+            let text = String::from_utf8(bytes)
+                .map_err(|_| ConstError::new("locator payload is not UTF-8"))?;
+            Ok(ConstValue::Locator(text))
         }
         Expr::Name(id) => env
             .get(&id.name)
@@ -108,9 +149,6 @@ pub fn eval_const_expr(
         | Expr::Object { .. }
         | Expr::StructLit { .. }
         | Expr::Fn { .. }
-        | Expr::Duration { .. }
-        | Expr::Bytes { .. }
-        | Expr::Locator { .. }
         | Expr::Range { .. } => Err(ConstError::new(
             "`#` const expression only allows literals and ops on `#` constants",
         )),
@@ -155,10 +193,16 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
     use BinaryOp::*;
     match (op, l, r) {
         (Add, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a.wrapping_add(b))),
+        (Add, ConstValue::Duration(a), ConstValue::Duration(b)) => {
+            Ok(ConstValue::Duration(a.wrapping_add(b)))
+        }
         (Add, ConstValue::Float(a), ConstValue::Float(b)) => Ok(ConstValue::Float(
             (f64::from_bits(a) + f64::from_bits(b)).to_bits(),
         )),
         (Sub, ConstValue::Int(a), ConstValue::Int(b)) => Ok(ConstValue::Int(a.wrapping_sub(b))),
+        (Sub, ConstValue::Duration(a), ConstValue::Duration(b)) => {
+            Ok(ConstValue::Duration(a.wrapping_sub(b)))
+        }
         (Sub, ConstValue::Float(a), ConstValue::Float(b)) => Ok(ConstValue::Float(
             (f64::from_bits(a) - f64::from_bits(b)).to_bits(),
         )),
@@ -210,10 +254,39 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
         // No `+` string concat — use rich `"…{name}…"` interpolation instead.
         (Eq | EqEqEq, ConstValue::Str(a), ConstValue::Str(b)) => Ok(ConstValue::Bool(a == b)),
         (NotEq | NotEqEq, ConstValue::Str(a), ConstValue::Str(b)) => Ok(ConstValue::Bool(a != b)),
+        (Eq | EqEqEq, ConstValue::Duration(a), ConstValue::Duration(b)) => {
+            Ok(ConstValue::Bool(a == b))
+        }
+        (NotEq | NotEqEq, ConstValue::Duration(a), ConstValue::Duration(b)) => {
+            Ok(ConstValue::Bool(a != b))
+        }
+        (Eq | EqEqEq, ConstValue::Bytes(a), ConstValue::Bytes(b)) => Ok(ConstValue::Bool(a == b)),
+        (NotEq | NotEqEq, ConstValue::Bytes(a), ConstValue::Bytes(b)) => {
+            Ok(ConstValue::Bool(a != b))
+        }
+        (Eq | EqEqEq, ConstValue::Locator(a), ConstValue::Locator(b)) => {
+            Ok(ConstValue::Bool(a == b))
+        }
+        (NotEq | NotEqEq, ConstValue::Locator(a), ConstValue::Locator(b)) => {
+            Ok(ConstValue::Bool(a != b))
+        }
         _ => Err(ConstError::new(
             "invalid operands for operator in `#` const expression",
         )),
     }
+}
+
+fn decode_prefixed_token(
+    prefix: u8,
+    what: &str,
+    kind: echo_ast::StringKind,
+    raw: &str,
+) -> Result<Vec<u8>, ConstError> {
+    let b = raw.as_bytes();
+    if b.first() != Some(&prefix) {
+        return Err(ConstError::new(format!("invalid {what} token `{raw}`")));
+    }
+    decode_string_token(kind, &raw[1..]).map_err(ConstError::new)
 }
 
 fn decode_string_token(kind: echo_ast::StringKind, raw: &str) -> Result<Vec<u8>, String> {
@@ -371,5 +444,99 @@ mod tests {
             eval_const_expr(&e, &HashMap::new()).unwrap(),
             ConstValue::Int(300i64 as i8 as i64)
         );
+    }
+
+    fn duration(text: &str) -> Expr {
+        Expr::Duration {
+            text: text.into(),
+            span: dummy_span(),
+        }
+    }
+
+    fn bytes_pure(text: &str) -> Expr {
+        Expr::Bytes {
+            kind: echo_ast::StringKind::Pure,
+            text: text.into(),
+            span: dummy_span(),
+        }
+    }
+
+    fn locator_pure(text: &str) -> Expr {
+        Expr::Locator {
+            kind: echo_ast::StringKind::Pure,
+            text: text.into(),
+            span: dummy_span(),
+        }
+    }
+
+    #[test]
+    fn duration_lit_and_add() {
+        let e = Expr::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(duration("5s")),
+            right: Box::new(duration("10ms")),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::Duration(5_000_000_000 + 10_000_000)
+        );
+    }
+
+    #[test]
+    fn duration_uses_prior_const() {
+        let mut env = HashMap::new();
+        env.insert("A".into(), ConstValue::Duration(1_000_000_000));
+        let e = Expr::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(name("A")),
+            right: Box::new(duration("500ms")),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &env).unwrap(),
+            ConstValue::Duration(1_500_000_000)
+        );
+    }
+
+    #[test]
+    fn bytes_pure_lit() {
+        assert_eq!(
+            eval_const_expr(&bytes_pure("b'raw'"), &HashMap::new()).unwrap(),
+            ConstValue::Bytes(b"raw".to_vec())
+        );
+    }
+
+    #[test]
+    fn locator_pure_lit() {
+        assert_eq!(
+            eval_const_expr(&locator_pure("p'/tmp'"), &HashMap::new()).unwrap(),
+            ConstValue::Locator("/tmp".into())
+        );
+    }
+
+    #[test]
+    fn duration_eq_same_nanos() {
+        let e = Expr::Binary {
+            op: BinaryOp::Eq,
+            left: Box::new(duration("5s")),
+            right: Box::new(duration("5000ms")),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::Bool(true)
+        );
+    }
+
+    #[test]
+    fn duration_does_not_mix_with_int() {
+        let e = Expr::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(duration("5s")),
+            right: Box::new(num("1")),
+            span: dummy_span(),
+        };
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
     }
 }

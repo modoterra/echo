@@ -487,7 +487,8 @@ effect blocks for short-circuit unwrap chains.
 
 ## Const `#`
 
-Literals + ops on other `#` only — no calls.
+Literals + ops on other `#` only — no calls. Includes number, bool, string,
+bytes, locator, and duration lits; duration `+` / `-` / `==` on other `#`.
 
 ## Structs, params, mutation (value vs reference)
 

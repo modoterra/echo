@@ -745,7 +745,8 @@ xo build -O 2 main.echo -o my_app
 ~ total = 0    ; mutable bind
 ~ total = x + y ; reassign
 # A = 21       ; compile-time constant
-# B = A + A    ; constants may use other constants`,
+# B = A + A    ; constants may use other constants
+# D = 5s       ; duration / bytes / locator lits fold`,
           },
         ],
       },
@@ -804,7 +805,7 @@ add(20, 22)`,
             kind: "paragraph",
             text: [
               { code: "#" },
-              " accepts literals and operations over other constants. Runtime calls are not constant expressions. Constant names use ",
+              " accepts literals and operations over other constants, including duration, bytes, and locator lits. Runtime calls are not constant expressions. Constant names use ",
               { code: "SCREAMING_SNAKE" },
               ".",
             ],

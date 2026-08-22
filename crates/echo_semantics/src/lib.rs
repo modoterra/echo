@@ -529,6 +529,16 @@ mod tests {
     }
 
     #[test]
+    fn hash_const_duration_bytes_locator_ok() {
+        let src = "# D = 5s\n# SUM = D + 10ms\n# B = b'raw'\n# P = p'/tmp'\n";
+        assert!(
+            !codes(src).iter().any(|x| x == "sem-const"),
+            "duration/bytes/locator lits should fold in `#`: {:?}",
+            codes(src)
+        );
+    }
+
+    #[test]
     fn hash_const_rejects_call() {
         let c = codes("# A = f()\n");
         assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");

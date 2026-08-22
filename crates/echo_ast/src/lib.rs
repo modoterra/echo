@@ -1259,9 +1259,35 @@ pub fn parse_int_literal(text: &str) -> Result<i64, String> {
         .map_err(|_| format!("invalid int literal `{text}`"))
 }
 
+/// Parse a duration token (`5s`, `10ms`, `100us`, `2m`, `1h`) into nanoseconds.
+pub fn parse_duration_nanos(text: &str) -> Result<i64, String> {
+    let t = text.replace('_', "");
+    let (num_s, mult) = if let Some(rest) = t.strip_suffix("us") {
+        (rest, 1_000i64)
+    } else if let Some(rest) = t.strip_suffix("ms") {
+        (rest, 1_000_000i64)
+    } else if let Some(rest) = t.strip_suffix('s') {
+        (rest, 1_000_000_000i64)
+    } else if let Some(rest) = t.strip_suffix('m') {
+        (rest, 60 * 1_000_000_000i64)
+    } else if let Some(rest) = t.strip_suffix('h') {
+        (rest, 3600 * 1_000_000_000i64)
+    } else {
+        return Err(format!("invalid duration literal `{text}`"));
+    };
+    if num_s.is_empty() {
+        return Err(format!("invalid duration literal `{text}`"));
+    }
+    let n: i64 = num_s
+        .parse()
+        .map_err(|_| format!("invalid duration magnitude in `{text}`"))?;
+    n.checked_mul(mult)
+        .ok_or_else(|| format!("duration `{text}` overflows i64 nanoseconds"))
+}
+
 #[cfg(test)]
 mod lit_parse_tests {
-    use super::parse_int_literal;
+    use super::{parse_duration_nanos, parse_int_literal};
 
     #[test]
     fn decimal_hex_bin() {
@@ -1279,5 +1305,15 @@ mod lit_parse_tests {
     fn rejects_empty_radix_body() {
         assert!(parse_int_literal("0x").is_err());
         assert!(parse_int_literal("0b").is_err());
+    }
+
+    #[test]
+    fn duration_nanos_units() {
+        assert_eq!(parse_duration_nanos("5s").unwrap(), 5_000_000_000);
+        assert_eq!(parse_duration_nanos("10ms").unwrap(), 10_000_000);
+        assert_eq!(parse_duration_nanos("100us").unwrap(), 100_000);
+        assert_eq!(parse_duration_nanos("2m").unwrap(), 120_000_000_000);
+        assert_eq!(parse_duration_nanos("1h").unwrap(), 3_600_000_000_000);
+        assert_eq!(parse_duration_nanos("1_000ms").unwrap(), 1_000_000_000);
     }
 }

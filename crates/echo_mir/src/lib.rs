@@ -3693,6 +3693,11 @@ fn const_to_mir(v: &ConstValue) -> MirExpr {
         ConstValue::Str(bytes) => MirExpr::StringLit {
             bytes: bytes.clone(),
         },
+        ConstValue::Duration(nanos) => MirExpr::ConstDuration(*nanos),
+        ConstValue::Bytes(bytes) => MirExpr::BytesLit {
+            bytes: bytes.clone(),
+        },
+        ConstValue::Locator(text) => MirExpr::LocatorLit { text: text.clone() },
     }
 }
 
@@ -3701,10 +3706,19 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
         HirExprKind::Int { value, .. } => Some(ConstValue::Int(*value)),
         HirExprKind::Float { value, .. } => Some(ConstValue::Float(value.to_bits())),
         HirExprKind::Bool(b) => Some(ConstValue::Bool(*b)),
-        HirExprKind::StringLit { kind, raw } => {
-            let bytes = decode_string_lit(*kind, raw).ok()?;
-            Some(ConstValue::Str(bytes))
-        }
+        HirExprKind::Duration { nanos } => Some(ConstValue::Duration(*nanos)),
+        HirExprKind::StringLit { kind, raw } => match decode_string_to_mir(*kind, raw, env) {
+            Ok(MirExpr::StringLit { bytes }) => Some(ConstValue::Str(bytes)),
+            _ => None,
+        },
+        HirExprKind::BytesLit { kind, raw } => match decode_bytes_to_mir(*kind, raw, env) {
+            Ok(MirExpr::BytesLit { bytes }) => Some(ConstValue::Bytes(bytes)),
+            _ => None,
+        },
+        HirExprKind::LocatorLit { kind, raw } => match decode_locator_to_mir(*kind, raw, env) {
+            Ok(MirExpr::LocatorLit { text }) => Some(ConstValue::Locator(text)),
+            _ => None,
+        },
         HirExprKind::Name(n) => env.get(n).cloned(),
         HirExprKind::Group(inner) => fold_hir_const(inner, env),
         HirExprKind::Unary { op, expr } => {
@@ -3727,8 +3741,14 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                 (BinaryOp::Add, ConstValue::Int(a), ConstValue::Int(b)) => {
                     Some(ConstValue::Int(a.wrapping_add(b)))
                 }
+                (BinaryOp::Add, ConstValue::Duration(a), ConstValue::Duration(b)) => {
+                    Some(ConstValue::Duration(a.wrapping_add(b)))
+                }
                 (BinaryOp::Sub, ConstValue::Int(a), ConstValue::Int(b)) => {
                     Some(ConstValue::Int(a.wrapping_sub(b)))
+                }
+                (BinaryOp::Sub, ConstValue::Duration(a), ConstValue::Duration(b)) => {
+                    Some(ConstValue::Duration(a.wrapping_sub(b)))
                 }
                 (BinaryOp::Mul, ConstValue::Int(a), ConstValue::Int(b)) => {
                     Some(ConstValue::Int(a.wrapping_mul(b)))
@@ -3770,6 +3790,34 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                         (f64::from_bits(a) / f64::from_bits(b)).to_bits(),
                     ))
                 }
+                (
+                    BinaryOp::Eq | BinaryOp::EqEqEq,
+                    ConstValue::Duration(a),
+                    ConstValue::Duration(b),
+                ) => Some(ConstValue::Bool(a == b)),
+                (
+                    BinaryOp::NotEq | BinaryOp::NotEqEq,
+                    ConstValue::Duration(a),
+                    ConstValue::Duration(b),
+                ) => Some(ConstValue::Bool(a != b)),
+                (BinaryOp::Eq | BinaryOp::EqEqEq, ConstValue::Bytes(a), ConstValue::Bytes(b)) => {
+                    Some(ConstValue::Bool(a == b))
+                }
+                (
+                    BinaryOp::NotEq | BinaryOp::NotEqEq,
+                    ConstValue::Bytes(a),
+                    ConstValue::Bytes(b),
+                ) => Some(ConstValue::Bool(a != b)),
+                (
+                    BinaryOp::Eq | BinaryOp::EqEqEq,
+                    ConstValue::Locator(a),
+                    ConstValue::Locator(b),
+                ) => Some(ConstValue::Bool(a == b)),
+                (
+                    BinaryOp::NotEq | BinaryOp::NotEqEq,
+                    ConstValue::Locator(a),
+                    ConstValue::Locator(b),
+                ) => Some(ConstValue::Bool(a != b)),
                 _ => None,
             }
         }
@@ -3929,14 +3977,7 @@ fn fold_rich_parts(parts: Vec<StrPart>, const_env: &HashMap<String, ConstValue>)
         match p {
             StrPart::Lit(b) => lit_buf.extend(b),
             StrPart::Name(n) => match const_env.get(&n) {
-                Some(ConstValue::Str(b)) => lit_buf.extend(b),
-                Some(ConstValue::Int(i)) => lit_buf.extend(i.to_string().as_bytes()),
-                Some(ConstValue::Float(bits)) => {
-                    lit_buf.extend(f64::from_bits(*bits).to_string().as_bytes())
-                }
-                Some(ConstValue::Bool(b)) => {
-                    lit_buf.extend(if *b { b"1" } else { b"0" });
-                }
+                Some(v) => lit_buf.extend(v.interp_bytes()),
                 None => {
                     flush_lit(&mut lit_buf, &mut folded);
                     folded.push(StrPart::Name(n));
@@ -4114,6 +4155,55 @@ mod tests {
             matches!(e, MirExpr::BytesLit { ref bytes } if bytes == b"raw"),
             "all-const bytes interp should bake to BytesLit, got {e:?}"
         );
+    }
+
+    #[test]
+    fn bytes_hash_const_bakes_payload() {
+        let mut env = HashMap::new();
+        env.insert("B".into(), ConstValue::Bytes(b"raw".to_vec()));
+        let e = decode_bytes_to_mir(StringKind::Rich, r#"b"{B}""#, &env).unwrap();
+        assert!(
+            matches!(e, MirExpr::BytesLit { ref bytes } if bytes == b"raw"),
+            "`#` bytes const should bake, got {e:?}"
+        );
+    }
+
+    #[test]
+    fn locator_hash_const_bakes_text() {
+        let mut env = HashMap::new();
+        env.insert("P".into(), ConstValue::Locator("/tmp".into()));
+        let e = decode_locator_to_mir(StringKind::Rich, r#"p"{P}""#, &env).unwrap();
+        assert!(
+            matches!(e, MirExpr::LocatorLit { ref text } if text == "/tmp"),
+            "`#` locator const should bake, got {e:?}"
+        );
+    }
+
+    #[test]
+    fn duration_hash_const_bakes_nanos_in_string() {
+        let mut env = HashMap::new();
+        env.insert("D".into(), ConstValue::Duration(5_000_000_000));
+        let e = decode_string_to_mir(StringKind::Rich, r#""t={D}""#, &env).unwrap();
+        assert!(
+            matches!(e, MirExpr::StringLit { ref bytes } if bytes == b"t=5000000000"),
+            "`#` duration const should bake nanos, got {e:?}"
+        );
+    }
+
+    #[test]
+    fn const_to_mir_duration_bytes_locator() {
+        assert!(matches!(
+            const_to_mir(&ConstValue::Duration(5)),
+            MirExpr::ConstDuration(5)
+        ));
+        assert!(matches!(
+            const_to_mir(&ConstValue::Bytes(b"raw".to_vec())),
+            MirExpr::BytesLit { bytes } if bytes == b"raw"
+        ));
+        assert!(matches!(
+            const_to_mir(&ConstValue::Locator("/tmp".into())),
+            MirExpr::LocatorLit { text } if text == "/tmp"
+        ));
     }
 
     #[test]

@@ -4,7 +4,14 @@
 
 # A = 21
 # B = A + A
+# D = 5s
+# WAIT = D + 10ms
+# RAW = b'raw'
+# HOME = p'/tmp'
 
 io.print(str.from_int(B))
+io.print(str.from_duration(WAIT))
+io.print(str.from_bytes(RAW))
+io.print(str.from_locator(HOME))
 io.print('const ok')
 

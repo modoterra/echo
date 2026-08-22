@@ -232,8 +232,9 @@ $ url = p'http://xo.run'    ; full URI/URL
 
 - Bytes are **language literals**, parallel to strings (pure `b'…'` / rich `b"…"`).
   Rich `b"…"` interpolates `{name}` / `{.field}` like a rich string; `#` consts
-  bake at lower time. Lit `\xHH` bytes stay raw (not UTF-8 lossy). A `{name}`
-  that is already bytes copies its payload; strings and locators copy UTF-8 text.
+  bake at lower time (including `# B = b'raw'` / `# P = p'/tmp'`). Lit `\xHH`
+  bytes stay raw (not UTF-8 lossy). A `{name}` that is already bytes copies its
+  payload; strings and locators copy UTF-8 text.
 - Through run: heap bytes handle (not a string). Print only after
   `str.from_bytes` (UTF-8 lossy). Content equality via `==`. **No** string/`bytes`
   concatenation with `+` (forbidden; use rich string or bytes interp for text).
@@ -279,6 +280,9 @@ $ u = 100us
 **Through run:** stored as **i64 nanoseconds**. `+` / `-` on two durations;
 content `==`. Print via `str.from_duration` (largest exact unit among
 `h`/`m`/`s`/`ms`/`us`, else `ns`). Not mixed with plain integers.
+
+**`#` const:** duration lits fold (`# D = 5s`); `+` / `-` / `==` on other `#`
+durations fold. Collection lits and ranges are still not `#`-folded.
 
 ### Named struct lits and defaults
 
@@ -769,7 +773,7 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | No shadowing / reintroduce of a visible name | `sem-shadow` |
 | `~` cannot assign through an immutable / const binding | `sem-immutable` |
 | `#` name must be SCREAMING_SNAKE | `sem-hash-name` |
-| `#` init is const (lits + `#` only; no calls) | `sem-const` |
+| `#` init is const (lits + `#` only; no calls) | `sem-const` — folded: int/float/bool/string/bytes/locator/duration; duration `+`/`-`/`==`; no collection/`..` lits |
 | Receiver `.` / `.field` only in method bodies | `sem-receiver` |
 | `<` / `>` only inside loops | `sem-break` / `sem-continue` |
 | Top-level is the program body; `^` returns process status | (no `sem-return` at top-level) |

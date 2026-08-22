@@ -28,11 +28,11 @@ pub const INDEX_VERSION: u32 = 2; // export function arity
 pub const INDEX_SCHEMA_VERSION: u32 = 2; // ExportFact.fn_arity + ModuleFacts.fn_arities
 pub const RESOLVER_VERSION: u32 = 4; // exportable leaf return kinds only
 pub const RESOLVE_SCHEMA_VERSION: u32 = 1;
-pub const SEMANTICS_VERSION: u32 = 19; // ! outside fn; task { } bodies count as fn
+pub const SEMANTICS_VERSION: u32 = 20; // # const duration/bytes/locator lits
 pub const HIR_LOWERER_VERSION: u32 = 17; // free-fn returns_structs via local name ^ m
 pub const HIR_SCHEMA_VERSION: u32 = 4; // HirExprKind::Range
 /// Bumped when MIR handoff meaning changes (CFG/SSA/for-in, method fallthrough, …).
-pub const MIR_LOWERER_VERSION: u32 = 32; // BytesInterp for live b"{name}"
+pub const MIR_LOWERER_VERSION: u32 = 33; // # const duration/bytes/locator fold
 pub const MIR_SCHEMA_VERSION: u32 = 7; // MirExpr::BytesInterp
 /// Bumped when LLVM emission / opt / cache-key participation changes.
 pub const CODEGEN_VERSION: u32 = 21; // bytes_from_value for live b"…"

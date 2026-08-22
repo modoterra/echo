@@ -535,6 +535,7 @@ current; fill Impl as work lands.
 | 2026-08-14 | Locator class locked: URI `scheme://`, abs `/…`, else relative; `path.class` / `is_uri`; locators and strings share the rule |
 | 2026-08-14 | AOT runtime `.a`: newest match in `xo`’s profile; clang missing `echo_runtime_*` → rebuild hint |
 | 2026-08-14 | `!` only inside a function (`sem-error-return` at file scope); top-level `^` still process status |
+| 2026-08-22 | `#` const-eval folds duration/bytes/locator lits (`# D = 5s`, `b'…'`, `p'…'`); duration `+`/`-`/`==` |
 
 ---
 

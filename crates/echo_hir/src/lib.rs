@@ -23,6 +23,8 @@ pub fn crate_name() -> &'static str {
 /// Implicit first parameter of methods (receiver handle).
 pub const RECV_PARAM: &str = "__recv";
 
+pub use echo_ast::parse_duration_nanos;
+
 /// Mangled free-function name for a struct method.
 #[must_use]
 pub fn method_fn_name(struct_name: &str, method: &str) -> String {
@@ -1341,32 +1343,6 @@ fn parse_number_kind(text: &str, width: Option<Width>) -> HirExprKind {
             Err(msg) => HirExprKind::Unsupported { message: msg },
         }
     }
-}
-
-/// Parse a duration token (`5s`, `10ms`, `100us`, `2m`, `1h`) into nanoseconds.
-pub fn parse_duration_nanos(text: &str) -> Result<i64, String> {
-    let t = text.replace('_', "");
-    let (num_s, mult) = if let Some(rest) = t.strip_suffix("us") {
-        (rest, 1_000i64)
-    } else if let Some(rest) = t.strip_suffix("ms") {
-        (rest, 1_000_000i64)
-    } else if let Some(rest) = t.strip_suffix('s') {
-        (rest, 1_000_000_000i64)
-    } else if let Some(rest) = t.strip_suffix('m') {
-        (rest, 60 * 1_000_000_000i64)
-    } else if let Some(rest) = t.strip_suffix('h') {
-        (rest, 3600 * 1_000_000_000i64)
-    } else {
-        return Err(format!("invalid duration literal `{text}`"));
-    };
-    if num_s.is_empty() {
-        return Err(format!("invalid duration literal `{text}`"));
-    }
-    let n: i64 = num_s
-        .parse()
-        .map_err(|_| format!("invalid duration magnitude in `{text}`"))?;
-    n.checked_mul(mult)
-        .ok_or_else(|| format!("duration `{text}` overflows i64 nanoseconds"))
 }
 
 #[cfg(test)]
