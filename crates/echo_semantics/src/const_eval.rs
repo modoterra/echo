@@ -102,10 +102,22 @@ impl ConstError {
     }
 }
 
+/// `% Shape` field defaults (not methods) used to fill omitted struct-lit fields.
+pub type ShapeDefaults = HashMap<String, HashMap<String, Expr>>;
+
 /// Evaluate `expr` in a map of already-defined `#` names.
 pub fn eval_const_expr(
     expr: &Expr,
     env: &HashMap<String, ConstValue>,
+) -> Result<ConstValue, ConstError> {
+    eval_const_expr_with_shapes(expr, env, &HashMap::new())
+}
+
+/// Like [`eval_const_expr`], applying foldable `%` field defaults on named struct lits.
+pub fn eval_const_expr_with_shapes(
+    expr: &Expr,
+    env: &HashMap<String, ConstValue>,
+    shapes: &ShapeDefaults,
 ) -> Result<ConstValue, ConstError> {
     match expr {
         Expr::Number { text, .. } => {
@@ -152,18 +164,18 @@ pub fn eval_const_expr(
                     name = id.name
                 ))
             }),
-        Expr::Group { expr, .. } => eval_const_expr(expr, env),
+        Expr::Group { expr, .. } => eval_const_expr_with_shapes(expr, env, shapes),
         Expr::WidthCast { width, tag, expr, .. } => {
             let Some(w) = width else {
                 return Err(ConstError::new(format!(
                     "unknown width tag `{tag}` in `#` const"
                 )));
             };
-            let v = eval_const_expr(expr, env)?;
+            let v = eval_const_expr_with_shapes(expr, env, shapes)?;
             apply_const_cast(v, *w)
         }
         Expr::Unary { op, expr, .. } => {
-            let v = eval_const_expr(expr, env)?;
+            let v = eval_const_expr_with_shapes(expr, env, shapes)?;
             match (op, v) {
                 (UnaryOp::Neg, ConstValue::Int(n)) => Ok(ConstValue::Int(n.wrapping_neg())),
                 (UnaryOp::Neg, ConstValue::Float(b)) => {
@@ -178,20 +190,20 @@ pub fn eval_const_expr(
         Expr::Binary {
             op, left, right, ..
         } => {
-            let l = eval_const_expr(left, env)?;
-            let r = eval_const_expr(right, env)?;
+            let l = eval_const_expr_with_shapes(left, env, shapes)?;
+            let r = eval_const_expr_with_shapes(right, env, shapes)?;
             eval_binop(*op, l, r)
         }
         Expr::List { items, .. } => {
             let mut out = Vec::with_capacity(items.len());
             for item in items {
-                out.push(eval_const_expr(item, env)?);
+                out.push(eval_const_expr_with_shapes(item, env, shapes)?);
             }
             Ok(ConstValue::List(out))
         }
         Expr::Range { start, end, .. } => {
-            let lo = eval_const_expr(start, env)?;
-            let hi = eval_const_expr(end, env)?;
+            let lo = eval_const_expr_with_shapes(start, env, shapes)?;
+            let hi = eval_const_expr_with_shapes(end, env, shapes)?;
             match (lo, hi) {
                 (ConstValue::Int(start), ConstValue::Int(end)) => {
                     Ok(ConstValue::Range { start, end })
@@ -204,28 +216,36 @@ pub fn eval_const_expr(
         Expr::Object { fields, .. } => {
             let mut out = Vec::with_capacity(fields.len());
             for (k, v) in fields {
-                out.push((k.name.clone(), eval_const_expr(v, env)?));
+                out.push((k.name.clone(), eval_const_expr_with_shapes(v, env, shapes)?));
             }
-            Ok(ConstValue::Struct {
-                name: String::new(),
-                fields: out,
-            })
+            Ok(fill_struct_defaults(
+                ConstValue::Struct {
+                    name: String::new(),
+                    fields: out,
+                },
+                shapes,
+                env,
+            ))
         }
         Expr::StructLit { path, fields, .. } => {
             let name = path.last().map(|id| id.name.clone()).unwrap_or_default();
             let mut out = Vec::with_capacity(fields.len());
             for (k, v) in fields {
-                out.push((k.name.clone(), eval_const_expr(v, env)?));
+                out.push((k.name.clone(), eval_const_expr_with_shapes(v, env, shapes)?));
             }
-            Ok(ConstValue::Struct { name, fields: out })
+            Ok(fill_struct_defaults(
+                ConstValue::Struct { name, fields: out },
+                shapes,
+                env,
+            ))
         }
         Expr::Field { base, field, .. } => {
-            let v = eval_const_expr(base, env)?;
+            let v = eval_const_expr_with_shapes(base, env, shapes)?;
             v.field(&field.name)
         }
         Expr::Index { base, index, .. } => {
-            let b = eval_const_expr(base, env)?;
-            match eval_const_expr(index, env)? {
+            let b = eval_const_expr_with_shapes(base, env, shapes)?;
+            match eval_const_expr_with_shapes(index, env, shapes)? {
                 ConstValue::Int(i) => b.index(i),
                 _ => Err(ConstError::new(
                     "list index in `#` const requires an integer",
@@ -388,6 +408,41 @@ fn struct_fields_eq(a: &[(String, ConstValue)], b: &[(String, ConstValue)]) -> b
     a.len() == b.len()
         && a.iter()
             .all(|(k, va)| b.iter().any(|(kb, vb)| k == kb && va == vb))
+}
+
+/// Apply `%` shape defaults that themselves `#`-fold (lits / other `#`).
+fn fill_struct_defaults(
+    v: ConstValue,
+    shapes: &ShapeDefaults,
+    env: &HashMap<String, ConstValue>,
+) -> ConstValue {
+    match v {
+        ConstValue::List(xs) => ConstValue::List(
+            xs.into_iter()
+                .map(|x| fill_struct_defaults(x, shapes, env))
+                .collect(),
+        ),
+        ConstValue::Struct { name, fields } => {
+            let mut fields: Vec<(String, ConstValue)> = fields
+                .into_iter()
+                .map(|(k, val)| (k, fill_struct_defaults(val, shapes, env)))
+                .collect();
+            if !name.is_empty() {
+                if let Some(shape) = shapes.get(&name) {
+                    for (fname, def) in shape {
+                        if fields.iter().any(|(k, _)| k == fname) {
+                            continue;
+                        }
+                        if let Ok(dv) = eval_const_expr_with_shapes(def, env, shapes) {
+                            fields.push((fname.clone(), fill_struct_defaults(dv, shapes, env)));
+                        }
+                    }
+                }
+            }
+            ConstValue::Struct { name, fields }
+        }
+        other => other,
+    }
 }
 
 fn decode_prefixed_token(
@@ -832,6 +887,32 @@ mod tests {
                 ]
             }
         );
+    }
+
+    #[test]
+    fn omitted_shape_default_fills() {
+        let mut shapes: ShapeDefaults = HashMap::new();
+        let mut item = HashMap::new();
+        item.insert("n".into(), num("0"));
+        shapes.insert("item".into(), item);
+        let v = eval_const_expr_with_shapes(
+            &struct_lit("item", vec![("name", num("1"))]),
+            &HashMap::new(),
+            &shapes,
+        )
+        .unwrap();
+        match v {
+            ConstValue::Struct { name, fields } => {
+                assert_eq!(name, "item");
+                assert!(
+                    fields
+                        .iter()
+                        .any(|(k, val)| k == "n" && *val == ConstValue::Int(0)),
+                    "expected default n=0, got {fields:?}"
+                );
+            }
+            other => panic!("expected struct, got {other:?}"),
+        }
     }
 
     #[test]

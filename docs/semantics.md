@@ -285,9 +285,11 @@ content `==`. Print via `str.from_duration` (largest exact unit among
 durations fold. List lits (`# XS = [1, 2]`), inclusive ranges (`# R = 1..3`),
 named struct lits (`# P = point { x: 1, y: 2 }`), and anon products
 (`# Q = { a: 1 }`) fold; nested fields/elements must themselves be
-`#`-foldable. Omitted `%` field defaults that are foldable are applied at
-lower. Field `name.f` and index `xs[i]` on other `#` values fold (missing
-field / OOB index → `sem-const`). Calls are not `#`-folded.
+`#`-foldable. Omitted `%` field defaults that `#`-fold (lits / other `#`) are
+applied when folding a named struct const, so `# N = I.n` works when `n`
+was omitted and defaulted. Field `name.f` and index `xs[i]` on other `#`
+values fold (missing field / OOB index → `sem-const`). Calls are not
+`#`-folded.
 
 ### Named struct lits and defaults
 
@@ -778,7 +780,7 @@ echo_source → echo_lexer → echo_parser → echo_semantics
 | No shadowing / reintroduce of a visible name | `sem-shadow` |
 | `~` cannot assign through an immutable / const binding | `sem-immutable` |
 | `#` name must be SCREAMING_SNAKE | `sem-hash-name` |
-| `#` init is const (lits + `#` only; no calls) | `sem-const` — folded: int/float/bool/string/bytes/locator/duration/list/`lo..hi`/named+anon struct; duration `+`/`-`/`==`; list/struct `==`/`!=`; range `==`; field `name.f`; index `xs[i]`; no calls |
+| `#` init is const (lits + `#` only; no calls) | `sem-const` — folded: int/float/bool/string/bytes/locator/duration/list/`lo..hi`/named+anon struct; duration `+`/`-`/`==`; list/struct `==`/`!=`; range `==`; field `name.f`; index `xs[i]`; omitted `%` defaults that `#`-fold; no calls |
 | Receiver `.` / `.field` only in method bodies | `sem-receiver` |
 | `<` / `>` only inside loops | `sem-break` / `sem-continue` |
 | Top-level is the program body; `^` returns process status | (no `sem-return` at top-level) |

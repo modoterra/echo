@@ -12,7 +12,9 @@ mod model;
 mod types;
 mod unify;
 
-pub use const_eval::{ConstError, ConstValue, eval_const_expr};
+pub use const_eval::{
+    ConstError, ConstValue, ShapeDefaults, eval_const_expr, eval_const_expr_with_shapes,
+};
 pub use effect::{ReturnShape, effects_in_stmts};
 pub use infer::{exportable_return_kind, infer_export_return_types, infer_last_expr_type};
 pub use model::{BindFact, BindId, SemanticModel, ValueKind};
@@ -590,6 +592,26 @@ mod tests {
     fn hash_const_missing_field() {
         let c = codes("# Q = { a: 1 }\n# B = Q.b\n");
         assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");
+    }
+
+    #[test]
+    fn hash_const_omitted_default_field() {
+        let src = "% item {\n    $ name\n    ~ n = 0\n}\n# I = item { name: 'x' }\n# N = I.n\n";
+        assert!(
+            !codes(src).iter().any(|x| x == "sem-const"),
+            "omitted `%` defaults should fill in `#` struct consts: {:?}",
+            codes(src)
+        );
+    }
+
+    #[test]
+    fn hash_const_omitted_default_from_hash() {
+        let src = "# BASE = 10\n% item {\n    $ name\n    ~ n = BASE\n}\n# I = item { name: 'x' }\n# N = I.n\n";
+        assert!(
+            !codes(src).iter().any(|x| x == "sem-const"),
+            "foldable default `~ n = BASE` should fill: {:?}",
+            codes(src)
+        );
     }
 
     #[test]

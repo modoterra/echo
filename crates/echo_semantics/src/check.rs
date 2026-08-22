@@ -9,7 +9,7 @@ use echo_ast::{
 use echo_diagnostics::{Diagnostic, Diagnostics};
 use echo_source::Span;
 
-use crate::const_eval::{ConstValue, eval_const_expr};
+use crate::const_eval::{ConstValue, ShapeDefaults, eval_const_expr_with_shapes};
 use crate::effect::{ReturnShape, effects_in_stmts};
 use crate::{BindingKind, ImportedModule, ModuleExport};
 
@@ -42,6 +42,10 @@ struct Cx {
     fn_scope_base: Option<usize>,
     /// Evaluated `#` constants in declaration order (file-local).
     const_env: HashMap<String, ConstValue>,
+    /// `% Shape` data-member defaults for `#` struct-lit fill.
+    struct_defaults: ShapeDefaults,
+    /// Set while checking `%` / `@` members so defaults can be recorded.
+    current_struct: Option<String>,
 }
 
 impl Cx {
@@ -55,6 +59,8 @@ impl Cx {
             fn_depth: 0,
             fn_scope_base: None,
             const_env: HashMap::new(),
+            struct_defaults: HashMap::new(),
+            current_struct: None,
         }
     }
 
@@ -224,9 +230,18 @@ impl Cx {
 
         let mut ret_shape = None;
         if let Some(init) = &b.init {
+            if let Some(st) = self.current_struct.clone() {
+                if !matches!(init, Expr::Fn { .. }) {
+                    self.struct_defaults
+                        .entry(st)
+                        .or_default()
+                        .entry(b.name.name.clone())
+                        .or_insert_with(|| init.clone());
+                }
+            }
             if b.leader == BindLeader::Hash {
                 // Const `#`: only literals + ops on other `#` (docs/syntax.md).
-                match eval_const_expr(init, &self.const_env) {
+                match eval_const_expr_with_shapes(init, &self.const_env, &self.struct_defaults) {
                     Ok(v) => {
                         self.const_env.insert(b.name.name.clone(), v);
                     }
@@ -927,6 +942,7 @@ fn struct_body(cx: &mut Cx, s: &StructStmt, redeclare_name: bool) {
         cx.introduce(&s.name.name, BindingKind::Struct, None, s.name.span);
     }
 
+    let prev = cx.current_struct.replace(s.name.name.clone());
     cx.push_scope();
     for m in &s.members {
         match m {
@@ -942,6 +958,7 @@ fn struct_body(cx: &mut Cx, s: &StructStmt, redeclare_name: bool) {
         }
     }
     cx.pop_scope();
+    cx.current_struct = prev;
 }
 
 fn member_bind_name(cx: &mut Cx, b: &BindStmt, return_shape: Option<ReturnShape>) {

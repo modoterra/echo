@@ -18,9 +18,11 @@
 % point {
     $ x
     $ y
+    ~ z = 0
 }
 # P = point { x: 3, y: 4 }
 # PX = P.x
+# PZ = P.z
 
 io.print(str.from_int(B))
 io.print(str.from_duration(WAIT))
@@ -33,6 +35,7 @@ io.print(str.from_int(list.len(XS)))
 }
 io.print(str.from_int(s))
 io.print(str.from_int(PX))
+io.print(str.from_int(PZ))
 io.print(str.from_int(QA))
 io.print(str.from_int(FIRST))
 io.print('const ok')
