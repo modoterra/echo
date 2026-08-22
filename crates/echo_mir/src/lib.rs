@@ -3698,6 +3698,11 @@ fn const_to_mir(v: &ConstValue) -> MirExpr {
             bytes: bytes.clone(),
         },
         ConstValue::Locator(text) => MirExpr::LocatorLit { text: text.clone() },
+        ConstValue::List(items) => MirExpr::ListLit(items.iter().map(const_to_mir).collect()),
+        ConstValue::Range { start, end } => MirExpr::Range {
+            start: Box::new(MirExpr::ConstI64(*start)),
+            end: Box::new(MirExpr::ConstI64(*end)),
+        },
     }
 }
 
@@ -3818,12 +3823,55 @@ fn fold_hir_const(e: &HirExpr, env: &HashMap<String, ConstValue>) -> Option<Cons
                     ConstValue::Locator(a),
                     ConstValue::Locator(b),
                 ) => Some(ConstValue::Bool(a != b)),
+                (BinaryOp::Eq, ConstValue::List(a), ConstValue::List(b)) => {
+                    Some(ConstValue::Bool(a == b))
+                }
+                (BinaryOp::NotEq, ConstValue::List(a), ConstValue::List(b)) => {
+                    Some(ConstValue::Bool(a != b))
+                }
+                (
+                    BinaryOp::Eq | BinaryOp::EqEqEq,
+                    ConstValue::Range {
+                        start: a0,
+                        end: a1,
+                    },
+                    ConstValue::Range {
+                        start: b0,
+                        end: b1,
+                    },
+                ) => Some(ConstValue::Bool(a0 == b0 && a1 == b1)),
+                (
+                    BinaryOp::NotEq | BinaryOp::NotEqEq,
+                    ConstValue::Range {
+                        start: a0,
+                        end: a1,
+                    },
+                    ConstValue::Range {
+                        start: b0,
+                        end: b1,
+                    },
+                ) => Some(ConstValue::Bool(a0 != b0 || a1 != b1)),
                 _ => None,
             }
         }
         HirExprKind::WidthCast { width, expr } => {
             let v = fold_hir_const(expr, env)?;
             fold_const_width_cast(v, *width)
+        }
+        HirExprKind::List(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(fold_hir_const(item, env)?);
+            }
+            Some(ConstValue::List(out))
+        }
+        HirExprKind::Range { start, end } => {
+            match (fold_hir_const(start, env)?, fold_hir_const(end, env)?) {
+                (ConstValue::Int(a), ConstValue::Int(b)) => {
+                    Some(ConstValue::Range { start: a, end: b })
+                }
+                _ => None,
+            }
         }
         _ => None,
     }
@@ -4204,6 +4252,57 @@ mod tests {
             const_to_mir(&ConstValue::Locator("/tmp".into())),
             MirExpr::LocatorLit { text } if text == "/tmp"
         ));
+        assert!(matches!(
+            const_to_mir(&ConstValue::List(vec![ConstValue::Int(1), ConstValue::Int(2)])),
+            MirExpr::ListLit(items)
+                if matches!(
+                    items.as_slice(),
+                    [MirExpr::ConstI64(1), MirExpr::ConstI64(2)]
+                )
+        ));
+        assert!(matches!(
+            const_to_mir(&ConstValue::Range { start: 1, end: 3 }),
+            MirExpr::Range { start, end }
+                if matches!(&*start, MirExpr::ConstI64(1))
+                    && matches!(&*end, MirExpr::ConstI64(3))
+        ));
+    }
+
+    #[test]
+    fn fold_hir_const_list_and_range() {
+        use echo_hir::{HirExpr, HirExprKind};
+        use echo_source::{BytePos, SourceId, Span};
+
+        let span = Span::new(SourceId::from_u32(0), BytePos(0), BytePos(1));
+        let int = |n: i64| HirExpr {
+            span,
+            kind: HirExprKind::Int {
+                value: n,
+                width: None,
+            },
+        };
+        let list = HirExpr {
+            span,
+            kind: HirExprKind::List(vec![int(1), int(2)]),
+        };
+        assert_eq!(
+            fold_hir_const(&list, &HashMap::new()),
+            Some(ConstValue::List(vec![
+                ConstValue::Int(1),
+                ConstValue::Int(2)
+            ]))
+        );
+        let range = HirExpr {
+            span,
+            kind: HirExprKind::Range {
+                start: Box::new(int(1)),
+                end: Box::new(int(3)),
+            },
+        };
+        assert_eq!(
+            fold_hir_const(&range, &HashMap::new()),
+            Some(ConstValue::Range { start: 1, end: 3 })
+        );
     }
 
     #[test]

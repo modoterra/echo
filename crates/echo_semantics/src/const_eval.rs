@@ -22,12 +22,20 @@ pub enum ConstValue {
     Bytes(Vec<u8>),
     /// Locator UTF-8 text as written (no `p` prefix / quotes).
     Locator(String),
+    /// List lit of folded elements (`# XS = [1, 2]`).
+    List(Vec<ConstValue>),
+    /// Inclusive integer range `lo..hi`.
+    Range {
+        start: i64,
+        end: i64,
+    },
 }
 
 impl ConstValue {
     /// Bytes to bake into rich `"…"`, `b"…"`, `p"…"` interpolation of this name.
     ///
     /// Duration bakes as decimal nanoseconds (same as live unboxed duration interp).
+    /// List and range are heap kinds at runtime — empty, matching live interp.
     #[must_use]
     pub fn interp_bytes(&self) -> Vec<u8> {
         match self {
@@ -42,6 +50,7 @@ impl ConstValue {
                     b"0".to_vec()
                 }
             }
+            Self::List(_) | Self::Range { .. } => Vec::new(),
         }
     }
 }
@@ -139,17 +148,34 @@ pub fn eval_const_expr(
             let r = eval_const_expr(right, env)?;
             eval_binop(*op, l, r)
         }
+        Expr::List { items, .. } => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(eval_const_expr(item, env)?);
+            }
+            Ok(ConstValue::List(out))
+        }
+        Expr::Range { start, end, .. } => {
+            let lo = eval_const_expr(start, env)?;
+            let hi = eval_const_expr(end, env)?;
+            match (lo, hi) {
+                (ConstValue::Int(start), ConstValue::Int(end)) => {
+                    Ok(ConstValue::Range { start, end })
+                }
+                _ => Err(ConstError::new(
+                    "range in `#` const requires integer endpoints",
+                )),
+            }
+        }
         Expr::Call { .. } => Err(ConstError::new(
             "`#` const expression cannot call functions",
         )),
         Expr::Field { .. }
         | Expr::Index { .. }
         | Expr::Receiver { .. }
-        | Expr::List { .. }
         | Expr::Object { .. }
         | Expr::StructLit { .. }
-        | Expr::Fn { .. }
-        | Expr::Range { .. } => Err(ConstError::new(
+        | Expr::Fn { .. } => Err(ConstError::new(
             "`#` const expression only allows literals and ops on `#` constants",
         )),
     }
@@ -270,6 +296,18 @@ fn eval_binop(op: BinaryOp, l: ConstValue, r: ConstValue) -> Result<ConstValue, 
         (NotEq | NotEqEq, ConstValue::Locator(a), ConstValue::Locator(b)) => {
             Ok(ConstValue::Bool(a != b))
         }
+        (Eq, ConstValue::List(a), ConstValue::List(b)) => Ok(ConstValue::Bool(a == b)),
+        (NotEq, ConstValue::List(a), ConstValue::List(b)) => Ok(ConstValue::Bool(a != b)),
+        (
+            Eq | EqEqEq,
+            ConstValue::Range { start: a0, end: a1 },
+            ConstValue::Range { start: b0, end: b1 },
+        ) => Ok(ConstValue::Bool(a0 == b0 && a1 == b1)),
+        (
+            NotEq | NotEqEq,
+            ConstValue::Range { start: a0, end: a1 },
+            ConstValue::Range { start: b0, end: b1 },
+        ) => Ok(ConstValue::Bool(a0 != b0 || a1 != b1)),
         _ => Err(ConstError::new(
             "invalid operands for operator in `#` const expression",
         )),
@@ -537,6 +575,126 @@ mod tests {
             right: Box::new(num("1")),
             span: dummy_span(),
         };
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    fn list(items: Vec<Expr>) -> Expr {
+        Expr::List {
+            items,
+            span: dummy_span(),
+        }
+    }
+
+    fn range(start: Expr, end: Expr) -> Expr {
+        Expr::Range {
+            start: Box::new(start),
+            end: Box::new(end),
+            span: dummy_span(),
+        }
+    }
+
+    #[test]
+    fn list_lit_of_ints() {
+        assert_eq!(
+            eval_const_expr(&list(vec![num("1"), num("2"), num("3")]), &HashMap::new()).unwrap(),
+            ConstValue::List(vec![
+                ConstValue::Int(1),
+                ConstValue::Int(2),
+                ConstValue::Int(3)
+            ])
+        );
+    }
+
+    #[test]
+    fn list_uses_prior_const() {
+        let mut env = HashMap::new();
+        env.insert("A".into(), ConstValue::Int(10));
+        assert_eq!(
+            eval_const_expr(&list(vec![name("A"), num("2")]), &env).unwrap(),
+            ConstValue::List(vec![ConstValue::Int(10), ConstValue::Int(2)])
+        );
+    }
+
+    #[test]
+    fn empty_list_lit() {
+        assert_eq!(
+            eval_const_expr(&list(vec![]), &HashMap::new()).unwrap(),
+            ConstValue::List(vec![])
+        );
+    }
+
+    #[test]
+    fn nested_list_lit() {
+        let e = list(vec![list(vec![num("1")]), list(vec![num("2")])]);
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::List(vec![
+                ConstValue::List(vec![ConstValue::Int(1)]),
+                ConstValue::List(vec![ConstValue::Int(2)])
+            ])
+        );
+    }
+
+    #[test]
+    fn list_eq_deep() {
+        let e = Expr::Binary {
+            op: BinaryOp::Eq,
+            left: Box::new(list(vec![num("1"), num("2")])),
+            right: Box::new(list(vec![num("1"), num("2")])),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::Bool(true)
+        );
+    }
+
+    #[test]
+    fn range_lit_inclusive() {
+        assert_eq!(
+            eval_const_expr(&range(num("1"), num("3")), &HashMap::new()).unwrap(),
+            ConstValue::Range { start: 1, end: 3 }
+        );
+    }
+
+    #[test]
+    fn range_uses_prior_const() {
+        let mut env = HashMap::new();
+        env.insert("LO".into(), ConstValue::Int(4));
+        env.insert("HI".into(), ConstValue::Int(6));
+        assert_eq!(
+            eval_const_expr(&range(name("LO"), name("HI")), &env).unwrap(),
+            ConstValue::Range { start: 4, end: 6 }
+        );
+    }
+
+    #[test]
+    fn range_eq_same_bounds() {
+        let e = Expr::Binary {
+            op: BinaryOp::Eq,
+            left: Box::new(range(num("1"), num("3"))),
+            right: Box::new(range(num("1"), num("3"))),
+            span: dummy_span(),
+        };
+        assert_eq!(
+            eval_const_expr(&e, &HashMap::new()).unwrap(),
+            ConstValue::Bool(true)
+        );
+    }
+
+    #[test]
+    fn range_rejects_non_int_end() {
+        let e = range(num("1"), duration("5s"));
+        assert!(eval_const_expr(&e, &HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn list_rejects_call_elem() {
+        let e = list(vec![Expr::Call {
+            callee: Box::new(name("f")),
+            args: vec![],
+            span: dummy_span(),
+        }]);
         assert!(eval_const_expr(&e, &HashMap::new()).is_err());
     }
 }

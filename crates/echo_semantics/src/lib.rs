@@ -539,6 +539,22 @@ mod tests {
     }
 
     #[test]
+    fn hash_const_list_and_range_ok() {
+        let src = "# A = 10\n# XS = [A, A + 1]\n# R = 1..3\n# LO = 4\n# HI = 6\n# S = LO..HI\n";
+        assert!(
+            !codes(src).iter().any(|x| x == "sem-const"),
+            "list/range lits should fold in `#`: {:?}",
+            codes(src)
+        );
+    }
+
+    #[test]
+    fn hash_const_range_rejects_non_int() {
+        let c = codes("# R = 1..5s\n");
+        assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");
+    }
+
+    #[test]
     fn hash_const_rejects_call() {
         let c = codes("# A = f()\n");
         assert!(c.iter().any(|x| x == "sem-const"), "{c:?}");
