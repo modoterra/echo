@@ -161,6 +161,9 @@ detect_release_artifact() {
   Linux/aarch64 | Linux/arm64)
     die "Linux aarch64 is not shipped yet; build from source (./scripts/install.sh install)"
     ;;
+  MINGW64_NT*/x86_64 | MSYS_NT*/x86_64 | CYGWIN_NT*/x86_64 | Windows_NT/x86_64)
+    printf '%s' "windows-x86_64"
+    ;;
   *)
     die "unsupported platform for prebuilt install: ${os}/${arch} (try building from source)"
     ;;
@@ -483,10 +486,17 @@ cmd_from_release() {
   tar -xzf "$archive" -C "$staging"
 
   # Normalize layout: archive may be pkg root (bin/, std/) already.
+  # Windows tarballs ship bin/xo.exe; Git Bash runs `xo` from a copy named xo.
   if [[ ! -x "${staging}/bin/xo" ]]; then
-    if [[ -x "${staging}/xo" ]]; then
+    if [[ -f "${staging}/bin/xo.exe" ]]; then
+      cp "${staging}/bin/xo.exe" "${staging}/bin/xo"
+    elif [[ -x "${staging}/xo" ]]; then
       mkdir -p "${staging}/bin"
       mv "${staging}/xo" "${staging}/bin/xo"
+    elif [[ -f "${staging}/xo.exe" ]]; then
+      mkdir -p "${staging}/bin"
+      mv "${staging}/xo.exe" "${staging}/bin/xo.exe"
+      cp "${staging}/bin/xo.exe" "${staging}/bin/xo"
     else
       die "archive missing bin/xo (unexpected layout)"
     fi
@@ -613,7 +623,7 @@ One-liner (no git clone):
   # Pin a tag
   # … | bash -s -- from-release v0.0.1-alpha.12
 
-Current prerelease (v0.0.1-alpha.12) assets: xo-linux-x86_64, xo-macos-arm64.
+Current prerelease (v0.0.1-alpha.12) assets: xo-linux-x86_64, xo-macos-arm64, xo-windows-x86_64.
 
 Environment:
   XO_HOME           User .xo root (packages); default $XDG_CACHE_HOME/.xo

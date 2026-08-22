@@ -29,7 +29,7 @@ export type InstallNextStep = {
   variant?: "primary" | "secondary";
 };
 
-export const PREBUILT_INSTALL = `# Newest published prerelease for this machine (linux-x86_64 / macos-arm64)
+export const PREBUILT_INSTALL = `# Newest published prerelease for this machine (linux-x86_64 / macos-arm64 / windows-x86_64)
 curl -fsSL https://raw.githubusercontent.com/modoterra/echo/main/scripts/install.sh \\
   | bash -s -- from-release
 
@@ -103,9 +103,9 @@ export const installPage = {
           ...archiveParts(),
           ". The script downloads ",
           { code: "xo" },
-          ", ",
-          { code: "libecho_runtime.a" },
-          ", and ",
+          " (",
+          { code: "xo.exe" },
+          " on Windows), the runtime staticlib, and ",
           { code: "std/" },
           " for that host, then links ",
           { code: "~/.local/bin/xo" },

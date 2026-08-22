@@ -39,10 +39,12 @@ Assets on `v0.0.1-alpha.12`:
 |---------|------|
 | `xo-linux-x86_64.tar.gz` | Linux x86_64 |
 | `xo-macos-arm64.tar.gz` | Apple Silicon |
+| `xo-windows-x86_64.tar.gz` | Windows x86_64 |
 
-A Windows tarball is not on this tag. Each archive contains `bin/xo`,
-`bin/libecho_runtime.a` (when produced), and `std/`. See `docs/ci.md` for the
-release workflow matrix.
+Each archive contains `bin/xo` (`bin/xo.exe` on Windows),
+`bin/libecho_runtime.a` or `bin/echo_runtime.lib`, and `std/`. Windows AOT
+`xo run` is not first-class yet. See `docs/ci.md` for the release workflow
+matrix.
 
 Ensure `~/.local/bin` (or `$XO_BIN_DIR`) is on your `PATH`.
 

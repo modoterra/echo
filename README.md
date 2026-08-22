@@ -80,7 +80,8 @@ edit/test loop.
 
 Published builds are **prereleases**. The current tag is
 [`v0.0.1-alpha.12`](https://github.com/modoterra/echo/releases/tag/v0.0.1-alpha.12)
-and ships `xo-linux-x86_64.tar.gz` and `xo-macos-arm64.tar.gz`.
+and ships `xo-linux-x86_64.tar.gz`, `xo-macos-arm64.tar.gz`, and
+`xo-windows-x86_64.tar.gz`.
 `from-release` with no tag installs the newest published prerelease. Pass a tag
 to pin. GitHub `/releases/latest` only resolves a non-prerelease and 404s today.
 
@@ -128,8 +129,9 @@ GitHub release is published** — not on push, PR, or bare tags.
 | Windows x86_64 | `windows-2022` |
 | macOS arm64 | `macos-14` |
 
-The current published tag (`v0.0.1-alpha.12`) attaches `xo-linux-x86_64` and
-`xo-macos-arm64` only. A Windows tarball is not on that tag.
+The current published tag (`v0.0.1-alpha.12`) attaches `xo-linux-x86_64`,
+`xo-macos-arm64`, and `xo-windows-x86_64`. Windows AOT `xo run` is not
+first-class yet; the Windows archive is `xo.exe` for check/fmt/lsp/repl.
 
 On Linux, smoke (`cargo test -p xo`, `xo run` hello) and **`scripts/gate echo26`**
 (Echo 2026 conformance) are hard gates when that workflow runs.

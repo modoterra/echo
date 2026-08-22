@@ -53,7 +53,7 @@ GitHub release (`gh release upload`). Archive layout:
 
 ```text
 bin/xo                  # or xo.exe on Windows
-bin/libecho_runtime.a   # when the staticlib is produced
+bin/libecho_runtime.a   # echo_runtime.lib on Windows when produced
 std/…                   # co-located std sources
 version                 # release tag
 ```

@@ -18,6 +18,11 @@ export const currentPrereleaseAssets = [
     archive: "xo-macos-arm64.tar.gz",
     host: "macOS arm64",
   },
+  {
+    artifact: "windows-x86_64",
+    archive: "xo-windows-x86_64.tar.gz",
+    host: "Windows x86_64",
+  },
 ] as const;
 
 export const currentPrereleaseUrl = `https://github.com/modoterra/echo/releases/tag/${currentPrereleaseTag}`;

@@ -263,11 +263,13 @@ try {
     fail(`currentPrereleaseTag should be v0.0.1-alpha.12, got ${currentPrereleaseTag}`);
   }
   const artifactIds = currentPrereleaseAssets.map((asset) => asset.artifact);
-  if (artifactIds.join(",") !== "linux-x86_64,macos-arm64") {
-    fail(`current prerelease assets should be linux-x86_64 and macos-arm64, got ${artifactIds}`);
+  if (artifactIds.join(",") !== "linux-x86_64,macos-arm64,windows-x86_64") {
+    fail(
+      `current prerelease assets should be linux-x86_64, macos-arm64, and windows-x86_64, got ${artifactIds}`,
+    );
   }
-  if (currentPrereleaseAssets.some((asset) => /windows/i.test(asset.artifact + asset.archive))) {
-    fail("current prerelease must not claim a Windows tarball");
+  if (!currentPrereleaseAssets.some((asset) => asset.artifact === "windows-x86_64")) {
+    fail("current prerelease must list the Windows tarball attached to this tag");
   }
   if (!currentPrereleaseUrl.endsWith(`/releases/tag/${currentPrereleaseTag}`)) {
     fail("currentPrereleaseUrl must point at the current tag, not /releases/latest");
@@ -295,8 +297,8 @@ try {
   ) {
     fail("install page must show from-release and how to pin the current tag");
   }
-  if (/windows-x86_64/.test(installSources)) {
-    fail("install page must not claim a Windows tarball");
+  if (!/windows-x86_64/.test(installSources)) {
+    fail("install page must name the Windows tarball on this tag");
   }
   if (!/prerelease/i.test(installSources) || !/prerelease/i.test(readme)) {
     fail("install page and README must say published builds are prereleases");
@@ -309,8 +311,12 @@ try {
     if (!text.includes(currentPrereleaseTag)) {
       fail(`${label} must name ${currentPrereleaseTag}`);
     }
-    if (!text.includes("xo-linux-x86_64") || !text.includes("xo-macos-arm64")) {
-      fail(`${label} must list xo-linux-x86_64 and xo-macos-arm64`);
+    if (
+      !text.includes("xo-linux-x86_64") ||
+      !text.includes("xo-macos-arm64") ||
+      !text.includes("xo-windows-x86_64")
+    ) {
+      fail(`${label} must list xo-linux-x86_64, xo-macos-arm64, and xo-windows-x86_64`);
     }
     if (/latest GitHub release/i.test(text)) {
       fail(`${label} must not present a GitHub latest release`);
