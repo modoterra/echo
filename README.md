@@ -182,7 +182,7 @@ builds run only when a GitHub Release is published.
 
 ## Community
 
-We ask for common sense and decency. There is no formal code of conduct. We reserve the right to moderate this community to the extent of the law and the policy of the host (GitHub, X, or wherever this space lives). Contact: hello@modoterra.xyz.
+Use common sense and decency. There is no formal code of conduct. We reserve the right to moderate this community to the extent of the law and the policy of the host. Write community@modoterra.xyz if you need us.
 
 ## License
 
