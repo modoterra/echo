@@ -174,12 +174,15 @@ which assigns copyright and IP in your contribution to Modoterra Corporation.
 
 - How to contribute: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Contributor License Agreement: [`CLA.md`](CLA.md)
-- Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 - Security: [`SECURITY.md`](SECURITY.md)
 - Help wanted (broad): [`docs/roadmap.md`](docs/roadmap.md#help-wanted-broad-scope)
 
 Pull requests run a **Linux** gate (build, smoke, `echo26`). Multi-OS release
 builds run only when a GitHub Release is published.
+
+## Community
+
+Use common sense and decency. There is no formal code of conduct. We reserve the right to moderate this community to the extent of the law and the policy of the host. Write community@modoterra.xyz if you need us.
 
 ## License
 
