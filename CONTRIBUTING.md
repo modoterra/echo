@@ -85,14 +85,8 @@ Use GitHub issues for bugs and concrete proposals. Include:
 - `xo` / commit version if relevant;
 - a minimal reproduction when possible.
 
-## Code of conduct
-
-All participation is governed by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-(same policy as other Modoterra projects). Report conduct issues to
-[oss@modoterra.xyz](mailto:oss@modoterra.xyz).
-
-Maintainers may refuse or revert contributions that violate the CLA, project
-standards, or the code of conduct.
+Maintainers may refuse or revert contributions that violate the CLA or project
+standards.
 
 ## Security
 

@@ -11,7 +11,6 @@ lives under `www/` and is published at [https://xo.run](https://xo.run).
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | How to contribute; CLA by submission |
 | [`../CLA.md`](../CLA.md) | Contributor agreement (IP assignment to Modoterra) |
 | [`../LICENSE`](../LICENSE) | MIT License (copyright Modoterra Corporation) |
-| [`../CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Community conduct (Modoterra policy) |
 | [`../SECURITY.md`](../SECURITY.md) | Vulnerability reporting (`security@modoterra.xyz`) |
 | [`architecture.md`](architecture.md) | Crate ownership and pipeline sketch |
 | [`sota-gaps.md`](sota-gaps.md) | Current vs SOTA spine; gap inventory |
